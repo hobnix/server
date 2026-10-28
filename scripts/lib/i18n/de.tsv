@@ -2489,7 +2489,6 @@ Invalid description: one line, up to 255 characters.	Ungültige Beschreibung: ei
 Invalid email address.	Ungültige E-Mail-Adresse.
 Invalid full name: letters, digits, spaces, dot, dash and apostrophe only.	Ungültiger vollständiger Name: nur Buchstaben, Ziffern, Leerzeichen, Punkt, Bindestrich und Apostroph.
 Jellyfin: Radarr/Sonarr -> Settings -> Connect -> + -> Emby/Jellyfin: host, port 8096, API key (Jellyfin: Dashboard -> API Keys), tick Update Library. Not set by the recipe: the key needs a Jellyfin login	Jellyfin: Radarr/Sonarr -> Einstellungen -> Verbinden -> + -> Emby/Jellyfin: Host, Port 8096, API-Schlüssel (Jellyfin: Dashboard -> API-Schlüssel), Bibliothek aktualisieren ankreuzen. Vom Rezept nicht gesetzt: der Schlüssel braucht eine Jellyfin-Anmeldung
-Leaving Maintainerr off the start page	Maintainerr wird von der Startseite weggelassen
 Lidarr	Lidarr
 LiveKit	LiveKit
 LiveKit does not answer at %s. Look at: incus exec %s -- docker compose -f /opt/livekit/compose.yaml logs	LiveKit antwortet nicht unter %s. Sieh nach mit: incus exec %s -- docker compose -f /opt/livekit/compose.yaml logs
@@ -2506,7 +2505,6 @@ Radarr	Radarr
 Saved. The network list updates when a computer looks at the server again.	Gespeichert. Die Netzliste aktualisiert sich, wenn ein Computer wieder auf den Server schaut.
 Settings	Einstellungen
 Sonarr	Sonarr
-Start page	Startseite
 Starting Homepage %s	Homepage %s wird gestartet
 Starting it (downloads the images)	Wird gestartet (lädt die Abbilder)
 The Matrix server name is needed (your domain, e.g. example.com): RECIPE_MATRIX_SERVER=<name> hs recipe livekit	Der Matrix-Servername wird gebraucht (deine Domain, z. B. example.com): RECIPE_MATRIX_SERVER=<Name> hs recipe livekit
@@ -2532,7 +2530,6 @@ Wings release	Wings-Version
 Wings starts as soon as the Panel has given it its configuration (see below).	Wings startet, sobald das Panel ihm seine Konfiguration gegeben hat (siehe unten).
 Would download Homepage %s (github.com/gethomepage/homepage, checked against a pinned checksum), install Node.js and pnpm in '%s' and build it.	Würde Homepage %s laden (github.com/gethomepage/homepage, gegen eine angepinnte Prüfsumme geprüft), Node.js und pnpm in '%s' installieren und es bauen.
 Writing the configuration	Die Konfiguration wird geschrieben
-Writing the start page	Die Startseite wird geschrieben
 Your previous %s is kept as %s.before-recipe	Dein bisheriges %s bleibt als %s.before-recipe erhalten
 attr: v	attr: v
 current        Layout	aktuell        Layout
@@ -2649,3 +2646,4 @@ Wildcard DNS	Wildcard-DNS
 or in Windows DNS Manager: zone %s > %s > New Host, name *, address %s	oder im Windows-DNS-Manager: Zone %s > %s > Neuer Host, Name *, Adresse %s
 usage: hs gateway status | routes | check	Aufruf: hs gateway status | routes | check
 usage: hs services list | check | plan | add <name> ... | remove <name> | import [--dry-run] [--yes] | apply [--dry-run] [--confirm <host or service>] | adopt [--yes] | proxy login   (plan, apply, import, adopt: [--proxy public|local])	Aufruf: hs services list | check | plan | add <Name> ... | remove <Name> | import [--dry-run] [--yes] | apply [--dry-run] [--confirm <Host oder Dienst>] | adopt [--yes] | proxy login   (plan, apply, import, adopt: [--proxy public|local])
+Removing the old start page	Die alte Startseite wird entfernt
