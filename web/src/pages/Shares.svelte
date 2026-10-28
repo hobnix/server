@@ -18,6 +18,7 @@
   import RestoreShare from '../forms/shares/RestoreShare.svelte';
   import AddAccess from '../forms/shares/AddAccess.svelte';
   import { parseSize } from './storage/pool.js';
+  import { filesLink } from '../files/links.js';
 
   let { deck } = $props();
 
@@ -228,6 +229,7 @@
               {/if}
             {/snippet}
             {#snippet actions()}
+              {#if !sel.volume}<button class="btn sm" disabled={locked} use:tip={locked ? 'Storage is locked' : 'Look at the files of this share in the file manager'} onclick={() => go(filesLink({ left: `share:${sel.name}` }))}><i class="ph ph-folder-open"></i>Browse</button>{/if}
               {#if editable(sel)}
                 {#if tab === 'snap' && isZfs(sel)}
                   <button use:tip={locked ? 'Storage is locked' : 'Take a snapshot of this share now'} class="btn sm" disabled={locked} onclick={() => openPlan('shares', [sel.name, 'snapshot'], `Snapshot ${sel.name}`)}><i class="ph ph-camera"></i>Snapshot now</button>

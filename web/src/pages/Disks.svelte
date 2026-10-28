@@ -19,7 +19,7 @@
   import OtherDisk from '../forms/storage/OtherDisk.svelte';
   import DetachDisk from '../forms/storage/DetachDisk.svelte';
   import RecoverDisk from '../forms/storage/RecoverDisk.svelte';
-  import MoveFolder from '../forms/storage/MoveFolder.svelte';
+  import { filesLink } from '../files/links.js';
   import { diskPool, sizeTxt, hoursTxt, roleLabel, dateOf, serialIn } from './storage/pool.js';
 
   let { deck } = $props();
@@ -86,6 +86,8 @@
     return g && g !== '-' ? g : roleLabel(d.role);
   };
   const poolText = (d) => diskPool(d.role) || (isLoose(d) ? 'free' : d.role);
+  // the pane next to a disk in the file manager: another data disk (a pool disk and its own pool never meet there)
+  const otherDisk = (member) => { const o = dataMembers('bulk').find((n) => n !== member); return o ? `disk:${o}` : ''; };
   const dataMembers = (p) => membRows(p).filter((r) => r[3] === 'data' && r[2] === 'ONLINE').map((r) => r[0]);
 
   // ── the drawer: SMART history and self-tests
@@ -255,7 +257,8 @@
               {/if}
               {#if snapRole(sel) && /data/.test(sel.role) && member}
                 <button class="btn sm" disabled={locked} use:tip={'Take this disk out of /bulk to work on it (or put it back)'} onclick={() => openCreate(DetachDisk, { pool: 'bulk', member })}><i class="ph ph-plugs"></i>{markOf[member] === 'detached' ? 'Attach…' : 'Detach…'}</button>
-                <button class="btn sm" disabled={locked} use:tip={'Move a folder to another data disk; its path stays'} onclick={() => openCreate(MoveFolder, { pool: 'bulk', member, targets: dataMembers('bulk').filter((n) => n !== member) })}><i class="ph ph-arrows-left-right"></i>Move folder…</button>
+                <button class="btn sm" disabled={locked} use:tip={'Look at the files of this disk, next to another disk'} onclick={() => go(filesLink({ left: `disk:${member}`, right: otherDisk(member) }))}><i class="ph ph-folder-open"></i>Browse files</button>
+                <button class="btn sm" disabled={locked} use:tip={'Move files to another data disk in the file manager; their path stays'} onclick={() => go(filesLink({ left: `disk:${member}`, path: '/shares', right: otherDisk(member), rpath: '/shares' }))}><i class="ph ph-arrows-left-right"></i>Move files…</button>
                 <button class="btn sm" disabled={locked} use:tip={'Get deleted files back from this disk'} onclick={() => openCreate(RecoverDisk, { pool: 'bulk', member, members: dataMembers('bulk') })}><i class="ph ph-first-aid-kit"></i>Recover…</button>
               {/if}
             {/snippet}

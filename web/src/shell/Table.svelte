@@ -12,19 +12,23 @@
   //   `optional: true` = hidden on a phone (up to 860 px), so the table keeps its important columns readable.
   //   `sort` defaults to 'text' ('num' for numbers: sizes, counts, dates as epoch); false = not sortable. `value` is what is compared (and shown by default).
   //   A row's empty value (null, '', '-', NaN) always sorts last, whichever way the table is sorted.
+  // Optional, for a list that needs more than a click (the file manager): `onrow(row, event)` also gets the click event (modifier keys); `view` ($bindable) is
+  // the rows as shown (sorted); `first(row)` keeps those rows on top in either direction; `tabrows={false}` leaves the rows out of the Tab order (the page
+  // does its own keyboard); `headcell(col)` draws the header cell of a column with `head: true` (the select-all box); `draggable(row)` makes a row draggable (the page handles the drag events, rows carry data-k = the key).
   // `id` keeps the chosen sort for the browser session. `sort` = { key, dir: 'asc' | 'desc' } is the sort a table starts with.
   import { untrack } from 'svelte';
   import { sortRows, nextOrder, valueOf } from './sort.js';
   import { tr } from '../i18n.js';
 
-  let { columns, rows = [], key = null, id = '', sort = null, onrow = null, selected = null, empty = 'Nothing to show.', loading = false, cell = null, rowClass = null, compact = false } = $props();
+  let { columns, rows = [], key = null, id = '', sort = null, onrow = null, selected = null, empty = 'Nothing to show.', loading = false, cell = null, rowClass = null, compact = false, view = $bindable([]), headcell = null, first = null, tabrows = true, draggable = null } = $props();
 
   const store = (v) => { try { v === undefined ? sessionStorage.removeItem('tbl:' + id) : sessionStorage.setItem('tbl:' + id, JSON.stringify(v)); } catch { /* private mode: no memory */ } };
   const stored = () => { try { return id ? JSON.parse(sessionStorage.getItem('tbl:' + id) ?? 'null') : null; } catch { return null; } };
 
   let order = $state(untrack(() => stored() ?? sort));   // { key, dir } or null = the order of the data
 
-  const sorted = $derived(sortRows(rows, columns, order));
+  const sorted = $derived(sortRows(rows, columns, order, first));
+  $effect(() => { view = sorted; });
 
   function toggle(col) {
     order = nextOrder(order, col);
@@ -32,6 +36,7 @@
   }
   // a clickable row is reachable with Tab and opens with Enter or Space (a key pressed on a button inside the row is that button's own)
   function rowkey(e, row) {
+    if (!tabrows) return;
     if (e.target !== e.currentTarget || (e.key !== 'Enter' && e.key !== ' ')) return;
     e.preventDefault();
     onrow(row);
@@ -45,7 +50,9 @@
     <tr>
       {#each columns as col (col.key)}
         <th class:opt={col.optional} style:text-align={col.align} style:width={col.width} aria-sort={col.sort === false ? undefined : aria(col)}>
-          {#if col.sort === false || !col.label}
+          {#if col.head && headcell}
+            {@render headcell(col)}
+          {:else if col.sort === false || !col.label}
             {tr(col.label) ?? ''}
           {:else}
             <button class="sortbtn" class:on={order?.key === col.key} onclick={() => toggle(col)} use:tip={`${tr('Sort by')} ${tr(col.label)}`}>
@@ -59,7 +66,8 @@
   <tbody>
     {#each sorted as row, i (key ? row[key] : i)}
       <tr class={rowClass ? rowClass(row) : ''} class:clickable={!!onrow} class:selected={key && selected !== null && row[key] === selected} aria-current={key && selected !== null && row[key] === selected ? 'true' : undefined}
-          tabindex={onrow ? 0 : undefined} onclick={onrow ? () => onrow(row) : null} onkeydown={onrow ? (e) => rowkey(e, row) : null}>
+          data-k={key ? row[key] : i} draggable={draggable ? draggable(row) : undefined}
+          tabindex={onrow && tabrows ? 0 : undefined} onclick={onrow ? (e) => onrow(row, e) : null} onkeydown={onrow && tabrows ? (e) => rowkey(e, row) : null}>
         {#each columns as col (col.key)}
           <td style:text-align={col.align} class:opt={col.optional} class={col.cls ?? ''}>
             {#if cell}{@render cell(row, col)}{:else}{valueOf(col, row) ?? ''}{/if}

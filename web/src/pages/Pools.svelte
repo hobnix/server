@@ -9,6 +9,7 @@
   import { StatusDot, Chip, Kv, Banner } from '../ui/index.js';
   import { poll, rows } from '../data.svelte.js';
   import { route, go } from '../route.svelte.js';
+  import { filesLink } from '../files/links.js';
   import { setSelection } from '../select.svelte.js';
   import { openPlan, openCreate } from '../ui.svelte.js';
   import AddDisks from '../forms/storage/AddDisks.svelte';
@@ -196,6 +197,7 @@
               {:else if col.key === 'fs'}<span class="nw mute">{fsText(m)}</span>
               {:else}
                 <span class="acts">
+                  {#if snap ? /^data-\d+$/.test(m.name) : true}<button class="btn btn-ghost btn-icon sq" use:tip={snap ? 'Browse the files of this disk' : 'Browse the files of this pool'} aria-label="Browse" disabled={locked} onclick={() => go(filesLink({ left: snap ? `disk:${m.name}` : `pool:${pool}` }))}><i class="ph ph-folder-open"></i></button>{/if}
                   <button class="btn btn-ghost btn-icon sq" use:tip={'Replace this disk'} aria-label="Replace" disabled={locked} onclick={() => openCreate(ReplaceMember, { pool, member: m.name, snap })}><i class="ph ph-swap"></i></button>
                   {#if snap}<button class="btn btn-ghost btn-icon sq" use:tip={convertible.includes(m.name) ? 'Change filesystem or LUKS; its files are moved away first' : 'Only an online data disk can be converted'} aria-label="Convert" disabled={locked || !convertible.includes(m.name)} onclick={() => openCreate(ConvertPool, { pool, member: m.name, members: convertible })}><i class="ph ph-arrows-clockwise"></i></button>{/if}
                   {#if snap && m.group === 'data'}<button class="btn btn-ghost btn-icon sq" use:tip={m.closed ? 'Closed: no new files. Open it again or move its files away' : 'Stop putting new files on this disk (optionally move its files away)'} aria-label={m.closed ? 'Open' : 'Close'} disabled={locked || m.state !== 'ONLINE'} onclick={() => openCreate(CloseDisk, { pool, member: m.name, closed: m.closed })}><i class="ph ph-{m.closed ? 'lock-key-open' : 'prohibit'}"></i></button>{/if}
