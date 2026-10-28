@@ -1,4 +1,5 @@
 <script>
+  import { tip } from '../../ui/tooltip.svelte.js';
   // New instance: `hs sys ct plan|start <name> create [--type container|docker|vm] [--ram MB] [--cpu N] [--disk GB] [--address ip] [--profile name] [--bind kind:name:/path[:ro] ...]`
   import CreateDialog from '../../shell/CreateDialog.svelte';
   import { poll, rows } from '../../data.svelte.js';
@@ -81,7 +82,7 @@
           <input class="input" aria-label="Name" list="ci-shares" bind:value={b.name} placeholder={b.kind === 'fast' ? 'volume' : 'share'} autocomplete="off" spellcheck="false" />
           <input class="input" aria-label="Path inside" bind:value={b.path} placeholder="/media" autocomplete="off" spellcheck="false" />
           <label class="chk"><input type="checkbox" bind:checked={b.ro} />ro</label>
-          <button type="button" class="btn btn-ghost btn-icon" aria-label="Remove this binding" onclick={() => dropBind(b.id)}><i class="ph ph-x"></i></button>
+          <button use:tip={'Remove this binding'} type="button" class="btn btn-ghost btn-icon" aria-label="Remove this binding" onclick={() => dropBind(b.id)}><i class="ph ph-x"></i></button>
         </div>
       {/each}
       <datalist id="ci-shares">{#each shareNames as n}<option value={n}></option>{/each}</datalist>

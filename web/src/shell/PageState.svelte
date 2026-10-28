@@ -1,4 +1,5 @@
 <script>
+  import { tip } from '../ui/tooltip.svelte.js';
   // The common states of a page's DATA, written once. A page hands in what its reads say; this component decides what to show:
   //   loading (no data yet)       -> skeleton blocks
   //   error, no data              -> red banner with Try again
@@ -29,12 +30,12 @@
   <div class="card"><Skeleton lines={skeletonLines} height={14} gap={14} /></div>
 {:else if error && !hasData}
   <Banner tone="bad">Could not read this page: {error}
-    {#snippet action()}{#if retry}<button class="btn sm" onclick={retry}><i class="ph ph-arrow-clockwise"></i>Try again</button>{/if}{/snippet}
+    {#snippet action()}{#if retry}<button use:tip={'Read the page again'} class="btn sm" onclick={retry}><i class="ph ph-arrow-clockwise"></i>Try again</button>{/if}{/snippet}
   </Banner>
 {:else}
   {#if error}
     <Banner tone="warn">Could not refresh: {error}. Showing the data from {age != null ? `${ageTxt(age)} ago` : 'before'}.
-      {#snippet action()}{#if retry}<button class="btn sm" onclick={retry}><i class="ph ph-arrow-clockwise"></i>Try again</button>{/if}{/snippet}
+      {#snippet action()}{#if retry}<button use:tip={'Read the page again'} class="btn sm" onclick={retry}><i class="ph ph-arrow-clockwise"></i>Try again</button>{/if}{/snippet}
     </Banner>
   {/if}
   {#if empty}

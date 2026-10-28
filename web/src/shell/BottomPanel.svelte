@@ -1,4 +1,5 @@
 <script>
+  import { tip } from '../ui/tooltip.svelte.js';
   import { onDestroy } from 'svelte';
   import { poll, rows } from '../data.svelte.js';
   import { get } from '../api.js';
@@ -109,7 +110,7 @@
     {/each}
     <span style="flex:1"></span>
     <span class="tag tag-neutral" style="padding:1px 8px;margin-right:8px">all nodes</span>
-    <button class="btn btn-ghost btn-icon" style="width:26px;height:26px;color:var(--color-neutral-400)" onclick={() => (ui.panel.open = !open)} aria-label={open ? 'Collapse' : 'Expand'}>
+    <button use:tip={open ? 'Collapse the panel' : 'Expand the panel'} class="btn btn-ghost btn-icon" style="width:26px;height:26px;color:var(--color-neutral-400)" onclick={() => (ui.panel.open = !open)} aria-label={open ? 'Collapse' : 'Expand'}>
       <i class="ph ph-caret-{open ? 'down' : 'up'}"></i>
     </button>
   </div>
@@ -154,7 +155,7 @@
               <tr>
                 <td class="mono unit">{r[0]}</td><td class="soft">{ui.host}</td><td class="muted">{r[1]}</td><td class="muted">{r[3]}</td><td>{r[2]}</td>
                 <td><span class="res"><span class="dot {dot(r[4])}"></span>{r[4]}</span></td>
-                <td class="act"><button class="btn btn-ghost" style="font-size:11.5px;padding:2px 6px" onclick={() => openPlan('jobs', ['run', r[0]], r[1] || r[0])}>Run now</button></td>
+                <td class="act"><button use:tip={'Run this job now (shows the plan first)'} class="btn btn-ghost" style="font-size:11.5px;padding:2px 6px" onclick={() => openPlan('jobs', ['run', r[0]], r[1] || r[0])}>Run now</button></td>
               </tr>
             {:else}
               <tr><td colspan="7" class="empty">{jobs.loaded ? 'No scheduled jobs.' : 'Loading…'}</td></tr>
@@ -188,7 +189,7 @@
         </table></div>
       {:else if report}
         <div class="bar rbar">
-          <button class="btn btn-ghost" style="font-size:12px;padding:2px 6px" onclick={() => (report = null)}><i class="ph ph-caret-left"></i>Reports</button>
+          <button use:tip={'Back to the list of reports'} class="btn btn-ghost" style="font-size:12px;padding:2px 6px" onclick={() => (report = null)}><i class="ph ph-caret-left"></i>Reports</button>
           <span style="font-weight:500">{report.name}</span>
           <code style="font-size:11px;color:var(--color-neutral-500)">{report.cmd}</code>
         </div>

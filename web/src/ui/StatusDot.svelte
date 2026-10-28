@@ -1,4 +1,5 @@
 <script>
+  import { tip } from './tooltip.svelte.js';
   // A status is never colour alone: the 8 px dot always comes with a word. `state` is ok | warn | bad | info | off; `label` is the word (default:
   // the generic word of the state). `bare` hides the word visually (tree rows, where space is short) but keeps it for screen readers and as the tooltip.
   //   <StatusDot state="warn" label="3 problems" />   <StatusDot state="ok" bare label="online" />
@@ -7,7 +8,7 @@
   const word = $derived(label || words[state] || state);
 </script>
 
-<span class="sd" title={bare ? word : undefined}>
+<span class="sd" use:tip={bare ? word : undefined}>
   <span class="dot {state}" class:lg={large} aria-hidden="true"></span>
   {#if bare}<span class="sr">{word}</span>{:else}<span class="w">{word}</span>{/if}
 </span>

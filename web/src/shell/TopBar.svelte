@@ -72,8 +72,8 @@
     <button class="ib" disabled={!here} use:tip={{ text: powTitle, side: 'bottom' }} aria-label="Power" aria-haspopup="menu" aria-expanded={menu === 'power'} onclick={(e) => { e.stopPropagation(); menu = menu === 'power' ? '' : 'power'; }}><i class="ph ph-power" style="font-size:16px"></i></button>
     {#if menu === 'power'}
       <div class="pop right" role="menu" tabindex="-1" onclick={(e) => e.stopPropagation()} onkeydown={() => {}}>
-        <button class="item" role="menuitem" onclick={() => pick('reboot', 'Reboot')}><i class="ph ph-arrow-clockwise"></i>Reboot</button>
-        <button class="item bad" role="menuitem" onclick={() => pick('shutdown', 'Shut down')}><i class="ph ph-power"></i>Shut down</button>
+        <button use:tip={'Restart the whole server (shows the plan first)'} class="item" role="menuitem" onclick={() => pick('reboot', 'Reboot')}><i class="ph ph-arrow-clockwise"></i>Reboot</button>
+        <button use:tip={'Power the server off; it must be started by hand'} class="item bad" role="menuitem" onclick={() => pick('shutdown', 'Shut down')}><i class="ph ph-power"></i>Shut down</button>
       </div>
     {/if}
   </span>

@@ -1,4 +1,5 @@
 <script>
+  import { tip } from '../ui/tooltip.svelte.js';
   // Storage > Pools: the list (/storage/pools) and the detail of one pool (/storage/pools/<name>) in one page. Membership changes (add, adopt,
   // replace, remove, close, open, convert) and scrub / sync live here; everything about a single disk lives on Disks (a link, not a copy).
   import UsageBar from '../shell/UsageBar.svelte';
@@ -119,9 +120,10 @@
     return out;
   });
 
+  const fsText = (m) => (m.fs && m.fs !== '-' ? m.fs : '–');
   const memberCols = [
     { key: 'dev', label: 'Disk' }, { key: 'role', label: 'Role', value: (m) => (snap ? m.name : m.group) }, { key: 'state', label: 'State' },
-    { key: 'size', label: 'Size', sort: 'num', value: (m) => m.size, optional: true }, { key: 'actions', label: '', sort: false, align: 'right' },
+    { key: 'size', label: 'Size', sort: 'num', value: (m) => m.size, optional: true }, { key: 'fs', label: 'Format', value: (m) => fsText(m), optional: true }, { key: 'actions', label: '', sort: false, align: 'right' },
   ];
   const openDisk = (m) => { setSelection('disks', m.dev); go(`/storage/disks?pool=${pool}`); };
   const addPool = (variant) => openCreate(AddDisks, { pool, variant, snap: notCreated ? undefined : snap });
@@ -130,7 +132,7 @@
 {#if !pool}
   <PageHeader title="Pools" crumb="Storage" sub="How the disks are grouped, how full they are and whether the redundancy holds.">
     {#snippet actions()}
-      {#if freeDisks.length}<button class="btn" onclick={() => go('/storage/disks?pool=none')}><i class="ph ph-hard-drive"></i>{freeDisks.length} free disk{freeDisks.length === 1 ? '' : 's'}</button>{/if}
+      {#if freeDisks.length}<button use:tip={'Show the disks that belong to no pool'} class="btn" onclick={() => go('/storage/disks?pool=none')}><i class="ph ph-hard-drive"></i>{freeDisks.length} free disk{freeDisks.length === 1 ? '' : 's'}</button>{/if}
     {/snippet}
   </PageHeader>
   <PageState loading={!(infoBulk.loaded && infoFast.loaded)} hasData={infoBulk.loaded && infoFast.loaded} empty={!shown.length} emptyIcon="cylinder" emptyTitle="No pool yet"
@@ -154,10 +156,10 @@
 {:else}
   <PageHeader title={pool} crumb="Storage › Pools" sub={layout ? `${layout}${members.length ? ` · ${members.length} disk${members.length === 1 ? '' : 's'}` : ''}${luks ? ' · LUKS' : ''}` : ''}>
     {#snippet actions()}
-      <button class="btn" onclick={() => go('/storage/pools')}><i class="ph ph-caret-left"></i>All pools</button>
-      <button class="btn" disabled={locked || failed} title={locked ? 'The storage is locked: the pools are down' : 'Pick free disks and see the plan'} onclick={() => addPool('empty')}><i class="ph ph-plus"></i>{notCreated ? 'Create pool' : snap ? 'Add disks' : 'Add mirror pair'}</button>
-      {#if snap}<button class="btn" disabled={why('') !== ''} title={why('Bring a disk that already holds files into the pool')} onclick={() => addPool('adopt')}><i class="ph ph-hand-arrow-down"></i>Adopt disks</button>{/if}
-      <button class="btn btn-primary" disabled={unavailable || notCreated} title={runTitle}
+      <button use:tip={'Back to the list of pools'} class="btn" onclick={() => go('/storage/pools')}><i class="ph ph-caret-left"></i>All pools</button>
+      <button class="btn" disabled={locked || failed} use:tip={locked ? 'The storage is locked: the pools are down' : 'Pick free disks and see the plan'} onclick={() => addPool('empty')}><i class="ph ph-plus"></i>{notCreated ? 'Create pool' : snap ? 'Add disks' : 'Add mirror pair'}</button>
+      {#if snap}<button class="btn" disabled={why('') !== ''} use:tip={why('Bring a disk that already holds files into the pool')} onclick={() => addPool('adopt')}><i class="ph ph-hand-arrow-down"></i>Adopt disks</button>{/if}
+      <button class="btn btn-primary" disabled={unavailable || notCreated} use:tip={runTitle}
         onclick={() => (snap ? openPlan('system', ['sync'], 'Sync parity') : openPlan('system', ['scrub', '--pool', pool], `Scrub ${pool}`))}><i class="ph {snap ? 'ph-arrows-clockwise' : 'ph-broom'}"></i>{snap ? 'Sync parity now' : 'Scrub now'}</button>
     {/snippet}
   </PageHeader>
@@ -165,7 +167,7 @@
   <PageState loading={!info.loaded} hasData={info.loaded} error={failed ? 'the pool could not be read' : ''}>
     {#if notCreated}
       <Banner tone="info">The pool {pool} has not been created yet. {#if freeDisks.length}{freeDisks.length} free disk{freeDisks.length === 1 ? ' is' : 's are'} available.{:else}There is no free disk to build it from.{/if}
-        {#snippet action()}<button class="btn sm" disabled={locked} onclick={() => addPool('empty')}>Create pool</button>{/snippet}
+        {#snippet action()}<button use:tip={locked ? 'Storage is locked' : 'Pick free disks and make a new pool'} class="btn sm" disabled={locked} onclick={() => addPool('empty')}>Create pool</button>{/snippet}
       </Banner>
     {:else}
       {#if paused}<Banner tone="warn">The health check paused the parity sync, scrub and upload cache mover because of a failing disk or pool. Lift it under Health (<code>hs health resume</code>).</Banner>{/if}
@@ -183,20 +185,21 @@
 
       <div class="card sect">
         <div class="sh"><b>Members</b><span class="mute">{members.some((m) => m.state !== 'ONLINE') ? 'check the state column' : members.length ? (snap ? 'all present' : 'all ONLINE') : ''}</span>
-          <span class="grow"></span><button class="btn sm btn-ghost" onclick={() => go(`/storage/disks?pool=${pool}`)}>Disks of this pool<i class="ph ph-caret-right"></i></button></div>
+          <span class="grow"></span><button use:tip={'Show the disks of this pool'} class="btn sm btn-ghost" onclick={() => go(`/storage/disks?pool=${pool}`)}>Disks of this pool<i class="ph ph-caret-right"></i></button></div>
         <div class="scrollx">
           <Table id="pool-members" columns={memberCols} rows={members} key="name" compact loading={!memb.loaded} empty="No members.">
             {#snippet cell(m, col)}
-              {#if col.key === 'dev'}<button class="link-btn" title="Open this disk" onclick={() => openDisk(m)}><code>{m.dev}</code></button>
+              {#if col.key === 'dev'}<button class="link-btn" use:tip={'Open this disk'} onclick={() => openDisk(m)}><code>{m.dev}</code></button>
               {:else if col.key === 'role'}<Chip>{snap ? m.name : m.group}</Chip>{#if m.closed} <Chip>closed</Chip>{/if}
               {:else if col.key === 'state'}<StatusDot state={memberDot(m)} label={(m.state ?? '').toLowerCase()} />
               {:else if col.key === 'size'}<span class="nw">{sizeTxt(m.size)}</span>
+              {:else if col.key === 'fs'}<span class="nw mute">{fsText(m)}</span>
               {:else}
                 <span class="acts">
-                  <button class="btn btn-ghost btn-icon sq" title="Replace this disk" aria-label="Replace" disabled={locked} onclick={() => openCreate(ReplaceMember, { pool, member: m.name, snap })}><i class="ph ph-swap"></i></button>
-                  {#if snap}<button class="btn btn-ghost btn-icon sq" title={convertible.includes(m.name) ? 'Convert this disk: other filesystem or LUKS (moves its files away first)' : 'Only an online data disk can be converted'} aria-label="Convert" disabled={locked || !convertible.includes(m.name)} onclick={() => openCreate(ConvertPool, { pool, member: m.name, members: convertible })}><i class="ph ph-arrows-clockwise"></i></button>{/if}
-                  {#if snap && m.group === 'data'}<button class="btn btn-ghost btn-icon sq" title={m.closed ? 'Closed: no new files. Open it again or move its files away' : 'Stop putting new files on this disk (optionally move its files away)'} aria-label={m.closed ? 'Open' : 'Close'} disabled={locked || m.state !== 'ONLINE'} onclick={() => openCreate(CloseDisk, { pool, member: m.name, closed: m.closed })}><i class="ph ph-{m.closed ? 'lock-key-open' : 'prohibit'}"></i></button>{/if}
-                  <button class="btn btn-ghost btn-icon sq" title={snap ? 'Remove this disk' : 'Detach this disk'} aria-label={snap ? 'Remove' : 'Detach'} disabled={locked} onclick={() => openCreate(RemoveMember, { pool, member: m.name, snap })}><i class="ph ph-link-break"></i></button>
+                  <button class="btn btn-ghost btn-icon sq" use:tip={'Replace this disk'} aria-label="Replace" disabled={locked} onclick={() => openCreate(ReplaceMember, { pool, member: m.name, snap })}><i class="ph ph-swap"></i></button>
+                  {#if snap}<button class="btn btn-ghost btn-icon sq" use:tip={convertible.includes(m.name) ? 'Change filesystem or LUKS; its files are moved away first' : 'Only an online data disk can be converted'} aria-label="Convert" disabled={locked || !convertible.includes(m.name)} onclick={() => openCreate(ConvertPool, { pool, member: m.name, members: convertible })}><i class="ph ph-arrows-clockwise"></i></button>{/if}
+                  {#if snap && m.group === 'data'}<button class="btn btn-ghost btn-icon sq" use:tip={m.closed ? 'Closed: no new files. Open it again or move its files away' : 'Stop putting new files on this disk (optionally move its files away)'} aria-label={m.closed ? 'Open' : 'Close'} disabled={locked || m.state !== 'ONLINE'} onclick={() => openCreate(CloseDisk, { pool, member: m.name, closed: m.closed })}><i class="ph ph-{m.closed ? 'lock-key-open' : 'prohibit'}"></i></button>{/if}
+                  <button class="btn btn-ghost btn-icon sq" use:tip={snap ? 'Remove this disk' : 'Detach this disk'} aria-label={snap ? 'Remove' : 'Detach'} disabled={locked} onclick={() => openCreate(RemoveMember, { pool, member: m.name, snap })}><i class="ph ph-link-break"></i></button>
                 </span>
               {/if}
             {/snippet}
@@ -207,11 +210,11 @@
       <div class="card sect">
         {#if pool === 'bulk'}
           <div class="sh"><b>Shares</b><span class="mute">{shares.loaded ? `${shareRows.length} share${shareRows.length === 1 ? '' : 's'}${shareBytes ? ` · ${sizeTxt(shareBytes)}` : ''}` : 'Loading…'}</span>
-            <span class="grow"></span><button class="btn sm btn-ghost" onclick={() => go('/storage/shares?pool=bulk')}>Shares<i class="ph ph-caret-right"></i></button></div>
+            <span class="grow"></span><button use:tip={'Show the shares in this pool'} class="btn sm btn-ghost" onclick={() => go('/storage/shares?pool=bulk')}>Shares<i class="ph ph-caret-right"></i></button></div>
         {:else}
           <div class="sh"><b>Instance volumes</b><span class="mute">{cts.loaded ? `${volumes.length} volume${volumes.length === 1 ? '' : 's'}${volBytes ? ` · ${sizeTxt(volBytes)}` : ''} · Incus pool "default"` : 'Loading…'}</span>
-            <span class="grow"></span><button class="btn sm btn-ghost" onclick={() => go('/storage/shares?pool=fast')}>Shares<i class="ph ph-caret-right"></i></button>
-            <button class="btn sm btn-ghost" onclick={() => go('/instances')}>Instances<i class="ph ph-caret-right"></i></button></div>
+            <span class="grow"></span><button use:tip={'Show the shares in this pool'} class="btn sm btn-ghost" onclick={() => go('/storage/shares?pool=fast')}>Shares<i class="ph ph-caret-right"></i></button>
+            <button use:tip={'Show the instances'} class="btn sm btn-ghost" onclick={() => go('/instances')}>Instances<i class="ph ph-caret-right"></i></button></div>
         {/if}
       </div>
     {/if}

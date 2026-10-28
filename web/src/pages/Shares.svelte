@@ -1,4 +1,5 @@
 <script>
+  import { tip } from '../ui/tooltip.svelte.js';
   // Storage > Shares: every share (the Samba shares of bulk, the instance volumes of fast) in one list, with its permissions, snapshots and
   // history in a drawer; the folders of deleted shares are kept in the second view. /storage/shares?pool=bulk|fast filters, ?view=snapshots opens
   // the Snapshots tab. The "in the backup" switch is NOT here (it lives on Backup): a share only shows a read-only badge.
@@ -103,8 +104,8 @@
 
 <PageHeader title="Shares" crumb="Storage" sub={measured ? `Sizes measured ${measured}.` : 'Network shares, who may use them and what has been kept of them.'}>
   {#snippet actions()}
-    {#if hasCache}<button class="btn" disabled={locked} title="(snapraid layout) Move the uploaded files from the SSD cache to the data disks now" onclick={() => openPlan('admin', ['cache-mover'], 'Empty the upload cache')}><i class="ph ph-arrow-line-down"></i>Empty cache</button>{/if}
-    <button class="btn btn-primary" disabled={locked} onclick={() => openCreate(NewShare)}><i class="ph ph-plus"></i>New share</button>
+    {#if hasCache}<button class="btn" disabled={locked} use:tip={'Move the uploaded files from the SSD cache to the disks now'} onclick={() => openPlan('admin', ['cache-mover'], 'Empty the upload cache')}><i class="ph ph-arrow-line-down"></i>Empty cache</button>{/if}
+    <button use:tip={locked ? 'Storage is locked' : 'Create a share'} class="btn btn-primary" disabled={locked} onclick={() => openCreate(NewShare)}><i class="ph ph-plus"></i>New share</button>
   {/snippet}
 </PageHeader>
 
@@ -134,8 +135,8 @@
           {:else if col.key === 'size'}{size(k.size) || '–'}
           {:else if col.key === 'disks'}<span class="mute">{dash(k.disks) || '–'}</span>
           {:else}<span class="acts">
-            <button class="btn sm" disabled={locked} title="Bring the folder back as a share under its old name; nothing is overwritten or removed" onclick={() => openPlan('shares', [k.name, 'undelete'], `Restore ${k.name.replace(/\.deleted-\d{8}$/, '')}`)}><i class="ph ph-arrow-counter-clockwise"></i>Restore</button>
-            <button class="btn sm btn-danger" disabled={locked} onclick={() => openPlan('shares', [k.name, 'purge'], `Remove ${k.name} for good`)}><i class="ph ph-trash-simple"></i>Remove for good</button>
+            <button class="btn sm" disabled={locked} use:tip={'Bring the folder back as a share; nothing is overwritten'} onclick={() => openPlan('shares', [k.name, 'undelete'], `Restore ${k.name.replace(/\.deleted-\d{8}$/, '')}`)}><i class="ph ph-arrow-counter-clockwise"></i>Restore</button>
+            <button use:tip={locked ? 'Storage is locked' : 'Delete this folder and all its files for good'} class="btn sm btn-danger" disabled={locked} onclick={() => openPlan('shares', [k.name, 'purge'], `Remove ${k.name} for good`)}><i class="ph ph-trash-simple"></i>Remove for good</button>
           </span>{/if}
         {/snippet}
       </Table>
@@ -144,7 +145,7 @@
 {:else}
   <PageState loading={!overview.loaded} hasData={overview.data != null} error={overview.error?.message ?? ''} empty={overview.loaded && !shares.length} emptyIcon="folders"
              emptyTitle={pool === 'all' ? 'No shares yet' : `No shares on ${pool}`} emptyText={pool === 'fast' ? 'Fast holds the instances’ own volumes; network shares live on bulk.' : 'A share is a folder that Windows and Linux computers on the network can open.'}>
-    {#snippet emptyAction()}<button class="btn btn-primary" disabled={locked} onclick={() => openCreate(NewShare)}><i class="ph ph-plus"></i>New share</button>{/snippet}
+    {#snippet emptyAction()}<button use:tip={locked ? 'Storage is locked' : 'Create a share'} class="btn btn-primary" disabled={locked} onclick={() => openCreate(NewShare)}><i class="ph ph-plus"></i>New share</button>{/snippet}
     <Split open={!!sel}>
       {#snippet list()}
         <div class="card gap">
@@ -177,7 +178,7 @@
                 <div class="pad">
                   {#if mountedBy(sel).length}
                     <div class="sh"><b>Mounted by</b></div>
-                    <div class="links">{#each mountedBy(sel) as m}<button class="btn sm" onclick={() => openInstance(m.name)}><i class="ph ph-cube"></i>{m.text}</button>{/each}</div>
+                    <div class="links">{#each mountedBy(sel) as m}<button use:tip={`Open the instance ${m.name}`} class="btn sm" onclick={() => openInstance(m.name)}><i class="ph ph-cube"></i>{m.text}</button>{/each}</div>
                   {:else}<p class="mute">No instance mounts this {sel.volume ? 'volume' : 'share'}.</p>{/if}
                   {#if sel.volume}<p class="mute">An instance volume belongs to its instance: change it there.</p>{:else if sel.kind !== 'other'}
                     <p class="mute">Whether it is in the backup is set on <button class="link-btn" onclick={() => go('/protection/backup')}>Backup</button>.</p>
@@ -189,16 +190,16 @@
                   <div class="arow2">
                     <span class="mute">Hidden shares can still be opened by typing the path.</span>
                     <div class="lv" role="group" aria-label="Visibility of {sel.name}">
-                      {#each ['hidden', 'visible'] as v}<button type="button" class="lvb" class:on={v === visibility} aria-pressed={v === visibility} disabled={locked || !vis.loaded} title={v === visibility ? '' : `Make ${sel.name} ${v}`} onclick={() => v !== visibility && openPlan('shares', [sel.name, 'visibility', '--to', v], `${sel.name}: ${v}`)}>{v === 'hidden' ? 'Hidden' : 'Visible'}</button>{/each}
+                      {#each ['hidden', 'visible'] as v}<button type="button" class="lvb" class:on={v === visibility} aria-pressed={v === visibility} disabled={locked || !vis.loaded} use:tip={v === visibility ? '' : `Make ${sel.name} ${v}`} onclick={() => v !== visibility && openPlan('shares', [sel.name, 'visibility', '--to', v], `${sel.name}: ${v}`)}>{v === 'hidden' ? 'Hidden' : 'Visible'}</button>{/each}
                     </div>
                   </div>
                   <div class="sh sp"><b>Permissions</b><span class="mute">apply at the next connection</span><span class="grow"></span>
-                    <button class="btn sm" disabled={locked} onclick={() => openCreate(AddAccess, { share: sel.name, taken: entries.map((e) => e.sid) })}><i class="ph ph-plus"></i>Add</button></div>
+                    <button use:tip={locked ? 'Storage is locked' : 'Give a user or group access to this share'} class="btn sm" disabled={locked} onclick={() => openCreate(AddAccess, { share: sel.name, taken: entries.map((e) => e.sid) })}><i class="ph ph-plus"></i>Add</button></div>
                   {#each entries as e (e.sid)}
                     <div class="arow2">
                       <span class="nm"><i class="ph {e.type === 'group' ? 'ph-users-three' : 'ph-user'}"></i>{e.name}</span>
                       <div class="lv" role="group" aria-label="Access of {e.name}">
-                        {#each LEVELS as l}<button type="button" class="lvb" class:on={l === e.level} aria-pressed={l === e.level} disabled={locked} title={l === e.level ? '' : `Set ${e.name} to ${l}`} onclick={() => setLevel(e, l)}>{l}</button>{/each}
+                        {#each LEVELS as l}<button type="button" class="lvb" class:on={l === e.level} aria-pressed={l === e.level} disabled={locked} use:tip={l === e.level ? '' : `Set ${e.name} to ${l}`} onclick={() => setLevel(e, l)}>{l}</button>{/each}
                       </div>
                     </div>
                   {:else}
@@ -229,16 +230,16 @@
             {#snippet actions()}
               {#if editable(sel)}
                 {#if tab === 'snap' && isZfs(sel)}
-                  <button class="btn sm" disabled={locked} onclick={() => openPlan('shares', [sel.name, 'snapshot'], `Snapshot ${sel.name}`)}><i class="ph ph-camera"></i>Snapshot now</button>
-                  <button class="btn sm" disabled={locked || !hist.loaded || hist.error} onclick={() => toggle('auto', auto ? 'off' : 'on')}><i class="ph ph-clock-clockwise"></i>Automatic {auto ? 'off' : 'on'}</button>
-                  <button class="btn sm" disabled={locked || !newest} title={newest ? `Roll back to ${newest.name}` : 'No snapshot to roll back to'} onclick={() => openPlan('shares', [sel.name, 'rollback', '--snapshot', newest.name], `Roll back ${sel.name}`)}><i class="ph ph-arrow-u-up-left"></i>Roll back</button>
+                  <button use:tip={locked ? 'Storage is locked' : 'Take a snapshot of this share now'} class="btn sm" disabled={locked} onclick={() => openPlan('shares', [sel.name, 'snapshot'], `Snapshot ${sel.name}`)}><i class="ph ph-camera"></i>Snapshot now</button>
+                  <button use:tip={locked ? 'Storage is locked' : !hist.loaded || hist.error ? 'The snapshot list is not available' : auto ? 'Stop the nightly snapshots' : 'Take a snapshot every night'} class="btn sm" disabled={locked || !hist.loaded || hist.error} onclick={() => toggle('auto', auto ? 'off' : 'on')}><i class="ph ph-clock-clockwise"></i>Automatic {auto ? 'off' : 'on'}</button>
+                  <button class="btn sm" disabled={locked || !newest} use:tip={newest ? `Roll back to ${newest.name}` : 'No snapshot to roll back to'} onclick={() => openPlan('shares', [sel.name, 'rollback', '--snapshot', newest.name], `Roll back ${sel.name}`)}><i class="ph ph-arrow-u-up-left"></i>Roll back</button>
                 {:else if tab === 'hist'}
-                  <button class="btn sm" disabled={locked} onclick={() => openCreate(RestoreShare, { share: sel.name })}><i class="ph ph-arrow-counter-clockwise"></i>Restore from backup…</button>
+                  <button use:tip={locked ? 'Storage is locked' : 'Bring files back from the backup'} class="btn sm" disabled={locked} onclick={() => openCreate(RestoreShare, { share: sel.name })}><i class="ph ph-arrow-counter-clockwise"></i>Restore from backup…</button>
                 {:else}
-                  {#if sel.kind === 'shares' && (sel.cache === 'on' || sel.cache === 'off')}<button class="btn sm" disabled={locked} onclick={() => toggle('cache', sel.cache === 'on' ? 'off' : 'on')}><i class="ph ph-lightning"></i>Cache {sel.cache === 'on' ? 'off' : 'on'}</button>{/if}
-                  <button class="btn sm" disabled={locked} onclick={() => openCreate(RenameShare, { share: sel.name })}><i class="ph ph-pencil-simple"></i>Rename…</button>
-                  <button class="btn sm" disabled={locked} title="Hand the files of this share to adminuser again" onclick={() => openPlan('shares', [sel.name, 'repair'], `Repair ${sel.name}`)}><i class="ph ph-wrench"></i>Repair</button>
-                  <button class="btn sm btn-danger" disabled={locked} onclick={() => openCreate(DeleteShare, { share: sel.name })}><i class="ph ph-trash-simple"></i>Delete…</button>
+                  {#if sel.kind === 'shares' && (sel.cache === 'on' || sel.cache === 'off')}<button use:tip={locked ? 'Storage is locked' : sel.cache === 'on' ? 'Upload straight to the disks, not the SSD cache' : 'Upload to the SSD cache first, move to the disks later'} class="btn sm" disabled={locked} onclick={() => toggle('cache', sel.cache === 'on' ? 'off' : 'on')}><i class="ph ph-lightning"></i>Cache {sel.cache === 'on' ? 'off' : 'on'}</button>{/if}
+                  <button use:tip={locked ? 'Storage is locked' : 'Change the name of this share'} class="btn sm" disabled={locked} onclick={() => openCreate(RenameShare, { share: sel.name })}><i class="ph ph-pencil-simple"></i>Rename…</button>
+                  <button class="btn sm" disabled={locked} use:tip={'Hand the files of this share to adminuser again'} onclick={() => openPlan('shares', [sel.name, 'repair'], `Repair ${sel.name}`)}><i class="ph ph-wrench"></i>Repair</button>
+                  <button use:tip={locked ? 'Storage is locked' : 'Remove this share (the plan shows what happens to its files)'} class="btn sm btn-danger" disabled={locked} onclick={() => openCreate(DeleteShare, { share: sel.name })}><i class="ph ph-trash-simple"></i>Delete…</button>
                 {/if}
               {/if}
             {/snippet}

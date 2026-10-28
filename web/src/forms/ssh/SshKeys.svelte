@@ -1,4 +1,5 @@
 <script>
+  import { tip } from '../../ui/tooltip.svelte.js';
   // SSH keys of adminuser: the list (`hs sys ssh-key list`: id, type, comment, session) with a remove button per key (plan dialog,
   // red, you type the word), and a field to add a public key (`hs sys ssh-key plan|start add <key>`). Both only change machine.toml;
   // the change takes effect with `hs rebuild` (the plan says so).
@@ -36,7 +37,7 @@
               <td class="n400 opt">{k.type}</td>
               <td class="n400 fp">{k.id}</td>
               <td class="act">
-                <button class="btn btn-ghost danger icon" title={keys.length === 1 ? 'The last key cannot be removed' : k.session ? 'This is the key of your current SSH session' : 'Remove this key (shows the plan first)'}
+                <button class="btn btn-ghost danger icon" use:tip={keys.length === 1 ? 'The last key cannot be removed' : k.session ? 'This is the key of your current SSH session' : 'Remove this key (shows the plan first)'}
                   disabled={keys.length === 1 || k.session} aria-label="Remove {k.comment || k.id}" onclick={() => remove(k)}><i class="ph ph-trash"></i></button>
               </td>
             </tr>

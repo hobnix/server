@@ -5,6 +5,7 @@
   // `width` is the length of the bar in px (default 120); `block` makes the bar fill its container (cards) and puts the text under it as a row.
   //   <UsageBar used={p.used} size={p.size} />   <UsageBar free={d.free} size={d.size} width={96} />
   import { spaceTxt } from '../pages/storage/pool.js';
+  import { tip } from '../ui/tooltip.svelte.js';
   let { free = null, used = null, size, width = 120, block = false } = $props();
   const isNum = (v) => v != null && v !== '' && v !== '-' && !isNaN(Number(v));
   const freeB = $derived(isNum(free) ? Number(free) : isNum(used) && size > 0 ? size - Number(used) : null);
@@ -14,7 +15,7 @@
 </script>
 
 <div class="ub" class:hot class:block>
-  <div class="ub-track" class:unknown={!known} style={block ? undefined : `width:${width}px`} role="meter" aria-valuemin="0" aria-valuemax="100" aria-valuenow={known ? pct : undefined} aria-label="Used space">
+  <div class="ub-track" use:tip={known ? `${pct} % used` : "Usage not known"} class:unknown={!known} style={block ? undefined : `width:${width}px`} role="meter" aria-valuemin="0" aria-valuemax="100" aria-valuenow={known ? pct : undefined} aria-label="Used space">
     {#if known}<div class="ub-fill" style="width:{pct}%"></div>{/if}
   </div>
   <span class="ub-txt">{spaceTxt(freeB, size)}</span>

@@ -1,4 +1,5 @@
 <script>
+  import { tip } from '../ui/tooltip.svelte.js';
   // The shared table. Columns are declared, the rows are data; a click on a header sorts by it (ascending, descending, back to the order the
   // data came in). The header sticks to the top while the page scrolls (see `.table thead th` in nocturne.css). A cell is drawn by the `cell`
   // snippet when the page gives one, else it shows the value.
@@ -47,7 +48,7 @@
           {#if col.sort === false || !col.label}
             {tr(col.label) ?? ''}
           {:else}
-            <button class="sortbtn" class:on={order?.key === col.key} onclick={() => toggle(col)} title="{tr('Sort by')} {tr(col.label)}">
+            <button class="sortbtn" class:on={order?.key === col.key} onclick={() => toggle(col)} use:tip={`${tr('Sort by')} ${tr(col.label)}`}>
               {tr(col.label)}<i class="ph ph-{order?.key === col.key ? (order.dir === 'asc' ? 'caret-up' : 'caret-down') : 'caret-up-down'}"></i>
             </button>
           {/if}

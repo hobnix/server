@@ -1,4 +1,5 @@
 <script>
+  import { tip } from '../../ui/tooltip.svelte.js';
   // The key of one node and the line its owner has to put on that server (hs sys node keyline <name>: only the PUBLIC half). Shows what is missing
   // when there is no key yet, with the button that makes it. `name` is the node. Used in the Nodes drawer and on the Summary of a node that never answered.
   import { poll, rows } from '../../data.svelte.js';
@@ -24,15 +25,15 @@
 {:else if info.key !== 'ok'}
   <div class="stack">
     <div class="muted">There is no key for {name} yet. The key lets this server ask for the status of {name}, and nothing else.</div>
-    {#if canChange}<button class="btn btn-primary sm" onclick={() => openPlan('node', ['key', name], `Make the key for ${name}`)}><i class="ph ph-key"></i>Make the key</button>{/if}
+    {#if canChange}<button use:tip={'Make the key that lets this server ask for the status'} class="btn btn-primary sm" onclick={() => openPlan('node', ['key', name], `Make the key for ${name}`)}><i class="ph ph-key"></i>Make the key</button>{/if}
   </div>
 {:else}
   <div class="stack">
     <div class="muted">The owner of {name} puts this line into: <b>{info.file}</b>. Then {name} answers status requests from this server, and nothing else.</div>
     <pre class="line">{info.line}</pre>
     <div class="row">
-      <button class="btn sm" onclick={copy}><i class="ph ph-{copied ? 'check' : 'copy'}"></i>{copied ? 'Copied' : 'Copy the line'}</button>
-      {#if canChange}<button class="btn btn-ghost sm" onclick={() => openPlan('node', ['key', name, '--new'], `New key for ${name}`)}><i class="ph ph-arrows-clockwise"></i>New key…</button>{/if}
+      <button use:tip={'Copy the line to the clipboard'} class="btn sm" onclick={copy}><i class="ph ph-{copied ? 'check' : 'copy'}"></i>{copied ? 'Copied' : 'Copy the line'}</button>
+      {#if canChange}<button use:tip={'Replace the key: the old line stops working'} class="btn btn-ghost sm" onclick={() => openPlan('node', ['key', name, '--new'], `New key for ${name}`)}><i class="ph ph-arrows-clockwise"></i>New key…</button>{/if}
     </div>
   </div>
 {/if}

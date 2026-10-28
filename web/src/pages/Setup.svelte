@@ -1,4 +1,5 @@
 <script>
+  import { tip } from '../ui/tooltip.svelte.js';
   import { poll, rows } from '../data.svelte.js';
   import { go } from '../route.svelte.js';
   import { openPlan, ui } from '../ui.svelte.js';
@@ -18,7 +19,7 @@
 <div class="page">
   <PageHeader title="Setup" crumb={ui.host} sub={answered ? `${doneCount} of ${steps.length} steps done. Everything here can be done later.` : 'The first-run checklist.'}>
     {#snippet actions()}
-      <button class="btn btn-primary b13" disabled={!answered || finished} onclick={() => openPlan('config', ['set', 'setupDone', 'true'], 'Setup finished')}>
+      <button use:tip={finished ? 'Setup is already marked as finished' : !answered ? 'Waiting for the list of steps' : 'Hide the setup reminder on the summary'} class="btn btn-primary b13" disabled={!answered || finished} onclick={() => openPlan('config', ['set', 'setupDone', 'true'], 'Setup finished')}>
         <i class="ph ph-check-circle"></i>{finished ? 'Setup is finished' : 'Mark setup as finished'}
       </button>
     {/snippet}
@@ -37,7 +38,7 @@
           {#if !s.done && s.cmd !== '-'}<div class="how">or in a terminal: <code>{s.cmd}</code></div>{/if}
         </div>
         {#if s.page && s.page !== '-'}
-          <button class="btn {s.done ? 'btn-ghost' : 'btn-secondary'} b13" onclick={() => go(s.page)}>{s.done ? 'Open' : 'Set up'}<i class="ph ph-arrow-right"></i></button>
+          <button use:tip={s.done ? 'Open the page of this step again' : 'Open the page where this step is done'} class="btn {s.done ? 'btn-ghost' : 'btn-secondary'} b13" onclick={() => go(s.page)}>{s.done ? 'Open' : 'Set up'}<i class="ph ph-arrow-right"></i></button>
         {/if}
       </div>
     {/each}

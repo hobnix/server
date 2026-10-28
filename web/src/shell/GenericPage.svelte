@@ -1,4 +1,5 @@
 <script>
+  import { tip } from '../ui/tooltip.svelte.js';
   // The data-driven page: a page that is a DECLARATION, not a component. The same renderer draws the
   // pages of extension packages (their manifest's [web.page] reaches here through the session answer, pages/Extension.svelte) and any simple core
   // page that is only "a head, some tabs, a table, a drawer".
@@ -53,7 +54,7 @@
   <PageHeader title={spec.title} crumb={spec.crumb} sub={spec.sub}>
     {#snippet actions()}
       {#each spec.actions ?? [] as a}
-        <button class="btn {a.primary ? 'btn-primary' : a.danger ? 'btn-danger' : 'btn-secondary'}" disabled={a.form && !forms[a.form]} onclick={() => run(a)}>{#if a.icon}<i class="ph ph-{a.icon}"></i>{/if}{a.label}</button>
+        <button use:tip={a.form && !forms[a.form] ? 'This change has no form in the web interface yet' : ''} class="btn {a.primary ? 'btn-primary' : a.danger ? 'btn-danger' : 'btn-secondary'}" disabled={a.form && !forms[a.form]} onclick={() => run(a)}>{#if a.icon}<i class="ph ph-{a.icon}"></i>{/if}{a.label}</button>
       {/each}
     {/snippet}
   </PageHeader>

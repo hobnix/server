@@ -1,4 +1,5 @@
 <script>
+  import { tip } from '../ui/tooltip.svelte.js';
   // The node's home: "is it fine, and what needs me?". A node card with the Halftone, the meters, one line per fact that
   // opens the page that OWNS it, one UsageBar per pool, and two shortcuts that open plans (Back up now, Update). No tables of disks, shares or problems.
   // Storage locked: the unlock form replaces the pool bars (the shell's lock banner is the same component).
@@ -121,14 +122,14 @@
 <div class="page">
   <PageHeader title="Summary" crumb={hostName} sub="What needs you on {hostName} right now.">
     {#snippet actions()}
-      <button class="btn btn-secondary" disabled={locked} onclick={() => openPlan('backup', ['now'], 'Back up now')}><i class="ph ph-archive"></i>Back up now</button>
-      <button class="btn btn-primary" disabled={locked} onclick={() => openPlan('system', ['update'], 'Update')}><i class="ph ph-arrow-circle-up"></i>Update…</button>
+      <button use:tip={locked ? 'Storage is locked' : 'Back up everything now'} class="btn btn-secondary" disabled={locked} onclick={() => openPlan('backup', ['now'], 'Back up now')}><i class="ph ph-archive"></i>Back up now</button>
+      <button use:tip={locked ? 'Storage is locked' : 'Update the server (snapshots first; shows the plan)'} class="btn btn-primary" disabled={locked} onclick={() => openPlan('system', ['update'], 'Update')}><i class="ph ph-arrow-circle-up"></i>Update…</button>
     {/snippet}
   </PageHeader>
 
   {#if !locked && setupOpen}
     <Banner tone="warn" icon="list-checks">Finish the setup: {setupOpen} item{setupOpen === 1 ? '' : 's'} still open.
-      {#snippet action()}<button class="btn sm" onclick={() => go('/setup')}>Open Setup<i class="ph ph-arrow-right"></i></button>{/snippet}
+      {#snippet action()}<button use:tip={'Open the first-run checklist'} class="btn sm" onclick={() => go('/setup')}>Open Setup<i class="ph ph-arrow-right"></i></button>{/snippet}
     </Banner>
   {/if}
   {#if deck.error && !d}
@@ -146,7 +147,7 @@
     </div>
     <div class="meters">
       {#each meters as m}
-        <button class="meter" onclick={() => go(m.to)} title="Open Hardware">
+        <button class="meter" onclick={() => go(m.to)} use:tip={'Open Hardware'}>
           <span class="mrow"><i class="ph {m.icon}"></i>{m.label}<span class="msub">{m.sub}</span></span>
           <span class="mval"><span class="big">{m.value}</span><span class="of">{m.of}</span></span>
           {#if !locked}<Spark values={m.hist} />{/if}
