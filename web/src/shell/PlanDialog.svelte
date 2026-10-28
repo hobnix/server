@@ -63,7 +63,7 @@
       <div class="dtop">
         <span class="eyebrow" class:bad={danger}>{kicker}</span>
         <span class="grow"></span>
-        <Chip>{ui.host}</Chip>
+        <Chip kind="strong">{ui.host}</Chip>
       </div>
       <h3 id="pdt">{p?.heading || dialog.title || 'Plan'}</h3>
     </div>
