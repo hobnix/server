@@ -186,10 +186,10 @@ load_inst
 chk addr address "$addr" --host-addrs "$host_addrs" --instance-addrs "$inst_addrs" --domain "$dom" --https-port "$https" --http-port "$http" ${admin_a[@]+"${admin_a[@]}"} ${container_ok:+--container-ok yes} ${inst_failed:+--instance-failed yes}
 cname=$(pt container "$addr" --instance-addrs "$inst_addrs" 2>/dev/null) || cname=""
 
+rp=$(setting_get reverseProxy 2>/dev/null || true)
 proxy_hosts=${HS_PT_PROXY_HOSTS:-}
 if [ -z "$proxy_hosts" ]; then
   proxy_hosts=$(mktemp); trap 'rm -f "$host_addrs" "$inst_addrs" "$proxy_hosts"' EXIT
-  rp=$(setting_get reverseProxy 2>/dev/null || true)
   if [ -n "$rp" ] && [ -f "$scripts/providers/reverse-proxy/$rp.sh" ]; then
     timeout 15 bash "$scripts/providers/reverse-proxy/$rp.sh" list 2>/dev/null | awk -F"$tab" '{ print $1 }' >"$proxy_hosts" ||
       warns+=("could not read the routes of the reverse proxy; only proxyDomains was checked")
@@ -197,9 +197,23 @@ if [ -z "$proxy_hosts" ]; then
     warns+=("could not read the routes of the reverse proxy; only proxyDomains was checked")
   fi
 fi
+# the container the public reverse proxy runs in (its provider's info says it; unknown = empty = the overlap stays refused)
+# the proxy runs in the default project: only that project's list counts (a container of the same name elsewhere gets no exception; failure = empty = refused)
+default_addrs=${HS_PT_DEFAULT_ADDRS:-}
+if [ -z "$default_addrs" ]; then
+  if [ -n "${HS_PT_INSTANCE_ADDRS:-}" ]; then default_addrs=$inst_addrs
+  else
+    default_addrs=$(mktemp); trap 'rm -f "$host_addrs" "$inst_addrs" "$proxy_hosts" "$default_addrs"' EXIT
+    timeout 10 incus list --project default --format csv -c n46 >"$default_addrs" 2>/dev/null || : >"$default_addrs"
+  fi
+fi
+proxy_ct=${HS_PT_PROXY_CT:-}
+if [ -z "$proxy_ct" ] && [ -n "$rp" ] && [ -f "$scripts/providers/reverse-proxy/$rp.sh" ]; then
+  proxy_ct=$(timeout 15 bash "$scripts/providers/reverse-proxy/$rp.sh" info 2>/dev/null | awk -F"$tab" '$1 == "container" { print $2; exit }') || proxy_ct=""
+fi
 realm=$(machine_get adDomain.realm 2>/dev/null | tr 'A-Z' 'a-z' | tr -d ' \r\n' || true)
 chk _ guard "$dom" --proxy-domains "$(setting_get proxyDomains 2>/dev/null || true)" --local-domain "$(local_domain)" --realm "$realm" \
-  --proxy-hosts "$proxy_hosts" --routes "$routes_dir"
+  --proxy-hosts "$proxy_hosts" --routes "$routes_dir" --target "$addr" --instance-addrs "$default_addrs" --proxy-container "$proxy_ct"
 
 if [ "$verb" = start ]; then
   [ -z "$cname" ] || [ "$confirm" = "$dom" ] || refuse "type the domain to confirm: $dom"

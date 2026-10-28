@@ -290,9 +290,13 @@ def list_rows(d):
 
 
 def guard(d, opts):
+    # the public reverse proxy itself as the target (its container, known from its provider): its routes stay valid behind the passthrough
+    pct = opts.get('--proxy-container', '').strip()
+    own = pct != '' and container_of(opts.get('--target', ''), opts.get('--instance-addrs', os.devnull)) == [pct]
+    unless = ', unless the target is the public reverse proxy itself'
     for p in [x for x in opts.get('--proxy-domains', '').split(',') if x.strip()]:
-        if related(d, p.strip().lower()):
-            refuse('%s overlaps %s, a domain of the public reverse proxy' % (d, p.strip().lower()))
+        if not own and related(d, p.strip().lower()):
+            refuse('%s overlaps %s, a domain of the public reverse proxy%s' % (d, p.strip().lower(), unless))
     for key, what in (('--local-domain', "the gateway's local domain"), ('--realm', 'the domain of the network (AD realm)')):
         x = opts.get(key, '').strip().lower()
         if x and related(d, x):
@@ -304,8 +308,8 @@ def guard(d, opts):
         hosts = []
     for h in hosts:
         h = h.lstrip('*.')
-        if h and related(d, h):
-            refuse('%s overlaps %s, a host of the public reverse proxy' % (d, h))
+        if h and not own and related(d, h):
+            refuse('%s overlaps %s, a host of the public reverse proxy%s' % (d, h, unless))
     routes = opts.get('--routes', '')
     for row in list_rows(routes):
         if row[0] != d and related(d, row[0]):

@@ -54,6 +54,8 @@ sudo hs ext passthrough add example.com 10.10.95.5 --container-ok --confirm exam
 
 Admin pages of containers (Zoraxy's page on port 8000, every port of the monitoring container, Arcane, Homepage, Kuma, Paperclip, Home Assistant) are refused as targets even with the flag. If the list of containers cannot be read (Incus not answering), every target is refused until it can. Limit: a stopped container that gets its address by DHCP is unknown while it is stopped, and routes are not rechecked when it starts. `hs ext passthrough status` and `refresh` warn about a route whose target is a container that was never confirmed with `--container-ok`; give such containers a static address.
 
+A domain that overlaps one of the public reverse proxy's domains (`proxyDomains`, or a host it has a route for) is normally refused, because the gateway would take it over. The one exception is the public reverse proxy's own container (the container its provider reports, for Zoraxy `zoraxy`): its routes stay valid behind the passthrough, so `--container-ok --confirm` is enough. If that container cannot be told, the overlap stays refused. Only a container of the default Incus project counts. Not tested on hardware yet.
+
 In the web interface the form shows the switch "Yes, this is a container on this server" once the plan refuses such a target; it is off until you tick it, and you type the domain in the plan. Not tested on hardware yet.
 
 ## PROXY protocol

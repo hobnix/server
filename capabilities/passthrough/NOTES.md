@@ -36,6 +36,9 @@ back. Every `start` renders all `pt-*` files again from their headers (a changed
 - "no public port": when `gatewayPublicHttps` is already non-zero in machine.toml (machine_get), the refusal says to run `hs rebuild` instead.
 - Never a domain that overlaps `proxyDomains`, a host of the public reverse proxy, the gateway's local domain (`<site>.<realm>`), the AD realm,
   a `local-*` host or another `pt-*` domain (the same domain again replaces its target).
+  Exception: the overlap with `proxyDomains` / hosts of the public reverse proxy is allowed when the target is exactly the container the public reverse proxy runs in
+  (its provider's `info` key `container`, test knob `HS_PT_PROXY_CT`): its routes stay valid behind the passthrough. It needs `--container-ok` + confirm and the
+  admin-port guard as always; the container is looked up in the default project only (`incus list --project default`, test knob `HS_PT_DEFAULT_ADDRS`); unknown proxy container or any other target = refused (`guard --target --instance-addrs --proxy-container`).
 - Only `pt-*` files are written. No middleware on purpose: these routes are public. Only the public entrypoints are used.
 - Passthrough routers have long rules and win over the catch-all of the gateway (priority 1); they match only their own domain and its subdomains.
 - With a public port 80, 100.64.0.0/10 is dropped from the local allowlist (capabilities/gateway/module.nix; CGNAT clients would pass). If the router rewrites the source to its own LAN address everything looks local: the guide tells how to test from mobile data.

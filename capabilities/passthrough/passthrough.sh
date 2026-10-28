@@ -61,6 +61,9 @@ line_t() {   # line_t <plan text>: the three texts with names in them through t 
     "The WHOLE domain "*" goes to the container "*)
       a=${s#The WHOLE domain }; a=${a%% *}; b=${s#*goes to the container }; b=${b% of this server, and that container*}
       t "The WHOLE domain %s (apex and every subdomain) goes to the container %s of this server, and that container is reachable from the internet through this." "$a" "$b" ;;
+    *" overlaps "*", a domain of the public reverse proxy, unless the target is the public reverse proxy itself")
+      a=${s%% overlaps *}; b=${s#* overlaps }; b=${b%%, a domain*}
+      t "%s overlaps %s, a domain of the public reverse proxy, unless the target is the public reverse proxy itself" "$a" "$b" ;;
     "the container '"*"' on port "*" is an admin page: "*)
       a=${s#"the container '"}; a=${a%%"'"*}; b=${s#*"' on port "}; b=${b%% *}
       t "the container '%s' on port %s is an admin page: it is never forwarded to the internet (ADMIN_TARGETS in scripts/services.py)" "$a" "$b" ;;
