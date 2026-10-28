@@ -106,6 +106,16 @@ New pages are frozen except Notifications (built to the new navigation).
    same section for recipes (status panel, a few allowlisted actions); later recipes and extensions in a repository of their own at a pinned commit.
    Commands: `hs ext <name> <command>` / `hs sys ext <name> <command>`, a package carries its own command rows; pilot Games and Posters (merged #337).
 
+## G. File manager (description 2026-10-28)
+
+Two panes (disk or pool left, disk or pool right), bulk selection, copy / move / delete / rename through plans and background jobs, with the rule that a pool disk and its own
+pool never meet (data loss of 2026-10-18). Description and open questions: docs/PLAN-file-manager.md. The owner designs it, then: `hs sys fm ...` backend (storage code, tested in a VM),
+the Storage > Files page, entry points from Disks, Pools and Shares.
+
+1. [ ] Design from the owner, answers to the open questions at the end of the plan.
+2. [ ] Backend `hs sys fm locations|ls|stat|du|plan|start`.
+3. [ ] The page and the entry points.
+
 ## Later / ideas
 
 - Immutable offline copy: a rotating second backup disk with a swap reminder (tied to `hs expiry`).
