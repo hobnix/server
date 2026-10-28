@@ -1,4 +1,5 @@
 <script>
+  import { tip } from '../ui/tooltip.svelte.js';
   // Groups of the domain: list on the left, drawer on the right (members, the shares the group is entered on). The share access is READ ONLY here:
   // permissions are edited on the share itself (decision 4 of ); a row links to the share.
   import { poll, rows } from '../data.svelte.js';
@@ -46,14 +47,14 @@
 
 <PageHeader title="Groups" crumb="Identity" sub="Who is in which group, and which shares a group is entered on.">
   {#snippet actions()}
-    <button class="btn" title="Make the file server forget cached users and groups" onclick={() => openPlan('users', ['all', 'flush'], 'Flush caches')}><i class="ph ph-arrows-clockwise"></i>Flush caches</button>
-    <button class="btn btn-primary" onclick={() => openCreate(NewGroup, { existing: groups.map((g) => g.name) })}><i class="ph ph-plus"></i>New group</button>
+    <button class="btn" use:tip={'Make the file server forget cached users and groups'} onclick={() => openPlan('users', ['all', 'flush'], 'Flush caches')}><i class="ph ph-arrows-clockwise"></i>Flush caches</button>
+    <button use:tip={'Create a group of users'} class="btn btn-primary" onclick={() => openCreate(NewGroup, { existing: groups.map((g) => g.name) })}><i class="ph ph-plus"></i>New group</button>
   {/snippet}
 </PageHeader>
 
 <PageState loading={!list.loaded} error={list.error?.message} hasData={list.data != null} empty={list.loaded && !groups.length}
            emptyIcon="users-four" emptyTitle="No groups" emptyText="The domain controller (dc1) may be down, or the storage is locked. Otherwise add the first group.">
-  {#snippet emptyAction()}<button class="btn btn-primary" onclick={() => openCreate(NewGroup, { existing: [] })}><i class="ph ph-plus"></i>New group</button>{/snippet}
+  {#snippet emptyAction()}<button use:tip={'Create a group of users'} class="btn btn-primary" onclick={() => openCreate(NewGroup, { existing: [] })}><i class="ph ph-plus"></i>New group</button>{/snippet}
   <Split open={!!sel}>
     {#snippet list()}
       <div class="card" style="padding:0">
@@ -74,7 +75,7 @@
             {#if t === 'access'}
               <Table id="reach" columns={reachColumns} rows={reach} key="share" loading={!acc.loaded} empty={acc.loaded ? (acc.error ? 'The access could not be read.' : 'The group is on no share.') : 'Loading…'}>
                 {#snippet cell(r, col)}
-                  {#if col.key === 'share'}<button class="link-btn" title="Permissions are edited on the share" onclick={() => toShare(r.share)}>{r.share}</button>
+                  {#if col.key === 'share'}<button class="link-btn" use:tip={'Permissions are edited on the share'} onclick={() => toShare(r.share)}>{r.share}</button>
                   {:else if col.key === 'level'}<Chip>{r.level}</Chip>
                   {:else}<span class="muted">{r.via}</span>{/if}
                 {/snippet}
@@ -85,11 +86,11 @@
             {/if}
           {/snippet}
           {#snippet actions()}
-            <button class="btn" disabled={builtin(sel.name)} title={builtin(sel.name) ? 'A built-in group cannot be edited' : 'Change the description'}
+            <button class="btn" disabled={builtin(sel.name)} use:tip={builtin(sel.name) ? 'A built-in group cannot be edited' : 'Change the description'}
               onclick={() => openCreate(EditGroup, { name: sel.name })}><i class="ph ph-pencil-simple"></i>Edit</button>
-            <button class="btn" disabled={sel.name.toLowerCase() === 'domain users'} title="Choose the members"
+            <button class="btn" disabled={sel.name.toLowerCase() === 'domain users'} use:tip={'Choose the members'}
               onclick={() => openCreate(Membership, { subject: 'group', name: sel.name, have: sel.members, options: userNames })}><i class="ph ph-user-plus"></i>Members</button>
-            <button class="btn btn-ghost danger" disabled={builtin(sel.name)} title={builtin(sel.name) ? 'A built-in group cannot be deleted' : 'Delete the group (cannot be undone; you type the name)'}
+            <button class="btn btn-ghost danger" disabled={builtin(sel.name)} use:tip={builtin(sel.name) ? 'A built-in group cannot be deleted' : 'Delete the group (cannot be undone; you type the name)'}
               onclick={() => openPlan('users', [sel.name, 'group-delete'], `Delete ${sel.name}`)}><i class="ph ph-trash"></i>Delete</button>
           {/snippet}
         </Drawer>

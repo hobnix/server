@@ -24,12 +24,18 @@
 #                    routes in /var/lib/hs/services.state; nothing is sent to the proxy)
 #   hs services proxy login             the admin login of the proxy (Zoraxy has no API keys): checked, then kept in the vault (zoraxy-admin)
 # The guard: on a public proxy a never-public or private-ok service gets no route, a public-ok one needs a typed confirmation.
-# Test knobs: HS_SERVICES_DIR, HS_STATE_DIR, HS_SETTINGS_DIR, HS_INCUS, HS_PROVIDER_DIR, HS_PYTHON.
+#   --proxy public|local  (plan, apply, import, adopt; default public) picks the slot: public = the reverse proxy (Zoraxy), local = the gateway
+#                    proxy (Traefik, capability gateway) with the names <label>.<site>.<realm>. The slots are independent: a descriptor wants
+#                    them with [want] reverse-proxy and local-proxy. The local proxy must never be public (refused when its info says so).
+#   hs services apply --proxy local --adds-only   only the routes to add, no question (what declare_service runs)
+#   hs services import --proxy local [--dry-run] [--yes]   the migration: every service without local-proxy gets local-proxy = true
+# Test knobs: HS_SERVICES_DIR, HS_STATE_DIR, HS_SETTINGS_DIR, HS_INCUS, HS_PROVIDER_DIR, HS_PYTHON, HS_DNS_SH, HS_CAPABILITIES_FILE.
 set -euo pipefail
 here=$(cd "$(dirname "$0")" && pwd)
 . "$here/lib/ui.sh"
 . "$here/lib/setting.sh"
 . "$here/lib/secret.sh"
+. "$here/lib/capability.sh"
 state=${HS_STATE_DIR:-/var/lib/hs}
 inc=${HS_INCUS:-incus}
 py=${HS_PYTHON:-python3}; command -v "$py" >/dev/null 2>&1 || py=python
@@ -37,7 +43,7 @@ svc() { PYTHONUTF8=1 "$py" "$here/services.py" "$@"; }
 interactive() { [ -t 0 ] && [ -t 1 ] && [ -z "${HS_CALLER:-}" ] || [ -n "${HS_GUIDED_TTY:-}" ]; }
 
 usage() {
-  say "usage: hs services list | check | plan | add <name> ... | remove <name> | import [--dry-run] [--yes] | apply [--dry-run] [--confirm <host or service>] | adopt [--yes] | proxy login"
+  say "usage: hs services list | check | plan | add <name> ... | remove <name> | import [--dry-run] [--yes] | apply [--dry-run] [--confirm <host or service>] | adopt [--yes] | proxy login   (plan, apply, import, adopt: [--proxy public|local])"
   exit 1
 }
 
@@ -58,13 +64,43 @@ gather() {
   fi
   [ -f "$provider_dir/$variant.sh" ] || { $plain || warn "$(t "The reverse proxy '%s' has no provider here." "$variant")"; return 1; }
   provider info > "$work/info.tsv" || { $plain || warn "$(t 'The reverse proxy did not answer.')"; return 1; }
+  if [ "$proxy" = local ] && grep -q '^public.yes$' "$work/info.tsv"; then
+    fail "$(t 'The local proxy must never be public: its provider says it is.')"
+  fi
   provider owned-list > "$work/owned.tsv" 2>/dev/null || : > "$work/owned.tsv"   # the routes hs made or adopted (a variant without the verb: none)
   provider list > "$work/routes.tsv" || { $plain || warn "$(t 'The routes of the reverse proxy could not be read.')"; return 1; }
   "$inc" list --format json 2>/dev/null | svc addrs > "$work/addrs.tsv" || : > "$work/addrs.tsv"
+  # the local slot: names that have an explicit DNS record beat the wildcard (best effort, nothing on failure)
+  if [ "$proxy" = local ]; then
+    : > "$work/explicit.tsv"
+    if capability_on ad; then
+      timeout 20 bash "${HS_DNS_SH:-$here/dns.sh}" raw > "$work/explicit.tsv" 2>/dev/null || : > "$work/explicit.tsv"
+    fi
+    slot_args=(--slot local --explicit "$work/explicit.tsv")
+  fi
 }
 
 cmd=${1:-list}; [ $# -eq 0 ] || shift
 plain=false
+# --proxy public|local: the slot (plan, apply, import, adopt); list, check and tiles ignore it
+proxy=public; slot_args=(); adds_only=false; rest_args=()
+while [ $# -gt 0 ]; do
+  case "$1" in
+    --proxy) shift; proxy=${1:-}; [ "$proxy" = public ] || [ "$proxy" = local ] || usage ;;
+    --adds-only) adds_only=true ;;
+    *) rest_args+=("$1") ;;
+  esac
+  shift
+done
+set -- ${rest_args[@]+"${rest_args[@]}"}
+case "$cmd" in plan|apply|import|adopt) ;; *) proxy=public ;; esac
+if [ "$proxy" = local ]; then
+  # a machine-readable read while the capability is off answers with a status line, not with text
+  if [[ " ${rest_args[*]:-} " == *" --plain "* ]] && ! capability_on gateway; then printf 'status\toff\n'; exit 0; fi
+  capability_on gateway || fail "$(t 'The gateway proxy is off: put capabilities = ["gateway"] in machine.toml, then hs rebuild.')"
+  variant=traefik
+  slot_args=(--slot local)
+fi
 case "$cmd" in
   list)
     [ "${1:-}" != --plain ] || plain=true
@@ -79,7 +115,7 @@ case "$cmd" in
   plan)
     [ "${1:-}" != --plain ] || plain=true
     if ! gather; then $plain && printf 'status\tnone\n'; exit 0; fi
-    svc plan --info "$work/info.tsv" --routes "$work/routes.tsv" --addrs "$work/addrs.tsv" --owned "$work/owned.tsv" > "$work/plan.tsv"
+    svc plan --info "$work/info.tsv" --routes "$work/routes.tsv" --addrs "$work/addrs.tsv" --owned "$work/owned.tsv" ${slot_args[@]+"${slot_args[@]}"} > "$work/plan.tsv"
     # in api mode the API and the rule files must tell the same story, else nothing should be written on the strength of the API
     selfcheck=$(provider check 2>/dev/null || true)
     case "$selfcheck" in differ*) printf 'warn\t-\t-\t-\t-\tthe API and the rule files list different routes (%s)\n' "$(cut -f2- <<<"$selfcheck" | tr '\t' '/')" >> "$work/plan.tsv" ;; esac
@@ -105,13 +141,17 @@ case "$cmd" in
     done
     gather || exit 1
     mode=$(awk -F'\t' '$1 == "mode" { print $2 }' "$work/info.tsv")
-    svc plan --info "$work/info.tsv" --routes "$work/routes.tsv" --addrs "$work/addrs.tsv" --owned "$work/owned.tsv" > "$work/plan.tsv"
+    svc plan --info "$work/info.tsv" --routes "$work/routes.tsv" --addrs "$work/addrs.tsv" --owned "$work/owned.tsv" ${slot_args[@]+"${slot_args[@]}"} > "$work/plan.tsv"
     tabc=$(printf '\t')
     # first what is added or changed, hosts before their paths; then what is removed, paths before their hosts
-    todo=$({ awk -F'\t' '$1 == "add" || $1 == "confirm" || ($1 == "change" && $6 !~ /adopt it first/)' "$work/plan.tsv" | sort -t"$tabc" -k2,2 -k3,3
-             awk -F'\t' '$1 == "remove"' "$work/plan.tsv" | sort -t"$tabc" -k2,2 -k3,3r; })
+    if $adds_only; then
+      todo=$(awk -F'\t' '$1 == "add"' "$work/plan.tsv" | sort -t"$tabc" -k2,2 -k3,3)
+    else
+      todo=$({ awk -F'\t' '$1 == "add" || $1 == "confirm" || ($1 == "change" && $6 !~ /adopt it first/)' "$work/plan.tsv" | sort -t"$tabc" -k2,2 -k3,3
+               awk -F'\t' '$1 == "remove"' "$work/plan.tsv" | sort -t"$tabc" -k2,2 -k3,3r; })
+    fi
     rest=$(awk -F'\t' '$1 == "blocked" || $1 == "violation" || $1 == "unresolved" || $1 == "conflict" || $1 == "invalid" || ($1 == "change" && $6 ~ /adopt it first/)' "$work/plan.tsv")
-    step "$(t 'Making the routes of the services')"
+    if [ "$proxy" = local ]; then step "$(t 'Making the local names of the services')"; else step "$(t 'Making the routes of the services')"; fi
     if [ -z "$todo" ]; then
       note "$(t 'Nothing to do.')"
     else
@@ -178,7 +218,7 @@ case "$cmd" in
     yes=false
     for a in "$@"; do case "$a" in --yes) yes=true ;; *) usage ;; esac; done
     gather || exit 1
-    svc plan --info "$work/info.tsv" --routes "$work/routes.tsv" --addrs "$work/addrs.tsv" --owned "$work/owned.tsv" > "$work/plan.tsv"
+    svc plan --info "$work/info.tsv" --routes "$work/routes.tsv" --addrs "$work/addrs.tsv" --owned "$work/owned.tsv" ${slot_args[@]+"${slot_args[@]}"} > "$work/plan.tsv"
     rows=$(awk -F'\t' '$1 == "ok" && $6 ~ /^not adopted/ { print $2 "\t" $3 "\t" $4 "\t" $5 }' "$work/plan.tsv")
     step "$(t 'Routes made by hand that match a service')"
     if [ -z "$rows" ]; then note "$(t 'Nothing to adopt.')"; exit 0; fi
@@ -205,7 +245,7 @@ case "$cmd" in
     "$inc" list --format json 2>/dev/null | svc addrs > "$work/addrs.tsv" || : > "$work/addrs.tsv"
     extra=()
     if gather; then
-      svc plan --info "$work/info.tsv" --routes "$work/routes.tsv" --addrs "$work/addrs.tsv" --owned "$work/owned.tsv" > "$work/plan.tsv" &&
+      svc plan --info "$work/info.tsv" --routes "$work/routes.tsv" --addrs "$work/addrs.tsv" --owned "$work/owned.tsv" ${slot_args[@]+"${slot_args[@]}"} > "$work/plan.tsv" &&
         extra=(--plan "$work/plan.tsv" --info "$work/info.tsv")
     fi
     tiles_out=$(svc tiles --addrs "$work/addrs.tsv" ${extra[@]+"${extra[@]}"})
@@ -239,6 +279,23 @@ case "$cmd" in
   import)
     dry=false; yes=false
     for a in "$@"; do case "$a" in --dry-run) dry=true ;; --yes) yes=true ;; *) usage ;; esac; done
+    if [ "$proxy" = local ]; then
+      # the migration: every service without local-proxy gets it (descriptors only, no provider asked)
+      svc import --slot local > "$work/import.tsv"
+      if [ ! -s "$work/import.tsv" ]; then note "$(t 'Every service already says whether it wants a local name.')"; exit 0; fi
+      step "$(t 'Services that get a local name')"
+      { thead 'Action' 'Service' 'Names' 'Target'; cat "$work/import.tsv"; } | table
+      n=$(grep -c . "$work/import.tsv")
+      $dry && { note "Dry run: nothing written."; exit 0; }
+      if ! $yes; then
+        interactive || fail "$(t 'Importing writes service files: run it on a terminal, or add --yes.')"
+        confirm "$(t 'Give these %s service(s) a local name (local-proxy = true)?' "$n")" || { note "$(t 'Nothing written.')"; exit 0; }
+      fi
+      svc import --slot local --write > /dev/null
+      ok "$(t '%s service(s) now want a local name.' "$n")"
+      note "$(t 'Next: hs services plan --proxy local, then hs services apply --proxy local')"
+      exit 0
+    fi
     gather || exit 1
     svc import --info "$work/info.tsv" --routes "$work/routes.tsv" --addrs "$work/addrs.tsv" > "$work/import.tsv"
     if [ ! -s "$work/import.tsv" ]; then note "$(t 'The proxy has no routes to make services of.')"; exit 0; fi

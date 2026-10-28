@@ -10,6 +10,7 @@
   import StatusDot from '../ui/StatusDot.svelte';
   import Logo from '../ui/Logo.svelte';
   import Terminal from './Terminal.svelte';
+  import { tip } from '../ui/tooltip.svelte.js';
   import Search from './Search.svelte';
   import Fresh from './Fresh.svelte';
 
@@ -26,7 +27,7 @@
 <svelte:window onclick={() => (menu = '')} onkeydown={(e) => e.key === 'Escape' && (menu = '')} />
 
 <header class="topbar">
-  <button class="ib menu" aria-label="Open the resource tree" aria-expanded={menuOpen} title="Resources" onclick={(e) => { e.stopPropagation(); onmenu(); }}>
+  <button class="ib menu" aria-label="Open the resource tree" aria-expanded={menuOpen} use:tip={{ text: 'Resources', side: 'bottom' }} onclick={(e) => { e.stopPropagation(); onmenu(); }}>
     <i class="ph ph-list" style="font-size:18px"></i>
   </button>
   <a class="brand" href="/" onclick={(e) => { e.preventDefault(); go(`/node/${encodeURIComponent(host)}`); }} aria-label="Home">
@@ -35,7 +36,7 @@
   <span class="vr hide-s"></span>
 
   <div class="swwrap">
-    <button class="sw" aria-haspopup="menu" aria-expanded={menu === 'node'} title="Switch server" onclick={(e) => { e.stopPropagation(); menu = menu === 'node' ? '' : 'node'; }}>
+    <button class="sw" aria-haspopup="menu" aria-expanded={menu === 'node'} use:tip={{ text: 'Switch server', side: 'bottom' }} onclick={(e) => { e.stopPropagation(); menu = menu === 'node' ? '' : 'node'; }}>
       <StatusDot bare state={current?.dot?.state ?? 'off'} label={current?.dot?.title ?? 'no data'} />
       <span class="sn">{node}</span><i class="ph ph-caret-down" style="font-size:11px;color:var(--fg-3)"></i>
     </button>
@@ -56,27 +57,27 @@
   <Search />
   <div class="grow"></div>
   <Fresh />
-  <span class="storage" class:locked title={locked ? 'Storage locked' : 'Storage open'}>
+  <span class="storage" class:locked use:tip={{ text: locked ? 'Storage locked' : 'Storage open', side: 'bottom' }}>
     <i class="ph ph-{locked ? 'lock-simple' : 'lock-simple-open'}"></i><span class="lbl">{locked ? 'Storage locked' : 'Storage open'}</span>
   </span>
   <span class="vr hide-s"></span>
-  <button class="ib" aria-label={theme.dark ? 'Switch to the light look' : 'Switch to the dark look'} title={theme.dark ? 'Light look' : 'Dark look'} onclick={toggleTheme}>
+  <button class="ib" aria-label={theme.dark ? 'Switch to the light look' : 'Switch to the dark look'} use:tip={{ text: theme.dark ? 'Light look' : 'Dark look', side: 'bottom' }} onclick={toggleTheme}>
     <i class="ph ph-{theme.dark ? 'sun' : 'moon'}" style="font-size:16px"></i>
   </button>
-  <button class="ib hide-s" disabled={!here || !ui.features.terminal} title={ui.features.terminal ? 'A shell on this server, like an SSH login as adminuser' : 'Switch on webTerminal in machine.toml'} aria-label="Terminal" onclick={() => openCreate(Terminal, { target: 'host', title: host })}><i class="ph ph-terminal-window" style="font-size:16px"></i></button>
-  <button class="ib upd" disabled={!here || locked} title={updTitle} aria-label={pending > 0 ? `Update, ${pending} new` : 'Update'} onclick={() => openPlan('system', ['update'], 'Update')}>
-    <i class="ph ph-arrow-circle-up" style="font-size:16px"></i>{#if here && pending > 0}<span class="count" title="{pending} new change{pending === 1 ? '' : 's'} upstream (as of the last fetch)">{pending}</span>{/if}
+  <button class="ib hide-s" disabled={!here || !ui.features.terminal} use:tip={{ text: ui.features.terminal ? 'A shell on this server, like an SSH login as adminuser' : 'Switch on webTerminal in machine.toml', side: 'bottom' }} aria-label="Terminal" onclick={() => openCreate(Terminal, { target: 'host', title: host })}><i class="ph ph-terminal-window" style="font-size:16px"></i></button>
+  <button class="ib upd" disabled={!here || locked} use:tip={{ text: updTitle, side: 'bottom' }} aria-label={pending > 0 ? `Update, ${pending} new` : 'Update'} onclick={() => openPlan('system', ['update'], 'Update')}>
+    <i class="ph ph-arrow-circle-up" style="font-size:16px"></i>{#if here && pending > 0}<span class="count" use:tip={{ text: `${pending} new change${pending === 1 ? '' : 's'} upstream (as of the last fetch)`, side: 'bottom' }}>{pending}</span>{/if}
   </button>
   <span class="powwrap">
-    <button class="ib" disabled={!here} title={powTitle} aria-label="Power" aria-haspopup="menu" aria-expanded={menu === 'power'} onclick={(e) => { e.stopPropagation(); menu = menu === 'power' ? '' : 'power'; }}><i class="ph ph-power" style="font-size:16px"></i></button>
+    <button class="ib" disabled={!here} use:tip={{ text: powTitle, side: 'bottom' }} aria-label="Power" aria-haspopup="menu" aria-expanded={menu === 'power'} onclick={(e) => { e.stopPropagation(); menu = menu === 'power' ? '' : 'power'; }}><i class="ph ph-power" style="font-size:16px"></i></button>
     {#if menu === 'power'}
       <div class="pop right" role="menu" tabindex="-1" onclick={(e) => e.stopPropagation()} onkeydown={() => {}}>
-        <button class="item" role="menuitem" onclick={() => pick('reboot', 'Reboot')}><i class="ph ph-arrow-clockwise"></i>Reboot</button>
-        <button class="item bad" role="menuitem" onclick={() => pick('shutdown', 'Shut down')}><i class="ph ph-power"></i>Shut down</button>
+        <button use:tip={'Restart the whole server (shows the plan first)'} class="item" role="menuitem" onclick={() => pick('reboot', 'Reboot')}><i class="ph ph-arrow-clockwise"></i>Reboot</button>
+        <button use:tip={'Power the server off; it must be started by hand'} class="item bad" role="menuitem" onclick={() => pick('shutdown', 'Shut down')}><i class="ph ph-power"></i>Shut down</button>
       </div>
     {/if}
   </span>
-  <button class="user" onclick={onsignout} title="Sign out" aria-label="Sign out">
+  <button class="user" onclick={onsignout} use:tip={{ text: 'Sign out', side: 'bottom' }} aria-label="Sign out">
     <span class="avatar">{(user || '?').slice(0, 1).toUpperCase()}</span><span class="lbl un">{user}</span><i class="ph ph-sign-out lbl" style="color:var(--fg-3)"></i>
   </button>
 </header>

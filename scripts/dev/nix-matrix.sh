@@ -77,11 +77,22 @@ for dir in "$repo"/capabilities/*/; do
   case "$cap" in
     metrics)   variant "only-$cap" "$PROM=true|$TS=false|$PRIV=[ ]" "capabilities = [\"$cap\"]" ;;
     tailscale) variant "only-$cap" "$PROM=false|$TS=true|$PRIV=[ \"tailscale0\" ]" "capabilities = [\"$cap\"]" ;;
+    gateway)   variant "only-$cap" "$PROM=false|$TS=false|$PRIV=[ ]|services.traefik.enable=true" "capabilities = [\"$cap\"]" ;;
     *)         variant "only-$cap" "$PROM=false|$TS=false|$PRIV=[ ]" "capabilities = [\"$cap\"]" ;;   # no Nix module: it must still evaluate
   esac
 done
 all=$(ls -d "$repo"/capabilities/*/ | xargs -n1 basename | sed 's/.*/"&"/' | paste -sd, | sed 's/,/, /g')
 variant all          "$PROM=true|$TS=true|$PRIV=[ \"tailscale0\" ]" "capabilities = [$all]"
+refused gateway-webport-80 'capabilities = ["gateway"]' 'webUi = true' 'webPort = 80'
+variant gateway-public "services.traefik.enable=true" 'capabilities = ["gateway"]' 'gatewayPublicHttps = 4443' 'gatewayPublicHttp = 8008'
+variant gateway-public-direct "services.traefik.enable=true" 'capabilities = ["gateway"]' 'gatewayPublicHttps = 443' 'gatewayPublicHttp = 80'   # the router forwards 443 and 80 as they are
+LR='environment.etc."hs/gateway-lan-ranges".text'
+variant gateway-ranges-local "$LR="'"10.0.0.0/8 172.16.0.0/12 192.168.0.0/16 100.64.0.0/10 127.0.0.1/32 fc00::/7 ::1/128\n"' 'capabilities = ["gateway"]'
+variant gateway-ranges-public "$LR="'"10.0.0.0/8 172.16.0.0/12 192.168.0.0/16 127.0.0.1/32 fc00::/7 ::1/128\n"' 'capabilities = ["gateway"]' 'gatewayPublicHttp = 80'
+refused gateway-public-443-tailscale 'capabilities = ["gateway"]' 'gatewayPublicHttps = 443' 'webUi = true' 'webTailscale = true'
+refused gateway-public-https-80 'capabilities = ["gateway"]' 'gatewayPublicHttps = 80'
+refused gateway-public-http-443 'capabilities = ["gateway"]' 'gatewayPublicHttp = 443'
+variant gateway-ad "services.traefik.enable=true" 'capabilities = ["gateway"]' 'adDomain = { realm = "AD.HOME.LAN", workgroup = "HOME" }'   # the hs-webui Host router
 variant legacy-switches "$PROM=true|$TS=true" 'metrics = true' 'tailscaleRouter = true'
 variant ad-domain 'environment.etc."hs/capabilities".text="ad\nstorage\nincus\nsamba\nbackup\n"' 'adDomain = { realm = "AD.HOME.LAN", workgroup = "HOME" }'   # the capability ad is computed from adDomain
 # the author's preset as a whole (presets/example-server.toml [machine]): its lines must evaluate together, whatever the other variants say

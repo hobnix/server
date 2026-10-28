@@ -13,3 +13,5 @@ export { default as Split } from './Split.svelte';
 // elsewhere, kept at their old paths so pages keep working:
 //   shell/Table.svelte, shell/UsageBar.svelte, shell/Spark.svelte, shell/PlanDialog.svelte (opened with openPlan), forms/unlock/UnlockForm.svelte
 // new in shell/: Halftone, PageHeader, PageState (loading, empty, error with stale data), PageFrame (locked, off, unreachable: the shell does it)
+export { default as Tooltip } from './Tooltip.svelte';   // mounted once in App.svelte; a control asks for it: <button use:tip={'text'}>
+export { tip } from './tooltip.svelte.js';

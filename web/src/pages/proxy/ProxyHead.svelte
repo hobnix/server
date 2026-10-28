@@ -1,4 +1,5 @@
 <script>
+  import { tip } from '../../ui/tooltip.svelte.js';
   // Page header. `summary` = the node header of the design (tile, name, online dot, meta line, health chip); otherwise crumb + title.
   import { duration } from '../../format.js';
   import { ui, openPlan } from '../../ui.svelte.js';
@@ -25,8 +26,8 @@
     </div>
     <div style="flex:1"></div>
     <!-- vps update / vps watch: hs sys vps plan|start runs them over SSH with a key that can do only that (machine.toml: vpsHost, `hs vps key`) -->
-    {#if canAct}<button class="btn btn-secondary" disabled={!ui.features.vps} title={ui.features.vps ? 'Pull the configuration on the proxyserver and rebuild it' : 'Set vpsHost in machine.toml (steps: docs/web-interface.md)'} onclick={() => openPlan('vps', ['update'], 'Update the proxyserver')}><i class="ph ph-arrow-circle-up"></i>vps update</button>
-    <button class="btn btn-secondary" disabled={!ui.features.vps} title={ui.features.vps ? 'Check the home server from the proxyserver now' : 'Set vpsHost in machine.toml (steps: docs/web-interface.md)'} onclick={() => openPlan('vps', ['watch'], 'Watch the home server from outside')}><i class="ph ph-binoculars"></i>vps watch</button>{/if}
+    {#if canAct}<button class="btn btn-secondary" disabled={!ui.features.vps} use:tip={ui.features.vps ? 'Pull the configuration on the proxyserver and rebuild it' : 'Set vpsHost in machine.toml (steps: docs/web-interface.md)'} onclick={() => openPlan('vps', ['update'], 'Update the proxyserver')}><i class="ph ph-arrow-circle-up"></i>vps update</button>
+    <button class="btn btn-secondary" disabled={!ui.features.vps} use:tip={ui.features.vps ? 'Check the home server from the proxyserver now' : 'Set vpsHost in machine.toml (steps: docs/web-interface.md)'} onclick={() => openPlan('vps', ['watch'], 'Watch the home server from outside')}><i class="ph ph-binoculars"></i>vps watch</button>{/if}
     {#if d}
       <span class="chip"><span class="dot {d.problems > 0 ? 'warn' : d.problems === 0 ? 'ok' : 'off'}"></span>Health · {d.problems == null ? 'not available' : d.problems > 0 ? `${d.problems} problem${d.problems === 1 ? '' : 's'}` : 'no problems'}</span>
     {/if}

@@ -33,9 +33,13 @@ case "$action" in
   add) name=${1:-}; shift || true; [[ "$name" =~ ^[a-z0-9][a-z0-9-]{0,40}$ ]] || refuse "A service name is lower case letters, digits and - (at most 41)." ;;
   *) refuse "unknown action (apply, adopt, import, add or remove)" ;;
 esac
-addargs=() exposure=private-ok port="" container="" host="" title=""
+pargs=() addargs=() exposure=private-ok port="" container="" host="" title=""
 while [ $# -gt 0 ]; do
   case "$1" in
+    --proxy) [ $# -ge 2 ] || refuse "--proxy needs a value"
+      case "$action" in apply|import|adopt) ;; *) refuse "unknown option $1" ;; esac
+      case "$2" in public) ;; local) pargs=(--proxy local) ;; *) refuse "--proxy is public or local" ;; esac
+      shift 2 ;;
     --confirm) [ $# -ge 2 ] || refuse "--confirm needs a value"; confirm=$2; shift 2 ;;
     --port|--container|--host|--title|--names|--exposure|--public-path|--want|--group|--icon|--description)
       [ "$action" = add ] || refuse "unknown option $1"
@@ -51,7 +55,7 @@ unset HS_GUIDED_TTY
 
 # the plan of the proxy against the services into $plan_out: act host path target service note (tab separated)
 load_plan() {
-  plan_out=$(bash "$svc" plan --plain </dev/null 2>/dev/null || true)
+  plan_out=$(bash "$svc" plan --plain ${pargs[@]+"${pargs[@]}"} </dev/null 2>/dev/null || true)
   case "$plan_out" in
     "status"*none*) refuse "No reverse proxy is set up (hs recipe zoraxy, then: hs config set reverseProxy zoraxy)." ;;
   esac
@@ -98,7 +102,7 @@ case "$action" in
     rows=$(awk -F'\t' '$1 == "ok" && $6 ~ /^not adopted/' <<<"$plan_out")
     [ -n "$rows" ] || refuse "Nothing to adopt."
     if [ "$verb" = start ]; then
-      bash "$svc" adopt --yes >/dev/null 2>&1 || refuse "the routes could not be adopted"
+      bash "$svc" adopt --yes ${pargs[@]+"${pargs[@]}"} >/dev/null 2>&1 || refuse "the routes could not be adopted"
       printf 'status\tdone\n'
       exit 0
     fi
@@ -110,19 +114,25 @@ case "$action" in
     printf 'command\ths services adopt --yes\nlong\tno\n'
     exit 0 ;;
   import)
-    out=$(bash "$svc" import --dry-run </dev/null 2>&1 || true)
-    if grep -qiE 'nothing new|no routes' <<<"$out"; then
+    out=$(bash "$svc" import --dry-run ${pargs[@]+"${pargs[@]}"} </dev/null 2>&1 || true)
+    if grep -qiE 'nothing new|no routes|already says' <<<"$out"; then
       refuse "Nothing new to describe: every route of the proxy has a service already (or the proxy has no routes)."
     fi
     if [ "$verb" = start ]; then
-      bash "$svc" import --yes >/dev/null 2>&1 || refuse "the services could not be described"
+      bash "$svc" import --yes ${pargs[@]+"${pargs[@]}"} >/dev/null 2>&1 || refuse "the services could not be described"
       printf 'status\tdone\n'
       exit 0
     fi
-    printf 'status\tok\nheading\tdescribe the routes of the proxy as services\n'
-    printf 'step\tmake one service file for every route that no service describes yet\n'
-    printf 'warn\tCheck the exposure of each afterwards: public-ok means the service is reachable from the internet today.\n'
-    printf 'command\ths services import --yes\nlong\tno\n'
+    if [ "${#pargs[@]}" -gt 0 ]; then
+      printf 'status\tok\nheading\tgive the services a local name\n'
+      printf 'step\tset local-proxy = true on every service that does not say yet whether it wants a local name\n'
+      printf 'note\tOnly the service files change; the routes are made by Apply. A service with local-proxy = false stays out.\n'
+    else
+      printf 'status\tok\nheading\tdescribe the routes of the proxy as services\n'
+      printf 'step\tmake one service file for every route that no service describes yet\n'
+      printf 'warn\tCheck the exposure of each afterwards: public-ok means the service is reachable from the internet today.\n'
+    fi
+    printf 'command\ths services import --yes%s\nlong\tno\n' "${pargs[*]:+ ${pargs[*]}}"
     exit 0 ;;
   apply)
     load_plan
@@ -133,7 +143,7 @@ case "$action" in
     hosts=$(awk -F'\t' '$1 == "confirm" || $1 == "change" || $1 == "remove" { print $2 }' <<<"$todo" | sort -u)
     if [ "$verb" = start ]; then
       if [ -n "$red" ] && [ "$confirm" != apply ]; then refuse "type the word to confirm: apply"; fi
-      args=(apply --yes)
+      args=(apply --yes ${pargs[@]+"${pargs[@]}"})
       while IFS= read -r h; do
         [ -z "$h" ] || args+=(--confirm "$h")
       done <<<"$hosts"
@@ -154,7 +164,7 @@ case "$action" in
     done <<<"$todo"
     left=$(awk -F'\t' '$1 == "blocked" || $1 == "violation" || $1 == "conflict" || $1 == "invalid" || $1 == "unresolved"' <<<"$rows" | grep -c . || true)
     if [ "$left" -gt 0 ]; then printf 'note\t%s more row(s) are left alone (blocked, violations, conflicts): see the list.\n' "$left"; fi
-    printf 'command\ths services apply --yes\n'
+    printf 'command\ths services apply --yes%s\n' "${pargs[*]:+ ${pargs[*]}}"
     if [ -n "$red" ]; then printf 'confirm_name\tapply\n'; fi
     printf 'long\tyes\n'
     exit 0 ;;

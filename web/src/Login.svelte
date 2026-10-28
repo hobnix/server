@@ -1,4 +1,5 @@
 <script>
+  import { tip } from './ui/tooltip.svelte.js';
   import { onMount } from 'svelte';
   import { hello, login } from './api.js';
   import { lang, setLang, t } from './lang.svelte.js';
@@ -85,10 +86,10 @@
   <section class="formp gridbg">
     <div class="topr">
       <div class="lang" role="group" aria-label="Language">
-        <button aria-pressed={lang.code === 'de'} lang="de" onclick={() => setLang('de')}>DE</button>
-        <button aria-pressed={lang.code === 'en'} lang="en" onclick={() => setLang('en')}>EN</button>
+        <button use:tip={'Deutsch'} aria-pressed={lang.code === 'de'} lang="de" onclick={() => setLang('de')}>DE</button>
+        <button use:tip={'English'} aria-pressed={lang.code === 'en'} lang="en" onclick={() => setLang('en')}>EN</button>
       </div>
-      <button class="iconbtn" aria-label={theme.dark ? 'Light look' : 'Dark look'} title={theme.dark ? 'Light look' : 'Dark look'} onclick={toggleTheme}>
+      <button class="iconbtn" aria-label={theme.dark ? 'Light look' : 'Dark look'} use:tip={theme.dark ? 'Light look' : 'Dark look'} onclick={toggleTheme}>
         <i class="ph ph-{theme.dark ? 'sun' : 'moon'}" style="font-size:16px"></i>
       </button>
     </div>
@@ -101,8 +102,8 @@
 
         {#if domain}
           <div class="seg" role="group" aria-label={t({ en: 'Account type', de: 'Kontoart' })}>
-            <button type="button" aria-pressed={realm === 'local'} onclick={() => (realm = 'local')}><i class="ph ph-shield-check"></i>{t({ en: 'Local admin', de: 'Lokaler Admin' })}</button>
-            <button type="button" aria-pressed={realm === 'domain'} disabled={!domainOpen} onclick={() => (realm = 'domain')}><i class="ph ph-user"></i>{t({ en: 'Samba user', de: 'Samba-Konto' })}</button>
+            <button use:tip={t({ en: 'The administrator account of this server', de: 'Das Administrator-Konto dieses Servers' })} type="button" aria-pressed={realm === 'local'} onclick={() => (realm = 'local')}><i class="ph ph-shield-check"></i>{t({ en: 'Local admin', de: 'Lokaler Admin' })}</button>
+            <button use:tip={!domainOpen ? t({ en: 'Samba accounts cannot sign in now (storage locked)', de: 'Samba-Konten können sich jetzt nicht anmelden (Speicher gesperrt)' }) : ''} type="button" aria-pressed={realm === 'domain'} disabled={!domainOpen} onclick={() => (realm = 'domain')}><i class="ph ph-user"></i>{t({ en: 'Samba user', de: 'Samba-Konto' })}</button>
           </div>
         {/if}
 
@@ -124,7 +125,7 @@
             <div class="inp"><input id="user" autocomplete="username" autocapitalize="none" spellcheck="false" placeholder={realm === 'domain' ? 'anna' : (info?.local_user ?? 'adminuser')} bind:value={user} /></div></div>
           <div class="field"><label for="password">{t({ en: 'Password', de: 'Passwort' })}</label>
             <div class="inp"><input id="password" class="pw" type={show ? 'text' : 'password'} autocomplete="current-password" placeholder="••••••••••••" bind:value={password} />
-              <button type="button" class="eye" aria-label={show ? t({ en: 'Hide the password', de: 'Passwort verbergen' }) : t({ en: 'Show the password', de: 'Passwort anzeigen' })} onclick={() => (show = !show)}><i class="ph ph-{show ? 'eye-slash' : 'eye'}" style="font-size:17px"></i></button></div></div>
+              <button use:tip={show ? t({ en: 'Hide the password', de: 'Passwort verbergen' }) : t({ en: 'Show the password', de: 'Passwort anzeigen' })} type="button" class="eye" aria-label={show ? t({ en: 'Hide the password', de: 'Passwort verbergen' }) : t({ en: 'Show the password', de: 'Passwort anzeigen' })} onclick={() => (show = !show)}><i class="ph ph-{show ? 'eye-slash' : 'eye'}" style="font-size:17px"></i></button></div></div>
           <p class="hint">
             {#if realm === 'domain'}{t({ en: 'Use the account you use for the file shares. Only members of Domain Admins can sign in.', de: 'Das Konto, das du für die Freigaben nutzt. Nur Mitglieder von Domain Admins können sich anmelden.' })}
             {:else}{t({ en: 'The built-in administrator of this server. Works while storage is locked.', de: 'Der eingebaute Administrator dieses Servers. Geht auch bei gesperrtem Speicher.' })}{/if}

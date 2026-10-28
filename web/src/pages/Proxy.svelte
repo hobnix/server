@@ -1,4 +1,5 @@
 <script>
+  import { tip } from '../ui/tooltip.svelte.js';
   // proxyserver summary (design screen 19): what the VPS's status document holds today; the rest of the design's cards say "not available yet".
   import { bytes, pct } from '../format.js';
   import Spark from '../shell/Spark.svelte';
@@ -77,7 +78,7 @@
     <div class="two">
       <div class="col">
         <div class="card elev-sm c" class:focus={focus === 'mail'} id="px-mail">
-          <div class="ch"><i class="ph ph-envelope-simple"></i><span class="ct">Mail entry</span><span class="dot {mailS.dot}" title={mailS.title}></span></div>
+          <div class="ch"><i class="ph ph-envelope-simple"></i><span class="ct">Mail entry</span><span class="dot {mailS.dot}" use:tip={mailS.title}></span></div>
           <div class="qrow"><span class="q">{queue ?? '–'}</span><span class="of">{queue == null ? 'not available' : queue === 0 ? 'queue empty' : queue === 1 ? 'message held in the queue' : 'messages held in the queue'}</span></div>
           {#if mailS.stalwart != null || mailS.spf != null || mailS.oldest != null || mailS.last != null}
             <div class="kv">
@@ -92,7 +93,7 @@
         </div>
 
         <div class="card elev-sm c" class:focus={focus === 'watcher'} id="px-watcher">
-          <div class="ch"><i class="ph ph-binoculars"></i><span class="ct">Outside watcher</span><span class="dot {watchS.dot}" title={watchS.title}></span></div>
+          <div class="ch"><i class="ph ph-binoculars"></i><span class="ct">Outside watcher</span><span class="dot {watchS.dot}" use:tip={watchS.title}></span></div>
           {#if watchS.dot === 'off'}
             <NotYet>The watcher's state, the heartbeat age and the watched addresses are not in the status document.</NotYet>
           {:else}
@@ -110,7 +111,7 @@
 
       <div class="col">
         <div class="card elev-sm c">
-          <div class="ch"><i class="ph ph-plugs"></i><span class="ct">Ports</span><span class="dot {portS.dot}" title={portS.title}></span></div>
+          <div class="ch"><i class="ph ph-plugs"></i><span class="ct">Ports</span><span class="dot {portS.dot}" use:tip={portS.title}></span></div>
           {#if portS.dot === 'off' && !portS.groups.length}
             <NotYet>The forwarded and open ports are not in the status document.</NotYet>
           {:else}
@@ -120,11 +121,11 @@
               {/each}
             </div>
           {/if}
-          <button class="btn btn-ghost sm" style="align-self:flex-start" onclick={() => go('/ports')}>All ports<i class="ph ph-caret-right"></i></button>
+          <button use:tip={'Show every forwarded port'} class="btn btn-ghost sm" style="align-self:flex-start" onclick={() => go('/ports')}>All ports<i class="ph ph-caret-right"></i></button>
         </div>
 
         <div class="card elev-sm c" style="gap:0" class:focus={focus === 'certificate'} id="px-certificate">
-          <div class="ch" style="margin-bottom:6px"><i class="ph ph-certificate"></i><span class="ct">Certificate &amp; services</span><span class="dot {certS.dot}" title={certS.title}></span></div>
+          <div class="ch" style="margin-bottom:6px"><i class="ph ph-certificate"></i><span class="ct">Certificate &amp; services</span><span class="dot {certS.dot}" use:tip={certS.title}></span></div>
           {#each svc as r}
             <div class="srow"><span class="dot {r.dot}"></span><span class="sl">{r.label}</span><span class="sv">{r.value}</span>{#if r.meta}<span class="sm">{r.meta}</span>{/if}</div>
           {/each}

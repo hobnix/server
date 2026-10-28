@@ -75,7 +75,24 @@ power_of() {   # power_of <name> <rota>
   esac
 }
 
-# name  bytes  SSD/HDD  role  temp  health  hours  reallocated  pending  crc  model+serial  free (bytes of free space on it, or "-": a free disk, a disk that is not mounted)  power (spinning|asleep|-)
+# Filesystem on a disk (the last field of the table): what lsblk reports on the disk and its children, the mapping INSIDE a LUKS container
+# instead of the container itself. The one mounted on / wins (the system disk), else the first real one (vfat/swap only when nothing else).
+# zfs_member -> zfs; nothing on it -> none; a locked LUKS container, or lsblk gives nothing -> "-".
+fs_of() {   # fs_of <name>
+  local out
+  out=$(lsblk -nr -o FSTYPE,MOUNTPOINT "/dev/$1" 2>/dev/null | awk -F' ' '
+    $1 == "" { next }
+    $2 == "/" && !root { root = $1 }
+    $1 == "crypto_LUKS" { luks = 1; next }
+    $1 ~ /^(vfat|swap)$/ { minor = minor ? minor : $1; next }
+    !first { first = $1 }
+    END { r = root ? root : first; if (!r) r = minor
+      if (r == "zfs_member") r = "zfs"
+      if (r) print r; else if (luks) print "-"; else print "none" }' || true)
+  echo "${out:--}"
+}
+
+# name  bytes  SSD/HDD  role  temp  health  hours  reallocated  pending  crc  model+serial  free (bytes of free space on it, or "-": a free disk, a disk that is not mounted)  power (spinning|asleep|-)  filesystem (xfs, ext4, zfs, ..., none, -)
 disks() {
   # which pool a disk belongs to (ZFS)
   declare -A member=()
@@ -140,7 +157,7 @@ disks() {
       *) free=$(zfs_vdev_free "$role" "$name") ;;
     esac
 
-    printf '%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\n' "$name" "$size" "$([ "$rota" = 1 ] && echo HDD || echo SSD)" "$role" "$smart" "$rest" "$free" "$(power_of "$name" "$rota")"
+    printf '%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\n' "$name" "$size" "$([ "$rota" = 1 ] && echo HDD || echo SSD)" "$role" "$smart" "$rest" "$free" "$(power_of "$name" "$rota")" "$(fs_of "$name")"
   done < <(lsblk -dnb -o NAME,SIZE,TYPE,ROTA,MODEL,SERIAL)
 }
 
@@ -162,6 +179,6 @@ for p in fast bulk; do
 done
 step "Disks"
 {
-  thead 'Name' 'Size' 'Type' 'Role' 'Temp' 'Health' 'Hours' 'Realloc' 'Pending' 'CRC' 'Model' 'Free' 'Power'
+  thead 'Name' 'Size' 'Type' 'Role' 'Temp' 'Health' 'Hours' 'Realloc' 'Pending' 'CRC' 'Model' 'Free' 'Power' 'Format'
   disks | awk -F'\t' -v OFS='\t' '{ $2 = sprintf("%.1fTB", $2 / 1e12); print }'
 } | table

@@ -1,4 +1,5 @@
 <script>
+  import { tip } from '../../ui/tooltip.svelte.js';
   // Move a folder (or file) from one SnapRAID data disk to another, disk to disk (hs sys disk plan|start <member> move --path <path> [--to <member>]).
   // The path in /bulk does not change: the same files are shown at the same paths before, during and after. The disk's own folders are browsed with
   // `hs sys disk ls` (one level at a time); nothing here ever touches /bulk itself, which is what makes it safe (a copy from a disk into the pool destroys the files).
@@ -39,7 +40,7 @@
         {#each entries as e}
           <li class:sel={picked === (dir ? `${dir}/${e.name}` : e.name)}>
             {#if e.dirp}
-              <button type="button" class="lnk name" onclick={() => enter(e.name)} title="Open this folder"><i class="ph ph-folder"></i> {e.name}</button>
+              <button type="button" class="lnk name" onclick={() => enter(e.name)} use:tip={'Open this folder'}><i class="ph ph-folder"></i> {e.name}</button>
             {:else}
               <span class="name"><i class="ph ph-file"></i> {e.name}</span>
             {/if}

@@ -90,4 +90,34 @@ check "it wants the reverse proxy without being asked" grep -q 'reverse-proxy = 
 SERVICE_PUBLIC_NAME=files.example.com DEMO_CT=adm run adm Adm mdi-test never-public >/dev/null
 check "never-public stays never-public" grep -q 'exposure = "never-public"' "$HS_SERVICES_DIR/adm.toml"
 
+echo "-- the gateway proxy is off: nothing local"
+printf 'cloud
+' > "$HS_ETC_DIR/capabilities"; export HS_CAPABILITIES_FILE=$HS_ETC_DIR/capabilities
+printf 'hostName = "homeserver"
+adDomain = { realm = "AD.EXAMPLE.ORG", workgroup = "EX" }
+' > "$WORK/machine.toml"; echo homeserver > "$WORK/site-name"
+export HS_MACHINE_FILE=$WORK/machine.toml HS_SITE_NAME_FILE=$WORK/site-name
+out=$(DEMO_CT=lo1 run lo1 Lo1 mdi-test)
+check "no local-proxy want" bash -c '! grep -q local-proxy "$1"' _ "$HS_SERVICES_DIR/lo1.toml"
+check "no local address printed" bash -c '! grep -q "Local address" <<<"$1"' _ "$out"
+
+echo "-- the gateway proxy is on: wanted without a question, added at once, address printed"
+printf 'gateway
+' > "$HS_ETC_DIR/capabilities"
+mkdir -p "$WORK/gw/routes" "$WORK/gw/tmp"; printf 'active' > "$WORK/unit"
+export HS_GATEWAY_DIR=$WORK/gw HS_GATEWAY_UNIT_STATE=$WORK/unit
+printf '#!/usr/bin/env bash
+case "$1" in
+  list) printf '"'"'[{"name":"lo2","status":"Running","state":{"network":{"eth0":{"addresses":[{"family":"inet","scope":"global","address":"10.10.95.77"}]}}}}]'"'"' ;;
+  *) exit 1 ;;
+esac
+' > "$WORK/bin/incus"
+out=$(DEMO_CT=lo2 run lo2 Lo2 mdi-test)
+check "local-proxy is wanted" grep -q 'local-proxy = true' "$HS_SERVICES_DIR/lo2.toml"
+check "and no reverse-proxy want came with it" bash -c '! grep -q "^reverse-proxy" "$1"' _ "$HS_SERVICES_DIR/lo2.toml"
+check_out "the address is printed" "Local address: http://lo2.homeserver.ad.example.org" echo "$out"
+check "the route file was made" test -f "$WORK/gw/routes/local-lo2.homeserver.ad.example.org.yml"
+DEMO_CT=lo3 run lo3 Lo3 mdi-test never-public >/dev/null
+check "an admin page gets the local want too (no question, never public)" grep -q 'local-proxy = true' "$HS_SERVICES_DIR/lo3.toml"
+unset HS_CAPABILITIES_FILE
 finish

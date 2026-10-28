@@ -1,4 +1,5 @@
 <script>
+  import { tip } from '../ui/tooltip.svelte.js';
   // One row of the resource tree: indent guides, caret, icon, label, chip, count, then ONE right-hand slot for a lock or a status dot. A dimmed row
   // (storage locked) shows the lock in that slot. The row is a real link (middle click, copy address work); a plain click calls `onclick`.
   //   <TreeRow depth={1} icon="database" label="Storage" href="/node/hs/storage" active caret="open" ontoggle={...} count="3" dot={{ state: 'ok', title: 'online' }} />
@@ -20,18 +21,18 @@
 <div class="trow" class:active class:dim class:gap role="treeitem" aria-selected={active} aria-expanded={caret ? caret === 'open' : undefined} aria-level={depth + 1}>
   {#each Array(depth) as _}<span class="g"></span>{/each}
   {#if caret}
-    <button class="caret" aria-label={caret === 'open' ? 'Collapse' : 'Expand'} tabindex="-1" onclick={(e) => { e.stopPropagation(); ontoggle?.(); }}>
+    <button use:tip={caret === 'open' ? 'Collapse' : 'Expand'} class="caret" aria-label={caret === 'open' ? 'Collapse' : 'Expand'} tabindex="-1" onclick={(e) => { e.stopPropagation(); ontoggle?.(); }}>
       <i class="ph ph-caret-{caret === 'open' ? 'down' : 'right'}" style="font-size:11px"></i>
     </button>
   {:else}<span class="cs"></span>{/if}
-  <a class="tlink" {href} {title} aria-current={active ? 'page' : undefined} onclick={click} onpointerenter={onhover} onfocus={onhover}>
+  <a class="tlink" {href} use:tip={title} aria-current={active ? 'page' : undefined} onclick={click} onpointerenter={onhover} onfocus={onhover}>
     {#if icon}<i class="ph ph-{icon}" style="font-size:15px"></i>{/if}
     <span class="lbl" class:strong>{tr(label)}</span>
     {#if chip}<span class="chip">{chip}</span>{/if}
     <span class="rt">
       {#if count !== ''}<span class="cnt" class:warn>{count}</span>{/if}
       <span class="sl">
-        {#if lock}<i class="ph ph-lock-simple" style="font-size:12px;color:var(--fg-3)" title="Storage locked"></i>
+        {#if lock}<i class="ph ph-lock-simple" style="font-size:12px;color:var(--fg-3)" use:tip={'Storage locked'}></i>
         {:else if dot}<StatusDot bare state={dot.state} label={dot.title} />{/if}
       </span>
     </span>

@@ -1,4 +1,5 @@
 <script>
+  import { tip } from '../ui/tooltip.svelte.js';
   // Around EVERY page: the states that do not depend on the page's own data, decided here once.
   //   storage locked   a page whose tree item has `storage: true` is NOT rendered (so it reads nothing); an amber banner with the unlock form instead
   //   part switched off the tree item's `capability` is not in the session's capability list: explanation + link to Settings
@@ -30,7 +31,7 @@
 {#if off}
   <div class="card"><EmptyState tone="info" icon="power" title="This part is switched off"
     text="It is not part of this server's configuration, so there is nothing to show. Switch it on in Settings (the line is capabilities in machine.toml).">
-    {#snippet action()}<button class="btn" onclick={() => go('/settings')}><i class="ph ph-sliders"></i>Open Settings</button>{/snippet}
+    {#snippet action()}<button use:tip={'Open the settings page'} class="btn" onclick={() => go('/settings')}><i class="ph ph-sliders"></i>Open Settings</button>{/snippet}
   </EmptyState></div>
 {:else if gate}
   <Banner tone="warn" icon="lock">
@@ -41,7 +42,7 @@
   {#if down}
     <Banner tone="bad">
       <b>{node.name} does not answer.</b> {node.why || 'The likely reasons: the server is off, the network is down, or its key was changed.'} The data below is the last that was read.
-      {#snippet action()}{#if node.retry}<button class="btn sm" onclick={node.retry}><i class="ph ph-arrow-clockwise"></i>Try again</button>{/if}{/snippet}
+      {#snippet action()}{#if node.retry}<button use:tip={'Read the page again'} class="btn sm" onclick={node.retry}><i class="ph ph-arrow-clockwise"></i>Try again</button>{/if}{/snippet}
     </Banner>
   {/if}
   <div class="pg" class:down inert={down || undefined}>

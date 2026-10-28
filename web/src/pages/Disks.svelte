@@ -1,4 +1,5 @@
 <script>
+  import { tip } from '../ui/tooltip.svelte.js';
   // Storage > Disks: every disk of this server in one list (/storage/disks, filter ?pool=bulk|fast|none|missing), a drawer for the selected one
   // (SMART history, self-test results, the actions that belong to a single disk). Changing pool membership (replace, remove, close, convert)
   // stays on Pools; a free disk is added from here (the Pools plan).
@@ -18,7 +19,7 @@
   import OtherDisk from '../forms/storage/OtherDisk.svelte';
   import DetachDisk from '../forms/storage/DetachDisk.svelte';
   import RecoverDisk from '../forms/storage/RecoverDisk.svelte';
-  import MoveFolder from '../forms/storage/MoveFolder.svelte';
+  import { filesLink } from '../files/links.js';
   import { diskPool, sizeTxt, hoursTxt, roleLabel, dateOf, serialIn } from './storage/pool.js';
 
   let { deck } = $props();
@@ -42,9 +43,9 @@
   const membBulk = poll('/api/sys/pool/members?pool=bulk', 30000);
   const membFast = poll('/api/sys/pool/members?pool=fast', 30000);
 
-  // monitor disks: name, bytes, SSD/HDD, role, temp, health, hours, reallocated, pending, crc, model+serial, free
+  // monitor disks: name, bytes, SSD/HDD, role, temp, health, hours, reallocated, pending, crc, model+serial, free, power, filesystem (xfs, ext4, zfs, ... / none / -)
   const all = $derived(rows(mon).map((r) => ({
-    name: r[0], size: Number(r[1]), kind: r[2], role: r[3], temp: r[4], smart: r[5], hours: r[6], realloc: r[7], pending: r[8], crc: r[9], model: r[10], free: r[11],
+    name: r[0], size: Number(r[1]), kind: r[2], role: r[3], temp: r[4], smart: r[5], hours: r[6], realloc: r[7], pending: r[8], crc: r[9], model: r[10], free: r[11], fs: r[13],
   })));
   // disk-health list: name, size, kind, model, verdict, hours, first reason
   const verdicts = $derived(Object.fromEntries(rows(health).map((r) => [r[0], { verdict: r[4], reason: r[6] }])));
@@ -85,6 +86,8 @@
     return g && g !== '-' ? g : roleLabel(d.role);
   };
   const poolText = (d) => diskPool(d.role) || (isLoose(d) ? 'free' : d.role);
+  // the pane next to a disk in the file manager: another data disk (a pool disk and its own pool never meet there)
+  const otherDisk = (member) => { const o = dataMembers('bulk').find((n) => n !== member); return o ? `disk:${o}` : ''; };
   const dataMembers = (p) => membRows(p).filter((r) => r[3] === 'data' && r[2] === 'ONLINE').map((r) => r[0]);
 
   // ── the drawer: SMART history and self-tests
@@ -112,6 +115,7 @@
   }));
   const running = $derived(rows(results).map((r) => r.join(' ')).find((l) => /^A test is running/i.test(l)));
   const num = (v) => (v && v !== '-' ? v : '–');
+  const fsText = (d) => (d.fs && d.fs !== '-' ? d.fs : '–');
 
   const runTest = (kind) => openPlan('disk', [sel.name, 'test', kind], `${kind === 'long' ? 'Long' : 'Short'} test of ${sel.name}`);
   const addToPool = (pool) => openCreate(AddDisks, { pool, variant: 'empty', snap: pool === 'bulk' ? bulkSnap : false });
@@ -120,7 +124,7 @@
 
   const columns = [
     { key: 'name', label: 'Disk' }, { key: 'pool', label: 'Pool', value: (d) => poolText(d) }, { key: 'role', label: 'Role', value: (d) => roleText(d), optional: true },
-    { key: 'model', label: 'Model', value: (d) => modelOf(d), optional: true }, { key: 'size', label: 'Size', sort: 'num', value: (d) => d.size },
+    { key: 'model', label: 'Model', value: (d) => modelOf(d), optional: true }, { key: 'size', label: 'Size', sort: 'num', value: (d) => d.size }, { key: 'fs', label: 'Format', value: (d) => fsText(d), optional: true },
     { key: 'smart', label: 'SMART', value: (d) => verdictOf(d) }, { key: 'temp', label: 'Temp', sort: 'num', value: (d) => Number(d.temp), optional: true },
     { key: 'hours', label: 'Power-on', sort: 'num', value: (d) => Number(d.hours), optional: true },
   ];
@@ -129,8 +133,8 @@
 
 <PageHeader title="Disks" crumb="Storage" sub="Every disk of this server: where it belongs, how healthy it is, what it has been through.">
   {#snippet actions()}
-    <button class="btn" disabled={locked} title={lockTip('Look at a USB or hot-plug disk: mount it read-only, copy from it, eject it')} onclick={() => openCreate(OtherDisk, {})}><i class="ph ph-usb"></i>Other disk</button>
-    <button class="btn btn-primary" disabled={locked || !counts.none} title={lockTip(counts.none ? 'Pick free disks and see the plan' : 'There is no free disk')} onclick={() => addToPool(poolForNew)}><i class="ph ph-plus"></i>Add disks to a pool</button>
+    <button class="btn" disabled={locked} use:tip={lockTip('Look at a USB or hot-plug disk: mount it read-only, copy from it, eject it')} onclick={() => openCreate(OtherDisk, {})}><i class="ph ph-usb"></i>Other disk</button>
+    <button class="btn btn-primary" disabled={locked || !counts.none} use:tip={lockTip(counts.none ? 'Pick free disks and see the plan' : 'There is no free disk')} onclick={() => addToPool(poolForNew)}><i class="ph ph-plus"></i>Add disks to a pool</button>
   {/snippet}
 </PageHeader>
 
@@ -166,7 +170,7 @@
             <Kv items={[{ k: 'Serial', v: selMissing.serial }, { k: 'Was', v: selMissing.dev }, { k: 'Size', v: sizeTxt(selMissing.size) }, { k: 'First seen', v: dateOf(selMissing.first) }, { k: 'Last seen', v: dateOf(selMissing.lastSeen) }, { k: 'Role', v: selMissing.role }]} />
             <p class="mute pad">A missing disk can only be forgotten. If it is a pool member, replace it from its pool first.</p>
             {#snippet actions()}
-              <button class="btn btn-danger" disabled={locked} title="Take this disk off the list for good" onclick={() => openCreate(ForgetDisk, { serial: selMissing.serial, model: selMissing.model, dev: selMissing.dev })}><i class="ph ph-trash-simple"></i>Forget…</button>
+              <button class="btn btn-danger" disabled={locked} use:tip={'Take this disk off the list for good'} onclick={() => openCreate(ForgetDisk, { serial: selMissing.serial, model: selMissing.model, dev: selMissing.dev })}><i class="ph ph-trash-simple"></i>Forget…</button>
             {/snippet}
           </Drawer>
         {/if}
@@ -176,7 +180,7 @@
     {#if deck?.data?.locked}<Banner tone="warn">Storage is locked: pool disks may be missing from this list until it is unlocked.</Banner>{/if}
     {#if missing.length && filter === 'all'}
       <Banner tone="warn">{missing.length} disk{missing.length === 1 ? ' is' : 's are'} missing since the last collector run.
-        {#snippet action()}<button class="btn sm" onclick={() => setFilter('missing')}>Show</button>{/snippet}
+        {#snippet action()}<button use:tip={'Show the disks that are missing'} class="btn sm" onclick={() => setFilter('missing')}>Show</button>{/snippet}
       </Banner>
     {/if}
     <Split open={!!sel}>
@@ -190,6 +194,7 @@
               {:else if col.key === 'role'}<span class="mute">{diskPool(d.role) ? roleText(d) : ''}</span>
               {:else if col.key === 'model'}<span class="mute">{modelOf(d)}</span>
               {:else if col.key === 'size'}<span class="nw"><UsageBar free={d.free} size={d.size} width={96} /></span>
+              {:else if col.key === 'fs'}<span class="nw mute">{fsText(d)}</span>
               {:else if col.key === 'smart'}<StatusDot state={stateOf(d)} label={wordOf(d)} />
               {:else if col.key === 'temp'}<span class="nw">{d.temp && d.temp !== '-' ? `${d.temp} °C` : '–'}</span>
               {:else}<span class="nw mute">{hoursTxt(d.hours)}</span>{/if}
@@ -205,7 +210,7 @@
             {#snippet children(t)}
               {#if t === 'info'}
                 <Kv items={[
-                  { k: 'Model', v: modelOf(sel) }, { k: 'Serial', v: serialOf(sel) }, { k: 'Size', v: sizeTxt(sel.size) }, { k: 'Type', v: sel.kind },
+                  { k: 'Model', v: modelOf(sel) }, { k: 'Serial', v: serialOf(sel) }, { k: 'Size', v: sizeTxt(sel.size) }, { k: 'Type', v: sel.kind }, { k: 'Format', v: fsText(sel) },
                   { k: 'Pool', v: poolText(sel) }, { k: 'Role', v: diskPool(sel.role) ? roleText(sel) : sel.role },
                   { k: 'Temperature', v: sel.temp && sel.temp !== '-' ? `${sel.temp} °C` : '' }, { k: 'Power-on', v: hoursTxt(sel.hours) },
                   { k: 'Free space', v: sel.free && sel.free !== '-' ? sizeTxt(Number(sel.free)) : '' }, { k: 'First seen', v: rec?.first ? dateOf(rec.first) : '' },
@@ -213,9 +218,9 @@
                 {#if verdicts[sel.name]?.reason && verdicts[sel.name].reason !== '-'}<p class="pad">{verdicts[sel.name].reason}</p>{/if}
                 {#if markOf[member]}<div class="pad"><Banner tone="info">{markOf[member] === 'detached' ? 'This disk is out of /bulk on purpose (detached). Attach it again when you are done.' : 'Recovery is running or waiting for its finish; the disk is out of /bulk until then.'}</Banner></div>{/if}
                 <div class="pad links">
-                  {#if diskPool(sel.role)}<button class="btn sm" onclick={() => go(`/storage/pools/${diskPool(sel.role)}`)}><i class="ph ph-cylinder"></i>Pool {diskPool(sel.role)}</button>{/if}
-                  <button class="btn sm" onclick={() => go('/operations/health')}><i class="ph ph-heartbeat"></i>Health</button>
-                  <button class="btn sm" onclick={() => go('/storage/encryption')}><i class="ph ph-lock-key"></i>Encryption</button>
+                  {#if diskPool(sel.role)}<button use:tip={`Open the pool ${diskPool(sel.role)}`} class="btn sm" onclick={() => go(`/storage/pools/${diskPool(sel.role)}`)}><i class="ph ph-cylinder"></i>Pool {diskPool(sel.role)}</button>{/if}
+                  <button use:tip={'Open the health page'} class="btn sm" onclick={() => go('/operations/health')}><i class="ph ph-heartbeat"></i>Health</button>
+                  <button use:tip={'Open the encryption page'} class="btn sm" onclick={() => go('/storage/encryption')}><i class="ph ph-lock-key"></i>Encryption</button>
                 </div>
               {:else if t === 'smart'}
                 <Kv items={[{ k: 'Pending sectors', v: num(sel.pending) }, { k: 'Reallocated', v: num(sel.realloc) }, { k: 'CRC errors', v: num(sel.crc) }, { k: 'Verdict', v: verdictOf(sel) }]} />
@@ -243,17 +248,18 @@
               {/if}
             {/snippet}
             {#snippet actions()}
-              <button class="btn sm" disabled={!!running} title={running ? 'A test is running in this disk' : 'About two minutes; shows the plan first'} onclick={() => runTest('short')}><i class="ph ph-pulse"></i>Short test</button>
-              <button class="btn sm" disabled={!!running} title={running ? 'A test is running in this disk' : 'Reads the whole surface (hours); shows the plan first'} onclick={() => runTest('long')}><i class="ph ph-pulse"></i>Long test</button>
+              <button class="btn sm" disabled={!!running} use:tip={running ? 'A test is running in this disk' : 'About two minutes; shows the plan first'} onclick={() => runTest('short')}><i class="ph ph-pulse"></i>Short test</button>
+              <button class="btn sm" disabled={!!running} use:tip={running ? 'A test is running in this disk' : 'Reads the whole surface (hours); shows the plan first'} onclick={() => runTest('long')}><i class="ph ph-pulse"></i>Long test</button>
               {#if isLoose(sel)}
-                <button class="btn sm btn-primary" disabled={locked} title={lockTip('Pick this disk and see the plan')} onclick={() => addToPool(poolForNew)}><i class="ph ph-plus"></i>Add to a pool…</button>
-                <button class="btn sm" disabled={locked} title={lockTip('Mount it read-only, copy from it, eject it')} onclick={() => openCreate(OtherDisk, {})}><i class="ph ph-usb"></i>Mount read-only…</button>
-                <button class="btn sm btn-danger" disabled={locked} title={lockTip('Erase this disk so it can be added to a pool')} onclick={() => openCreate(WipeDisk, { disk: sel.name, model: modelOf(sel), size: sel.size })}><i class="ph ph-eraser"></i>Format…</button>
+                <button class="btn sm btn-primary" disabled={locked} use:tip={lockTip('Pick this disk and see the plan')} onclick={() => addToPool(poolForNew)}><i class="ph ph-plus"></i>Add to a pool…</button>
+                <button class="btn sm" disabled={locked} use:tip={lockTip('Mount it read-only, copy from it, eject it')} onclick={() => openCreate(OtherDisk, {})}><i class="ph ph-usb"></i>Mount read-only…</button>
+                <button class="btn sm btn-danger" disabled={locked} use:tip={lockTip('Erase this disk so it can be added to a pool')} onclick={() => openCreate(WipeDisk, { disk: sel.name, model: modelOf(sel), size: sel.size })}><i class="ph ph-eraser"></i>Format…</button>
               {/if}
               {#if snapRole(sel) && /data/.test(sel.role) && member}
-                <button class="btn sm" disabled={locked} title="Take this disk out of /bulk to work on it by hand (or put it back)" onclick={() => openCreate(DetachDisk, { pool: 'bulk', member })}><i class="ph ph-plugs"></i>{markOf[member] === 'detached' ? 'Attach…' : 'Detach…'}</button>
-                <button class="btn sm" disabled={locked} title="Move a folder to another data disk (the path in /bulk stays the same)" onclick={() => openCreate(MoveFolder, { pool: 'bulk', member, targets: dataMembers('bulk').filter((n) => n !== member) })}><i class="ph ph-arrows-left-right"></i>Move folder…</button>
-                <button class="btn sm" disabled={locked} title="Get deleted files back from this disk" onclick={() => openCreate(RecoverDisk, { pool: 'bulk', member, members: dataMembers('bulk') })}><i class="ph ph-first-aid-kit"></i>Recover…</button>
+                <button class="btn sm" disabled={locked} use:tip={'Take this disk out of /bulk to work on it (or put it back)'} onclick={() => openCreate(DetachDisk, { pool: 'bulk', member })}><i class="ph ph-plugs"></i>{markOf[member] === 'detached' ? 'Attach…' : 'Detach…'}</button>
+                <button class="btn sm" disabled={locked} use:tip={'Look at the files of this disk, next to another disk'} onclick={() => go(filesLink({ left: `disk:${member}`, right: otherDisk(member) }))}><i class="ph ph-folder-open"></i>Browse files</button>
+                <button class="btn sm" disabled={locked} use:tip={'Move files to another data disk in the file manager; their path stays'} onclick={() => go(filesLink({ left: `disk:${member}`, path: '/shares', right: otherDisk(member), rpath: '/shares' }))}><i class="ph ph-arrows-left-right"></i>Move files…</button>
+                <button class="btn sm" disabled={locked} use:tip={'Get deleted files back from this disk'} onclick={() => openCreate(RecoverDisk, { pool: 'bulk', member, members: dataMembers('bulk') })}><i class="ph ph-first-aid-kit"></i>Recover…</button>
               {/if}
             {/snippet}
           </Drawer>

@@ -1,0 +1,26 @@
+# German texts of the extension passthrough (English <TAB> German), loaded while the package is on.
+Forward this domain?	Diese Domain durchreichen?
+Domains	Domains
+Gateway proxy	Gateway-Proxy
+Public HTTP	Öffentliches HTTP
+Public HTTPS	Öffentliches HTTPS
+No domain is forwarded yet.	Es wird noch keine Domain durchgereicht.
+A port is held by %s, not by Traefik (%s).	Ein Port wird von %s gehalten, nicht von Traefik (%s).
+Cancelled.	Abgebrochen.
+Forwarding %s and its subdomains to %s	%s und ihre Subdomains werden an %s durchgereicht
+No public HTTPS port: set gatewayPublicHttps = 443 in machine.toml, then hs rebuild.	Kein öffentlicher HTTPS-Port: gatewayPublicHttps = 443 in machine.toml setzen, dann hs rebuild.
+Nobody to ask: add --confirm %s to go on.	Niemand zum Fragen: zum Fortfahren --confirm %s angeben.
+Nobody to ask: add --yes to go on.	Niemand zum Fragen: zum Fortfahren --yes angeben.
+Passthrough domains	Durchreich-Domains
+Stopped forwarding %s	%s wird nicht mehr durchgereicht
+The gateway proxy is off.	Der Gateway-Proxy ist aus.
+The route files are written again.	Die Routen-Dateien sind neu geschrieben.
+The target of %s does not answer.	Das Ziel von %s antwortet nicht.
+The typed name does not match: %s	Der getippte Name passt nicht: %s
+Domain	Domain
+If the router rewrites the source address of forwarded traffic to its own address, every internet client looks local.	Wenn der Router die Quelladresse weitergeleiteten Verkehrs auf seine eigene Adresse umschreibt, wirkt jeder Internet-Client lokal.
+Test: open a local name of this server from a phone on mobile data; it must answer 403 (or 404), never a page.	Test: ein lokaler Name dieses Servers vom Handy über Mobilfunk aufgerufen muss 403 (oder 404) liefern, nie eine Seite.
+Address	Adresse
+HTTPS	HTTPS
+HTTP	HTTP
+PROXY	PROXY

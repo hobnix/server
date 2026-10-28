@@ -13,6 +13,12 @@ prop() {   # prop <unit> <property> : the value, or empty
   systemctl show "$1" -p "$2" --value 2>/dev/null || true
 }
 
+# nosudo: a job's journal without the lines sudo writes into it each time a script calls `sudo -u adminuser ...`
+# (the "COMMAND=" line and the pam_unix session open/close pair); they say nothing about the job.
+nosudo() {
+  grep -Ev 'pam_unix\(sudo[^)]*\):| : (TTY=[^ ]+ ; )?PWD=[^ ]+ ; USER=[^ ]+ ; COMMAND=' || true
+}
+
 short() {  # "Mon 2026-10-05 04:00:00 UTC" -> "05.10. 04:00"; empty or n/a -> "-"
   local t=$1
   if [ -z "$t" ] || [ "$t" = "n/a" ]; then echo "-"; return; fi
@@ -86,13 +92,13 @@ follow() {   # follow <unit>
   off=0
   while :; do
     size=$(wc -c <"$tmp")
-    if [ "$size" -gt "$off" ]; then tail -c +$((off + 1)) "$tmp" | trail; off=$size; fi
+    if [ "$size" -gt "$off" ]; then tail -c +$((off + 1)) "$tmp" | nosudo | trail; off=$size; fi
     case "$(prop "$unit" ActiveState)" in active|activating|reloading) ;; *) break ;; esac
     sleep "${HS_FOLLOW_EVERY:-1}"
   done
   sleep "${HS_FOLLOW_EVERY:-1}"        # the last lines of the journal arrive a moment after the unit stops
   size=$(wc -c <"$tmp")
-  if [ "$size" -gt "$off" ]; then tail -c +$((off + 1)) "$tmp" | trail; fi
+  if [ "$size" -gt "$off" ]; then tail -c +$((off + 1)) "$tmp" | nosudo | trail; fi
   kill "$jpid" 2>/dev/null || true
   wait "$jpid" 2>/dev/null || true
   rm -f "$tmp"
@@ -125,7 +131,7 @@ tail_job() {
   case "$unit" in *.service|*.timer|*.scope) ;; *) unit=$unit.service ;; esac
   [[ "$from" =~ ^[0-9]+$ ]] || from=0
   load=$(prop "$unit" LoadState); active=$(prop "$unit" ActiveState)
-  all=$(journalctl -u "$unit" -o cat --no-pager 2>/dev/null </dev/null || true)
+  all=$(journalctl -u "$unit" -o cat --no-pager 2>/dev/null </dev/null | nosudo || true)
   total=$(printf '%s' "$all" | grep -c '' || true)
   case "$active" in
     active|activating|reloading) state=running ;;
@@ -173,7 +179,7 @@ log_unit() {
   case "$unit" in *.service) ;; *) unit=$unit.service ;; esac
   valid_unit "$unit" || { echo "not a job unit: $1" >&2; return 1; }
   [[ "$n" =~ ^[0-9]+$ ]] || n=200
-  journalctl -u "$unit" -n "$n" --no-pager -o short-iso 2>/dev/null </dev/null | grep -v '^-- ' || true
+  journalctl -u "$unit" -n "$n" --no-pager -o short-iso 2>/dev/null </dev/null | nosudo | grep -v '^-- ' || true
 }
 
 pick_running() {   # the one running job, or ask
@@ -207,5 +213,5 @@ case "${1:-}" in
   stop) [ $# -ge 2 ] || { say "usage: hs job stop <unit>"; exit 1; }; systemctl stop "$2"; ok "$(t 'Stopped %s' "$2")" ;;
   -h|--help) say "usage: hs job list | running | log <unit> | follow <unit> | stop <unit>"; exit 0 ;;
   --follow) follow "$(pick_running)" ;;
-  *) if [ "${2:-}" = --follow ]; then follow "$1"; else journalctl -u "$1" -n 40 --no-pager | trail; fi ;;
+  *) if [ "${2:-}" = --follow ]; then follow "$1"; else journalctl -u "$1" -n 40 --no-pager | nosudo | trail; fi ;;
 esac

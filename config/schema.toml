@@ -547,6 +547,23 @@ value = '''
 diskSpindownMinutes = 30'''
 
 [[item]]
+kind = "option"
+key = "fileManagerWrite"
+type = "bool"
+required = false
+settable = true
+secret = false
+store = "settings"
+default = 'false'
+doc = '''
+# Allow the file manager to copy, move and delete files. Test it in a VM first (docs/PLAN-file-manager.md).
+# false (default)  browsing and plans only: `hs sys fm start` refuses copy, move, delete, rename and new folder
+# true             the file manager changes files
+# This code has never run on real disks. Switch it on only after the VM test of the plan passed.'''
+value = '''
+fileManagerWrite = true'''
+
+[[item]]
 kind = "section"
 title = "Backup"
 
@@ -901,6 +918,39 @@ doc = '''
 # A service named "jellyfin" is wanted as jellyfin.<each domain>. No rebuild.'''
 value = '''
 proxyDomains = "example.org,example.net"'''
+
+[[item]]
+kind = "option"
+key = "gatewayPublicHttps"
+type = "int"
+required = false
+settable = false
+secret = false
+capability = "gateway"
+default = '0'
+doc = '''
+# The public HTTPS port of the gateway proxy (extension passthrough: outside domains forwarded by SNI). 0 = off. Suggested 443: the
+# router forwards the internet's 443 straight to the server. Another port (4443) only behind a router that translates ports. Never 80.
+# Opens the port to the internet. Needs hs rebuild.'''
+value = '''
+gatewayPublicHttps = 443'''
+
+[[item]]
+kind = "option"
+key = "gatewayPublicHttp"
+type = "int"
+required = false
+settable = false
+secret = false
+capability = "gateway"
+default = '0'
+doc = '''
+# The public HTTP port of the gateway proxy (extension passthrough: outside domains forwarded by Host). 0 = off. Suggested 80: the
+# router forwards the internet's 80 straight to the server; port 80 then also carries the local names, which refuse every source
+# outside the home networks. Another port (8008) only behind a router that translates ports. Never 443. Opens the port to the
+# internet. Needs hs rebuild.'''
+value = '''
+gatewayPublicHttp = 80'''
 
 [[item]]
 kind = "section"

@@ -1,4 +1,5 @@
 <script>
+  import { tip } from '../ui/tooltip.svelte.js';
   import { onMount } from 'svelte';
   import { plan as askPlan, start as doStart } from '../api.js';
   import { ui, track, trackDone, showTab } from '../ui.svelte.js';
@@ -62,7 +63,7 @@
       <div class="dtop">
         <span class="eyebrow" class:bad={danger}>{kicker}</span>
         <span class="grow"></span>
-        <Chip>{ui.host}</Chip>
+        <Chip kind="strong">{ui.host}</Chip>
       </div>
       <h3 id="pdt">{p?.heading || dialog.title || 'Plan'}</h3>
     </div>
@@ -91,7 +92,7 @@
       <span class="note">{allowed ? 'Nothing has run yet. The result appears under Jobs.' : ''}</span>
       <button class="btn" onclick={close}>{allowed ? 'Cancel' : 'Close'}</button>
       {#if allowed}
-        <button class="btn {danger ? 'btn-danger' : 'btn-primary'}" disabled={!canStart} onclick={go}>
+        <button use:tip={canStart ? '' : p.confirm_name && confirm !== p.confirm_name ? 'Type the name to confirm first' : busy ? 'Starting' : 'This change cannot be started now'} class="btn {danger ? 'btn-danger' : 'btn-primary'}" disabled={!canStart} onclick={go}>
           <i class="ph ph-play"></i>{busy ? 'Starting…' : 'Start job'}
         </button>
       {/if}
