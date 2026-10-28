@@ -12,8 +12,8 @@ echo "-- the repository"
 check "every manifest is valid" $PKG validate
 n_recipes=$(ls "$ROOT"/packages/*/run.sh | wc -l)
 check_eq "every recipe has a manifest" "$n_recipes" "$(ls "$ROOT"/packages/*/package.toml | wc -l)"
-check_eq "games and posters are extension packages" "2" "$($PKG list --all --kind extension | wc -l)"
-check_out "list shows arr with a version" "^arr${tab}recipe${tab}1[.]0[.]0" $PKG list
+check_eq "games, posters and passthrough are extension packages" "3" "$($PKG list --all --kind extension | wc -l)"
+check_out "list shows arr with a version" "^arr${tab}recipe${tab}1[.]1[.]0" $PKG list
 check_eq "a personal recipe is hidden without --all" "0" "$($PKG list | grep -c "^zoraxy${tab}")"
 check_eq "and shown with it" "1" "$($PKG list --all | grep -c "^zoraxy${tab}")"
 check_eq "the API level is a number" "1" "$($PKG api | grep -cE '^[1-9][0-9]*$')"
@@ -42,10 +42,10 @@ check_out "a name that differs from the folder is named" "differs from the folde
 echo "-- applied versions and updates"
 check_eq "nothing is applied yet, no update" "" "$($PKG updates)"
 $PKG record arr
-check_out "record writes the version" 'version = "1.0.0"' cat "$HS_STATE_DIR/packages/installed.toml"
+check_out "record writes the version" 'version = "1.1.0"' cat "$HS_STATE_DIR/packages/installed.toml"
 check_eq "up to date after record" "" "$($PKG updates)"
 printf '[package.arr]\nversion = "0.9.0"\n' > "$HS_STATE_DIR/packages/installed.toml"
-check_out "an older applied version shows as an update" "^arr${tab}0[.]9[.]0${tab}1[.]0[.]0" $PKG updates
+check_out "an older applied version shows as an update" "^arr${tab}0[.]9[.]0${tab}1[.]1[.]0" $PKG updates
 check "an unknown package cannot be recorded" bash -c "! $PKG record nope 2>/dev/null"
 
 echo "-- hs pkg"

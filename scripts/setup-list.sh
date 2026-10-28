@@ -41,5 +41,5 @@ row share         "A first share"              "hs share add <name>"            
 row backup        "Backup disk"                "hs backup init <device>"         /protection/backup  has_file "$state/restic-password"
 if vault_configured; then row vault "Vault (secrets)" "hs unlock" /storage/vault vault_is_open; fi
 row parts         "Optional parts (capabilities)" "hs config set capabilities ..." /settings         has_caps
-if grep -qx gateway "$etc/capabilities" 2>/dev/null; then row gateway-dns "Wildcard DNS for the gateway proxy" "hs gateway check" /services bash "$here/gateway.sh" --check-wildcard; fi
+if grep -qx gateway "$etc/capabilities" 2>/dev/null; then row gateway-dns "Wildcard DNS for the gateway proxy" "hs gateway check" /instances/services bash "$here/gateway.sh" --check-wildcard; fi
 row finished      "Setup finished"             "hs config set setupDone true"    /setup              bash -c '[ "$(. "$1/lib/setting.sh"; setting_get setupDone 2>/dev/null)" = true ]' _ "$here"
