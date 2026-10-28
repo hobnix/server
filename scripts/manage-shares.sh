@@ -314,12 +314,8 @@ case "$1" in
       [ "${want[$sid]}" = none ] || new+=("$sid:ALLOWED/0x0/$(mask_of "${want[$sid]}")")
     done
 
-    # someone must keep full control, or nobody can manage (or even open) the share
-    printf '%s\n' "${new[@]:-}" | grep -qE 'ALLOWED/[^/]*/(FULL|0x001f01ff)$' || {
-      warn "$(t "Not possible: nobody would have full access to '%s' any more." "$share")"
-      note "Keep 'full' for the administrators (Domain Admins) or for yourself."
-      exit 1
-    }
+    # no "someone must keep full" check: the web interface and hs change the share as root and
+    # write files as adminuser (force user), so these rights only decide who may use it over Samba
 
     echo "Access to '$share' afterwards:"
     for e in "${new[@]}"; do

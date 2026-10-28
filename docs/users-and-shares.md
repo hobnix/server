@@ -308,7 +308,6 @@ The login `remote-<name>` is a domain user in "Domain Users": do not give that g
 | `wbinfo -u` says `WBC_ERR_WINBIND_NOT_AVAILABLE` | the service started before the join and gave up | `sudo systemctl restart samba-winbindd samba-smbd` |
 | `wbinfo -t` fails but `wbinfo -u` works | `wbinfo -t` needs root | `sudo wbinfo -t` |
 | `hs user list` says there is no domain controller | the VM `dc1` does not exist or is stopped | `incus start dc1`; if it has another name: `sudo HS_DC=<name> hs user list` |
-| `Not possible: nobody would have full access` | the change would leave no entry with `full` | keep "Domain Admins" on `full` |
 | `fsmgmt.msc`: "Access is denied" | Windows is not connected as administrator, or the group may not set rights yet | connect by address as `EXAMPLE\Administrator`; run the `net rpc rights grant` command above |
 | "is not a valid name" when adding a user in Windows | the long form `ad.example.lan\name` was typed | type `EXAMPLE\name` |
 | Changed rights have no effect for someone | their connection was already open | reconnect, or `sudo systemctl restart samba-smbd` |

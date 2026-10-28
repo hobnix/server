@@ -6,7 +6,7 @@
 # (a dataset on ZFS) under the new name, which `hs share repair` never publishes again. Order: (1) the rename is checked with its own
 # dry run (refused while the upload cache is on, a taken name ...), so a refusal changes nothing; (2) the instances that mount the share
 # or a folder in it lose that device; (3) manage-shares.sh --rename (the folder on every disk, under the bulk lock); (4) the Samba share
-# of the new name is removed. --dry-run prints these steps as indented commands. Test knobs: HS_MANAGE_SHARES, HS_INCUS, HS_NET, HS_DELETE_STAMP.
+# of the new name is removed. --dry-run prints these steps as indented commands. If the folder is already gone (deleted by hand), only the instance mounts and the Samba share are removed. Test knobs: HS_MANAGE_SHARES, HS_INCUS, HS_NET, HS_DELETE_STAMP, HS_BULK, HS_LOCK, HS_LOCKED_FLAG.
 set -euo pipefail
 here=$(dirname "$0")
 manage=${HS_MANAGE_SHARES:-$here/manage-shares.sh}
@@ -19,15 +19,25 @@ share=${1:-}; dry=false
 stamp=${HS_DELETE_STAMP:-$(date +%Y%m%d)}
 new="$share.deleted-$stamp"
 
+BULK=${HS_BULK:-/bulk}
 path=$("$net" conf getparm "$share" path 2>/dev/null || true)
 case "$path" in
-  /bulk/shares/*|/bulk/sensitive/*) ;;
+  "$BULK"/shares/*|"$BULK"/sensitive/*) ;;
   *) echo "'$share' is not a folder under /bulk/shares or /bulk/sensitive: it can't be deleted here." >&2; exit 1 ;;
 esac
 
+# The folder is gone (deleted by hand, e.g. in a file manager): nothing to rename, only the dead Samba share to drop. Only when the pool is
+# plainly mounted and unlocked: a missing folder is otherwise "not mounted", not "gone".
+gone=false
+if [ ! -e "$path" ] && [ ! -e "${HS_LOCKED_FLAG:-/run/hs/storage-locked}" ] && [ -d "$BULK/shares" ] && [ -d "$BULK/sensitive" ]; then
+  if [ -n "${HS_BULK:-}" ] || [ "$(findmnt -n -T "$BULK/shares" -o TARGET 2>/dev/null || true)" != / ]; then gone=true; fi
+fi
+
 # (1) the rename decides first: nothing has changed when it refuses
-rc=0; out=$(bash "$manage" "$share" --rename "$new" --dry-run </dev/null 2>&1) || rc=$?
-if [ "$rc" -ne 0 ]; then printf '%s\n' "${out:-the rename of '$share' was refused without a message}" >&2; exit 1; fi
+if ! $gone; then
+  rc=0; out=$(bash "$manage" "$share" --rename "$new" --dry-run </dev/null 2>&1) || rc=$?
+  if [ "$rc" -ne 0 ]; then printf '%s\n' "${out:-the rename of '$share' was refused without a message}" >&2; exit 1; fi
+fi
 
 # (2) the devices of instances that mount the share or a folder inside it: instance<TAB>device
 mapfile -t mounts < <("$incus" list -f json 2>/dev/null | jq -r --arg p "$path" '.[] | .name as $n | .devices // {} | to_entries[]
@@ -39,9 +49,16 @@ if $dry; then
     [ -n "$m" ] || continue
     printf '  incus config device remove %s %s\n' "${m%%$'\t'*}" "${m#*$'\t'}"
   done
+  if $gone; then printf '  net conf delshare %s\n' "$share"; exit 0; fi
   printf '  hs share %s rename %s\n' "$share" "$new"
   printf '  net conf delshare %s\n' "$new"
   exit 0
+fi
+
+if $gone; then
+  exec 9>"${HS_LOCK:-/run/hs-bulk.lock}"
+  flock -w 600 9 || { echo "Parity sync, cache mover or a rename is running, try again later." >&2; exit 1; }
+  if [ -e "$path" ]; then echo "The folder of '$share' is back; run the delete again." >&2; exit 1; fi
 fi
 
 removed=()
@@ -52,6 +69,11 @@ for m in "${mounts[@]}"; do
   removed+=("$ct:$dev")
   echo "detached $dev from $ct"
 done
+if $gone; then
+  "$net" conf delshare "$share"
+  echo "'$share' is removed from Samba. Its folder was already gone."
+  exit 0
+fi
 if ! bash "$manage" "$share" --rename "$new"; then
   echo "The rename failed. The share is still published under its old name." >&2
   [ ${#removed[@]} -eq 0 ] || echo "These mounts were already detached: ${removed[*]} (add them again with: hs ct <instance> storage add)" >&2
