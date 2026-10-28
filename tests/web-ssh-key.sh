@@ -26,7 +26,7 @@ check_eq "the key body is never printed" "0" "$(grep -c "$(awk '{ print $2 }' "$
 check_eq "the session key is marked" "yes" "$(HS_SSH_CURRENT_FP=$(fp a) $L | cut -f4)"
 
 echo "-- add"
-check_out "plan: ok with the fingerprint and the rebuild note" "^step.*$(fp b)" $C plan add "$(keyline b)"
+check_out "plan: ok with the fingerprint and the rebuild note" "^step.*$(fp b | sed "s/+/[+]/g")" $C plan add "$(keyline b)"
 check_out "plan: says hs rebuild" "^note.*hs rebuild" $C plan add "$(keyline b)"
 check_out "plan: not red" "^long	no" $C plan add "$(keyline b)"
 check_eq "plan has no danger line" "0" "$($C plan add "$(keyline b)" | grep -c '^danger' || true)"
