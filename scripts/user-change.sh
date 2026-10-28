@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # help: change a user or group of the domain without asking anything: what would happen (plan), then do it as a background job (start)
 # help.de: einen Benutzer oder eine Gruppe der Domäne ändern, ohne etwas zu fragen: was passieren würde (plan), dann als Hintergrundjob ausführen (start)
-# args: plan|start <name> <lock|unlock|group-add|membership|flush|password|user-add|user-delete|group-delete> [--change <user>:<group>=add|remove ...] [--full <name>] [--group <group> ...] [--access <share>=read|write|full ...] [--confirm <word>]
+# args: plan|start <name> <lock|unlock|group-add|membership|flush|password|user-add|user-delete|group-delete|user-edit|group-edit> [--change <user>:<group>=add|remove ...] [--full <name>] [--mail <address>] [--description <text>] [--group <group> ...] [--access <share>=read|write|full ...] [--confirm <word>]
 # System command (hs sys users plan|start): for the interface, timers and tests. It never asks and prints plain key<TAB>value lines
 # like pool-change.sh, ct-change.sh and share-change.sh. The console wizards (user-guided.sh) stay the
 # console front ends over the same manage-users.sh.
@@ -16,6 +16,8 @@
 #                                  and, once the account exists, joins every --group (existing groups only, never Domain Users)
 #   user-delete                    <name> is the user: RED, the name is typed; his files stay, his share permissions become dead entries
 #   group-delete                   <name> is the group: RED, the name is typed; its members stay
+#   user-edit [--full <name>] [--mail <address>] [--description <text>]   <name> is the user; only the named fields change, the value - clears one
+#   group-edit [--description <text>]                                     <name> is the group (built-in groups are refused)
 #
 # plan: exit 0 = allowed, 1 = refused, 2 = something is missing. Output: status ok|refused|needs, then needs<TAB><input>
 #   | reason<TAB><text> | heading|step|note|warn|danger|command<TAB><line>, confirm_name<TAB><name> (only with a danger line), long<TAB>no.
@@ -89,14 +91,16 @@ refuse() { printf 'status\trefused\nreason\t%s\n' "$1"; exit 1; }
 
 verb=${1:-}; name=${2:-}; action=${3:-}
 case "$verb" in plan|start) ;; *) echo "usage: user-change.sh plan|start <name> <action> [options]" >&2; exit 1 ;; esac
-case "$action" in lock|unlock|group-add|membership|flush|password|user-add|user-delete|group-delete) ;; *) refuse "unknown action" ;; esac
+case "$action" in lock|unlock|group-add|membership|flush|password|user-add|user-delete|group-delete|user-edit|group-edit) ;; *) refuse "unknown action" ;; esac
 shift 3
-changes=() full="" confirm="" groups=() grant=()
+changes=() full="" confirm="" groups=() grant=() mail="" descr="" edits=()
 while [ $# -gt 0 ]; do
   case "$1" in
     --change)  changes+=("${2:-}"); shift 2 ;;
     --confirm) confirm=${2:-}; shift 2 ;;
-    --full)    full=${2:-}; shift 2 ;;
+    --full)    full=${2:-}; edits+=(--full "$full"); shift 2 ;;
+    --mail)    mail=${2:-}; edits+=(--mail "$mail"); shift 2 ;;
+    --description) descr=${2:-}; edits+=(--description "$descr"); shift 2 ;;
     --group)   groups+=("${2:-}"); shift 2 ;;
     --access)  grant+=("${2:-}"); shift 2 ;;
     *) refuse "unknown option $1" ;;
@@ -107,6 +111,9 @@ done
 
 [ ${#groups[@]} -eq 0 ] || [ "$action" = user-add ] || refuse "--group belongs to user-add"
 [ ${#grant[@]} -eq 0 ] || [ "$action" = group-add ] || refuse "--access belongs to group-add"
+[ -z "$mail$descr" ] || [[ "$action" == *-edit ]] || refuse "--mail and --description belong to user-edit and group-edit"
+[ "$action" != group-edit ] || [ -z "$full$mail" ] || refuse "a group has only a description"
+[[ "$action" != *-edit ]] || [ ${#edits[@]} -gt 0 ] || refuse "nothing to change"
 if [ ${#groups[@]} -gt 0 ]; then
   known=$(bash "$mu" --groups 2>/dev/null | cut -f1 || true)
   for g in "${groups[@]}"; do
@@ -148,6 +155,10 @@ case "$action" in
     rc=0; dry=$(bash "$mu" --delete "$name" --dry-run </dev/null 2>&1) || rc=$? ;;
   group-delete)
     rc=0; dry=$(bash "$mu" --group-delete "$name" --dry-run </dev/null 2>&1) || rc=$? ;;
+  user-edit)
+    rc=0; dry=$(bash "$mu" --edit user "$name" "${edits[@]}" --dry-run </dev/null 2>&1) || rc=$? ;;
+  group-edit)
+    rc=0; dry=$(bash "$mu" --edit group "$name" "${edits[@]}" --dry-run </dev/null 2>&1) || rc=$? ;;
   membership)
     rc=0
     # one reading of the domain checks every change (the dry run of --member would ask the controller once per change)
@@ -179,6 +190,8 @@ case "$action" in
   user-delete)  cmd=(bash "$mu" --delete "$name" --yes) ;;
   group-delete) cmd=(bash "$mu" --group-delete "$name" --yes) ;;
   membership) cmd=(bash "$(cd "$here" && pwd)/user-change.sh" apply "${changes[@]}") ;;
+  user-edit)  cmd=(bash "$mu" --edit user "$name" "${edits[@]}") ;;
+  group-edit) cmd=(bash "$mu" --edit group "$name" "${edits[@]}") ;;
 esac
 
 danger=""
@@ -229,6 +242,15 @@ case "$action" in
     [ -z "$m" ] || printf 'warn\tMembers who lose what the group gave them: %s\n' "$m"
     s=$(bash "$access" group "$name" 2>/dev/null | cut -f1 | paste -sd, - | sed 's/,/, /g' || true)
     [ -z "$s" ] || printf 'warn\tShares with an entry for the group (it stops working): %s\n' "$s" ;;
+  user-edit|group-edit)
+    printf 'heading\tchange the details of %s\n' "$name"
+    i=0
+    while [ $i -lt ${#edits[@]} ]; do
+      f=${edits[$i]#--}; v=${edits[$((i + 1))]}; i=$((i + 2))
+      case "$f" in mail) f=email ;; full) f="full name" ;; esac
+      if [ "$v" = - ]; then printf 'step\tclear the %s\n' "$f"; else printf 'step\tset the %s to %s\n' "$f" "$v"; fi
+    done
+    [ "$action" != user-edit ] || ! printf '%s' "${edits[*]}" | grep -q -- '--full' || printf 'note\tThe login name stays as it is; only the name shown in lists and on file shares changes.\n' ;;
   membership)
     printf 'heading\tchange the groups of %s\n' "$name"
     for c in "${changes[@]}"; do

@@ -270,6 +270,8 @@ sys	sys users list	manage-users.sh	--list	domain users	-
 sys	sys users groups	manage-users.sh	--groups	domain groups and their members	-
 sys	sys users access <user>	user-access.sh	user {1}	the shares a user can reach, and through which entry	-
 sys	sys users group-access <group>	user-access.sh	group {1}	the shares a group has an entry on	-
+sys	sys users details <user>	manage-users.sh	--details user {1}	the editable fields of a user: full, mail, description (an empty value is -)	-
+sys	sys users group-details <group>	manage-users.sh	--details group {1}	the editable fields of a group: description (an empty value is -)	-
 sys	sys users plan <name> <action>	user-change.sh	plan {1} {2} {rest}	what a change of a user or group would do, as data: status, plan lines (never asks; exit 2 = something is missing)	-
 sys	sys users start <name> <action>	user-change.sh	start {1} {2} {rest}	do a change of a user or group as a background job	-
 sys	sys shares list	manage-shares.sh	--list	shares with size and cache	-

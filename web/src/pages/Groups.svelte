@@ -7,6 +7,7 @@
   import { openPlan, openCreate } from '../ui.svelte.js';
   import NewGroup from '../forms/users/NewGroup.svelte';
   import Membership from '../forms/users/Membership.svelte';
+  import EditGroup from '../forms/users/EditGroup.svelte';
   import GroupShares from './identity/GroupShares.svelte';
   import Table from '../shell/Table.svelte';
   import PageHeader from '../shell/PageHeader.svelte';
@@ -31,7 +32,10 @@
   // share, level, via (the entries made for the group itself)
   const acc = poll(() => (sel ? `/api/sys/users/group-access/${encodeURIComponent(sel.name)}` : ''), 30000);
   const reach = $derived(rows(acc).map((r) => ({ share: r[0], level: r[1], via: r[2] })));
-  const reachColumns = [{ key: 'share', label: 'Share' }, { key: 'level', label: 'Level' }, { key: 'via', label: 'Through' }];
+  // field, value of the opened group ("-" = empty)
+  const det = poll(() => (sel ? `/api/sys/users/group-details/${encodeURIComponent(sel.name)}` : ''), 30000);
+  const descr = $derived((() => { const v = rows(det).find((r) => r[0] === 'description')?.[1]; return v && v !== '-' ? v : ''; })());
+  const reachColumns =[{ key: 'share', label: 'Share' }, { key: 'level', label: 'Level' }, { key: 'via', label: 'Through' }];
   const toShare = (s) => { setSelection('shares', s); go('/storage/bulk/shares'); };
 
   const columns = [
@@ -77,10 +81,12 @@
               </Table>
               <p class="note">Read only. Change who may reach a share on the share itself (its Permissions tab).</p>
             {:else}
-              <Kv cols={1} items={[{ k: 'Members', v: sel.members.join(', ') }]} />
+              <Kv cols={1} items={[{ k: 'Description', v: descr }, { k: 'Members', v: sel.members.join(', ') }]} />
             {/if}
           {/snippet}
           {#snippet actions()}
+            <button class="btn" disabled={builtin(sel.name)} title={builtin(sel.name) ? 'A built-in group cannot be edited' : 'Change the description'}
+              onclick={() => openCreate(EditGroup, { name: sel.name })}><i class="ph ph-pencil-simple"></i>Edit</button>
             <button class="btn" disabled={sel.name.toLowerCase() === 'domain users'} title="Choose the members"
               onclick={() => openCreate(Membership, { subject: 'group', name: sel.name, have: sel.members, options: userNames })}><i class="ph ph-user-plus"></i>Members</button>
             <button class="btn btn-ghost danger" disabled={builtin(sel.name)} title={builtin(sel.name) ? 'A built-in group cannot be deleted' : 'Delete the group (cannot be undone; you type the name)'}
