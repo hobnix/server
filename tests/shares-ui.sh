@@ -54,8 +54,7 @@ check_out "an unknown share" "✗ No share called 'nope'" $MS nope --acl
 check_eq "and exit status 1" "1" "$($MS nope --acl >/dev/null 2>&1; echo $?)"
 check_out "a bad level" "✗ unknown level 'bad'" $MS docs --set S-1-5-21-1-1000=bad
 check_out "a bad argument" "✗ expected <sid>=<level>, got 'bogus'" $MS docs --set bogus
-check_out "nobody with full access: the reason and the hint" "! Not possible: nobody would have full access to 'media'" $MS media --set S-1-5-21-1-512=read
-check_eq "that also exits 1" "1" "$($MS media --set S-1-5-21-1-512=read >/dev/null 2>&1; echo $?)"
+check_out "removing full access from everyone is allowed (the web interface manages the share)" "✓ Saved\. It applies to new connections" $MS media --set S-1-5-21-1-512=read
 check_out "a name that exists" "✗ A share called 'media' exists already\." $MS docs --rename media
 check_out "a name that is not usable" "✗ 'bad name' is not a usable name" $MS docs --rename 'bad name'
 check_out "a reserved name" "✗ 'shares' is a reserved name\." $MS docs --rename shares

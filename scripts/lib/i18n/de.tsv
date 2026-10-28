@@ -626,8 +626,6 @@ could not restart %s, do it by hand	%s ließ sich nicht neu starten, bitte von H
 Done: '%s' is now '%s'. Share paths and shortcuts that used the old name must be updated on the PCs.	Fertig: '%s' heißt jetzt '%s'. Freigabepfade und Verknüpfungen mit dem alten Namen müssen auf den PCs angepasst werden.
 No share called '%s' (hs share repair lists and creates them).	Keine Freigabe namens '%s' (hs share repair listet und legt sie an).
 expected <sid>=<level>, got '%s'	erwartet <SID>=<Stufe>, bekommen: '%s'
-Not possible: nobody would have full access to '%s' any more.	Nicht möglich: niemand hätte mehr Vollzugriff auf '%s'.
-Keep 'full' for the administrators (Domain Admins) or for yourself.	'full' für die Administratoren (Domain Admins) oder für dich selbst behalten.
 Saved. It applies to new connections; someone already connected keeps the old rights until they reconnect.	Gespeichert. Es gilt für neue Verbindungen; wer schon verbunden ist, behält die alten Rechte bis zur nächsten Verbindung.
   --sensitive  put it under /bulk/sensitive (Samba: read-only)	  --sensitive  unter /bulk/sensitive anlegen (Samba: nur lesen)
   --ct         also mount it into a container at <path>	  --ct         zusätzlich in einem Container unter <path> einhängen
