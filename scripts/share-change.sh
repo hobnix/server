@@ -176,7 +176,11 @@ danger=""
 [ "$action" != purge ] || danger="'$share' is removed for good: its files cannot be brought back from the disks. Copies in older backups stay until they age out."
 if [ "$action" = delete ]; then
   who=$(bash "$overview" mounts "$share" 2>/dev/null | cut -f1 | sort -u | paste -sd, - | sed 's/,/, /g' || true)
-  danger="'$share' disappears from Samba${who:+ and from the instances that mount it ($who)}. The files are kept in a renamed folder, not erased."
+  if grep -q 'rename' <<<"$dry"; then
+    danger="'$share' disappears from Samba${who:+ and from the instances that mount it ($who)}. The files are kept in a renamed folder, not erased."
+  else
+    danger="'$share' disappears from Samba${who:+ and from the instances that mount it ($who)}. Its folder is already gone, so no files are touched."
+  fi
 fi
 long=no
 case "$action" in repair|restore|purge|undelete) long=yes ;; esac
@@ -231,9 +235,10 @@ case "$action" in
     printf 'heading\tdelete the share %s\n' "$share"
     printf '%s\n' "$dry" | awk '
       /incus config device remove/ { printf "step\tdetach %s from the instance %s\n", $6, $5; next }
-      /--rename/ { print "step\trename the folder to <share>.deleted-<date> on every disk (nothing is erased)"; next }
+      / rename / { print "step\trename the folder to <share>.deleted-<date> on every disk (nothing is erased)"; next }
       /delshare/ { print "step\tremove the Samba share"; next }'
-    printf 'note\tThe folder stays on the disks and in the backup if it was in it. `hs share repair` lists it as kept and never publishes it. Remove it by hand when you are sure.\n' ;;
+    grep -q ' rename ' <<<"$dry" || printf 'note\tThe folder was already removed outside the interface: only the dead share is cleaned up.\n'
+    grep -q ' rename ' <<<"$dry" && printf 'note\tThe folder stays on the disks and in the backup if it was in it. `hs share repair` lists it as kept and never publishes it. Remove it by hand when you are sure.\n' ;;
   rename|cache)
     printf '%s\n' "$dry" | awk '
       /^\(dry run/ || /^[ \t]*$/ { next }
