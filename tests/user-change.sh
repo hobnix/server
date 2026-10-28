@@ -247,6 +247,20 @@ ms private --set S-1-5-21-1-2-3-1234=read" "$(cat "$WORK/mscalls")"
 grep -q -- '--group-add Crew' "$WORK/mucalls" && pass "the group is created first" || fail "mu: $(cat "$WORK/mucalls")"
 grep -qF -- 'HOME\Crew' "$WORK/wbcalls" && pass "the SID is looked up with the domain name" || fail "wb: $(cat "$WORK/wbcalls")"
 
+echo "-- edit the details of a user and a group"
+run plan anna user-edit
+check_eq "nothing to change is refused" 1 "$rc"
+run plan anna user-edit --full 'Anna Muster' --mail - --description 'Front desk'
+check_eq "user-edit: exit 0" 0 "$rc"
+has '^heading	change the details of anna$' && has '^step	set the full name to Anna Muster$' && has '^step	clear the email$' && has '^step	set the description to Front desk$' && pass "a step per field" || fail "user-edit: $out"
+has '^command	.*--edit user anna --full Anna Muster --mail - --description Front desk' && pass "the command carries the fields" || fail "user-edit command: $out"
+run plan Staff group-edit --description 'The staff'
+has '^step	set the description to The staff$' && pass "group-edit" || fail "group-edit: $out"
+run plan Staff group-edit --mail a@b.c
+check_eq "a group has no email" 1 "$rc"
+run plan anna lock --description x
+check_eq "--description only for the edits" 1 "$rc"
+
 echo "-- the registry rows"
 check_out "hs sys users plan runs it" "status	ok" env HS_CALLER=test HS_MANAGE_USERS="$WORK/mu" bash "$SCRIPTS/lib/hs.sh" sys users plan anna unlock
 finish

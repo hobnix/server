@@ -7,6 +7,7 @@
   import { openPlan, openCreate } from '../ui.svelte.js';
   import NewUser from '../forms/users/NewUser.svelte';
   import SetPassword from '../forms/users/SetPassword.svelte';
+  import EditUser from '../forms/users/EditUser.svelte';
   import Membership from '../forms/users/Membership.svelte';
   import SshKeys from '../forms/ssh/SshKeys.svelte';
   import Table from '../shell/Table.svelte';
@@ -34,7 +35,10 @@
   // share, level, via (reads every share ACL: only for the opened user)
   const acc = poll(() => (sel ? `/api/sys/users/access/${encodeURIComponent(sel.name)}` : ''), 30000);
   const reach = $derived(rows(acc).map((r) => ({ share: r[0], level: r[1], via: r[2] })));
-  const isAdmin = $derived(sel?.name.toLowerCase() === 'administrator' && !!sel?.enabled);
+  // full, mail, description of the opened user ("-" = empty)
+  const det = poll(() => (sel ? `/api/sys/users/details/${encodeURIComponent(sel.name)}` : ''), 30000);
+  const detail = (k) => { const v = rows(det).find((r) => r[0] === k)?.[1]; return v && v !== '-' ? v : ''; };
+  const isAdmin =$derived(sel?.name.toLowerCase() === 'administrator' && !!sel?.enabled);
   const reachColumns = [{ key: 'share', label: 'Share' }, { key: 'level', label: 'Level' }, { key: 'via', label: 'Through' }];
   const stateOf = (u) => (u.enabled ? 'active' : 'locked');
   const toShare = (s) => { setSelection('shares', s); go('/storage/bulk/shares'); };
@@ -83,11 +87,13 @@
               </Table>
               <p class="note">Read only. Change who may reach a share on the share itself (its Permissions tab).</p>
             {:else}
-              <Kv items={[{ k: 'Account', v: sel.name }, { k: 'Full name', v: sel.full }, { k: 'State', v: stateOf(sel) }, { k: 'Groups', v: sel.groups.join(', ') }]} />
+              <Kv items={[{ k: 'Account', v: sel.name }, { k: 'Full name', v: sel.full }, { k: 'State', v: stateOf(sel) }, { k: 'Groups', v: sel.groups.join(', ') },
+                         { k: 'Email', v: detail('mail') }, { k: 'Description', v: detail('description') }]} />
             {/if}
           {/snippet}
           {#snippet actions()}
-            <button class="btn" onclick={() => openCreate(SetPassword, { user: sel.name })}><i class="ph ph-password"></i>Password</button>
+            <button class="btn" title="Change the full name, email and description" onclick={() => openCreate(EditUser, { user: sel.name })}><i class="ph ph-pencil-simple"></i>Edit</button>
+            <button class="btn" onclick={() => openCreate(SetPassword,{ user: sel.name })}><i class="ph ph-password"></i>Password</button>
             <button class="btn" onclick={() => openCreate(Membership, { subject: 'user', name: sel.name, have: sel.groups, options: groupNames })}><i class="ph ph-users-three"></i>Groups</button>
             <button class="btn btn-ghost" disabled={isAdmin} title={isAdmin ? 'Administrator cannot be locked' : sel.enabled ? 'Lock the account (shows the plan first)' : 'Unlock the account (shows the plan first)'}
               onclick={() => openPlan('users', [sel.name, sel.enabled ? 'lock' : 'unlock'], `${sel.enabled ? 'Lock' : 'Unlock'} ${sel.name}`)}><i class="ph {sel.enabled ? 'ph-lock' : 'ph-lock-open'}"></i>{sel.enabled ? 'Lock' : 'Unlock'}</button>

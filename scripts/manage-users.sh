@@ -19,6 +19,11 @@ set -euo pipefail
 #   --delete <user>                     asks to type the name first (--yes: the interface checked it)
 #   --group-add <group> | --group-delete <group>
 #   --member <group> <user> add|remove
+#   --details user|group <name>         the editable fields, one line each: key<TAB>value, an empty value is written -
+#                                       (user: full, mail, description; group: description)
+#   --edit user <user> [--full <name>] [--mail <address>] [--description <text>]
+#   --edit group <group> [--description <text>]
+#                                       change the fields that are named; the value - clears a field, a field that is not named stays
 #   --flush                             make this file server forget cached users and groups
 # Add --dry-run to a change to see what would happen; --yes skips the typed name of --delete and --group-delete (jobs).
 
@@ -143,6 +148,25 @@ directory() {
     }' | sort -f
 }
 
+# LDIF of one search with wrapped lines joined; "attr:: ..." values decoded
+ldb_search() {
+  on_dc ldbsearch -H "$db" "$@" 2>/dev/null | sed -e ':a' -e '$!N' -e 's/\n //' -e 'ta' -e 'P' -e 'D'
+}
+ldb_val() {   # the value of an LDIF line "attr: v" or "attr:: base64"
+  local v=${1#*:}
+  if [ "${v:0:1}" = : ]; then printf %s "${v:2}" | base64 -d; else printf %s "${v# }"; fi
+}
+ldb_dn() { local l; l=$(ldb_search "$1" dn | grep -m1 '^dn:') || true; [ -n "$l" ] || return 0; ldb_val "$l"; }
+# <filter> <attribute>...: one line attribute<TAB>value for each attribute, an empty value stays empty
+ldb_fields() {
+  local filter=$1 a l; shift
+  local out; out=$(ldb_search "$filter" "$@")
+  for a in "$@"; do
+    l=$(grep -m1 -i "^$a::\? " <<<"$out") || true
+    printf '%s\t%s\n' "$a" "$([ -z "$l" ] || ldb_val "$l")"
+  done
+}
+
 valid_user()  { [[ "$1" =~ ^[a-z][a-z0-9._-]{0,19}$ ]] || fail "$(t "Invalid login name '%s': lowercase letters, digits, . _ - (at most 20, starting with a letter)." "$1")"; }
 valid_group() { [[ "$1" =~ ^[A-Za-z0-9][A-Za-z0-9\ ._-]{0,62}$ ]] || fail "$(t "Invalid group name '%s': letters, digits, space, . _ -" "$1")"; }
 has_user()    { directory users  | cut -f1 | grep -qixF -- "$1"; }
@@ -255,6 +279,70 @@ case "${1:-}" in
     fi
     on_dc samba-tool group delete "$2"
     ok "$(t "Group '%s' deleted." "$2")" ;;
+
+  --details)
+    [ $# -ge 3 ] || usage
+    case "$2" in
+      user)  has_user "$3" || fail "$(t "No user called '%s'." "$3")"
+             ldb_fields "(&(objectCategory=person)(objectClass=user)(sAMAccountName=$3))" displayName mail description ;;
+      group) has_group "$3" || fail "$(t "No group called '%s'." "$3")"
+             ldb_fields "(&(objectClass=group)(sAMAccountName=$3))" description ;;
+      *) usage ;;
+    esac | awk -F'\t' '{ k = $1; sub(/^displayName$/, "full", k); printf "%s\t%s\n", k, ($2 == "" ? "-" : $2) }' ;;
+
+  --edit)
+    [ $# -ge 3 ] || usage
+    kind="$2"; target="$3"; shift 3
+    full=""; mail=""; descr=""; set_full=false; set_mail=false; set_descr=false
+    while [ $# -gt 0 ]; do
+      [ $# -ge 2 ] || usage
+      case "$1" in
+        --full)        [ "$kind" = user ] || usage; set_full=true; full="$2" ;;
+        --mail)        [ "$kind" = user ] || usage; set_mail=true; mail="$2" ;;
+        --description) set_descr=true; descr="$2" ;;
+        *) usage ;;
+      esac
+      shift 2
+    done
+    [ "$full" != - ] || full=""; [ "$mail" != - ] || mail=""; [ "$descr" != - ] || descr=""
+    $set_full || $set_mail || $set_descr || fail "Nothing to change."
+    if [ "$kind" = user ]; then
+      has_user "$target" || fail "$(t "No user called '%s'." "$target")"
+      filter="(&(objectCategory=person)(objectClass=user)(sAMAccountName=$target))"
+    else
+      [ "$kind" = group ] || usage
+      has_group "$target" || fail "$(t "No group called '%s'." "$target")"
+      ! builtin_group "$target" || fail "$(t "Not possible: '%s' is a group the domain needs." "$target")"
+      filter="(&(objectClass=group)(sAMAccountName=$target))"
+    fi
+    re_full="^([[:alnum:]_][[:alnum:]_ .'-]{0,63})?\$"
+    re_mail="^([A-Za-z0-9._%+-]{1,64}@[A-Za-z0-9.-]{1,190})?\$"
+    [[ "$full" =~ $re_full ]] || fail "Invalid full name: letters, digits, spaces, dot, dash and apostrophe only."
+    [[ "$mail" =~ $re_mail ]] || fail "Invalid email address."
+    [[ "$descr" =~ ^[^[:cntrl:]]{0,255}$ ]] || fail "Invalid description: one line, up to 255 characters."
+    # the change as LDIF: every value is base64, so no text can end a line or start a new attribute
+    ldif=""
+    ldif_attr() { # <attribute> <value>: an empty value removes the attribute
+      ldif+="replace: $1"$'\n'
+      [ -z "$2" ] || ldif+="$1:: $(printf %s "$2" | base64 -w0)"$'\n'
+      ldif+="-"$'\n'
+    }
+    if $set_full; then
+      given=""; sur=""
+      if [[ "$full" == *" "* ]]; then given=${full% *}; sur=${full##* }; else given=$full; fi
+      ldif_attr displayName "$full"; ldif_attr givenName "$given"; ldif_attr sn "$sur"
+    fi
+    ! $set_mail  || ldif_attr mail "$mail"
+    ! $set_descr || ldif_attr description "$descr"
+    if $dry; then
+      echo "Change the $kind '$target' ($(($(grep -c '^replace:' <<<"$ldif"))) attributes):"
+      echo "  on $dc: ldbmodify -H $db   (the change as LDIF on standard input)"
+      exit 0
+    fi
+    dn=$(ldb_dn "$filter")
+    [ -n "$dn" ] || fail "$(t "No %s called '%s'." "$kind" "$target")"
+    printf 'dn:: %s\nchangetype: modify\n%s' "$(printf %s "$dn" | base64 -w0)" "$ldif" | on_dc_in ldbmodify -H "$db" >/dev/null
+    ok "$(t "The details of '%s' are changed." "$target")" ;;
 
   --member)
     [ $# -ge 4 ] || usage

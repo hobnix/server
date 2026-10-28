@@ -672,6 +672,8 @@ READS = {
     ("ct", "logs"): {"kind": "text", "ttl": 3, "args": [NAME], "query": {"lines": (r"^[0-9]{1,4}$", "")}},
     ("users", "access"): {"kind": "tsv", "ttl": 30, "args": [NAME]},
     ("users", "group-access"): {"kind": "tsv", "ttl": 30, "args": [GROUP]},
+    ("users", "details"): {"kind": "tsv", "ttl": 30, "args": [NAME]},
+    ("users", "group-details"): {"kind": "tsv", "ttl": 30, "args": [GROUP]},
     ("shares", "deleted"): {"kind": "tsv", "ttl": 60},
     ("shares", "principals"): {"kind": "tsv", "ttl": 60},
     ("backup", "find"): {"kind": "tsv", "ttl": 30, "args": [r"^[^\x00-\x1f/\\*?\[\]]{2,80}$"]},
@@ -870,6 +872,10 @@ CHANGES = {
               {"fixed": [USER_NEW, r"^user-add$"], "opts": {"--full": (FULL_NAME, False), "--group": (GROUP, True)}, "stdin": True},     # the password: one line on stdin; --group: existing groups to join
               {"fixed": [NAME, r"^password$"], "stdin": True},
               {"fixed": [GROUP, r"^group-add$"], "opts": {"--access": (SHARE_ACCESS, True)}},     # <share>=read|write|full, given to the new group
+              # details of an account or group: only the named fields change, "-" clears one (manage-users.sh --edit)
+              {"fixed": [NAME, r"^user-edit$"], "opts": {"--full": (r"^(-|\w[\w .'-]{0,63})$", False), "--mail": (r"^(-|[A-Za-z0-9._%+-]{1,64}@[A-Za-z0-9.-]{1,190})$", False),
+                                                       "--description": (r"^[^\x00-\x1f\x7f]{1,255}$", False)}},
+              {"fixed": [GROUP, r"^group-edit$"], "opts": {"--description": (r"^[^\x00-\x1f\x7f]{1,255}$", False)}},
               [NAME, r"^user-delete$"],
               [GROUP, r"^group-delete$"],
               [r"^all$", r"^flush$"],
