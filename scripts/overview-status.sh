@@ -6,13 +6,13 @@
 # chooses words and colours; this script only says what is the case. A source that cannot be read leaves its line out.
 #   backup      <ok|failed|new>   <seconds since the last good backup, - if none>
 #   encryption  <locked|open|none>
-#   job         <unit>  <ok|failed|never>  <last run>  <next run>       (hs-bulk-sync.service and hs-bulk-scrub.service)
+#   job         <unit>  <ok|failed|never|noparity>  <last run>  <next run>       (hs-bulk-sync.service and hs-bulk-scrub.service; noparity = SnapRAID without a parity disk)
 #   cache       <the "used of" text of the upload cache>  <percent>
 #   smart       <number of disks>  <WATCH and BAD disks, "sda WATCH,sdb BAD", empty = all fine>
 #   instances   <running>  <all>
 #   hottest     <disk>  <degrees>
 #   event       <when>  <what>                                          (the last line of the disk event log)
-# Test knobs: HS_STATE_DIR, HS_LOCKED_MARKER, HS_UNLOCK, HS_JOBS, HS_SHARE_CACHE, HS_DISK_HEALTH, HS_MONITOR, HS_INCUS, HS_DISK_EVENTS.
+# Test knobs: HS_BULK_TYPE_FILE, HS_SNAPRAID_CONF, HS_STATE_DIR, HS_LOCKED_MARKER, HS_UNLOCK, HS_JOBS, HS_SHARE_CACHE, HS_DISK_HEALTH, HS_MONITOR, HS_INCUS, HS_DISK_EVENTS.
 set -uo pipefail
 here=$(dirname "$0")
 state=${HS_STATE_DIR:-/var/lib/hs}
@@ -52,8 +52,11 @@ fi
 
 # --- the two timers that matter for the bulk pool
 jobs=$(cat "$tmp/jobs")
+# Without a parity disk the units skip their run (ExecCondition), so their last result would still read "ok": say "noparity" instead.
+noparity=
+if [ "$(cat "${HS_BULK_TYPE_FILE:-/etc/hs/bulk-type}" 2>/dev/null || echo zfs)" = snapraid ] && ! grep -q '^parity ' "${HS_SNAPRAID_CONF:-/var/lib/snapraid/snapraid.conf}" 2>/dev/null; then noparity=1; fi
 for unit in hs-bulk-sync.service hs-bulk-scrub.service; do
-  awk -F'\t' -v u="$unit" '$1 == u { print "job\t" $1 "\t" $5 "\t" $4 "\t" $3 }' <<<"$jobs"
+  awk -F'\t' -v u="$unit" -v np="$noparity" '$1 == u { print "job\t" $1 "\t" (np ? "noparity" : $5) "\t" $4 "\t" $3 }' <<<"$jobs"
 done
 
 # --- upload cache

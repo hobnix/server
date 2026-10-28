@@ -23,7 +23,7 @@
     [/UPS|battery|power/i, 'lightning'], [/certificate|runs out|ran out|expired|expiry|YYYY/i, 'calendar-x'],
     [/share /i, 'folders'], [/checkout|commit|hs update|hs rebuild|git/i, 'git-branch'], [/failed|unit/i, 'gear-six'],
   ];
-  const SEVERE = /BAD|failed|errors?\b|expired|ran out|not healthy|DEGRADED|FAULTED|is locked|are locked|battery is low|power is out|has no parity|open to everyone/i;
+  const SEVERE = /BAD|failed|errors?\b|expired|ran out|not healthy|DEGRADED|FAULTED|is locked|are locked|battery is low|power is out|open to everyone/i;
   // The `hs sys` flow that fixes a problem, where there is one (the problem texts are the ones of scripts/health-check.sh). Everything else keeps its
   // pointer text only: there is no safe single button for it (a failed unit, a full disk, an open share, a UPS, a certificate).
   const FIXES = [

@@ -55,7 +55,9 @@ in
     unitConfig = whenUnlocked;
     after = [ "bulk-mount.service" ];
     path = [ "/run/current-system/sw" ];
+    # no parity disk: skip the run (not a failure, the health check and the status say "no parity disk")
     serviceConfig.Type = "oneshot";
+    serviceConfig.ExecCondition = "${pkgs.gnugrep}/bin/grep -q '^parity ' /var/lib/snapraid/snapraid.conf";
     script = "bash ${scripts}/bulk-sync.sh";
     startAt = if syncEveryHours >= 24 then "*-*-* 03:00:00" else "*-*-* ${toString (lib.mod 3 syncEveryHours)}/${toString syncEveryHours}:00:00";   # "3/24" is not valid in systemd
     onFailure = notifyFailure;       # also when the sync is refused
@@ -79,6 +81,7 @@ in
     after = [ "bulk-mount.service" ];
     path = [ "/run/current-system/sw" ];
     serviceConfig.Type = "oneshot";
+    serviceConfig.ExecCondition = "${pkgs.gnugrep}/bin/grep -q '^parity ' /var/lib/snapraid/snapraid.conf";
     script = "bash ${scripts}/bulk-sync.sh --scrub";
     startAt = "Sun 05:00";
     onFailure = notifyFailure;

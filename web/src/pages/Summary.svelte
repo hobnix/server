@@ -105,7 +105,7 @@
     }
     for (const [unit, res, last, next] of jobs) {
       const sync = /sync/.test(unit);
-      out.push({ icon: sync ? 'ph-arrows-clockwise' : 'ph-broom', k: sync ? 'Parity sync' : /scrub/.test(unit) ? 'Scrub' : unit, t: res === 'never' ? 'has not run yet' : res === 'ok' ? 'ok' : 'failed', meta: res === 'never' ? '' : `last ${last}${next && next !== '-' ? ` · next ${next}` : ''}`, dot: res === 'ok' ? 'ok' : res === 'failed' ? 'bad' : 'off' });
+      out.push({ icon: sync ? 'ph-arrows-clockwise' : 'ph-broom', k: sync ? 'Parity sync' : /scrub/.test(unit) ? 'Scrub' : unit, t: res === 'noparity' ? 'no parity disk' : res === 'never' ? 'has not run yet' : res === 'ok' ? 'ok' : 'failed', meta: res === 'never' || res === 'noparity' ? '' : `last ${last}${next && next !== '-' ? ` · next ${next}` : ''}`, dot: res === 'ok' ? 'ok' : res === 'failed' ? 'bad' : res === 'noparity' ? 'warn' : 'off' });
     }
     if (m.smart) out.push({ icon: 'ph-heartbeat', k: 'Disk health', t: m.smart[1] ? m.smart[1] : 'all fine', meta: `${m.smart[0]} disks`, dot: m.smart[1] ? 'warn' : 'ok' });
     if (m.hottest) out.push({ icon: 'ph-thermometer', k: 'Hottest disk', t: m.hottest[0], meta: `${m.hottest[1]} °C`, dot: Number(m.hottest[1]) >= 55 ? 'warn' : 'ok' });

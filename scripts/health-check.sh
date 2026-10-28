@@ -83,7 +83,7 @@ if [ "$bulk_type" = snapraid ]; then
     [ -n "$name" ] || continue
     [ "$mstate" = ONLINE ] || problem "bulk:$name:$mstate" "bulk disk $name is $mstate. Replace it with: hs pool bulk replace"
   done <<<"$members"
-  if grep -q $'\tdata$' <<<"$members" && ! grep -q $'\tparity$' <<<"$members"; then
+  if [ -n "$members" ] && ! grep -q $'\tparity$' <<<"$members"; then
     problem "bulk:no-parity" "bulk has no parity disk: a failed disk loses its data"
   fi
 fi
