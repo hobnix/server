@@ -93,4 +93,27 @@ echo "$out" | grep -q "^danger	'docs' disappears from Samba and from the instanc
 echo "$out" | grep -q "^note	The folder stays" && pass "plan: says where the files stay" || fail "note: $out"
 out=$(bash "$SCRIPTS/share-change.sh" plan cached delete 2>&1) || rc=$?
 echo "$out" | grep -q '^status	refused$' && echo "$out" | grep -q 'upload cache' && pass "plan: the refusal of the rename comes through" || fail "refusal: $out"
+echo "-- the folder was deleted by hand: only the dead share goes"
+mkdir -p "$WORK/bulk/shares" "$WORK/bulk/sensitive"
+export HS_BULK=$WORK/bulk HS_LOCK=$WORK/lock HS_LOCKED_FLAG=$WORK/no-such-flag
+sed -i 's|/bulk/shares/docs$|'"$WORK"'/bulk/shares/docs|' "$WORK/net" 2>/dev/null || true
+cat > "$WORK/net" <<'FAKE'
+#!/usr/bin/env bash
+echo "net $*" >> "$LOG"
+case "$*" in
+  "conf getparm gone path") echo "$HS_BULK/shares/gone" ;;
+  *"delshare"*) ;;
+  *) exit 1 ;;
+esac
+FAKE
+: > "$LOG"
+case "$($D gone --dry-run)" in *"net conf delshare gone"*) pass "dry run: just the Samba share" ;; *) fail "gone dry run" ;; esac
+! grep -q rename <<<"$($D gone --dry-run)" && pass "no rename step" || fail "rename step for a gone folder"
+check_eq "exit 0" 0 "$($D gone >/dev/null 2>&1; echo $?)"
+check_eq "only delshare ran" "net conf delshare gone" "$(grep -v 'getparm' "$LOG")"
+mkdir "$WORK/bulk/shares/gone"
+: > "$LOG"
+$D gone >/dev/null 2>&1 || true
+grep -q "^manage gone --rename" "$LOG" && pass "folder present: the normal rename path" || fail "folder present, no rename"
+unset HS_BULK
 finish
