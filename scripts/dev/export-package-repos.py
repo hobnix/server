@@ -3,7 +3,7 @@
 
     python3 scripts/dev/export-package-repos.py --out <folder> [--org <name>] [--author "Name <mail>"] [--branding <dir>] [--force] [--no-git]
 
-Writes <out>/hobnix-recipes and <out>/hobnix-extensions, each a CLEAN repository:
+Writes <out>/recipes and <out>/extensions, each a CLEAN repository:
 one commit, no history of the homeserver repository. Nothing is pushed and no tag is made: a release is `git tag -s v1.0.0`
 with the repository's signing key (config/trusted-keys/README.md). Existing target folders are refused unless --force. The commit is made as --author (default: the git identity of this repository).
 The files of --branding <dir> (default: .github/branding of this repository: logo-*.svg, banner@2x.webp, banner.png) go to .github/branding; the banner is shown in the README.
@@ -242,7 +242,7 @@ def main(argv):
     recipes = [os.path.join(ROOT, "packages", n) for n in sorted(os.listdir(os.path.join(ROOT, "packages")))
                if os.path.isfile(os.path.join(ROOT, "packages", n, "package.toml"))]
     exts = [os.path.join(ROOT, "capabilities", n) for n in EXTENSIONS]
-    for name, kind, pk in (("hobnix-recipes", "recipe", recipes), ("hobnix-extensions", "extension", exts)):
+    for name, kind, pk in (("recipes", "recipe", recipes), ("extensions", "extension", exts)):
         repo, n = build(out, name, org, kind, pk, force, git, author, branding)
         print(f"{repo}: {n} packages")
     return 0

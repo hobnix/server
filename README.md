@@ -4,7 +4,7 @@
 
 A NixOS home server you can read: Incus containers on ZFS, Samba shares, backups, a web interface and one command, `hs`, to run it all.
 This is the server repository. Apps (recipes) and optional parts (extensions) are packages in their own repositories,
-[hobnix-recipes](https://github.com/hobnix/hobnix-recipes) and [hobnix-extensions](https://github.com/hobnix/hobnix-extensions);
+[recipes](https://github.com/hobnix/recipes) and [extensions](https://github.com/hobnix/extensions);
 `hs pkg` installs them from signed releases.
 
 NixOS + Incus + ZFS home server configuration, shared between machines.

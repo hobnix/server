@@ -85,7 +85,7 @@ metadata lives. A mechanical converter (`hs pkg convert`) turns an old header in
 
 ## Repositories
 
-- Two repositories are on by default: **hobnix-recipes** and **hobnix-extensions**. Each is a git repository with `index.toml` at the root
+- Two repositories are on by default: **recipes** and **extensions**. Each is a git repository with `index.toml` at the root
   (one table per package: name, version, kind, title, path, `requires_core`) and one folder per package. The index is what `hs pkg
   updates` and the web page read, so listing does not clone every package.
 - The list lives in machine.toml (`packageRepos`, the defaults are written by the schema, so a new server has them). A user adds one with
@@ -186,13 +186,13 @@ presets, the installer. These stay capabilities of the core.
 
 Recipes that other parts reference by name (`docker` is a **need**, `zoraxy` is the reverse proxy the `reverse-proxy` capability
 manages, `homepage` is the dashboard capability's backend, `domain` is the Active Directory capability's installer, `monitoring`, `ntfy`)
-are the **hard cases**: they ship in hobnix-recipes but are marked `core = true` in the index; core CI refuses a core change that breaks
+are the **hard cases**: they ship in recipes but are marked `core = true` in the index; core CI refuses a core change that breaks
 them, and a fresh install fetches them as part of setup. Whether some should rather become a core capability is decided one by one in
 step 3, not by rule.
 
 ## Personal packages
 
-Decision: author-specific recipes stay in hobnix-recipes with `audience = "personal"`: hidden from `hs pkg list` and the web page unless
+Decision: author-specific recipes stay in recipes with `audience = "personal"`: hidden from `hs pkg list` and the web page unless
 the user asks (`--all` / "show personal"), never installed by a preset except the author's own. Today these are `cloudflared`, `domain`,
 `livekit`, `pelican`, `stalwart`, `zoraxy` (header `kind: personal`); several of them (`domain`, `zoraxy`) are the hard cases above, so
 before the repository is made public each is checked: does it contain addresses, names or choices of one household? The facts belong in
@@ -200,7 +200,7 @@ the author's private preset repository and stay out of the package; the public t
 
 ## Compatibility and CI across repositories
 
-- hobnix-recipes and hobnix-extensions each carry a CI job that checks out the core at the `requires_core` level it claims, runs the
+- recipes and extensions each carry a CI job that checks out the core at the `requires_core` level it claims, runs the
   package validators (manifest, registry rows, `tests/recipes-meta.sh` equivalent, shellcheck, `bash -n`, dry-run of every recipe) and
   the package's own tests.
 - The core repository's CI checks out the default repositories at their latest tags and runs the same validators, so a core change
@@ -228,7 +228,7 @@ Each step is shippable on its own and keeps the server working.
 4. **Repositories and trust** (built 2026-10-28: `scripts/pkg_repo.py`, `hs pkg repo|fetch|available|install|update|remove`, defaults in config/package-repos.toml, trusted keys in config/trusted-keys/<name>.allowed_signers, added repositories in /var/lib/hs/packages/repos.toml instead of a machine.toml option; installs go to /var/lib/hs/packages/current/<name> (read-only, the loaders read that folder), the one before to previous/; tests/pkg-repo.sh with SSH-signed tags in a local git repository; the two default repositories fail closed until their key files exist; the repository URLs are placeholders for the future organisation). `/var/lib/hs/packages/<name>@<commit>`, the loader's second location (`ext_package_dir`, `ext_roots`),
    `index.toml`, `hs pkg repo`, tag signing and verification, diff-and-ask in `hs update` and the web update, default repositories in the
    schema. Done against a local file:// repository first, so it is testable on the Windows checkout and in CI without the network.
-5. **Split** (built 2026-10-28 up to the export: recipes are packages/<name>/run.sh with their own files, the extensions' scripts live in their capabilities/ folder, `scripts/dev/export-package-repos.py` writes the two clean repositories, tests/pkg-export.sh installs from them; the in-tree copies stay until the repositories are published and signed, then they are deleted and the six `core = true` recipes are fetched at setup). `git filter-repo` the package folders (keeping history) into hobnix-extensions and hobnix-recipes, sign the first tags, the
+5. **Split** (built 2026-10-28 up to the export: recipes are packages/<name>/run.sh with their own files, the extensions' scripts live in their capabilities/ folder, `scripts/dev/export-package-repos.py` writes the two clean repositories, tests/pkg-export.sh installs from them; the in-tree copies stay until the repositories are published and signed, then they are deleted and the six `core = true` recipes are fetched at setup). `git filter-repo` the package folders (keeping history) into extensions and recipes, sign the first tags, the
    core fetches its defaults from them; CI in all three repositories as above. The in-tree copies are deleted in the same release, the old
    `hs recipe` / `hs ext` words keep working through the loader.
 6. **Public release.** Personal data audit (including git history of the split repositories: secrets, hostnames, mail addresses), LICENSE
