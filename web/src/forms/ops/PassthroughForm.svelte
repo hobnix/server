@@ -44,12 +44,17 @@
       <label for="pt-http">HTTP port of the target</label>
       <input id="pt-http" class="input" bind:value={httpPort} placeholder="80" maxlength="5" disabled={!forwardHttp} autocomplete="off" spellcheck="false" />
     </div>
-    <div class="field"><Switch bind:checked={forwardHttp} label="Forward HTTP (port 80)" /></div>
-    <div class="field"><Switch bind:checked={proxy} label="Send PROXY protocol v2 on HTTPS" /></div>
+    <div class="field">
+      <span class="sw-row"><Switch bind:checked={forwardHttp} label="Forward HTTP (port 80)" /><span>Forward plain HTTP too (port 80, the Host name is kept)</span></span>
+    </div>
+    <div class="field">
+      <span class="sw-row"><Switch bind:checked={proxy} label="Send PROXY protocol v2 on HTTPS" /><span>Send the PROXY protocol on HTTPS, so the target sees the real visitor address. Switch it on only if the target expects it.</span></span>
+    </div>
     <div class="hint">The domain and all its subdomains go to this address. The target answers TLS itself; this server holds no certificate.</div>
   {/snippet}
 </CreateDialog>
 
 <style>
   .hint { font-size: 12px; color: var(--color-neutral-500); }
+  .sw-row { display: inline-flex; align-items: flex-start; gap: 10px; font-size: 13px; }
 </style>
