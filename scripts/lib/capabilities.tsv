@@ -15,6 +15,7 @@ incus		Incus (containers and VMs, VLAN profiles)
 metrics		Metrics (Prometheus on this server)
 network	networkProvider	Router connection (fixed addresses for instances)
 notifications	notifyUrl,notifyUrlSecond,notifications	Notification channels (ntfy and other providers)
+passthrough		Passthrough domains (outside domains to reverse proxies on the LAN)
 posters		Posters drawn from the command line or the web interface
 reverse-proxy	reverseProxy	Reverse proxy (publishes the services)
 samba		Samba shares and network discovery

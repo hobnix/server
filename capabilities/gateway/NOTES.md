@@ -16,12 +16,18 @@ scripts/gateway_render.py (stdlib, golden tests in tests/gateway.sh), domain by 
   `import --proxy local` is a migration: every descriptor without a `local-proxy` want gets `true` (a person's `false` stays).
 
 ## Entrypoints
-- `lan-http` = `:80`. nftables opens 80 only for RFC1918 sources and `hs.privateInterfaces`; port 80 is NOT in allowedTCPPorts. Every local
-  router also carries the middleware `hs-lan-only` (ipAllowList on the TCP peer address, never X-Forwarded-For).
+- `lan-http` = `:80`. nftables opens 80 only for RFC1918 sources and `hs.privateInterfaces` while `gatewayPublicHttp` is not 80. Every local
+  router also carries the middleware `hs-lan-only` (ipAllowList on the TCP peer address, never X-Forwarded-For; the entrypoints do not
+  trust forwarded headers and do not use PROXY protocol, so Traefik sees the real client address).
 - `public-https` / `public-http` exist only when `gatewayPublicHttps` / `gatewayPublicHttp` are not 0 (defaults 0, used by the extension
-  passthrough). They carry ONLY passthrough routers; the router must translate the internet's 443 -> server:4443 and 80 -> server:8008
-  (OPEN: the user has not confirmed the router can translate ports; fallback not specified: one shared :80/:443 with the allowlist only).
-- The web interface (`webPort = 8480`) is the direct and break-glass address. Through Traefik: router `hs-webui` for `<site>.<realm>` and the
+  passthrough). They carry ONLY passthrough routers. Decision of the user: the router forwards the internet's 443 and 80 straight to the
+  server, so the values to set are `gatewayPublicHttps = 443` and `gatewayPublicHttp = 80`; 4443 and 8008 only behind a router that
+  translates ports. With `gatewayPublicHttp = 80` there is NO separate `public-http` entrypoint: port 80 is `lan-http`, so the same entrypoint
+  serves local names and passthrough domains and port 80 is in allowedTCPPorts (open to everyone). This is safe because (a) a local route
+  answers a public source with 403 (`hs-lan-only`), (b) the two catch-all routers (`hs-webui`, `hs-fallback`) also have
+  `ClientIP(<home ranges>)` in their RULE, so a public source on an unknown or the host's own name matches nothing: 404, never the web
+  interface, (c) passthrough routers have long rules and win over the catch-all (priority 1), and match only their own domain.
+- The web interface (`webPort = 8480`) stays reachable on its direct port and is the break-glass address. Through Traefik: router `hs-webui` for `<site>.<realm>` and the
   catch-all `hs-fallback` (priority 1) for any other Host. The bare AD apex `<realm>` is the domain's, there is no router for it.
 
 ## Paths and owners

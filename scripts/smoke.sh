@@ -117,6 +117,8 @@ default_probes() {
     $'hs notify channel list\tnotify channel list\t0' \
     $'hs notify channel providers\tnotify channel providers\t0' \
     $'hs ext games list\text games list\t0 1' \
+    $'hs ext passthrough list\text passthrough list\t0 1' \
+    $'hs ext passthrough status\text passthrough status\t0 1' \
     $'hs remote list\tremote list\t0 1' \
     $'hs cheatsheet\tcheatsheet\t0' \
     $'hs expiry\texpiry\t0' \

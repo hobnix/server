@@ -23,11 +23,12 @@ base() {   # base <dir> <source range json list>
   python3 - "$1" "$2" "$WEBUI" <<'PY'
 import json, sys
 d, rng, webui = sys.argv[1], json.loads(sys.argv[2]), sys.argv[3]
+client = '(' + ' || '.join('ClientIP(`%s`)' % r for r in rng) + ')'   # as lanClient in module.nix
 doc = {'http': {'middlewares': {'hs-lan-only': {'ipAllowList': {'sourceRange': rng}}},
     'services': {'hs-webui': {'loadBalancer': {'servers': [{'url': 'http://127.0.0.1:' + webui}]}}},
     'routers': {
-      'hs-webui': {'entryPoints': ['lan-http'], 'rule': 'Host(`home.example.org`)', 'middlewares': ['hs-lan-only'], 'service': 'hs-webui'},
-      'hs-fallback': {'entryPoints': ['lan-http'], 'rule': 'HostRegexp(`.+`)', 'priority': 1, 'middlewares': ['hs-lan-only'], 'service': 'hs-webui'}}}}
+      'hs-webui': {'entryPoints': ['lan-http'], 'rule': 'Host(`home.example.org`) && ' + client, 'middlewares': ['hs-lan-only'], 'service': 'hs-webui'},
+      'hs-fallback': {'entryPoints': ['lan-http'], 'rule': 'HostRegexp(`.+`) && ' + client, 'priority': 1, 'middlewares': ['hs-lan-only'], 'service': 'hs-webui'}}}}
 open(d + '/00-hs-base.yml', 'w').write(json.dumps(doc))
 PY
 }
@@ -53,6 +54,13 @@ check_eq "X-Forwarded-For from the peer does not matter" "the app" "$(get app.ho
 
 echo "-- allowlist"
 check_eq "a source range without the peer gets 403" "403" "$(curl -s -o /dev/null -w '%{http_code}' -H 'Host: app.home.example.org' "http://127.0.0.1:$PORT2/")"
+code2() { curl -s -m 5 -o /dev/null -w '%{http_code}' -H "Host: $1" "http://127.0.0.1:$PORT2/"; }
+body2() { curl -s -m 5 -H "Host: $1" "http://127.0.0.1:$PORT2/"; }
+echo "-- a public source (here: the peer is outside the source range) never reaches a local route or the web interface"
+check_eq "an unknown name gets 404" "404" "$(code2 nobody.example.net)"
+check_eq "the host's own name gets 404, not the web interface" "404" "$(code2 home.example.org)"
+check_eq "any other name does not show the web interface" "" "$(body2 nobody.example.net | grep -c 'web interface' | grep -v '^0$')"
+check_eq "a local name gets 403" "403" "$(code2 app.home.example.org)"
 
 echo "-- a route file edited while running is picked up"
 $R local b.home.example.org "/=127.0.0.1:$APP" > "$WORK/routes/local-b.home.example.org.yml"

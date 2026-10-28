@@ -13,27 +13,35 @@ let
   site = lib.toLower (hs.siteName or m.siteName or m.hostName);
   realm = if (m.adDomain or null) != null then lib.toLower m.adDomain.realm else "";
 
+  # The sources that may use the local routes. Port 80 can be public too (gatewayPublicHttp = 80: the same entrypoint then also carries the
+  # passthrough domains), so every local router has this list as a middleware AND the two catch-all routers have it in their rule:
+  # a public source gets 403 on a local name and 404 on any other name, never the web interface.
+  # 100.64.0.0/10 (Tailscale, but also the carrier-grade NAT of providers) is a LAN range only while port 80 is NOT public: with a public
+  # port 80 an outside client behind CGNAT would pass. Tailscale clients then use the web interface's direct port or LAN names.
+  lanRanges = [ "10.0.0.0/8" "172.16.0.0/12" "192.168.0.0/16" ] ++ lib.optional (pubH == 0) "100.64.0.0/10" ++ [ "127.0.0.1/32" "fc00::/7" "::1/128" ];
+  lanClient = "(" + lib.concatMapStringsSep " || " (r: "ClientIP(`${r}`)") lanRanges + ")";
+
   static = {
     global = { checkNewVersion = false; sendAnonymousUsage = false; };
     log.level = "INFO";
     entryPoints = { lan-http.address = ":80"; }
       // lib.optionalAttrs (pubS != 0) { public-https.address = ":${toString pubS}"; }
-      // lib.optionalAttrs (pubH != 0) { public-http.address = ":${toString pubH}"; };
+      // lib.optionalAttrs (pubH != 0 && pubH != 80) { public-http.address = ":${toString pubH}"; };   # 80 is lan-http itself
     # No api, dashboard, ping, metrics or ACME: the dashboard would be an admin page.
     providers.file = { directory = "/var/lib/hs-gateway/routes"; watch = true; };
   };
 
   base = pkgs.writeText "00-hs-base.yml" (builtins.toJSON ({
     http = {
-      middlewares.hs-lan-only.ipAllowList.sourceRange = [ "10.0.0.0/8" "172.16.0.0/12" "192.168.0.0/16" "100.64.0.0/10" "127.0.0.1/32" "fc00::/7" "::1/128" ];
+      middlewares.hs-lan-only.ipAllowList.sourceRange = lanRanges;
       # for targets with scheme https and a self-signed certificate (LAN only)
       serversTransports.hs-insecure.insecureSkipVerify = true;
     } // lib.optionalAttrs m.webUi {
       services.hs-webui.loadBalancer.servers = [ { url = "http://127.0.0.1:${toString m.webPort}"; } ];
       routers = {
-        hs-fallback = { entryPoints = [ "lan-http" ]; rule = "HostRegexp(`.+`)"; priority = 1; middlewares = [ "hs-lan-only" ]; service = "hs-webui"; };
+        hs-fallback = { entryPoints = [ "lan-http" ]; rule = "HostRegexp(`.+`) && ${lanClient}"; priority = 1; middlewares = [ "hs-lan-only" ]; service = "hs-webui"; };
       } // lib.optionalAttrs (realm != "") {
-        hs-webui = { entryPoints = [ "lan-http" ]; rule = "Host(`${site}.${realm}`)"; middlewares = [ "hs-lan-only" ]; service = "hs-webui"; };
+        hs-webui = { entryPoints = [ "lan-http" ]; rule = "Host(`${site}.${realm}`) && ${lanClient}"; middlewares = [ "hs-lan-only" ]; service = "hs-webui"; };
       };
     };
   } // lib.optionalAttrs (pubS != 0) {
@@ -55,7 +63,8 @@ in
     "L+ /var/lib/hs-gateway/routes/00-hs-base.yml - - - - ${base}"
   ];
 
-  # Port 80 only for the home networks and the private interfaces; it is NOT in allowedTCPPorts (that would open it to the internet).
+  # Port 80 only for the home networks and the private interfaces, unless gatewayPublicHttp = 80 (then it is in allowedTCPPorts below and
+  # open to everyone: the local routers refuse public sources themselves, see lanClient).
   networking.firewall.extraInputRules = ''
     ip saddr { 10.0.0.0/8, 172.16.0.0/12, 192.168.0.0/16 } tcp dport 80 accept
   '' + lib.concatMapStrings (i: ''
@@ -63,6 +72,8 @@ in
   '') config.hs.privateInterfaces;
   networking.firewall.allowedTCPPorts = lib.optional (pubS != 0) pubS ++ lib.optional (pubH != 0) pubH;
 
+  environment.etc."hs/gateway-lan-ranges".text = lib.concatStringsSep " " lanRanges + "
+";   # for hs and the tests: who may use the local routes
   environment.etc."hs/gateway-public".text = "https=${toString pubS}\nhttp=${toString pubH}\n";
 
   assertions = [
@@ -70,10 +81,14 @@ in
       message = "the gateway proxy needs Traefik 3 or newer (the route files use its rule syntax): set services.traefik.package to a v3 package."; }
     { assertion = !(m.webUi && builtins.elem m.webPort [ 80 443 pubS pubH ]);
       message = "machine.toml: the gateway proxy owns port 80 (and the public ports); the web interface needs its own port: webPort = 8480."; }
-    { assertion = pubS == 0 || !(builtins.elem pubS [ 80 443 22 445 8443 9740 m.webPort ]);
-      message = "machine.toml: gatewayPublicHttps = ${toString pubS} is a port the server already uses; suggested 4443."; }
-    { assertion = pubH == 0 || !(builtins.elem pubH [ 80 443 22 445 8443 9740 m.webPort ]);
-      message = "machine.toml: gatewayPublicHttp = ${toString pubH} is a port the server already uses; suggested 8008."; }
+    # the router forwards 443 and 80 straight to the server: 443 and 80 are the natural values; 4443 and 8008 work behind a router that translates ports
+    { assertion = pubS == 0 || !(builtins.elem pubS ([ 80 22 139 445 8443 9740 m.webPort ] ++ config.services.openssh.ports));
+      message = "machine.toml: gatewayPublicHttps = ${toString pubS} is a port the server already uses; suggested 443 (or 4443 behind a router that translates ports)."; }
+    { assertion = pubH == 0 || !(builtins.elem pubH ([ 443 22 139 445 8443 9740 m.webPort ] ++ config.services.openssh.ports));
+      message = "machine.toml: gatewayPublicHttp = ${toString pubH} is a port the server already uses; suggested 80 (or 8008 behind a router that translates ports)."; }
+    # `tailscale serve --https=443` (capabilities/tailscale/module.nix) already holds 443 for the web interface
+    { assertion = !(pubS == 443 && m.webUi && m.webTailscale);
+      message = "machine.toml: gatewayPublicHttps = 443 clashes with webTailscale (tailscale serve holds 443): set webTailscale = false, or use another port behind a router that translates ports.";  }
     { assertion = pubS != pubH || pubS == 0;
       message = "machine.toml: gatewayPublicHttps and gatewayPublicHttp must be different ports."; }
     { assertion = m.role != "edge";
