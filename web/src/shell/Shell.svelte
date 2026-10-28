@@ -158,7 +158,7 @@
   .body { position: relative; flex: 1; min-height: 0; display: flex; }
   .side { width: 276px; flex: none; display: flex; flex-direction: column; min-height: 0; background: var(--panel); border-right: 1px solid var(--line); }
   .main { --sticky-top: -26px; position: relative; flex: 1; min-width: 0; overflow: auto; scrollbar-gutter: stable; padding: 26px 28px 36px; }
-  .wrap { max-width: 1240px; margin: 0 auto; display: flex; flex-direction: column; gap: 14px; min-width: 0; }
+  .wrap { max-width: 1900px; margin: 0 auto; display: flex; flex-direction: column; gap: 14px; min-width: 0; }
   .treescrim { display: none; }
   @media (max-width: 860px) {
     .side { position: absolute; z-index: 15; top: 0; bottom: 0; left: 0; width: min(300px, 86vw); transform: translateX(-105%); transition: transform 0.2s; box-shadow: var(--shadow); }
