@@ -4,6 +4,7 @@
 # shellcheck source=tests/lib.sh
 . "$(dirname "$0")/lib.sh"
 export HS_LANG=en HS_PLAIN=1
+export HS_DISK_USED_DIR=$WORK/disk-used
 BIN=$WORK/bin; mkdir -p "$BIN"
 
 if ! command -v jq >/dev/null 2>&1; then skip "jq is not installed: monitor tests not run"; finish; exit $?; fi
@@ -83,7 +84,7 @@ check_out "a disk mounted elsewhere is mounted" $'^sdf\t.*\tmounted\t' echo "$ou
 check_out "a ZFS member: the free space of its mirror" $'^sdc\t.*\t1500398934016\t-$' echo "$out"
 check_out "a bulk disk and a mounted disk: the free space of the filesystem" $'^sdf\t.*\t300000000000\t-$' echo "$out"
 check_out "a disk that is not mounted (backup disk, free disk) has no free space" $'^sdd\t.*\t-\t-$' echo "$out"
-check_out "an empty disk too" $'^sde\t.*Blank S5\t-\t-$' echo "$out"
+check_out "an empty disk: all of it is free (nothing is used on it)" $'^sde	.*Blank S5	1000000000000	-$' echo "$out"
 check_eq "every line has 13 tab separated fields" "" "$(awk -F'\t' 'NF != 13 { print NR": "NF }' <<<"$out")"
 
 check_eq "hdparm -C only asks the rotating disk" "-C /dev/sda" "$(sort -u "$HDPARM_CALLS")"
@@ -103,7 +104,7 @@ check_eq "an exporter that is down gives the direct table" "$out" "$(HS_SMARTCTL
 
 echo "-- through the registry"
 fake=$WORK/reg; mkdir -p "$fake/lib"
-cp "$SCRIPTS"/lib/hs.sh "$SCRIPTS"/lib/capability.sh "$SCRIPTS"/lib/registry-load.sh "$SCRIPTS"/lib/ui.sh "$SCRIPTS"/lib/i18n.sh "$SCRIPTS"/lib/setting.sh "$SCRIPTS"/lib/job.sh "$SCRIPTS"/lib/diskpath.sh "$SCRIPTS/lib/registry.tsv" "$fake/lib/"; cp -r "$SCRIPTS"/lib/i18n "$fake/lib/"
+cp "$SCRIPTS"/lib/hs.sh "$SCRIPTS"/lib/capability.sh "$SCRIPTS"/lib/registry-load.sh "$SCRIPTS"/lib/ui.sh "$SCRIPTS"/lib/i18n.sh "$SCRIPTS"/lib/setting.sh "$SCRIPTS"/lib/job.sh "$SCRIPTS"/lib/diskpath.sh "$SCRIPTS"/lib/diskused.sh "$SCRIPTS"/lib/bulkpath.sh "$SCRIPTS/lib/registry.tsv" "$fake/lib/"; cp -r "$SCRIPTS"/lib/i18n "$fake/lib/"
 cp "$SCRIPTS/monitor.sh" "$fake/"
 check_eq "hs sys monitor disks is the same table" "$out" "$(env HS_CALLER=t HS_COMPLETE_DIR=$WORK/complete bash "$fake/lib/hs.sh" sys monitor disks)"
 check_out "an unknown option prints the usage" "usage: hs monitor" bash "$SCRIPTS/monitor.sh" --bogus

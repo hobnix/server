@@ -6,19 +6,19 @@
 . "$(dirname "$0")/lib.sh"
 export HS_LANG=en HS_PLAIN=1
 R=$ROOT/packages/monitoring/run.sh
-CONF=$ROOT/configuration.nix
+CONF=$ROOT/capabilities/metrics/module.nix   # moved out of configuration.nix; loaded while the capability `metrics` is on
 EX=$ROOT/machine.toml.example
 
-echo "-- host service (configuration.nix)"
-check "Prometheus is enabled with metrics" grep -q 'services.prometheus = lib.mkIf metrics' "$CONF"
+echo "-- host service (capabilities/metrics/module.nix)"
+check "Prometheus is enabled" grep -q 'services.prometheus = {' "$CONF"
 check "listens on 127.0.0.1 only" grep -q 'listenAddress = "127.0.0.1";' "$CONF"
 check "retention by time" grep -q 'retentionTime = "${toString metricsDays}d"' "$CONF"
 check "retention by size" grep -q 'retention.size=${toString metricsMaxGB}GB' "$CONF"
-check "defaults 30 days / 5 GB" grep -Eq 'metricsDays = machine.metricsDays or 30;' "$CONF"
-check "default size cap" grep -Eq 'metricsMaxGB = machine.metricsMaxGB or 5;' "$CONF"
+check "defaults 30 days / 5 GB" grep -Eq '^ *metricsDays = 30;' "$ROOT/config/defaults.nix"
+check "default size cap" grep -Eq '^ *metricsMaxGB = 5;' "$ROOT/config/defaults.nix"
 check "no firewall rule for 9090" bash -c "! grep -E 'dport.*9090' '$CONF'"
 # the service must not wait for storage: no unit dependencies on it, no lock-marker condition
-block=$(awk '/services.prometheus = lib.mkIf metrics/,/^  };/' "$CONF")
+block=$(awk '/listenAddress = /,/^  };/' "$CONF")   # Prometheus itself, not the exporters beside it
 check_eq "no unit dependency or lock-marker condition in the Prometheus block" "0" "$(grep -ciE "after|requires|wants|bindsTo|storage-locked|ConditionPath|systemd" <<<"$block")"
 for j in server disks incus; do check "scrape job $j" grep -q "job_name = \"$j\"" <<<"$block"; done
 

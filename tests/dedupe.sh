@@ -69,7 +69,7 @@ class H(http.server.BaseHTTPRequestHandler):
     def log_message(self, *a): pass
     def do_GET(self):
         ok = "Mad%20Max%202%201981" in self.path     # only the shorter term finds it
-        body = json.dumps([{"title": "Mad Max 2: The Road Warrior", "year": 1981, "images": [{"coverType": "poster", "remoteUrl": "https://image.tmdb.org/t/p/original/x.jpg"}]}] if ok else []).encode()
+        body = json.dumps([{"title": "Mad Max 2: The Road Warrior", "originalTitle": "Mad Max 2", "year": 1981, "images": [{"coverType": "poster", "remoteUrl": "https://image.tmdb.org/t/p/original/x.jpg"}]}] if ok else []).encode()
         self.send_response(200); self.send_header("Content-Length", str(len(body))); self.end_headers(); self.wfile.write(body)
 srv = http.server.HTTPServer(("127.0.0.1", 0), H)
 threading.Thread(target=srv.serve_forever, daemon=True).start()

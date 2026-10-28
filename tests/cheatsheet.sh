@@ -49,11 +49,10 @@ check_eq "--out writes the same text to a file" "$out" "$($CS --out "$WORK/s.md"
 check_eq "a wrong option fails" "1" "$($CS --nope >/dev/null 2>&1; echo $?)"
 
 echo "-- the docs site"
+# The guides are English only (docs-build.sh builds en/): the German sheet stays a command (`hs cheatsheet --out`), not a page.
 SITE=$WORK/site
 HS_DOCS_NO_FETCH=1 bash "$SCRIPTS/docs-build.sh" --out "$SITE" --quiet >/dev/null 2>&1 || true
-check "docs build writes de/spickzettel.md" test -s "$SITE/de/spickzettel.md"
-check_eq "it is the same text" "$out" "$(cat "$SITE/de/spickzettel.md")"
-check_out "the sidebar links it" "spickzettel.md" cat "$SITE/de/_sidebar.md"
-check_out "the search index knows it" '"/de/spickzettel.md"' cat "$SITE/index.html"
+check "docs build still runs" test -s "$SITE/en/start.md"
+check "it writes no German page" test ! -e "$SITE/de/spickzettel.md"
 
 finish

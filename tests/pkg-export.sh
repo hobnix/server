@@ -10,7 +10,7 @@ mkdir -p "$HS_STATE_DIR"
 PKG="python3 -I $SCRIPTS/pkg.py"
 tab=$'\t'
 OUT=$WORK/out
-check "the export runs" python3 "$SCRIPTS/dev/export-package-repos.py" --out "$OUT"
+check "the export runs" python3 "$SCRIPTS/dev/export-package-repos.py" --out "$OUT" --author "Test <test@example.com>"
 check_eq "every recipe is in recipes" "$(ls "$ROOT"/packages | wc -l)" "$(ls "$OUT/recipes/recipes" | wc -l)"
 check_eq "the two extensions are in extensions" "games posters" "$(ls "$OUT/extensions/extensions" | tr '\n' ' ' | sed 's/ $//')"
 check "the recipes index matches its folders" $PKG repo-check "$OUT/recipes"

@@ -46,7 +46,7 @@ check_out "one argument: usage" "usage: hs notify" $N onlytitle
 check_out "a bad priority position (four arguments): usage" "usage: hs notify" $N a b c d
 check_out "dry run, no address: only the journal" "No notifyUrl set, would only write to the journal" env HS_NOTIFY_URL= $N --dry-run "Backup" "failed"
 out=$(HS_NOTIFY_URL=https://ntfy.test/topic $N --dry-run "Backup" $'line one\nline two' high)
-check_out "dry run shows the address, title, priority" "Would send to https://ntfy.test/topic" echo "$out"
+check_out "dry run names the channel, title, priority" "Would send to main:" echo "$out"
 check_out "and the priority" "priority: high" echo "$out"
 check_out "and a multi-line message as indented bullets" "^  - line two" echo "$out"
 check_out "and the category with its icon" "category: problem \(warning\)" echo "$out"
@@ -59,7 +59,7 @@ check_out "with an address: journal first" "logger -t hs-notify -- \[default\] D
 check_out "then a POST with title, priority, icon and markdown as headers" "curl -fsS -m 10 -H Title: Disk -H Priority: default -H Tags: information_source,[a-z0-9-]+ -H Markdown: yes --data-raw - two - lines" cat "$CALLS"
 : > "$CALLS"
 check_eq "an undeliverable message never makes the caller fail" "0" "$(HS_NOTIFY_URL=https://ntfy.test/t CURL_FAIL=1 $N T M >/dev/null 2>&1; echo $?)"
-check_out "and the failure goes to the journal" "could not send 'T' to https://ntfy.test/t" cat "$CALLS"
+check_out "and the failure goes to the journal" "could not send 'T' to channel main:" cat "$CALLS"
 echo "https://from-file.test/x" > "$HS_STATE_DIR/notify-url"
 : > "$CALLS"
 $N T M
@@ -89,7 +89,7 @@ check_out "a failed build shows its last lines" "build of /nix/store/x.drv faile
 check_out "and where the rest is" "hs rebuild --verbose" echo "$out"
 check_eq "a failed build exits 1" "1" "$(REBUILD_FAIL=1 $R >/dev/null 2>&1; echo $?)"
 fake=$WORK/reg; mkdir -p "$fake/lib"
-cp "$SCRIPTS"/lib/hs.sh "$SCRIPTS"/lib/capability.sh "$SCRIPTS"/lib/registry-load.sh "$SCRIPTS"/lib/ui.sh "$SCRIPTS"/lib/i18n.sh "$SCRIPTS"/lib/setting.sh "$SCRIPTS"/lib/job.sh "$SCRIPTS"/lib/locked.sh "$SCRIPTS"/lib/machine.sh "$SCRIPTS/lib/registry.tsv" "$fake/lib/"; cp -r "$SCRIPTS"/lib/i18n "$fake/lib/"
+cp "$SCRIPTS"/lib/hs.sh "$SCRIPTS"/lib/capability.sh "$SCRIPTS"/lib/registry-load.sh "$SCRIPTS"/lib/ui.sh "$SCRIPTS"/lib/i18n.sh "$SCRIPTS"/lib/setting.sh "$SCRIPTS"/lib/job.sh "$SCRIPTS"/lib/locked.sh "$SCRIPTS"/lib/machine.sh "$SCRIPTS"/lib/stamp.sh "$SCRIPTS/lib/registry.tsv" "$fake/lib/"; cp -r "$SCRIPTS"/lib/i18n "$fake/lib/"
 cp "$SCRIPTS/rebuild.sh" "$fake/"
 : > "$CALLS"
 env HS_CALLER=t HS_COMPLETE_DIR=$WORK/complete bash "$fake/lib/hs.sh" system rebuild >/dev/null 2>&1
