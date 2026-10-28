@@ -1,3 +1,4 @@
+# shellcheck shell=bash
 # local_domain: prints <siteName>.<realm> (lower case) or nothing. The name space of the gateway proxy (capabilities/gateway/NOTES.md).
 # Same computation as scripts/dns.sh: realm = machine.toml adDomain.realm, siteName = /etc/hs/site-name.
 # Knobs: HS_MACHINE_FILE, HS_SITE_NAME_FILE. Needs lib/machine.sh sourced.
