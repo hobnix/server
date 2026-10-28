@@ -32,7 +32,9 @@
   const events = poll(() => (open && tab === 'events' ? '/api/sys/state/events?n=60' : ''), 15000);
 
   // tasks of this browser, plus jobs the server runs that were started elsewhere (a terminal, a timer)
-  const others = $derived(rows(running).filter((r) => !tasks.list.some((t) => t.unit === r[0])).map((r) => ({ unit: r[0], title: r[1] || r[0], started: r[2], state: 'running', remote: true })));
+  // the server names a unit with .service, a tracked task may not: compare without the suffix
+  const bare = (u) => String(u).replace(/\.service$/, '');
+  const others = $derived(rows(running).filter((r) => !tasks.list.some((t) => bare(t.unit) === bare(r[0]))).map((r) => ({ unit: r[0], title: r[1] || r[0], started: r[2], state: 'running', remote: true })));
   const all = $derived([...tasks.list, ...others]);
   const sel = $derived(tasks.list.find((t) => t.unit === tasks.selected));
 
@@ -237,9 +239,10 @@
   .lv.warn { color: var(--warn-ink); }
   .lv.bad { color: var(--bad-ink); }
   .lm { color: var(--fg-2); min-width: 0; overflow-wrap: anywhere; }
-  .split { display: grid; grid-template-columns: minmax(0, 1.2fr) minmax(0, 1fr); gap: 14px; align-items: start; }
-  .split .table { align-self: start; height: auto; }
-  .tail { max-height: 100%; overflow: auto; padding: 6px 8px; margin: 4px 14px 4px 0; border: 1px solid var(--line); background: var(--bg); }
+  .split { display: grid; grid-template-columns: minmax(0, 1.2fr) minmax(0, 1fr); gap: 14px; align-items: stretch; height: 100%; grid-template-rows: minmax(0, 1fr); }
+  .split .tablescroll { min-height: 0; overflow-y: auto; }
+  .split .table { height: auto; }
+  .tail { min-height: 0; overflow: auto; padding: 6px 8px; margin: 4px 14px 4px 0; border: 1px solid var(--line); background: var(--bg); }
   .click { cursor: pointer; }
   .click:hover td, .sel td { background: color-mix(in oklch, var(--accent) 12%, transparent); }
   .empty { padding: 10px 14px; color: var(--fg-3); }
@@ -259,5 +262,5 @@
   .tile { display: flex; flex-direction: column; gap: 4px; padding: 10px 12px; border: 1px solid var(--line); background: var(--panel-2); cursor: pointer; text-align: left; }
   .tile:hover { background: var(--panel-3); }
   .tn { display: flex; align-items: center; gap: 6px; font-weight: 500; }
-  @media (max-width: 900px) { .tiles { grid-template-columns: repeat(2, minmax(0, 1fr)); } .split { grid-template-columns: minmax(0, 1fr); } }
+  @media (max-width: 900px) { .tiles { grid-template-columns: repeat(2, minmax(0, 1fr)); } .split { grid-template-columns: minmax(0, 1fr); grid-template-rows: none; height: auto; } .tail { max-height: 240px; } }
 </style>
