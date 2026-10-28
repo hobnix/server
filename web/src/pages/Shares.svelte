@@ -75,6 +75,7 @@
 
   // drawer data (ACL and snapshots are per share; read only for the selected one)
   const acl = poll(() => (editable(sel) ? `/api/sys/shares/acl/${encodeURIComponent(sel.name)}` : ''), 30000);
+  const vis = poll(() => (editable(sel) ? `/api/sys/shares/visible/${encodeURIComponent(sel.name)}` : ''), 30000);
   const hist = poll(() => (editable(sel) ? `/api/sys/shares/history/${encodeURIComponent(sel.name)}` : ''), 30000);
   const backups = poll(() => (editable(sel) && tab === 'hist' ? '/api/sys/backup/snapshots?tag=shares' : ''), 60000);
   // sid, name, user|group, level
@@ -86,6 +87,8 @@
   // backup restore points: id, time, tags
   const points = $derived(rows(backups).map((r) => ({ id: r[0], time: r[1] })).reverse().slice(0, 10));
 
+  // `visible` | `hidden`: whether the share is listed when someone browses the server (hidden: only by typing its path)
+  const visibility = $derived(String(rows(vis)[0]?.[0] ?? '') === 'hidden' ? 'hidden' : 'visible');
   const LEVELS = ['none', 'read', 'write', 'full'];
   const setLevel = (e, l) => l !== e.level && openPlan('shares', [sel.name, 'perm', '--set', `${e.sid}=${l}`], `${e.name}: ${l} on ${sel.name}`);
   const toggle = (what, to) => openPlan('shares', [sel.name, what, '--to', to], `${what === 'cache' ? 'Upload cache' : 'Automatic snapshots'} of ${sel.name} ${to}`);
@@ -182,7 +185,14 @@
                 </div>
               {:else if t === 'perm'}
                 <div class="pad">
-                  <div class="sh"><b>Permissions</b><span class="mute">apply at the next connection</span><span class="grow"></span>
+                  <div class="sh"><b>Visibility</b><span class="mute">in the network list of the server</span></div>
+                  <div class="arow2">
+                    <span class="mute">Hidden shares can still be opened by typing the path.</span>
+                    <div class="lv" role="group" aria-label="Visibility of {sel.name}">
+                      {#each ['hidden', 'visible'] as v}<button type="button" class="lvb" class:on={v === visibility} aria-pressed={v === visibility} disabled={locked || !vis.loaded} title={v === visibility ? '' : `Make ${sel.name} ${v}`} onclick={() => v !== visibility && openPlan('shares', [sel.name, 'visibility', '--to', v], `${sel.name}: ${v}`)}>{v === 'hidden' ? 'Hidden' : 'Visible'}</button>{/each}
+                    </div>
+                  </div>
+                  <div class="sh sp"><b>Permissions</b><span class="mute">apply at the next connection</span><span class="grow"></span>
                     <button class="btn sm" disabled={locked} onclick={() => openCreate(AddAccess, { share: sel.name, taken: entries.map((e) => e.sid) })}><i class="ph ph-plus"></i>Add</button></div>
                   {#each entries as e (e.sid)}
                     <div class="arow2">
@@ -252,6 +262,7 @@
   .nw { white-space: nowrap; }
   code { font-size: 12px; }
   .sh { display: flex; align-items: baseline; gap: 8px; margin-bottom: 8px; }
+  .sp { margin-top: 16px; }
   .links { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 8px; }
   .trow { display: flex; align-items: center; gap: 10px; padding: 7px 0; border-bottom: 1px solid var(--line); }
   .arow2 { display: flex; align-items: center; justify-content: space-between; gap: 10px; padding: 7px 0; border-bottom: 1px solid var(--line); flex-wrap: wrap; }

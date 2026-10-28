@@ -114,6 +114,16 @@ grep -q -- 'rollback manual-1 --yes' "$WORK/jobcalls" && pass "the job passes --
 run start docs backup --to off
 check_eq "a plain change starts without a name" 0 "$rc"
 
+echo "-- visibility"
+run plan docs visibility
+check_eq "visibility without a value" "2 status	needs
+needs	to" "$rc $out"
+run plan docs visibility --to maybe
+check_eq "visibility: bad value" 1 "$rc"
+run plan docs visibility --to hidden
+check_eq "visibility: exit 0" 0 "$rc"
+has '^command	.*docs --visibility hidden$' && pass "visibility command" || fail "visibility command: $out"
+
 echo "-- permissions"
 run plan docs perm
 check_eq "perm without a change" "2 status	needs

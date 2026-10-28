@@ -184,6 +184,13 @@ sudo hs share photos perm Everyone=none 'Domain Admins=full'
 
 Then give the people who should have access their level. `hs health` checks this every 15 minutes and warns when a share is open.
 
+### Hide a share from the network list
+
+New shares are hidden: they do not show up when someone browses the server, and whoever has access still opens them by typing
+`\\server\share`. In the web interface open Storage > Shares, pick the share, tab Permissions, and switch **Visibility** to Visible or
+Hidden (`hs sys shares plan <share> visibility --to visible|hidden`). It sets Samba's `browseable` for that share and applies the next time
+a computer looks at the server. Shares that existed before keep their current state. Not tested on hardware yet.
+
 ### Rights from Windows
 
 The same list can be edited with the Windows program "Shared Folders" (`fsmgmt.msc`). Windows allows one login per server name, so connect to

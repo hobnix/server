@@ -120,6 +120,7 @@ for parent in shares sensitive; do
       net conf addshare "$name" "$path" writeable=n guest_ok=n
       net conf setparm "$name" "force user" root
     fi
+    net conf setparm "$name" browseable no    # new shares are hidden when browsing; set visible in hs share <share> perm
     if [ -n "$admins" ]; then
       sharesec "$name" --replace "$admins_sid:ALLOWED/0x0/FULL" ||
         warn "$(t 'Could not restrict %s, it is open to every domain user' "$name")"

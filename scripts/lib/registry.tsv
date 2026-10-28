@@ -276,6 +276,7 @@ sys	sys shares list	manage-shares.sh	--list	shares with size and cache	-
 sys	sys shares principals	manage-shares.sh	--principals	users and groups a share can be given to	-
 sys	sys shares acl	manage-shares.sh	--acl	who may use a share	-
 sys	sys shares acl <share>	manage-shares.sh	{1} --acl	who may use one share	-
+sys	sys shares visible <share>	manage-shares.sh	{1} --visible	is a share listed when browsing the server (visible | hidden)	-
 sys	sys shares measure	manage-shares.sh	--measure	measure the share sizes (nightly)	-
 sys	sys shares measure <share>	manage-shares.sh	--measure {1}	measure the size of one share now	-
 sys	sys shares overview	share-overview.sh	-	every share with size, disks, backup, cache and the instances that mount it	-

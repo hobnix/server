@@ -56,6 +56,11 @@ check_out "a bad level" "✗ unknown level 'bad'" $MS docs --set S-1-5-21-1-1000
 check_out "a bad argument" "✗ expected <sid>=<level>, got 'bogus'" $MS docs --set bogus
 check_out "nobody with full access: the reason and the hint" "! Not possible: nobody would have full access to 'media'" $MS media --set S-1-5-21-1-512=read
 check_eq "that also exits 1" "1" "$($MS media --set S-1-5-21-1-512=read >/dev/null 2>&1; echo $?)"
+check_eq "docs is visible unless browseable says no" "visible" "$($MS docs --visible)"
+check_out "--visibility hidden --dry-run says what happens" "is hidden in the network list afterwards" $MS docs --visibility hidden --dry-run
+check_out "--visibility hidden is saved" "✓ Saved\. The network list" $MS docs --visibility hidden
+check_eq "hidden is set through browseable" "1" "$(grep -c '^net conf setparm docs browseable no$' "$LOG")"
+check_out "a bad visibility" "✗ unknown visibility 'bad'" $MS docs --visibility bad
 check_out "a name that exists" "✗ A share called 'media' exists already\." $MS docs --rename media
 check_out "a name that is not usable" "✗ 'bad name' is not a usable name" $MS docs --rename 'bad name'
 check_out "a reserved name" "✗ 'shares' is a reserved name\." $MS docs --rename shares
