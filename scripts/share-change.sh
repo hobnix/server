@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # help: change a share without asking anything: what would happen (plan), then do it as a background job (start)
 # help.de: eine Freigabe ändern, ohne etwas zu fragen: was passieren würde (plan), dann als Hintergrundjob ausführen (start)
-# args: plan|start <share> <backup|cache|auto|rename|snapshot|rollback|repair|perm|add|delete|purge|undelete|restore> [--to on|off|<new name>] [--label <name>] [--snapshot <name>] [--set <sid>=<level> ...] [--path <folder or file inside the share>] [--kind shares|sensitive] [--ct <instance> --path <inside> [--as <uid>:<gid>]] [--confirm <word>]
+# args: plan|start <share> <backup|cache|auto|rename|snapshot|rollback|repair|perm|visibility|add|delete|purge|undelete|restore> [--to on|off|<new name>] [--label <name>] [--snapshot <name>] [--set <sid>=<level> ...] [--path <folder or file inside the share>] [--kind shares|sensitive] [--ct <instance> --path <inside> [--as <uid>:<gid>]] [--confirm <word>]
 # System command (hs sys shares plan|start): for the interface, timers and tests. It never asks and prints plain
 # key<TAB>value lines like pool-change.sh and ct-change.sh. The console wizards
 # (share-snap-guided.sh, hs backup, ...) stay the console front ends over the same scripts.
@@ -13,6 +13,7 @@
 #   rollback   --snapshot <name>  ZFS: go back to a snapshot; newer ones are deleted (red: the share's name is typed)
 #   repair                        hand the files of every share to adminuser again (all shares, a long job on big pools)
 #   perm       --set <sid>=<level> ...   who may use the share: level none|read|write|full (repeatable; the plan lists the access afterwards)
+#   visibility --to visible|hidden   list the share when browsing the server, or hide it (it can still be opened by typing its path)
 #   delete                        take the share away without erasing it: detach it from the instances, rename the folder to <share>.deleted-<date> (kept, never published again), remove the Samba share (red: the share's name is typed)
 #   purge                         <share> is a kept folder <name>.deleted-<date>: remove it for good (red: its name is typed)
 #   undelete                      <share> is a kept folder <name>.deleted-<date>: bring it back as the share <name> (a rename, nothing is overwritten or removed; the share starts closed: Domain Admins only)
@@ -42,7 +43,7 @@ refuse() { printf 'status\trefused\nreason\t%s\n' "$1"; exit 1; }
 verb=${1:-}; share=${2:-}; action=${3:-}
 case "$verb" in plan|start) ;; *) echo "usage: share-change.sh plan|start <share> <action> [options]" >&2; exit 1 ;; esac
 [[ "$share" =~ ^[A-Za-z0-9][A-Za-z0-9._-]*$ ]] || refuse "invalid share name"
-case "$action" in backup|cache|auto|rename|snapshot|rollback|repair|perm|add|delete|purge|undelete|restore) ;; *) refuse "unknown action" ;; esac
+case "$action" in backup|cache|auto|rename|snapshot|rollback|repair|perm|visibility|add|delete|purge|undelete|restore) ;; *) refuse "unknown action" ;; esac
 shift 3
 
 to="" label="" snapname="" confirm="" kind="" ct="" ctpath="" as="" sets=() inside=""
@@ -66,7 +67,7 @@ for v in "$label" "$snapname"; do [ -z "$v" ] || [[ "$v" =~ $word ]] || refuse "
 needs=()
 case "$action" in
   backup|cache|auto) [ -n "$to" ] || needs+=(to) ;;
-  rename) [ -n "$to" ] || needs+=(to) ;;
+  rename|visibility) [ -n "$to" ] || needs+=(to) ;;
   rollback|restore) [ -n "$snapname" ] || needs+=(snapshot) ;;
   perm) [ ${#sets[@]} -gt 0 ] || needs+=(permission) ;;
   add) [ -n "$kind" ] || needs+=(kind); [ -z "$ct" ] || [ -n "$ctpath" ] || needs+=(path) ;;
@@ -78,6 +79,7 @@ if [ ${#needs[@]} -gt 0 ]; then
 fi
 case "$action" in
   backup|cache|auto) [ "$to" = on ] || [ "$to" = off ] || refuse "--to is on or off" ;;
+  visibility) [ "$to" = visible ] || [ "$to" = hidden ] || refuse "--to is visible or hidden" ;;
   rename) [[ "$to" =~ $word ]] || refuse "'$to' is not a usable name (letters, digits, . _ -)" ;;
   restore) [[ "$snapname" =~ ^[A-Za-z0-9]+$ ]] || refuse "'$snapname' is not a snapshot id (latest, or an id from the list)"
            case "$inside" in *..*) refuse "the folder must lie inside the share" ;; esac ;;
@@ -99,6 +101,7 @@ case "$action" in
   cache)    cmd=(bash "$manage" "$share" --cache "$to") ;;
   auto)     cmd=(bash "$auto" "$share" "$to") ;;
   rename)   cmd=(bash "$manage" "$share" --rename "$to") ;;
+  visibility) cmd=(bash "$manage" "$share" --visibility "$to") ;;
   snapshot) cmd=(bash "$snap" "$share" snapshot); [ -z "$label" ] || cmd+=("$label") ;;
   rollback) cmd=(bash "$snap" "$share" rollback "$snapname" --yes) ;;
   repair)   cmd=(bash "$sync" --fix-owner) ;;
@@ -148,7 +151,7 @@ case "$action" in
       printf '%s\n' "$dry" | sed -e 's/^[[:space:]]*//' -e 's/^✗ *//' -e 's/^! *//' | awk 'NF { print "reason\t" $0 }'
       exit 1
     fi ;;
-  rename|cache|perm)
+  rename|cache|perm|visibility)
     rc=0
     if [ "$action" = perm ]; then dry=$(bash "$manage" "$share" --set "${sets[@]}" --dry-run </dev/null 2>&1) || rc=$?
     else dry=$(bash "$manage" "$share" "--$action" "$to" --dry-run </dev/null 2>&1) || rc=$?; fi
@@ -239,7 +242,7 @@ case "$action" in
       /delshare/ { print "step\tremove the Samba share"; next }'
     grep -q ' rename ' <<<"$dry" || printf 'note\tThe folder was already removed outside the interface: only the dead share is cleaned up.\n'
     grep -q ' rename ' <<<"$dry" && printf 'note\tThe folder stays on the disks and in the backup if it was in it. `hs share repair` lists it as kept and never publishes it. Remove it by hand when you are sure.\n' ;;
-  rename|cache)
+  rename|cache|visibility)
     printf '%s\n' "$dry" | awk '
       /^\(dry run/ || /^[ \t]*$/ { next }
       NR == 1 || !h { sub(/:[ \t]*$/, ""); print "heading\t" $0; h = 1; next }

@@ -15,7 +15,9 @@ set -euo pipefail
 #                                       containers that have the share mounted
 #   <share> --rename <new>              new name: the folder on every disk, the Samba share with its
 #                                       permissions, the backup switch; containers that mount it restart
-# Add --dry-run to --set, --cache or --rename to see the result without changing anything.
+#   <share> --visible                   visible | hidden (is the share listed when browsing the server)
+#   <share> --visibility visible|hidden list the share when browsing the server, or hide it (Samba `browseable`)
+# Add --dry-run to --set, --cache, --visibility or --rename to see the result without changing anything.
 
 here=$(dirname "$0")
 . "$here/lib/ui.sh"
@@ -323,6 +325,28 @@ case "$1" in
     if $dry; then exit 0; fi
     sharesec "$share" --replace "$(IFS=,; echo "${new[*]}")"
     ok "Saved. It applies to new connections; someone already connected keeps the old rights until they reconnect."
+    ;;
+
+  --visible)
+    # one word: visible | hidden (Samba's `browseable`; a hidden share can still be opened by typing its path)
+    case "$(net conf getparm "$share" browseable 2>/dev/null || true)" in no|No|NO|false|0) echo hidden ;; *) echo visible ;; esac ;;
+
+  --visibility)
+    [ $# -ge 2 ] || usage
+    case "$2" in
+      visible) yn=yes ;;
+      hidden)  yn=no ;;
+      *) fail "$(t "unknown visibility '%s' (visible, hidden)" "$2")" ;;
+    esac
+    echo "'$share' is $2 in the network list afterwards:"
+    if [ "$2" = hidden ]; then
+      echo "  nobody sees it when browsing the server; whoever has access can still open it by typing \\\\server\\$share"
+    else
+      echo "  everyone who browses the server sees it (only people with access can open it)"
+    fi
+    if $dry; then exit 0; fi
+    net conf setparm "$share" browseable "$yn"
+    ok "Saved. The network list updates when a computer looks at the server again."
     ;;
 
   --cache)
