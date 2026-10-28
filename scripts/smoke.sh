@@ -74,6 +74,7 @@ default_probes() {
     $'hs disk inventory\tdisk inventory\t0 1' \
     $'hs pool bulk\tpool bulk\t0 1' \
     $'hs sys pool state\tsys pool state\t0' \
+    $'hs sys fm locations\tsys fm locations\t0 1' \
     $'hs user list\tuser list\t0' \
     $'hs user show\tuser Administrator show\t0 1' \
     $'hs group list\tgroup list\t0' \
