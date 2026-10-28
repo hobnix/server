@@ -38,4 +38,26 @@ printf 'metrics\n' > "$HS_ETC_DIR/capabilities"
 check_eq "optional parts are done once any is on" done "$(state_of parts)"
 printf 'true' > "$HS_SETTINGS_DIR/setupDone"
 check_eq "finished follows setupDone" done "$(state_of finished)"
+echo "-- the wildcard row exists only while the gateway proxy is on"
+printf 'cloud
+' > "$HS_ETC_DIR/capabilities"
+check_eq "no gateway-dns row while gateway is off" "" "$(state_of gateway-dns)"
+printf 'gateway
+' > "$HS_ETC_DIR/capabilities"
+cat > "$WORK/resolve-ok" <<'EOF2'
+#!/bin/sh
+echo "192.168.1.10 STREAM x"
+EOF2
+cp "$WORK/resolve-ok" "$WORK/resolve-bad"; sed -i 's/192.168.1.10/192.168.1.99/' "$WORK/resolve-bad"
+chmod +x "$WORK/resolve-ok" "$WORK/resolve-bad"
+printf 'hostName = "homeserver"
+adDomain = { realm = "AD.EXAMPLE.ORG", workgroup = "EX" }
+' > "$HS_MACHINE_FILE"
+echo homeserver > "$WORK/site-name"
+export HS_SITE_NAME_FILE=$WORK/site-name HS_HOST_IP=192.168.1.10
+export HS_GATEWAY_RESOLVE=$WORK/resolve-bad
+check_eq "gateway-dns is open when the wildcard points elsewhere" open "$(state_of gateway-dns)"
+check_out "and names hs gateway check" "hs gateway check" run
+export HS_GATEWAY_RESOLVE=$WORK/resolve-ok
+check_eq "gateway-dns is done when the wildcard works" done "$(state_of gateway-dns)"
 finish

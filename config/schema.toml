@@ -920,6 +920,39 @@ value = '''
 proxyDomains = "example.org,example.net"'''
 
 [[item]]
+kind = "option"
+key = "gatewayPublicHttps"
+type = "int"
+required = false
+settable = false
+secret = false
+capability = "gateway"
+default = '0'
+doc = '''
+# The public HTTPS port of the gateway proxy (extension passthrough: outside domains forwarded by SNI). 0 = off. Suggested 443: the
+# router forwards the internet's 443 straight to the server. Another port (4443) only behind a router that translates ports. Never 80.
+# Opens the port to the internet. Needs hs rebuild.'''
+value = '''
+gatewayPublicHttps = 443'''
+
+[[item]]
+kind = "option"
+key = "gatewayPublicHttp"
+type = "int"
+required = false
+settable = false
+secret = false
+capability = "gateway"
+default = '0'
+doc = '''
+# The public HTTP port of the gateway proxy (extension passthrough: outside domains forwarded by Host). 0 = off. Suggested 80: the
+# router forwards the internet's 80 straight to the server; port 80 then also carries the local names, which refuse every source
+# outside the home networks. Another port (8008) only behind a router that translates ports. Never 443. Opens the port to the
+# internet. Needs hs rebuild.'''
+value = '''
+gatewayPublicHttp = 80'''
+
+[[item]]
 kind = "section"
 title = "Hardware"
 

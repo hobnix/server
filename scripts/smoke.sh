@@ -108,6 +108,9 @@ default_probes() {
     $'hs services check\tservices check\t0 1' \
     $'hs services plan\tservices plan\t0 1' \
     $'hs services tiles\tservices tiles\t0 1' \
+    $'hs gateway status\tgateway status\t0 1' \
+    $'hs gateway routes\tgateway routes\t0 1' \
+    $'hs gateway check\tgateway check\t0 1' \
     $'hs dc cert show\tdc cert show\t0 1' \
     $'hs update --preview\tupdate --preview\t0 1\t120' \
     $'hs ssh-key list\tssh-key list\t0 1' \
@@ -115,6 +118,8 @@ default_probes() {
     $'hs notify channel list\tnotify channel list\t0' \
     $'hs notify channel providers\tnotify channel providers\t0' \
     $'hs ext games list\text games list\t0 1' \
+    $'hs ext passthrough list\text passthrough list\t0 1' \
+    $'hs ext passthrough status\text passthrough status\t0 1' \
     $'hs remote list\tremote list\t0 1' \
     $'hs cheatsheet\tcheatsheet\t0' \
     $'hs expiry\texpiry\t0' \

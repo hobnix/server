@@ -184,6 +184,17 @@ vlans = { home = { id = 95, default = true } }
 # Assistant. Home networks and Tailscale only, no secrets in it. Default false. Needs a rebuild.
 # deckApi = true
 
+# The public HTTPS port of the gateway proxy (extension passthrough: outside domains forwarded by SNI). 0 = off. Suggested 443: the
+# router forwards the internet's 443 straight to the server. Another port (4443) only behind a router that translates ports. Never 80.
+# Opens the port to the internet. Needs hs rebuild.
+# gatewayPublicHttps = 443
+
+# The public HTTP port of the gateway proxy (extension passthrough: outside domains forwarded by Host). 0 = off. Suggested 80: the
+# router forwards the internet's 80 straight to the server; port 80 then also carries the local names, which refuse every source
+# outside the home networks. Another port (8008) only behind a router that translates ports. Never 443. Opens the port to the
+# internet. Needs hs rebuild.
+# gatewayPublicHttp = 80
+
 # ═══ Hardware ═════════════════════════════════════════════════════════════
 
 # Graphics chip(s), for GPU use in containers (Jellyfin transcoding, Immich, ...): "nvidia",

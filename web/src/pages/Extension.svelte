@@ -9,9 +9,10 @@
   import { ui } from '../ui.svelte.js';
   import PcForm from '../forms/ops/PcForm.svelte';
   import PosterForm from '../forms/ops/PosterForm.svelte';
+  import PassthroughForm from '../forms/ops/PassthroughForm.svelte';
 
   // the dialogs a declaration may name (`form = "PcForm"`): a closed list, a package cannot bring its own code
-  const forms = { PcForm, PosterForm };
+  const forms = { PcForm, PosterForm, PassthroughForm };
 
   const name = $derived(route.path.split('/')[2] ?? '');
   const page = $derived((ui.features.extensions ?? []).find((p) => p.name === name));

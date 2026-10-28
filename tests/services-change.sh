@@ -91,4 +91,17 @@ run plan apply --port 3; check_eq "add options on another action: refused" 1 "$r
 echo "-- bad calls"
 run plan bogus; check_eq "unknown action: refused" 1 "$rc"
 run plan apply --bogus; check_eq "unknown option: refused" 1 "$rc"
+echo "-- the local slot (--proxy local)"
+: > "$CALLS"
+printf 'add	app.lan	/	10.0.0.5:80	app	-
+' > "$FAKE_PLAN"
+run plan apply --proxy local; check_eq "plan apply --proxy local: exit 0" 0 "$rc"
+check_out "plan asks services.sh for the local slot" "^plan --plain --proxy local" cat "$CALLS"
+has "^command${T}hs services apply --yes --proxy local" && pass "the command carries --proxy local" || fail "$out"
+: > "$CALLS"
+run plan apply; has "^command${T}hs services apply --yes\$" && pass "without it the command is unchanged" || fail "$out"
+check_eq "and asks for the public plan" "plan --plain" "$(head -n1 "$CALLS")"
+run plan import --proxy local; check_eq "import --proxy local is accepted" 0 "$rc"
+run plan remove x --proxy local; check_eq "--proxy on remove is refused" 1 "$rc"
+run plan apply --proxy other; check_eq "a bad --proxy is refused" 1 "$rc"
 finish

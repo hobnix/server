@@ -27,7 +27,7 @@ options, all set the same way with `hs config set <key> <value>` (never edit `ma
 
 | Option | Default | Meaning | Needs `hs rebuild` |
 | --- | --- | --- | --- |
-| `webPort` | `8480` | port of the page; `80` works too and saves typing the port | yes |
+| `webPort` | `8480` | port of the page, the direct address `http://<server address>:8480`. With the gateway proxy on (`capabilities = ["gateway"]`) port 80 belongs to Traefik, so `webPort` must not be 80; the page is then also at `http://<siteName>.<realm>/` | yes |
 | `webTailscale` | `false` | HTTPS through Tailscale, see below | yes |
 | `webLan` | `true` | keep the plain-HTTP address on the home network | yes |
 | `webDocs` | `true` | the Docs page | yes |

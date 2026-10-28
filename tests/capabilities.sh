@@ -25,8 +25,9 @@ for n in names:
         if r not in names: print('%s: requires unknown capability %s' % (n, r))
     for k in ('nix', 'notes'):
         if k in m and not os.path.exists(os.path.join(cdir, n, m[k])): print('%s: %s = %s is missing' % (n, k, m[k]))
+    pdir = 'reverse-proxy' if n == 'gateway' else n   # the gateway proxy is the local slot of the reverse proxy: its variant lives beside zoraxy.sh
     for v in m.get('variants', []):
-        if not os.path.exists(os.path.join(root, 'scripts', 'providers', n, v + '.sh')): print('%s: variant %s has no scripts/providers/%s/%s.sh' % (n, v, n, v))
+        if not os.path.exists(os.path.join(root, 'scripts', 'providers', pdir, v + '.sh')): print('%s: variant %s has no scripts/providers/%s/%s.sh' % (n, v, pdir, v))
     if 'extension' in m and not isinstance(m['extension'], bool): print('%s: extension must be true or false' % n)
     if m.get('extension') and not os.path.exists(os.path.join(cdir, n, 'commands.tsv')): print('%s: an extension package needs a commands.tsv' % n)
     if os.path.exists(os.path.join(cdir, n, 'commands.tsv')) and not m.get('extension'): print('%s: commands.tsv without extension = true' % n)
@@ -49,7 +50,7 @@ for n in sorted(os.listdir(root + '/capabilities')):
             print('%s:%s:%s' % (n, p, m.get('kind')))
 EOF
 )
-check_eq "who provides what (a provider has kind provider)" "dashboard:dashboard:provider docker:docker-manager:provider network:network:provider reverse-proxy:reverse-proxy:provider tailscale:private-access:provider" "$(printf '%s' "$provides" | paste -sd' ' | tr -cd '[:alnum:]: -')"
+check_eq "who provides what (a provider has kind provider)" "dashboard:dashboard:provider docker:docker-manager:provider gateway:local-proxy:provider network:network:provider reverse-proxy:reverse-proxy:provider tailscale:private-access:provider" "$(printf '%s' "$provides" | paste -sd' ' | tr -cd '[:alnum:]: -')"
 
 echo "-- tags point at a capability"
 names=$(ls "$ROOT/capabilities" | while read -r d; do [ -d "$ROOT/capabilities/$d" ] && echo "$d"; done | sort)

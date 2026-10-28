@@ -230,6 +230,78 @@ check_eq "the default site is called by its name" "1" "$(grep -c "^unmanaged${T}
 check_eq "a dead-end root wanted by two services is one row" "1" "$(grep -c "^ok${T}example.org${T}/${T}127.0.0.1:1" <<<"$plan")"
 check_eq "a real root beats the dead end of the paths-only service" "1" "$(grep -c "^ok${T}webmail.example.org${T}/${T}10.10.95.48:80" <<<"$plan")"
 
+echo "-- the local slot (gateway proxy, --proxy local): independent of the public one"
+SAVE_SVC=$HS_SERVICES_DIR
+export HS_SERVICES_DIR=$WORK/svc-local HS_CAPABILITIES_FILE=$WORK/caps HS_GATEWAY_DIR=$WORK/gw HS_GATEWAY_UNIT_STATE=$WORK/unit
+export HS_MACHINE_FILE=$WORK/machine.toml HS_SITE_NAME_FILE=$WORK/site-name
+mkdir -p "$HS_GATEWAY_DIR/routes" "$HS_GATEWAY_DIR/tmp"
+printf 'active' > "$WORK/unit"; echo homeserver > "$HS_SITE_NAME_FILE"
+printf 'hostName = "homeserver"\nadDomain = { realm = "AD.EXAMPLE.ORG", workgroup = "EX" }\n' > "$HS_MACHINE_FILE"
+SL="$S"
+check_out "refused while the capability is off" "gateway proxy is off" $SL plan --proxy local
+check_eq "the machine-readable read answers status off while the capability is off" "status${T}off" "$($S plan --plain --proxy local)"
+printf 'gateway\n' > "$HS_CAPABILITIES_FILE"
+$S add jellyfin --container docker --port 8096 --exposure public-ok --want reverse-proxy,local-proxy >/dev/null
+$S add docker --container docker --port 80 --exposure never-public --names docker,arcane --fqdn arcane.example.org --public-path /hook --want local-proxy >/dev/null
+$S add secure --container docker --port 8443 --exposure private-ok --names secure --want local-proxy >/dev/null
+sed -i 's/^port = 8443/port = 8443\nscheme = "https"/' "$HS_SERVICES_DIR/secure.toml"
+$S add pubonly --container docker --port 9000 --exposure private-ok --want reverse-proxy >/dev/null
+lp=$($S plan --plain --proxy local)
+check_eq "local: a public-ok service gets its local name" "1" "$(grep -c "^add${T}jellyfin.homeserver.ad.example.org${T}/${T}10.10.95.20:8096" <<<"$lp")"
+check_eq "local: a never-public admin page gets a local route" "1" "$(grep -c "^add${T}docker.homeserver.ad.example.org${T}/${T}10.10.95.20:80" <<<"$lp")"
+check_eq "local: its second label too" "1" "$(grep -c "^add${T}arcane.homeserver.ad.example.org" <<<"$lp")"
+check_eq "local: fqdn is ignored" "0" "$(grep -c "example.org${T}/hook\|^add${T}arcane.example.org" <<<"$lp")"
+check_eq "local: public_paths are ignored (no path row, no dead end)" "0" "$(grep -c "/hook\|127.0.0.1:1" <<<"$lp")"
+check_eq "local: an https target keeps its scheme" "1" "$(grep -c "^add${T}secure.homeserver.ad.example.org${T}/${T}https://10.10.95.20:8443" <<<"$lp")"
+check_eq "local: a service that only wants the public proxy is not planned" "0" "$(grep -c pubonly <<<"$lp")"
+printf 'zoraxy' > "$HS_SETTINGS_DIR/reverseProxy"; printf 'example.org' > "$HS_SETTINGS_DIR/proxyDomains"
+pp=$($S plan --plain)
+check_eq "public: the local-only services are not planned" "0" "$(grep -cE "docker|secure" <<<"$pp" | head -n1)"
+check_eq "public: pubonly has its public row" "1" "$(grep -c "pubonly.example.org" <<<"$pp")"
+check_eq "public: the both-wants service has a public row" "1" "$(grep -cE "^(add|confirm|ok|change)${T}jellyfin.example.org" <<<"$pp")"
+printf 'zoraxy' > "$HS_SETTINGS_DIR/reverseProxy"
+
+echo "-- the local slot: apply, explicit DNS records, adds-only, import"
+cat > "$WORK/dns.sh" <<'EOF2'
+#!/usr/bin/env bash
+printf 'jellyfin.homeserver.ad.example.org\tA\t10.10.95.50\n*.homeserver.ad.example.org\tA\t192.168.1.10\n'
+EOF2
+printf 'ad\n' >> "$HS_CAPABILITIES_FILE"
+export HS_DNS_SH=$WORK/dns.sh
+lp=$($S plan --plain --proxy local)
+check_eq "an explicit record is named in the note" "1" "$(grep -c "^add${T}jellyfin.homeserver.ad.example.org.*explicit DNS record jellyfin.homeserver.ad.example.org beats the wildcard.*10.10.95.50" <<<"$lp")"
+check_eq "the wildcard record itself is no name" "0" "$(grep -c "beats the wildcard" <<<"$(grep -v jellyfin <<<"$lp")")"
+unset HS_DNS_SH
+printf 'gateway\n' > "$HS_CAPABILITIES_FILE"
+check_out "apply makes the routes" "4 done, 0 failed" $S apply --proxy local
+check_eq "files exist for each host" "4" "$(ls "$HS_GATEWAY_DIR/routes" | grep -c '^local-')"
+check_eq "the tmp folder is empty" "" "$(ls "$HS_GATEWAY_DIR/tmp")"
+lp=$($S plan --plain --proxy local)
+check_eq "afterwards everything is ok" "4" "$(grep -c "^ok" <<<"$lp")"
+check_eq "the public plan does not know the local routes" "0" "$(grep -c "homeserver.ad.example.org" <<<"$($S plan --plain)")"
+sed -i 's/^port = 8096/port = 8097/' "$HS_SERVICES_DIR/jellyfin.toml"
+$S add extra --container docker --port 7000 --want local-proxy >/dev/null
+out=$($S apply --proxy local --adds-only 2>&1)
+check_out "adds-only adds the new one" "extra.homeserver.ad.example.org" echo "$out"
+check_eq "adds-only asked nothing and did not change jellyfin" "1" "$($S plan --plain --proxy local | grep -c "^change${T}jellyfin")"
+check_out "a change needs the typed host (no terminal: skipped)" "needs the typed confirmation" $S apply --proxy local
+check_out "or --confirm" "1 done" $S apply --proxy local --confirm jellyfin.homeserver.ad.example.org
+$S add plain --container docker --port 7100 >/dev/null
+check_out "import --proxy local lists a service without the want" "enable +plain" $S import --proxy local --dry-run
+$S import --proxy local --yes >/dev/null
+check "and writes local-proxy = true" grep -q 'local-proxy = true' "$HS_SERVICES_DIR/plain.toml"
+check_out "a second import has nothing to do" "already says" $S import --proxy local --yes
+sed -i 's/local-proxy = true/local-proxy = false/' "$HS_SERVICES_DIR/plain.toml"
+check_out "a person's false stays" "already says" $S import --proxy local --yes
+check "false is kept in the file" grep -q 'local-proxy = false' "$HS_SERVICES_DIR/plain.toml"
+
+echo "-- the local slot refuses a provider that says public"
+mkdir -p "$WORK/prov2/reverse-proxy"
+printf '#!/usr/bin/env bash\ncase "$1" in info) printf "name\ttraefik\npublic\tyes\ndomains\tx.test\nmode\tapi\n" ;; list|owned-list) ;; esac\n' > "$WORK/prov2/reverse-proxy/traefik.sh"
+check_out "refused" "must never be public" env HS_PROVIDER_DIR=$WORK/prov2 bash "$SCRIPTS/services.sh" plan --proxy local
+export HS_SERVICES_DIR=$SAVE_SVC
+unset HS_CAPABILITIES_FILE
+
 echo "-- registry"
 for w in "services list" "services check" "services plan" "services add" "services remove" "services import"; do
   check "user row: $w" grep -q "^user${T}$w${T}services.sh${T}" "$SCRIPTS/lib/registry.tsv"
