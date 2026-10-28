@@ -1,0 +1,130 @@
+#!/usr/bin/env bash
+# The quiet test runner: the one command people and agents use to run tests (docs/dev-environment.md).
+#
+#   scripts/dev/t quick [name...]   the tests that need no root (default: all of them); only failures are printed, then one summary line
+#   scripts/dev/t changed           only the tests that mention a file changed since the merge base with main (plus uncommitted changes)
+#   scripts/dev/t root [name...]    the root tests (loop devices, dm-crypt, mounts); needs Linux and root, it uses sudo when you are not root
+#   scripts/dev/t vm                the throwaway Incus VM test (needs KVM and the internet, HS_TEST_VM=1)
+#   scripts/dev/t list              names of the tests, quick and root
+#   -v   (anywhere) print a line for every test, not only failures
+#
+# The full output of every test is kept in .work/test-logs/<name>.log; read it only for a failing test, with `grep -n FAIL` first.
+# Exit status: 0 when nothing failed. A test that skips (exit 77, or a skip line) counts as skipped, not failed.
+# Knobs: T_TIMEOUT (seconds per test, default 280), T_FAILS (failure lines shown per test, default 6), HS_TEST_BASH (bash that runs a test).
+set -uo pipefail
+root=$(cd "$(dirname "$0")/../.." && pwd)
+cd "$root"
+log=${HS_T_LOG:-$root/.work/test-logs}
+mkdir -p "$log"
+bash_bin=${HS_TEST_BASH:-bash}
+verbose=false
+args=()
+for a in "$@"; do case $a in -v|--verbose) verbose=true ;; *) args+=("$a") ;; esac; done
+set -- "${args[@]+"${args[@]}"}"
+mode=${1:-quick}
+[ $# -eq 0 ] || shift
+
+HELPERS=" lib lib-poolfakes lib-standins run run-all "
+all_tests() { local f n; for f in tests/*.sh; do n=$(basename "$f" .sh); case "$HELPERS" in *" $n "*) continue ;; esac; echo "$n"; done; }
+needs_root() { grep -q 'need_root' "tests/$1.sh"; }
+is_external() { [ "$1" = zfs-vm ]; }
+quick_tests() { local n; while read -r n; do needs_root "$n" || is_external "$n" || echo "$n"; done < <(all_tests); }
+root_tests() { local n; while read -r n; do ! needs_root "$n" || echo "$n"; done < <(all_tests); }
+
+changed_files() {
+  local base
+  base=$(git merge-base HEAD main 2>/dev/null || echo HEAD)
+  { git diff --name-only "$base" 2>/dev/null; git ls-files -m -o --exclude-standard 2>/dev/null; } | sort -u
+}
+changed_tests() {
+  local f stem n
+  while read -r f; do
+    [ -n "$f" ] || continue
+    case "$f" in tests/*.sh) basename "$f" .sh; continue ;; esac
+    stem=$(basename "$f"); stem=${stem%.*}
+    [ ${#stem} -ge 3 ] || continue
+    grep -lF -- "$stem" tests/*.sh 2>/dev/null | while read -r t; do basename "$t" .sh; done
+  done < <(changed_files) | sort -u | while read -r n; do
+    case "$HELPERS" in *" $n "*) continue ;; esac
+    [ -f "tests/$n.sh" ] && echo "$n"
+  done
+}
+
+run_one() {   # run_one <name> [env...]: prints nothing for a pass unless -v; returns 1 on failure
+  local n=$1 out rc line
+  shift
+  out=$(env "$@" timeout "${T_TIMEOUT:-280}" "$bash_bin" "tests/$n.sh" 2>&1); rc=$?
+  printf '%s\n' "$out" > "$log/$n.log"
+  line=$(grep -E '^  -> [0-9]+ ok' <<<"$out" | tail -n1 | sed 's/^ *-> //')
+  if [ "$rc" -eq 124 ]; then echo "$n: TIMEOUT after ${T_TIMEOUT:-280}s"; return 1; fi
+  if [ "$rc" -eq 77 ]; then $verbose && echo "$n: skipped"; return 2; fi
+  if [ "$rc" -ne 0 ] || grep -q '^  FAIL' <<<"$out"; then
+    echo "$n: ${line:-exit $rc}"
+    grep -E '^  FAIL' <<<"$out" | head -n "${T_FAILS:-6}" | cut -c1-220 | sed 's/^/    /'
+    [ -n "$(grep -E '^  FAIL' <<<"$out")" ] || tail -n 3 <<<"$out" | cut -c1-220 | sed 's/^/    /'
+    echo "    log: .work/test-logs/$n.log"
+    return 1
+  fi
+  $verbose && echo "$n: ${line:-ok}"
+  return 0
+}
+
+run_list() {   # run_list <env or ""> name...
+  local envs=$1 n total=0 ok=0 skipped=0 failed=() rc
+  shift
+  for n in "$@"; do
+    total=$((total + 1))
+    # shellcheck disable=SC2086
+    run_one "$n" $envs; rc=$?
+    case $rc in 0) ok=$((ok + 1)) ;; 2) skipped=$((skipped + 1)) ;; *) failed+=("$n") ;; esac
+  done
+  if [ ${#failed[@]} -eq 0 ]; then echo "$total tests: $ok ok, $skipped skipped, 0 failed"; return 0; fi
+  echo "$total tests: $ok ok, $skipped skipped, ${#failed[@]} failed (${failed[*]})"
+  return 1
+}
+
+case "$mode" in
+  list) echo "quick: $(quick_tests | paste -sd' ')"; echo "root:  $(root_tests | paste -sd' ')"; echo "vm:    zfs-vm" ;;
+  quick)
+    if [ $# -gt 0 ]; then names=("$@"); else mapfile -t names < <(quick_tests); fi
+    run_list "" "${names[@]}" ;;
+  changed)
+    mapfile -t names < <(changed_tests)
+    q=(); r=()
+    for n in "${names[@]}"; do if needs_root "$n"; then r+=("$n"); else q+=("$n"); fi; done
+    [ ${#r[@]} -eq 0 ] || echo "root tests that mention your files (run: scripts/dev/t root ${r[*]}): not run here"
+    if [ ${#q[@]} -eq 0 ]; then echo "no quick test mentions the changed files"; exit 0; fi
+    # a big change (a whole release branch) would run most tests: say so instead of burning minutes; T_MAX=0 runs them anyway
+    if [ "${T_MAX:-25}" -gt 0 ] && [ ${#q[@]} -gt "${T_MAX:-25}" ]; then
+      echo "${#q[@]} tests mention the changed files (limit ${T_MAX:-25}): name the ones you need, or T_MAX=0 scripts/dev/t changed"
+      printf '%s\n' "${q[*]}" | fold -s -w 150
+      exit 0
+    fi
+    run_list "" "${q[@]}" ;;
+  root)
+    if [ "$(uname -s)" != Linux ]; then echo "root tests need Linux (WSL): see docs/dev-environment.md"; exit 2; fi
+    if [ $# -gt 0 ]; then names=("$@"); else mapfile -t names < <(root_tests); fi
+    if [ "$(id -u)" -eq 0 ]; then run_list "HS_TEST_ROOT=1" "${names[@]}"
+    else
+      sudo -n true 2>/dev/null || { echo "sudo needs a password: see docs/dev-environment.md (passwordless sudo for this machine only)"; exit 2; }
+      exec sudo -n env HS_TEST_ROOT=1 HS_T_LOG="$log" "$0" root "${names[@]}"
+    fi ;;
+  vm) run_list "HS_TEST_VM=1" zfs-vm ;;
+  wsl)
+    # Windows only: copy this tree into the Debian WSL (ext4, fast; one-time setup: scripts/dev/wsl-setup.sh) and run the same runner there.
+    # `t wsl changed` works out the test names here (the copy has no .git) and runs them there. Distro: T_WSL_DISTRO (default Debian).
+    sub=${1:-quick}; [ $# -eq 0 ] || shift
+    if [ "$sub" = changed ]; then
+      mapfile -t names < <(changed_tests); r=(); q=()
+      for n in "${names[@]}"; do if needs_root "$n"; then r+=("$n"); else q+=("$n"); fi; done
+      [ ${#q[@]} -le "${T_MAX:-25}" ] || { echo "${#q[@]} tests mention the changed files: name the ones you need (t wsl quick <names>)"; exit 0; }
+      [ ${#r[@]} -eq 0 ] || sh_root="scripts/dev/t root ${r[*]};"
+      sub=quick; set -- "${q[@]}"
+    fi
+    case "$(uname -s)" in MINGW*|MSYS*|CYGWIN*) ;; *) echo "t wsl is for Windows: run scripts/dev/t $sub directly"; exit 2 ;; esac
+    command -v wsl >/dev/null 2>&1 || { echo "wsl.exe not found"; exit 2; }
+    win=$(pwd -W); src="/mnt/$(printf '%s' "${win%%:*}" | tr 'A-Z' 'a-z')${win#*:}"
+    flags=""; $verbose && flags="-v"
+    MSYS_NO_PATHCONV=1 wsl -d "${T_WSL_DISTRO:-Debian}" -- bash -lc "mkdir -p ~/hobnix-test && rsync -a --delete --exclude .git --exclude .work --exclude node_modules --exclude 'pkgs/hs-pool/target' '$src/' ~/hobnix-test/ && cd ~/hobnix-test && ${sh_root:-} scripts/dev/t $sub $flags $*" ;;
+  *) sed -n '2,17p' "$0" | sed 's/^# \{0,1\}//'; exit 2 ;;
+esac

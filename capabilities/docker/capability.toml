@@ -1,0 +1,13 @@
+# Manifest of a capability (docs/PLAN-modular-core.md). See capabilities/metrics/capability.toml for the fields.
+name = "docker"
+title = "Docker host with a web page to manage it"
+title_de = "Docker-Host mit einer Webseite zur Verwaltung"
+kind = "provider"
+requires = []
+# the interface this capability fulfils; a variant is a file scripts/providers/docker/<variant>.sh that the recipe SOURCES (not a script
+# with verbs). "none" (Docker only) has no file.
+provides = ["docker-manager"]
+variants = ["arcane", "portainer"]
+needs = []
+# No NixOS module and no runtime setting: the manager is a preference of the recipe, per container (MANAGER in recipe-<ct>.conf).
+notes = "NOTES.md"

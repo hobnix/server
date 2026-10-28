@@ -1,0 +1,13 @@
+# Manifest of a capability (docs/PLAN-modular-core.md). See capabilities/metrics/capability.toml for the fields.
+name = "dashboard"
+title = "Dashboard (tiles for the services)"
+title_de = "Startseite (Kacheln für die Dienste)"
+kind = "provider"
+requires = []
+# the interface this capability fulfils; a variant is a script scripts/providers/dashboard/<variant>.sh
+provides = ["dashboard"]
+variants = ["homepage"]
+needs = []
+# No NixOS module: Homepage runs in a container (its recipe). It counts as on once the runtime setting dashboard names a variant.
+implied_by = ["dashboard"]
+notes = "NOTES.md"

@@ -1,0 +1,13 @@
+# Manifest of a capability (docs/PLAN-modular-core.md). See capabilities/metrics/capability.toml for the fields.
+name = "notifications"
+title = "Notification channels (ntfy and other providers)"
+title_de = "Benachrichtigungskanäle (ntfy und andere Anbieter)"
+kind = "feature"
+requires = []
+provides = []
+needs = []
+# No NixOS module: scripts and a web page. It counts as on when machine.toml names it in `capabilities`, or when a push
+# address is already set (runtime settings notifyUrl / notifyUrlSecond), so an existing setup gets it with no rebuild. Not on by default:
+# the Setup checklist offers "Notifications", which sets the runtime setting `notifications` (`hs config set notifications true`).
+implied_by = ["notifyUrl", "notifyUrlSecond", "notifications"]
+notes = "NOTES.md"

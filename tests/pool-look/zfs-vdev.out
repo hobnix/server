@@ -1,0 +1,10 @@
+Plan: remove the whole mirror mirror-0 (the pair that contains ata-A) from 'bulk'
+
+Command:
+  zpool remove bulk mirror-0
+
+The mirror will be removed. About 2.0GB of data move to the other mirrors, which have 3.0GB free.
+This can take hours; the pool stays usable. Cancel with: zpool remove -s bulk
+ZFS keeps a small mapping table for the removed data until it is rewritten.
+
+Dry run: nothing changed.

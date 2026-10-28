@@ -1,0 +1,25 @@
+# Per-machine files: every server keeps its own
+machine.toml
+machine.nix
+hardware-configuration.nix
+
+# Nix build output
+result
+result-*
+
+# Scratch checkouts of coding agents
+.claude/worktrees/
+
+# Rust build output (was tracked by mistake until 2026-10-05)
+pkgs/hs-pool/target/
+
+# files of other tools that live in this folder (Ollama model definitions)
+.ollama-config/
+
+# Python bytecode
+__pycache__/
+
+# Web interface frontend (npm)
+web/node_modules/
+web/dist/
+.work/

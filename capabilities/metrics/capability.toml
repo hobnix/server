@@ -1,0 +1,15 @@
+# Manifest of a capability (docs/PLAN-modular-core.md). Identity and dependencies only: the options of this
+# capability carry `capability = "metrics"` in config/schema.toml, its commands `capability:metrics` in
+# scripts/lib/registry.tsv, its web pages the same name in web/src/nav.js.
+name = "metrics"
+title = "Metrics (Prometheus on this server)"
+title_de = "Messwerte (Prometheus auf diesem Server)"
+kind = "feature"
+# capabilities this one needs, and what it provides to others (names of capabilities / interfaces)
+requires = []
+provides = []
+# services that must stay down while encrypted storage is locked: none, Prometheus runs on the system disk on purpose
+needs = []
+# the NixOS module, loaded only while the capability is on (capabilities/default.nix)
+nix = "module.nix"
+notes = "NOTES.md"

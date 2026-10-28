@@ -1,0 +1,21 @@
+{
+  "model": "sonnet",
+  "effortLevel": "medium",
+  "env": {
+    "CLAUDE_CODE_SUBAGENT_MODEL": "sonnet"
+  },
+  "permissions": {
+    "deny": [
+      "Read(./pkgs/hs-pool/target/**)",
+      "Read(./result*)"
+    ]
+  },
+  "hooks": {
+    "SessionStart": [
+      {
+        "matcher": "startup|resume|clear|compact",
+        "hooks": [{ "type": "command", "command": "bash scripts/dev/session-context.sh" }]
+      }
+    ]
+  }
+}

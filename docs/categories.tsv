@@ -1,0 +1,20 @@
+# Navigation of the documentation: lang <TAB> group <TAB> file (docs/<file>.md, without .md). English only.
+# The order of the lines is the order in the sidebar. A file that is not listed lands in "More" (docs-build.sh) and tests/docs.sh complains.
+# `@commands` = the generated command page. Guides of packages (guide.md in a package folder) are added by docs-build.sh under Apps / Extensions.
+en	Guides	install
+en	Guides	containers-and-apps
+en	Guides	users-and-shares
+en	Guides	storage-and-disks
+en	Guides	encryption-and-vault
+en	Guides	backup-and-recovery
+en	Guides	web-interface
+en	Guides	operations
+en	Reference	@commands
+en	Contributing	dev-environment
+en	Contributing	GUIDE-TEMPLATE
+en	Contributing	PLAN-modular-core
+en	Contributing	PLAN-extensions
+en	Contributing	PLAN-packages
+en	Contributing	PLAN-web-backend
+en	Contributing	CLI-DESIGN
+en	Contributing	Entwicklungsnotizen

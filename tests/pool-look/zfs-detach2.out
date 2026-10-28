@@ -1,0 +1,8 @@
+Plan: take ata-A out of mirror-0 in 'bulk'
+
+Command:
+  zpool detach bulk /dev/disk/by-id/ata-A-part1
+
+WARNING: the other disk of mirror-0 will be alone in its vdev: no redundancy, a failure of it loses the data of this vdev.
+
+Dry run: nothing changed.

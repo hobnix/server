@@ -1,0 +1,10 @@
+
+Plan: create the new pool 'fast' with 1 mirror pair(s)
+
+mirror  1     4.0GB  ata-FAKE_sdy
+              4.0GB  ata-FAKE_sdz
+
+Command:
+  zpool create -o ashift=12 -O compression=lz4 -O atime=off -O xattr=sa -O mountpoint=none fast mirror /dev/disk/by-id/ata-FAKE_sdy /dev/disk/by-id/ata-FAKE_sdz
+
+Dry run: nothing changed.

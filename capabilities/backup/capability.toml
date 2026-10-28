@@ -1,0 +1,11 @@
+# Manifest of a capability (docs/PLAN-modular-core.md). See capabilities/metrics/capability.toml for the fields.
+name = "backup"
+title = "Backup (restic to the backup disk, restore drills)"
+title_de = "Datensicherung (restic auf die Backup-Platte, Wiederherstellungsproben)"
+kind = "feature"
+requires = ["storage"]
+provides = []
+needs = []
+# the NixOS module, loaded only while the capability is on (capabilities/default.nix); role = "homeserver" switches it on
+nix = "module.nix"
+notes = "NOTES.md"

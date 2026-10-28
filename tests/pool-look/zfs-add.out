@@ -1,0 +1,10 @@
+
+Plan: add to the existing pool 'bulk' with 1 mirror pair(s)
+
+mirror  1     4.0GB  ata-FAKE_sdy
+              4.0GB  ata-FAKE_sdz
+
+Command:
+  zpool add bulk mirror /dev/disk/by-id/ata-FAKE_sdy /dev/disk/by-id/ata-FAKE_sdz
+
+Dry run: nothing changed.

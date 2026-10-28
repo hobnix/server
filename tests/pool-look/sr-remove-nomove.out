@@ -1,0 +1,7 @@
+Plan: take the data disk data-02 out of 'bulk' without moving its files
+  1. stop putting new files on it and take it out of /bulk
+  The disk holds no files (the rest df shows is the filesystem's own space).
+  2. take it out of the array (the parity follows with the next scheduled sync, or now if you ask for it)
+The disk itself is not erased, only unlabelled; format it afterwards.
+
+Dry run: nothing changed.

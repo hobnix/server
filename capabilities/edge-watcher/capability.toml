@@ -1,0 +1,11 @@
+# Manifest of a capability (docs/PLAN-modular-core.md). See capabilities/metrics/capability.toml for the fields.
+name = "edge-watcher"
+title = "Edge node: outside watcher of the home server"
+title_de = "Edge-Knoten: Wächter von außen für den Homeserver"
+kind = "feature"
+requires = []
+provides = []
+needs = []
+# the NixOS module, loaded only while the capability is on (capabilities/default.nix)
+nix = "module.nix"
+notes = "NOTES.md"

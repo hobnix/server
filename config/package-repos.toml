@@ -1,0 +1,10 @@
+# The package repositories every server has (docs/PLAN-packages.md). Their release tags are signed; the keys that may sign are in
+# config/trusted-keys/<name>.allowed_signers (ssh-keygen allowed-signers format). Without that file the repository is listed but
+# nothing is fetched from it: it fails closed. More repositories: hs pkg repo add <name> <url> --key <allowed_signers file>.
+[[repo]]
+name = "hobnix-recipes"
+url = "https://github.com/hobnix/hobnix-recipes"
+
+[[repo]]
+name = "hobnix-extensions"
+url = "https://github.com/hobnix/hobnix-extensions"

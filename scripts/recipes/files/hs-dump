@@ -1,0 +1,74 @@
+#!/bin/sh
+# hs-dump: the standard database dump inside a container (installed as /usr/local/sbin/hs-dump by the recipes,
+# run by `hs backup now` right before the container's files are backed up; see docs/Entwicklungsnotizen.md#backup-and-recovery).
+#
+#   hs-dump postgres         <name> <db>                                   PostgreSQL installed in the container
+#   hs-dump postgres-compose <name> <compose dir> <service> <user> <db>    PostgreSQL in a docker compose service
+#   hs-dump sqlite           <name> <file>...                              SQLite databases, copied with .backup
+#   hs-dump sqlite-tree      <name> <dir>                                  every *.db / *.sqlite below a folder
+#
+# The dump lands in $HS_DUMP_DIR/<name>/ (default /var/backups/hs/<name>/), a folder that is part of the container backup.
+# It is written to a temporary name and moved into place only when it is complete and not empty, so a failed run leaves the
+# previous dump alone. Restore: PostgreSQL .pgdump = pg_restore -d <db> (custom format), SQLite = copy the file back.
+set -eu
+umask 077
+BASE=${HS_DUMP_DIR:-/var/backups/hs}
+
+die() { echo "hs-dump: $*" >&2; exit 1; }
+
+target() {   # target <name> -> the folder, made
+  case "$1" in ''|*/*|.*) die "bad name '$1'" ;; esac
+  mkdir -p "$BASE/$1"
+  printf '%s\n' "$BASE/$1"
+}
+
+finish() {   # finish <tmp file> <final file>
+  [ -s "$1" ] || { rm -f "$1"; die "the dump $2 is empty"; }
+  mv -f "$1" "$2"
+  echo "hs-dump: wrote $2"
+}
+
+as_postgres() {
+  if command -v runuser >/dev/null 2>&1; then runuser -u postgres -- "$@"; else su -s /bin/sh postgres -c "$(printf '%s ' "$@")"; fi
+}
+
+cmd=${1:-}; [ $# -gt 0 ] && shift
+case "$cmd" in
+  postgres)
+    [ $# -eq 2 ] || die "usage: hs-dump postgres <name> <db>"
+    d=$(target "$1")
+    as_postgres pg_dump -Fc "$2" > "$d/$2.pgdump.tmp" || { rm -f "$d/$2.pgdump.tmp"; die "pg_dump $2 failed"; }
+    finish "$d/$2.pgdump.tmp" "$d/$2.pgdump" ;;
+  postgres-compose)
+    [ $# -eq 5 ] || die "usage: hs-dump postgres-compose <name> <compose dir> <service> <user> <db>"
+    d=$(target "$1")
+    ( cd "$2" && docker compose exec -T "$3" pg_dump -U "$4" -Fc "$5" ) > "$d/$5.pgdump.tmp" || { rm -f "$d/$5.pgdump.tmp"; die "pg_dump $5 failed (is the database container running?)"; }
+    finish "$d/$5.pgdump.tmp" "$d/$5.pgdump" ;;
+  sqlite)
+    [ $# -ge 2 ] || die "usage: hs-dump sqlite <name> <file>..."
+    d=$(target "$1"); shift
+    rc=0
+    for f in "$@"; do
+      [ -f "$f" ] || { echo "hs-dump: $f is not there, skipped" >&2; continue; }
+      n=$(basename "$f")
+      rm -f "$d/$n.tmp"
+      if sqlite3 "$f" ".backup '$d/$n.tmp'"; then finish "$d/$n.tmp" "$d/$n" || rc=1; else rm -f "$d/$n.tmp"; echo "hs-dump: sqlite3 failed on $f" >&2; rc=1; fi
+    done
+    exit $rc ;;
+  sqlite-tree)
+    [ $# -eq 2 ] || die "usage: hs-dump sqlite-tree <name> <dir>"
+    [ -d "$2" ] || die "$2 is not a folder"
+    d=$(target "$1")
+    rc=0; found=0
+    # the dump folder itself is never searched (a database below it would be dumped into itself)
+    list=$(find "$2" -path "$BASE" -prune -o -type f \( -name '*.db' -o -name '*.sqlite' \) -print)
+    for f in $list; do
+      found=1
+      n=$(printf '%s' "${f#"$2"/}" | tr / _)
+      rm -f "$d/$n.tmp"
+      if sqlite3 "$f" ".backup '$d/$n.tmp'"; then finish "$d/$n.tmp" "$d/$n" || rc=1; else rm -f "$d/$n.tmp"; echo "hs-dump: sqlite3 failed on $f" >&2; rc=1; fi
+    done
+    [ "$found" = 1 ] || echo "hs-dump: no database below $2" >&2
+    exit $rc ;;
+  *) die "usage: hs-dump postgres|postgres-compose|sqlite|sqlite-tree ..." ;;
+esac

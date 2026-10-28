@@ -1,0 +1,19 @@
+# Preset "example-server": a fully equipped server as choices, with made-up values to copy from. Values the server already has are never
+# overwritten by `hs preset apply example-server`.
+title = "Example server"
+title_de = "Beispiel-Server"
+description = "Metrics and Tailscale on the host, an NVIDIA card for containers, an Active Directory (HOME), Zoraxy as the reverse proxy, Homepage as the dashboard, UniFi for fixed addresses."
+description_de = "Metriken und Tailscale auf dem Host, eine NVIDIA-Karte für Container, ein Active Directory (HOME), Zoraxy als Reverse-Proxy, Homepage als Dashboard, UniFi für feste Adressen."
+# recipes this server runs (a list to read, `hs preset show` prints it; nothing is run by applying the preset)
+recipes = ["cloudflared", "zoraxy", "docker", "homepage", "domain", "pelican", "monitoring"]
+
+[machine]
+capabilities = ["metrics", "tailscale", "games", "posters"]
+gpu = "nvidia"
+timeZone = "Europe/Berlin"
+adDomain = { realm = "AD.HOME.LAN", workgroup = "HOME" }
+
+[settings]
+reverseProxy = "zoraxy"
+dashboard = "homepage"
+networkProvider = "unifi"

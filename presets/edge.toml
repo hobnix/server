@@ -1,0 +1,20 @@
+# Preset "edge": a small public server (a VPS) that is the front door of a home server instead of a home server itself.
+# No storage, no Incus, no Samba: the base (adminuser, SSH, hs, health check, push messages) plus the edge capabilities and Tailscale. `hs preset apply edge` fills only
+# what is NOT set yet and never overwrites a value. What it cannot know (the mail domain, the Tailscale addresses of the hosts behind it, the game port pool, the
+# sites to watch) stays empty: set them in machine.toml (section "Edge node") before the first `hs rebuild`, or the capabilities warn and do nothing.
+title = "Edge node (public VPS)"
+title_de = "Edge-Knoten (öffentlicher VPS)"
+description = "Role edge: mail entry (MX), public game ports, outside watcher, status document and Tailscale. No storage, Incus, Samba or backup."
+description_de = "Rolle edge: Maileingang (MX), öffentliche Spiele-Ports, Wächter von außen, Statusdokument und Tailscale. Kein Speicher, kein Incus, kein Samba, kein Backup."
+# nothing to run: an edge node has no recipes
+recipes = []
+
+[machine]
+role = "edge"
+capabilities = ["tailscale", "edge-mail", "edge-ports", "edge-watcher", "edge-status"]
+# the node joins the tailnet by itself with a reusable auth key that carries the tag (created in the admin console; the file has mode 0600)
+tailscaleAuthKeyFile = "/var/lib/hs/tailscale-authkey"
+tailscaleTags = ["tag:vps"]
+# sshOverIp stays true on purpose: close it (sshOverIp = false) only after `ssh adminuser@<tailscale name>` works, see the Probelauf guide
+
+[settings]

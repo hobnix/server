@@ -1,0 +1,11 @@
+# Manifest of a capability (docs/PLAN-modular-core.md). See capabilities/metrics/capability.toml for the fields.
+name = "storage"
+title = "Storage (ZFS or SnapRAID pools, shares, encrypted disks)"
+title_de = "Speicher (ZFS- oder SnapRAID-Pools, Freigaben, verschlüsselte Platten)"
+kind = "feature"
+requires = []
+provides = []
+needs = []
+# the NixOS module, loaded only while the capability is on (capabilities/default.nix); role = "homeserver" switches it on
+nix = "module.nix"
+notes = "NOTES.md"

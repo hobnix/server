@@ -1,0 +1,1222 @@
+# The option schema of machine.toml. Edit this file, then run `python3 scripts/schema-gen.py write`:
+# it regenerates machine.toml.example, scripts/lib/config-keys.sh and the allowlist in scripts/web-serve.py.
+# Format: the docstring of scripts/schema-gen.py. docs/PLAN-modular-core.md
+
+[[item]]
+kind = "header"
+text = '''
+# Machine-specific settings of this server.
+#
+# Copy to machine.toml and fill in your values; machine.toml is not committed.
+# `hs config sync` (and so `hs update`) keeps your file in the layout of this one: same
+# sections, same order, same comments. New options appear in their place, commented out; your
+# values are kept. Compare with: diff machine.toml machine.toml.example
+#
+# One option per paragraph: a comment, then the option itself. A line that starts with "# name = "
+# is an option that is off, and the value after it is only an example: remove the "# " to
+# switch it on. Every option that is off has a default, so nothing breaks if you leave it.
+# After editing: hs rebuild'''
+
+[[item]]
+kind = "section"
+title = "Server"
+
+[[item]]
+kind = "option"
+key = "hostName"
+type = "string"
+required = true
+settable = false
+secret = false
+default = '"homeserver"'
+doc = '''
+# Name of the server: the Linux host name and the name Windows shows under "Network"
+# (\\<hostName>). At most 15 characters.'''
+value = '''
+hostName = "homeserver"'''
+
+[[item]]
+kind = "option"
+key = "role"
+type = "string"
+required = false
+settable = false
+secret = false
+default = '"homeserver"'
+choices = ["homeserver", "edge", "minimal"]
+doc = '''
+# What kind of node this machine is.
+#   homeserver (default)  storage, Incus containers, Samba shares and backup: the capabilities storage, incus, samba and backup are on
+#   edge                  a small public server (VPS) with the edge capabilities: mail entry, game ports, outside watcher, status document
+#   minimal               only the base: users, SSH, hs, health check and push messages; add capabilities by name
+# The base (adminuser, SSH, hs, health check, push messages) is on in every role. Needs a rebuild.'''
+value = '''
+role = "homeserver"'''
+
+[[item]]
+kind = "option"
+key = "hostId"
+type = "string"
+required = true
+settable = false
+secret = false
+doc = '''
+# Identifier ZFS needs, 8 hex characters. Create it once and never change it:
+#   head -c4 /dev/urandom | od -A none -t x4'''
+value = '''
+hostId = "CHANGEME"'''
+
+[[item]]
+kind = "option"
+key = "timeZone"
+type = "string"
+required = false
+settable = true
+secret = false
+default = 'null'
+pattern = '^[A-Za-z0-9_+/-]{1,64}$'
+hint = "a time zone such as Europe/Vienna"
+doc = '''
+# Time zone of the server, e.g. "Europe/Vienna" (list: `timedatectl list-timezones`). It sets the clock the
+# logs, the timers (backup at 04:00, ...) and the time on the Matrix cards use, and the TZ of the film apps.
+# Default: UTC, which is why a card can be hours off. After changing it run `hs recipe matrix-hook` and
+# `hs recipe arr` again, so the containers pick it up.'''
+value = '''
+timeZone = "Europe/Vienna"'''
+
+[[item]]
+kind = "option"
+key = "sshKeys"
+type = "list"
+required = true
+settable = false
+secret = true
+doc = '''
+# SSH public keys that may log in as adminuser, one per PC
+# (the contents of each PC's ~/.ssh/<key>.pub). Manage them with `hs ssh-key`.'''
+value = '''
+sshKeys = [
+  "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIexample... you@pc",
+]'''
+
+[[item]]
+kind = "option"
+key = "capabilities"
+type = "list"
+required = false
+settable = false
+secret = false
+default = '[ ]'
+doc = '''
+# Optional parts of the server that are switched on, as a list of names (one folder each in
+# capabilities/). Today: "metrics", and the extensions "games" and "posters" (`hs ext enable <name>`
+# edits this list; a package without a Nix module needs no rebuild). A part whose old switch is set
+# (for example metrics = true) counts as on even when it is not listed here. Otherwise needs a
+# rebuild. docs/PLAN-modular-core.md, docs/PLAN-extensions.md'''
+value = '''
+capabilities = ["metrics"]'''
+
+[[item]]
+kind = "section"
+title = "Interface"
+
+[[item]]
+kind = "option"
+key = "language"
+type = "string"
+required = false
+settable = true
+secret = false
+store = "settings"
+legacy = "language"
+default = '"en"'
+choices = ["en", "de"]
+doc = '''
+# Language of the descriptions and messages of the hs commands and the interface: "en" or "de".
+# Commands, options and file names stay English. Default "en".'''
+value = '''
+language = "de"'''
+
+[[item]]
+kind = "option"
+key = "keyMap"
+type = "string"
+required = false
+settable = true
+secret = false
+default = 'null'
+pattern = '^[A-Za-z0-9_-]{1,32}$'
+hint = "a keyboard layout such as de or us"
+doc = '''
+# Keyboard layout of the console on the server itself (keyboard and screen), e.g. "de".
+# Default: the US layout.'''
+value = '''
+keyMap = "de"'''
+
+[[item]]
+kind = "option"
+key = "icons"
+type = "string"
+required = false
+settable = true
+secret = false
+store = "settings"
+legacy = "icons"
+default = '"unicode"'
+choices = ["unicode", "nerd", "ascii"]
+doc = '''
+# Icons in the interface (locks, marks, health):
+#   "unicode"  works in every current terminal (default)
+#   "nerd"     looks best with a Nerd Font set in your terminal (e.g. JetBrainsMono Nerd Font Mono)
+#   "ascii"    needs nothing'''
+value = '''
+icons = "unicode"'''
+
+[[item]]
+kind = "option"
+key = "loginMessage"
+type = "bool"
+required = false
+settable = true
+secret = false
+store = "settings"
+legacy = "login-message"
+default = 'true'
+doc = '''
+# Three status lines when you log in over SSH: problems, last backup, system disk. They come
+# from files the timers keep, so they cost no time. `hs motd` shows them on demand. Default true.'''
+value = '''
+loginMessage = true'''
+
+[[item]]
+kind = "option"
+key = "webUi"
+type = "bool"
+required = false
+settable = false
+secret = false
+default = 'false'
+doc = '''
+# The web interface (browser): one service on this server, reachable from the home networks
+# and Tailscale, never from the internet. Only members of Domain Admins can sign in, and the
+# local adminuser (the only way in while the storage is locked). Plain HTTP, so keep it off
+# networks you do not trust. Default false. Needs a rebuild. docs/PLAN-web-backend.md'''
+value = '''
+webUi = true'''
+
+[[item]]
+kind = "option"
+key = "webPort"
+type = "int"
+required = false
+settable = false
+secret = false
+default = '8480'
+doc = '''
+# The port of the web interface. Default 8480. Needs webUi = true.'''
+value = '''
+webPort = 8480'''
+
+[[item]]
+kind = "option"
+key = "webAccent"
+type = "string"
+required = false
+settable = true
+secret = false
+store = "settings"
+default = '"#9184d9"'
+pattern = '^#([0-9A-Fa-f]{3}|[0-9A-Fa-f]{6})$'
+hint = "a colour such as #9184d9"
+doc = '''
+# The main colour of the web interface, as #rrggbb. The lighter and darker tints are derived
+# from it. Default "#9184d9" (purple). Medium-light colours read best on the dark ground.'''
+value = '''
+webAccent = "#9184d9"'''
+
+[[item]]
+kind = "option"
+key = "webTailscale"
+type = "bool"
+required = false
+settable = false
+secret = false
+capability = "tailscale"
+default = 'false'
+doc = '''
+# HTTPS for the web interface through Tailscale (`tailscale serve`): the page then listens on this
+# server only and is reached at https://<host>.<your-tailnet>.ts.net from devices in your tailnet;
+# the home-network port is closed. Needs once: `sudo tailscale up` on the server and "HTTPS
+# certificates" switched on in the Tailscale admin console (DNS). Default false. Needs webUi = true
+# and a rebuild.'''
+value = '''
+webTailscale = true'''
+
+[[item]]
+kind = "option"
+key = "webLan"
+type = "bool"
+required = false
+settable = false
+secret = false
+default = 'true'
+doc = '''
+# Also open the web interface on the home network, by the server's address (plain HTTP, for
+# example http://10.10.10.95:8480), next to the https address of webTailscale. Default true.
+# Without webTailscale it is the only address on the home network anyway. With
+# webTailscale on and webLan off the page is reachable only through Tailscale.'''
+value = '''
+webLan = false'''
+
+[[item]]
+kind = "option"
+key = "webDocs"
+type = "bool"
+required = false
+settable = false
+secret = false
+default = 'true'
+doc = '''
+# The guides and the command reference as a page of the web interface ("Docs", the capability docs).
+# Built by `hs docs build` (`hs update` does it). Default true. Needs webUi = true and a rebuild.'''
+value = '''
+webDocs = false'''
+
+[[item]]
+kind = "option"
+key = "webTerminal"
+type = "bool"
+required = false
+settable = false
+secret = false
+store = "settings"
+default = 'false'
+doc = '''
+# A terminal in the web interface: a "Terminal" button in the top bar (a shell on this server, as
+# adminuser, like an SSH login; root needs sudo and adminuser's password as always) and one on each
+# instance (a shell inside it). Whoever may sign in to the web interface may open it, so switch it
+# on only when you are fine with that. Sessions end after 30 minutes without typing and after 8
+# hours; nothing is recorded. Default false. Needs webUi = true and a rebuild.'''
+value = '''
+webTerminal = true'''
+
+[[item]]
+kind = "option"
+key = "webTerminalIdleMinutes"
+type = "int"
+required = false
+settable = false
+secret = false
+store = "settings"
+default = '30'
+min = 1
+doc = '''
+# How long the browser terminal may stay without typing before the browser connection closes, in
+# minutes (only typing counts, not output). The shell itself keeps running in tmux: sign in again and
+# the terminal reattaches, so a long job (a big move between disks) survives. Default 30.'''
+value = '''
+webTerminalIdleMinutes = 30'''
+
+[[item]]
+kind = "option"
+key = "webTerminalMaxHours"
+type = "int"
+required = false
+settable = false
+secret = false
+store = "settings"
+default = '8'
+min = 1
+doc = '''
+# The longest a single browser terminal connection lasts, in hours; after that it closes and
+# reattaches the same way. The web login itself still ends after 12 hours. Default 8.'''
+value = '''
+webTerminalMaxHours = 8'''
+
+[[item]]
+kind = "section"
+title = "Network"
+
+[[item]]
+kind = "option"
+key = "nic"
+type = "string"
+required = true
+settable = false
+secret = false
+doc = '''
+# The physical network card, check with `ip link`.'''
+value = '''
+nic = "enp3s0"'''
+
+[[item]]
+kind = "option"
+key = "smbAllow"
+type = "string"
+required = true
+settable = false
+secret = false
+doc = '''
+# Subnets that may use the Samba shares, separated by spaces.'''
+value = '''
+smbAllow = "10.10.10.0/24 127.0.0.1"'''
+
+[[item]]
+kind = "option"
+key = "vlans"
+type = "table"
+required = true
+settable = false
+secret = false
+doc = '''
+# Tagged VLANs for the Incus containers and VMs. The key is the name (at most 12 characters;
+# it becomes the bridge "br-<name>" and an Incus profile). Exactly one VLAN must have
+# `default = true`: new instances land there. A second one looks like this:
+#   vlans = { home = { id = 95, default = true }, iot = { id = 30 } }'''
+value = '''
+vlans = { home = { id = 95, default = true } }'''
+
+[[item]]
+kind = "option"
+key = "dhcpRange"
+type = "list"
+required = false
+settable = false
+secret = false
+default = '[ 100 199 ]'
+doc = '''
+# Which addresses of the container network the router hands out by DHCP: the last number,
+# from and to. Fixed addresses should lie outside. Default [100, 199].'''
+value = '''
+dhcpRange = [100, 199]'''
+
+[[item]]
+kind = "option"
+key = "siteName"
+type = "string"
+required = false
+settable = false
+secret = false
+default = 'hostName'
+doc = '''
+# The name of this server inside the domain's DNS: instances get <instance>.<siteName>.<domain>
+# (docs.home.ad.home.lan). Needed once two servers share one domain (a second domain
+# controller), so both can have a `docs` and a `zoraxy`. Lower case letters, digits and hyphens.
+# Default: hostName. `hs dns sync` creates the records.'''
+value = '''
+siteName = "home"'''
+
+[[item]]
+kind = "option"
+key = "incusUi"
+type = "bool"
+required = false
+settable = true
+secret = false
+default = 'true'
+doc = '''
+# The Incus web UI (https://<server>:8443/ui/) and the network address of the Incus API.
+#   true (default)  the UI works and `incus remote add` can reach the server
+#   false           no UI, port 8443 closed, Incus listens on this machine only'''
+value = '''
+incusUi = true'''
+
+[[item]]
+kind = "option"
+key = "sshOverIp"
+type = "bool"
+required = false
+settable = false
+secret = false
+default = 'true'
+doc = '''
+# SSH (port 22) over the server's IP address from the home networks.
+#   true (default)  `ssh adminuser@<ip or name>` works from any machine on the LAN
+#   false           port 22 is closed on the network cards; SSH only through Tailscale (needs tailscaleRouter or webTailscale)'''
+value = '''
+sshOverIp = true'''
+
+[[item]]
+kind = "option"
+key = "tailscaleRouter"
+type = "bool"
+required = false
+settable = false
+secret = false
+capability = "tailscale"
+default = 'false'
+doc = '''
+# Reach the home networks (admin pages, shares) from outside through Tailscale: this server
+# becomes a subnet router. Default false. After `hs rebuild` run once:
+#   sudo tailscale up --advertise-routes=10.10.95.0/24,10.10.10.95/32 --accept-dns=false
+# then approve the routes in the Tailscale admin console.'''
+value = '''
+tailscaleRouter = true'''
+
+[[item]]
+kind = "section"
+title = "Storage"
+
+[[item]]
+kind = "option"
+key = "bulkType"
+type = "string"
+required = false
+settable = false
+secret = false
+default = '"zfs"'
+doc = '''
+# How the data disks under /bulk are organised. Default "zfs".
+#   "zfs"       a ZFS pool of mirror pairs: equal disks, always protected, snapshots
+#   "snapraid"  single disks of any size, merged; the parity is updated every few hours
+# Disks are added with `hs manage-pool` in both cases, never listed here.'''
+value = '''
+bulkType = "snapraid"'''
+
+[[item]]
+kind = "option"
+key = "syncEveryHours"
+type = "int"
+required = false
+settable = true
+secret = false
+default = '24'
+choices = [1, 2, 3, 4, 6, 8, 12, 24]
+min = 1
+doc = '''
+# How often the SnapRAID parity is updated, in hours. Default 24 (once a night at 03:00, so the
+# disks can sleep the rest of the day); allowed 1 2 3 4 6 8 12 24.
+# It starts at 03:00, so 4 means 03:00 07:00 11:00 15:00 19:00 23:00. New and changed files are
+# unprotected until the next run; a run only works on what changed, but each run wakes every disk.
+# Only for bulkType = "snapraid".'''
+value = '''
+syncEveryHours = 4'''
+
+[[item]]
+kind = "option"
+key = "shareSnapshots"
+type = "bool"
+required = false
+settable = true
+secret = false
+default = 'false'
+doc = '''
+# Automatic ZFS snapshots of every share, hourly: the last 24 hours, 7 days and 4 weeks are
+# kept. Default false. Only for bulkType = "zfs" (with "snapraid" the backup is the history).
+# Snapshots hold deleted files, so they use space. Leave a share out with
+# `hs share <share> auto off` (pelican-backups is out from the start). Get a file back with
+# `hs share <share> snapshots`, then rollback.'''
+value = '''
+shareSnapshots = true'''
+
+[[item]]
+kind = "option"
+key = "zfsArcMaxGB"
+type = "int"
+required = false
+settable = false
+secret = false
+default = '12'
+doc = '''
+# Upper limit of the ZFS read cache (ARC) in GiB. Default 12; 0 means no limit. Without a limit
+# ZFS takes nearly all of the RAM. The cache gives memory back when programs need it, so a limit
+# only matters if you want that RAM for containers and VMs; a smaller cache means more reads
+# from the disks. Applies after `hs rebuild` (the running value changes at once, a shrunk cache
+# empties over time).'''
+value = '''
+zfsArcMaxGB = 12'''
+
+[[item]]
+kind = "option"
+key = "diskSpindownMinutes"
+type = "int"
+required = false
+settable = true
+secret = false
+default = '0'
+min = 1
+doc = '''
+# Let the spinning bulk, parity and backup disks go to sleep after this many minutes without
+# access (hdparm -S). Default 0 = never. Saves power, noise and wear when the server is idle;
+# SnapRAID setups gain most (only the disk with a file wakes). Costs 10 to 20 seconds on the first
+# access after a sleep, and the disks of a mirror wake one after the other. SSDs, NVMe, the
+# system disk and the `fast` pool are never touched. Above 20 the value rounds up to whole half
+# hours (longest 5.5 hours = 330). Some drives (certain IronWolf firmware, USB cases) ignore it.
+# Applies after `hs rebuild`; `hs disk spindown status` shows the power state.'''
+value = '''
+diskSpindownMinutes = 30'''
+
+[[item]]
+kind = "section"
+title = "Backup"
+
+[[item]]
+kind = "option"
+key = "setupDone"
+type = "bool"
+required = false
+settable = true
+secret = false
+store = "settings"
+default = 'false'
+doc = '''
+# Has the first-run checklist been dealt with? The web interface shows its Setup page (and a reminder on the summary) until this is true.
+# Set it by hand or with the button on the Setup page.'''
+value = '''
+setupDone = true'''
+
+[[item]]
+kind = "option"
+key = "backupNewShares"
+type = "bool"
+required = false
+settable = true
+secret = false
+store = "settings"
+legacy = "backup-new-shares"
+default = 'false'
+doc = '''
+# Does a share that appears later go into `hs backup` by itself?
+#   false (default)  no, it is only backed up after `hs backup <share> on`
+#                    (big, replaceable data such as media should not fill the backup disk)
+#   true             yes, until you switch it off with `hs backup <share> off`
+# Shares that are in the backup when this becomes false stay in it.'''
+value = '''
+backupNewShares = true'''
+
+[[item]]
+kind = "section"
+title = "Accounts"
+
+[[item]]
+kind = "option"
+key = "adDomain"
+type = "table"
+required = false
+settable = false
+secret = false
+default = 'null'
+doc = '''
+# The Active Directory domain this server joins as a file server; share logins and groups then
+# come from the domain. `realm` is the domain, `workgroup` its short name. `hs recipe domain`
+# sets this up. After the rebuild join once:
+#   sudo net ads join -U Administrator'''
+value = '''
+adDomain = { realm = "AD.HOME.LAN", workgroup = "HOME" }'''
+
+[[item]]
+kind = "section"
+title = "Messages"
+
+[[item]]
+kind = "option"
+key = "notifyUrl"
+type = "string"
+required = false
+settable = false
+secret = true
+store = "settings"
+legacy = "notify-url"
+default = 'null'
+doc = '''
+# Push messages when a disk, a pool or a scheduled job has a problem. They are POSTed to this
+# address, ntfy.sh style: pick a long random topic (whoever knows it can read along) and
+# subscribe to it in the ntfy app. Use a service that does NOT run on this server (e.g. the
+# public ntfy.sh): while the vault is closed every container is down. It also carries
+# "unlock needed" (urgent), "started", "going down" and "unlocked". Test: hs health-check --test'''
+value = '''
+notifyUrl = "https://ntfy.sh/some-long-random-topic"'''
+
+[[item]]
+kind = "option"
+key = "heartbeatUrl"
+type = "string"
+required = false
+settable = false
+secret = true
+store = "settings"
+legacy = "heartbeat-url"
+default = 'null'
+pattern = '^https?://[^ ]+$'
+hint = "an http:// or https:// address"
+doc = '''
+# A "still alive" message to this address every 15 minutes (the health check). A watcher
+# OUTSIDE this server (vps/hs-watch.sh on the VPS) raises the alarm when the messages stop:
+# power cut, network down, crash, or the tunnel to the internet broken. Use a second long
+# random topic, not the one of notifyUrl. Set up: docs/operations.md'''
+value = '''
+heartbeatUrl = "https://ntfy.sh/another-long-random-topic"'''
+
+[[item]]
+kind = "option"
+key = "notifyUrlSecond"
+type = "string"
+required = false
+settable = false
+secret = true
+store = "settings"
+default = 'null'
+pattern = '^https?://[^ ]+$'
+hint = "an http:// or https:// address"
+doc = '''
+# A second push channel (ntfy style, like notifyUrl), for example a second topic that a bridge turns into a
+# Matrix message. It only gets messages at or above notifySecondMinPriority, so it stays quiet unless something is wrong.
+# The first channel is always tried first and a failure of one never stops the other.'''
+value = '''
+notifyUrlSecond = "https://ntfy.sh/a-second-long-random-topic"'''
+
+[[item]]
+kind = "option"
+key = "notifySecondMinPriority"
+type = "string"
+required = false
+settable = true
+secret = false
+store = "settings"
+default = '"high"'
+pattern = '^(min|low|default|high|urgent)$'
+hint = "min, low, default, high or urgent"
+doc = '''
+# The lowest priority that is also sent to notifyUrlSecond: min, low, default, high (default) or urgent.'''
+value = '''
+notifySecondMinPriority = "urgent"'''
+
+[[item]]
+kind = "option"
+key = "notifications"
+type = "bool"
+required = false
+settable = true
+secret = false
+store = "settings"
+default = 'false'
+doc = '''
+# Turns on the part "notifications" (channels, the Notifications page in the web interface) without a rebuild. An existing notifyUrl does
+# the same by itself. The first-run checklist (Setup page) sets this. Default false.'''
+value = '''
+notifications = true'''
+
+[[item]]
+kind = "option"
+key = "quietHours"
+type = "string"
+required = false
+settable = true
+secret = false
+store = "settings"
+default = 'null'
+pattern = '^[0-2][0-9]:[0-5][0-9]-[0-2][0-9]:[0-5][0-9]$'
+hint = "HH:MM-HH:MM, for example 22:00-07:00"
+doc = '''
+# Quiet hours for push messages (server time, may cross midnight). Messages below priority high (info, "all clear",
+# started, updated) are held and sent as one message when the window ends; high and urgent messages (problems, alarms,
+# "unlock needed") are always sent at once. The journal gets every message when it happens. Off by default.'''
+value = '''
+quietHours = "22:00-07:00"'''
+
+[[item]]
+kind = "option"
+key = "autoMitigate"
+type = "bool"
+required = false
+settable = true
+secret = false
+store = "settings"
+default = 'false'
+doc = '''
+# Level 1 of the automatic reaction: when a disk fails its SMART check, a pool is degraded or
+# a pool is nearly full, the health check pauses the parity sync, the scrub and the cache mover and says so in its
+# message. It never deletes, formats or moves anything. Off by default; lift a pause with: hs health resume.'''
+value = '''
+autoMitigate = true'''
+
+[[item]]
+kind = "section"
+title = "History and status"
+
+[[item]]
+kind = "option"
+key = "metrics"
+type = "bool"
+required = false
+settable = true
+secret = false
+capability = "metrics"
+default = 'false'
+doc = '''
+# Hand out numbers about load, disks and pools and collect them with Prometheus ON THIS SERVER
+# (127.0.0.1:9090 only), so the history has no gap while the storage is locked.
+# `hs recipe monitoring` sets this itself and installs Grafana (and Loki) in a container that
+# reads from it. Default false.'''
+value = '''
+metrics = true'''
+
+[[item]]
+kind = "option"
+key = "metricsDays"
+type = "int"
+required = false
+settable = true
+secret = false
+capability = "metrics"
+default = '30'
+min = 1
+doc = '''
+# How many days Prometheus keeps its numbers. Default 30. Needs metrics = true.'''
+value = '''
+metricsDays = 30'''
+
+[[item]]
+kind = "option"
+key = "metricsMaxGB"
+type = "int"
+required = false
+settable = true
+secret = false
+capability = "metrics"
+default = '5'
+min = 1
+doc = '''
+# The most disk space (GB, on the system disk) Prometheus may use; whichever limit is reached
+# first wins. Default 5. Needs metrics = true.'''
+value = '''
+metricsMaxGB = 5'''
+
+[[item]]
+kind = "option"
+key = "deckApi"
+type = "bool"
+required = false
+settable = true
+secret = false
+default = 'false'
+doc = '''
+# One small read-only status document (http://<server>:9740/status.json: network counters,
+# pools, disk health, backup age, problems) for a Stream Deck, a wall monitor or Home
+# Assistant. Home networks and Tailscale only, no secrets in it. Default false. Needs a rebuild.'''
+value = '''
+deckApi = true'''
+
+[[item]]
+kind = "option"
+key = "proxyStatusUrl"
+type = "string"
+required = false
+settable = false
+secret = false
+capability = "vps"
+store = "settings"
+default = '""'
+pattern = '^https?://[^ ]+$'
+hint = "an http:// or https:// address"
+doc = '''
+# Where the web interface reads the status document of the proxyserver (the VPS): its deckApi
+# address over Tailscale, http:// or https://. Only that one address is ever fetched. Default: off,
+# the proxyserver pages then say "not configured". Needs webUi = true and a rebuild.'''
+value = '''
+proxyStatusUrl = "http://proxyserver:9740/status.json"'''
+
+[[item]]
+kind = "option"
+key = "vpsHost"
+type = "string"
+required = false
+settable = false
+secret = false
+capability = "vps"
+store = "settings"
+default = '""'
+pattern = '^[A-Za-z0-9][A-Za-z0-9._:-]{0,100}$'
+hint = "a host name or address"
+doc = '''
+# Where the web interface reaches the proxyserver (the VPS) to run `vps update` and `vps watch` for its
+# buttons: the Tailscale name or address, for example "proxyserver" or "100.64.0.7". It logs in as root with a
+# key of its own (`hs vps key` creates it and prints the line for the VPS's machine.nix: webKey) that can run
+# update, watch and status there and nothing else. Default: off, the buttons stay grey. Needs webUi = true,
+# the key and a rebuild; steps in docs/web-interface.md.'''
+value = '''
+vpsHost = "proxyserver"'''
+
+[[item]]
+kind = "option"
+key = "networkProvider"
+type = "string"
+required = false
+settable = false
+secret = false
+capability = "network"
+store = "settings"
+choices = ["unifi"]
+doc = '''
+# Which router connection gives instances fixed addresses: the name of a provider in scripts/providers/network/.
+# `hs net setup` sets it; setting it switches the capability network on. No rebuild.'''
+value = '''
+networkProvider = "unifi"'''
+
+[[item]]
+kind = "option"
+key = "reverseProxy"
+type = "string"
+required = false
+settable = false
+secret = false
+capability = "reverse-proxy"
+store = "settings"
+choices = ["zoraxy"]
+doc = '''
+# Which reverse proxy publishes the services of this server (hs services plan): the name of a provider in
+# scripts/providers/reverse-proxy/. Setting it switches the capability reverse-proxy on. No rebuild.'''
+value = '''
+reverseProxy = "zoraxy"'''
+
+[[item]]
+kind = "option"
+key = "dashboard"
+type = "string"
+required = false
+settable = false
+secret = false
+capability = "dashboard"
+store = "settings"
+choices = ["homepage"]
+doc = '''
+# Which dashboard shows the services that want a tile (hs services): the name of a provider in scripts/providers/dashboard/.
+# `hs recipe homepage` sets it itself. Setting it switches the capability dashboard on. No rebuild.'''
+value = '''
+dashboard = "homepage"'''
+
+[[item]]
+kind = "option"
+key = "proxyDomains"
+type = "string"
+required = false
+settable = false
+secret = false
+capability = "reverse-proxy"
+store = "settings"
+pattern = '^[a-z0-9.-]+(,[a-z0-9.-]+)*$'
+hint = "domain names separated by commas"
+doc = '''
+# The domain names the reverse proxy serves, separated by commas, for example example.com,example.org.
+# A service named "jellyfin" is wanted as jellyfin.<each domain>. No rebuild.'''
+value = '''
+proxyDomains = "example.org,example.net"'''
+
+[[item]]
+kind = "section"
+title = "Hardware"
+
+[[item]]
+kind = "option"
+key = "gpu"
+type = "string"
+required = false
+settable = false
+secret = false
+default = 'null'
+doc = '''
+# Graphics chip(s), for GPU use in containers (Jellyfin transcoding, Immich, ...): "nvidia",
+# "amd" or "intel", or a list of them: ["nvidia", "intel"]. Without it no graphics driver is
+# installed (a server without a card, a VM). Find out what is built in:
+#   lspci | grep -iE 'vga|3d|display''''
+value = '''
+gpu = "nvidia"'''
+
+[[item]]
+kind = "option"
+key = "nvidiaDriver"
+type = "string"
+required = false
+settable = false
+secret = false
+default = '"stable"'
+doc = '''
+# Which NVIDIA driver branch, only with gpu = "nvidia". "stable" (default) is the current driver
+# for RTX 20xx cards and newer. A GTX 10xx (Pascal), GTX 9xx (Maxwell) or Titan V needs
+# "legacy_580": the newest branch that still supports them ("Driver Not Loaded" in the log
+# of nvidia-container-toolkit-cdi-generator is the sign of a card the driver does not support).'''
+value = '''
+nvidiaDriver = "legacy_580"'''
+
+[[item]]
+kind = "option"
+key = "pciBind"
+type = "list"
+required = false
+settable = false
+secret = false
+default = '[ ]'
+doc = '''
+# PCI devices that stay without a driver after every boot, listed by address (find it with
+# `lspci`): hs-pci-bind attaches them early in the boot, before the pools are imported, and
+# writes what the device looked like before and after to /var/lib/hs/pci-bind.log. For example
+# the second chip of a 9300-16i SAS card. Default: none. Needs a rebuild.'''
+value = '''
+pciBind = ["0000:05:00.0"]'''
+
+[[item]]
+kind = "option"
+key = "dcName"
+type = "string"
+required = false
+settable = false
+secret = false
+doc = '''
+# Name of the Incus instance that is this server's domain controller. Only needed when it is
+# neither "dc1" nor "dc2": hs finds those two by itself (dc1 first, a second server of a domain
+# has dc2). Default: found automatically.'''
+value = '''
+dcName = "dc2"'''
+
+[[item]]
+kind = "option"
+key = "ups"
+type = "table"
+required = false
+settable = false
+secret = false
+default = 'null'
+doc = '''
+# A UPS (battery backup) on this server, read through NUT: a clean shutdown when the battery is
+# low or after `shutdownMinutes` on battery (0 = only when low), and push messages for power lost,
+# power back and shutting down. Default off. Write just the driver as a string (`ups = "usbhid-ups"`)
+# or a table; all keys are optional: `driver` (default usbhid-ups; find it with `nut-scanner -U`),
+# `name` (default ups), `port` (default auto), `shutdownMinutes` (default 5), `lowBatteryPercent`
+# (the charge the UPS calls low, only for drivers that allow it). Guide: docs/operations.md. Look: hs ups'''
+value = '''
+ups = { driver = "usbhid-ups", name = "ups", shutdownMinutes = 5 }'''
+
+[[item]]
+kind = "option"
+key = "bootDevice"
+type = "string"
+required = false
+settable = false
+secret = false
+default = '""'
+doc = '''
+# Disk the GRUB bootloader goes on, for a machine that does not boot with systemd-boot from an EFI partition (a VPS:
+# BIOS or UEFI with GRUB, ESP at /boot). Default "" = systemd-boot, as on the home server.'''
+value = '''
+bootDevice = "/dev/sda"'''
+
+[[item]]
+kind = "option"
+key = "nodeKeys"
+type = "list"
+required = false
+settable = false
+secret = false
+default = '[ ]'
+doc = '''
+# SSH public keys of OTHER nodes that may ask this one for its status (`hs node status`). Each key gets the forced command
+# scripts/node-remote.sh and nothing else (restrict): it runs the fixed words of that script, never a shell. On an edge node
+# the keys belong to root (ssh port 2222, as `hs node add --kind vps` on the main node expects), otherwise to adminuser.
+# `hs node key <name>` on the other node prints the public line. Default: none. '''
+value = '''
+nodeKeys = ["ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIexample... hs-node"]'''
+
+[[item]]
+kind = "section"
+title = "Edge node (a public VPS, role = edge)"
+
+[[item]]
+kind = "option"
+key = "edgeDomain"
+type = "string"
+required = false
+settable = false
+secret = false
+capability = "edge-mail"
+default = '""'
+doc = '''
+# The mail domain this node is the MX for (the capability edge-mail). Mail for it is relayed to the mail server (edgeStalwartIp).'''
+value = '''
+edgeDomain = "example.org"'''
+
+[[item]]
+kind = "option"
+key = "edgeMxHost"
+type = "string"
+required = false
+settable = false
+secret = false
+capability = "edge-mail"
+default = '""'
+doc = '''
+# The name of the MX record and of the certificate (an A record for it must exist before the first rebuild, and the reverse DNS
+# of the VPS must match it). Not the name of the mail server behind it.'''
+value = '''
+edgeMxHost = "mx.example.org"'''
+
+[[item]]
+kind = "option"
+key = "edgeAcmeEmail"
+type = "string"
+required = false
+settable = false
+secret = false
+capability = "edge-mail"
+default = '""'
+doc = '''
+# Contact address for Let's Encrypt (the certificate of edgeMxHost is checked over port 80).'''
+value = '''
+edgeAcmeEmail = "you@example.org"'''
+
+[[item]]
+kind = "option"
+key = "edgeStalwartIp"
+type = "string"
+required = false
+settable = false
+secret = false
+capability = "edge-mail"
+default = '""'
+doc = '''
+# Tailscale address of the mail server that receives the relayed mail and answers "does this recipient exist" (port 25).'''
+value = '''
+edgeStalwartIp = "100.64.0.10"'''
+
+[[item]]
+kind = "option"
+key = "edgeWingsIp"
+type = "string"
+required = false
+settable = false
+secret = false
+capability = "edge-ports"
+default = '""'
+doc = '''
+# Tailscale address of the game server host (pelican-wings) the game ports are forwarded to.'''
+value = '''
+edgeWingsIp = "100.64.0.11"'''
+
+[[item]]
+kind = "option"
+key = "edgeGamePorts"
+type = "list"
+required = false
+settable = false
+secret = false
+capability = "edge-ports"
+default = '[ ]'
+doc = '''
+# The game port pool: ports and ranges ("25565-25579") forwarded to edgeWingsIp as TCP and UDP. It must be the same pool as the
+# allocations in Pelican and the same ports as the Tailscale ACL allows for this node. Never 22, 25, 80 or 41641.'''
+value = '''
+edgeGamePorts = ["25565-25579", "2456-2470"]'''
+
+[[item]]
+kind = "option"
+key = "edgeGameTcp"
+type = "list"
+required = false
+settable = false
+secret = false
+capability = "edge-ports"
+default = '[ ]'
+doc = '''
+# Game ports that need only TCP (rare), on top of edgeGamePorts.'''
+value = '''
+edgeGameTcp = ["27015"]'''
+
+[[item]]
+kind = "option"
+key = "edgeGameUdp"
+type = "list"
+required = false
+settable = false
+secret = false
+capability = "edge-ports"
+default = '[ ]'
+doc = '''
+# Game ports that need only UDP (rare), on top of edgeGamePorts.'''
+value = '''
+edgeGameUdp = ["27016"]'''
+
+[[item]]
+kind = "option"
+key = "edgeRtcIp"
+type = "string"
+required = false
+settable = false
+secret = false
+capability = "edge-ports"
+default = '""'
+doc = '''
+# Tailscale address of the LiveKit container (Matrix calls). Empty: the call ports are not forwarded.'''
+value = '''
+edgeRtcIp = "100.64.0.12"'''
+
+[[item]]
+kind = "option"
+key = "edgeRtcTcp"
+type = "list"
+required = false
+settable = false
+secret = false
+capability = "edge-ports"
+default = '[ ]'
+doc = '''
+# TCP ports LiveKit advertises (forwarded to edgeRtcIp).'''
+value = '''
+edgeRtcTcp = ["7881"]'''
+
+[[item]]
+kind = "option"
+key = "edgeRtcUdp"
+type = "list"
+required = false
+settable = false
+secret = false
+capability = "edge-ports"
+default = '[ ]'
+doc = '''
+# UDP ports LiveKit advertises (forwarded to edgeRtcIp).'''
+value = '''
+edgeRtcUdp = ["50000-50100"]'''
+
+[[item]]
+kind = "option"
+key = "edgeWatchSites"
+type = "list"
+required = false
+settable = false
+secret = false
+capability = "edge-watcher"
+default = '[ ]'
+doc = '''
+# Public addresses the outside watcher must see answer (any answer but "none" or a 5xx counts). No admin pages here.
+# The two push addresses (the home server's heartbeat topic to watch, and the topic to alarm on) are secrets:
+# `hs config set heartbeatUrl ...` and `hs config set notifyUrl ...` (files in /var/lib/hs, never in the repository).'''
+value = '''
+edgeWatchSites = ["https://example.org", "https://wiki.example.org"]'''
+
+[[item]]
+kind = "option"
+key = "tailscaleAuthKeyFile"
+type = "string"
+required = false
+settable = false
+secret = false
+capability = "tailscale"
+default = '""'
+doc = '''
+# File with a reusable Tailscale auth key (mode 0600), read once at the first start so a headless server joins the tailnet by
+# itself. Create the key in the admin console; with tailscaleTags it carries the tag. Default "" = join by hand (`sudo tailscale up`).'''
+value = '''
+tailscaleAuthKeyFile = "/var/lib/hs/tailscale-authkey"'''
+
+[[item]]
+kind = "option"
+key = "tailscaleTags"
+type = "list"
+required = false
+settable = false
+secret = false
+capability = "tailscale"
+default = '[ ]'
+doc = '''
+# Tailscale tags this node asks for when it joins (for example ["tag:vps"]); the ACL in the admin console decides what a tag may reach.'''
+value = '''
+tailscaleTags = ["tag:vps"]'''

@@ -1,0 +1,56 @@
+# Rules for Cline (local model, small context)
+
+NixOS home server (Incus containers on ZFS/SnapRAID), managed by bash scripts plus a Rust TUI.
+You run on a Windows PC; the server is elsewhere. You cannot run `hs`, `nixos-rebuild`, incus, zfs or
+anything needing root. Check your work with the cheap checks below, then stop and report.
+
+## Context budget (important)
+- CLAUDE.md is ~600 lines (~30k tokens). NEVER read it whole. `grep -n -i "<topic>" CLAUDE.md`, then read
+  only that bullet with offset/limit. Same for docs/*.md and pkgs/hs-pool/target (never read target/).
+- Read files with offset/limit, search with grep first. Do not re-read a file you just edited.
+- One task per session. Keep diffs small: touch the files the task needs, nothing else.
+
+## Where things are
+- `scripts/*.sh` = one `hs <command>` each; `scripts/lib/*.sh` shared helpers; `packages/<name>/run.sh` container recipes (helpers in `scripts/recipes/_lib.sh`).
+- `scripts/lib/registry.tsv` = the single list of commands (kind, path, script, fixed args, help, help.de).
+- `pkgs/hs-pool/` = Rust TUI (`hs-ui`, ratatui); one file per tab in `src/tabs/`.
+- `tests/*.sh` = tests (stand-ins/fakes via HS_* env vars, see tests/lib-standins.sh). `configuration.nix` = system.
+- `docs/` = guides, mostly German.
+
+## Checks (run these, they need no root)
+- Every changed script: `bash -n scripts/x.sh`
+- Related test: `bash tests/<name>.sh` (CI list: .github/workflows/ci.yml). Tests needing root/udev run only in CI.
+- Rust: `cargo test --manifest-path pkgs/hs-pool/Cargo.toml`
+- Do not claim something works on the server: say "not run on the server".
+
+## Hard rules
+- Ask before touching storage, network, firewall, encryption/vault, backup or anything destructive. Default to a
+  `--dry-run` mode and a typed confirmation (`confirm_name`) for destructive commands.
+- Never run or suggest: `hs rebuild`, `nixos-rebuild`, `zpool`/`zfs` writes, `wipefs`, `mkfs`, force pushes.
+- Never commit to `main`. Work on the current worktree branch. Commit only when asked.
+- Files: LF line endings only (no CRLF in .sh/.tsv/.nix: the server breaks). UTF-8. No trailing blanks.
+- Bash scripts: `set -euo pipefail` style as in neighbours. Under pipefail never pipe into `head -n N`
+  (SIGPIPE kills the script): use the command's own limit.
+- Terminal output for people goes only through `scripts/lib/ui.sh` (step ok note warn fail spin ask confirm table
+  thead kv box ...). No raw echo/printf/column for human text, no own colours.
+- Machine-readable output (`--list`, `--state`, `--dry-run` plan lines, `hs sys ...`, `layout:`/`state:` lines)
+  is parsed by the Rust interface and tests: keep it BYTE FOR BYTE unless the task says to change it
+  (then change the parser and tests/pool-look/*.out in the same go).
+- New script or command = new row in `scripts/lib/registry.tsv` (tests/commands.sh checks it) and a `# help:` line.
+- New user-visible English text: add the German row in `scripts/lib/i18n/de.tsv` (English TAB German);
+  Rust: wrap in `tr(...)` and add a row in `src/i18n_de.rs`. Add new core scripts to CORE in tests/i18n.sh.
+- Scheduled jobs get `onFailure` -> `hs-notify-failure@<unit>.service`. `bulk-mount.service` keeps `restartIfChanged = false`.
+- Admin UIs (Incus, Zoraxy, Arcane, Homepage, docs site) never get a Zoraxy rule. Do not re-add Cockpit/WebZFS.
+- Per-machine files `machine.toml` and `hardware-configuration.nix` are git-ignored: never create or edit them.
+  New options go in `machine.toml.example` (one option per paragraph, in the right section, `# name = value` if optional; the last `name = ` line of a paragraph is the option, prose lines must not look like one), with `or default` in configuration.nix.
+- Docs for the cousin are German; commands stay English. Parts not run yet are marked "noch nicht erprobt".
+
+## Shared files (merge-conflict hotspots: other agents work in parallel worktrees)
+`CLAUDE.md`, `scripts/lib/registry.tsv`, `scripts/lib/i18n/de.tsv`, `pkgs/hs-pool/src/i18n_de.rs`,
+`.github/workflows/ci.yml`, `tests/run.sh`, `TODO.md`. Only append small, separate hunks to them; never reformat or reorder.
+Do not edit CLAUDE.md unless asked; instead list the facts it should get in your final report.
+
+## Workflow
+1. Plan mode first: list files to change and the check you will run. Ask if the design is unclear.
+2. Implement in small steps, run the check after each step.
+3. Final report: files changed, checks run (and result), what is NOT verified (server, root, real hardware).

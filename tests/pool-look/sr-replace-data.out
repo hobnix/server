@@ -1,0 +1,9 @@
+Plan: replace data-02 (ONLINE) in 'bulk'
+  1. take the old disk out of the array
+  2. format ata-FAKE_sdy (4.0GB) as data-02 (ext4)
+  3. restore its files from parity:  snapraid -d data-02 fix
+  4. update the parity:  snapraid sync
+Step 3 reads every disk completely and can take many hours.
+ALL DATA on ata-FAKE_sdy will be erased.
+
+Dry run: nothing changed.

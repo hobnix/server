@@ -1,0 +1,418 @@
+# kind	path	script	args	help	help.de	flags   ("-" = take help from the script header "# help:" / none; flags: long = ask first and run as a job, nohelp = not listed in hs help)
+# Source of `hs help`, `hs sys registry` and the shell completion. Path words in <> are values (<share> <pool> <ct> <disk>).
+user	backup	backup.sh	-	-	-	topic:backup,reads,capability:backup
+user	bulk-mount	bulk-mount.sh	-	-	-	nohelp,topic:disks,changes,capability:storage
+user	cache-mover	cache-mover.sh	-	-	-	long,topic:shares,changes,capability:storage
+user	doctor	doctor.sh	-	-	-	topic:system,reads,cheat:trouble
+user	smoke	smoke.sh	{rest}	quick check that the commands work here: needed programs installed, read-only commands run (changes nothing)	schneller Test, ob die Befehle hier funktionieren: nötige Programme da, lesende Befehle laufen (ändert nichts)	topic:system,reads
+user	cheatsheet	cheatsheet.sh	{rest}	one-page German cheat sheet of the most useful commands (Markdown, to print)	Spickzettel auf einer Seite mit den wichtigsten Befehlen (Markdown, zum Ausdrucken)	topic:docs,reads
+user	timing	read-timing.sh	{rest}	how long the reads of the interface take (every tab loads through them), slowest first; needs root	wie lange die Lesezugriffe der Oberfläche dauern (jeder Reiter lädt damit), die langsamsten zuerst	nohelp,topic:system,reads
+user	motd	motd.sh	{rest}	three status lines: problems, last backup, system (also shown at SSH login)	drei Statuszeilen: Probleme, letztes Backup, System (erscheint auch beim SSH-Login)	topic:system,reads
+user	docs build	docs-build.sh	{rest}	build the documentation pages again (guides and command reference)	Dokumentationsseiten neu bauen (Anleitungen und Befehlsübersicht)	topic:docs,changes
+user	docs verified	docs-verified.sh	{rest}	show when each guide was last checked on the real server, or mark one as checked: hs docs verified <guide> [YYYY-MM-DD]	zeigen, wann jede Anleitung zuletzt am echten Server geprüft wurde, oder eine als geprüft eintragen: hs docs verified <Anleitung> [JJJJ-MM-TT]	topic:docs,changes
+user	cleanup	cleanup.sh	-	find leftovers (old containers and services, stale mounts); only reports	Überbleibsel finden (alte Container und Dienste, verwaiste Einhängepunkte); meldet nur	topic:system,reads
+user	ports	ports.sh	{rest}	open ports of the server and each container; warns when an admin interface is behind Zoraxy (reads only; --list for tab separated lines)	offene Ports des Servers und jedes Containers; warnt, wenn eine Verwaltungsoberfläche hinter Zoraxy hängt (liest nur; --list für Tab-getrennte Zeilen)	topic:system,reads
+user	fans clean	fans.sh	clean {rest}	run the fans at full speed for 8 s (3 to 30) to blow dust out of the case, then back as they were	Lüfter 8 s (3 bis 30) auf voller Drehzahl laufen lassen, um Staub aus dem Gehäuse zu blasen, danach wieder wie vorher	topic:disks,changes
+user	mac	mac.sh	-	-	-	nohelp,topic:instances,changes,capability:incus
+user	machine-merge	machine-merge.sh	-	-	-	nohelp,topic:system,changes
+user	monitor	monitor.sh	-	-	-	nohelp,topic:system,reads
+user	notify	notify.sh	-	-	-	nohelp,topic:system,changes
+user	rebuild	rebuild.sh	-	-	-	topic:system,changes
+user	recipe	recipe.sh	-	-	-	topic:instances,changes,capability:incus
+user	status	status.sh	-	-	-	topic:system,reads,cheat:server
+user	unlock	unlock.sh	-	-	-	topic:security,changes,cheat:trouble
+user	vault	vault.sh	status	status of the vault (the encrypted partition with the secrets) and what is in it	Status des Tresors (der verschlüsselten Partition mit den Geheimnissen) und was darin liegt	topic:security,changes
+user	vault status	vault.sh	status	is the vault open, which secrets are in it	ist der Tresor offen, welche Geheimnisse liegen darin	topic:security,reads
+user	vault list	vault.sh	list	what is in the vault, one line each (tab separated when piped)	was im Tresor liegt, eine Zeile je Eintrag (Tab-getrennt in einer Pipe)	topic:security,reads
+user	vault init	vault.sh	init {rest}	make the vault on a free partition of the system disk (erases the partition; --dry-run shows the plan)	Tresor auf einer freien Partition der System-SSD anlegen (löscht die Partition; --dry-run zeigt den Plan)	guided,topic:security,changes
+user	vault open	vault.sh	open	open the vault (asks for the passphrase)	Tresor öffnen (fragt die Passphrase)	topic:security,changes
+user	vault close	vault.sh	close {rest}	close the vault; refused while something uses it	Tresor schließen; abgelehnt, solange etwas ihn benutzt	topic:security,changes
+user	vault move	vault.sh	move {rest}	move secrets into the vault (without names: the usual ones that exist) and leave a link	Geheimnisse in den Tresor verschieben (ohne Namen: die üblichen, die es gibt) und einen Link zurücklassen	topic:security,changes
+user	vault bind	vault.sh	bind {rest}	move a whole folder into the vault, e.g. hs vault bind samba-private /var/lib/samba/private	einen ganzen Ordner in den Tresor verschieben, z. B. hs vault bind samba-private /var/lib/samba/private	topic:security,changes
+user	vault header-backup	vault.sh	header-backup	save the LUKS header of the vault outside it (/var/lib/hs/vault-header, part of the host backup)	den LUKS-Header des Tresors außerhalb sichern (/var/lib/hs/vault-header, Teil der Host-Sicherung)	topic:security,changes
+user	update	update.sh	-	-	-	topic:system,changes,cheat:update
+user	backup now	backup.sh	now	-	-	long,nohelp,topic:backup,changes,cheat:backup,capability:backup
+user	backup drill	backup.sh	drill	-	-	long,nohelp,topic:backup,changes,capability:backup
+user	backup drill ct	backup.sh	drill ct	restore a container from the backup into a throwaway instance without a network, boot it and delete it (the one drilled longest ago, smallest first); also checks the domain controller backup file	einen Container aus dem Backup in eine Wegwerf-Instanz ohne Netzwerk zurückholen, starten und wieder löschen (den, der am längsten nicht dran war, kleinster zuerst); prüft auch die Sicherungsdatei des Domänencontrollers	long,nohelp,topic:backup,changes,capability:backup
+user	backup drill ct <ct>	backup.sh	drill ct {1}	the same drill for one named container	dieselbe Wiederherstellungsprobe für einen bestimmten Container	long,nohelp,topic:backup,changes,capability:backup
+user	backup verify	backup.sh	verify	-	-	long,nohelp,topic:backup,changes,capability:backup
+user	backup prune	backup.sh	prune	give space back now: delete leftovers of a run that ran out of space, apply the retention, prune (--dry-run shows what would go)	Platz sofort freigeben: Reste eines am Platzmangel gescheiterten Laufs löschen, Aufbewahrung anwenden, bereinigen (--dry-run zeigt, was wegfiele)	long,topic:backup,changes,capability:backup
+user	backup report	backup.sh	report	send the report of the restore drills as a push message now (it goes out by itself on the 25th of every month; --dry-run only shows it)	den Bericht über die Wiederherstellungsproben als Push-Nachricht jetzt senden (er geht jeden Monat am 25. von selbst raus; --dry-run zeigt ihn nur)	topic:backup,changes,capability:backup
+user	temp-disk copy	temp-disk.sh	copy	-	-	long,nohelp,topic:disks,changes,capability:storage
+user	pool <pool>	manage-pool.sh	--show	disks and state of a pool (only shows, changes nothing): hs pool bulk, hs pool fast	Festplatten und Zustand eines Pools (zeigt nur an, ändert nichts): hs pool bulk, hs pool fast	topic:disks,reads,cheat:disks,capability:storage
+user	pool <pool> add	manage-pool.sh	-	add disks to a pool (filesystem and encryption are asked)	Platten zu einem Pool hinzufügen (Dateisystem und Verschlüsselung werden gefragt)	guided,topic:disks,changes,capability:storage
+user	pool <pool> replace	manage-pool.sh	--replace	replace a disk (asks which one when left out): hs pool bulk replace <member> --disks <new>	Platte ersetzen (fragt, welche, wenn nichts angegeben): hs pool bulk replace <Mitglied> --disks <neu>	guided,topic:disks,changes,capability:storage
+user	pool <pool> remove	manage-pool.sh	--remove	take a disk (or a whole mirror) out (asks which one when left out): hs pool bulk remove <member>	Platte (oder ganzen Spiegel) herausnehmen (fragt, welche, wenn nichts angegeben): hs pool bulk remove <Mitglied>	guided,topic:disks,changes,capability:storage
+user	pool <pool> convert	manage-pool.sh	--convert	change filesystem or encryption of a data disk by emptying and formatting it (asks which one when left out): hs pool bulk convert <member> --fs xfs	Dateisystem oder Verschlüsselung einer Datenplatte ändern (leeren und neu formatieren): hs pool bulk convert <Mitglied> --fs xfs	guided,topic:disks,changes,capability:storage
+user	pool <pool> close	manage-pool.sh	--close	no new files on a data disk any more (it stays in /bulk); add --drain to move its files away: hs pool bulk close <member> [--drain]	keine neuen Dateien mehr auf eine Datenplatte (sie bleibt in /bulk); mit --drain werden ihre Dateien weggeräumt: hs pool bulk close <Mitglied> [--drain]	guided,topic:disks,changes,capability:storage
+user	pool <pool> open	manage-pool.sh	--open	a closed data disk takes new files again: hs pool bulk open <member>	eine geschlossene Datenplatte nimmt wieder neue Dateien auf: hs pool bulk open <Mitglied>	guided,topic:disks,changes,capability:storage
+user	disk list	disk-health.sh	-	every disk with its health verdict	jede Platte mit ihrem Gesundheitsurteil	guided,topic:disks,reads,cheat:disks,capability:storage
+user	disk <disk> health	disk-health.sh	{1}	health of one disk: verdict, age, bad sectors, errors	Gesundheit einer Platte: Urteil, Alter, defekte Sektoren, Fehler	guided,topic:disks,reads,cheat:disks,capability:storage
+user	disk <disk> test	disk-health.sh	--test {rest} {1}	start a self-test inside the disk: hs disk <disk> test short|long	Selbsttest in der Platte starten: hs disk <Platte> test short|long	topic:disks,changes,capability:storage
+user	disk <disk> results	disk-health.sh	--results {1}	outcome of the last self-tests of a disk	Ergebnis der letzten Selbsttests einer Platte	guided,topic:disks,reads,capability:storage
+user	disk <disk> recover	disk-recover.sh	run {1} {rest}	get deleted files back from a data disk of the array (read only, hours; the files go onto another data disk): hs disk <member> recover [--to <member>]	gelöschte Dateien von einer Datenplatte des Arrays zurückholen (nur lesend, dauert Stunden; die Dateien kommen auf eine andere Datenplatte): hs disk <Mitglied> recover [--to <Mitglied>]	topic:disks,changes,long,capability:storage
+user	disk <disk> recover-finish	disk-recover.sh	finish {1}	give a disk back to the pool after a recovery: hs disk <member> recover-finish	eine Platte nach einer Wiederherstellung wieder in den Pool geben: hs disk <Mitglied> recover-finish	topic:disks,changes,capability:storage
+user	disk <disk> move	disk-move.sh	run {1} {rest}	move a folder from one data disk of the array to another, disk to disk (the path in /bulk stays the same): hs disk <member> move shares/<folder> [--to <member>]	Ordner von einer Datenplatte des Arrays auf eine andere verschieben, von Platte zu Platte (der Pfad in /bulk bleibt gleich): hs disk <Mitglied> move shares/<Ordner> [--to <Mitglied>]	topic:disks,changes,long,capability:storage
+user	disk <disk> detach	disk-detach.sh	run detach {1}	take a data disk out of /bulk to work on it by hand (a detached disk is not in the pool, so copying from it into /bulk is safe): hs disk <member> detach	eine Datenplatte aus /bulk herausnehmen, um von Hand daran zu arbeiten (eine herausgenommene Platte ist nicht im Pool, Kopieren nach /bulk ist dann sicher): hs disk <Mitglied> detach	topic:disks,changes,capability:storage
+user	disk <disk> attach	disk-detach.sh	run attach {1}	put a detached data disk back into /bulk: hs disk <member> attach	eine herausgenommene Datenplatte wieder in /bulk einsetzen: hs disk <Mitglied> attach	topic:disks,changes,capability:storage
+user	disk events	disk-event.sh	log	disks that were plugged in or taken out lately	zuletzt ein- oder ausgesteckte Platten	topic:disks,reads,capability:storage
+user	disk inventory	state.sh	inventory	every disk the server has had, also the missing ones (they stay listed until you forget them)	jede Platte, die der Server hatte, auch fehlende (sie bleiben in der Liste, bis du sie vergisst)	topic:disks,reads,capability:storage
+user	disk <disk> forget	state.sh	forget {1} {rest}	remove a missing disk from the inventory for good (serial or name; asks first): hs disk <serial> forget	eine fehlende Platte endgültig aus der Liste nehmen (Seriennummer oder Name; fragt vorher): hs disk <Seriennummer> forget	topic:disks,changes,capability:storage
+user	disk temp	temp-disk.sh	list	disks that can be mounted for a look or a copy (USB, hot-plug)	Platten, die zum Ansehen oder Kopieren eingehängt werden können (USB, Hot-Plug)	guided,topic:disks,changes,capability:storage
+user	disk temp mount	temp-disk.sh	mount	mount a disk with data read-only and share it: hs disk temp mount <device>	Platte mit Daten schreibgeschützt einhängen und freigeben: hs disk temp mount <Gerät>	topic:disks,changes,capability:storage
+user	disk temp copy	temp-disk.sh	copy	copy a mounted temp disk into a share: hs disk temp copy <name> <share>	eingehängte Platte in eine Freigabe kopieren: hs disk temp copy <Name> <Freigabe>	long,topic:disks,changes,capability:storage
+user	disk temp eject	temp-disk.sh	eject	unmount a temp disk and remove its share	Platte aushängen und ihre Freigabe entfernen	topic:disks,changes,capability:storage
+user	disk replace	disk-replace.sh	-	swap a failed or old disk (guided)	Platte tauschen, defekt oder alt (geführt)	guided,topic:disks,changes,capability:storage
+user	share add	create-share.sh	-	create a share (a folder, published over Samba)	Freigabe anlegen (ein Ordner, per Samba freigegeben)	topic:shares,changes,cheat:shares,capability:storage
+user	share repair	sync-shares.sh	--fix-owner	hand the files of every share over to adminuser again	die Dateien aller Freigaben wieder an adminuser übergeben	guided,topic:shares,changes,capability:storage
+user	share cleanup	share-cleanup.sh	-	remove the Samba shares whose folder is gone (hs share cleanup [--dry-run] [--yes])	Samba-Freigaben entfernen, deren Ordner nicht mehr existiert (hs share cleanup [--dry-run] [--yes])	topic:shares,changes,capability:storage
+user	share <share> perm	share-perm.sh	{1} {rest}	who may use a share (guided, or: hs share <share> perm <name>=<level>)	wer eine Freigabe nutzen darf (geführt, oder: hs share <Freigabe> perm <Name>=<Stufe>)	guided,topic:shares,changes,cheat:shares,capability:samba
+user	share <share> show	share-perm.sh	{1} --show	who may use a share	wer eine Freigabe nutzen darf	guided,topic:shares,reads,cheat:shares,capability:samba
+user	share <share> cache	share-cache.sh	{1} {rest}	upload cache of a share: hs share <share> cache on|off	Upload-Cache einer Freigabe: hs share <Freigabe> cache on|off	topic:shares,changes,capability:storage
+user	share <share> rename	manage-shares.sh	{1} --rename {rest}	rename a share: hs share <share> rename <new>	Freigabe umbenennen: hs share <Freigabe> rename <neu>	topic:shares,changes,capability:storage
+user	share restore-kept <kept>	share-undelete.sh	{1} {rest}	bring the kept folder of a deleted share back under its old name: hs share restore-kept <share>.deleted-<date> [--dry-run] (nothing is overwritten or removed)	den aufbewahrten Ordner einer gelöschten Freigabe unter dem alten Namen zurückholen: hs share restore-kept <Freigabe>.deleted-<Datum> [--dry-run] (nichts wird überschrieben oder entfernt)	topic:shares,changes,capability:storage
+user	share <share> restore	share-restore.sh	{1} {rest}	bring files of a share back from the backup (guided)	Dateien einer Freigabe aus dem Backup zurückholen (geführt)	guided,topic:shares,changes,cheat:backup,capability:storage
+user	share <share> snapshot	share-snap-guided.sh	{1} snapshot {rest}	take a ZFS snapshot of a share: hs share <share> snapshot [name]	ZFS-Schnappschuss einer Freigabe: hs share <Freigabe> snapshot [Name]	guided,topic:shares,changes,cheat:shares,capability:storage
+user	share <share> snapshots	share-snap.sh	{1} snapshots	list the snapshots of a share	Schnappschüsse einer Freigabe auflisten	topic:shares,reads,capability:storage
+user	share <share> rollback	share-snap-guided.sh	{1} rollback {rest}	go back to a snapshot of a share: hs share <share> rollback [name]	zu einem Schnappschuss zurückkehren: hs share <Freigabe> rollback [Name]	guided,topic:shares,changes,capability:storage
+user	share <share> auto	share-snap-guided.sh	{1} auto {rest}	include a share in the automatic snapshots or leave it out: hs share <share> auto on|off	Freigabe in die automatischen Schnappschüsse aufnehmen oder ausnehmen: hs share <Freigabe> auto on|off	guided,topic:shares,changes,capability:storage
+user	snapshots	snapshots-auto.sh	{rest}	automatic ZFS snapshots now (hs snapshots) or the list of shares (hs snapshots list)	automatische ZFS-Schnappschüsse jetzt anlegen (hs snapshots) oder die Liste der Freigaben (hs snapshots list)	topic:backup,reads,capability:backup
+user	ct list	status.sh	-	containers and VMs with state, address and pinned MAC	Container und VMs mit Zustand, Adresse und festgelegter MAC	topic:instances,reads,cheat:server,capability:incus
+user	ct add	ct-guided.sh	add {rest}	create an instance (guided): hs ct add [name] [--kind empty|docker|vm] [--ram MB] ...	Instanz anlegen (geführt): hs ct add [Name] [--kind empty|docker|vm] [--ram MB] ...	guided,topic:instances,changes,capability:incus
+user	ct <ct> start	manage-ct.sh	{1} --start	start an instance	Instanz starten	topic:instances,changes,capability:incus
+user	ct <ct> stop	manage-ct.sh	{1} --stop	stop an instance	Instanz anhalten	topic:instances,changes,capability:incus
+user	ct <ct> restart	manage-ct.sh	{1} --restart	restart an instance	Instanz neu starten	topic:instances,changes,cheat:trouble,capability:incus
+user	ct <ct> remove	manage-ct.sh	{1} --delete	delete an instance (asks you to type its name)	Instanz löschen (der Name muss getippt werden)	guided,topic:instances,changes,capability:incus
+user	ct <ct> set	manage-ct.sh	{1} --set {rest}	change ram, cpu, disk, autostart, docker: hs ct <ct> set ram=2048 cpu=2	RAM, CPU, Platte, Autostart, Docker ändern: hs ct <ct> set ram=2048 cpu=2	topic:instances,changes,capability:incus
+user	ct <ct> ip	ct-guided.sh	ip {1} {rest}	fixed address (guided): shows the current one; hs ct <ct> ip 10.10.95.25	feste Adresse (geführt): zeigt die aktuelle; hs ct <ct> ip 10.10.95.25	guided,topic:instances,changes,capability:incus
+user	ct <ct> snapshot	ct-guided.sh	snapshot {1} {rest}	snapshots (guided): create, restore, delete; hs ct <ct> snapshot [label]	Schnappschüsse (geführt): anlegen, zurückgehen, löschen; hs ct <ct> snapshot [Name]	guided,topic:instances,changes,capability:incus
+user	ct <ct> snapshots	manage-ct.sh	{1} --snapshots	list the snapshots of an instance	Schnappschüsse einer Instanz auflisten	topic:instances,reads,capability:incus
+user	ct <ct> restore	manage-ct.sh	{1} --restore {rest}	go back to a snapshot: hs ct <ct> restore <snapshot>	zu einem Schnappschuss zurückkehren: hs ct <ct> restore <Schnappschuss>	topic:instances,changes,capability:incus
+user	ct <ct> update	manage-ct.sh	{1} --update	snapshot, then update the software inside	Schnappschuss machen, dann die Software darin aktualisieren	long,topic:instances,changes,capability:incus
+user	ct <ct> storage	ct-guided.sh	storage {1} {rest}	attach storage (guided): a share folder, a sensitive folder or a fast volume	Speicher einhängen (geführt): Freigaben-Ordner, sensibler Ordner oder fast-Volume	guided,topic:instances,changes,capability:incus
+user	ct <ct> storage add	manage-ct.sh	{1} --add-storage {rest}	mount fast|shares|sensitive storage: hs ct <ct> storage add <kind> <name> <path> [--readonly] [--as uid:gid]	Speicher einhängen (fast|shares|sensitive): hs ct <ct> storage add <Art> <Name> <Pfad> [--readonly] [--as uid:gid]	topic:instances,changes,capability:incus
+user	ct <ct> storage remove	manage-ct.sh	{1} --remove-storage {rest}	unmount a storage device: hs ct <ct> storage remove <device>	Speicher aushängen: hs ct <ct> storage remove <Gerät>	topic:instances,changes,capability:incus
+user	ct <ct> shell	ct-access.sh	{1} shell	a shell inside the instance	eine Shell in der Instanz	topic:instances,changes,capability:incus
+user	ct <ct> exec	ct-access.sh	{1} exec {rest}	run one command inside: hs ct <ct> exec <command>	einen Befehl darin ausführen: hs ct <ct> exec <Befehl>	topic:instances,changes,capability:incus
+user	ct <ct> logs	ct-access.sh	{1} logs {rest}	the last lines of the journal inside: hs ct <ct> logs [lines]	die letzten Zeilen des Journals darin: hs ct <ct> logs [Zeilen]	guided,topic:instances,reads,cheat:trouble,capability:incus
+user	ct <ct> console	ct-access.sh	{1} console	the console of the instance (leave with Ctrl+a q)	die Konsole der Instanz (Beenden mit Strg+a q)	guided,topic:instances,changes,capability:incus
+user	ct update-all	ct-update-all.sh	{rest}	snapshot and update every running container, with a report and the way back: hs ct update-all [--dry-run] [--yes]	jeden laufenden Container per Schnappschuss sichern und aktualisieren, mit Bericht und Rückweg: hs ct update-all [--dry-run] [--yes]	topic:instances,changes,capability:incus
+user	user list	users-show.sh	users	users of the domain with state and groups	Benutzer der Domäne mit Zustand und Gruppen	topic:users,reads,cheat:users,capability:ad
+user	user <user> show	users-show.sh	users {1}	one user with state and groups	ein Benutzer mit Zustand und Gruppen	topic:users,reads,capability:ad
+user	user add	user-guided.sh	add {rest}	create a user (guided; the password is asked next): hs user add [name] [--full "Full Name"]	Benutzer anlegen (geführt; danach das Passwort): hs user add [Name] [--full "Voller Name"]	guided,topic:users,changes,cheat:users,capability:ad
+user	user <user> passwd	manage-users.sh	--password {1}	set a new password (typed on the terminal)	neues Passwort setzen (wird am Terminal getippt)	guided,topic:users,changes,cheat:users,capability:ad
+user	user <user> lock	user-guided.sh	lock {1} {rest}	lock or unlock an account (shows what it will do)	Konto sperren oder entsperren (zeigt, was passiert)	guided,topic:users,changes,capability:ad
+user	user <user> unlock	manage-users.sh	--enable {1}	unlock an account	Konto entsperren	topic:users,changes,capability:ad
+user	user <user> remove	manage-users.sh	--delete {1}	delete an account (asks you to type the name)	Konto löschen (der Name muss getippt werden)	guided,topic:users,changes,capability:ad
+user	user <user> join <group>	manage-users.sh	--member {2} {1} add	put a user into a group	Benutzer in eine Gruppe aufnehmen	topic:users,changes,capability:ad
+user	user <user> leave <group>	manage-users.sh	--member {2} {1} remove	take a user out of a group	Benutzer aus einer Gruppe nehmen	topic:users,changes,capability:ad
+user	user flush	manage-users.sh	--flush	make the file server forget cached users and groups	den Dateiserver gecachte Benutzer und Gruppen vergessen lassen	topic:users,changes,capability:ad
+user	group list	users-show.sh	groups	groups of the domain with their members	Gruppen der Domäne mit ihren Mitgliedern	topic:users,reads
+user	group <group> show	users-show.sh	groups {1}	one group with its members	eine Gruppe mit ihren Mitgliedern	topic:users,reads
+user	group add	user-guided.sh	group-add {rest}	create a group: hs group add [name]	Gruppe anlegen: hs group add [Name]	guided,topic:users,changes
+user	group <group> remove	manage-users.sh	--group-delete {1}	delete a group	Gruppe löschen	guided,topic:users,changes
+user	backup status	backup.sh	status	what is in the backup, how big, how old	was im Backup ist, wie groß, wie alt	nohelp,topic:backup,reads,cheat:backup,capability:backup
+user	backup list	backup.sh	list	list the snapshots	die Schnappschüsse auflisten	nohelp,topic:backup,reads,capability:backup
+user	backup find	backup.sh	find	find a file in the snapshots: hs backup find <name>	eine Datei in den Schnappschüssen suchen: hs backup find <Name>	nohelp,topic:backup,reads,capability:backup
+user	backup restore	backup.sh	restore	restore files: hs backup restore <snapshot|latest> <path>	Dateien wiederherstellen: hs backup restore <Schnappschuss|latest> <Pfad>	nohelp,topic:backup,changes,capability:backup
+user	backup browse	backup.sh	browse	look through the backup read-only	das Backup schreibgeschützt durchsehen	nohelp,topic:backup,changes,capability:backup
+user	backup init	backup.sh	init	make a disk the backup disk: hs backup init <device>	eine Platte zur Backup-Platte machen: hs backup init <Gerät>	nohelp,topic:backup,changes,capability:backup
+user	backup offsite	backup.sh	offsite	second copy elsewhere: hs backup offsite set <repo>|now|off	zweite Kopie woanders: hs backup offsite set <Repo>|now|off	nohelp,topic:backup,changes,capability:backup
+user	backup <share> on	backup.sh	{1} on	put a share into the backup	eine Freigabe ins Backup aufnehmen	nohelp,topic:backup,changes,capability:backup
+user	backup <share> off	backup.sh	{1} off	take a share out of the backup	eine Freigabe aus dem Backup nehmen	nohelp,topic:backup,changes,capability:backup
+user	backup ct <ct> on	backup.sh	ct {1} on	put an instance into the backup	eine Instanz ins Backup aufnehmen	nohelp,topic:backup,changes,capability:backup
+user	backup ct <ct> off	backup.sh	ct {1} off	take an instance out of the backup	eine Instanz aus dem Backup nehmen	nohelp,topic:backup,changes,capability:backup
+user	system info	system.sh	info	this server: version, generation, uptime, disk	dieser Server: Version, Generation, Laufzeit, Platte	topic:system,reads
+user	system update	update.sh	-	pull the latest config from Git and rebuild (rolls back by itself on new problems; --no-rollback: off)	neueste Konfiguration aus Git holen und neu bauen (geht bei neuen Problemen von selbst zurück; --no-rollback: aus)	topic:system,changes
+user	system rebuild	rebuild.sh	-	apply the config in /etc/nixos	die Konfiguration in /etc/nixos anwenden	topic:system,changes
+user	system rollback	system.sh	rollback	go back to the previous generation	zur vorherigen Generation zurück	topic:system,changes,cheat:update
+user	config list	config.sh	list	the common settings of machine.toml	die gängigen Einstellungen in machine.toml	topic:system,reads
+user	config get	config.sh	get	one setting: hs config get language	eine Einstellung: hs config get language	nohelp,topic:system,reads
+user	config set	config.sh	set	change a setting: hs config set language de	eine Einstellung ändern: hs config set language de	topic:system,changes
+user	config sync	machine-sync.sh	sync	put machine.toml in the layout of machine.toml.example (new options in their place)	machine.toml in den Aufbau von machine.toml.example bringen (neue Optionen an ihrem Platz)	topic:system,changes
+user	config check	machine-sync.sh	check	check machine.toml: typos, wrong types, missing options	machine.toml prüfen: Tippfehler, falsche Typen, fehlende Optionen	topic:system,reads
+user	config migrate	machine-sync.sh	migrate	convert an old machine.nix to machine.toml	eine alte machine.nix in machine.toml umwandeln	topic:system,changes
+user	config migrate-settings	config.sh	migrate-settings {rest}	move the runtime settings (language, notify address, router connection ...) out of machine.toml into /var/lib/hs/settings (hs update does this by itself; --dry-run shows it)	die Laufzeit-Einstellungen (Sprache, Push-Adresse, Router-Anbindung ...) aus machine.toml nach /var/lib/hs/settings verschieben (hs update macht das von selbst; --dry-run zeigt es)	topic:system,changes
+user	preset list	preset.sh	list	the presets (ready-made choices for a server)	die Vorlagen (fertige Entscheidungen für einen Server)	topic:system,reads
+user	preset show	preset.sh	show	what a preset contains and what applying it would set here: hs preset show <name>	was eine Vorlage enthält und was sie hier setzen würde: hs preset show <Name>	topic:system,reads
+user	preset apply	preset.sh	apply	set what a preset chooses and is not set yet (asks first, never overwrites): hs preset apply <name> [--dry-run]	setzt, was eine Vorlage festlegt und noch nicht gesetzt ist (fragt zuerst, überschreibt nie): hs preset apply <Name> [--dry-run]	topic:system,changes
+user	installer	install-wizard.sh	-	install a new server from the installer ISO (run on the stick as root: the system disk, name, SSH key, preset): hs-install	einen neuen Server vom Installer-Stick einrichten (auf dem Stick als root: Systemplatte, Name, SSH-Schlüssel, Vorlage): hs-install	topic:system,changes,nohelp
+user	net setup	unifi.sh	setup {rest}	store the router address and API key	Router-Adresse und API-Schlüssel speichern	topic:network,changes
+user	net check	unifi.sh	check	list the router's networks and DHCP ranges	Netzwerke und DHCP-Bereiche des Routers anzeigen	topic:network,reads,capability:network
+user	dns list	dns.sh	list	the DNS names of this server's instances (<instance>.<siteName>.<domain>)	die DNS-Namen der Instanzen dieses Servers (<Instanz>.<siteName>.<Domäne>)	topic:network,reads,capability:ad
+user	dns sync	dns.sh	sync {rest}	create, correct and remove the DNS names of the instances (asks first; --yes, --dry-run)	DNS-Namen der Instanzen anlegen, korrigieren und entfernen (fragt vorher; --yes, --dry-run)	topic:network,changes,capability:ad
+user	services list	services.sh	list {rest}	the services of this server and where they are published (reverse proxy)	die Dienste dieses Servers und wo sie veröffentlicht sind (Reverse-Proxy)	topic:network,reads
+user	services check	services.sh	check	check the service files for mistakes	die Dienstdateien auf Fehler prüfen	topic:network,reads
+user	services plan	services.sh	plan {rest}	what the reverse proxy has against what the services want: ok, add, change, blocked, violation, unmanaged	was der Reverse-Proxy hat gegen das, was die Dienste wollen: ok, add, change, blocked, violation, unmanaged	topic:network,reads
+user	services tiles	services.sh	tiles --table	the tiles the dashboard shows for the services that want one: group, title, link	die Kacheln, die die Startseite für die Dienste zeigt, die eine wollen: Gruppe, Titel, Link	topic:network,reads
+user	services add	services.sh	add {rest}	describe a service: --port N and --container or --host, --names, --exposure, --public-path, --want	einen Dienst beschreiben: --port N und --container oder --host, --names, --exposure, --public-path, --want	topic:network,changes
+user	services remove	services.sh	remove {rest}	remove the description of a service (its routes on the proxy stay)	die Beschreibung eines Dienstes entfernen (seine Routen am Proxy bleiben)	topic:network,changes
+user	services import	services.sh	import {rest}	make services of the routes the proxy has today (asks first; --dry-run, --yes)	aus den Routen, die der Proxy heute hat, Dienste machen (fragt vorher; --dry-run, --yes)	topic:network,changes
+user	services apply	services.sh	apply {rest}	do what the plan says on the reverse proxy: add, change, remove (public ones and changes need the typed host name; --dry-run, --confirm <host or service>)	tun, was der Plan am Reverse-Proxy nennt: anlegen, ändern, entfernen (öffentliche und Änderungen brauchen den eingetippten Hostnamen; --dry-run, --confirm <Host oder Dienst>)	topic:network,changes
+user	services adopt	services.sh	adopt {rest}	let hs change and remove the routes made by hand that match a service (asks first; --yes)	hs darf die von Hand gemachten Routen ändern und entfernen, die zu einem Dienst passen (fragt vorher; --yes)	topic:network,changes
+user	services declare	services.sh	declare {rest}	what a recipe says about its service (container, port, title, icon ...): created, or refreshed without touching what a person decided	was ein Rezept über seinen Dienst sagt (Container, Port, Titel, Symbol ...): neu angelegt oder aufgefrischt, ohne Entscheidungen zu überschreiben	nohelp,topic:network,changes
+user	services proxy login	services.sh	proxy login	the admin login of the reverse proxy (Zoraxy has no API keys): checked, then kept in the vault	der Admin-Login des Reverse-Proxys (Zoraxy hat keine API-Schlüssel): geprüft und dann im Tresor abgelegt	topic:network,changes
+user	dc cert ca	dc-cert.sh	ca	make the small CA that signs the certificates of the domain controllers (once, on one server): hs dc cert ca	die kleine Zertifizierungsstelle anlegen, die die Zertifikate der Domänencontroller unterschreibt (einmal, auf einem Server): hs dc cert ca	topic:users,changes,capability:ad
+user	dc cert request	dc-cert.sh	request {rest}	new key inside the domain controller and a certificate request for it (prints the request): hs dc cert request [--dc <instance>]	neuer Schlüssel im Domänencontroller und eine Zertifikatsanfrage dazu (zeigt die Anfrage): hs dc cert request [--dc <Instanz>]	topic:users,changes,capability:ad
+user	dc cert sign	dc-cert.sh	sign {rest}	sign a request with the CA (only names inside the domain), prints the bundle: hs dc cert sign <file>	eine Anfrage mit der Zertifizierungsstelle unterschreiben (nur Namen innerhalb der Domäne), zeigt das Paket: hs dc cert sign <Datei>	topic:users,changes,capability:ad
+user	dc cert install	dc-cert.sh	install {rest}	put the signed certificate into the domain controller and restart its Samba: hs dc cert install --cert <file> [--yes]	das unterschriebene Zertifikat in den Domänencontroller einsetzen und dessen Samba neu starten: hs dc cert install --cert <Datei> [--yes]	topic:users,changes,capability:ad
+user	dc cert show	dc-cert.sh	show {rest}	names and end date of the certificate a domain controller uses: hs dc cert show [--dc <instance>]	Namen und Ablaufdatum des Zertifikats, das ein Domänencontroller benutzt: hs dc cert show [--dc <Instanz>]	topic:users,reads,capability:ad
+user	net ip <ct>	net-ip.sh	{1} show	the fixed address of an instance: hs net ip <ct> [set <address>|clear]	die feste Adresse einer Instanz: hs net ip <ct> [set <Adresse>|clear]	topic:network,changes,capability:network
+user	net ip <ct> set	net-ip.sh	{1} set {rest}	reserve an address for an instance	eine Adresse für eine Instanz reservieren	nohelp,topic:network,changes,capability:network
+user	net ip <ct> clear	net-ip.sh	{1} clear {rest}	remove the reservation of an instance	die Reservierung einer Instanz entfernen	nohelp,topic:network,changes,capability:network
+user	job list	jobs.sh	-	scheduled jobs and the ones running now	geplante Aufträge und die gerade laufenden	topic:jobs,reads,cheat:server
+user	job running	jobs.sh	--running	jobs running now	gerade laufende Aufträge	nohelp,topic:jobs,reads
+user	job log	jobs.sh	{rest}	the journal of a job: hs job log <unit>	das Journal eines Auftrags: hs job log <Einheit>	nohelp,topic:jobs,reads
+user	job follow	jobs.sh	{rest} --follow	follow the journal of a running job	das Journal eines laufenden Auftrags verfolgen	nohelp,topic:jobs,changes
+user	job stop	jobs.sh	stop {rest}	stop a running job	einen laufenden Auftrag stoppen	nohelp,topic:jobs,changes
+user	health	health.sh	-	the problems, each with the command that helps	die Probleme, jedes mit dem passenden Befehl	topic:system,reads,cheat:server
+user	health test	health.sh	test	send a test message	eine Testnachricht schicken	nohelp,topic:system,changes
+user	health ack	health-ack.sh	ack {rest}	list the problem ids, or silence one until it clears: hs health ack <id>	Problem-IDs anzeigen oder eines stummschalten, bis es verschwindet: hs health ack <ID>	topic:system,changes
+user	health unack	health-ack.sh	unack {rest}	take an acknowledgement back: hs health unack <id>	ein Quittieren zurücknehmen: hs health unack <ID>	nohelp,topic:system,changes
+user	health resume	health-ack.sh	resume	lift the pause of the sync, scrub and cache mover that the health check set	die Pause von Sync, Scrub und Cache-Mover aufheben, die der Health-Check gesetzt hat	topic:system,changes
+user	report	report.sh	-	collect what a helper needs into one text file	sammelt, was ein Helfer braucht, in einer Textdatei	topic:system,changes,cheat:trouble
+user	migrate	migrate.sh	-	move from an old server step by step (resumable)	Umzug von einem alten Server Schritt für Schritt (wiederaufnehmbar)	topic:system,changes,capability:storage
+user	migrate check	migrate-check.sh	-	look at the old disks first (changes nothing)	zuerst die alten Platten ansehen (ändert nichts)	topic:system,changes,capability:storage
+user	first-run	first-run.sh	-	after the installation: language, notifications, checklist	nach der Installation: Sprache, Benachrichtigungen, Checkliste	topic:system,changes
+user	pool <pool> sync	bulk-sync.sh	{rest}	update the parity now (snapraid layout), or --scrub	die Parität jetzt aktualisieren (snapraid) oder --scrub	long,topic:disks,changes,capability:storage
+user	ct <ct> edit	ct-guided.sh	edit {1} {rest}	change memory, CPU, disk, autostart, Docker (guided, shows the current values)	Speicher, CPU, Platte, Autostart, Docker ändern (geführt, zeigt die aktuellen Werte)	guided,topic:instances,changes,capability:incus
+user	ct <ct> storage list	manage-ct.sh	{1} --storage	disks and shares mounted into an instance (list)	in eine Instanz eingehängte Platten und Freigaben (Liste)	nohelp,topic:instances,reads,capability:incus
+user	user <user> groups	user-guided.sh	groups {1} {rest}	the groups of a user (guided multi-select)	die Gruppen eines Benutzers (geführte Mehrfachauswahl)	guided,topic:users,changes,capability:ad
+user	disk selftest	selftest.sh	{rest}	start a SMART self-test in every disk: hs disk selftest short|long	SMART-Selbsttest in jeder Platte starten: hs disk selftest short|long	topic:disks,changes,capability:storage
+user	secrets	secrets.sh	-	which secrets the server keeps, who can read them, which to store elsewhere	welche Geheimnisse der Server aufbewahrt, wer sie lesen kann, welche man woanders sichern sollte	topic:security,reads
+user	secrets fix	secrets.sh	fix	set root-only permissions on the secrets	nur-root-Rechte für die Geheimnisse setzen	nohelp,topic:security,changes
+user	system gc	system.sh	gc {rest}	delete old generations and free the space (hs system gc [days] [--yes])	alte Generationen löschen und Platz freigeben (hs system gc [Tage] [--yes])	long,topic:system,changes
+sys	sys pool disks	manage-pool.sh	--list-disks {rest}	disks the interface offers (device, size, role)	-
+sys	sys pool info	manage-pool.sh	--info	layout and state of the pools	-
+sys	sys pool members	manage-pool.sh	--members	members of the bulk pool	-
+sys	sys pool info <pool>	manage-pool.sh	{1} --info	layout and state of one pool	-
+sys	sys pool members <pool>	manage-pool.sh	{1} --members	members of one pool	-
+sys	sys pool state	pool-state.sh	-	what the pools are doing: the bulk lock, the health-check pause, last scrub and last parity sync (lock, paused, scrub <pool>, sync bulk; read only)	-
+sys	sys pool state <pool>	pool-state.sh	{1}	the same for one pool	-
+sys	sys pool plan <pool> <action>	pool-change.sh	plan {1} {2} {rest}	what a change of a pool would do, as data: status, plan lines, confirm_name (never asks; exit 2 = something is missing)	-
+sys	sys pool start <pool> <action>	pool-change.sh	start {1} {2} {rest}	do a change of a pool as a background job; needs --confirm <name> (passphrase on stdin with --encrypt)	-
+sys	sys backup state	backup.sh	--state	backup state as key and value	-
+sys	sys backup shares	backup.sh	--shares	shares and containers with their backup switch	-
+sys	sys jobs list	jobs.sh	--list	timers and services with next and last run	-
+sys	sys jobs running	jobs.sh	--running	background jobs that are running now	-	-
+sys	sys jobs show <unit>	jobs.sh	--show {1}	the facts of one job: description, state, exit status, started, last and next run, command	-
+sys	sys jobs log <unit>	jobs.sh	--log {1} {rest}	the last journal lines of one job, plain (hs sys jobs log <unit> [N])	-
+sys	sys jobs plan <action>	jobs-change.sh	plan {1} {rest}	what stopping a running job or running a scheduled one now would do, as data: status and plan lines (never asks; exit 0 ok, 1 refused)	-
+sys	sys jobs start <action>	jobs-change.sh	start {1} {rest}	do it (hs sys jobs start stop <unit> [--confirm stop] | run <unit>); run prints the unit to follow	-
+sys	sys ssh-key list	ssh-key.sh	--list	the SSH keys of adminuser, one per line: id (fingerprint), type, comment, session (yes = this session's key); never the key itself	-
+sys	sys ssh-key plan <action>	ssh-key-change.sh	plan {1} {rest}	what adding or removing an SSH key would do, as data: status and plan lines (never asks; exit 0 ok, 1 refused)	-
+sys	sys ssh-key start <action>	ssh-key-change.sh	start {1} {rest}	do it (hs sys ssh-key start add <public key line> | remove <id> --confirm remove); takes effect with hs rebuild	-
+sys	sys recipes list	recipes-list.sh	--list	the app recipes: name, description, instances, state (installed|partly|not installed|parked|unknown)	-
+sys	sys setup list	setup-list.sh	--list	the first-run checklist: id, state (done|open), label, command, web page; the last line (finished) is done once setupDone is true	-
+sys	sys config list	config-read.sh	list	every option of machine.toml.example: section, key, current value, default, type, help, settable (secrets only as (set))	-
+sys	sys config check	config-read.sh	check	the result of hs config check as plain text	-
+sys	sys config plan <action>	config-change.sh	plan {1} {rest}	what changing a setting of machine.toml would do, as data: status and plan lines (never asks; exit 0 ok, 1 refused)	-
+sys	sys config start <action>	config-change.sh	start {1} {rest}	do it (hs sys config start set <key> <value>); the file is checked and put back when the check fails	-
+sys	sys logs units	logs.sh	units	what the journal can be filtered by (key and label)	-
+sys	sys logs show	logs.sh	show {rest}	the journal as plain lines: hs sys logs show [--unit <key>] [--level err|warning|info] [--since 1h|today|boot] [--lines <N>]	-
+sys	sys jobs tail <unit>	jobs.sh	tail {1} {rest}	state and new journal lines of a job since line N (state, exit, line, next)	-
+sys	sys jobs stop <unit>	jobs.sh	stop {1}	stop a running background job	-
+sys	sys disk test <disk>	disk-health.sh	--test {rest} {1}	start a self-test inside a disk: sys disk test <disk> short|long	-
+sys	sys disk plan <disk> <action>	disk-change.sh	plan {2} {1} {rest}	what a self-test of a disk, or erasing a free disk (wipe), or mounting, copying from or ejecting another disk (temp-mount, temp-copy, temp-eject), would do, as data: status, plan lines (never asks; exit 1 = refused: unknown disk or a test running already)	was ein Selbsttest einer Platte tun würde, als Daten: Status, Planzeilen (fragt nie; Exit 1 = abgelehnt: unbekannte Platte oder Test läuft schon)
+sys	sys disk start <disk> <action>	disk-change.sh	start {2} {1} {rest}	start the self-test inside the disk: hs sys disk start <disk> test short|long (status done, the disk reports the outcome)	den Selbsttest in der Platte starten: hs sys disk start <Platte> test short|long (Status done, die Platte meldet das Ergebnis)
+sys	sys disk results <disk>	disk-health.sh	--results {1}	outcome of the last self-tests of a disk	-
+sys	sys disk ls <member>	disk-move.sh	ls {1} {rest}	one folder level of a data disk (type d|f, bytes, name; --path shares/...), for the move dialog	-
+sys	sys disk marks	disk-detach.sh	marks	data disks that are out of the pool by hand: member, detached|recovering, since (epoch seconds); for the Pool page	-
+user	disk spindown	disk-spindown.sh	status	power state of the spinning disks and the standby timer (diskSpindownMinutes in machine.toml)	Stromzustand der drehenden Platten und der Standby-Timer (diskSpindownMinutes in machine.toml)	topic:disks,changes,capability:storage
+sys	sys disk event <action> <name>	disk-event.sh	{1} {2}	a disk was plugged in or taken out (udev, hs-disk-event@.service): log it, push a message, never touch the disk	-
+sys	sys disk-health list	disk-health.sh	--list	SMART findings per disk	-
+sys	sys state forget <serial>	state.sh	forget {1} --yes	remove a MISSING disk from the inventory for good (no question: the caller asked; a disk that is present is refused)	-
+sys	sys state collect	state.sh	collect {rest}	read the disks and update the state database (the one writer; root)	-
+sys	sys state disks	state.sh	disks	the disk inventory: serial, model, size, name, state ok|missing|unknown, role, pool, first and last seen, worse, note	-
+sys	sys state events	state.sh	events {rest}	disk events from the state database: time, kind, serial, text	-
+sys	sys state smart <serial>	state.sh	smart {1}	the stored SMART readings of one disk over time	-
+sys	sys state problems	state.sh	problems	problems the state database knows (missing or worsening disks, a stopped collector): key and text	-
+sys	sys state deck-disks	state.sh	deck-disks	the disk lines of the status document from the last collector run (exit 1 when it is not fresh)	-
+sys	sys state inventory-json	state.sh	inventory-json	the inventory summary for the status document (JSON)	-
+sys	sys state disks-json	state.sh	disks-json	the disk inventory as JSON with masked serials (what the status endpoint serves at /disks)	-
+sys	sys state events-json	state.sh	events-json {rest}	the latest disk events as JSON with masked serials (what the status endpoint serves at /events)	-
+sys	sys state history	state.sh	history {rest}	the last 24 hours (one median per hour) as the status document shows them (JSON)	-
+sys	sys state history-record	state.sh	history-record {rest}	add one reading (time rx tx cpu_total cpu_idle mem_total mem_available gpu uptime) to the last 24 hours; the status service does	-
+sys	sys temp-disk raw	temp-disk.sh	raw	disks that can be mounted as temp disk	-
+sys	sys cache state	share-cache.sh	--state	upload cache state per share	-
+sys	sys unifi used	unifi.sh	used	addresses in use at the router	-
+sys	sys unifi reserved	unifi.sh	reserved	reserved addresses at the router	-
+sys	sys unifi networks	unifi.sh	networks	the router's networks, no header: name, subnet, dhcp true|false, first, last address of the DHCP range	-
+sys	sys unifi clients	unifi.sh	clients	every address the router has reserved or sees online, no header, by address: ip, mac, name (- when none), reserved|online|reserved+online	-
+sys	sys ports list	ports.sh	--list	what listens on the server and in each running container, and the Zoraxy proxy targets with their warnings (listen and proxy lines, see scripts/ports.sh)	-
+sys	sys dns list	dns.sh	raw	the DNS names of the instances in the zone, no header: name, type, value	-
+sys	sys dns plan <action>	dns-change.sh	plan {1} {rest}	what syncing the DNS names of the instances would add, change and remove, as data: status and plan lines (never asks; exit 0 ok, 1 refused or nothing to do)	-
+sys	sys dns start <action>	dns-change.sh	start {1} {rest}	do it as a background job (hs sys dns start sync)	-
+sys	sys services list	services.sh	list --plain	the services as data: name, title, target, exposure, names, wants	-
+sys	sys services plan	services.sh	plan --plain	the proxy routes against the services as data: act, host, path, target, service, note (status none without a proxy)	-
+sys	sys services routes	services.sh	plan --plain	the proxy routes against the services, as data (the same as sys services plan; the web page reads this one because a read must not be named plan): act, host, path, target, service, note	-
+sys	sys services tiles	services.sh	tiles	the dashboard tiles as data: group, title, link, description, icon, name	-
+sys	sys vps plan <action>	vps-change.sh	plan {1} {rest}	what `vps update` or `vps watch` on the proxyserver would do, as data: status and plan lines (never asks; exit 0 ok, 1 refused: vpsHost not set, no key, vault closed)	-	capability:vps
+sys	sys vps start <action>	vps-change.sh	start {1} {rest}	do it as a background job over SSH with the key of hs vps key (hs sys vps start update|watch), answers status started and the unit	-	capability:vps
+sys	sys node list	node.sh	--list	the other servers (nodes) of this one, one per line: name, kind (peer|vps), host, port, source (file|setting), key (ok|locked|missing)	-
+sys	sys node show <name>	node.sh	--show {1}	one node as key<TAB>value lines: name, kind, host, port, user, source, key, words (what this server may ask it), command (exit 1: unknown node)	-
+sys	sys node status <name>	node.sh	--status {1}	the status document of a node, read over SSH with the key of hs node key: one JSON object (exit 1: no key, vault closed, no answer)	-
+sys	sys node keyline <name>	node.sh	--keyline {1}	the key of a node as data: key (ok|locked|missing), user, file (where the other server's owner puts the line) and line (the public half with the forced command; never the private key)	-
+sys	sys node plan <action>	node-change.sh	plan {1} {rest}	what adding, removing or making the key of a node would do, as data: status, plan lines (never asks; exit 0 ok, 1 refused, 2 = something is missing)	-
+sys	sys parts list	parts.sh	--list	the optional parts (capabilities) of this server, one per line: name, on|off, extension|part, nix (yes = needs a rebuild), switch (yes = machine.toml switches it), title	-
+sys	sys parts plan <action>	part-change.sh	plan {1} {rest}	what switching a part on or off would do, as data: status, plan lines (never asks; exit 0 ok, 1 refused; off with a NixOS module is red)	-
+sys	sys parts start <action>	part-change.sh	start {1} {rest}	switch a part on or off (hs sys parts start enable|disable <part>): an extension without a module at once, any other part with the next rebuild	-
+sys	sys node start <action>	node-change.sh	start {1} {rest}	add, remove or make the key of a node (hs sys node start add <name> <host> [--kind K] [--port N] | remove <name> | key <name> [--new]); changes nothing on the other server	-
+sys	sys node remote	node-remote.sh	-	the forced command of the key another server uses to look at this one: accepts only the word status in SSH_ORIGINAL_COMMAND, anything else exits 2	-
+sys	sys edge status	edge-status.sh	-	the status document of an edge node (public VPS) as one JSON object: mail queue, watcher, ports, certificate, Tailscale, system	-	capability:edge-status
+user	edge health	edge-health.sh	{rest}	check an edge node (Tailscale, mail server, game host, mail queue, certificate, watcher, disk) and push a message when the problems change: hs edge health [--dry-run|--test]	prüft einen Edge-Knoten (Tailscale, Mailserver, Spielehost, Mail-Queue, Zertifikat, Wächter, Platte) und schickt eine Nachricht, wenn sich die Probleme ändern: hs edge health [--dry-run|--test]	topic:system,changes,capability:edge-status
+sys	sys notify channels	notify-channel.sh	--list	the notification channels, one per line: name, provider, enabled, minprio, quiet, outside (outside|inside), source (file|derived), ready (ok|incomplete), categories (comma separated), caps of the provider (comma separated), then the last send: time (epoch seconds or -), ok|failed or -, short reason or -	-	capability:notifications
+sys	sys notify channel <name>	notify-channel.sh	--show {1}	one channel as key<TAB>value lines; a secret is set or -, never its value (exit 1: unknown channel)	-	capability:notifications
+sys	sys notify providers	notify-channel.sh	--providers	the providers and their settings: provider, key, label, kind (text|secret), required|optional, pattern (or -), caps (comma separated)	-	capability:notifications
+sys	sys notify plan <action>	notify-change.sh	plan {1} {rest}	what adding, changing, removing or testing a notification channel would do, as data: status, plan lines (never asks; exit 0 ok, 1 refused, 2 = something is missing)	-	capability:notifications
+sys	sys notify start <action>	notify-change.sh	start {1} {rest}	do it (hs sys notify start add|set <name> ... | remove <name> | test <name> | migrate; one secret on stdin), answers status done	-	capability:notifications
+sys	sys users list	manage-users.sh	--list	domain users	-
+sys	sys users groups	manage-users.sh	--groups	domain groups and their members	-
+sys	sys users access <user>	user-access.sh	user {1}	the shares a user can reach, and through which entry	-
+sys	sys users group-access <group>	user-access.sh	group {1}	the shares a group has an entry on	-
+sys	sys users plan <name> <action>	user-change.sh	plan {1} {2} {rest}	what a change of a user or group would do, as data: status, plan lines (never asks; exit 2 = something is missing)	-
+sys	sys users start <name> <action>	user-change.sh	start {1} {2} {rest}	do a change of a user or group as a background job	-
+sys	sys shares list	manage-shares.sh	--list	shares with size and cache	-
+sys	sys shares principals	manage-shares.sh	--principals	users and groups a share can be given to	-
+sys	sys shares acl	manage-shares.sh	--acl	who may use a share	-
+sys	sys shares acl <share>	manage-shares.sh	{1} --acl	who may use one share	-
+sys	sys shares measure	manage-shares.sh	--measure	measure the share sizes (nightly)	-
+sys	sys shares measure <share>	manage-shares.sh	--measure {1}	measure the size of one share now	-
+sys	sys shares overview	share-overview.sh	-	every share with size, disks, backup, cache and the instances that mount it	-
+sys	sys shares mounts <share>	share-overview.sh	mounts {1}	who mounts a share (instance, device, inside path, ro|rw)	-
+sys	sys shares history <share>	share-overview.sh	history {1}	the ZFS snapshots of a share (empty on SnapRAID)	-
+sys	sys shares deleted	share-overview.sh	deleted	the kept folders of deleted shares (<share>.deleted-<date>) with their size	-
+sys	sys shares delete <share>	share-delete.sh	{1} {rest}	take a share away without erasing it (the system layer behind sys shares start <share> delete; --dry-run lists the steps)	-
+sys	sys shares purge <share>	share-purge.sh	{1} {rest}	remove a kept folder <share>.deleted-<date> for good (the system layer behind sys shares start <name> purge; --dry-run lists the steps)	-
+sys	sys shares undelete <share>	share-undelete.sh	{1} {rest}	bring a kept folder <share>.deleted-<date> back as the share <share> (the system layer behind sys shares start <name> undelete; --dry-run lists the steps)	-
+sys	sys backup overview	backup.sh	--overview	every share, instance and always-included part with its backup switch and size	-
+sys	sys backup plan <action>	backup-change.sh	plan {1} {rest}	what switching a share or instance, backing up now, a check, a restore drill or browsing would do, as data: status and plan lines (never asks; exit 0 ok, 1 refused, 2 something missing)	-
+sys	sys backup start <action>	backup-change.sh	start {1} {rest}	do it as a background job (hs sys backup start toggle --name <n> --kind shares|sensitive|ct --to on|off | now | verify | drill [--count N] | browse --to on|off)	-
+sys	sys backup snapshots <tag>	backup.sh	--snapshots {1}	the snapshots with one tag (shares, host or ct:<name>)	-
+sys	sys backup snapshots	backup.sh	--snapshots	the snapshots of the shares in the backup (id, time, tags)	-
+sys	sys shares plan <share> <action>	share-change.sh	plan {1} {2} {rest}	what a change of a share would do, as data: status, plan lines, confirm_name (never asks; exit 2 = something is missing)	-
+sys	sys shares start <share> <action>	share-change.sh	start {1} {2} {rest}	do a change of a share as a background job; needs --confirm <share> when the plan has a danger line	-
+sys	sys ct list	manage-ct.sh	--list	instances with state and address	-
+sys	sys ct storage	manage-ct.sh	--storage	storage of an instance	-
+sys	sys ct users	manage-ct.sh	--users	users inside an instance	-
+sys	sys ct snapshots	manage-ct.sh	--snapshots	snapshots of an instance	-
+sys	sys ct storage <ct>	manage-ct.sh	{1} --storage	storage of one instance	-
+sys	sys ct users <ct>	manage-ct.sh	{1} --users	users inside one instance	-
+sys	sys ct snapshots <ct>	manage-ct.sh	{1} --snapshots	snapshots of one instance	-
+sys	sys ct profiles	manage-ct.sh	--profiles	network profiles an instance can be created on: name, network, description	-
+sys	sys ct bindings <ct>	ct-bindings.sh	{1}	the storage of an instance with pool, disks, size, backup, cache and who else mounts it	-
+sys	sys ct plan <ct> <action>	ct-change.sh	plan {1} {2} {rest}	what a change of an instance would do, as data: status, plan lines, confirm_name (never asks; exit 2 = something is missing)	-
+sys	sys ct start <ct> <action>	ct-change.sh	start {1} {2} {rest}	do a change of an instance as a background job; needs --confirm <name> when the plan has a danger line	-
+sys	sys ct logs <ct>	ct-access.sh	{1} logs {rest}	the last lines of the journal inside an instance (hs sys ct logs <ct> [lines])	-
+sys	sys monitor disks	monitor.sh	--disks	disk table of the overview	-
+sys	sys health dry-run	health-check.sh	--dry-run	current problems, nothing is sent	-
+sys	sys health next	health.sh	next	problems with their fix command (problem, next)	-
+sys	sys health list	health-check.sh	--list	every problem as id, text, acked or - (acknowledged: hs health ack), since (epoch seconds), channels that took the last message (comma separated or -)	-
+sys	sys health plan <action>	health-change.sh	plan {1} {rest}	what acknowledging a problem, taking it back or lifting the pause of the bulk jobs would do, as data: status, plan lines (never asks)	-
+sys	sys health start <action>	health-change.sh	start {1} {rest}	do it (hs sys health start ack <id> | unack <id> | resume), answers status done	-
+sys	sys deck	deck-status.sh	-	one JSON document with the numbers for a status display (network and cpu counters, pools, disks, backup, problems, instances)	-
+sys	sys status	overview-status.sh	-	the facts the Overview shows: backup age, encryption, parity sync and scrub, upload cache, disk health, instances, hottest disk, last disk event	-
+sys	sys system plan <action>	system-change.sh	plan {1} {rest}	what updating the parity, a scrub, an update, a rollback or a garbage collection would do, as data: status, plan lines (never asks; exit 2 = something is missing)	-
+sys	sys system start <action>	system-change.sh	start {1} {rest}	do it as a background job (hs sys system start sync | scrub --pool <pool> | update | rollback --confirm rollback | gc --days <N>)	-
+sys	sys system doctor	doctor.sh	-	the doctor's report as plain text (read only)	-
+sys	sys system cleanup	cleanup.sh	-	the cleanup report as plain text (read only, changes nothing)	-
+sys	sys system updates	system-updates.sh	-	how many new commits the checkout is behind its upstream, from refs already fetched (read only, fetches nothing): rows behind, ahead, upstream, fetched	-
+sys	sys system config	config.sh	listthe common settings of machine.toml	-
+sys	sys system report	report.sh	-	collect what a helper needs into one text file, prints where it is	-
+sys	sys vault list	vault.sh	list	the vault's items: name, kind, state (tab separated)	-	-
+sys	sys unlock boot	unlock.sh	--boot	unlock at boot (systemd)	-
+sys	sys unlock stdin	unlock.sh	--passphrase-stdin	unlock the encrypted storage, the passphrase is the first line on standard input, plain output (for tools such as homeserver-cli; set HS_CALLER)	Entsperrt den verschlüsselten Speicher, die Passphrase kommt als erste Zeile auf der Standardeingabe, schlichte Ausgabe (für Programme wie homeserver-cli; HS_CALLER setzen)	-
+sys	sys power started	power-notice.sh	started	send the "server started" push message (hs-boot-notice.service)	die Push-Nachricht "Server gestartet" senden	-
+sys	sys power stopping	power-notice.sh	stopping	send the "going down" push message (hs-shutdown-notice.service)	die Push-Nachricht "Server fährt herunter" senden	-
+sys	sys unlock alarm	unlock.sh	--alarm	send the "unlock needed" push message until it arrives, while the storage is locked (hs-unlock-alarm.service)	die Push-Nachricht "Entsperren nötig" senden, bis sie ankommt, solange der Speicher gesperrt ist (hs-unlock-alarm.service)	-
+sys	sys motd status	motd.sh	--force	the three status lines (problems, last backup, system) as plain text, no root (for tools such as homeserver-cli)	die drei Statuszeilen (Probleme, letztes Backup, System) als schlichter Text, ohne root (für Programme wie homeserver-cli)	-
+sys	sys backup scheduled	backup.sh	now --scheduled	nightly backup (systemd)	-
+sys	sys registry	-	-	the command registry (kind, path, script)	-
+sys	sys complete	-	-	completion candidates for the shell	-
+user	update --preview	update-preview.sh	-	-	-	topic:system,reads,cheat:update
+user	ssh-key list	ssh-key.sh	list	the SSH keys that may log in (comment, type, fingerprint)	die SSH-Schlüssel, die sich anmelden dürfen (Kommentar, Typ, Fingerabdruck)	topic:security,reads
+user	ssh-key add	ssh-key.sh	add	allow one more SSH key: hs ssh-key add "ssh-ed25519 AAAA... name@pc"	einen weiteren SSH-Schlüssel erlauben: hs ssh-key add "ssh-ed25519 AAAA... name@pc"	guided,topic:security,changes
+user	ext list	ext.sh	list	list the extension packages (optional parts such as Games and Posters) and whether each is on	die Erweiterungspakete (optionale Teile wie Spiele und Poster) auflisten und zeigen, ob sie an sind	topic:system,reads
+user	ext enable <package>	ext.sh	enable {1}	switch an extension on: hs ext enable <package> (a package without a NixOS module is on at once)	eine Erweiterung einschalten: hs ext enable <Paket> (ein Paket ohne NixOS-Modul ist sofort an)	topic:system,changes
+user	ext disable <package>	ext.sh	disable {1}	switch an extension off: hs ext disable <package>	eine Erweiterung ausschalten: hs ext disable <Paket>	topic:system,changes
+user	ext <package>	ext.sh	show {1} {rest}	the commands of an extension: hs ext <package>; its commands are hs ext <package> <command>	die Befehle einer Erweiterung: hs ext <Paket>; ihre Befehle sind hs ext <Paket> <Befehl>	topic:system,reads
+user	pc list	ext.sh	list	game PCs saved for Sunshine streaming (name, MAC, address)	gespeicherte Spiele-PCs für Sunshine (Name, MAC, Adresse)	topic:network,reads,legacy:ext games list,nohelp
+user	pc add	ext.sh	add {rest}	save a game PC: hs pc add <name> <mac> [<ip>]	einen Spiele-PC merken: hs pc add <Name> <MAC> [<IP>]	topic:network,changes,legacy:ext games add,nohelp
+user	pc remove	ext.sh	remove {rest}	forget a saved game PC: hs pc remove <name>	einen gemerkten Spiele-PC vergessen: hs pc remove <Name>	topic:network,changes,legacy:ext games remove,nohelp
+user	pc wake	ext.sh	wake {rest}	switch a game PC on (Wake-on-LAN), --wait until its Sunshine answers: hs pc wake <name> [--wait]	einen Spiele-PC einschalten (Wake-on-LAN), mit --wait bis sein Sunshine antwortet: hs pc wake <Name> [--wait]	topic:network,changes,legacy:ext games wake,nohelp
+user	generate poster	ext.sh	{rest}	draw a halftone poster (PNG) step by step: eyebrow, title, colour, seed; for example the picture of a Jellyfin library	einen Halbton-Poster (PNG) Schritt für Schritt zeichnen: Eyebrow, Titel, Farbe, Seed; zum Beispiel das Bild einer Jellyfin-Bibliothek	guided,topic:system,changes,legacy:ext posters generate,nohelp
+user	ssh-key remove	ssh-key.sh	remove	take an SSH key out (never the last one or the one in use): hs ssh-key remove <comment or fingerprint>	einen SSH-Schlüssel entfernen (nie den letzten oder den gerade benutzten): hs ssh-key remove <Kommentar oder Fingerabdruck>	guided,topic:security,changes
+user	vps key	vps.sh	key {rest}	create the SSH key the web interface uses to run vps update / vps watch on the proxyserver; prints the public key and the machine.nix line: hs vps key [--new]	den SSH-Schlüssel anlegen, mit dem die Weboberfläche vps update / vps watch auf dem Proxyserver ausführt; zeigt den öffentlichen Schlüssel und die machine.nix-Zeile: hs vps key [--new]	topic:security,changes,capability:vps
+user	node list	node.sh	list	the other servers (nodes) this one can look at	die anderen Server (Knoten), die dieser ansehen kann	topic:system,reads
+user	node show	node.sh	show	one node: host, port, user, key, the words it may be asked: hs node show <name>	ein Knoten: Host, Port, Benutzer, Schlüssel, die erlaubten Wörter: hs node show <name>	topic:system,reads
+user	node add	node.sh	add	add a node to the list (changes nothing on the other server): hs node add <name> <host> [--kind peer|vps|edge] [--port N]	einen Knoten in die Liste aufnehmen (ändert nichts auf dem anderen Server): hs node add <Name> <Host> [--kind peer|vps|edge] [--port N]	topic:system,changes
+user	node remove	node.sh	remove	take a node out of the list (the other server is not touched): hs node remove <name>	einen Knoten aus der Liste nehmen (der andere Server bleibt unberührt): hs node remove <Name>	topic:system,changes
+user	node key	node.sh	key	create the SSH key for a node and print the line the other server has to allow (it can then answer status and nothing else): hs node key <name> [--new]	den SSH-Schlüssel für einen Knoten anlegen und die Zeile zeigen, die der andere Server erlauben muss (er kann dann nur status beantworten): hs node key <Name> [--new]	topic:security,changes
+user	node status	node.sh	status	read the status of a node over SSH (read only): hs node status <name>	den Status eines Knotens über SSH lesen (nur lesend): hs node status <Name>	topic:system,reads
+user	notify channel list	notify-channel.sh	list	the notification channels: provider, minimum priority, quiet-hours rule, whether it is outside this server	die Benachrichtigungskanäle: Anbieter, kleinste Priorität, Regel für die Ruhezeiten, ob er außerhalb dieses Servers liegt	topic:system,reads,capability:notifications
+user	notify channel show	notify-channel.sh	show	one channel with its settings (secrets only as set): hs notify channel show <name>	ein Kanal mit seinen Einstellungen (Geheimnisse nur als set): hs notify channel show <Name>	topic:system,reads,capability:notifications
+user	notify channel add	notify-channel.sh	add	add a channel: hs notify channel add <name> --provider ntfy --secret url [--min-priority P] [--quiet respect|ignore] [--categories a,b] (the secret is read from stdin)	einen Kanal anlegen: hs notify channel add <Name> --provider ntfy --secret url [--min-priority P] [--quiet respect|ignore] [--categories a,b] (das Geheimnis kommt über stdin)	topic:system,changes,capability:notifications
+user	notify channel set	notify-channel.sh	set	change a channel: hs notify channel set <name> [--enabled yes|no] [--min-priority P] [--quiet respect|ignore] [--categories a,b] [--set key=value] [--secret key]	einen Kanal ändern: hs notify channel set <Name> [--enabled yes|no] [--min-priority P] [--quiet respect|ignore] [--set key=value] [--secret key]	topic:system,changes,capability:notifications
+user	notify channel remove	notify-channel.sh	remove	remove a channel (you type its name to confirm): hs notify channel remove <name> [--yes]	einen Kanal entfernen (zur Bestätigung den Namen tippen): hs notify channel remove <Name> [--yes]	topic:system,changes,capability:notifications
+user	notify channel test	notify-channel.sh	test	send one test message to one channel, whatever its minimum priority and the quiet hours: hs notify channel test <name>	eine Testnachricht an einen Kanal schicken, gleich welche kleinste Priorität und Ruhezeit: hs notify channel test <Name>	topic:system,changes,capability:notifications
+user	notify channel migrate	notify-channel.sh	migrate	write the channels derived from notifyUrl and notifyUrlSecond as files (the first change does this by itself; nothing is lost)	die aus notifyUrl und notifyUrlSecond abgeleiteten Kanäle als Dateien schreiben (die erste Änderung macht das von selbst; nichts geht verloren)	topic:system,changes,capability:notifications
+user	notify channel providers	notify-channel.sh	providers	the providers a channel can use and the settings of each	die Anbieter, die ein Kanal nutzen kann, und deren Einstellungen	topic:system,reads,capability:notifications
+sys	sys hardware	hardware.sh	-	the processor and the board's sensors: cpu-model, cpu-cores, cpu-threads, temp and fan rows (read only, no root)	-
+sys	sys encryption list	unlock.sh	--list	the encrypted volumes of this server: type (vault|luks|zfs), device, state (open|locked|unmanaged), size (tab separated; other people's disks are not listed)	-
+sys	sys vault usage	vault.sh	usage	the vault's state, device, size, used and free bytes, age of the header backup (key and value lines)	-
+sys	sys vault uses	vault.sh	uses	who uses each vault item: name, text (tab separated)	-
+user	shutdown	power.sh	shutdown {rest}	shut the server down (asks first, waits while a backup, sync or pool change runs; --force, --dry-run)	den Server herunterfahren (fragt vorher, wartet, solange Backup, Sync oder Pooländerung läuft; --force, --dry-run)	topic:system,changes
+user	reboot	power.sh	reboot {rest}	reboot the server: hs reboot [--menu | --firmware | --entry <id>] (boot menu once, BIOS setup, or one boot entry once)	den Server neu starten: hs reboot [--menu | --firmware | --entry <id>] (einmal das Boot-Menü, das BIOS-Setup oder ein Boot-Eintrag)	topic:system,changes
+user	remote list	remote.sh	list	shares given to other homeservers and shares mounted from them (state of each mount)	Freigaben an andere Homeserver und von ihnen eingebundene Freigaben (Zustand jeder Einbindung)	topic:shares,reads,capability:storage
+user	remote offer	remote.sh	offer {rest}	give another homeserver read access to a share: hs remote offer <share> --peer <name> (makes the login remote-<name>, prints what the other side types)	einem anderen Homeserver Lesezugriff auf eine Freigabe geben: hs remote offer <Freigabe> --peer <Name> (legt den Login remote-<Name> an, zeigt, was die Gegenseite eintippt)	topic:shares,changes,capability:storage
+user	remote revoke	remote.sh	revoke {rest}	take that access away again: hs remote revoke <peer> [<share>] (deletes the login when no share is left)	den Zugriff wieder entziehen: hs remote revoke <Name> [<Freigabe>] (löscht den Login, wenn keine Freigabe mehr übrig ist)	topic:shares,changes,capability:storage
+user	remote add	remote.sh	add {rest}	mount a share of another homeserver read-only: hs remote add <peer> <host> <share> --user <login> [--domain <DOMAIN>] (asks the password)	eine Freigabe eines anderen Homeservers nur lesend einbinden: hs remote add <Name> <Host> <Freigabe> --user <Login> [--domain <DOMÄNE>] (fragt das Passwort)	topic:shares,changes,capability:storage
+user	remote remove	remote.sh	remove {rest}	stop using a peer's share: unmount it and forget the login: hs remote remove <peer> [<share>]	die Freigabe eines anderen Homeservers nicht mehr nutzen: aushängen und den Login vergessen: hs remote remove <Name> [<Freigabe>]	topic:shares,changes,capability:storage
+user	remote attach	remote.sh	attach {rest}	give an instance the mounted shares of a peer, read only (e.g. for Jellyfin): hs remote attach <peer> <instance> [--path /media-<peer>]	einer Instanz die eingebundenen Freigaben eines anderen Homeservers nur lesend geben (z. B. für Jellyfin): hs remote attach <Name> <Instanz> [--path /media-<Name>]	topic:shares,changes,capability:storage
+user	remote detach	remote.sh	detach {rest}	take them away from the instance again: hs remote detach <peer> <instance>	sie der Instanz wieder wegnehmen: hs remote detach <Name> <Instanz>	topic:shares,changes,capability:storage
+sys	sys remote list	remote.sh	list	offers and mounts, tab separated: kind, peer, share, host or login, state	-	-
+sys	sys remote mount-all	remote.sh	mount-all	mount what is set up and not mounted (the timer hs-remote-mount)	-	-
+user	ups	ups.sh	show	-	-	topic:system,reads
+sys	sys ups status	ups.sh	status	the UPS as key and value lines (state, charge, runtime, load), no root	die USV als Schlüssel-Wert-Zeilen (Zustand, Ladung, Laufzeit, Last), ohne root	-
+user	expiry	expiry.sh	list	things that run out on a date (certificate, token, domain, credentials), with the days left	Dinge, die an einem Datum ablaufen (Zertifikat, Token, Domain, Zugangsdaten), mit den Tagen, die noch bleiben	topic:system,reads
+user	expiry add	expiry.sh	add {rest}	write down something that expires: hs expiry add <name> <YYYY-MM-DD> [how to renew]; the health check warns 30 and 7 days before	Etwas eintragen, das abläuft: hs expiry add <Name> <JJJJ-MM-TT> [wie man es erneuert]; der Health-Check warnt 30 und 7 Tage vorher	topic:system,changes
+user	expiry remove	expiry.sh	remove {rest}	take an entry off the list: hs expiry remove <name>	einen Eintrag von der Liste nehmen: hs expiry remove <Name>	topic:system,changes
+sys	sys expiry list	expiry.sh	--list	entries as name, date, days left, state (ok|soon|due|expired|invalid), how to renew	-
+sys	sys expiry plan <action>	expiry-change.sh	plan {1} {rest}	what adding or removing an expiry entry would do, as data: status, plan lines (never asks; exit 2 = the date is missing)	-
+sys	sys expiry start <action>	expiry-change.sh	start {1} {rest}	do it (hs sys expiry start add <name> --date YYYY-MM-DD [--renew <text>] | remove <name>), answers status done	-
+sys	sys recipes plan <recipe> <action>	recipe-change.sh	plan {1} {2} {rest}	what running a recipe would do, as data: status, plan lines (never asks; exit 0 ok, 1 refused, also for a recipe that needs something typed)	-
+sys	sys recipes start <recipe> <action>	recipe-change.sh	start {1} {2} {rest}	run a recipe as a background job with the stored answers or the defaults (hs sys recipes start <recipe> run [--name <container>]), answers status started and the unit	-
+sys	sys routes plan <action>	services-change.sh	plan {1} {rest}	what applying the service routes to the reverse proxy, adopting hand-made routes, importing services or removing one would do, as data: status, plan lines (never asks; exit 0 ok, 1 refused or nothing to do)	-
+sys	sys routes start <action>	services-change.sh	start {1} {rest}	do it (hs sys routes start apply --confirm apply | adopt | import | remove <service>); apply is a background job, the others answer status done	-
+sys	sys peers plan <action>	peer-change.sh	plan {1} {rest}	what mounting a share of another homeserver, stopping it, taking back the access given, or attaching it to an instance would do, as data: status, plan lines (never asks; exit 0 ok, 1 refused)	-
+sys	sys peers start <action>	peer-change.sh	start {1} {rest}	do it (hs sys peers start add <peer> <host> <share> --user <login> with the password on stdin | remove|revoke <peer> [<share>] --confirm <peer> | attach <peer> <instance> | detach <peer> <instance>), answers status done	-
+sys	sys secrets plan <action>	vault-change.sh	plan {1} {rest}	what a header backup of the vault, moving secrets into it, closing it or fixing the permissions of the secrets would do, as data: status, plan lines (never asks; exit 0 ok, 1 refused)	-
+sys	sys secrets start <action>	vault-change.sh	start {1} {rest}	do it as a background job (hs sys secrets start header-backup | move [<name>] | close --confirm close | secrets-fix), answers status started and the unit	-
+sys	sys recipes asks <recipe>	recipe-asks.sh	{1}	the questions a recipe wants answered before it runs, as data: key, label, kind (text|secret|choice:a,b), default, pattern, when (- when empty); the last row is input and form|terminal|none	-
+sys	sys admin plan <action>	admin-change.sh	plan {1} {rest}	what a test push message, pinning the MACs, moving the upload cache or cleaning the fans would do, as data: status, plan lines (never asks; exit 0 ok, 1 refused)	-
+sys	sys admin start <action>	admin-change.sh	start {1} {rest}	do it (hs sys admin start test-push | pin-macs | cache-mover | fans-clean [--seconds N]); the first two answer done, the others start a job	-
+sys	sys backup find <word>	backup.sh	--find {1}	files whose name contains a word, in every snapshot, as data: snapshot, time, path, type, bytes (at most 200; mounts the backup disk, can take a while)	-
+sys	sys dc state	dc-cert.sh	state	the CA of this setup and the certificate of the domain controller as key and value lines: ca, ca_until, dc, cert, subject, names, valid_until, days_left, checked	-
+sys	sys dc plan <action>	dc-change.sh	plan {1} {rest}	what making the CA or renewing the certificate of the domain controller would do, as data: status, plan lines (never asks; exit 0 ok, 1 refused)	-
+sys	sys dc start <action>	dc-change.sh	start {1} {rest}	do it (hs sys dc start ca | renew [--dc <instance>] --confirm <instance>); ca answers done, renew starts a job	-
+sys	sys net plan <action>	net-change.sh	plan {1} {rest}	what connecting the router would do, as data: status, plan lines (never asks; the API key is the first line on standard input; exit 0 ok, 1 refused, 2 = address or key missing)	-
+sys	sys net start <action>	net-change.sh	start {1} {rest}	do it (hs sys net start setup --address <url>, the API key on standard input), answers status done	-
+sys	sys state reads	state.sh	reads	what the collector keeps for the web interface, oldest first: read, age in seconds, milliseconds it took, exit code, bytes (which reads are slow, which are stale)	-
+sys	sys state read-put <key>	state.sh	read-put {1} {rest}	keep the output of a read (standard input) in the state database; only the collector (reads-collect.sh) calls it	-
+sys	sys state read-get <key>	state.sh	read-get {1}	the output the collector kept for a read (exit 1: none)	-
+sys	sys reads status	reads-collect.sh	--status	every read the collector keeps, as data: read, interval in seconds, age of the kept output (-1 = never), milliseconds, exit code, bytes	-
+sys	sys reads collect	reads-collect.sh	{rest}	read the slow reads of the web interface and keep their output in the state database (the timer hs-reads-collect does it every 15 s; --all ignores the intervals)	-
+sys	sys ext list	ext.sh	--list	extension packages as name, on|off, commands, nix (yes = a rebuild switches it), title	-
+user	pkg list	pkg.sh	list {rest}	list the packages (recipes and extensions) with their version: hs pkg list [--all] [--kind recipe|extension]	die Pakete (Rezepte und Erweiterungen) mit Version auflisten: hs pkg list [--all] [--kind recipe|extension]	topic:system,reads
+user	pkg updates	pkg.sh	updates	the packages whose version in the tree is newer than the one last applied	die Pakete, deren Version im Baum neuer ist als die zuletzt angewendete	topic:system,reads
+user	pkg validate	pkg.sh	validate	check every package manifest	alle Paket-Manifeste prüfen	topic:system,reads
+sys	sys pkg list	pkg.sh	--list	every package as data: name, kind, version, applied version (- = never), audience, title	-
+user	pkg fetch	pkg.sh	fetch {rest}	update the package repositories and find the newest verified release	die Paket-Repositories aktualisieren und das neueste geprüfte Release finden	topic:system,changes
+user	pkg available	pkg.sh	available	what the package repositories offer (after hs pkg fetch)	was die Paket-Repositories anbieten (nach hs pkg fetch)	topic:system,reads
+user	pkg install <name>	pkg.sh	install {1} {rest}	install a package from a repository (signed release, read-only copy): hs pkg install <name> [--repo <repo>]	ein Paket aus einem Repository installieren (signiertes Release, schreibgeschützte Kopie): hs pkg install <Name> [--repo <Repo>]	topic:system,changes
+user	pkg update <name>	pkg.sh	update {1} {rest}	show what changed in a package, then install its new release: hs pkg update <name> [--yes]	zeigen, was sich in einem Paket geändert hat, dann das neue Release installieren: hs pkg update <Name> [--yes]	topic:system,changes
+user	pkg remove <name>	pkg.sh	remove {1}	forget a package installed from a repository (a recipe's container stays)	ein aus einem Repository installiertes Paket vergessen (der Container eines Rezepts bleibt)	topic:system,changes
+user	pkg repo list	pkg.sh	repo list	the package repositories: the two defaults and the ones that were added	die Paket-Repositories: die beiden Standard-Repositories und die hinzugefügten	topic:system,reads
+user	pkg repo add <name> <url>	pkg.sh	repo add {1} {2} {rest}	add a package repository (releases must be signed): hs pkg repo add <name> <url> --key <allowed_signers file>	ein Paket-Repository hinzufügen (Releases müssen signiert sein): hs pkg repo add <Name> <URL> --key <allowed_signers-Datei>	topic:system,changes
+user	pkg repo remove <name>	pkg.sh	repo remove {1}	remove a repository that was added	ein hinzugefügtes Repository entfernen	topic:system,changes
+sys	sys pkg available	pkg.sh	available	what the repositories offer as data: repo, package, kind, version, applied version (- = not installed)	-

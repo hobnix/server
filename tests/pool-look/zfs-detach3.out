@@ -1,0 +1,8 @@
+Plan: take ata-C out of mirror-0 in 'bulk'
+
+Command:
+  zpool detach bulk /dev/disk/by-id/ata-C-part1
+
+The mirror keeps working with 2 disks.
+
+Dry run: nothing changed.

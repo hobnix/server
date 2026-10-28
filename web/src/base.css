@@ -1,0 +1,196 @@
+/* Base look of the web interface: reset, hairline grid, scrollbars, and the global classes the pages use (.btn, .input, .field, .card, .tag,
+   .table, .dot, .seg, .radio, .dialog*). Tokens are in tokens.css. Hard edges everywhere (--r is 0). Components with their own markup
+   (Drawer, Combobox, Banner ...) carry their CSS inside the .svelte file; only what several pages share lives here. */
+
+*, *::before, *::after { box-sizing: border-box; }
+html, body { margin: 0; }
+body {
+  background: var(--bg); color: var(--fg);
+  font-family: var(--font); font-size: 13.5px; line-height: 1.4; font-weight: 400;
+  -webkit-font-smoothing: antialiased;
+}
+button, input, select, textarea { font: inherit; color: inherit; }
+button { cursor: pointer; }
+a { color: var(--accent-ink); text-underline-offset: 3px; }
+a:hover { text-decoration: none; }
+code, .mono { font-family: var(--mono); }
+code { font-size: 0.93em; }
+h1, h2, h3, h4, h5, h6 { font-family: var(--font); font-weight: 600; line-height: 1.15; letter-spacing: -0.02em; margin: 0 0 var(--space-2); }
+h1 { font-size: 28px; letter-spacing: -0.03em; }
+h2 { font-size: 20px; }
+h3 { font-size: 16px; }
+h4 { font-size: 14px; }
+h5 { font-size: 13px; }
+h6 { font-size: 11px; letter-spacing: 0.08em; text-transform: uppercase; font-family: var(--mono); font-weight: 500; color: var(--fg-3); }
+p { margin: 0 0 var(--space-3); }
+img { display: block; max-width: 100%; }
+:focus { outline: none; }
+:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+/* components that reset themselves (`all: unset`) must still show where the keyboard is */
+button:focus-visible, a:focus-visible, [tabindex]:focus-visible, summary:focus-visible { outline: 2px solid var(--accent) !important; outline-offset: 2px; }
+tr[tabindex]:focus-visible { outline-offset: -2px; }
+::selection { background: color-mix(in oklch, var(--accent) 30%, transparent); }
+.text-muted { color: var(--fg-3); }
+.grow { flex: 1; }
+.eyebrow { font: 500 11px var(--mono); letter-spacing: 0.08em; text-transform: uppercase; color: var(--fg-3); }
+
+#app { height: 100vh; height: 100dvh; min-height: 560px; display: flex; flex-direction: column; overflow: hidden; background: var(--bg); color: var(--fg); }
+
+/* ── scrollbars: thin, hard edged; scroll areas keep their gutter so content does not shift ── */
+@supports selector(::-webkit-scrollbar) {
+  *::-webkit-scrollbar { width: 12px; height: 12px; }
+  *::-webkit-scrollbar-track { background: transparent; }
+  *::-webkit-scrollbar-thumb { background: var(--scroll); border: 3px solid transparent; background-clip: padding-box; border-radius: var(--r); }
+  *::-webkit-scrollbar-thumb:hover { background: var(--scroll-h); background-clip: padding-box; }
+  *::-webkit-scrollbar-corner { background: transparent; }
+}
+@supports not selector(::-webkit-scrollbar) {
+  * { scrollbar-width: thin; scrollbar-color: var(--scroll) transparent; }
+}
+.scroll-y { overflow-y: auto; scrollbar-gutter: stable; }
+
+/* the hairline grid behind a page; crosshair corner marks on a card (.xh) */
+.gridbg {
+  background-color: var(--bg);
+  background-image: linear-gradient(var(--grid) 1px, transparent 1px), linear-gradient(90deg, var(--grid) 1px, transparent 1px);
+  background-size: 24px 24px; background-position: -1px -1px;
+}
+.xh { position: relative; }
+.xh::before, .xh::after {
+  content: ''; position: absolute; width: 11px; height: 11px; pointer-events: none; opacity: 0.7; z-index: 1;
+  background: linear-gradient(var(--fg-3), var(--fg-3)) center / 1px 11px no-repeat, linear-gradient(var(--fg-3), var(--fg-3)) center / 11px 1px no-repeat;
+}
+.xh::before { left: -6px; top: -6px; }
+.xh::after { right: -6px; bottom: -6px; }
+
+/* ── status dot (the component StatusDot.svelte renders this; pages that only need the dot use the class) ── */
+.dot { display: inline-block; width: 8px; height: 8px; border-radius: 50%; flex: none; background: var(--off); box-shadow: 0 0 0 3px color-mix(in oklch, var(--off) 24%, transparent); }
+.dot.ok { background: var(--ok); box-shadow: 0 0 0 3px color-mix(in oklch, var(--ok) 20%, transparent); }
+.dot.warn { background: var(--warn); box-shadow: 0 0 0 3px color-mix(in oklch, var(--warn) 22%, transparent); }
+.dot.bad { background: var(--bad); box-shadow: 0 0 0 3px color-mix(in oklch, var(--bad) 22%, transparent); }
+.dot.info { background: var(--info); box-shadow: 0 0 0 3px color-mix(in oklch, var(--info) 24%, transparent); }
+/* a state is never colour alone: each one has its own shape too (ok = disc, warn = diamond, bad = square, info = disc with a hole, off = ring) */
+.dot.warn { border-radius: 0; transform: rotate(45deg) scale(0.92); }
+.dot.bad { border-radius: 0; }
+.dot.info { box-shadow: inset 0 0 0 2px var(--bg), 0 0 0 3px color-mix(in oklch, var(--info) 24%, transparent); }
+.dot.off { box-sizing: border-box; background: transparent; border: 1.5px solid var(--off); box-shadow: none; }
+
+/* ── buttons: primary (flat accent), default, small, ghost, danger (flat red) ── */
+.btn {
+  display: inline-flex; align-items: center; justify-content: center; gap: 8px; min-height: 34px; padding: 0 14px;
+  border: 1px solid var(--line-2); border-radius: var(--r); background: var(--panel); color: var(--fg);
+  font-weight: 500; font-size: 13.5px; line-height: 1.2; white-space: nowrap; text-decoration: none; cursor: pointer;
+}
+/* long (German) labels: a button never grows wider than its container; on a phone its text may wrap */
+.btn { max-width: 100%; }
+@media (max-width: 860px) { .btn { white-space: normal; text-align: center; } }
+.btn:hover { background: var(--panel-2); }
+.btn:active { background: var(--panel-3); }
+.btn:disabled, .btn.blocked { opacity: 0.45; cursor: not-allowed; }
+.btn svg, .btn i { flex: none; }
+.btn-primary { border-color: color-mix(in oklch, var(--accent) 70%, black); background: var(--accent); color: var(--on-accent); }
+.btn-primary:hover { background: var(--accent); filter: brightness(1.07); }
+.btn-primary:active { filter: brightness(0.95); background: var(--accent); }
+.btn-secondary { /* the default look */ }
+.btn-ghost { border-color: transparent; background: none; color: var(--fg-2); }
+.btn-ghost:hover { background: var(--panel-2); color: var(--fg); }
+.btn-danger { border-color: transparent; background: var(--bad); color: oklch(0.99 0 0); }
+.btn-danger:hover { background: var(--bad); filter: brightness(1.07); }
+:root[data-theme='light'] .btn-danger { background: oklch(0.52 0.2 25); }
+@media (prefers-color-scheme: light) { :root:not([data-theme='dark']) .btn-danger { background: oklch(0.52 0.2 25); } }
+.btn.sm, .btn-sm { min-height: 28px; padding: 0 10px; font-size: 12.5px; }
+.btn-icon { width: 34px; min-height: 34px; padding: 0; }
+.btn-block { width: 100%; }
+.link-btn { all: unset; cursor: pointer; color: var(--accent-ink); font-weight: 500; }
+.link-btn:hover { text-decoration: underline; }
+.link-btn:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+
+/* ── forms ── */
+.field { display: flex; flex-direction: column; gap: 6px; }
+.field > label { font: 500 11px var(--mono); letter-spacing: 0.08em; text-transform: uppercase; color: var(--fg-3); }
+.input, input.input, select.input, textarea.input {
+  width: 100%; min-height: 36px; padding: 6px 12px; font: inherit; font-size: 13.5px; color: var(--fg); caret-color: var(--accent);
+  background: var(--panel-2); border: 1px solid var(--line-2); border-radius: var(--r);
+}
+.input::placeholder { color: var(--fg-3); }
+.input:hover { border-color: var(--fg-3); }
+.input:focus-visible { border-color: var(--accent); outline-offset: 0; }
+textarea.input { min-height: 90px; resize: vertical; }
+select.input { appearance: none; -webkit-appearance: none; padding-right: 30px;
+  background-image: linear-gradient(45deg, transparent 50%, var(--fg-3) 50%), linear-gradient(135deg, var(--fg-3) 50%, transparent 50%);
+  background-position: calc(100% - 15px) 52%, calc(100% - 10px) 52%; background-size: 5px 5px, 5px 5px; background-repeat: no-repeat; }
+/* native checkbox / radio: the design's hard-edged box (Components: .cbx) with an accent fill and a check mark when on.
+   Radios that are hidden inside .radio / .seg-opt (they draw their own dot or segment) are left alone. */
+input[type='checkbox'], input[type='radio']:where(:not(.radio input, .seg-opt input)) {
+  appearance: none; -webkit-appearance: none; flex: none; position: relative; vertical-align: middle;
+  width: 18px; height: 18px; margin: 0; padding: 0; cursor: pointer;
+  border: 1px solid var(--line-2); border-radius: var(--r); background: var(--panel-2);
+}
+input[type='checkbox']:hover:not(:disabled), input[type='radio']:where(:not(.radio input, .seg-opt input)):hover:not(:disabled) { border-color: var(--fg-3); }
+input[type='checkbox']:checked, input[type='checkbox']:indeterminate { background: var(--accent); border-color: transparent; }
+input[type='checkbox']:checked::after { content: ''; position: absolute; left: 5px; top: 1px; width: 5px; height: 10px; border: solid var(--on-accent); border-width: 0 2px 2px 0; transform: rotate(45deg); }
+input[type='checkbox']:indeterminate::after { content: ''; position: absolute; left: 3px; top: 7px; width: 10px; height: 2px; background: var(--on-accent); }
+input[type='radio']:where(:not(.radio input, .seg-opt input)) { border-radius: 50%; }
+input[type='radio']:where(:not(.radio input, .seg-opt input)):checked { border-color: var(--accent); background: var(--accent); box-shadow: inset 0 0 0 4px var(--panel-2); }
+input[type='checkbox']:focus-visible, input[type='radio']:where(:not(.radio input, .seg-opt input)):focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+input[type='checkbox']:disabled, input[type='radio']:where(:not(.radio input, .seg-opt input)):disabled { opacity: 0.35; cursor: not-allowed; }
+.radio { display: inline-flex; align-items: center; gap: 8px; cursor: pointer; font-size: 13.5px; }
+.radio input, .seg-opt input { position: absolute; opacity: 0; width: 0; height: 0; pointer-events: none; }
+.radio .dot { width: 16px; height: 16px; flex: none; border-radius: 50%; border: 1.5px solid var(--line-2); background: none; box-shadow: none; }
+.radio:hover .dot { border-color: var(--accent); }
+.radio input:checked + .dot { border-color: var(--accent); background: var(--accent); box-shadow: inset 0 0 0 4px var(--bg); }
+.radio input:focus-visible + .dot { outline: 2px solid var(--accent); outline-offset: 2px; }
+.seg { display: inline-flex; overflow: hidden; border: 1px solid var(--line-2); border-radius: var(--r); background: var(--panel); }
+.seg-opt { display: inline-flex; align-items: center; gap: 6px; padding: 7px 12px; font-size: 13px; cursor: pointer; color: var(--fg-2); }
+.seg-opt + .seg-opt { border-left: 1px solid var(--line-2); }
+.seg-opt:has(input:checked) { background: var(--panel-3); color: var(--fg); font-weight: 600; }
+.seg-opt:not(:has(input:checked)):hover { background: var(--panel-2); }
+.seg-opt:has(input:focus-visible) { outline: 2px solid var(--accent); outline-offset: -2px; }
+
+/* ── cards ── */
+.card { position: relative; display: flex; flex-direction: column; gap: var(--space-2); padding: var(--space-4); border: 1px solid var(--line); border-radius: var(--r); background: var(--panel); }
+.card-kicker { font: 500 11px var(--mono); letter-spacing: 0.08em; text-transform: uppercase; color: var(--fg-3); }
+.card-title { font-weight: 600; font-size: 15px; line-height: 1.2; }
+.card-body { margin: 0; font-size: 13px; color: var(--fg-2); flex: 1; }
+.card-meta { display: flex; align-items: center; gap: 6px; font-size: 12px; color: var(--fg-3); }
+.elev-sm { box-shadow: none; }
+.elev-md, .elev-lg { box-shadow: var(--shadow); }
+
+/* ── tags / chips ── */
+.tag { display: inline-flex; align-items: center; font: 500 10.5px var(--mono); text-transform: uppercase; letter-spacing: 0.06em; padding: 1px 6px; border: 1px solid var(--line-2); border-radius: var(--r); color: var(--fg-3); white-space: nowrap; background: none; }
+.tag-accent { border-color: color-mix(in oklch, var(--accent) 55%, var(--line)); color: var(--accent-ink); }
+.tag-accent-2 { color: var(--fg-2); }
+.tag-neutral { color: var(--fg-3); background: none; }
+.tag-outline { border-color: var(--accent); color: var(--accent-ink); }
+
+/* ── tables (the shared Table.svelte draws these; hand-written tables get the same look) ── */
+.table { width: 100%; border-collapse: collapse; font-size: 12.5px; }
+.table th {
+  text-align: left; font: 500 11px var(--mono); letter-spacing: 0.06em; text-transform: uppercase; color: var(--fg-3);
+  padding: 7px 12px; white-space: nowrap; border-bottom: 1px solid var(--line);
+}
+.table td { padding: 7px 12px; border-bottom: 1px solid var(--line); color: var(--fg-2); vertical-align: middle; }
+.table tbody tr:hover td { background: var(--panel-2); }
+.table td:first-child { color: var(--fg); font-weight: 500; }
+/* the header stays at the top of the scrolling page; opaque, or the rows would show through */
+.table thead th { position: sticky; top: var(--sticky-top, 0px); z-index: 2; background: var(--table-bg, var(--panel)); }
+/* a phone: tighter cells, headers and long values may wrap, so a list never needs a sideways scroll (columns marked `optional` are hidden by Table.svelte) */
+@media (max-width: 860px) {
+  .table th { padding: 7px 8px; white-space: normal; }
+  .table td { padding: 7px 8px; overflow-wrap: break-word; }
+  /* a table that is still wider than its card (action buttons do not wrap) scrolls inside the card, the page never scrolls sideways;
+     the sticky header needs the page as its scroll area, so on a phone it gives that up */
+  .tablescroll { max-width: 100%; overflow-x: auto; -webkit-overflow-scrolling: touch; }
+  .tablescroll > .table { min-width: min-content; }
+  .card { min-width: 0; max-width: 100%; }
+}
+.hr { height: 1px; border: 0; margin: var(--space-4) 0; background: var(--line); }
+
+/* ── dialogs (CreateDialog and the old plan layout) ── */
+.dialog-backdrop { position: fixed; inset: 0; z-index: 50; display: grid; place-items: center; padding: 16px; background: var(--scrim); backdrop-filter: blur(2px); }
+.dialog { width: min(540px, 100%); max-height: calc(100dvh - 32px); overflow: auto; display: flex; flex-direction: column; gap: var(--space-3); padding: 20px 22px; border: 1px solid var(--line-2); border-radius: var(--r); background: var(--panel); box-shadow: 0 24px 64px oklch(0 0 0 / 0.5); }
+.dialog-title { font-weight: 600; font-size: 18px; letter-spacing: -0.02em; }
+.dialog-body { font-size: 13.5px; color: var(--fg-2); }
+.dialog-actions { display: flex; justify-content: flex-end; gap: var(--space-2); margin-top: var(--space-2); flex-wrap: wrap; }
+
+.lighten { mix-blend-mode: lighten; background-color: transparent; }

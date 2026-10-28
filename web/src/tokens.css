@@ -1,0 +1,161 @@
+/* Design tokens of the web interface (web/design/HANDOFF.md, "Design tokens and visual rules").
+   Dark is the default; light follows the system (prefers-color-scheme) unless the theme toggle set data-theme="dark"|"light" on <html>
+   (web/src/theme.svelte.js). The accent comes from /theme.css (runtime setting webAccent, default #9184d9) as --color-accent; everything
+   that depends on it (accent-ink, --h1..--h4) is DERIVED here with relative colours, nothing is hard-coded per accent.
+   The old Nocturne names (--color-*, --st-*) stay as aliases at the bottom, so the pages that were not rebuilt yet keep working. */
+
+@font-face { font-family: 'Geist'; font-style: normal; font-weight: 100 900; font-display: swap; src: url('./fonts/Geist-latin.woff2') format('woff2'); }
+@font-face { font-family: 'Geist Mono'; font-style: normal; font-weight: 100 900; font-display: swap; src: url('./fonts/GeistMono-latin.woff2') format('woff2'); }
+
+:root {
+  color-scheme: dark;
+  --accent: var(--color-accent, #9184d9);
+
+  --bg: oklch(0.15 0.012 285);
+  --panel: oklch(0.19 0.014 285);
+  --panel-2: oklch(0.225 0.016 285);
+  --panel-3: oklch(0.27 0.018 285);
+  --line: oklch(1 0 0 / 0.08);
+  --line-2: oklch(1 0 0 / 0.17);
+  --fg: oklch(0.95 0.006 285);
+  --fg-2: oklch(0.79 0.012 285);
+  --fg-3: oklch(0.68 0.014 285);
+
+  --accent-ink: oklch(from var(--accent) 0.8 calc(c * 0.85) h);
+  --on-accent: oklch(0.16 0.03 295);
+  --h1: oklch(from var(--accent) 0.66 c h);
+  --h2: oklch(from var(--accent) 0.78 calc(c * 0.8) calc(h - 9));
+  --h3: oklch(from var(--accent) 0.88 calc(c * 0.5) calc(h - 17));
+  --h4: oklch(from var(--accent) 0.5 calc(c * 1.15) calc(h + 13));
+
+  --ok: oklch(0.76 0.16 155);
+  --warn: oklch(0.82 0.15 82);
+  --bad: oklch(0.68 0.2 25);
+  --info: oklch(0.74 0.12 245);
+  --off: oklch(0.5 0.01 285);
+  --ok-ink: var(--ok);
+  --warn-ink: var(--warn);
+  --bad-ink: var(--bad);
+  --info-ink: oklch(0.8 0.1 245);
+  --r: 0px;
+
+  --grid: oklch(1 0 0 / 0.035);
+  --scroll: oklch(1 0 0 / 0.16);
+  --scroll-h: oklch(1 0 0 / 0.3);
+  --shadow: 0 1px 0 oklch(1 0 0 / 0.04) inset, 0 10px 28px oklch(0 0 0 / 0.35);
+  --scrim: oklch(0 0 0 / 0.55);
+
+  --font: 'Geist', system-ui, -apple-system, 'Segoe UI', sans-serif;
+  --mono: 'Geist Mono', ui-monospace, 'SF Mono', Menlo, Consolas, monospace;
+}
+
+/* light: when the system asks for it and the toggle did not force dark, or when the toggle forced light */
+@media (prefers-color-scheme: light) {
+  :root:not([data-theme='dark']) {
+    color-scheme: light;
+    --bg: oklch(0.972 0.005 285);
+    --panel: oklch(1 0 0);
+    --panel-2: oklch(0.967 0.006 285);
+    --panel-3: oklch(0.93 0.008 285);
+    --line: oklch(0.2 0.03 285 / 0.1);
+    --line-2: oklch(0.2 0.03 285 / 0.2);
+    --fg: oklch(0.2 0.02 285);
+    --fg-2: oklch(0.4 0.02 285);
+    --fg-3: oklch(0.49 0.02 285);
+    --accent-ink: oklch(from var(--accent) 0.45 calc(c * 1.2) h);
+    --h1: oklch(from var(--accent) 0.62 calc(c * 1.05) h);
+    --h2: oklch(from var(--accent) 0.72 calc(c * 0.85) calc(h - 9));
+    --h3: oklch(from var(--accent) 0.82 calc(c * 0.6) calc(h - 16));
+    --h4: oklch(from var(--accent) 0.48 calc(c * 1.2) calc(h + 13));
+    --ok: oklch(0.66 0.16 155);
+    --warn: oklch(0.78 0.16 80);
+    --bad: oklch(0.6 0.21 25);
+    --info: oklch(0.58 0.15 250);
+    --off: oklch(0.72 0.01 285);
+    --ok-ink: oklch(0.45 0.12 155);
+    --warn-ink: oklch(0.5 0.12 70);
+    --bad-ink: oklch(0.5 0.18 25);
+    --info-ink: oklch(0.46 0.15 250);
+    --grid: oklch(0.2 0.03 285 / 0.055);
+    --scroll: oklch(0.2 0.03 285 / 0.2);
+    --scroll-h: oklch(0.2 0.03 285 / 0.35);
+    --shadow: 0 1px 2px oklch(0.2 0.03 285 / 0.06), 0 10px 28px oklch(0.2 0.03 285 / 0.08);
+    --scrim: oklch(0.2 0.03 285 / 0.4);
+  }
+}
+:root[data-theme='light'] {
+  color-scheme: light;
+  --bg: oklch(0.972 0.005 285);
+  --panel: oklch(1 0 0);
+  --panel-2: oklch(0.967 0.006 285);
+  --panel-3: oklch(0.93 0.008 285);
+  --line: oklch(0.2 0.03 285 / 0.1);
+  --line-2: oklch(0.2 0.03 285 / 0.2);
+  --fg: oklch(0.2 0.02 285);
+  --fg-2: oklch(0.4 0.02 285);
+  --fg-3: oklch(0.49 0.02 285);
+  --accent-ink: oklch(from var(--accent) 0.45 calc(c * 1.2) h);
+  --h1: oklch(from var(--accent) 0.62 calc(c * 1.05) h);
+  --h2: oklch(from var(--accent) 0.72 calc(c * 0.85) calc(h - 9));
+  --h3: oklch(from var(--accent) 0.82 calc(c * 0.6) calc(h - 16));
+  --h4: oklch(from var(--accent) 0.48 calc(c * 1.2) calc(h + 13));
+  --ok: oklch(0.66 0.16 155);
+  --warn: oklch(0.78 0.16 80);
+  --bad: oklch(0.6 0.21 25);
+  --info: oklch(0.58 0.15 250);
+  --off: oklch(0.72 0.01 285);
+  --ok-ink: oklch(0.45 0.12 155);
+  --warn-ink: oklch(0.5 0.12 70);
+  --bad-ink: oklch(0.5 0.18 25);
+  --info-ink: oklch(0.46 0.15 250);
+  --grid: oklch(0.2 0.03 285 / 0.055);
+  --scroll: oklch(0.2 0.03 285 / 0.2);
+  --scroll-h: oklch(0.2 0.03 285 / 0.35);
+  --shadow: 0 1px 2px oklch(0.2 0.03 285 / 0.06), 0 10px 28px oklch(0.2 0.03 285 / 0.08);
+  --scrim: oklch(0.2 0.03 285 / 0.4);
+}
+
+/* ── aliases for the old Nocturne names (pages not rebuilt yet use these). `html:root` beats the :root of /theme.css whatever the load order ── */
+html:root {
+  --color-bg: var(--bg);
+  --color-surface: var(--panel);
+  --color-text: var(--fg);
+  --color-divider: var(--line-2);
+  --color-neutral-100: var(--fg);
+  --color-neutral-200: color-mix(in oklab, var(--fg) 90%, var(--bg));
+  --color-neutral-300: var(--fg-2);
+  --color-neutral-400: color-mix(in oklab, var(--fg-2) 65%, var(--fg-3));
+  --color-neutral-500: var(--fg-3);
+  --color-neutral-600: color-mix(in oklab, var(--fg-3) 60%, var(--bg));
+  --color-neutral-700: color-mix(in oklab, var(--fg) 24%, var(--bg));
+  --color-neutral-800: color-mix(in oklab, var(--fg) 15%, var(--bg));
+  --color-neutral-900: var(--panel-2);
+  --color-accent-100: var(--fg);
+  --color-accent-200: var(--accent-ink);
+  --color-accent-300: var(--accent-ink);
+  --color-accent-400: color-mix(in oklab, var(--accent-ink) 70%, var(--accent));
+  --color-accent-500: var(--accent);
+  --color-accent-600: color-mix(in oklab, var(--accent) 80%, var(--bg));
+  --color-accent-700: color-mix(in oklab, var(--accent) 55%, var(--bg));
+  --color-accent-800: color-mix(in oklab, var(--accent) 28%, var(--panel));
+  --color-accent-900: color-mix(in oklab, var(--accent) 17%, var(--panel));
+  --st-ok: var(--ok-ink);
+  --st-warn: var(--warn-ink);
+  --st-bad: var(--bad-ink);
+  --st-off: var(--off);
+  --radius-sm: var(--r);
+  --radius-md: var(--r);
+  --radius-lg: var(--r);
+  --shadow-sm: 0 0 0 1px var(--line);
+  --shadow-md: var(--shadow);
+  --shadow-lg: var(--shadow);
+  --font-heading: var(--font);
+  --font-heading-weight: 600;
+  --font-body: var(--font);
+  --space-1: 2.8px;
+  --space-2: 5.6px;
+  --space-3: 8.4px;
+  --space-4: 11.2px;
+  --space-6: 16.8px;
+  --space-8: 22.4px;
+}

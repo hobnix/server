@@ -1,0 +1,8 @@
+Current array:
+  data-01           4.0GB  40% used
+
+Plan:
+  format ata-FAKE_sdy (4.0GB) as data-02 (ext4)
+
+Note: no parity disk yet. Until you add one, a failed disk loses its data.
+Dry run: nothing changed.

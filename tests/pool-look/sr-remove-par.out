@@ -1,0 +1,4 @@
+Plan: remove the parity disk parity-1 from 'bulk'
+  This is the only parity disk: afterwards a failed disk loses its data.
+
+Dry run: nothing changed.

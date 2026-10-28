@@ -1,0 +1,7 @@
+Plan: remove the data disk data-02 from 'bulk'
+  1. stop putting new files on it
+  2. move its 1.0GB onto the other data disks (3.0GB free)
+  3. take it out of the array (the parity follows with the next scheduled sync, or now if you ask for it)
+Moving the files can take hours. The disk itself is not erased, only unlabelled.
+
+Dry run: nothing changed.

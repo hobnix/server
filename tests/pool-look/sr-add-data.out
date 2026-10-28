@@ -1,0 +1,9 @@
+Current array:
+  data-01           4.0GB  40% used
+  data-02           4.0GB  40% used
+  parity-1          4.0GB  40% used
+
+Plan:
+  format ata-FAKE_sdy (4.0GB) as data-03 (ext4)
+
+Dry run: nothing changed.

@@ -1,0 +1,12 @@
+# Preset "minimal" (docs/PLAN-modular-core.md step 8): a plain server. No optional part is switched on; add them later on the Setup page
+# or with `hs config set`. `hs preset apply minimal` fills only what is not set yet and never overwrites a value.
+title = "Minimal"
+title_de = "Minimal"
+description = "Core only: storage, Samba shares, Incus, the web interface. No optional capability, no proxy, no router connection."
+description_de = "Nur der Kern: Speicher, Samba-Freigaben, Incus, Weboberfläche. Keine optionale Fähigkeit, kein Proxy, keine Router-Anbindung."
+
+[machine]
+# (nothing: an empty machine.toml already is this preset)
+
+[settings]
+backupNewShares = "false"

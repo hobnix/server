@@ -1,0 +1,12 @@
+# Manifest of a capability (docs/PLAN-modular-core.md). See capabilities/metrics/capability.toml for the fields.
+name = "tailscale"
+title = "Tailscale (private access to this server)"
+title_de = "Tailscale (privater Zugang zu diesem Server)"
+kind = "provider"
+requires = []
+# the interface this capability fulfils; the provider sets `hs.privateInterfaces` (capabilities/options.nix)
+provides = ["private-access"]
+needs = []
+# the NixOS module, loaded only while the capability is on (capabilities/default.nix)
+nix = "module.nix"
+notes = "NOTES.md"

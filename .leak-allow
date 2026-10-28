@@ -1,0 +1,10 @@
+# Findings of scripts/dev/leak-scan.py that are harmless on purpose: path glob, TAB, kind (secret|mail|own|*).
+README.md	mail
+configuration.nix	mail
+docs/Homeserver-Anleitung*.md	mail
+docs/Neuaufbau.md	mail
+docs/Systemdisk-verschluesseln.md	mail
+tests/edge-facts.sh	mail
+tests/node.sh	mail
+tests/web-ssh-key-test.py	*
+tests/web-ssh-key.sh	secret

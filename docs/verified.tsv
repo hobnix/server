@@ -1,0 +1,3 @@
+# When was each guide last worked through on the real server? One row per guide: file name without .md, TAB, date (YYYY-MM-DD).
+# Write it with:  hs docs verified <guide> [date]   (only after someone really did the steps on the server; no row = never checked).
+# docs-build.sh shows the date under the title of the guide; hs backup report counts the guides.

@@ -1,0 +1,26 @@
+# The reads of the web interface that the collector keeps in the state database (scripts/reads-collect.sh).
+# words of the `hs sys` read <TAB> how often, in seconds. A line is the exact read the pages ask for (`pool info bulk` = ?pool=bulk).
+# Only reads whose scripts take a moment (smartctl, zpool, incus, samba-tool, curl to the router); `hs sys state reads` shows what is kept and how long
+# each took, `hs timing` how long a cold run is. Take a read out when it is cheap, put one in when a page waits for it.
+monitor disks	15
+disk-health list	30
+pool info bulk	15
+pool info fast	15
+pool members bulk	15
+pool members fast	15
+pool disks	30
+shares overview	30
+ct list	10
+backup state	30
+backup overview	60
+users list	60
+users groups	60
+unifi clients	30
+unifi networks	120
+ports list	120
+hardware	15
+ups status	30
+services routes	30
+encryption list	30
+system updates	60
+dns list	120

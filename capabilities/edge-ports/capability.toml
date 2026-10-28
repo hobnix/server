@@ -1,0 +1,11 @@
+# Manifest of a capability (docs/PLAN-modular-core.md). See capabilities/metrics/capability.toml for the fields.
+name = "edge-ports"
+title = "Edge node: public game and call ports"
+title_de = "Edge-Knoten: öffentliche Spiele- und Anruf-Ports"
+kind = "feature"
+requires = ["tailscale"]
+provides = []
+needs = []
+# the NixOS module, loaded only while the capability is on (capabilities/default.nix)
+nix = "module.nix"
+notes = "NOTES.md"

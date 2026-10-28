@@ -1,0 +1,11 @@
+# Manifest of a capability (docs/PLAN-modular-core.md). See capabilities/metrics/capability.toml for the fields.
+name = "ad"
+title = "Active Directory (domain users, Domain Admins sign in)"
+title_de = "Active Directory (Domänenbenutzer, Domain Admins melden sich an)"
+kind = "feature"
+requires = []
+provides = []
+needs = []
+# No module of its own: configuration.nix does the work from machine.toml `adDomain` (Samba joins the domain, winbind, Kerberos) and
+# counts the capability as on exactly then (computed there, like the legacy switches). Without it Samba is standalone.
+notes = "NOTES.md"

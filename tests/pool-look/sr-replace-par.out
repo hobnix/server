@@ -1,0 +1,8 @@
+Plan: replace parity-1 (ONLINE) in 'bulk'
+  1. take the old disk out of the array
+  2. format ata-FAKE_sdy (4.0GB) as parity-1 (ext4)
+  3. recompute the parity onto it:  snapraid -d parity fix
+Step 3 reads every disk completely and can take many hours.
+ALL DATA on ata-FAKE_sdy will be erased.
+
+Dry run: nothing changed.

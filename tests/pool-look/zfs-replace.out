@@ -1,0 +1,9 @@
+Plan: replace ata-A (ONLINE, mirror-0) in 'bulk' with ata-FAKE_sdy (4.0GB)
+
+Command:
+  zpool replace bulk /dev/disk/by-id/ata-A-part1 /dev/disk/by-id/ata-FAKE_sdy
+
+ZFS copies the data onto the new disk in the background (resilver); the pool stays usable.
+ALL DATA on ata-FAKE_sdy will be erased.
+
+Dry run: nothing changed.

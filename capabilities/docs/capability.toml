@@ -1,0 +1,11 @@
+# Manifest of a capability (docs/PLAN-modular-core.md). See capabilities/metrics/capability.toml for the fields.
+name = "docs"
+title = "Documentation in the web interface (guides and command reference)"
+title_de = "Dokumentation in der Weboberfläche (Anleitungen und Befehlsübersicht)"
+kind = "feature"
+requires = []
+provides = []
+needs = []
+# No NixOS module: this capability is scripts and a web page. configuration.nix switches it on with the web interface
+# (webUi = true) unless machine.toml says webDocs = false; the list goes to /etc/hs/capabilities like the others.
+notes = "NOTES.md"

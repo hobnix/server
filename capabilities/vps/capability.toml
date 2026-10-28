@@ -1,0 +1,12 @@
+# Manifest of a capability (docs/PLAN-modular-core.md). See capabilities/metrics/capability.toml for the fields.
+name = "vps"
+title = "Proxyserver (VPS) as the front door"
+title_de = "Proxyserver (VPS) als Eingangstor"
+kind = "feature"
+requires = []
+provides = []
+needs = []
+# No NixOS module: this capability is scripts and web pages. It counts as on when one of these runtime settings
+# is set (scripts/lib/setting.sh), so setting vpsHost or proxyStatusUrl is all it takes; no rebuild.
+implied_by = ["vpsHost", "proxyStatusUrl"]
+notes = "NOTES.md"

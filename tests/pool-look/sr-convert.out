@@ -1,0 +1,9 @@
+Plan: convert the data disk data-02 in 'bulk' (xfs)
+  1. stop putting new files on it
+  2. move its 1.0GB onto the other data disks (3.0GB free)
+  3. erase it and format it again as data-02 (xfs)
+  4. the parity follows with the next scheduled sync
+Moving the files can take hours. The moved files exist once until that sync, like every new file.
+ALL DATA on the disk is erased after it was moved.
+
+Dry run: nothing changed.
