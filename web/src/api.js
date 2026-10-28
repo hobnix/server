@@ -81,5 +81,6 @@ export async function get(path, fresh = false) {
 }
 
 // A change is always a plan first, then a start (with the typed word when the plan has a confirm_name).
-export const plan = (area, args, stdin) => call('POST', '/api/plan', { area, args, ...(stdin ? { stdin } : {}) });
-export const start = (area, args, confirm, stdin) => call('POST', '/api/start', { area, args, ...(confirm ? { confirm } : {}), ...(stdin ? { stdin } : {}) });
+// selection: the file manager's list of item names (the server hands it to the script on stdin, NUL separated)
+export const plan = (area, args, stdin, selection) => call('POST', '/api/plan', { area, args, ...(stdin ? { stdin } : {}), ...(selection ? { selection } : {}) });
+export const start = (area, args, confirm, stdin, selection) => call('POST', '/api/start', { area, args, ...(confirm ? { confirm } : {}), ...(stdin ? { stdin } : {}), ...(selection ? { selection } : {}) });

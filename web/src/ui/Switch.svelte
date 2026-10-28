@@ -1,4 +1,5 @@
 <script>
+  import { tip } from './tooltip.svelte.js';
   // Switch (outline track, small square thumb) and, with `box`, the checkbox (button with a check). A disabled cell shows its REASON as the
   // tooltip and, with `showReason`, as small text next to it, so "why can't I?" never needs a click.
   //   <Switch bind:checked label="Backup" />   <Switch box checked disabled reason="Email cannot carry a heartbeat" />
@@ -13,7 +14,7 @@
 
 <span class="sw">
   <button type="button" class={box ? 'cbx' : 'tog'} role={box ? 'checkbox' : 'switch'} aria-checked={checked} aria-label={label || undefined}
-          aria-disabled={disabled || undefined} class:off={disabled} title={disabled ? reason || undefined : undefined} onclick={toggle}></button>
+          aria-disabled={disabled || undefined} class:off={disabled} use:tip={disabled ? reason : ''} onclick={toggle}></button>
   {#if disabled && reason && showReason}<span class="why">{reason}</span>{/if}
 </span>
 

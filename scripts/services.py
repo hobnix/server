@@ -38,7 +38,7 @@ import sys
 import tomllib
 
 EXPOSURES = ('never-public', 'private-ok', 'public-ok')
-WANTS = ('reverse-proxy', 'dns', 'dashboard', 'monitoring', 'private-access')
+WANTS = ('reverse-proxy', 'local-proxy', 'dns', 'dashboard', 'monitoring', 'private-access')
 NAME = re.compile(r'^[a-z0-9][a-z0-9-]{0,40}$')
 LABEL = re.compile(r'^[a-z0-9]([a-z0-9-]*[a-z0-9])?$')
 FQDN = re.compile(r'^([a-z0-9]([a-z0-9-]*[a-z0-9])?\.)+[a-z]{2,}$')
@@ -269,13 +269,13 @@ def read_info(path):
     return info
 
 
-def read_routes(path):
+def read_routes(path, keep_https=False):
     out = []
     with open(path, encoding='utf-8') as f:
         for line in f:
             c = line.rstrip('\n').split('\t')
             if len(c) >= 3 and c[0]:
-                out.append((c[0].lower(), c[1] or '/', norm_target(c[2]), c[3] if len(c) > 3 else ''))
+                out.append((c[0].lower(), c[1] or '/', norm_target(c[2], keep_https), c[3] if len(c) > 3 else ''))
     return out
 
 
@@ -301,14 +301,19 @@ def read_addrs(path):
     return out
 
 
-def norm_target(t):
-    """host:port of a target, without scheme and path (a missing port is 80)"""
-    t = re.sub(r'^https?://', '', t.strip())
+def norm_target(t, keep_https=False):
+    """host:port of a target, without scheme and path (a missing port is 80); keep_https: the local slot keeps https://"""
+    t = t.strip()
+    https = keep_https and t.startswith('https://')
+    t = re.sub(r'^https?://', '', t)
     t = t.split('/')[0]
-    return t if re.search(r':[0-9]+$', t) else t + ':80'
+    t = t if re.search(r':[0-9]+$', t) else t + ':80'
+    return 'https://' + t if https else t
 
 
-def desired_hosts(s, info):
+def desired_hosts(s, info, slot='public'):
+    if slot == 'local':   # fqdn is a public name: the local slot only has <label>.<local domain>
+        return ['%s.%s' % (n, dom) for n in s.get('names', [s['name']]) for dom in info['domains']]
     hosts = ['%s.%s' % (n, dom) for n in s.get('names', [s['name']]) for dom in info['domains']]
     return hosts + list(s.get('fqdn', []))
 
@@ -321,20 +326,25 @@ def address_of(s, addrs):
 
 # ── the plan ───────────────────────────────────────────────────────────────
 
-def make_plan(d, info, routes, addrs, owned=frozenset()):
+def make_plan(d, info, routes, addrs, owned=frozenset(), slot='public', explicit=None):
+    want_key = 'reverse-proxy' if slot == 'public' else 'local-proxy'
+    explicit = explicit or {}
     have = {(h, p): (t, i) for h, p, t, i in routes}
     claimed, out, wants = set(), [], {}
     for name, s in load_all(d).items():
         if '_error' in s or problems(name, s):
             out.append(('invalid', '-', '-', '-', name, 'fix the descriptor: hs services check'))
             continue
-        if not s.get('want', {}).get('reverse-proxy'):
+        if not s.get('want', {}).get(want_key):
             continue
         exposure = s.get('exposure', 'private-ok')
         ip = address_of(s, addrs)
-        hosts = desired_hosts(s, info)
+        hosts = desired_hosts(s, info, slot)
         if not hosts:
-            out.append(('blocked', '-', '-', '-', name, 'no host name: the proxy has no domain (hs config set proxyDomains) and the service no fqdn'))
+            if slot == 'local':
+                out.append(('blocked', '-', '-', '-', name, 'no local domain: the gateway proxy needs adDomain in machine.toml'))
+            else:
+                out.append(('blocked', '-', '-', '-', name, 'no host name: the proxy has no domain (hs config set proxyDomains) and the service no fqdn'))
             continue
         if info['public'] and exposure != 'public-ok':
             why = 'never-public' if exposure == 'never-public' else 'private-ok'
@@ -350,7 +360,9 @@ def make_plan(d, info, routes, addrs, owned=frozenset()):
             out.append(('unresolved', ','.join(hosts), '-', '-', name, 'no address for %s (is it running?)' % s.get('container')))
             continue
         target = '%s:%s' % (ip, s['port'])
-        paths = s.get('public_paths', []) if info['public'] else []
+        if slot == 'local' and s.get('scheme') == 'https':
+            target = 'https://' + target
+        paths = s.get('public_paths', []) if info['public'] and slot == 'public' else []
         for h in hosts:
             wanted = [('/', DEAD_END)] + [(p, target) for p in paths] if paths else [('/', target)]
             for p, t in wanted:
@@ -363,11 +375,17 @@ def make_plan(d, info, routes, addrs, owned=frozenset()):
         claimed.add((h, p))
         if (h, p) not in have:
             act = 'confirm' if info['public'] else 'add'
-            out.append((act, h, p, t, name, 'public-ok on a public proxy: needs a typed confirmation' if act == 'confirm' else ''))
+            note = 'public-ok on a public proxy: needs a typed confirmation' if act == 'confirm' else ''
+            if h in explicit:
+                note = 'an explicit DNS record %s beats the wildcard: this name goes straight to %s, not through the gateway' % (h, explicit[h])
+            out.append((act, h, p, t, name, note))
         elif have[(h, p)][0] != t:
             out.append(('change', h, p, t, name, 'now %s%s' % (have[(h, p)][0], '' if (h, p) in owned else '; not made by hs: adopt it first (hs services adopt)')))
         else:
-            out.append(('ok', h, p, t, name, '' if (h, p) in owned else 'not adopted (hs services adopt)'))
+            note = '' if (h, p) in owned else 'not adopted (hs services adopt)'
+            if h in explicit:
+                note = 'an explicit DNS record %s beats the wildcard: this name goes straight to %s, not through the gateway' % (h, explicit[h])
+            out.append(('ok', h, p, t, name, note))
     for (h, p), (t, i) in sorted(have.items()):
         if (h, p) not in claimed:
             if (h, p) in owned:
@@ -462,6 +480,29 @@ def make_import(d, info, routes, addrs):
             rows.append(('skip', name, target_of(s), e['exposure'], ','.join(e['hosts']), 'a service of that name exists', s))
         else:
             rows.append(('create', name, target_of(s), e['exposure'], ','.join(e['hosts']), note, s))
+    return rows
+
+
+def read_explicit(path):
+    """name -> value of the DNS records that exist (hs sys dns list: name TAB type TAB value): an explicit record beats the wildcard"""
+    out = {}
+    if path and os.path.exists(path):
+        with open(path, encoding='utf-8') as f:
+            for line in f:
+                c = line.rstrip('\n').split('\t')
+                if len(c) >= 3 and c[0] and not c[0].startswith('*'):
+                    out[c[0].lower()] = c[2]
+    return out
+
+
+def make_local_import(d):
+    """the migration: every valid descriptor without a local-proxy want gets local-proxy = true (a person's false stays).
+       Rows: (act, service, names, target, descriptor); act is enable."""
+    rows = []
+    for name, s in load_all(d).items():
+        if '_error' in s or problems(name, s) or 'local-proxy' in s.get('want', {}):
+            continue
+        rows.append(('enable', name, ','.join(s.get('names', [name])), target_of(s), s))
     return rows
 
 
@@ -612,12 +653,24 @@ def main(argv):
     if cmd in ('plan', 'import'):
         info_f, routes_f, addrs_f = opt(args, '--info'), opt(args, '--routes'), opt(args, '--addrs')
         do_write = flag(args, '--write')
+        if cmd == 'import' and opt(args, '--slot', 'public') == 'local':   # the migration reads the descriptors only
+            for row in make_local_import(d):
+                *shown, s = row
+                print('\t'.join(shown))
+                if do_write:
+                    s.setdefault('want', {})['local-proxy'] = True
+                    write(d, s)
+            return 0
         if not (info_f and routes_f and addrs_f):
             die('%s needs --info, --routes and --addrs' % cmd)
         owned_f = opt(args, '--owned')
-        info, routes, addrs = read_info(info_f), read_routes(routes_f), read_addrs(addrs_f)
+        slot = opt(args, '--slot', 'public')
+        explicit_f = opt(args, '--explicit')
+        if slot not in ('public', 'local'):
+            die('--slot must be public or local')
+        info, routes, addrs = read_info(info_f), read_routes(routes_f, slot == 'local'), read_addrs(addrs_f)
         if cmd == 'plan':
-            for row in make_plan(d, info, routes, addrs, read_owned(owned_f)):
+            for row in make_plan(d, info, routes, addrs, read_owned(owned_f), slot, read_explicit(explicit_f)):
                 print('\t'.join(row))
             return 0
         for row in make_import(d, info, routes, addrs):

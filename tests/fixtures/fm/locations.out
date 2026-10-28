@@ -1,0 +1,11 @@
+status	ok
+write	yes
+loc	disk:data-04	disk	data-04	tmpfs	16737280000	16736927744	yes	-	bulk	data-04
+loc	disk:data-05	disk	data-05	tmpfs	16737280000	16736927744	yes	-	bulk	data-05
+loc	disk:data-06	disk	data-06	tmpfs	16737280000	16736927744	no	closed: it takes no new files (hs pool bulk open data-06)	bulk	data-06
+loc	disk:data-08	disk	data-08	tmpfs	16737280000	16736927744	no	detached: out of the pool, a source only	bulk	data-08
+loc	pool:bulk	pool	bulk	tmpfs	16737280000	16736927744	yes	-	bulk	-
+loc	pool:fast	pool	fast	tmpfs	16737280000	16736927744	yes	-	fast	-
+loc	cache:bulk	cache	bulk cache	tmpfs	16737280000	16736927744	yes	-	-	-
+loc	share:media	share	media	tmpfs	16737280000	16736927744	yes	-	bulk	-
+loc	temp:usb	temp	usb	tmpfs	16737280000	16736927744	no	temporary disk: a source only	-	-

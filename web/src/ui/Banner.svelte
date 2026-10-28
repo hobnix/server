@@ -13,7 +13,7 @@
 </div>
 
 <style>
-  .banner { --c: var(--warn); display: flex; align-items: center; gap: 12px; flex-wrap: wrap; padding: 10px 14px; border: 1px solid color-mix(in oklch, var(--c) 45%, var(--line)); border-radius: var(--r); background: color-mix(in oklch, var(--c) 11%, var(--panel)); }
+  .banner { --c: var(--warn); display: flex; align-items: center; gap: 12px; flex-wrap: wrap; padding: 10px 14px; border: 1px solid color-mix(in oklab, var(--c) 45%, var(--line)); border-radius: var(--r); background: color-mix(in oklab, var(--c) 11%, var(--panel)); }
   .banner.bad { --c: var(--bad); }
   .banner.info { --c: var(--info); }
   .banner.ok { --c: var(--ok); }

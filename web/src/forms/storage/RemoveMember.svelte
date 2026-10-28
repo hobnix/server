@@ -1,4 +1,5 @@
 <script>
+  import { tip } from '../../ui/tooltip.svelte.js';
   // Remove a member (SnapRAID: a single disk) or detach one from a ZFS mirror (hs sys pool plan|start <pool> remove --member <name> [--mode detach|vdev|move|nomove]).
   // The plan is red and the server names the word to type (the disk).
   import CreateDialog from '../../shell/CreateDialog.svelte';
@@ -35,7 +36,7 @@
         <p class="what">Before you replace it, look for a simple cause: the cable, the port and the power; an encrypted disk that is still locked (<code>hs unlock</code>);
           <code>hs disk list</code> and <code>lsblk -o NAME,LABEL,SIZE</code> show whether the disk is there at all. Replacing needs the parity to be in good order and no more
           disks missing than there are parity disks.</p>
-        <button class="btn btn-primary" onclick={() => openCreate(ReplaceMember, { pool, member, snap })}><i class="ph ph-swap"></i>Replace {member}…</button>
+        <button use:tip={'Replace the disk instead of removing it'} class="btn btn-primary" onclick={() => openCreate(ReplaceMember, { pool, member, snap })}><i class="ph ph-swap"></i>Replace {member}…</button>
       </div>
     {:else if !snap}
       <div class="field">

@@ -1,4 +1,5 @@
 <script>
+  import { tip } from '../ui/tooltip.svelte.js';
   import PageHeader from '../shell/PageHeader.svelte';
   import { poll, rows } from '../data.svelte.js';
   import { bytes, pct, duration } from '../format.js';
@@ -62,7 +63,7 @@
 
 <div class="page">
   <PageHeader title="Hardware" crumb="Monitoring" sub="Sensors, fans and the UPS of this server.">
-    {#snippet actions()}<button class="btn btn-secondary" title="Run the fans at full speed for a few seconds to blow dust out of the case" onclick={() => openPlan('admin', ['fans-clean'], 'Clean the fans')}><i class="ph ph-fan"></i>Clean fans</button>{/snippet}
+    {#snippet actions()}<button class="btn btn-secondary" use:tip={'Run the fans at full speed for a few seconds'} onclick={() => openPlan('admin', ['fans-clean'], 'Clean the fans')}><i class="ph ph-fan"></i>Clean fans</button>{/snippet}
   </PageHeader>
 
   <div class="grid">

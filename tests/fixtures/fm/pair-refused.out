@@ -1,0 +1,2 @@
+status	refused
+reason	Same files as data-04: a pool disk and the pool view of its array show the same files, and copying onto the same file truncates it. Use the pool view on both sides, or two different disks.

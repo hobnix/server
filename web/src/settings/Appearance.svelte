@@ -1,4 +1,5 @@
 <script>
+  import { tip } from '../ui/tooltip.svelte.js';
   // The Appearance block of the Settings page: the halftone effect, live. The preview is a real <Halftone /> with no look props, so it shows what
   // every slot gets (web/src/halftone.svelte.js holds the choices in this browser only). Mounted by pages/Settings.svelte: <Appearance />.
   import Halftone from '../shell/Halftone.svelte';
@@ -67,7 +68,7 @@
     </div>
 
     <div class="actions">
-      <button type="button" class="btn" onclick={resetHalftone} disabled={isDefault()}>Reset to default</button>
+      <button use:tip={isDefault() ? 'Already the default' : 'Put the background pattern back to the default'} type="button" class="btn" onclick={resetHalftone} disabled={isDefault()}>Reset to default</button>
       <button type="button" class="btn btn-ghost" onclick={toggleTheme}>{theme.dark ? 'Switch to light theme' : 'Switch to dark theme'}</button>
     </div>
     <p class="note">Kept in this browser only. The accent colour comes from the server setting.</p>

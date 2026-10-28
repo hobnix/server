@@ -13,6 +13,7 @@ export const tree = [
           ] },
           { label: 'Disks', icon: 'hard-drive', path: '/storage/disks', storage: true },
           { label: 'Shares', icon: 'folders', path: '/storage/shares', storage: true },
+          { label: 'Files', icon: 'folder-open', path: '/storage/files', storage: true },
           { label: 'Encryption', icon: 'lock-key', path: '/storage/encryption' },
           { label: 'Vault', icon: 'vault', path: '/storage/vault' },
         ],

@@ -10,10 +10,12 @@ edge-ports		Edge node: public game and call ports
 edge-status		Edge node: status document
 edge-watcher		Edge node: outside watcher of the home server
 games		Game PCs (wake, list) and the Game streaming page
+gateway		Gateway proxy (Traefik: local names for the services)
 incus		Incus (containers and VMs, VLAN profiles)
 metrics		Metrics (Prometheus on this server)
 network	networkProvider	Router connection (fixed addresses for instances)
 notifications	notifyUrl,notifyUrlSecond,notifications	Notification channels (ntfy and other providers)
+passthrough		Passthrough domains (outside domains to reverse proxies on the LAN)
 posters		Posters drawn from the command line or the web interface
 reverse-proxy	reverseProxy	Reverse proxy (publishes the services)
 samba		Samba shares and network discovery

@@ -25,6 +25,11 @@ case "$*" in
   "-nr -o LABEL /dev/sdd") echo backup ;;
   "-nr -o MOUNTPOINT /dev/sdb") printf '/boot\n/\n' ;;
   "-nr -o MOUNTPOINT /dev/sdf") echo /mnt/other ;;
+  "-nr -o FSTYPE,MOUNTPOINT /dev/sda") printf 'crypto_LUKS \nxfs /mnt/bulk/data-01\n' ;;   # LUKS: the filesystem inside the mapping
+  "-nr -o FSTYPE,MOUNTPOINT /dev/sdb") printf 'vfat /boot\next4 /\n' ;;
+  "-nr -o FSTYPE,MOUNTPOINT /dev/sdc") printf 'zfs_member \nzfs_member \n' ;;
+  "-nr -o FSTYPE,MOUNTPOINT /dev/sdd") printf 'ext4 \n' ;;
+  "-nr -o FSTYPE,MOUNTPOINT /dev/sdf") printf 'btrfs /mnt/other\n' ;;   # sde: nothing at all
 esac
 FAKE
 cat > "$BIN/zpool" <<'FAKE'
@@ -75,17 +80,17 @@ out=$(bash "$SCRIPTS/monitor.sh" --disks)
 
 echo "-- hs sys monitor disks"
 check_eq "only real disks: no zvol, no DVD" "6" "$(wc -l <<<"$out" | tr -d ' ')"
-check_eq "a bulk data disk: HDD, role from the label, health and counters" $'sda\t4000000000000\tHDD\tbulk data-01\t35\tOK\t1000\t0\t0\t3\tST4000VN006 ZXX1	2000000000000	asleep' "$(grep '^sda' <<<"$out")"
-check_eq "the system disk: SSD, role system, a failing SMART verdict" $'sdb\t250000000000\tSSD\tsystem\t41\tFAIL\t20000\t-\t-\t-\tSamsung_850 S2	100000000000	-' "$(grep '^sdb' <<<"$out")"
+check_eq "a bulk data disk: HDD, role from the label, health and counters" $'sda\t4000000000000\tHDD\tbulk data-01\t35\tOK\t1000\t0\t0\t3\tST4000VN006 ZXX1	2000000000000	asleep	xfs' "$(grep '^sda' <<<"$out")"
+check_eq "the system disk: SSD, role system, a failing SMART verdict" $'sdb\t250000000000\tSSD\tsystem\t41\tFAIL\t20000\t-\t-\t-\tSamsung_850 S2	100000000000	-	ext4' "$(grep '^sdb' <<<"$out")"
 check_out "a ZFS member: the pool is the role, asleep is not woken" $'^sdc\t2000000000000\tSSD\tfast\t-\tasleep\t' echo "$out"
 check_out "the backup disk has its own role" $'^sdd\t.*\tbackup disk\t' echo "$out"
 check_out "an empty disk is free, and no SMART data gives dashes" $'^sde\t1000000000000\tSSD\tfree\t-\t-\t-\t-\t-\t-\tBlank S5' echo "$out"
 check_out "a disk mounted elsewhere is mounted" $'^sdf\t.*\tmounted\t' echo "$out"
-check_out "a ZFS member: the free space of its mirror" $'^sdc\t.*\t1500398934016\t-$' echo "$out"
-check_out "a bulk disk and a mounted disk: the free space of the filesystem" $'^sdf\t.*\t300000000000\t-$' echo "$out"
-check_out "a disk that is not mounted (backup disk, free disk) has no free space" $'^sdd\t.*\t-\t-$' echo "$out"
-check_out "an empty disk: all of it is free (nothing is used on it)" $'^sde	.*Blank S5	1000000000000	-$' echo "$out"
-check_eq "every line has 13 tab separated fields" "" "$(awk -F'\t' 'NF != 13 { print NR": "NF }' <<<"$out")"
+check_out "a ZFS member: the free space of its mirror" $'^sdc\t.*\t1500398934016\t-	zfs$' echo "$out"
+check_out "a bulk disk and a mounted disk: the free space of the filesystem" $'^sdf\t.*\t300000000000\t-	btrfs$' echo "$out"
+check_out "a disk that is not mounted (backup disk, free disk) has no free space" $'^sdd\t.*\t-\t-\text4$' echo "$out"
+check_out "an empty disk says none for the filesystem, a LUKS disk the one inside, the system disk the one on /" $'^sde\t.*Blank S5\t.*\t-\tnone$' echo "$out"
+check_eq "every line has 14 tab separated fields" "" "$(awk -F'\t' 'NF != 14 { print NR": "NF }' <<<"$out")"
 
 check_eq "hdparm -C only asks the rotating disk" "-C /dev/sda" "$(sort -u "$HDPARM_CALLS")"
 

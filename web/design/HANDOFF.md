@@ -107,8 +107,37 @@ Build each once and reuse it. `Components.dc.html` shows them in dark and light.
 | Expiry, Hardware, Diagnostics, Setup, Docs, Settings | Settings holds part switches, extension switches and a pointer to Nodes. |
 | Extensions | Generic page (Game streaming, Posters) built from the standard table, drawer and plan dialog. |
 | Remote nodes | vps-edge: Mail entry, Ports, Outside watcher, Certificate, Tailscale, Settings. cousin-nas: read-only summaries. |
+| Files | Two-pane file manager under Storage. Locked rows, plan dialogs for every operation, job progress. See the Files section below; boards FilesStates and PhoneFiles. |
 
 Most pages besides the first group are built from one data-driven pattern in `Main.dc.html` (`genSpec`): a page is a title, optional tabs, and blocks (table, key-value, cards, text, empty). Implement it as one reusable page renderer, not as separate hand-built screens.
+
+## Files (file manager)
+
+Storage > Files is a two-pane file manager in the spirit of Midnight Commander. The full behaviour is in the plan `PLAN-file-manager.md`; this section only says where the design shows it and what was decided. Files: the page is in `Main.dc.html` (tree entry Files under Storage, locked when storage is locked), the static behaviours and states are on `FilesStates.dc.html`, and the phone layout is `PhoneFiles.dc.html`. In `Main`, the `fm` tweak switches between normal, same-files, loading, empty, error, readonly, running and finished.
+
+- **Two panes.** Each pane has a location button (opens the grouped picker), breadcrumbs with an Up button, a free-space bar, a selection line and a sortable list with a checkbox column. The active pane has the accent marker. Left and right can show any location; a Left/Right switcher replaces the second pane on phone.
+- **Locations.** Disks (data-01…), pools (bulk merged view, fast), the bulk cache, shares and temporary disks. The picker groups them like the Combobox popover. A location that is not allowed as the other side stays visible, greyed, with its reason (for example "Same files as data-04" or "Out for recovery").
+- **Selection.** Click selects one, Ctrl/Cmd toggles, Shift selects a range, the checkbox column toggles without modifiers, Ctrl+A all, `*` inverts, `+` and `-` select or deselect by pattern. A tray collects items from several folders.
+- **Keyboard (Midnight Commander habits).** Arrow keys, Space/Insert, Enter, Backspace, Tab switches pane, F2 rename, F3 info, F5 copy, F6 move, F7 new folder, F8 delete, Esc clears, `?` opens the shortcut list. Every key is also a button in the toolbar.
+- **Operations never run directly.** Copy, Move, Delete, Rename and New folder open the plan dialog (steps, facts, warnings). Copy and move show a conflict policy (skip existing by default, rename new file, overwrite if newer, overwrite always) and a conflict table found by a dry run. Overwrite turns the dialog red and needs the target name typed. Delete is permanent, red, and needs the typed count. Move offers a parity note and an option to update the parity afterwards.
+- **Refusal rule.** A pool disk and the pool view or share of the same array are the same files. Copying or moving between them is refused with a plan dialog that only has Close and explains why. The same rule must be enforced on the server, not only in the UI.
+- **Locked rows.** A row that cannot be selected is dimmed, has a dimmed checkbox and a tag that says why. Two reasons: (1) SnapRAID folders: `shares` and `sensitive` at the root of a bulk disk are array folders, not system disks but treated like them. They can be opened but never selected, so they cannot be moved, renamed or deleted. System entries such as `lost+found` and `snapraid.content` carry a "system" tag and cannot be opened. (2) A running job: every item a move or delete job is working on shows a blue "Moving · 34 %" tag and is disabled; its parent folders show "Job running inside" and can still be opened. This holds in the disk, pool and share views, because they are the same files.
+- **Progress.** While a job runs, a banner on the page shows files, bytes, speed, time left and Cancel. The Jobs drawer shows the row. Cancelled keeps what was copied and removes nothing unverified. The result lists moved, skipped and failed items. A long job also sends a notification when it ends.
+- **Drag and drop (desktop only).** Dragging the selection onto the other pane or onto a folder row opens the copy plan; Shift means move. A drop never starts anything by itself. Drag and drop and the tray are shown on `FilesStates` but are not interactive in `Main`.
+- **Info drawer (F3).** Size, modified, owner and mode, path, and on a pool view which disks hold the file ("On disk" chips also appear in the list for pool and share views).
+- **States.** Loading, empty folder, error (last listing greyed, Try again), storage locked, read-only location, job running here, no access, partial listing with Load more.
+- **Phone.** One pane at a time with the switcher, selection mode with a bottom bar, full-screen plan dialog, no drag and drop.
+
+Open decisions for the Files page (the design assumes the recommendation in each):
+
+- [ ] Delete is permanent with no trash; snapshots and the backup are the safety net.
+- [ ] Overwrite is never the default and never offered together with a move.
+- [ ] Checksum verification is optional and off by default.
+- [ ] Fast and Incus folders are offered as locations in version one.
+- [ ] Temporary disks can be a source; a read-only one is never a target.
+- [ ] Should the pool view's top-level folders be locked like the SnapRAID folders on the disks?
+- [ ] Should a second move be refused while one is running on the same folder, or only its own items locked as designed?
+- [ ] Sample data: the Pools page labels bulk as raidz1, the Files page treats it as a SnapRAID array with a merged view. Align one of them to the real setup.
 
 ## Decisions from review
 

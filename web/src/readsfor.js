@@ -37,6 +37,7 @@ export function readsFor(path) {
     case '/storage/pools': return [`${A}pool/info?pool=bulk`, `${A}pool/info?pool=fast`, `${A}monitor/disks`];
     case '/storage/disks': case '/storage/unassigned': return DISKS;
     case '/storage/shares': return SHARES;
+    case '/storage/files': return [`${A}fm/locations`];
     case '/settings': return [`${A}config/list`];
     case '/setup': return [`${A}setup/list`];
     case '/nodes': return [`${A}node/list`];

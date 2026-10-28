@@ -4,7 +4,7 @@
 //   nextOrder(order, col)           -> the order a click on the header of `col` leads to: ascending, descending, none
 //
 // A column compares `col.value(row)` (else row[col.key]) as text ('text', natural order: "disk2" before "disk10"), as numbers ('num') or with its own
-// function. An empty value (null, undefined, '', '-', NaN) always sorts last, whichever way the table is sorted; equal values keep the data's order.
+// function. `first(row)` (optional) keeps the rows it is true for above the others in either direction. An empty value (null, undefined, '', '-', NaN) always sorts last, whichever way the table is sorted; equal values keep the data's order.
 const text = new Intl.Collator(undefined, { numeric: true, sensitivity: 'base' });
 
 export const valueOf = (col, row) => (col.value ? col.value(row) : row[col.key]);
@@ -16,7 +16,7 @@ function compare(col) {
   return (a, b) => text.compare(String(a), String(b));
 }
 
-export function sortRows(rows, columns, order) {
+export function sortRows(rows, columns, order, first = null) {
   if (!order) return rows;
   const col = columns.find((c) => c.key === order.key);
   if (!col || col.sort === false) return rows;
@@ -25,6 +25,7 @@ export function sortRows(rows, columns, order) {
   return rows
     .map((r, i) => ({ r, i, v: valueOf(col, r) }))
     .sort((x, y) => {
+      if (first) { const fx = first(x.r), fy = first(y.r); if (fx !== fy) return fx ? -1 : 1; }   // e.g. folders stay on top whichever way it is sorted
       const bx = blank(x.v), by = blank(y.v);
       if (bx || by) return bx === by ? x.i - y.i : bx ? 1 : -1;
       return sign * cmp(x.v, y.v) || x.i - y.i;

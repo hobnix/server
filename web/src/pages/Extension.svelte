@@ -1,4 +1,5 @@
 <script>
+  import { tip } from '../ui/tooltip.svelte.js';
   // The page of an extension package at /extensions/<name>: the package's own [web.page] declaration (capabilities/<name>/capability.toml; the server
   // sends it in the session answer, features.extensions, only while the package is on), drawn by GenericPage. The declaration names its reads by their
   // words ("list"); here they become the paths of the generic read API (/api/sys/ext/<name>/list).
@@ -8,9 +9,10 @@
   import { ui } from '../ui.svelte.js';
   import PcForm from '../forms/ops/PcForm.svelte';
   import PosterForm from '../forms/ops/PosterForm.svelte';
+  import PassthroughForm from '../forms/ops/PassthroughForm.svelte';
 
   // the dialogs a declaration may name (`form = "PcForm"`): a closed list, a package cannot bring its own code
-  const forms = { PcForm, PosterForm };
+  const forms = { PcForm, PosterForm, PassthroughForm };
 
   const name = $derived(route.path.split('/')[2] ?? '');
   const page = $derived((ui.features.extensions ?? []).find((p) => p.name === name));
@@ -32,6 +34,6 @@
   {#key name}<GenericPage {spec} {forms} />{/key}
 {:else}
   <div class="card"><EmptyState tone="info" icon="power" title="This extension is switched off" text="It is not part of this server's configuration, so there is nothing to show. Switch it on with hs ext enable, or in Settings.">
-    {#snippet action()}<button class="btn" onclick={() => go('/settings')}><i class="ph ph-sliders"></i>Open Settings</button>{/snippet}
+    {#snippet action()}<button use:tip={'Open the settings page'} class="btn" onclick={() => go('/settings')}><i class="ph ph-sliders"></i>Open Settings</button>{/snippet}
   </EmptyState></div>
 {/if}

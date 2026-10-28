@@ -1,0 +1,12 @@
+# Manifest of a capability (docs/PLAN-modular-core.md). See capabilities/metrics/capability.toml for the fields.
+name = "gateway"
+title = "Gateway proxy (Traefik: local names for the services)"
+title_de = "Gateway-Proxy (Traefik: lokale Namen für die Dienste)"
+kind = "provider"
+requires = []
+# the local slot of the reverse proxy; a variant is a script scripts/providers/reverse-proxy/<variant>.sh
+provides = ["local-proxy"]
+variants = ["traefik"]
+needs = []
+nix = "module.nix"
+notes = "NOTES.md"

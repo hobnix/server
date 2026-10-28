@@ -1,4 +1,5 @@
 <script>
+  import { tip } from '../ui/tooltip.svelte.js';
   import { poll, rows } from '../data.svelte.js';
   import { get } from '../api.js';
   import { ui, openPlan } from '../ui.svelte.js';
@@ -82,8 +83,8 @@
 <div class="page">
   <PageHeader title="Settings" crumb={ui.host} sub="/etc/nixos/machine.toml and the settings that need no rebuild.">
     {#snippet actions()}
-      <button class="btn b13" onclick={runCheck} disabled={chkBusy}><i class="ph ph-check-square"></i>Check</button>
-      <button class="btn btn-primary b13" disabled title="Run hs rebuild on the server to apply the settings"><i class="ph ph-hammer"></i>Apply · rebuild</button>
+      <button use:tip={chkBusy ? 'A check is running' : 'Look for typos and missing values in machine.toml'} class="btn b13" onclick={runCheck} disabled={chkBusy}><i class="ph ph-check-square"></i>Check</button>
+      <button class="btn btn-primary b13" disabled use:tip={'Run hs rebuild on the server to apply the settings'}><i class="ph ph-hammer"></i>Apply · rebuild</button>
     {/snippet}
   </PageHeader>
 
@@ -93,7 +94,7 @@
         <i class="ph ph-{chkError || chk.rc !== 0 ? 'warning-circle' : 'check-circle'}" style="color:{chkError || chk.rc !== 0 ? 'var(--st-bad)' : 'var(--st-ok)'}"></i>
         <span>{chkError ? 'The check could not run.' : chk.rc === 0 ? 'machine.toml is fine' : 'machine.toml has problems'}</span>
         <span style="flex:1"></span>
-        <button class="btn btn-ghost btn-icon x" aria-label="Close" onclick={() => { chk = null; chkError = ''; }}><i class="ph ph-x"></i></button>
+        <button use:tip={'Close the result'} class="btn btn-ghost btn-icon x" aria-label="Close" onclick={() => { chk = null; chkError = ''; }}><i class="ph ph-x"></i></button>
       </div>
       <pre>{chkError || chk.text.trim()}</pre>
     </div>
@@ -110,7 +111,7 @@
           <StatusDot state={p.on ? 'ok' : 'off'} label={p.on ? 'on' : 'off'} bare />
           <div class="pt"><code>{p.name}</code><span class="hp">{p.title}</span></div>
           {#if p.nix}<Chip>rebuild</Chip>{/if}
-          <button class="btn sm" disabled={!p.canSwitch} onclick={() => flip(p)}>{p.on ? 'Switch off…' : 'Switch on…'}</button>
+          <button use:tip={!p.canSwitch ? 'This part cannot be switched here' : p.on ? 'Switch this part off (shows the plan)' : 'Switch this part on (shows the plan)'} class="btn sm" disabled={!p.canSwitch} onclick={() => flip(p)}>{p.on ? 'Switch off…' : 'Switch on…'}</button>
         </div>
       {:else}
         <div class="hp2">{partList.loaded ? (partList.error ? 'The parts could not be read.' : 'No optional parts.') : 'Loading…'}</div>
@@ -124,7 +125,7 @@
           <StatusDot state={p.on ? 'ok' : 'off'} label={p.on ? 'on' : 'off'} bare />
           <div class="pt"><code>{p.name}</code><span class="hp">{p.title}</span></div>
           {#if p.nix}<Chip>rebuild</Chip>{/if}
-          <button class="btn sm" disabled={!p.canSwitch} onclick={() => flip(p)}>{p.on ? 'Switch off…' : 'Switch on…'}</button>
+          <button use:tip={!p.canSwitch ? 'This part cannot be switched here' : p.on ? 'Switch this part off (shows the plan)' : 'Switch this part on (shows the plan)'} class="btn sm" disabled={!p.canSwitch} onclick={() => flip(p)}>{p.on ? 'Switch off…' : 'Switch on…'}</button>
         </div>
       {:else}
         <div class="hp2">{partList.loaded ? 'No extensions on this server.' : 'Loading…'}</div>
@@ -133,7 +134,7 @@
     <div class="card sec" id="nodes">
       <div class="st">Nodes</div>
       <p class="hp2">The other servers this one looks at: {rows(nodeList).length} on the list. Adding, removing and the keys are on the Nodes page.</p>
-      <button class="btn sm" style="align-self:flex-start" onclick={() => go('/nodes')}><i class="ph ph-hard-drives"></i>Open Nodes</button>
+      <button use:tip={'Open the list of servers'} class="btn sm" style="align-self:flex-start" onclick={() => go('/nodes')}><i class="ph ph-hard-drives"></i>Open Nodes</button>
     </div>
   </div>
 
@@ -158,7 +159,7 @@
                 {:else}
                   <input class="input in ro" value={o.cur} placeholder={o.type === 'table' || o.type === 'list' ? '' : o.dflt} readonly aria-label={o.key} />
                 {/if}
-                <span class="hp" title={o.help}>{o.help}{#if d?.sent} <span class="app">· applying…</span>{/if}</span>
+                <span class="hp" use:tip={o.help}>{o.help}{#if d?.sent} <span class="app">· applying…</span>{/if}</span>
               </div>
             </div>
           {/each}

@@ -1,4 +1,5 @@
 <script>
+  import { tip } from '../ui/tooltip.svelte.js';
   // Instances: containers and VMs. Table, then a drawer (Storage, Snapshots, Logs, Route); every action opens a plan.
   // Snapshots of an instance live HERE (the Snapshots page is gone); the "in the backup" switch lives on Backup, this page only shows the badge.
   import { poll, rows, refresh } from '../data.svelte.js';
@@ -73,17 +74,18 @@
 
 <PageHeader title="Instances" crumb={ui.host} sub={cts.length ? `${running} of ${cts.length} running` : 'Containers and virtual machines.'}>
   {#snippet actions()}
-    <button class="btn" disabled={!running} title="Snapshot and update every running container, one after the other (shows the plan first)" onclick={() => openPlan('ct', ['all', 'update-all'], 'Update all')}><i class="ph ph-arrows-clockwise"></i>Update all</button>
-    <button class="btn btn-primary" onclick={() => openCreate(CreateInstance)}><i class="ph ph-plus"></i>Create</button>
+    <button class="btn" disabled={!running} use:tip={'Snapshot, then update every running container'} onclick={() => openPlan('ct', ['all', 'update-all'], 'Update all')}><i class="ph ph-arrows-clockwise"></i>Update all</button>
+    <button use:tip={'Create a new instance (a container or VM)'} class="btn btn-primary" onclick={() => openCreate(CreateInstance)}><i class="ph ph-plus"></i>Create</button>
   {/snippet}
 </PageHeader>
 
 <PageState loading={!ctl.loaded} error={ctl.error?.message} hasData={ctl.data != null} empty={ctl.loaded && !cts.length && !ctl.error}
            emptyIcon="cube" emptyTitle="No instances yet" emptyText="An instance is a container or a virtual machine. Create the first one, or set an app up from Apps."
            retry={() => refresh(['/api/sys/ct/list'])}>
-  {#snippet emptyAction()}<button class="btn btn-primary" onclick={() => openCreate(CreateInstance)}><i class="ph ph-plus"></i>Create</button>{/snippet}
+  {#snippet emptyAction()}<button use:tip={'Create a new instance (a container or VM)'} class="btn btn-primary" onclick={() => openCreate(CreateInstance)}><i class="ph ph-plus"></i>Create</button>{/snippet}
   <Split open={!!sel}>
     {#snippet list()}
+      <div class="card" style="padding:0">
       <Table id="instances" {columns} rows={cts} key="name" selected={sel?.name} onrow={(c) => { selName = c.name; }} loading={!ctl.loaded} empty="No instances.">
         {#snippet cell(c, col)}
           {#if col.key === 'name'}<span class="nm"><i class="ph ph-{ctIcon(c)} ic"></i>{c.name}</span>
@@ -98,13 +100,14 @@
             {#if s.length}<a {...link('/instances/services')}>{s[0].names && s[0].names !== '-' ? s[0].names.split(',')[0] : s[0].name}{s.length > 1 ? ` +${s.length - 1}` : ''}</a>{:else}<span class="kd">–</span>{/if}
           {:else}
             <span class="acts">
-              <button class="btn btn-ghost btn-icon ib" title={isRunning(c) ? 'Stop' : 'Start'} aria-label="{isRunning(c) ? 'Stop' : 'Start'} {c.name}" onclick={(e) => plan(e, c, isRunning(c) ? 'stop' : 'start')}><i class="ph {isRunning(c) ? 'ph-stop' : 'ph-play'}"></i></button>
-              <button class="btn btn-ghost btn-icon ib" title="Restart" aria-label="Restart {c.name}" onclick={(e) => plan(e, c, 'restart')}><i class="ph ph-arrow-clockwise"></i></button>
-              <button class="btn btn-ghost btn-icon ib nophone" title="Snapshot" aria-label="Snapshot {c.name}" onclick={(e) => plan(e, c, 'snapshot')}><i class="ph ph-camera"></i></button>
+              <button class="btn btn-ghost btn-icon ib" use:tip={isRunning(c) ? 'Stop' : 'Start'} aria-label="{isRunning(c) ? 'Stop' : 'Start'} {c.name}" onclick={(e) => plan(e, c, isRunning(c) ? 'stop' : 'start')}><i class="ph {isRunning(c) ? 'ph-stop' : 'ph-play'}"></i></button>
+              <button class="btn btn-ghost btn-icon ib" use:tip={'Restart'} aria-label="Restart {c.name}" onclick={(e) => plan(e, c, 'restart')}><i class="ph ph-arrow-clockwise"></i></button>
+              <button class="btn btn-ghost btn-icon ib nophone" use:tip={'Snapshot'} aria-label="Snapshot {c.name}" onclick={(e) => plan(e, c, 'snapshot')}><i class="ph ph-camera"></i></button>
             </span>
           {/if}
         {/snippet}
       </Table>
+      </div>
     {/snippet}
     {#snippet side()}
       {#if sel}
@@ -116,7 +119,7 @@
             <div class="bk">
               <span class="kd">Backup</span>
               {#if backupKnown && sel.name in backupOf}
-                <a {...link('/protection/backup')} title="Change this on the Backup page"><span class="tag {backupOf[sel.name] ? 'tag-accent' : 'tag-neutral'}">{backupOf[sel.name] ? 'in the backup' : 'not in the backup'}</span></a>
+                <a {...link('/protection/backup')} use:tip={'Change this on the Backup page'}><span class="tag {backupOf[sel.name] ? 'tag-accent' : 'tag-neutral'}">{backupOf[sel.name] ? 'in the backup' : 'not in the backup'}</span></a>
               {:else}<span class="kd">{backupKnown ? 'not listed' : 'not known (no backup disk, or storage locked)'}</span>{/if}
             </div>
 
@@ -128,9 +131,9 @@
                     <div class="r">
                       <div class="rt">
                         <Chip>{b.kind}</Chip>
-                        {#if b.share && b.share !== '-'}<a {...link(sharePath(b), 'shares', b.share)} title="Open the share">{b.share}</a>{:else}<span class="mono">{b.source}</span>{/if}
+                        {#if b.share && b.share !== '-'}<a {...link(sharePath(b), 'shares', b.share)} use:tip={'Open the share'}>{b.share}</a>{:else}<span class="mono">{b.source}</span>{/if}
                         <span class="kd">{b.mode}</span>
-                        <button class="btn btn-ghost btn-icon ib" style="margin-left:auto" title="Remove this binding" aria-label="Remove {b.device}" onclick={() => openPlan('ct', [sel.name, 'remove-storage', '--device', b.device], `Remove ${b.device} from ${sel.name}`)}><i class="ph ph-x"></i></button>
+                        <button class="btn btn-ghost btn-icon ib" style="margin-left:auto" use:tip={'Remove this binding'} aria-label="Remove {b.device}" onclick={() => openPlan('ct', [sel.name, 'remove-storage', '--device', b.device], `Remove ${b.device} from ${sel.name}`)}><i class="ph ph-x"></i></button>
                       </div>
                       <div class="rs mono">{b.source} → {b.inside}</div>
                       {#if b.also && b.also !== '-'}<div class="rs">Also mounted by {b.also}</div>{/if}
@@ -139,7 +142,7 @@
                     <div class="kd pad">{bind.loaded ? 'No storage bindings.' : 'Loading…'}</div>
                   {/each}
                 </div>
-                <button class="btn sm" onclick={() => openCreate(BindStorage, { ct: sel.name })}><i class="ph ph-plus"></i>Bind a share</button>
+                <button use:tip={'Give this instance a folder of a pool or a share'} class="btn sm" onclick={() => openCreate(BindStorage, { ct: sel.name })}><i class="ph ph-plus"></i>Bind a share</button>
               </div>
             {:else if t === 'snap'}
               <div class="sec">
@@ -149,15 +152,15 @@
                     <div class="r"><div class="rt">
                       <span class="mono">{sn.name}</span><span class="kd">{sn.created}</span>
                       <span class="acts" style="margin-left:auto">
-                        <button class="btn btn-ghost btn-icon ib" aria-label="Restore {sn.name}" title={i === 0 ? 'Go back to this snapshot' : 'Go back to this snapshot (the newer ones are deleted)'} onclick={() => openPlan('ct', [sel.name, 'restore', '--snapshot', sn.name], `Restore ${sel.name}`)}><i class="ph ph-arrow-u-up-left"></i></button>
-                        <button class="btn btn-ghost btn-icon ib bad" aria-label="Delete {sn.name}" title="Delete this snapshot (the plan asks for the instance name)" onclick={() => openPlan('ct', [sel.name, 'delete-snapshot', '--snapshot', sn.name], `Delete snapshot ${sn.name}`)}><i class="ph ph-trash"></i></button>
+                        <button class="btn btn-ghost btn-icon ib" aria-label="Restore {sn.name}" use:tip={i === 0 ? 'Go back to this snapshot' : 'Go back to this snapshot (the newer ones are deleted)'} onclick={() => openPlan('ct', [sel.name, 'restore', '--snapshot', sn.name], `Restore ${sel.name}`)}><i class="ph ph-arrow-u-up-left"></i></button>
+                        <button class="btn btn-ghost btn-icon ib bad" aria-label="Delete {sn.name}" use:tip={'Delete this snapshot (the plan asks for the instance name)'} onclick={() => openPlan('ct', [sel.name, 'delete-snapshot', '--snapshot', sn.name], `Delete snapshot ${sn.name}`)}><i class="ph ph-trash"></i></button>
                       </span>
                     </div></div>
                   {:else}
                     <div class="kd pad">{snap.loaded ? (snap.error ? 'The snapshots could not be read.' : 'No snapshots yet.') : 'Loading…'}</div>
                   {/each}
                 </div>
-                <button class="btn sm" onclick={() => openPlan('ct', [sel.name, 'snapshot'], `Snapshot ${sel.name}`)}><i class="ph ph-camera"></i>Snapshot now</button>
+                <button use:tip={'Take a snapshot of this instance now'} class="btn sm" onclick={() => openPlan('ct', [sel.name, 'snapshot'], `Snapshot ${sel.name}`)}><i class="ph ph-camera"></i>Snapshot now</button>
               </div>
             {:else if t === 'logs'}
               {#key sel.name}<LogsTab ct={sel.name} />{/key}
@@ -179,12 +182,12 @@
             {/if}
           {/snippet}
           {#snippet actions()}
-            <button class="btn sm" onclick={(e) => plan(e, sel, isRunning(sel) ? 'stop' : 'start')}><i class="ph {isRunning(sel) ? 'ph-stop' : 'ph-play'}"></i>{isRunning(sel) ? 'Stop' : 'Start'}</button>
-            <button class="btn sm" onclick={(e) => plan(e, sel, 'restart')}><i class="ph ph-arrow-clockwise"></i>Restart</button>
-            <button class="btn sm" title="Snapshot the instance, then update the software inside" onclick={() => openPlan('ct', [sel.name, 'update'], `Update ${sel.name}`)}><i class="ph ph-arrows-clockwise"></i>Update</button>
-            <button class="btn sm" disabled={!ui.features.terminal || !isRunning(sel)} title={!ui.features.terminal ? 'Switch on webTerminal in machine.toml' : isRunning(sel) ? 'A shell inside the instance' : 'The instance is not running'} onclick={() => openCreate(Terminal, { target: sel.name, title: sel.name })}><i class="ph ph-terminal-window"></i>Terminal</button>
-            <button class="btn sm" onclick={() => openCreate(InstanceSettings, { ct: sel })}><i class="ph ph-sliders"></i>Settings</button>
-            <button class="btn sm btn-danger" title="Delete the instance (the plan asks for its name)" onclick={() => openPlan('ct', [sel.name, 'delete'], `Delete ${sel.name}`)}><i class="ph ph-trash"></i>Delete</button>
+            <button use:tip={isRunning(sel) ? 'Stop this instance' : 'Start this instance'} class="btn sm" onclick={(e) => plan(e, sel, isRunning(sel) ? 'stop' : 'start')}><i class="ph {isRunning(sel) ? 'ph-stop' : 'ph-play'}"></i>{isRunning(sel) ? 'Stop' : 'Start'}</button>
+            <button use:tip={'Stop and start this instance again'} class="btn sm" onclick={(e) => plan(e, sel, 'restart')}><i class="ph ph-arrow-clockwise"></i>Restart</button>
+            <button class="btn sm" use:tip={'Snapshot the instance, then update the software inside'} onclick={() => openPlan('ct', [sel.name, 'update'], `Update ${sel.name}`)}><i class="ph ph-arrows-clockwise"></i>Update</button>
+            <button class="btn sm" disabled={!ui.features.terminal || !isRunning(sel)} use:tip={!ui.features.terminal ? 'Switch on webTerminal in machine.toml' : isRunning(sel) ? 'A shell inside the instance' : 'The instance is not running'} onclick={() => openCreate(Terminal, { target: sel.name, title: sel.name })}><i class="ph ph-terminal-window"></i>Terminal</button>
+            <button use:tip={'Change memory, CPU, storage and other settings'} class="btn sm" onclick={() => openCreate(InstanceSettings, { ct: sel })}><i class="ph ph-sliders"></i>Settings</button>
+            <button class="btn sm btn-danger" use:tip={'Delete the instance (the plan asks for its name)'} onclick={() => openPlan('ct', [sel.name, 'delete'], `Delete ${sel.name}`)}><i class="ph ph-trash"></i>Delete</button>
           {/snippet}
         </Drawer>
       {/if}

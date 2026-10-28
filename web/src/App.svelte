@@ -7,6 +7,7 @@
   import Shell from './shell/Shell.svelte';
   import Login from './Login.svelte';
   import Terminal from './shell/Terminal.svelte';
+  import Tooltip from './ui/Tooltip.svelte';
 
   let user = $state(null);
   let ready = $state(false);
@@ -39,3 +40,5 @@
 {:else}
   <Shell {user} onsignout={signOut} />
 {/if}
+
+<Tooltip />

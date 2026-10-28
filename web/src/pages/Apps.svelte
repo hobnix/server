@@ -1,4 +1,5 @@
 <script>
+  import { tip } from '../ui/tooltip.svelte.js';
   import { poll, rows, refresh } from '../data.svelte.js';
   import { takeSelection } from '../select.svelte.js';
   import { openCreate, ui } from '../ui.svelte.js';
@@ -64,10 +65,10 @@
         {#if a.cts}
           <div class="in">In {#each a.cts.split(',') as c, i}{i ? ', ' : ''}<a {...link('/instances', 'instances', c)}>{c}</a>{/each}</div>
         {/if}
-        <div class="act"><button class="btn sm" disabled={a.state === 'parked'} title={a.state === 'parked' ? 'This recipe is parked' : on ? 'Run again: repairs or updates the setup' : 'Set this app up'} onclick={() => run(a)}><i class="ph ph-play"></i>{on ? 'Run again…' : 'Run…'}</button></div>
+        <div class="act"><button class="btn sm" disabled={a.state === 'parked'} use:tip={a.state === 'parked' ? 'This recipe is parked' : on ? 'Run again: repairs or updates the setup' : 'Set this app up'} onclick={() => run(a)}><i class="ph ph-play"></i>{on ? 'Run again…' : 'Run…'}</button></div>
         <div class="cmd">
           <code>hs recipe {a.name}</code>
-          <button class="btn btn-ghost btn-icon cp" title={copied === a.name ? 'Copied' : 'Copy'} aria-label="Copy hs recipe {a.name}" onclick={() => copy(a.name)}><i class="ph ph-{copied === a.name ? 'check' : 'copy'}"></i></button>
+          <button class="btn btn-ghost btn-icon cp" use:tip={copied === a.name ? 'Copied' : 'Copy'} aria-label="Copy hs recipe {a.name}" onclick={() => copy(a.name)}><i class="ph ph-{copied === a.name ? 'check' : 'copy'}"></i></button>
         </div>
       </div>
     {/each}
