@@ -39,6 +39,28 @@ if [ -n "${HS_UPDATE_NOTIFY:-}" ]; then
   trap update_done EXIT
 fi
 
+# The disks of the bulk array moved from /mnt/bulk/data-NN to /var/lib/hs/disks. bulk-mount.service is never restarted by a
+# switch, so a running server moves them here: bulk-mount.sh mounts every disk at its new place, swaps the branches of /bulk under the running mount and lets
+# go of the old mount points. Idempotent; at boot nothing is mounted yet, so nothing is moved. `back` does the reverse (after a rollback to the old scripts).
+move_bulk_disks() {
+  [ "$(cat "${HS_BULK_TYPE_FILE:-/etc/hs/bulk-type}" 2>/dev/null || echo zfs)" = snapraid ] || return 0
+  local d
+  if [ "${1:-}" = back ]; then
+    for d in /var/lib/hs/disks/data-* /var/lib/hs/disks/parity-*; do
+      mountpoint -q "$d" 2>/dev/null || continue
+      HS_DISKS_ROOT=/mnt/bulk bash "$(dirname "$0")/bulk-mount.sh" >/dev/null 2>&1 || warn "The disks of the array could not be moved back to /mnt/bulk (hs pool bulk)"
+      return 0
+    done
+    return 0
+  fi
+  for d in /mnt/bulk/data-* /mnt/bulk/parity-*; do
+    mountpoint -q "$d" 2>/dev/null || continue
+    [ ! -e "${HS_STATE_DIR:-/var/lib/hs}/detached/${d##*/}" ] || continue   # a detached disk lives there on purpose
+    bash "$(dirname "$0")/bulk-mount.sh" >/dev/null 2>&1 || warn "The disks of the array could not be moved to /var/lib/hs/disks (hs pool bulk)"
+    return 0
+  done
+}
+
 # --verbose (or any other option of nixos-rebuild): show everything it prints
 if [ $# -gt 0 ]; then
   [ "$1" != --verbose ] || shift
@@ -143,28 +165,6 @@ rollback_now() {   # rollback_now <what went wrong>
     push "ROLLBACK FAILED" "$1, and going back failed as well. Log in and run: sudo nixos-rebuild switch --rollback"
   fi
   return 0
-}
-
-# The disks of the bulk array moved from /mnt/bulk/data-NN to /var/lib/hs/disks. bulk-mount.service is never restarted by a
-# switch, so a running server moves them here: bulk-mount.sh mounts every disk at its new place, swaps the branches of /bulk under the running mount and lets
-# go of the old mount points. Idempotent; at boot nothing is mounted yet, so nothing is moved. `back` does the reverse (after a rollback to the old scripts).
-move_bulk_disks() {
-  [ "$(cat "${HS_BULK_TYPE_FILE:-/etc/hs/bulk-type}" 2>/dev/null || echo zfs)" = snapraid ] || return 0
-  local d
-  if [ "${1:-}" = back ]; then
-    for d in /var/lib/hs/disks/data-* /var/lib/hs/disks/parity-*; do
-      mountpoint -q "$d" 2>/dev/null || continue
-      HS_DISKS_ROOT=/mnt/bulk bash "$(dirname "$0")/bulk-mount.sh" >/dev/null 2>&1 || warn "The disks of the array could not be moved back to /mnt/bulk (hs pool bulk)"
-      return 0
-    done
-    return 0
-  fi
-  for d in /mnt/bulk/data-* /mnt/bulk/parity-*; do
-    mountpoint -q "$d" 2>/dev/null || continue
-    [ ! -e "${HS_STATE_DIR:-/var/lib/hs}/detached/${d##*/}" ] || continue   # a detached disk lives there on purpose
-    bash "$(dirname "$0")/bulk-mount.sh" >/dev/null 2>&1 || warn "The disks of the array could not be moved to /var/lib/hs/disks (hs pool bulk)"
-    return 0
-  done
 }
 
 generation() { { readlink /nix/var/nix/profiles/system 2>/dev/null || true; } | sed -n 's/^system-\([0-9]*\)-link$/\1/p'; }
