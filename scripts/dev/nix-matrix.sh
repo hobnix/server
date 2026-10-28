@@ -31,7 +31,8 @@ evaluates() { ( cd "$work" && nix-instantiate '<nixpkgs/nixos>' -A system -I nix
 facts() {
   local list="" a
   for a in "$@"; do list="$list c.$a"; done
-  ( cd "$work" && nix-instantiate --eval --strict --json -I nixos-config=./configuration.nix \n      -E "let c = (import <nixpkgs/nixos> { configuration = ./configuration.nix; }).config; in [$list ]" 2>&1 )
+  ( cd "$work" && nix-instantiate --eval --strict --json -I nixos-config=./configuration.nix \
+      -E "let c = (import <nixpkgs/nixos> { configuration = ./configuration.nix; }).config; in [$list ]" 2>&1 )
 }
 # as_json <Nix literal> -> the same value as JSON, so that "[ ]" and "[]" compare equal
 as_json() { nix-instantiate --eval --strict --json -E "$1" 2>&1; }
