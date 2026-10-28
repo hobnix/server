@@ -11,7 +11,7 @@ export HS_SCRIPTS=$SCRIPTS
 export HS_GATEWAY_DIR=$WORK/gw HS_GATEWAY_PUBLIC_FILE=$WORK/etc/gateway-public HS_CAPABILITIES_FILE=$WORK/caps HS_STATE_DIR=$WORK/state
 export HS_SETTINGS_DIR=$WORK/settings HS_MACHINE_FILE=$WORK/machine.toml HS_SITE_NAME_FILE=$WORK/site-name
 export HS_PT_HOST_ADDRS=$WORK/host-addrs HS_PT_INSTANCE_ADDRS=$WORK/inst-addrs HS_PT_PROXY_HOSTS=$WORK/proxy-hosts
-export HS_GATEWAY_LISTENERS=$WORK/listeners HS_ETC_DIR=$WORK/etc HS_GATEWAY_UNIT_STATE=$WORK/unit HS_PT_PROBE=$WORK/probe
+export HS_GATEWAY_LISTENERS=$WORK/listeners HS_ETC_DIR=$WORK/etc HS_GATEWAY_UNIT_STATE=$WORK/unit HS_PT_PROBE=$WORK/probe HS_INCUS=false
 mkdir -p "$HS_GATEWAY_DIR/routes" "$HS_GATEWAY_DIR/tmp" "$HS_SETTINGS_DIR" "$HS_STATE_DIR" "$HS_ETC_DIR"
 R="python3 $P/passthrough.py"
 C="bash $P/passthrough-change.sh"
@@ -127,6 +127,9 @@ refused "gateway not on" 'gateway proxy is off' example.com add --address 192.16
 echo gateway > "$HS_CAPABILITIES_FILE"
 printf 'https=0\nhttp=0\n' > "$HS_GATEWAY_PUBLIC_FILE"
 refused "public https port 0" 'no public port' example.com add --address 192.168.1.20
+printf 'gatewayPublicHttps = 443\n' >> "$HS_MACHINE_FILE"
+refused "public https port 0 but set in machine.toml" 'set in machine.toml but not applied yet: run hs rebuild' example.com add --address 192.168.1.20
+sed -i '/^gatewayPublicHttps/d' "$HS_MACHINE_FILE"
 printf 'https=443\nhttp=80\n' > "$HS_GATEWAY_PUBLIC_FILE"
 refused "bad domain" 'single name' single add --address 192.168.1.20
 refused "wildcard" 'wildcard' '*.x.com' add --address 192.168.1.20
@@ -137,6 +140,157 @@ refused "public address" 'private LAN' example.com add --address 8.8.8.8
 refused "link-local v6" 'private LAN' example.com add --address fe80::1
 refused "this server" 'this server' example.com add --address 192.168.1.10
 refused "a container" 'this server' example.com add --address 10.10.95.5
+
+echo "-- a container of this server as the target"
+printf 'zoraxy,"10.10.95.5 (eth0)\nfd42:1:2::5 (eth0)",\nmonitoring,10.10.95.6 (eth0),\nplain,,\n' > "$HS_PT_INSTANCE_ADDRS"
+refused "container: named, no flag" "that is the container 'zoraxy' of this server.*--container-ok --confirm example.com" example.com add --address 10.10.95.5
+refused "container v6 (second line of the cell): named" "container 'zoraxy'" example.com add --address fd42:1:2::5
+run $C plan example.com add --address 10.10.95.5 --container-ok
+check_eq "container with the flag: plan exit 0" 0 "$rc"
+has "^warn${T}.*WHOLE domain example.com.*container zoraxy.*internet" && has "^confirm_name${T}example.com$" && pass "container plan: warning and confirm_name" || fail "container plan: $out"
+run $C start example.com add --address 10.10.95.5 --container-ok
+check_eq "container start without --confirm: refused" 1 "$rc"
+run $C start example.com add --address 10.10.95.5 --container-ok --confirm other.com
+check_eq "container start with the wrong --confirm: refused" 1 "$rc"
+check_eq "nothing written yet" "0" "$(find "$RT" -type f | wc -l | tr -d ' ')"
+run $C start example.com add --address 10.10.95.5 --confirm example.com
+check_eq "--confirm without --container-ok: refused" 1 "$rc"
+run $C start example.com add --address 10.10.95.5 --container-ok --confirm example.com
+check_eq "container start with both: done" 0 "$rc"
+check_eq "route written" "1" "$(grep -c "address: '10.10.95.5:443'" "$RT/pt-example.com.yml")"
+rm -f "$RT"/pt-example.com.yml
+refused "host address with the flag" 'that is this server' example.com add --address 192.168.1.10 --container-ok --confirm example.com
+refused "host v6 with the flag" 'that is this server' example.com add --address fd00::10 --container-ok --confirm example.com
+refused "loopback with the flag" 'private LAN' example.com add --address 127.0.0.1 --container-ok --confirm example.com
+refused "public address with the flag" 'private LAN' example.com add --address 8.8.8.8 --container-ok --confirm example.com
+refused "scope id with the flag" 'not an IP address' example.com add --address 'fd42:1:2::5%eth0' --container-ok --confirm example.com
+refused "--container-ok on remove" 'unknown option' example.com remove --container-ok
+run $C plan example.com add --address 10.10.95.5 --container-ok --https-port 443 --http-port 80
+check_eq "zoraxy on 443 and 80 stays allowed" 0 "$rc"
+run $C plan example.com add --address 10.10.95.5 --container-ok --no-http
+check_eq "zoraxy on 443 without http stays allowed" 0 "$rc"
+refused "zoraxy admin port 8000 as https" "container 'zoraxy' on port 8000 is an admin page" example.com add --address 10.10.95.5 --container-ok --https-port 8000
+refused "zoraxy admin port 8000 as http" "container 'zoraxy' on port 8000 is an admin page" example.com add --address 10.10.95.5 --container-ok --http-port 8000
+refused "grafana (monitoring:3000) as http" "container 'monitoring' on port" example.com add --address 10.10.95.6 --container-ok --confirm example.com --http-port 3000
+run $C start example.com add --address 10.10.95.6 --container-ok --confirm example.com --http-port 3000
+check_eq "grafana start refused too" 1 "$rc"
+echo "-- the list of containers is garbage: fail closed"
+for junk in 'this is not csv at all' 'foo,bar' '"unterminated,10.10.95.5'; do
+  printf '%s\n' "$junk" > "$HS_PT_INSTANCE_ADDRS"
+  refused "garbage list ($junk): any target" 'cannot be read' example.com add --address 192.168.1.20
+  refused "garbage list ($junk): with the flag" 'cannot be read' example.com add --address 192.168.1.20 --container-ok --confirm example.com
+done
+printf 'garbage line\n10.10.95.5 (eth0)\n' > "$HS_PT_INSTANCE_ADDRS"
+refused "garbage next to an address: still refused" 'cannot be read' example.com add --address 10.10.95.5 --container-ok --confirm example.com
+printf 'web,10.10.95.5 (eth0)\n' > "$HS_PT_INSTANCE_ADDRS"
+check_eq "a plain name,address list parses" "web" "$($R container 10.10.95.5 --instance-addrs $HS_PT_INSTANCE_ADDRS)"
+printf '10.10.95.5 (eth0)\n' > "$HS_PT_INSTANCE_ADDRS"
+refused "an unnamed container cannot be checked" "name of the container with this address is unknown" example.com add --address 10.10.95.5 --container-ok
+refused "an unnamed container: no flag" "container '?'" example.com add --address 10.10.95.5
+echo "-- incus failed, shared addresses, static addresses, no services.py"
+printf 'zoraxy,"10.10.95.5 (eth0)",\n' > "$HS_PT_INSTANCE_ADDRS"
+export HS_PT_INSTANCE_FAIL=1
+refused "incus failed: a plain LAN target is refused" 'cannot read the container list' example.com add --address 192.168.1.20
+refused "incus failed: a container address is refused (no way around it)" 'cannot read the container list' example.com add --address 10.10.95.5 --https-port 8000
+refused "incus failed: with the flag too" 'cannot read the container list' example.com add --address 10.10.95.5 --container-ok --confirm example.com
+unset HS_PT_INSTANCE_FAIL
+: > "$HS_PT_INSTANCE_ADDRS"
+run $C plan example.com add --address 192.168.1.20
+check_eq "an empty list from a working incus (or none installed) means no containers" 0 "$rc"
+printf 'docker,172.17.0.1 (docker0),\nzoraxy,172.17.0.1 (docker0),\n' > "$HS_PT_INSTANCE_ADDRS"
+refused "shared address: every name is shown" "container 'docker, zoraxy'" example.com add --address 172.17.0.1
+refused "shared address: zoraxy:8000 is checked although docker is listed first" "container 'zoraxy' on port 8000" example.com add --address 172.17.0.1 --container-ok --http-port 8000
+refused "shared address: docker:80 is an admin page too" "container 'docker' on port 80" example.com add --address 172.17.0.1 --container-ok
+run $C plan example.com add --address 172.17.0.1 --container-ok --no-http
+check_eq "shared address on 443 without http is allowed with the flag" 0 "$rc"
+rc=0; $R address 172.17.0.1 --host-addrs $HS_PT_HOST_ADDRS --instance-addrs $HS_PT_INSTANCE_ADDRS --container-ok yes --admin-from "$WORK/no-such-services.py" >/dev/null 2>&1 || rc=$?
+check_eq "services.py unreadable: a container target is refused (fail closed)" 0 "$((rc == 1 ? 0 : 1))"
+printf 'def x(:\n' > "$WORK/bad-services.py"
+printf 'zoraxy,10.10.95.5 (eth0),\n' > "$HS_PT_INSTANCE_ADDRS"
+out=$($R address 10.10.95.5 --host-addrs $HS_PT_HOST_ADDRS --instance-addrs $HS_PT_INSTANCE_ADDRS --container-ok yes --admin-from "$WORK/bad-services.py" 2>&1) || true
+check_out "services.py unparsable: says so" "list of admin pages" echo "$out"
+printf '[{"name":"stopped-proxy","expanded_devices":{"eth0":{"type":"nic","ipv4.address":"10.10.95.9","ipv6.address":"fd42:1:2::9"},"root":{"type":"disk"}}},{"name":"dyn","expanded_devices":{"eth0":{"type":"nic"}}}]' > "$WORK/inst.json"
+check_eq "static addresses of the devices" "stopped-proxy,10.10.95.9,
+stopped-proxy,fd42:1:2::9," "$($R static-addrs "$WORK/inst.json")"
+printf 'stopped-proxy,\n' > "$HS_PT_INSTANCE_ADDRS"
+$R static-addrs "$WORK/inst.json" >> "$HS_PT_INSTANCE_ADDRS"
+refused "a stopped container with a static address is a container" "container 'stopped-proxy'" example.com add --address 10.10.95.9
+refused "its v6 address too" "container 'stopped-proxy'" example.com add --address fd42:1:2::9
+rc=0; echo 'not json' > "$WORK/bad.json"; $R static-addrs "$WORK/bad.json" >/dev/null 2>&1 || rc=$?
+check_eq "static-addrs: no JSON is an error" 1 "$rc"
+echo "-- ipv4.address=none, the admin ports of ports.sh"
+printf '[{"name":"web","expanded_devices":{"eth0":{"type":"nic","ipv4.address":"none","ipv6.address":""}}}]' > "$WORK/none.json"
+check_eq "static-addrs: none and empty are no address" "" "$($R static-addrs "$WORK/none.json")"
+printf 'web,\n' > "$HS_PT_INSTANCE_ADDRS"
+$R static-addrs "$WORK/none.json" >> "$HS_PT_INSTANCE_ADDRS"
+run $C plan example.com add --address 192.168.1.20
+check_eq "a list with a 'none' device does not refuse a plain LAN host" 0 "$rc"
+printf 'zoraxy,"10.10.95.5 (eth0)\nfd42:1:2::5 (eth0)",\nmonitoring,10.10.95.6 (eth0),\nplain,,\n' > "$HS_PT_INSTANCE_ADDRS"
+refused "monitoring:9090 (Prometheus) is refused: every port of monitoring" "container 'monitoring' on port 9090" example.com add --address 10.10.95.6 --container-ok --https-port 9090
+refused "zoraxy:8000 is refused (ports.sh)" "container 'zoraxy' on port 8000" example.com add --address 10.10.95.5 --container-ok --http-port 8000
+run $C plan example.com add --address 10.10.95.5 --container-ok
+check_eq "zoraxy on 443 and 80 is allowed" 0 "$rc"
+echo "-- dc1 renamed, user rows, damaged ports.sh, comma lists"
+printf 'dcName = "ad"\n' >> "$HS_MACHINE_FILE"
+printf 'ad,10.10.95.8 (eth0),\n' >> "$HS_PT_INSTANCE_ADDRS"
+refused "the domain controller named by dcName is an admin container" "container 'ad' on port" example.com add --address 10.10.95.8 --container-ok
+sed -i '/^dcName/d' "$HS_MACHINE_FILE"
+printf 'custom 8123 My own admin page\n' > "$HS_STATE_DIR/ports-admin"
+printf 'custom,10.10.95.9 (eth0),\n' >> "$HS_PT_INSTANCE_ADDRS"
+refused "a user row of ports-admin" "container 'custom' on port 8123" example.com add --address 10.10.95.9 --container-ok --https-port 8123
+rm -f "$HS_STATE_DIR/ports-admin"
+A2="$R address 10.10.95.5 --host-addrs $HS_PT_HOST_ADDRS --instance-addrs $HS_PT_INSTANCE_ADDRS --container-ok yes --admin-from $SCRIPTS/services.py"
+check_eq "the real ports.sh parses (zoraxy 443 is fine)" "10.10.95.5" "$($A2 --ports-from $SCRIPTS/ports.sh)"
+sed '/^  printf .homepage/s/.*/  echo broken/' "$SCRIPTS/ports.sh" > "$WORK/ports-bad1.sh"
+sed '/zoraxy.t8000/d' "$SCRIPTS/ports.sh" > "$WORK/ports-bad2.sh"
+for bad in 1 2; do
+  rc=0; out=$($A2 --ports-from "$WORK/ports-bad$bad.sh" 2>&1) || rc=$?
+  check_eq "damaged ports.sh ($bad): refused, fail closed: $out" 1 "$rc"
+done
+printf '[{"name":"routed","expanded_devices":{"eth0":{"type":"nic","ipv4.address":"10.30.0.1, 10.30.0.2/24"}}}]' > "$WORK/comma.json"
+check_eq "static-addrs: a comma list gives every address" "routed,10.30.0.1,
+routed,10.30.0.2," "$($R static-addrs "$WORK/comma.json")"
+printf 'zoraxy,"10.10.95.5 (eth0)\nfd42:1:2::5 (eth0)",\nmonitoring,10.10.95.6 (eth0),\nplain,,\n' > "$HS_PT_INSTANCE_ADDRS"
+printf 'docker,172.17.0.1 (docker0),\nzoraxy,172.17.0.1 (docker0),\n' > "$HS_PT_INSTANCE_ADDRS"
+run $C plan example.com add --address 172.17.0.1 --container-ok --no-http
+has "container docker, zoraxy of this server" && pass "the warning shows every name" || fail "names: $out"
+printf 'zoraxy,"10.10.95.5 (eth0)\nfd42:1:2::5 (eth0)",\nmonitoring,10.10.95.6 (eth0),\nplain,,\n' > "$HS_PT_INSTANCE_ADDRS"
+echo "-- the header remembers the confirmed container; status/refresh warn about the others"
+run $C start example.com add --address 10.10.95.5 --container-ok --confirm example.com
+check_eq "container route written" 0 "$rc"
+check_eq "header carries container=yes" "1" "$(head -n 1 "$RT/pt-example.com.yml" | grep -c ' proxy=off container=yes$')"
+check_eq "list keeps its 5 columns" "example.com${T}10.10.95.5${T}443${T}80${T}off" "$($R list "$RT")"
+run $C start --refresh refresh
+check_eq "refresh keeps the flag" "1" "$(head -n 1 "$RT/pt-example.com.yml" | grep -c 'container=yes$')"
+run $C start plain.example.dev add --address 192.168.1.20
+check_eq "a plain route written" 0 "$rc"
+check_eq "no container flag on a plain route" "0" "$(head -n 1 "$RT/pt-plain.example.dev.yml" | grep -c container=)"
+run $C plan --audit audit
+check_eq "audit: nothing to warn about" "0" "$(grep -c '^warn' <<<"$out")"
+printf 'zoraxy,10.10.95.5 (eth0),\nnewproxy,192.168.1.20 (eth0),\n' > "$HS_PT_INSTANCE_ADDRS"
+run $C plan --audit audit
+has "^warn${T}the route of plain.example.dev goes to 192.168.1.20, which is the container newproxy of this server now" && pass "audit: a plain route whose target became a container" || fail "audit: $out"
+check_eq "audit: the confirmed route is not warned about" "0" "$(grep -c 'route of example.com' <<<"$out")"
+HS_PT_INSTANCE_FAIL=1 run $C plan --audit audit
+has "^note${T}cannot read the container list" && pass "audit: unreadable list is said" || fail "audit failed list: $out"
+printf 'monitoring,10.10.95.5 (eth0),\n' > "$HS_PT_INSTANCE_ADDRS"
+run $C plan --audit audit
+has "^warn${T}the route of example.com: the container 'monitoring' on port" && pass "audit: a confirmed route whose target is an admin container now" || fail "audit admin: $out"
+run $C start --refresh refresh
+has "^warn${T}the route of example.com was not written again: the container 'monitoring'" && pass "refresh leaves a route that hits an admin container, and says so" || fail "refresh admin: $out"
+HS_PT_INSTANCE_FAIL=1 run $C start --refresh refresh
+has "^warn${T}the route of example.com was not written again: the container list cannot be read" && pass "refresh with an unreadable list leaves the routes" || fail "refresh failed list: $out"
+rm -f "$RT"/pt-example.com.yml "$RT"/pt-plain.example.dev.yml
+printf 'zoraxy,"10.10.95.5 (eth0)\nfd42:1:2::5 (eth0)",\nmonitoring,10.10.95.6 (eth0),\nplain,,\n' > "$HS_PT_INSTANCE_ADDRS"
+run $C plan example.com add --address 192.168.1.20 --container-ok
+if has "^confirm_name"; then fail "a normal target must not ask for confirm_name"; else pass "a normal target with the flag: no confirm_name"; fi
+echo "-- the CLI: a container target needs the typed domain"
+rc=0; out=$($S add example.com 10.10.95.5 --container-ok --yes </dev/null 2>&1) || rc=$?
+check_eq "cli: --yes does not replace the typed domain: $out" 1 "$rc"
+rc=0; out=$($S add example.com 10.10.95.5 --container-ok --confirm example.com </dev/null 2>&1) || rc=$?
+check_eq "cli: container with --container-ok --confirm: $out" 0 "$rc"
+rm -f "$RT"/pt-example.com.yml
+
 refused "port 0" 'not a port' example.com add --address 192.168.1.20 --https-port 0
 refused "port 70000" 'not a port' example.com add --address 192.168.1.20 --http-port 70000
 refused "unknown option" 'unknown option' example.com add --address 192.168.1.20 --bogus

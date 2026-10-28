@@ -24,3 +24,14 @@ Address	Adresse
 HTTPS	HTTPS
 HTTP	HTTP
 PROXY	PROXY
+Yes, this is a container on this server: send the whole domain to it.	Ja, das ist ein Container auf diesem Server: die ganze Domain dorthin schicken.
+gatewayPublicHttps is set in machine.toml but not applied yet: run hs rebuild	gatewayPublicHttps steht in machine.toml, ist aber noch nicht angewendet: hs rebuild ausführen
+The WHOLE domain %s (apex and every subdomain) goes to the container %s of this server, and that container is reachable from the internet through this.	Die GANZE Domain %s (Hauptdomain und alle Subdomains) geht an den Container %s dieses Servers, und dieser Container ist dadurch aus dem Internet erreichbar.
+that is the container '%s' of this server: to forward a domain to it, confirm with --container-ok --confirm %s	das ist der Container '%s' dieses Servers: um eine Domain dorthin durchzureichen, mit --container-ok --confirm %s bestätigen
+the container '%s' on port %s is an admin page: it is never forwarded to the internet (ADMIN_TARGETS in scripts/services.py)	der Container '%s' auf Port %s ist eine Admin-Seite: sie wird nie ins Internet durchgereicht (ADMIN_TARGETS in scripts/services.py)
+the list of containers of this server cannot be read, so this address cannot be checked: try again, or check incus	die Liste der Container dieses Servers ist nicht lesbar, deshalb kann die Adresse nicht geprüft werden: noch einmal versuchen oder incus prüfen
+cannot read the container list (incus failed or did not answer in time), so this address cannot be checked: try again	die Container-Liste ist nicht lesbar (incus ist fehlgeschlagen oder hat nicht rechtzeitig geantwortet), deshalb kann die Adresse nicht geprüft werden: noch einmal versuchen
+the list of admin pages (scripts/services.py) cannot be read, so a container cannot be forwarded to	die Liste der Admin-Seiten (scripts/services.py) ist nicht lesbar, deshalb kann nicht an einen Container durchgereicht werden
+the name of the container with this address is unknown, so it cannot be checked against the admin pages	der Name des Containers mit dieser Adresse ist unbekannt, deshalb kann er nicht gegen die Admin-Seiten geprüft werden
+the route of %s goes to %s, which is the container %s of this server now, and it was never confirmed with --container-ok: forward the domain again with --container-ok --confirm %s, or stop forwarding it	die Route von %s geht an %s, das jetzt der Container %s dieses Servers ist, und das wurde nie mit --container-ok bestätigt: die Domain noch einmal mit --container-ok --confirm %s durchreichen oder nicht mehr durchreichen
+cannot read the container list: the targets of the routes were not checked	Container-Liste nicht lesbar: die Ziele der Routen wurden nicht geprüft

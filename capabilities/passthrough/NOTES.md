@@ -18,7 +18,22 @@ freezes every update of Traefik). Line 1 is a header (`# hs-gateway passthrough 
 back. Every `start` renders all `pt-*` files again from their headers (a changed gateway-public is picked up); `hs ext passthrough refresh` does only that.
 
 ## Rules
-- Targets are private LAN addresses and never this server or one of its containers (publish those with `hs services`).
+- Targets are private LAN addresses and never this server itself (its own `ip addr`), loopback, scope ids or non-LAN addresses (publish this server's own apps with `hs services`).
+- An Incus container of this server (`incus list -c n46`) is refused by default and allowed only with `--container-ok` plus the typed domain (`--confirm <domain>`, on
+  `start`; the web form sends `--container-ok` once the plan refuses and the CreateDialog asks for the typed name). Why: a reverse proxy (Zoraxy) in a container
+  on the same server is a real setup. Security: the whole domain goes to that container and it is exposed to the internet on that domain; the plan says so in a warn
+  row. Local routers of the gateway are unaffected: passthrough routes use only the public entrypoints and never reach them. `HS_PT_INSTANCE_ADDRS` is the csv of
+  `incus list -c n46` (name first); bare `address (iface)` lines still work and give no name.
+- Admin pages: a container target is refused when its https or http port, with the container's name, is in `ADMIN_TARGETS` (scripts/services.py, read with `ast`)
+  or in the `warn` rows of `admin_builtin_dc1` in scripts/ports.sh (`monitoring:*` etc.; read as text, `/var/lib/hs/ports-admin` is not); never copied; unreadable = refused. A shared address (docker0) keeps all its names and each is checked.
+- The container list fails closed: if `incus` is installed and `incus list` fails or times out, every target is refused ("cannot read the container list");
+  only a missing `incus` binary counts as "no containers" (`HS_PT_INSTANCE_FAIL=1` simulates it). An unparsable csv is refused too.
+- Static addresses: `incus list` shows no address for a stopped container, so `incus list --format json` is read too (`passthrough.py static-addrs`:
+  `expanded_devices.*.ipv4.address` / `ipv6.address`) and treated like running addresses. Limit: a stopped container that gets its address by DHCP is unknown whenever it is
+  stopped (no address to match), and routes are not rechecked when it starts. Because of that the route header records `container=yes` (after the typed
+  confirmation; `list` keeps its 5 columns, `list --full` adds it) and `hs ext passthrough status` / `refresh` run `passthrough-change.sh plan --audit audit`:
+  every route without that mark whose target now matches a container gets a warning. Give such containers a static address.
+- "no public port": when `gatewayPublicHttps` is already non-zero in machine.toml (machine_get), the refusal says to run `hs rebuild` instead.
 - Never a domain that overlaps `proxyDomains`, a host of the public reverse proxy, the gateway's local domain (`<site>.<realm>`), the AD realm,
   a `local-*` host or another `pt-*` domain (the same domain again replaces its target).
 - Only `pt-*` files are written. No middleware on purpose: these routes are public. Only the public entrypoints are used.
