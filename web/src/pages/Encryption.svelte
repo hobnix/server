@@ -1,4 +1,5 @@
 <script>
+  import { tip } from '../ui/tooltip.svelte.js';
   import { poll, rows } from '../data.svelte.js';
   import { bytes, sizeToBytes } from '../format.js';
   import { go } from '../route.svelte.js';
@@ -60,7 +61,7 @@
   <div class="scrollx">
     <Table id="encryption" {columns} rows={vols} key="name" compact loading={!(status.loaded || deck?.loaded)} empty="No encrypted volumes.">
       {#snippet cell(v, col)}
-        {#if col.key === 'name'}<span class="nm"><i class="ph {v.icon}"></i>{#if diskOf(v)}<button class="link-btn" title="Open this disk" onclick={() => go('/storage/disks')}>{v.name}</button>{:else}{v.name}{/if}</span>
+        {#if col.key === 'name'}<span class="nm"><i class="ph {v.icon}"></i>{#if diskOf(v)}<button class="link-btn" use:tip={'Open this disk'} onclick={() => go('/storage/disks')}>{v.name}</button>{:else}{v.name}{/if}</span>
         {:else if col.key === 'kind'}<span class="mute">{v.kind}</span>
         {:else if col.key === 'on'}<code>{v.on}</code>
         {:else if col.key === 'size'}<span class="mute">{v.size}</span>

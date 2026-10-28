@@ -1,4 +1,5 @@
 <script>
+  import { tip } from '../ui/tooltip.svelte.js';
   // How old is what this page shows, and a button to read it all again now. The age is the oldest of the page's first reads (readsfor.js) as the
   // server reported it (X-HS-Age: an answer it kept for a while is shown at once while a new one is read); the button asks for ?fresh=1, which
   // runs the scripts instead of answering from the cache or from what the collector kept. The Data page lists every read with its interval.
@@ -27,14 +28,14 @@
 </script>
 
 {#if paths.length}
-  <span class="fresh {tone}" title={age === null ? 'Waiting for the first answer' : `The oldest data on this page is ${words(age)} old. The server keeps the slow reads up to date in the background.`}>
+  <span class="fresh {tone}" use:tip={age === null ? 'Waiting for the first answer' : `The oldest data on this page is ${words(age)} old. The server keeps the slow reads up to date in the background.`}>
     <span class="age">
       <i class="ph ph-clock"></i><span class="lbl">{age === null ? '…' : words(age)}</span>
     </span>
-    <button class="ib" disabled={sync.busy} aria-label="Read this page again now" title="Read this page again now (runs the scripts instead of using what the server holds)" onclick={() => refresh(paths)}>
+    <button class="ib" disabled={sync.busy} aria-label="Read this page again now" use:tip={'Read this page again now, not from the kept copy'} onclick={() => refresh(paths)}>
       <i class="ph ph-arrow-clockwise" class:spin={sync.busy}></i>
     </button>
-    <button class="ib hide-s" aria-label="Open the Data page" title="Every read, how old it is and how long it takes" onclick={() => go('/monitoring/diagnostics')}>
+    <button class="ib hide-s" aria-label="Open the Data page" use:tip={'Every read, how old it is and how long it takes'} onclick={() => go('/monitoring/diagnostics')}>
       <i class="ph ph-gauge"></i>
     </button>
   </span>

@@ -1,4 +1,5 @@
 <script>
+  import { tip } from '../ui/tooltip.svelte.js';
   // Users of the domain: the list on the left, the drawer on the right (facts, groups, the shares the user can reach). The share access matrix is READ
   // ONLY here: permissions are edited on the share itself (decision 4 of ); a row links to the share.
   import { poll, rows } from '../data.svelte.js';
@@ -51,14 +52,14 @@
 
 <PageHeader title="Users" crumb="Identity" sub="The accounts of the domain. Locking or deleting shows a plan first.">
   {#snippet actions()}
-    <button class="btn" title="The SSH keys that may log in as adminuser" onclick={() => openCreate(SshKeys)}><i class="ph ph-key"></i>SSH keys</button>
-    <button class="btn btn-primary" onclick={() => openCreate(NewUser)}><i class="ph ph-plus"></i>New user</button>
+    <button class="btn" use:tip={'The SSH keys that may log in as adminuser'} onclick={() => openCreate(SshKeys)}><i class="ph ph-key"></i>SSH keys</button>
+    <button use:tip={'Create a user'} class="btn btn-primary" onclick={() => openCreate(NewUser)}><i class="ph ph-plus"></i>New user</button>
   {/snippet}
 </PageHeader>
 
 <PageState loading={!list.loaded} error={list.error?.message} hasData={list.data != null} empty={list.loaded && !users.length}
            emptyIcon="user" emptyTitle="No users" emptyText="The domain controller (dc1) may be down, or the storage is locked. Otherwise add the first user.">
-  {#snippet emptyAction()}<button class="btn btn-primary" onclick={() => openCreate(NewUser)}><i class="ph ph-plus"></i>New user</button>{/snippet}
+  {#snippet emptyAction()}<button use:tip={'Create a user'} class="btn btn-primary" onclick={() => openCreate(NewUser)}><i class="ph ph-plus"></i>New user</button>{/snippet}
   <Split open={!!sel}>
     {#snippet list()}
       <div class="card" style="padding:0">
@@ -80,7 +81,7 @@
             {#if t === 'access'}
               <Table id="reach" columns={reachColumns} rows={reach} key="share" loading={!acc.loaded} empty={acc.loaded ? (acc.error ? 'The access could not be read.' : 'No share is reachable.') : 'Loading…'}>
                 {#snippet cell(r, col)}
-                  {#if col.key === 'share'}<button class="link-btn" title="Permissions are edited on the share" onclick={() => toShare(r.share)}>{r.share}</button>
+                  {#if col.key === 'share'}<button class="link-btn" use:tip={'Permissions are edited on the share'} onclick={() => toShare(r.share)}>{r.share}</button>
                   {:else if col.key === 'level'}<Chip>{r.level}</Chip>
                   {:else}<span class="muted">{r.via}</span>{/if}
                 {/snippet}
@@ -92,12 +93,12 @@
             {/if}
           {/snippet}
           {#snippet actions()}
-            <button class="btn" title="Change the full name, email and description" onclick={() => openCreate(EditUser, { user: sel.name })}><i class="ph ph-pencil-simple"></i>Edit</button>
-            <button class="btn" onclick={() => openCreate(SetPassword,{ user: sel.name })}><i class="ph ph-password"></i>Password</button>
-            <button class="btn" onclick={() => openCreate(Membership, { subject: 'user', name: sel.name, have: sel.groups, options: groupNames })}><i class="ph ph-users-three"></i>Groups</button>
-            <button class="btn btn-ghost" disabled={isAdmin} title={isAdmin ? 'Administrator cannot be locked' : sel.enabled ? 'Lock the account (shows the plan first)' : 'Unlock the account (shows the plan first)'}
+            <button class="btn" use:tip={'Change the full name, email and description'} onclick={() => openCreate(EditUser, { user: sel.name })}><i class="ph ph-pencil-simple"></i>Edit</button>
+            <button use:tip={'Set a new password for this user'} class="btn" onclick={() => openCreate(SetPassword, { user: sel.name })}><i class="ph ph-password"></i>Password</button>
+            <button use:tip={'Choose the groups of this user'} class="btn" onclick={() => openCreate(Membership, { subject: 'user', name: sel.name, have: sel.groups, options: groupNames })}><i class="ph ph-users-three"></i>Groups</button>
+            <button class="btn btn-ghost" disabled={isAdmin} use:tip={isAdmin ? 'Administrator cannot be locked' : sel.enabled ? 'Lock the account (shows the plan first)' : 'Unlock the account (shows the plan first)'}
               onclick={() => openPlan('users', [sel.name, sel.enabled ? 'lock' : 'unlock'], `${sel.enabled ? 'Lock' : 'Unlock'} ${sel.name}`)}><i class="ph {sel.enabled ? 'ph-lock' : 'ph-lock-open'}"></i>{sel.enabled ? 'Lock' : 'Unlock'}</button>
-            <button class="btn btn-ghost danger" disabled={isAdmin} title={isAdmin ? 'Administrator cannot be deleted' : 'Delete the user (cannot be undone; you type the name)'}
+            <button class="btn btn-ghost danger" disabled={isAdmin} use:tip={isAdmin ? 'Administrator cannot be deleted' : 'Delete the user (cannot be undone; you type the name)'}
               onclick={() => openPlan('users', [sel.name, 'user-delete'], `Delete ${sel.name}`)}><i class="ph ph-trash"></i>Delete</button>
           {/snippet}
         </Drawer>

@@ -74,6 +74,7 @@ default_probes() {
     $'hs disk inventory\tdisk inventory\t0 1' \
     $'hs pool bulk\tpool bulk\t0 1' \
     $'hs sys pool state\tsys pool state\t0' \
+    $'hs sys fm locations\tsys fm locations\t0 1' \
     $'hs user list\tuser list\t0' \
     $'hs user show\tuser Administrator show\t0 1' \
     $'hs group list\tgroup list\t0' \
@@ -176,7 +177,7 @@ if $coverage; then
 fi
 
 # ---- 1. the programs the scripts call ------------------------------------------------------
-tools=${HS_SMOKE_TOOLS-"incus zpool zfs smartctl restic samba-tool wbinfo sharesec snapraid mergerfs cryptsetup lsblk blkid jq curl rsync sgdisk wipefs systemctl git setfacl getfacl xfs_admin e2label btrfs mkfs.ext4 findmnt nix-env"}
+tools=${HS_SMOKE_TOOLS-"incus zpool zfs smartctl restic samba-tool wbinfo sharesec snapraid mergerfs cryptsetup lsblk blkid jq curl rsync wipefs systemctl git setfacl getfacl xfs_admin e2label btrfs mkfs.ext4 findmnt nix-env"}
 $list || step "Programs the scripts need"
 for tool in $tools; do
   if command -v "$tool" >/dev/null 2>&1; then continue; fi

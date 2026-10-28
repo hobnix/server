@@ -1,4 +1,5 @@
 <script>
+  import { tip } from '../ui/tooltip.svelte.js';
   // The certificate of the domain controller (LDAPS) and the small CA of this setup that signs it: hs sys dc state / plan / start.
   import { poll, rows } from '../data.svelte.js';
   import { openPlan, ui } from '../ui.svelte.js';
@@ -23,7 +24,7 @@
 
   <div class="card" style="padding:14px 16px;gap:8px">
     <div class="row"><span class="h">The CA</span><div class="grow"></div>
-      {#if st.loaded && !hasCa}<button class="btn btn-primary" onclick={() => openPlan('dc', ['ca'], 'Make the CA')}><i class="ph ph-certificate"></i>Make the CA…</button>{/if}
+      {#if st.loaded && !hasCa}<button use:tip={'Create the certificate authority of the domain'} class="btn btn-primary" onclick={() => openPlan('dc', ['ca'], 'Make the CA')}><i class="ph ph-certificate"></i>Make the CA…</button>{/if}
     </div>
     {#if hasCa}
       <div class="kv"><span>State</span><span><span class="dot ok"></span> exists, valid until {s.ca_until}</span></div>
@@ -37,7 +38,7 @@
 
   <div class="card" style="padding:14px 16px;gap:8px">
     <div class="row"><span class="h">Domain controller {s.dc && s.dc !== '-' ? s.dc : ''}</span><div class="grow"></div>
-      <button class="btn btn-secondary" disabled={!hasCa || !s.dc || s.cert === 'none'} title={hasCa ? 'New key and certificate, installed, Samba restarts (shows the plan first)' : 'Make the CA first'}
+      <button class="btn btn-secondary" disabled={!hasCa || !s.dc || s.cert === 'none'} use:tip={hasCa ? 'New key and certificate, installed, Samba restarts (shows the plan first)' : 'Make the CA first'}
         onclick={() => openPlan('dc', ['renew', '--dc', s.dc], 'Renew the certificate of ' + s.dc)}><i class="ph ph-arrows-clockwise"></i>Renew certificate…</button>
     </div>
     {#if certOk}

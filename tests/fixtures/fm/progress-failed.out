@@ -1,0 +1,18 @@
+status	ok
+files_done	1
+files_total	1
+bytes_done	0
+bytes_total	1000
+speed	0
+eta	0
+current	
+phase	finished with 1 failed item(s)
+result	failed
+skipped	1
+failed	1
+op	copy
+from	disk:data-04:/shares/media/movies
+to	disk:data-05:/shares/media/movies
+job	1793169534-1597-28214
+skip	Heat/Heat.mkv	its folder could not be made
+fail	Heat	a file with that name is in the way

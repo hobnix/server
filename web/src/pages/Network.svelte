@@ -1,4 +1,5 @@
 <script>
+  import { tip } from '../ui/tooltip.svelte.js';
   import { poll, rows } from '../data.svelte.js';
   import { openPlan, openCreate, ui } from '../ui.svelte.js';
   import { route, go } from '../route.svelte.js';
@@ -140,7 +141,7 @@
         <div><div style="font-size:13px">{r.name}</div><div class="sub">{r.span}</div></div>
         <div class="cellrow">
           {#each r.cells as c}
-            <div class="cell" class:used={c.used} class:router={c.router} title={c.title}>
+            <div class="cell" class:used={c.used} class:router={c.router} use:tip={c.title}>
               <span class="cn">.{c.n}</span>
               {#if c.used}<a class="nm" {...link('/instances', 'instances', c.name)}>{c.name}</a>{:else}<span class="nm">{c.name}</span>{/if}
             </div>
@@ -152,7 +153,7 @@
       <div class="note">Outside these ranges: {#each others as c, i}{i ? ', ' : ''}<a {...link('/instances', 'instances', c.name)}>{c.name}</a> ({c.address.split(' ')[0]}){/each}</div>
     {/if}
     <div class="note">{list.loaded ? (list.error && !cts.length ? 'The instances could not be read (is the storage locked?).' : routerOff ? 'Shows instances with an address. The router could not be asked: UniFi is not set up on this server, or the key is wrong (Router tab).' : clients.loaded ? `Filled cells are instances; outlined cells are other devices the router has reserved or sees online.${elsewhere ? ` ${elsewhere} more address(es) at the router lie outside these ranges.` : ''}` : 'Loading…') : 'Loading…'}</div>
-    <div><button class="btn sm" title="Pin the MAC address of every instance" onclick={() => openPlan('admin', ['pin-macs'], 'Pin the MAC addresses')}><i class="ph ph-push-pin"></i>Pin MACs</button></div>
+    <div><button class="btn sm" use:tip={'Pin the MAC address of every instance'} onclick={() => openPlan('admin', ['pin-macs'], 'Pin the MAC addresses')}><i class="ph ph-push-pin"></i>Pin MACs</button></div>
   </div>
 
   <div class="card" style="padding:12px 14px;gap:8px">
@@ -166,7 +167,7 @@
     <Table id="zoraxy-rules" {columns} rows={rules} key="host" compact loading={!portsRead.loaded}
            empty={portsRead.error && !listen.length ? 'The rules could not be read.' : 'No Zoraxy rule could be read (is Zoraxy running?).'}>
       {#snippet cell(r, col)}
-        {#if col.key === 'host'}<span title={r.note && r.note !== '-' ? r.note : ''}>{r.host}</span>
+        {#if col.key === 'host'}<span use:tip={r.note && r.note !== '-' ? r.note : ''}>{r.host}</span>
         {:else}<span class="goes"><StatusDot state={ruleDot(r.status)} bare label={r.status} />{r.where}:{r.port}{#if r.status === 'WARN'}<span class="tag tag-neutral" style="color:var(--bad)">admin interface</span>{/if}</span>{/if}
       {/snippet}
     </Table>
@@ -176,7 +177,7 @@
 {:else if tab === 'dns'}
   <div class="card" style="padding:12px 14px;gap:8px">
     <div class="ch"><b>DNS names</b><span class="sub">of the instances, in the domain</span>
-      <button class="btn btn-primary sm" style="margin-left:auto" title="Create, correct and remove the DNS names of the instances (shows the plan first)" onclick={() => openPlan('dns', ['sync'], 'Sync DNS names')}><i class="ph ph-arrows-clockwise"></i>Sync DNS names</button></div>
+      <button class="btn btn-primary sm" style="margin-left:auto" use:tip={'Create, correct and remove the DNS names of the instances'} onclick={() => openPlan('dns', ['sync'], 'Sync DNS names')}><i class="ph ph-arrows-clockwise"></i>Sync DNS names</button></div>
     <Table id="dns-names" columns={dnsCols} rows={dnsNames} compact loading={!dnsRead.loaded}
            empty={dnsRead.error ? 'The names could not be read (no domain, or the domain controller is down).' : 'No names yet: Sync DNS names creates them.'}>
       {#snippet cell(n, col)}
@@ -204,7 +205,7 @@
 {:else if tab === 'router'}
   <div class="card" style="padding:12px 14px;gap:8px">
     <div class="ch"><b>Router</b><span class="sub">UniFi · networks and DHCP ranges</span>
-      <button class="btn btn-primary sm" style="margin-left:auto" title="Store the address and the API key of the UniFi router" onclick={() => openCreate(RouterSetup)}><i class="ph ph-plugs-connected"></i>{routerOk ? 'Change router…' : 'Connect router…'}</button></div>
+      <button class="btn btn-primary sm" style="margin-left:auto" use:tip={'Store the address and the API key of the UniFi router'} onclick={() => openCreate(RouterSetup)}><i class="ph ph-plugs-connected"></i>{routerOk ? 'Change router…' : 'Connect router…'}</button></div>
     {#if routerOff && !routerOk}
       <Banner tone="info">The router could not be asked: UniFi is not set up on this server, or the key is wrong. Connect it to see the networks and to keep the instance addresses in step.</Banner>
     {/if}
@@ -221,8 +222,8 @@
 {:else}
   <div class="card" style="padding:12px 14px;gap:8px">
     <div class="ch"><b>Remote shares</b><span class="sub">between homeservers: a peer connection, not a share of this server</span>
-      <button class="btn btn-ghost sm" style="margin-left:auto" title="Mount a share of another homeserver, read only" onclick={() => openCreate(PeerMount)}><i class="ph ph-plus"></i>Mount a share…</button>
-      <button class="btn btn-ghost sm" title="Let another homeserver read one of your shares" onclick={() => openCreate(PeerOffer, { ondone: (r) => (offered = r) })}><i class="ph ph-share-network"></i>Give access…</button></div>
+      <button class="btn btn-ghost sm" style="margin-left:auto" use:tip={'Mount a share of another homeserver, read only'} onclick={() => openCreate(PeerMount)}><i class="ph ph-plus"></i>Mount a share…</button>
+      <button class="btn btn-ghost sm" use:tip={'Let another homeserver read one of your shares'} onclick={() => openCreate(PeerOffer, { ondone: (r) => (offered = r) })}><i class="ph ph-share-network"></i>Give access…</button></div>
     <Table id="remote-shares" columns={remoteCols} rows={rem} compact loading={!remote.loaded} empty={remote.error ? 'Remote shares could not be read.' : 'No shares with other servers.'}>
       {#snippet cell(r, col)}
         {#if col.key === 'kind'}<span class="tag tag-neutral">{kindWord(r.kind)}</span>
@@ -230,11 +231,11 @@
         {:else if col.key === 'share'}<span class="kd">{r.share}</span>
         {:else if col.key === 'state'}<StatusDot state={remDot(r.state)} label={r.state} />
         {:else}<span style="white-space:nowrap">{#if r.kind === 'mount'}
-                <button class="btn btn-ghost sm" title="Give an instance the shares of {r.peer}, or take them away" onclick={() => openCreate(PeerAttach, { peer: r.peer, instances: cts.map((c) => c.name) })}>Instance…</button>
-                <button class="btn btn-ghost sm" title="Stop using {r.share} of {r.peer}" onclick={() => openPlan('peers', ['remove', r.peer, r.share], 'Stop using ' + r.peer + ' / ' + r.share)}>Remove…</button>
+                <button class="btn btn-ghost sm" use:tip={`Give an instance the shares of ${r.peer}, or take them away`} onclick={() => openCreate(PeerAttach, { peer: r.peer, instances: cts.map((c) => c.name) })}>Instance…</button>
+                <button class="btn btn-ghost sm" use:tip={`Stop using ${r.share} of ${r.peer}`} onclick={() => openPlan('peers', ['remove', r.peer, r.share], 'Stop using ' + r.peer + ' / ' + r.share)}>Remove…</button>
               {:else}
-                <button class="btn btn-ghost sm" title="Make a new password for {r.peer}" onclick={() => openCreate(PeerOffer, { peer: r.peer, share: r.share, newpw: true, ondone: (o) => (offered = o) })}>New password…</button>
-                <button class="btn btn-ghost sm" title="Take the access to {r.share} away from {r.peer}" onclick={() => openPlan('peers', ['revoke', r.peer, r.share], 'Take back the access of ' + r.peer)}>Revoke…</button>
+                <button class="btn btn-ghost sm" use:tip={`Make a new password for ${r.peer}`} onclick={() => openCreate(PeerOffer, { peer: r.peer, share: r.share, newpw: true, ondone: (o) => (offered = o) })}>New password…</button>
+                <button class="btn btn-ghost sm" use:tip={`Take the access to ${r.share} away from ${r.peer}`} onclick={() => openPlan('peers', ['revoke', r.peer, r.share], 'Take back the access of ' + r.peer)}>Revoke…</button>
               {/if}</span>{/if}
       {/snippet}
     </Table>

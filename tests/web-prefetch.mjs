@@ -17,7 +17,7 @@ for (const name of readdirSync(capDir)) {
 }
 check('the allowlist was read', known.size > 50 && known.has('ct/list') && known.has('status'), String(known.size));
 
-const routes = ['/', '/instances', '/network', '/identity/users', '/identity/groups', '/identity/certificates', '/monitoring/hardware', '/extensions/games', '/protection/backup', '/storage/pools', '/storage/pools/bulk', '/storage/pools/fast', '/storage/disks', '/storage/shares',
+const routes = ['/', '/instances', '/network', '/identity/users', '/identity/groups', '/identity/certificates', '/monitoring/hardware', '/extensions/games', '/protection/backup', '/storage/pools', '/storage/pools/bulk', '/storage/pools/fast', '/storage/disks', '/storage/shares', '/storage/files',
   '/protection/expiry', '/operations/health', '/operations/apps', '/operations/services', '/instances/apps', '/instances/services', '/extensions/posters', '/storage/encryption', '/storage/vault', '/storage/unassigned',
   '/settings', '/setup', '/nodes', '/storage/bulk', '/storage/fast', '/storage/bulk/disks', '/storage/fast/disks', '/storage/bulk/shares'];
 const missing = [];

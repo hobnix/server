@@ -28,6 +28,7 @@
   shareSnapshots = false;
   zfsArcMaxGB = 12;
   diskSpindownMinutes = 0;
+  fileManagerWrite = false;
   setupDone = false;
   backupNewShares = false;
   adDomain = null;
