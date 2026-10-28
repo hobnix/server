@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # Provider "reverse-proxy", variant zoraxy (docs/PLAN-modular-core.md step 4). The contract:
-#   zoraxy.sh info             key<TAB>value lines: name, public (yes|no), domains (comma separated), mode (read-only|api), note
+#   zoraxy.sh info             key<TAB>value lines: name, public (yes|no), domains (comma separated), mode (read-only|api), container, note
 #   zoraxy.sh list             host<TAB>path<TAB>target<TAB>id for every route the proxy has (host * = the default site)
 #   zoraxy.sh check            api mode: "ok" when the API and the rule files list the same routes, else "differ" and the two counts
 #   zoraxy.sh ensure H P T     make the route (host, path, target); exit 0 when it is there (or was changed: only a route hs made or adopted),
@@ -107,6 +107,7 @@ case "${1:-}" in
     printf 'name\tzoraxy\npublic\tyes\n'
     printf 'domains\t%s\n' "$(setting_get proxyDomains 2>/dev/null | tr -d ' ' || true)"
     printf 'mode\t%s\n' "$mode"
+    printf 'container\t%s\n' "$ct"
     [ -z "$why" ] || printf 'note\t%s\n' "$why" ;;
   list) routes ;;
   check)

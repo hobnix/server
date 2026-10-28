@@ -309,6 +309,33 @@ refused "the AD realm (with the local domain)" 'overlaps' ad.home.test add --add
 check_out "the AD realm alone" "AD realm" $R guard corp.home.test --realm corp.home.test --routes $RT
 refused "a host of the public proxy" 'overlaps public.example.io' public.example.io add --address 192.168.1.20
 refused "under a host of the public proxy" 'overlaps public.example.io' x.public.example.io add --address 192.168.1.20
+refused "the refusal names the exception" 'unless the target is the public reverse proxy itself' example.org add --address 192.168.1.20
+echo "-- the public reverse proxy itself as the target may carry its own domains"
+printf 'zoraxy,10.10.95.5 (eth0),\nmonitoring,10.10.95.6 (eth0),\n' > "$HS_PT_INSTANCE_ADDRS"
+printf 'other,10.10.95.7 (eth0),
+' >> "$HS_PT_INSTANCE_ADDRS"
+export HS_PT_PROXY_CT=zoraxy
+run $C plan example.org add --address 10.10.95.5 --container-ok
+[ "$rc" = 0 ] && pass "overlap + target = the proxy container: allowed" || fail "proxy container: rc=$rc $out"
+run $C plan public.example.io add --address 10.10.95.5 --container-ok
+[ "$rc" = 0 ] && pass "a host of the proxy, target = the proxy container: allowed" || fail "proxy host: rc=$rc $out"
+refused "overlap + the proxy container without --container-ok" "container 'zoraxy'" example.org add --address 10.10.95.5
+refused "overlap + another container" 'overlaps example.org' example.org add --address 10.10.95.7 --container-ok
+refused "overlap + an admin container is refused as an admin page" 'admin page' example.org add --address 10.10.95.6 --container-ok
+refused "overlap + a plain LAN address" 'overlaps example.org' example.org add --address 192.168.1.20
+refused "overlap + the proxy container on the admin port" 'admin page' example.org add --address 10.10.95.5 --container-ok --https-port 8000
+export HS_PT_PROXY_CT=nobody
+refused "overlap + a proxy container that is another one" 'overlaps example.org' example.org add --address 10.10.95.5 --container-ok
+export HS_PT_PROXY_CT=zoraxy HS_PT_DEFAULT_ADDRS=$WORK/default-addrs
+printf 'monitoring,10.10.95.6 (eth0),
+' > "$HS_PT_DEFAULT_ADDRS"
+refused "overlap + a container of that name in another project" 'overlaps example.org' example.org add --address 10.10.95.5 --container-ok
+: > "$HS_PT_DEFAULT_ADDRS"
+refused "overlap + the default project list unreadable or empty" 'overlaps example.org' example.org add --address 10.10.95.5 --container-ok
+unset HS_PT_DEFAULT_ADDRS
+unset HS_PT_PROXY_CT
+refused "overlap + the proxy container unknown" 'overlaps example.org' example.org add --address 10.10.95.5 --container-ok
+printf '10.10.95.5 (eth0)\n' > "$HS_PT_INSTANCE_ADDRS"
 printf '# hs-gateway local v1 host=app.home.example.com\n' > "$RT/local-app.home.example.com.yml"
 refused "a local- host" 'local name' home.example.com add --address 192.168.1.20
 rm -f "$RT/local-app.home.example.com.yml"
