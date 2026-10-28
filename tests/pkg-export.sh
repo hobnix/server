@@ -16,11 +16,10 @@ check_eq "the two extensions are in extensions" "games posters" "$(ls "$OUT/exte
 check "the recipes index matches its folders" $PKG repo-check "$OUT/recipes"
 check "the extensions index matches its folders" $PKG repo-check "$OUT/extensions"
 check_eq "the repository has exactly one commit" "1" "$(git -C "$OUT/recipes" rev-list --count HEAD)"
-if [ -n "${HS_LEAK_PATTERNS:-}" ]; then   # the author's names and domains: a file outside the repository (it would be the leak itself)
-  check "and none of the author's names or secrets (leak-scan)" python3 "$SCRIPTS/dev/leak-scan.py" "$OUT/recipes" --all-files --patterns "$HS_LEAK_PATTERNS"
-else
-  skip "leak-scan with the author's patterns needs HS_LEAK_PATTERNS"
-fi
+# The author's names and domains (HS_LEAK_PATTERNS) are a file outside the repository (it would be the leak itself); without it only
+# the built-in secret and e-mail checks run, which is all CI can do.
+pat=${HS_LEAK_PATTERNS:-$WORK/no-patterns}; [ -n "${HS_LEAK_PATTERNS:-}" ] || : > "$pat"
+check "no secrets, e-mail addresses${HS_LEAK_PATTERNS:+ or author names} in the recipes repository (leak-scan)" python3 "$SCRIPTS/dev/leak-scan.py" "$OUT/recipes" --all-files --patterns "$pat"
 check_out "core recipes are flagged" 'core = true' grep -A8 'package.homepage' "$OUT/recipes/index.toml"
 
 echo "-- a mistake in the index is found"
