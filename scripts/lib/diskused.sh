@@ -1,3 +1,4 @@
+# shellcheck shell=bash
 # Used bytes of the files on a disk that is not mounted, read from the filesystem's superblock (nothing is mounted or written):
 # ext4, xfs, btrfs. A disk without any filesystem is 0. Empty output = not known (other filesystems such as ntfs, LUKS, a damaged superblock,
 # or a sleeping HDD that has no answer cached): the interface then shows only the size.
