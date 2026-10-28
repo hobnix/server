@@ -136,20 +136,7 @@ generate() {
   while IFS=$'\t' read -r name type ip; do
     [ "$name" != "$ct" ] && [ "$ip" != - ] || continue
     ! grep -qxF "$name" <<<"$claimed" || continue
-    if [ "$name" = arr ]; then
-      # one tile per app: the name <app>.<site>.<domain> when hs dns sync made it (the container's port 80 routes by name), else address:port
-      local app port adesc aicon n nurl
-      for app in "Radarr 7878 Films mdi-filmstrip" "Sonarr 8989 Series mdi-television-classic" "Lidarr 8686 Music mdi-music" "Prowlarr 9696 Indexers mdi-magnify" \
-                 "Bazarr 6767 Subtitles mdi-subtitles-outline" "Maintainerr 6246 Clean-up_rules mdi-broom"; do
-        set -- $app; label=$1; port=$2; adesc=${3//_/ }; aicon=$4
-        curl -s -m 2 -o /dev/null "http://$ip:$port/" || continue   # not installed (Maintainerr is optional)
-        n=$(tr 'A-Z' 'a-z' <<<"$label")
-        nurl=$(named "$n" "$ip" "http://$ip/")   # a name changes the url, otherwise it stays the address
-        [ "$nurl" != "http://$ip/" ] || nurl="http://$ip:$port/"
-        add Apps "$label" "$nurl" "$adesc" "$aicon"
-      done
-      continue
-    fi
+    [ "$name" != arr ] || continue   # the container arr has no tile: its apps are services of their own (recipe arr)
     if line=$(known "$name" "$ip"); then
       IFS=$'\t' read -r url desc icon <<<"$line"
     elif url=$(web_url "$name" "$ip"); then

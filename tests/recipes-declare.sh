@@ -9,7 +9,6 @@ R=$ROOT/packages
 # recipe -> why it declares nothing
 declare -A NONE=(
   [homepage]="the dashboard does not list itself"
-  [arr]="several apps in one container: its tiles come from the table in homepage.sh"
   [pelican]="two containers (panel and Wings): declared by hand for now"
   [stalwart]="the web page is the mail server's admin page on https"
   [livekit]="not a web page"
@@ -44,6 +43,6 @@ check_eq "no recipe declares its service public-ok" "" "$bad"
 admin=$(for n in docker zoraxy authentik tdarr qbittorrent sabnzbd uptime-kuma monitoring paperclip; do grep -q "^ *declare_service $n .* never-public " "$R/$n/run.sh" 2>/dev/null || echo "$n "; done)
 check_eq "the admin pages and download tools are never-public" "" "$admin"
 count=$(grep -l '^ *declare_service ' "$R"/*/run.sh | wc -l | tr -d ' ')
-check_eq "so far (update this number with a new recipe)" "19" "$count"
+check_eq "so far (update this number with a new recipe)" "20" "$count"
 
 finish
