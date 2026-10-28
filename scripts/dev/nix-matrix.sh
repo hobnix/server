@@ -65,11 +65,16 @@ for dir in "$repo"/capabilities/*/; do
   case "$cap" in
     metrics)   variant "only-$cap" "$PROM=true|$TS=false|$PRIV=[ ]" "capabilities = [\"$cap\"]" ;;
     tailscale) variant "only-$cap" "$PROM=false|$TS=true|$PRIV=[ \"tailscale0\" ]" "capabilities = [\"$cap\"]" ;;
+    gateway)   variant "only-$cap" "$PROM=false|$TS=false|$PRIV=[ ]|services.traefik.enable=true" "capabilities = [\"$cap\"]" ;;
     *)         variant "only-$cap" "$PROM=false|$TS=false|$PRIV=[ ]" "capabilities = [\"$cap\"]" ;;   # no Nix module: it must still evaluate
   esac
 done
 all=$(ls -d "$repo"/capabilities/*/ | xargs -n1 basename | sed 's/.*/"&"/' | paste -sd, | sed 's/,/, /g')
 variant all          "$PROM=true|$TS=true|$PRIV=[ \"tailscale0\" ]" "capabilities = [$all]"
+refused gateway-webport-80 'capabilities = ["gateway"]' 'webUi = true' 'webPort = 80'
+variant gateway-public "services.traefik.enable=true" 'capabilities = ["gateway"]' 'gatewayPublicHttps = 4443' 'gatewayPublicHttp = 8008'
+refused gateway-public-80 'capabilities = ["gateway"]' 'gatewayPublicHttp = 80'
+variant gateway-ad "services.traefik.enable=true" 'capabilities = ["gateway"]' 'adDomain = { realm = "AD.HOME.LAN", workgroup = "HOME" }'   # the hs-webui Host router
 variant legacy-switches "$PROM=true|$TS=true" 'metrics = true' 'tailscaleRouter = true'
 variant ad-domain 'environment.etc."hs/capabilities".text="ad\nstorage\nincus\nsamba\nbackup\n"' 'adDomain = { realm = "AD.HOME.LAN", workgroup = "HOME" }'   # the capability ad is computed from adDomain
 # the author's preset as a whole (presets/example-server.toml [machine]): its lines must evaluate together, whatever the other variants say

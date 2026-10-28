@@ -44,6 +44,8 @@
   deckApi = false;
   proxyStatusUrl = "";
   vpsHost = "";
+  gatewayPublicHttps = 0;
+  gatewayPublicHttp = 0;
   gpu = null;
   nvidiaDriver = "stable";
   pciBind = [ ];

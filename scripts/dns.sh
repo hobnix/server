@@ -22,6 +22,8 @@ dc=$(dc_name)
 manage_ct=${HS_MANAGE_CT:-$here/manage-ct.sh}
 
 usage() { say "usage: hs dns list"; say "       hs dns sync [--yes] [--dry-run]"; exit 1; }
+# a hand-made record (the wildcard *.<siteName> of the gateway proxy, capabilities/gateway/NOTES.md) is never planned, changed or removed
+is_hand() { [[ $1 == \** ]]; }
 interactive() { [ -t 0 ] && [ -t 1 ] && [ -z "${HS_CALLER:-}" ] || [ -n "${HS_GUIDED_TTY:-}" ]; }
 
 # adDomain = { realm = "AD.HOME.LAN", workgroup = "HOME" }
@@ -78,10 +80,12 @@ case "$sub" in
     while IFS=$'\t' read -r n t v; do have["$n|$t"]=$v; done < <(actual)
     plan=()
     for k in $(printf '%s\n' "${!want[@]}" | sort); do
+      ! is_hand "$k" || continue
       if [ -z "${have[$k]+x}" ]; then plan+=("add|$k|${want[$k]}|")
       elif [ "${have[$k]}" != "${want[$k]}" ]; then plan+=("change|$k|${want[$k]}|${have[$k]}"); fi
     done
     for k in $(printf '%s\n' "${!have[@]}" | sort); do
+      ! is_hand "$k" || continue
       [ -n "${want[$k]+x}" ] || plan+=("remove|$k|${have[$k]}|")
     done
     if $plain; then

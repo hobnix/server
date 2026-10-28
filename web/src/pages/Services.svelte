@@ -4,6 +4,7 @@
   import PageHeader from '../shell/PageHeader.svelte';
   import PageState from '../shell/PageState.svelte';
   import Banner from '../ui/Banner.svelte';
+  import Kv from '../ui/Kv.svelte';
   import StatusDot from '../ui/StatusDot.svelte';
   import { ctOf, link, servicesOf } from './instances/ct.js';
   import Table from '../shell/Table.svelte';
@@ -11,6 +12,10 @@
 
   const svc = poll('/api/sys/services/list', 15000);
   const plan = poll('/api/sys/services/routes', 15000);
+  // the gateway proxy (capability gateway): read only while the capability is on
+  const gateway = $derived(Array.isArray(ui.features.capabilities) && ui.features.capabilities.includes('gateway'));
+  const local = poll(() => (gateway ? '/api/sys/services/local-routes' : ''), 15000);
+  const gw = poll(() => (gateway ? '/api/sys/gateway/status' : ''), 30000);
   const ctl = poll('/api/sys/ct/list', 30000);
   // the instance a service points at (its name or address in the target), for the link
   const cts = $derived(rows(ctl).map(ctOf));
@@ -25,6 +30,10 @@
   const todo = $derived(routes.filter((r) => ['add', 'confirm', 'change', 'remove'].includes(r.act)).length);
   const handmade = $derived(routes.filter((r) => r.act === 'ok' && r.note.startsWith('not adopted')).length);
 
+  // local routes: the same columns as the routes; gateway status is key, value
+  const localRoutes = $derived(rows(local).filter((r) => r[0] !== 'status' && r[0] !== 'warn').map((r) => ({ act: r[0], host: r[1], path: r[2], target: r[3], service: r[4], note: r[5] ?? '' })));
+  const localTodo = $derived(localRoutes.filter((r) => ['add', 'change', 'remove'].includes(r.act)).length);
+  const gwv = $derived(Object.fromEntries(rows(gw).map((r) => [r[0], r[1]])));
   const tone = (a) => (['violation', 'blocked', 'conflict', 'invalid'].includes(a) ? 'bad' : ['confirm', 'change', 'remove', 'unresolved'].includes(a) ? 'warn' : a === 'add' ? 'info' : a === 'ok' ? 'ok' : 'off');
   const dash = (v) => (v === '-' || v === undefined ? '' : v);
 
@@ -84,11 +93,30 @@
     </div>
   {/if}
 </PageState>
+{#if gateway}
+  <div class="card tc">
+    <div class="sh">Local names (gateway proxy)</div>
+    {#if gw.loaded && gwv.wildcard && gwv.wildcard !== 'ok'}<Banner tone="warn">The wildcard DNS record is {gwv.wildcard}. Run <code>hs gateway check</code> in a terminal.</Banner>{/if}
+    <Kv items={[{ k: 'Service', v: gwv.service ?? '' }, { k: 'Web interface', v: gwv.webui ?? '' }, { k: 'Domain', v: gwv.domain ?? '' }, { k: 'Wildcard', v: gwv.wildcard ?? '' }, { k: 'Port 80', v: gwv.port80 ?? '' }]} />
+    <div class="acts">
+      <button class="btn" disabled={!localTodo} title={localTodo ? 'Make the local names the services want' : 'The gateway proxy already matches the services'} onclick={() => openPlan('routes', ['apply', '--proxy', 'local'], 'Apply the local names')}><i class="ph ph-check-circle"></i>Apply local{localTodo ? ` (${localTodo})` : ''}…</button>
+      <button class="btn btn-ghost" title="Let every service without a choice get a local name" onclick={() => openPlan('routes', ['import', '--proxy', 'local'], 'Import local names')}><i class="ph ph-download-simple"></i>Import local…</button>
+    </div>
+    <Table id="service-local-routes" columns={routeCols} rows={localRoutes} loading={!local.loaded}
+           empty={local.error ? 'The local names could not be read.' : 'No services want a local name.'}>
+      {#snippet cell(r, col)}
+        {#if col.key === 'act'}<StatusDot state={tone(r.act)} label={r.act} />
+        {:else}<span class="c">{col.key === 'note' ? r.note : dash(r[col.key])}</span>{/if}
+      {/snippet}
+    </Table>
+  </div>
+{/if}
 <div class="muted">The proxy login (<code>hs services proxy login</code>) stays in the terminal: it carries a password.</div>
 
 <style>
   .tc { padding: 12px 14px; }
   .sh { font-size: 12px; color: var(--fg-3); margin-bottom: 6px; }
+  .acts { display: flex; gap: 8px; margin: 8px 0; }
   .muted { font-size: 12px; color: var(--fg-3); }
   .c { color: var(--fg-2); }
   .rm { width: 28px; min-height: 28px; color: var(--fg-3); }

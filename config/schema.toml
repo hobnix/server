@@ -903,6 +903,38 @@ value = '''
 proxyDomains = "example.org,example.net"'''
 
 [[item]]
+kind = "option"
+key = "gatewayPublicHttps"
+type = "int"
+required = false
+settable = false
+secret = false
+capability = "gateway"
+default = '0'
+doc = '''
+# The port of the gateway proxy for public TLS passthrough
+# (extension passthrough): the router forwards the internet's port 443 here. 0 = off. Suggested 4443. Never 80 or 443: those are the
+# local side. Needs hs rebuild.'''
+value = '''
+gatewayPublicHttps = 4443'''
+
+[[item]]
+kind = "option"
+key = "gatewayPublicHttp"
+type = "int"
+required = false
+settable = false
+secret = false
+capability = "gateway"
+default = '0'
+doc = '''
+# The port of the gateway proxy for public TLS passthrough
+# (extension passthrough): the router forwards the internet's port 80 here. 0 = off. Suggested 8008. Never 80 or 443: those are the
+# local side. Needs hs rebuild.'''
+value = '''
+gatewayPublicHttp = 8008'''
+
+[[item]]
 kind = "section"
 title = "Hardware"
 
