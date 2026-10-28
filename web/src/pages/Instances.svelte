@@ -84,6 +84,7 @@
   {#snippet emptyAction()}<button class="btn btn-primary" onclick={() => openCreate(CreateInstance)}><i class="ph ph-plus"></i>Create</button>{/snippet}
   <Split open={!!sel}>
     {#snippet list()}
+      <div class="card" style="padding:0">
       <Table id="instances" {columns} rows={cts} key="name" selected={sel?.name} onrow={(c) => { selName = c.name; }} loading={!ctl.loaded} empty="No instances.">
         {#snippet cell(c, col)}
           {#if col.key === 'name'}<span class="nm"><i class="ph ph-{ctIcon(c)} ic"></i>{c.name}</span>
@@ -105,6 +106,7 @@
           {/if}
         {/snippet}
       </Table>
+      </div>
     {/snippet}
     {#snippet side()}
       {#if sel}
