@@ -1,0 +1,18 @@
+status	ok
+files_done	2
+files_total	2
+bytes_done	300007
+bytes_total	300007
+speed	0
+eta	0
+current	
+phase	finished
+result	done
+skipped	2
+failed	0
+op	copy
+from	disk:data-04:/shares/media/movies
+to	disk:data-05:/shares/media/movies
+job	1793169534-1355-9612
+skip	Avatar/poster.jpg	exists at the target
+skip	Avatar/Avatar.mkv	exists at the target

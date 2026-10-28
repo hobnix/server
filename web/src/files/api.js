@@ -6,9 +6,12 @@
 //   fm/pair/<left>/<right>           status ok | refused + reason (the same-files rule)
 //   fm/ls/<loc>?path=&cursor=&limit= row <type d|f|l> <bytes> <mtime> <name> <disks|-> <flags|-> <busy op:pct|->, then `cursor <X>` or `end`
 //   fm/progress/<unit>               key<TAB>value: files_done files_total bytes_done bytes_total speed eta current phase result skipped failed
+//   fm/locations also carries `write<TAB>yes|no` (the runtime setting fileManagerWrite: no = copy, move, delete, rename and new folder are refused) and,
+//   while the encrypted storage is locked, `locked<TAB>yes` and no loc rows.
 // CHANGES (POST /api/plan and /api/start, area `fm`): args = [op, --from, <loc>, --path, <P>, (--to, <loc>, --to-path, <Q>), (--conflict ..), (--verify ..),
-//   (--parity-after), (--newname N), (--conflicts)]; the selection (names relative to --path) travels as `stdin`, NUL separated, never in the arguments.
-//   Paths are always relative to the location root and start with `/`.
+//   (--parity-after), (--newname N), (--conflicts)]; the selection (item names INSIDE --path, one folder, no slash) is the body field `selection`, the typed
+//   confirmation the body field `confirm`; web-serve.py adds --by/--confirm itself. Paths start with `/` and are relative to the location root.
+//   start answers `status done` + `unit` (or `refused` + `reason`).
 import { get, plan as askPlan, start as doStart } from '../api.js';
 import { parseRow } from './selection.js';
 
@@ -34,7 +37,7 @@ export async function locations() {
     id: r[1], kind: r[2], label: r[3], fs: r[4] === '-' ? '' : r[4], size: Number(r[5]) || 0, free: r[6] === '-' || r[6] === '' ? NaN : Number(r[6]),
     writable: r[7] === 'yes', reason: r[8] === '-' ? '' : (r[8] ?? ''), pool: r[9] === '-' ? '' : (r[9] ?? ''), disk: r[10] === '-' ? '' : (r[10] ?? ''),
   }));
-  return { ok: s.ok, reason: s.reason, locs };
+  return { ok: s.ok, reason: s.reason, locs, locked: s.kv.locked === 'yes', write: s.kv.write !== 'no' };
 }
 
 // may these two be the two sides of a copy or move? { ok, reason }
@@ -56,16 +59,16 @@ export async function ls(loc, path = '/', cursor = '', limit = 500) {
 export async function progress(unit) {
   const s = split(await get(`${A}progress/${enc(unit)}`));
   const num = (k) => (s.kv[k] === undefined || s.kv[k] === '-' ? NaN : Number(s.kv[k]));
-  const list = (k) => {
-    const rs = s.rows.filter((r) => r[0] === k);
-    if (rs.length === 1 && rs[0].length === 2 && /^\d+$/.test(rs[0][1])) return { n: Number(rs[0][1]), items: [] };
-    const items = rs.map((r) => ({ path: r[1] ?? '', why: r.slice(2).join(' ') }));
-    return { n: items.length, items };
+  // `skipped<TAB>N` / `failed<TAB>N` are the counts, `skip<TAB>path<TAB>why` / `fail<TAB>path<TAB>why` the first 200 items
+  const list = (k, tag) => {
+    const items = s.rows.filter((r) => r[0] === tag).map((r) => ({ path: r[1] ?? '', why: r.slice(2).join(' ') }));
+    const c = num(k);
+    return { n: Number.isFinite(c) ? Math.max(c, items.length) : items.length, items };
   };
   return {
     ok: s.ok, reason: s.reason, filesDone: num('files_done'), filesTotal: num('files_total'), bytesDone: num('bytes_done'), bytesTotal: num('bytes_total'),
     speed: num('speed'), eta: num('eta'), current: s.kv.current && s.kv.current !== '-' ? s.kv.current : '', phase: s.kv.phase && s.kv.phase !== '-' ? s.kv.phase : '',
-    result: s.kv.result || 'running', skipped: list('skipped'), failed: list('failed'),
+    result: s.kv.result || 'running', skipped: list('skipped', 'skip'), failed: list('failed', 'fail'),
   };
 }
 
@@ -82,11 +85,11 @@ export function args(spec, opts = {}) {
   if (opts.conflicts) a.push('--conflicts');
   return a;
 }
-const stdinOf = (names) => (names?.length ? names.join('\0') : undefined);
+const selOf = (names) => (names?.length ? names : undefined);
 
 // The plan, as the dialog needs it. Fields the backend sends as text become numbers; the steps keep the mark they start with (+ ~ -).
 export async function plan(spec, opts = {}) {
-  const r = await askPlan('fm', args(spec, opts), stdinOf(spec.names));
+  const r = await askPlan('fm', args(spec, opts), undefined, selOf(spec.names));
   const n = (v) => (v === undefined || v === '' || v === '-' ? NaN : Number(v));
   const steps = [], notes = [], warns = [];
   for (const [k, v] of r.steps ?? []) {
@@ -98,14 +101,14 @@ export async function plan(spec, opts = {}) {
   const conflictRows = (r.conflict_rows ?? r.rows ?? []).map((c) => ({ path: c[0], srcBytes: n(c[1]), dstBytes: n(c[2]), srcMtime: n(c[3]), dstMtime: n(c[4]) }));
   return {
     ok: r.status === 'ok', reason: r.reason ?? '', heading: r.heading ?? '', steps, notes, warns, files: n(r.files), folders: n(r.folders), bytes: n(r.bytes), freeAfter: n(r.free_after),
-    conflicts: n(r.conflicts) || 0, parity: r.parity === 'yes', confirmName: r.confirm_name ?? '', long: !!r.long, conflictRows,
+    conflicts: n(r.conflicts) || 0, parity: r.parity === true || r.parity === 'yes', confirmName: r.confirm_name ?? '', long: !!r.long, conflictRows,
   };
 }
 
 // start it: { ok, reason, unit }; `confirm` is the typed text the plan asked for
 export async function start(spec, opts, confirm) {
-  const r = await doStart('fm', args(spec, opts), confirm, stdinOf(spec.names));
-  return { ok: r.status === 'started' || r.status === 'done', reason: r.reason ?? '', unit: r.unit ?? '' };
+  const r = await doStart('fm', args(spec, opts), confirm, undefined, selOf(spec.names));
+  return { ok: r.status === 'done' || r.status === 'started', reason: r.reason ?? '', unit: r.unit ?? '' };
 }
 
 // stop a running job (the existing jobs stop)

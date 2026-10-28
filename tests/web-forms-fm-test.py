@@ -28,6 +28,9 @@ class Reads(unittest.TestCase):
         self.assertEqual(argv, ["fm", "locations"])
         spec, argv, _ = ws.Reads.resolve(r, ["fm", "ls", "disk:data-04"], {"path": ["shares/media"], "cursor": ["500"], "limit": ["100"]})
         self.assertEqual(argv, ["fm", "ls", "disk:data-04", "--cursor", "500", "--limit", "100", "--path", "shares/media"])
+        spec, argv, _ = ws.Reads.resolve(r, ["fm", "ls", "disk:data-04"], {"path": ["/shares/media"]})
+        self.assertEqual(argv, ["fm", "ls", "disk:data-04", "--path", "/shares/media"], "the page sends a path with a leading slash")
+        self.assertIsNotNone(change(["copy", "--from", "disk:data-04", "--path", "/shares/media", "--to", "disk:data-05", "--to-path", "/shares/media"], ["a"]), "a leading slash in a change")
         self.assertIsNotNone(ws.Reads.resolve(r, ["fm", "pair", "disk:data-04", "pool:bulk"], {}))
         self.assertIsNotNone(ws.Reads.resolve(r, ["fm", "progress", "hs-job-fm-copy-101010"], {}))
         for bad in (["fm", "ls", "/etc"], ["fm", "ls", "disk:../x"], ["fm", "pair", "disk:data-04"], ["fm", "progress", "sshd"], ["fm", "plan"], ["fm", "start"]):

@@ -30,6 +30,9 @@ export class Fm {
   locs = $state.raw([]);
   locsState = $state('loading');    // loading | ok | error
   locsError = $state('');
+  locked = $state(false);           // the encrypted storage is locked: `locations` answers without any location
+  write = $state(true);             // the runtime setting fileManagerWrite (false = browsing and plans only; the server refuses every start)
+  notice = $state('');              // a short message above the panes (the tray rule)
   panes = { L: new Pane(), R: new Pane() };
   active = $state('L');
   tray = $state.raw([]);            // [{ dir, name, type, bytes }], all of trayLoc
@@ -80,6 +83,8 @@ export class Fm {
       const r = await api.locations();
       if (!r.ok) throw new Error(r.reason || 'The server refused to list the locations.');
       this.locs = r.locs;
+      this.write = r.write;
+      this.locked = r.locked;
       this.locsState = 'ok';
       this.locsError = '';
     } catch (e) {
@@ -90,10 +95,11 @@ export class Fm {
 
   locOf = (id) => this.locs.find((l) => l.id === id) ?? null;
   label = (id) => this.locOf(id)?.label ?? id;
-  // the rules that depend on the location: a pool view that is an array of disks locks its top-level folders (they are the folders of the disks)
+  // the rules that depend on the location: the top level of the bulk pool is the array itself (the server marks every entry there `array`; this
+  // keeps the two in step, so a row is locked even if a flag were missing). The fast pool and shares have no such level.
   ctxOf(side) {
     const p = this.panes[side], l = this.locOf(p.loc);
-    return { poolRoot: !!l && l.kind === 'pool' && p.path === '/' && this.locs.some((x) => x.kind === 'disk' && x.pool === l.id.replace(/^pool:/, '')) };
+    return { poolRoot: !!l && l.id === 'pool:bulk' && p.path === '/' };
   }
   lockedNames(side) {
     const ctx = this.ctxOf(side);
@@ -193,7 +199,7 @@ export class Fm {
   invert(side = this.active) { const p = this.panes[side]; p.sel = S.invert(this.orderNames(side), this.lockedNames(side), p.sel); }
   byPattern(remove) { const p = this.panes[this.active]; p.sel = S.byPattern(this.orderNames(this.active), this.lockedNames(this.active), p.sel, this.pat, remove); }
   clear(side = this.active) { const p = this.panes[side]; p.sel = new Set(); p.anchor = ''; }
-  clearAll() { this.clear('L'); this.clear('R'); this.tray = []; this.trayLoc = ''; }
+  clearAll() { this.clear('L'); this.clear('R'); this.tray = []; this.trayLoc = ''; this.notice = ''; }
   move(d) {
     const p = this.panes[this.active];
     p.cur = S.step(this.orderNames(this.active), p.cur, d);
@@ -209,26 +215,33 @@ export class Fm {
 
   totalsOf(side) { return S.totals(this.panes[side].rows, this.panes[side].sel); }
 
-  // the tray: collect the selection of the active pane, then go to other folders and collect more
+  // the tray: collect the selection of the active pane, then go to other places and finish. It holds items of ONE folder of ONE location: the server
+  // takes names inside a folder (no slash), a safety rule that stays.
   collect() {
     const p = this.panes[this.active];
     const items = p.rows.filter((r) => p.sel.has(r.name)).map((r) => ({ dir: p.path, name: r.name, type: r.type, bytes: r.bytes }));
     if (!items.length) return;
-    if (this.trayLoc && this.trayLoc !== p.loc) this.tray = [];
+    if (this.tray.length && (this.trayLoc !== p.loc || this.tray[0].dir !== p.path)) { this.notice = S.TRAY_ONE_FOLDER; return; }
+    this.notice = '';
     this.trayLoc = p.loc;
     this.tray = S.addToTray(this.tray, items);
     this.clear(this.active);
   }
-  clearTray() { this.tray = []; this.trayLoc = ''; }
+  clearTray() { this.tray = []; this.trayLoc = ''; this.notice = ''; }
 
   // what an operation on `side` works on: { ok, why, loc, path, names, items, n, files, dirs, bytes, unknown }
   source(side = this.active) {
     const p = this.panes[side];
     const items = p.rows.filter((r) => p.sel.has(r.name)).map((r) => ({ dir: p.path, name: r.name, type: r.type, bytes: r.bytes, flags: r.flags }));
-    const all = this.trayLoc === p.loc ? S.addToTray(this.tray, items) : items;
+    const tray = this.trayLoc === p.loc ? this.tray : [];
+    let all = items, why = '';
+    if (tray.length) {
+      if (items.length && tray[0].dir !== p.path) { all = []; why = S.TRAY_ONE_FOLDER; }   // a selection in another folder than the tray's: not mixed
+      else all = S.addToTray(tray, items);
+    }
     const { path, names } = S.sourceOf(all);
     const t = { n: all.length, files: all.filter((i) => i.type !== 'd').length, dirs: all.filter((i) => i.type === 'd').length, bytes: all.reduce((a, i) => a + (Number.isFinite(i.bytes) ? i.bytes : 0), 0), unknown: all.filter((i) => i.type === 'd' && !Number.isFinite(i.bytes)).length };
-    return { ok: all.length > 0, loc: p.loc, path, names, items: all, ...t };
+    return { ok: all.length > 0, why, loc: p.loc, path, names, items: all, ...t };
   }
 
   // '' when the operation may be started now, else the reason (the toolbar button shows it as its tooltip)
@@ -239,7 +252,7 @@ export class Fm {
     const ro = (l) => (l.reason || 'This location is read only');
     if (op === 'mkdir') return src.writable ? '' : ro(src);
     const s = this.source(side);
-    if (!s.ok) return 'Select something first';
+    if (!s.ok) return s.why || 'Select something first';
     if (op === 'rename') {
       if (s.n !== 1) return 'Rename works on one item at a time';
       if (s.items[0].flags?.includes('badname')) return 'This name has odd characters and cannot be renamed here';

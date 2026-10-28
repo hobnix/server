@@ -113,8 +113,10 @@ pool never meet (data loss of 2026-10-18). Description and open questions: docs/
 the Storage > Files page, entry points from Disks, Pools and Shares.
 
 1. [ ] Design from the owner, answers to the open questions at the end of the plan.
-2. [ ] Backend `hs sys fm locations|ls|stat|du|plan|start`.
-3. [ ] The page and the entry points.
+2. [x] Backend `hs sys fm locations|pair|ls|plan|start|progress` (built 2026-10-28, folders only in tests; `stat`/`du` not built).
+3. [x] The page Storage > Files (built; entry points from Disks, Pools and Shares are links with `?left=&path=&right=`). Page and backend are integrated and covered by a contract test (tests/web-files-contract.sh).
+4. [ ] **Safety switch**: `fileManagerWrite` is off by default. Run the VM checklist (docs/PLAN-file-manager.md 7a, docs/Pruefliste-Server.md 7.6), then switch it on.
+5. [ ] Not built: `fm du` and Calculate size, pause, trash, `hs fm ...` user commands, the editable path field, owner and mode in Info.
 
 ## Later / ideas
 

@@ -1,0 +1,15 @@
+status	ok
+heading	copy 1 item(s) (5B) from data-04:/shares/media to data-05:/shares/media
+step	+ copy 1 files in 0 folders (5B) to data-05:/shares/media, each to a temporary name first, renamed when complete
+step	~ check every copied file (size and modification time) before it counts as done
+step	~ 1 file(s) exist at the target: they are REPLACED
+warn	Overwriting replaces files at the target for good. Type the target name to confirm.
+note	The parity sync and the cache mover wait until this is done.
+files	1
+folders	0
+bytes	5
+free_after	16736927739
+conflicts	1
+parity	no
+confirm_name	media
+long	no

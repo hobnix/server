@@ -12,6 +12,7 @@ export HS_FM_TEST=1 HS_FM_SYNC=1 HS_FM_MARGIN=0 HS_FM_NO_RENAME=1 HS_STATE_DIR=$
   HS_FM_POOL_ROOT=$B/pool HS_FM_CACHE_ROOT=$B/cache HS_FM_TEMP_ROOT=$B/temp HS_FM_FAST_ROOT=$B/fast HS_BULK_TYPE_FILE=$WORK/bulk-type \
   HS_LOCK=$WORK/lock HS_LOCK_ADMIN=$WORK/admin HS_BULK_CLOSED=$WORK/state/bulk-closed HS_CAPABILITIES_FILE=$WORK/caps HS_LOCKED_MARKER=$WORK/locked-marker
 echo snapraid > "$HS_BULK_TYPE_FILE"; echo storage > "$HS_CAPABILITIES_FILE"
+mkdir -p "$HS_STATE_DIR/settings"; echo true > "$HS_STATE_DIR/settings/fileManagerWrite"     # the write switch is on for the tests below; "the write switch" block tests it off
 mkdir -p "$B"/disks/data-04 "$B"/disks/data-05 "$B"/disks/data-06 "$B"/disks/data-07 "$B"/detached/data-08 "$B"/pool "$B"/cache "$B"/temp/usb "$B"/fast "$HS_STATE_DIR/recovering"
 echo data-06 > "$HS_BULK_CLOSED"; : > "$HS_STATE_DIR/recovering/data-07"
 D4=$B/disks/data-04; D5=$B/disks/data-05; D6=$B/disks/data-06; P=$B/pool
@@ -359,6 +360,25 @@ fmsel -- plan mkdir --from disk:data-04 --path shares/media --newname brandnew; 
 fmsel -- plan mkdir --from disk:data-04 --path "" --newname loose; check_eq "new folder at the top of an array: refused" 1 "$rc"
 fmsel -- plan mkdir --from disk:data-06 --path shares/media --newname x; check_eq "new folder on a closed disk: refused" 1 "$rc"
 fmsel -- plan mkdir --from disk:data-04 --path shares/media --newname "x/y"; check_eq "new folder name with a slash: refused" 1 "$rc"
+
+echo "-- the write switch (fileManagerWrite)"
+fm locations; [ "$(kv write)" = yes ] && pass "locations: write yes while the switch is on" || fail "write row: $out"
+echo false > "$HS_STATE_DIR/settings/fileManagerWrite"
+fm locations; [ "$(kv write)" = no ] && pass "locations: write no while the switch is off" || fail "write row off: $out"
+before=$(ls "$D4/shares/media" | tr '\n' ' ')
+for o in "copy --to disk:data-05 --to-path shares/media" "move --to disk:data-05 --to-path shares/media" "delete" "rename --newname zzz"; do
+  fmsel readme.txt -- start $o --from disk:data-04 --path shares/media --confirm "delete 1 file"
+  check_eq "start ${o%% *} with the switch off: refused" 1 "$rc"
+  reason | grep -q fileManagerWrite && pass "start ${o%% *}: the reason says how to switch it on" || fail "reason: $out"
+done
+fmsel -- start mkdir --from disk:data-04 --path shares/media --newname nope; check_eq "start mkdir with the switch off: refused" 1 "$rc"
+[ ! -e "$D4/shares/media/nope" ] && [ "$before" = "$(ls "$D4/shares/media" | tr '\n' ' ')" ] && pass "nothing changed while the switch is off" || fail "files changed with the switch off"
+fmsel readme.txt -- plan copy --from disk:data-04 --path shares/media --to disk:data-05 --to-path shares/media; check_eq "plan works with the switch off" 0 "$rc"
+has "^warn${T}The file manager is read only" && pass "the plan warns that the switch is off" || fail "plan warn: $out"
+fm ls disk:data-04 --path shares/media; check_eq "ls works with the switch off" 0 "$rc"
+fm pair disk:data-04 disk:data-05; check_eq "pair works with the switch off" 0 "$rc"
+echo true > "$HS_STATE_DIR/settings/fileManagerWrite"
+fmsel readme.txt -- plan copy --from disk:data-04 --path shares/media --to disk:data-05 --to-path shares/media; has "^warn${T}The file manager is read only" && fail "warn stays with the switch on" || pass "no read-only warning with the switch on"
 
 echo "-- audit and the pieces around it"
 [ -s "$HS_FM_DIR/audit.log" ] && grep -q "^[0-9T:+-]*${T}ui${T}delete${T}disk:data-04:/shares/media${T}" "$HS_FM_DIR/audit.log" && pass "audit.log: one line per operation (time, who, op, source)" || fail "audit: $(tail -n3 "$HS_FM_DIR/audit.log" 2>/dev/null)"

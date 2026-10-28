@@ -1,0 +1,7 @@
+status	ok
+row	d	0	1793169533	busyfolder	-	-	move:34
+row	d	0	1793169533	movies	-	-	-
+row	f	0	1793169533	bad\x01name.txt	-	badname	-
+row	f	5	1793169533	notes.txt	-	-	-
+row	f	5	1793169533	readme.txt	-	-	-
+end

@@ -547,6 +547,23 @@ value = '''
 diskSpindownMinutes = 30'''
 
 [[item]]
+kind = "option"
+key = "fileManagerWrite"
+type = "bool"
+required = false
+settable = true
+secret = false
+store = "settings"
+default = 'false'
+doc = '''
+# Allow the file manager to copy, move and delete files. Test it in a VM first (docs/PLAN-file-manager.md).
+# false (default)  browsing and plans only: `hs sys fm start` refuses copy, move, delete, rename and new folder
+# true             the file manager changes files
+# This code has never run on real disks. Switch it on only after the VM test of the plan passed.'''
+value = '''
+fileManagerWrite = true'''
+
+[[item]]
 kind = "section"
 title = "Backup"
 

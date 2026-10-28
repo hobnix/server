@@ -97,9 +97,15 @@
 </PageHeader>
 
 <FmJob {fm} />
+{#if !fm.write && fm.locsState === 'ok'}
+  <div class="fmnote"><Banner tone="info">{S.WRITE_OFF} Browsing and dry runs work; Start is switched off.</Banner></div>
+{/if}
+{#if fm.notice}
+  <div class="fmnote"><Banner tone="warn">{fm.notice}{#snippet action()}<button class="btn sm" onclick={() => (fm.notice = '')}>OK</button>{/snippet}</Banner></div>
+{/if}
 
 <PageState loading={fm.locsState === 'loading'} error={fm.locsState === 'error' ? fm.locsError : ''} hasData={fm.locs.length > 0} empty={fm.locsState === 'ok' && !fm.locs.length}
-           emptyIcon="folders" emptyTitle="Nothing to browse yet" emptyText="There are no disks, pools or shares to show. Add a pool or a share first." retry={() => fm.init(route.query)}>
+           emptyIcon="folders" emptyTitle={fm.locked ? 'The storage is locked' : 'Nothing to browse yet'} emptyText={fm.locked ? 'Unlock the encrypted storage first; then the disks, pools and shares appear here.' : 'There are no disks, pools or shares to show. Add a pool or a share first.'} retry={() => fm.init(route.query)}>
   <!-- svelte-ignore a11y_no_noninteractive_tabindex, a11y_no_noninteractive_element_interactions -->
   <div class="fm" bind:this={root} tabindex="0" role="application" aria-label="File manager" onkeydown={onkey}>
     <div class="fmtools">
@@ -189,6 +195,7 @@
 
 <style>
   :global(.wrap:has(.fm)) { max-width: none; }
+  .fmnote { margin-bottom: 12px; }
   .fm { position: relative; outline: none; display: flex; flex-direction: column; min-width: 0; }
   .fmtools { display: flex; align-items: center; gap: 14px; flex-wrap: wrap; margin-bottom: 12px; padding: 8px 10px; border: 1px solid var(--line); background: var(--panel); }
   .fmgrp { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; }

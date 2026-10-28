@@ -17,7 +17,7 @@ export function lockOf(row, ctx = {}) {
   }
   if (f.includes('busyparent')) return { locked: true, openable: dir, tag: 'Job running inside', tone: 'info', reason: 'A job is working on something inside this folder, so the folder itself is locked.' };
   // an array folder (shares, sensitive on a bulk disk), and the top-level folders of a pool view, which are the same folders seen through the merge
-  if (f.includes('array') || (ctx.poolRoot && dir)) return { locked: true, openable: dir, tag: 'array', tone: 'warn', reason: ctx.poolRoot && !f.includes('array') ? 'Top-level folder of a pool: open it, but it is never moved, renamed or deleted.' : 'Array folder: it can be opened, never selected, so it cannot be moved, renamed or deleted.' };
+  if (f.includes('array') || ctx.poolRoot) return { locked: true, openable: dir, tag: 'array', tone: 'warn', reason: ctx.poolRoot && !f.includes('array') ? 'Top-level folder of a pool: open it, but it is never moved, renamed or deleted.' : 'Array folder: it can be opened, never selected, so it cannot be moved, renamed or deleted.' };
   return { locked: false, openable: dir };
 }
 export const selectable = (row, ctx) => !lockOf(row, ctx).locked;
@@ -29,7 +29,8 @@ export function parseRow(f) {
   const [type, bytes, mtime, name, disks, flags, busy] = f;
   let b = null;
   if (busy && busy !== '-') { const [op, pct] = busy.split(':'); b = { op, pct: pct === undefined || pct === '' ? NaN : Number(pct) }; }
-  return { type: type === 'd' || type === 'l' ? type : 'f', bytes: bytes === '-' || bytes === '' ? NaN : Number(bytes), mtime: Number(mtime) || 0, name, disks: list(disks), flags: list(flags), busy: b };
+  // the server does not measure folders (it sends 0): a folder's size is unknown here, shown as an em dash
+  return { type: type === 'd' || type === 'l' ? type : 'f', bytes: type === 'd' || bytes === '-' || bytes === '' ? NaN : Number(bytes), mtime: Number(mtime) || 0, name, disks: list(disks), flags: list(flags), busy: b };
 }
 
 // ── selection ─────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
@@ -119,8 +120,10 @@ export function cleanPath(p) {
   return '/' + parts.join('/');
 }
 
-// ── the tray: items collected from several folders of ONE location ───────────────────────────────────────────────────────────────────────
-// An item is { dir, name, type, bytes }. The operation gets the deepest folder they all share as its path and the items as paths below it.
+export const WRITE_OFF = 'The file manager is read only until you allow it in Settings (Allow the file manager to copy, move and delete files). Plans still work.';
+export const TRAY_ONE_FOLDER = 'The tray holds items of one folder; finish or clear it first';
+// ── the tray: items collected in ONE folder of ONE location ───────────────────────────────────────────────────────────────────────
+// An item is { dir, name, type, bytes }. The server takes names inside the folder (no slash), so the tray never mixes folders (fm.svelte.js).
 export const commonDir = (dirs) => {
   if (!dirs.length) return '/';
   const split = dirs.map((d) => d.split('/').filter(Boolean));

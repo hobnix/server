@@ -26,7 +26,11 @@ here=$(cd "$(dirname "$0")" && pwd)   # absolute: the background job runs from a
 . "$here/lib/fm.sh"
 . "$here/lib/capability.sh"
 . "$here/lib/bulklock.sh"
+. "$here/lib/setting.sh"
 
+# The safety switch (runtime setting fileManagerWrite, default off): this code has never run on real disks. Browsing, pairs and plans work either way.
+write_on() { [ "$(setting_get fileManagerWrite 2>/dev/null || true)" = true ]; }
+WRITE_OFF_REASON="The file manager is read only until you allow it: hs config set fileManagerWrite true (web: Settings, 'Allow the file manager to copy, move and delete files'). Test it in a VM first (docs/PLAN-file-manager.md)."
 refuse() { printf 'status\trefused\nreason\t%s\n' "$1"; exit 1; }
 gate() { capability_on storage || refuse "The file manager needs the capability 'storage' (role homeserver)."; }
 grab() { local p=$1 v; for v in ID KIND LABEL ROOT FS SIZE FREE ADD MOD REASON POOL DISK USABLE ERR AK REL TOP SNAP LOCK; do eval "$p$v=\"\${L$v}\""; done; }
@@ -40,6 +44,7 @@ cmd_locations() {
   gate
   if storage_locked; then printf 'status\tok\nlocked\tyes\n'; return 0; fi
   echo "status	ok"
+  if write_on; then printf 'write\tyes\n'; else printf 'write\tno\n'; fi
   local ids=() d n bt; bt=$(fm_bulk_type)
   if [ "$bt" = snapraid ]; then
     local m; local -A seen=()
@@ -478,6 +483,7 @@ plan_lines() {
       overwrite) printf 'step\t~ %s file(s) exist at the target: they are REPLACED\n' "$conflicts" ;;
     esac
   fi
+  write_on || printf 'warn\tThe file manager is read only (fileManagerWrite is off): this plan shows what would happen, Start is refused until you allow it in Settings.\n'
   [ "$op" != delete ] || echo "warn	Delete is permanent: there is no trash. The backup and ZFS snapshots are the only way back."
   if [ "$has_dst" = yes ] && { [ "$policy" = newer ] || [ "$policy" = overwrite ]; }; then echo "warn	Overwriting replaces files at the target for good. Type the target name to confirm."; fi
   [ "$links" -eq 0 ] && [ "$others" -eq 0 ] || { [ "$op" = delete ] && printf 'note\t%s link(s) and %s special file(s) are removed as they are, never followed.\n' "$links" "$others" || printf 'warn\t%s link(s) and %s special file(s) in the selection are skipped: links are never followed or copied.\n' "$links" "$others"; }
@@ -753,6 +759,7 @@ cmd_plan() {
 
 cmd_start() {
   parse_args "$@"
+  write_on || refuse "$WRITE_OFF_REASON"
   do_plan
   if [ -n "$confirm_name" ] && [ "$confirm" != "$confirm_name" ]; then refuse "type the confirmation to go on: $confirm_name"; fi
   if [ "$now" = yes ]; then

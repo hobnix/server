@@ -7,7 +7,7 @@ const arr = (s) => [...s];
 
 console.log('-- parsing and locks');
 const r1 = S.parseRow(['d', '4096', '1700000000', 'shares', '-', 'array', '-']);
-eq('a row', [r1.type, r1.bytes, r1.name, r1.disks, r1.flags, r1.busy], ['d', 4096, 'shares', [], ['array'], null]);
+eq('a row', [r1.type, r1.bytes, r1.name, r1.disks, r1.flags, r1.busy], ['d', null, 'shares', [], ['array'], null]);
 const r2 = S.parseRow(['f', '12', '1700000000', 'a.mkv', 'data-04,data-07', '-', 'move:34']);
 eq('disks and a busy tag', [r2.disks, r2.busy], [['data-04', 'data-07'], { op: 'move', pct: 34 }]);
 eq('an unknown size', Number.isNaN(S.parseRow(['d', '-', '0', 'x', '-', '-', '-']).bytes), true);
@@ -17,7 +17,8 @@ eq('a busy item shows the job and its percent', S.lockOf(r2).tag, 'Moving · 34 
 eq('a parent of a busy item', S.lockOf({ type: 'd', flags: ['busyparent'] }).tag, 'Job running inside');
 eq('a plain file is free', S.lockOf({ type: 'f', flags: [] }).locked, false);
 eq('a pool root folder is locked like an array folder', S.lockOf({ type: 'd', flags: [] }, { poolRoot: true }).locked, true);
-eq('a pool root FILE is not', S.lockOf({ type: 'f', flags: [] }, { poolRoot: true }).locked, false);
+eq('a pool root FILE is locked too (the server marks every entry there array)', S.lockOf({ type: 'f', flags: [] }, { poolRoot: true }).locked, true);
+eq('a folder has no size (the server sends 0)', Number.isNaN(S.parseRow(['d', '0', '1', 'x', '-', '-', '-']).bytes), true);
 eq('no access neither opens nor selects', [S.lockOf({ type: 'd', flags: ['noaccess'] }).locked, S.lockOf({ type: 'd', flags: ['noaccess'] }).openable], [true, false]);
 
 console.log('-- clicks');
@@ -70,8 +71,8 @@ eq('clean path', [S.cleanPath('shares//x/'), S.cleanPath('/a/../b'), S.cleanPath
 
 console.log('-- the tray');
 eq('the common folder', [S.commonDir(['/a/b', '/a/c']), S.commonDir(['/a/b']), S.commonDir(['/a', '/b']), S.commonDir([])], ['/a', '/a/b', '/', '/']);
-const items = [{ dir: '/shares/x', name: 'a.mkv', type: 'f' }, { dir: '/shares/y', name: 'b.mkv', type: 'f' }, { dir: '/shares/x', name: 'a.mkv', type: 'f' }];
-eq('items from two folders', S.sourceOf(items), { path: '/shares', names: ['x/a.mkv', 'y/b.mkv'] });
+const items = [{ dir: "/shares/x", name: "a.mkv", type: "f" }, { dir: "/shares/y", name: "b.mkv", type: "f" }, { dir: "/shares/x", name: "a.mkv", type: "f" }];
+eq('items from two folders (pure function; the page never builds this, the tray holds ONE folder)', S.sourceOf(items), { path: '/shares', names: ['x/a.mkv', 'y/b.mkv'] });
 eq('items of one folder have plain names', S.sourceOf([{ dir: '/shares/x', name: 'a', type: 'd' }, { dir: '/shares/x', name: 'b', type: 'f' }]), { path: '/shares/x', names: ['a', 'b'] });
 eq('items at the root', S.sourceOf([{ dir: '/', name: 'a', type: 'd' }, { dir: '/', name: 'b', type: 'f' }]), { path: '/', names: ['a', 'b'] });
 eq('the tray does not hold an item twice', S.addToTray([items[0]], items).length, 2);

@@ -6,6 +6,7 @@
   import { tip } from '../ui/tooltip.svelte.js';
   import { trackDone } from '../ui.svelte.js';
   import Chip from '../ui/Chip.svelte';
+  import Banner from '../ui/Banner.svelte';
   import Skeleton from '../ui/Skeleton.svelte';
   import Halftone from '../shell/Halftone.svelte';
   import * as api from './api.js';
@@ -48,7 +49,7 @@
     if (op === 'rename' && n === spec.name) return 'That is the name it has already';
     return '';
   });
-  const canStart = $derived(!!p?.ok && !loading && !busy && !nameBad && (!need || confirm === need));
+  const canStart = $derived(fm.write && !!p?.ok && !loading && !busy && !nameBad && (!need || confirm === need));
   const verb = { copy: 'Copy', move: 'Move', delete: 'Delete permanently', rename: 'Rename', mkdir: 'Create folder' };
   const things = $derived(`${S.plural(spec.sum.n, 'item')}${spec.sum.dirs ? ` (${S.plural(spec.sum.dirs, 'folder')})` : ''}`);
   const title = $derived(p?.heading || ({ copy: `Copy ${things}`, move: `Move ${things}`, delete: `Delete ${things}`, rename: `Rename ${spec.name}`, mkdir: 'New folder' })[op]);
@@ -134,6 +135,7 @@
         {#if nameBad && opts.newname.trim()}<div class="bad">{nameBad}</div>{/if}
       {/if}
 
+      {#if !fm.write}<Banner tone="info">{S.WRITE_OFF}</Banner>{/if}
       {#if loadErr}
         <div class="refused"><i class="ph ph-warning-circle"></i>{loadErr}</div>
       {:else if loading && !p}
@@ -206,7 +208,7 @@
       <span class="note">{p?.ok ? 'Nothing has run yet. The job appears under Tasks.' : ''}</span>
       <button class="btn" onclick={close}>{p?.ok ? 'Cancel' : 'Close'}</button>
       {#if p?.ok}
-        <button class="btn {danger ? 'btn-danger' : 'btn-primary'}" disabled={!canStart} use:tip={canStart ? '' : need && confirm !== need ? 'Type the name to confirm first' : nameBad || (busy ? 'Starting' : 'Not ready yet')} onclick={go}>
+        <button class="btn {danger ? 'btn-danger' : 'btn-primary'}" disabled={!canStart} use:tip={canStart ? '' : !fm.write ? S.WRITE_OFF : need && confirm !== need ? 'Type the name to confirm first' : nameBad || (busy ? 'Starting' : 'Not ready yet')} onclick={go}>
           <i class="ph ph-{op === 'delete' ? 'trash' : 'play'}"></i>{busy ? 'Starting…' : verb[op]}
         </button>
       {/if}
