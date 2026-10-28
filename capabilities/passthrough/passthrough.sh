@@ -23,7 +23,7 @@ change() { bash "$here/passthrough-change.sh" "$@"; }
 
 usage() {
   say "usage: hs ext passthrough list | status"
-  say "       hs ext passthrough add <domain> <address> [--https-port N] [--http-port N | --no-http] [--proxy-protocol] [--yes]"
+  say "       hs ext passthrough add <domain> <address> [--https-port N] [--http-port N | --no-http] [--proxy-protocol] [--container-ok --confirm <domain>] [--yes]"
   say "       hs ext passthrough remove <domain> [--confirm <domain>]"
   say "       hs ext passthrough refresh"
   exit 1
@@ -52,13 +52,36 @@ status_rows() {
   n=$(pt list "$routes_dir" | grep -c . || true)
   printf 'domains\t%s\n' "${n:-0}"
 }
+line_t() {   # line_t <plan text>: the three texts with names in them through t (the plan itself stays English: it is a contract with the web interface)
+  local s=$1 a b c
+  case "$s" in
+    "that is the container '"*"' of this server: to forward a domain to it, confirm with --container-ok --confirm "*)
+      a=${s#"that is the container '"}; a=${a%%"' of this server"*}; b=${s##* --confirm }
+      t "that is the container '%s' of this server: to forward a domain to it, confirm with --container-ok --confirm %s" "$a" "$b" ;;
+    "The WHOLE domain "*" goes to the container "*)
+      a=${s#The WHOLE domain }; a=${a%% *}; b=${s#*goes to the container }; b=${b% of this server, and that container*}
+      t "The WHOLE domain %s (apex and every subdomain) goes to the container %s of this server, and that container is reachable from the internet through this." "$a" "$b" ;;
+    "the container '"*"' on port "*" is an admin page: "*)
+      a=${s#"the container '"}; a=${a%%"'"*}; b=${s#*"' on port "}; b=${b%% *}
+      t "the container '%s' on port %s is an admin page: it is never forwarded to the internet (ADMIN_TARGETS in scripts/services.py)" "$a" "$b" ;;
+    "the route of "*" goes to "*", which is the container "*" of this server now, "*)
+      a=${s#the route of }; a=${a%% *}; b=${s#* goes to }; b=${b%%,*}; c=${s#*which is the container }; c=${c% of this server now, *}
+      t "the route of %s goes to %s, which is the container %s of this server now, and it was never confirmed with --container-ok: forward the domain again with --container-ok --confirm %s, or stop forwarding it" "$a" "$b" "$c" "$a" ;;
+    *) _tr "$s" ;;
+  esac
+}
+audit_routes() {   # warn about routes whose target is a container of this server now but was never confirmed
+  local out
+  out=$(change plan --audit audit 2>/dev/null) || true
+  show_plan "$(grep -v '^heading' <<<"$out")"
+}
 show_plan() {   # show_plan <plan output>: the lines for people
   local k v
   while IFS=$'\t' read -r k v; do
     case "$k" in
       heading) step "$v" ;;
       step|note) note "$v" ;;
-      warn) warn "$v" ;;
+      warn) warn "$(line_t "$v")" ;;
       danger) danger "$v" ;;
     esac
   done <<<"$1"
@@ -96,21 +119,36 @@ status)
     state_rows | awk -F"$tab" '$3 == "down" || $4 == "down" { print $1 }' | while IFS= read -r d; do
       warn "$(t 'The target of %s does not answer.' "$d")"
     done
+    audit_routes
   fi ;;
 
 add)
   [ $# -ge 2 ] || usage
   dom=$1; addr=$2; shift 2
-  yes=false; args=()
-  for a in "$@"; do if [ "$a" = --yes ]; then yes=true; else args+=("$a"); fi; done
+  yes=false; args=(); typed=""
+  while [ $# -gt 0 ]; do   # --confirm is the typed domain (needed for a container target), not an argument of the plan
+    case "$1" in
+      --yes) yes=true ;;
+      --confirm) typed=${2:-}; [ $# -lt 2 ] || shift ;;
+      *) args+=("$1") ;;
+    esac
+    shift
+  done
   rc=0; out=$(change plan "$dom" add --address "$addr" "${args[@]+"${args[@]}"}") || rc=$?
-  [ "$rc" -eq 0 ] || fail "$(plan_value "$out" reason)"
+  [ "$rc" -eq 0 ] || fail "$(line_t "$(plan_value "$out" reason)")"
   show_plan "$out"
-  if ! $yes; then
+  name=$(plan_value "$out" confirm_name)
+  if [ -n "$name" ]; then   # a container of this server: the typed domain, --yes does not replace it
+    if [ "$typed" != "$name" ]; then
+      [ -z "$typed" ] || fail "$(t 'The typed name does not match: %s' "$name")"
+      [ -t 0 ] || fail "$(t 'Nobody to ask: add --confirm %s to go on.' "$name")"
+      confirm_name "$name" "the domain" || fail "$(t 'Cancelled.')"
+    fi
+  elif ! $yes; then
     [ -t 0 ] || fail "$(t 'Nobody to ask: add --yes to go on.')"
     confirm "Forward this domain?" || fail "$(t 'Cancelled.')"
   fi
-  rc=0; res=$(change start "$dom" add --address "$addr" "${args[@]+"${args[@]}"}") || rc=$?
+  rc=0; res=$(change start "$dom" add --address "$addr" "${args[@]+"${args[@]}"}" ${name:+--confirm "$name"}) || rc=$?
   [ "$rc" -eq 0 ] || fail "$(plan_value "$res" reason)"
   ok "$(t 'Forwarding %s and its subdomains to %s' "$(plan_value "$out" heading | awk '{ print $2 }')" "$addr")"
   next_step "hs ext passthrough status" ;;
@@ -121,7 +159,7 @@ remove)
   typed=""
   [ "${1:-}" != --confirm ] || typed=${2:-}
   rc=0; out=$(change plan "$dom" remove) || rc=$?
-  [ "$rc" -eq 0 ] || fail "$(plan_value "$out" reason)"
+  [ "$rc" -eq 0 ] || fail "$(line_t "$(plan_value "$out" reason)")"
   show_plan "$out"
   name=$(plan_value "$out" confirm_name)
   if [ "$typed" != "$name" ]; then
@@ -135,8 +173,10 @@ remove)
 
 refresh)
   rc=0; out=$(change start --refresh refresh) || rc=$?
-  [ "$rc" -eq 0 ] || fail "$(plan_value "$out" reason)"
-  ok "$(t 'The route files are written again.')" ;;
+  [ "$rc" -eq 0 ] || fail "$(line_t "$(plan_value "$out" reason)")"
+  show_plan "$out"   # the routes that were left as they are, with the reason
+  ok "$(t 'The route files are written again.')"
+  audit_routes ;;
 
 *) usage ;;
 esac

@@ -41,6 +41,7 @@ opts = [
   { flag = "--http-port", pattern = '^[0-9]{1,5}$' },
   { flag = "--no-http" },
   { flag = "--proxy-protocol" },
+  { flag = "--container-ok" },
 ]
 
 [web.page]

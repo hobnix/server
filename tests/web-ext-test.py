@@ -246,6 +246,12 @@ class RealPackages(unittest.TestCase):
         self.assertTrue(self.ok(a, ["example.com", "add", "--address", "192.168.1.20", "--proxy-protocol"]))
         self.assertTrue(self.ok(a, ["example.com", "add", "--address", "fd00::5", "--https-port", "8443", "--no-http"]))
         self.assertTrue(self.ok(a, ["example.com", "remove"]))
+        # a container target: the switch sends --container-ok, the typed domain travels as `confirm` (appended as --confirm at start)
+        self.assertTrue(self.ok(a, ["example.com", "add", "--address", "10.10.95.5", "--container-ok"]))
+        got = ws.validate_change({"area": a, "args": ["example.com", "add", "--address", "10.10.95.5", "--container-ok"], "confirm": "example.com"})
+        self.assertIsNotNone(got)
+        self.assertEqual(got[2], "example.com")
+        self.assertFalse(self.ok(a, ["example.com", "add", "--address", "10.10.95.5", "--container-ok", "yes"]))
         for bad in (["Example.com", "add"], ["a b", "remove"], ["example.com", "add", "--address", "1.2.3.4;x"],
                     ["example.com", "add", "--https-port", "x"], ["example.com", "wipe"]):
             self.assertFalse(self.ok(a, bad), bad)

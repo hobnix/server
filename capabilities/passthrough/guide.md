@@ -43,6 +43,19 @@ sudo hs ext passthrough add example.com 192.168.1.20
 
 The plan shows both ports and asks once. Not tested on hardware yet. Traefik picks the route up within seconds, without a restart. A domain that overlaps one of the server's own domains is refused.
 
+## Forward to a container on this server
+A reverse proxy such as Zoraxy often runs in an Incus container on this same server. Such a target is refused at first ("that is the container 'zoraxy' of this server"), because most containers should be published with `hs services`. If the container really is the reverse proxy for the domain, confirm it:
+
+**The whole domain (apex and every subdomain) then goes to that container, and the container is reachable from the internet through it.** Local routers of this server are not affected: passthrough never reaches them. The server itself, loopback and addresses outside the LAN stay refused. You type the domain to confirm.
+
+```bash
+sudo hs ext passthrough add example.com 10.10.95.5 --container-ok --confirm example.com
+```
+
+Admin pages of containers (Zoraxy's page on port 8000, every port of the monitoring container, Arcane, Homepage, Kuma, Paperclip, Home Assistant) are refused as targets even with the flag. If the list of containers cannot be read (Incus not answering), every target is refused until it can. Limit: a stopped container that gets its address by DHCP is unknown while it is stopped, and routes are not rechecked when it starts. `hs ext passthrough status` and `refresh` warn about a route whose target is a container that was never confirmed with `--container-ok`; give such containers a static address.
+
+In the web interface the form shows the switch "Yes, this is a container on this server" once the plan refuses such a target; it is off until you tick it, and you type the domain in the plan. Not tested on hardware yet.
+
 ## PROXY protocol
 Add `--proxy-protocol` only if the target expects it on HTTPS; without it, or with it when the target does not expect it, the target's TLS breaks. It is set per domain.
 
@@ -75,6 +88,8 @@ hs ext passthrough status
 | Symptom | Cause | Fix |
 | --- | --- | --- |
 | "no public port" | `gatewayPublicHttps` is 0 | Set it (see above), then `sudo hs rebuild` |
+| "gatewayPublicHttps is set in machine.toml but not applied yet" | The value is set, the system was not rebuilt | `sudo hs rebuild` |
+| "that is the container ... of this server" | The target is an Incus container of this server | Add `--container-ok --confirm <domain>` if the domain really belongs to it |
 | The status warns about a port | Another program holds 443 or 80 | Stop it or move it; Traefik needs both |
 | The status says the target is down | The proxy on the LAN is off or the address is wrong | Start it, or add the domain again with the right address |
 | Certificate errors in the browser | The target's certificate, not the server's | Fix it on the target |
