@@ -41,19 +41,14 @@ host_ip=${HS_HOST_IP:-$(ip -4 -o addr show br0 2>/dev/null | awk '{ sub(/\/.*/, 
 desired() {
   local name state ip
   [ -n "$host_ip" ] && { printf '%s\tA\t%s\n' "$site" "$host_ip"; printf 'incus.%s\tA\t%s\n' "$site" "$host_ip"; }
-  local have_docker=false have_arr=false app
+  local have_docker=false
   while IFS=$'\t' read -r name _ state ip _; do
     [ "$state" = Running ] && [ -n "$ip" ] && [ "$ip" != - ] || continue
     [ "$name" != "$dc" ] || continue   # the controller has its own record
     [ "$name" != docker ] || have_docker=true
-    [ "$name" != arr ] || have_arr=true
     printf '%s.%s\tA\t%s\n' "$name" "$site" "$ip"
   done < <(bash "$manage_ct" --list)
   if $have_docker; then printf 'arcane.%s\tCNAME\tdocker.%s.%s\n' "$site" "$site" "$realm"; fi
-  # the arr container answers on port 80 by host name (its gateway, see the recipe arr)
-  if $have_arr; then
-    for app in radarr sonarr lidarr prowlarr bazarr maintainerr; do printf '%s.%s\tCNAME\tarr.%s.%s\n' "$app" "$site" "$site" "$realm"; done
-  fi
 }
 
 # what the zone holds under <siteName>: name<TAB>type<TAB>value
