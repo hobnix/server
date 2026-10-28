@@ -5,7 +5,7 @@
 # Reads only the command list (scripts/lib/registry.tsv and the commands.tsv of the extensions that are on): the rows with a `cheat:<group>` flag in the flags column, grouped by task
 # (server, disks, shares, users, backup, update, trouble) in the order of the file. The text is the row's German
 # help (the script header's `# help.de:` when the row has none). The page is always German (the cousin's guide
-# language). `hs docs build` writes the same text as de/spickzettel.md. HS_REGISTRY: tests.
+# language). The docs site is English only, so it has no page for it. HS_REGISTRY: tests.
 set -euo pipefail
 here=$(cd "$(dirname "$0")" && pwd)
 registry=${HS_REGISTRY:-$here/lib/registry.tsv}

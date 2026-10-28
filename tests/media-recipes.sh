@@ -128,6 +128,7 @@ printf 'docs
 ' > "$WORK/caps-docs"
 check_out "guide hint with the Docs page links the page" "http://hs.local:8481/docs/en/some-guide" env HS_CAPABILITIES_FILE="$WORK/caps-docs" HS_MACHINE_FILE="$WORK/machine-docs.toml" bash "$driver" docs_hint some-guide
 
+rm -f "$STATE/media-ntfy"   # an earlier dry run may have made one
 echo "https://ntfy.example.org/alarm-topic-123" > "$STATE/notify-url"
 helper media_ntfy
 line=$(cat "$STATE/media-ntfy" 2>/dev/null || true)

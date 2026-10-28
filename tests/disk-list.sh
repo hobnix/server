@@ -72,7 +72,7 @@ check_eq "every line has 8 tab separated fields" "" "$(awk -F'	' 'NF != 8 { prin
 
 echo "-- the table for a person (hs disk list)"
 out=$($D)
-check_out "a header and the sizes" "disk +size +type +model +verdict" echo "$out"
+check_out "a header and the sizes" "[Dd]isk +[Ss]ize +[Tt]ype +[Mm]odel +[Vv]erdict" echo "$out"
 check_out "sizes are human readable" "sda +4.0TB +HDD" echo "$out"
 check_out "a pointer to the details" "hs disk <disk> health" echo "$out"
 
@@ -115,11 +115,11 @@ check_out "results need a disk" "usage" $D --results
 
 echo "-- through the registry"
 fake=$WORK/reg; mkdir -p "$fake/lib"
-cp "$SCRIPTS"/lib/hs.sh "$SCRIPTS"/lib/capability.sh "$SCRIPTS"/lib/registry-load.sh "$SCRIPTS"/lib/ui.sh "$SCRIPTS"/lib/i18n.sh "$SCRIPTS"/lib/setting.sh "$SCRIPTS"/lib/job.sh "$SCRIPTS/lib/registry.tsv" "$fake/lib/"; cp -r "$SCRIPTS"/lib/i18n "$fake/lib/"
+cp "$SCRIPTS"/lib/hs.sh "$SCRIPTS"/lib/capability.sh "$SCRIPTS"/lib/registry-load.sh "$SCRIPTS"/lib/ui.sh "$SCRIPTS"/lib/i18n.sh "$SCRIPTS"/lib/setting.sh "$SCRIPTS"/lib/job.sh "$SCRIPTS"/lib/diskpath.sh "$SCRIPTS/lib/registry.tsv" "$fake/lib/"; cp -r "$SCRIPTS"/lib/i18n "$fake/lib/"
 cp "$SCRIPTS/disk-health.sh" "$fake/"
 F="env HS_CALLER=t HS_COMPLETE_DIR=$WORK/complete bash $fake/lib/hs.sh"
 check_eq "hs sys disk-health list" "$($D --list)" "$($F sys disk-health list)"
-check_out "hs disk list" "disk +size +type" $F disk list
+check_out "hs disk list" "[Dd]isk +[Ss]ize +[Tt]ype" $F disk list
 check_out "hs disk <disk> health" "Verdict: OK" env SMART_FILE=$SMART/good.json $F disk /dev/null health
 check_out "hs disk <disk> test short" "Started the short self-test" env SMART_FILE=$SMART/good.json $F disk /dev/null test short
 check_out "hs disk <disk> results" "Self-tests of /dev/null" env SMART_FILE=$SMART/good.json $F disk /dev/null results

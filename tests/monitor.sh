@@ -4,6 +4,7 @@
 # shellcheck source=tests/lib.sh
 . "$(dirname "$0")/lib.sh"
 export HS_LANG=en HS_PLAIN=1
+export HS_DISK_USED_DIR=$WORK/disk-used
 BIN=$WORK/bin; mkdir -p "$BIN"
 
 if ! command -v jq >/dev/null 2>&1; then skip "jq is not installed: monitor tests not run"; finish; exit $?; fi

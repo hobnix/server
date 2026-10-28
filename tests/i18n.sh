@@ -5,7 +5,7 @@ set -uo pipefail
 . "$(dirname "$0")/lib.sh"
 CATALOG=$SCRIPTS/lib/i18n/de.tsv
 # the scripts whose messages are translated (the machine-readable lists they print are not)
-CORE="pkg lib/ui machine-sync selftest secrets ct-guided user-guided share-restore config system net-ip health report migrate first-run ct-access users-show share-perm disk-replace doctor recipe rebuild update sync-shares unlock migrate-check temp-disk backup manage-pool status disk-health share-snap share-snap-guided share-cleanup cleanup docs-build bulk-sync motd snapshots-auto smoke manage-ct manage-users ports ct-update-all ssh-key node dns gateway dc-cert power update-preview manage-shares create-share mac jobs lib/locked unifi share-cache monitor notify cs recipes/_lib recipes/cloudflared recipes/docker recipes/domain recipes/homepage recipes/immich recipes/tdarr recipes/arr recipes/sabnzbd recipes/qbittorrent recipes/seerr recipes/uchiyomi recipes/_media recipes/authentik recipes/jellyfin recipes/monitoring recipes/ntfy recipes/pelican recipes/catalyst-panel recipes/catalyst-node recipes/uptime-kuma recipes/paperclip recipes/homeassistant recipes/zoraxy recipes/bulwark recipes/stalwart recipes/synapse recipes/livekit recipes/matrix-hook recipes/sunshine recipes/steamos recipes/upload-storage ../capabilities/games/pc ../capabilities/posters/generate-poster-guided cache-mover vault lib/vault ext notify-channel docs-verified"
+CORE="services state remote fans providers/docker/arcane lib/hs jobs pkg lib/ui machine-sync selftest secrets ct-guided user-guided share-restore config system net-ip health report migrate first-run ct-access users-show share-perm disk-replace doctor recipe rebuild update sync-shares unlock migrate-check temp-disk backup manage-pool status disk-health share-snap share-snap-guided share-cleanup cleanup docs-build bulk-sync motd snapshots-auto smoke manage-ct manage-users ports ct-update-all ssh-key node dns gateway dc-cert power update-preview manage-shares create-share mac jobs lib/locked unifi share-cache monitor notify recipes/_lib recipes/cloudflared recipes/docker recipes/domain recipes/homepage recipes/immich recipes/tdarr recipes/arr recipes/sabnzbd recipes/qbittorrent recipes/seerr recipes/uchiyomi recipes/_media recipes/authentik recipes/jellyfin recipes/monitoring recipes/ntfy recipes/pelican recipes/catalyst-panel recipes/catalyst-node recipes/uptime-kuma recipes/paperclip recipes/homeassistant recipes/zoraxy recipes/bulwark recipes/stalwart recipes/synapse recipes/livekit recipes/matrix-hook recipes/sunshine recipes/steamos recipes/upload-storage ../capabilities/games/pc ../capabilities/posters/generate-poster-guided cache-mover vault lib/vault ext notify-channel docs-verified"
 
 keys=$(python3 - "$SCRIPTS" $CORE <<'PY'
 import re,sys
@@ -18,7 +18,13 @@ pat_t=re.compile(r"(?<![A-Za-z0-9_.-])t '([^']+)'")
 pat_t2=re.compile(r'(?<![A-Za-z0-9_.-])t "([^"$`\\]+)"')
 keys=set()
 for name in sys.argv[2:]:
-    raw=open(f'{scripts}/{name}.sh').read()
+    path=f'{scripts}/{name}.sh'
+    if name.startswith('recipes/'):   # the recipes live in packages/<name>/run.sh
+        import os
+        pk=f'{scripts}/../packages/{name[8:]}/run.sh'
+        if os.path.exists(pk):   # the shared helpers (_lib, _media) stay in scripts/recipes/
+            path=pk
+    raw=open(path).read()
     for m in re.finditer(r'^[ \t]*# i18n: (.+)$', raw, re.M):   # texts looked up at render time (table cells): listed by the script
         keys.update(k.strip() for k in m.group(1).split('|') if k.strip())
     s='\n'.join(l for l in raw.split('\n') if not l.lstrip().startswith('#'))
@@ -95,7 +101,7 @@ check_out "a text without translation stays English" "never translated" env HS_L
 check_out "values are filled in" "Eingabe behält 10G" env HS_LANG=de bash -c ". $SCRIPTS/lib/ui.sh; t 'enter keeps %s' 10G"
 check_out "an unknown language falls back to English" "Number:" env HS_LANG=xx bash -c ". $SCRIPTS/lib/ui.sh; t 'Number:'"
 mkdir -p "$WORK/etc"
-check "the machine setting is read from /etc/hs/language" bash -c "mkdir -p /etc/hs && cp -n /etc/hs/language $WORK/etc/lang.bak 2>/dev/null; echo de > /etc/hs/language; . $SCRIPTS/lib/ui.sh; [ \"\$(t 'Number:')\" = 'Nummer:' ]; r=\$?; rm -f /etc/hs/language; [ -f $WORK/etc/lang.bak ] && cp $WORK/etc/lang.bak /etc/hs/language; exit \$r"
+check "the machine setting is read from /etc/hs/language" bash -c "mkdir -p $WORK/etc; echo de > $WORK/etc/language; export HS_ETC_DIR=$WORK/etc; . $SCRIPTS/lib/ui.sh; [ \"\$(t 'Number:')\" = 'Nummer:' ]"
 
 echo "-- machine-readable output stays English"
 export HS_LANG=de HS_TEST_LOOP=1

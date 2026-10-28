@@ -41,7 +41,7 @@ cat > "$WORK/nvidia-smi" <<'FAKE'
 #!/usr/bin/env bash
 echo "NVIDIA GeForce RTX 4060, 7, 1024, 8188, 43"
 FAKE
-chmod +x "$WORK/ip" "$WORK/zpool" "$WORK/df" "$WORK/status" "$WORK/monitor"
+chmod +x "$WORK/ip" "$WORK/zpool" "$WORK/df" "$WORK/status" "$WORK/monitor" "$WORK/nvidia-smi"
 export HS_PROC=$WORK/proc HS_NET_DIR=$WORK/net HS_IP=$WORK/ip HS_ZPOOL=$WORK/zpool HS_DF=$WORK/df
 export HS_NVIDIA_SMI=$WORK/nvidia-smi DH_DIR=$WORK/history HS_OVERVIEW_STATUS=$WORK/status HS_MONITOR=$WORK/monitor HS_HOSTNAME=homeserver HS_NOW=1700000000
 D="bash $SCRIPTS/deck-status.sh"
@@ -108,6 +108,7 @@ touch "$WORK/marker"
 check_eq "no pools, no problems count, locked" '[null,null,null,true]' "$(HS_LOCKED_MARKER=$WORK/marker $D | jq -c '[.pools.fast,.pools.bulk,.problems,.locked]')"
 check_eq "no secrets: no key outside the known list" '[]' "$($D | jq -c 'keys - ["schema","kind","host","time","uptime_s","load","cpu","mem","net","pools","locked","encryption","problems","backup","smart","instances","hottest","disks","gpu","history","inventory","capabilities"]')"
 echo "-- the disk inventory (state database)"
+rm -f "$WORK/state"/state.db*   # the history above already created the database
 check_eq "no database: inventory is null" 'null' "$(j '.inventory')"
 if command -v python3 >/dev/null; then
   printf 'sda\t250\tSSD\tsystem\t77\tOK\t1\t0\t0\t0\tx\t-\n' > "$WORK/mon.txt"

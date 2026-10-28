@@ -12,6 +12,7 @@ repo=$(cd "$(dirname "$0")/../.." && pwd)
 only=""
 [ "${1:-}" != --only ] || only=${2:-}
 export NIX_PATH=${NIX_PATH:-nixpkgs=channel:nixos-unstable}
+command -v jq >/dev/null 2>&1 || { echo "jq is not installed: cannot compare the values"; exit 77; }
 command -v nix-instantiate >/dev/null 2>&1 || { echo "nix-instantiate is not installed: nothing to evaluate"; exit 77; }
 
 work=$(mktemp -d /tmp/nix-matrix.XXXXXX)
@@ -26,10 +27,15 @@ bad() { fail=$((fail + 1)); echo "  FAIL  $*"; }
 # write machine.toml: the example, CHANGEME replaced, plus the given lines
 machine() { cp "$work/machine.toml.example" "$work/machine.toml"; sed -i 's/CHANGEME/deadbeef/' "$work/machine.toml"; for l in "$@"; do printf '%s\n' "$l" >> "$work/machine.toml"; done; }
 evaluates() { ( cd "$work" && nix-instantiate '<nixpkgs/nixos>' -A system -I nixos-config=./configuration.nix >/dev/null 2>"$work/err.txt" ); }
-attr() {   # attr <config path> -> the value as Nix prints it
-  ( cd "$work" && nix-instantiate --eval --strict -I nixos-config=./configuration.nix \
-      -E "(import <nixpkgs/nixos> { configuration = ./configuration.nix; }).config.$1" 2>&1 | head -n 3 )
+# facts <config paths...> -> the values as a JSON list, from ONE evaluation of the system (a separate evaluation per value took ~7 s each)
+facts() {
+  local list="" a
+  for a in "$@"; do list="$list c.$a"; done
+  ( cd "$work" && nix-instantiate --eval --strict --json -I nixos-config=./configuration.nix \
+      -E "let c = (import <nixpkgs/nixos> { configuration = ./configuration.nix; }).config; in [$list ]" 2>&1 )
 }
+# as_json <Nix literal> -> the same value as JSON, so that "[ ]" and "[]" compare equal
+as_json() { nix-instantiate --eval --strict --json -E "$1" 2>&1; }
 
 # variant <name> <expected facts as "attr=value" separated by |> <machine.toml lines...>
 variant() {
@@ -39,13 +45,19 @@ variant() {
   machine "$@"
   if ! evaluates; then bad "$name: the system does not evaluate: $(grep -E 'error:|Failed assertions|^- ' "$work/err.txt" | head -n 2 | tr '\n' ' ')"; return; fi
   ok "$name: evaluates"
-  local f a want got
+  local f a want got i=0 attrs=() wants=() all
   IFS='|' read -ra F <<<"$facts"
   for f in "${F[@]}"; do
     [ -n "$f" ] || continue
-    a=${f%%=*}; want=${f#*=}
-    got=$(attr "$a")
-    if [ "$got" = "$want" ]; then ok "$name: $a = $want"; else bad "$name: $a is '$got', expected '$want'"; fi
+    attrs+=("${f%%=*}"); wants+=("${f#*=}")
+  done
+  [ "${#attrs[@]}" -gt 0 ] || return 0
+  all=$(facts "${attrs[@]}")
+  for a in "${attrs[@]}"; do
+    want=${wants[$i]}
+    got=$(printf '%s' "$all" | jq -c ".[$i]" 2>/dev/null || echo "not readable: $all")
+    if [ "$got" = "$(as_json "$want" | jq -c .)" ]; then ok "$name: $a = $want"; else bad "$name: $a is '$got', expected '$want'"; fi
+    i=$((i + 1))
   done
 }
 # a variant that must be refused (an assertion)

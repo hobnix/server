@@ -36,10 +36,26 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v5
+        with:
+          fetch-depth: 0
+      # The evaluation is the longest job (minutes are limited): a pull request that only touches the web interface, docs or tests cannot change it.
+      - name: Does the change reach the system configuration?
+        id: nix
+        env:
+          BASE: ${{ github.event.pull_request.base.sha }}
+        run: |
+          run=true
+          if [ -n "$BASE" ] && git cat-file -e "$BASE" 2>/dev/null; then
+            git diff --name-only "$BASE" HEAD | grep -qvE '^(web/|docs/|tests/|\.claude/|\.github/ISSUE_TEMPLATE/)|\.md$' || run=false
+          fi
+          echo "run=$run" >> "$GITHUB_OUTPUT"
+          echo "evaluate the system: $run"
       - uses: cachix/install-nix-action@v27
+        if: steps.nix.outputs.run == 'true'
         with:
           nix_path: nixpkgs=channel:nixos-unstable
       - name: Evaluate the system configuration
+        if: steps.nix.outputs.run == 'true'
         run: |
           cp machine.toml.example machine.toml
           sed -i 's/CHANGEME/deadbeef/' machine.toml
@@ -51,10 +67,12 @@ jobs:
           HW
           nix-instantiate '<nixpkgs/nixos>' -A system -I nixos-config=./configuration.nix --show-trace >/dev/null
       - name: Capability matrix (each capability alone, all of them, none; docs/PLAN-modular-core.md)
+        if: steps.nix.outputs.run == 'true'
         run: |
           rm -f machine.toml hardware-configuration.nix
           bash scripts/dev/nix-matrix.sh
       - name: Installer ISO evaluates (installer/iso.nix; the image itself is built on a release tag)
+        if: steps.nix.outputs.run == 'true'
         run: bash scripts/dev/build-iso.sh --eval
 
   # The installer ISO (installer/iso.nix, docs/PLAN-modular-core.md step 10): built when a version tag is pushed and attached to the release.

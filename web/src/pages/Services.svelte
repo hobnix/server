@@ -100,8 +100,8 @@
     {#if gw.loaded && gwv.wildcard && gwv.wildcard !== 'ok'}<Banner tone="warn">The wildcard DNS record is {gwv.wildcard}. Run <code>hs gateway check</code> in a terminal.</Banner>{/if}
     <Kv items={[{ k: 'Service', v: gwv.service ?? '' }, { k: 'Web interface', v: gwv.webui ?? '' }, { k: 'Domain', v: gwv.domain ?? '' }, { k: 'Wildcard', v: gwv.wildcard ?? '' }, { k: 'Port 80', v: gwv.port80 ?? '' }]} />
     <div class="acts">
-      <button class="btn" disabled={!localTodo} title={localTodo ? 'Make the local names the services want' : 'The gateway proxy already matches the services'} onclick={() => openPlan('routes', ['apply', '--proxy', 'local'], 'Apply the local names')}><i class="ph ph-check-circle"></i>Apply local{localTodo ? ` (${localTodo})` : ''}…</button>
-      <button class="btn btn-ghost" title="Let every service without a choice get a local name" onclick={() => openPlan('routes', ['import', '--proxy', 'local'], 'Import local names')}><i class="ph ph-download-simple"></i>Import local…</button>
+      <button class="btn" disabled={!localTodo} use:tip={localTodo ? 'Make the local names the services want' : 'The gateway proxy already matches the services'} onclick={() => openPlan('routes', ['apply', '--proxy', 'local'], 'Apply the local names')}><i class="ph ph-check-circle"></i>Apply local{localTodo ? ` (${localTodo})` : ''}…</button>
+      <button class="btn btn-ghost" use:tip={'Let every service without a choice get a local name'} onclick={() => openPlan('routes', ['import', '--proxy', 'local'], 'Import local names')}><i class="ph ph-download-simple"></i>Import local…</button>
     </div>
     <Table id="service-local-routes" columns={routeCols} rows={localRoutes} loading={!local.loaded}
            empty={local.error ? 'The local names could not be read.' : 'No services want a local name.'}>

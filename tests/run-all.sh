@@ -6,7 +6,7 @@
 #   --list       show each test and whether it would run or be skipped (and why), run nothing
 #   --only GLOB  only tests whose name (without .sh) matches the glob; repeatable (e.g. --only 'pool-*')
 #   --jobs N     run N tests at the same time (default 1; a few tests use fixed ports/dirs, so 1 is the safe default)
-#   --verbose    print the output of passing tests too (failed ones always print their last 40 lines)
+#   --verbose    print the output of passing tests too (failed ones always print their FAIL lines and last 40 lines)
 #   --root-only  run only the tests that need root (what the CI "integration" job does)
 #
 # What is skipped, and the switch that turns it on:
@@ -134,7 +134,9 @@ for n in "${todo[@]}"; do
   if $verbose && [ -f "$out/$n.log" ]; then echo "---- $n"; cat "$out/$n.log"; fi
 done
 for n in "${failed[@]}"; do
-  echo "---- $n (last 40 lines)"
+  echo "---- $n (every FAIL line, then the last 40 lines)"
+  grep -a -B1 -A2 'FAIL' "$out/$n.log" | head -n 60 || true
+  echo "-- last 40 lines"
   tail -n 40 "$out/$n.log"
 done
 total=$(awk -v a="$started" -v b="$(now)" 'BEGIN { printf "%.1f", b - a }')
