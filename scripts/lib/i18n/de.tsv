@@ -2615,4 +2615,37 @@ seconds must be a number between 3 and 30	Sekunden müssen eine Zahl zwischen 3 
 the fan controller has no pwm channels that can be set	der Lüfterregler hat keine PWM-Kanäle, die sich setzen lassen
 usage: hs fans clean [seconds]	Aufruf: hs fans clean [Sekunden]
 usage: hs remote list	Aufruf: hs remote list
-usage: hs services list | check | plan | add <name> ... | remove <name> | import [--dry-run] [--yes] | apply [--dry-run] [--confirm <host or service>] | adopt [--yes] | proxy login	Aufruf: hs services list | check | plan | add <Name> ... | remove <Name> | import [--dry-run] [--yes] | apply [--dry-run] [--confirm <Host oder Dienst>] | adopt [--yes] | proxy login
+%s service(s) now want a local name.	%s Dienst(e) wollen jetzt einen lokalen Namen.
+*.%s points at this server (%s)	*.%s zeigt auf diesen Server (%s)
+A name under %s does not resolve: the wildcard record is missing.	Ein Name unter %s wird nicht aufgelöst: der Wildcard-Eintrag fehlt.
+A name under %s resolves, but not to this server (%s).	Ein Name unter %s wird aufgelöst, aber nicht auf diesen Server (%s).
+A port is held by %s, not by Traefik (%s).	Ein Port wird von %s belegt, nicht von Traefik (%s).
+Direct address	Direkte Adresse
+Every service already says whether it wants a local name.	Jeder Dienst sagt schon, ob er einen lokalen Namen will.
+Format	Format
+Gateway proxy (Traefik)	Gateway-Proxy (Traefik)
+Give these %s service(s) a local name (local-proxy = true)?	Diesen %s Diensten einen lokalen Namen geben (local-proxy = true)?
+Local address: http://%s.%s	Lokale Adresse: http://%s.%s
+Local domain	Lokale Domain
+Local name for %s	Lokaler Name für %s
+Local routes	Lokale Routen
+Making the local names of the services	Die lokalen Namen der Dienste werden angelegt
+Next: hs services plan --proxy local, then hs services apply --proxy local	Danach: hs services plan --proxy local, dann hs services apply --proxy local
+No local domain: the gateway proxy needs adDomain in machine.toml.	Keine lokale Domain: der Gateway-Proxy braucht adDomain in machine.toml.
+On the DNS server, a person with the domain administrator password adds one record:	Auf dem DNS-Server legt eine Person mit dem Domänen-Administratorpasswort einen Eintrag an:
+Passthrough	Durchreichen
+Port 80	Port 80
+Public HTTP	Öffentliches HTTP
+Public HTTPS	Öffentliches HTTPS
+Services that get a local name	Dienste, die einen lokalen Namen bekommen
+The gateway proxy is off: put capabilities = ["gateway"] in machine.toml, then hs rebuild.	Der Gateway-Proxy ist aus: setze capabilities = ["gateway"] in machine.toml, dann hs rebuild.
+The gateway proxy is running and the wildcard record works.	Der Gateway-Proxy läuft und der Wildcard-Eintrag funktioniert.
+The local proxy must never be public: its provider says it is.	Der lokale Proxy darf nie öffentlich sein: sein Provider sagt, er ist es.
+The wildcard DNS record is %s.	Der Wildcard-DNS-Eintrag ist %s.
+Traefik is not running (%s).	Traefik läuft nicht (%s).
+Unmanaged files	Nicht verwaltete Dateien
+Web interface	Weboberfläche
+Wildcard DNS	Wildcard-DNS
+or in Windows DNS Manager: zone %s > %s > New Host, name *, address %s	oder im Windows-DNS-Manager: Zone %s > %s > Neuer Host, Name *, Adresse %s
+usage: hs gateway status | routes | check	Aufruf: hs gateway status | routes | check
+usage: hs services list | check | plan | add <name> ... | remove <name> | import [--dry-run] [--yes] | apply [--dry-run] [--confirm <host or service>] | adopt [--yes] | proxy login   (plan, apply, import, adopt: [--proxy public|local])	Aufruf: hs services list | check | plan | add <Name> ... | remove <Name> | import [--dry-run] [--yes] | apply [--dry-run] [--confirm <Host oder Dienst>] | adopt [--yes] | proxy login   (plan, apply, import, adopt: [--proxy public|local])
