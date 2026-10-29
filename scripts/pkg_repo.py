@@ -327,6 +327,36 @@ def run(pkg, cmd, rest):
             for pname, rows in sorted(R.catalog().items()):
                 for r_name, e, tag, _ in rows:
                     print("\t".join([r_name, pname, e.get("kind", "?"), str(e.get("version")), have.get(pname, {}).get("version", "-")]))
+        elif cmd == "market":
+            # everything a person can install, as data (hs sys pkg market): package, kind, repository, available version, installed version
+            # (- = no copy in current/), state (new|current|update|orphan), core (yes|no), audience, title. A package of a repository that
+            # is gone (or no longer lists it) is an orphan: its copy stays until `hs pkg remove`.
+            have = pkg.installed()
+            cur = os.path.join(R.state, "current")
+            seen = set()
+            for pname, rows in sorted(R.catalog().items()):
+                for r_name, e, tag, _ in rows:
+                    ver = str(e.get("version"))
+                    inst = "-"
+                    if os.path.isdir(os.path.join(cur, pname)):
+                        inst = str(have.get(pname, {}).get("version", "?"))
+                    if inst == "-":
+                        state = "new"
+                    elif inst == ver:
+                        state = "current"
+                    else:
+                        try:
+                            state = "update" if pkg.semver_key(ver) > pkg.semver_key(inst) else "current"
+                        except ValueError:
+                            state = "update"
+                    seen.add(pname)
+                    print("	".join([pname, e.get("kind", "?"), r_name, ver, inst, state, "yes" if e.get("core") else "no",
+                                     e.get("audience", "generic"), (e.get("title") or "-").replace("	", " ")]))
+            if os.path.isdir(cur):
+                for pname in sorted(os.listdir(cur)):
+                    if pname in seen or pname.startswith("."):
+                        continue
+                    print("	".join([pname, "?", have.get(pname, {}).get("repo", "-"), "-", str(have.get(pname, {}).get("version", "?")), "orphan", "no", "-", "-"]))
         elif cmd == "install" and rest and rest[0] == "--core":
             # the packages the core refers to by name (`core = true` in the index) and the ones applied here: fetch what is neither built in nor installed yet
             bad = 0

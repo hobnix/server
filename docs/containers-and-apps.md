@@ -257,9 +257,12 @@ public route. And nothing becomes public by itself: reaching a service from the 
 
 ## Install packages from a repository
 
-Recipes and extensions are both packages. Those that ship with the server are listed here; others come from repositories, from signed
-release tags only.
+Recipes and extensions are both packages. They come from repositories, from signed release tags only. The project's two repositories
+(`recipes` and `extensions`) are there from the start; you can add more.
 
+In the web interface this is the **Marketplace** page: every package of every repository with its state (not installed, installed, update),
+Install / Update / Remove, and a Repositories tab to add or remove a repository. Adding a repository asks for its public signing key and for
+the repository name to be typed. Not tested on hardware yet. The commands below do the same.
 ```bash
 hs pkg list
 ```
@@ -300,7 +303,8 @@ Add a repository of your own (a typed repository name confirms it; releases must
 hs pkg repo add <name> <url> --key <allowed-signers-file>
 ```
 
-`hs pkg repo list` and `hs pkg repo remove <name>` show and remove them. Extensions are switched on and off with `hs ext enable <name>`
+`hs pkg repo list` and `hs pkg repo remove <name>` show and remove them. (The Marketplace only adds signed repositories; `--unsigned` is
+for the command line, and a repository without signatures lets its owner run code on your server.) Extensions are switched on and off with `hs ext enable <name>`
 and `hs ext disable <name>`, and `hs ext list` shows them.
 
 ## Check that it worked

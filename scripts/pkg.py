@@ -15,6 +15,7 @@ Repositories (docs/PLAN-packages.md, "Repositories" and "Trust"); the git work i
   pkg.py repo remove <name>                                an added repository (the two defaults stay)
   pkg.py fetch [<repo>]                                    update the local clones and find the newest tag whose signature verifies
   pkg.py available                                         packages in the repositories (cache): repo, name, kind, version, installed
+  pkg.py market                                            everything installable as data: name, kind, repo, version, installed, state (new|current|update|orphan), core, audience, title
   pkg.py install <name> [--repo <repo>]                    fetch the package at the verified tag into <state>/packages/current/<name>
   pkg.py update <name> [--yes]                             show the diff to the installed commit, ask, install the new tag
   pkg.py remove <name>                                     forget an installed repository package (a recipe's container is never touched)
@@ -335,7 +336,7 @@ def main(argv):
             for r_name, e, _, _ in cat.get(n, []):
                 if r_name == have["repo"] and semver_key(e["version"]) > semver_key(have["version"]):
                     print("\t".join([n, have["version"], e["version"]]))
-    elif cmd in ("repo", "fetch", "available", "install", "update", "remove"):
+    elif cmd in ("repo", "fetch", "available", "market", "install", "update", "remove"):
         spec = importlib.util.spec_from_file_location("pkg_repo", os.path.join(HERE, "pkg_repo.py"))
         mod = importlib.util.module_from_spec(spec)
         spec.loader.exec_module(mod)

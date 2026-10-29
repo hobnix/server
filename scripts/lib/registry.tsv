@@ -437,3 +437,7 @@ user	pkg repo list	pkg.sh	repo list	the package repositories: the two defaults a
 user	pkg repo add <name> <url>	pkg.sh	repo add {1} {2} {rest}	add a package repository (releases must be signed): hs pkg repo add <name> <url> --key <allowed_signers file>	ein Paket-Repository hinzufügen (Releases müssen signiert sein): hs pkg repo add <Name> <URL> --key <allowed_signers-Datei>	topic:system,changes
 user	pkg repo remove <name>	pkg.sh	repo remove {1}	remove a repository that was added	ein hinzugefügtes Repository entfernen	topic:system,changes
 sys	sys pkg available	pkg.sh	available	what the repositories offer as data: repo, package, kind, version, applied version (- = not installed)	-
+sys	sys pkg market	pkg.sh	--market	every installable package as data: name, kind, repo, available version, installed version (- = none), state (new|current|update|orphan), core (yes|no), audience, title	-
+sys	sys pkg repos	pkg.sh	--repos	the package repositories as data: name, address, signed|unsigned, default|added	-
+sys	sys pkg plan <action>	pkg-change.sh	plan {1} {rest}	what installing, updating or removing a package, fetching, or adding or removing a repository would do, as data: status, plan lines (never asks; exit 0 ok, 1 refused)	-
+sys	sys pkg start <action>	pkg-change.sh	start {1} {rest}	do it (hs sys pkg start install <name> [--repo R] | update <name> | remove <name> | fetch [<repo>] | repo-add <name> <url> (key line on stdin) | repo-remove <name>); red changes need --confirm <name>	-

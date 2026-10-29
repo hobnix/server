@@ -757,6 +757,9 @@ READS = {
     ("vault", "usage"): {"kind": "tsv", "ttl": 30},
     ("vault", "uses"): {"kind": "tsv", "ttl": 60},
     ("recipes", "list"): {"kind": "tsv", "ttl": 60},
+    # the Marketplace: everything installable and the repositories it comes from (pkg-change.sh does the changes)
+    ("pkg", "market"): {"kind": "tsv", "ttl": 30},
+    ("pkg", "repos"): {"kind": "tsv", "ttl": 30},
     ("dc", "state"): {"kind": "tsv", "ttl": 60},
     ("recipes", "asks"): {"kind": "tsv", "ttl": 60, "args": [r"^[a-z0-9][a-z0-9-]{0,40}$"]},
     ("services", "list"): {"kind": "tsv", "ttl": 15},
@@ -907,6 +910,13 @@ CHANGES = {
                          "--public-path": (r"^/[A-Za-z0-9._/-]{0,100}$", True), "--want": (r"^[a-z,-]{1,80}$", False),
                          "--group": (r"^[^\x00-\x1f]{1,160}$", False), "--icon": (r"^[^\x00-\x1f]{1,160}$", False),
                          "--description": (r"^[^\x00-\x1f]{1,160}$", False)}}],
+    # the Marketplace (pkg-change.sh): install / update / remove a package, fetch the repositories, add a repository (its public key is ONE line on stdin) or
+    # remove one; a package or repository that came from an added source is red (the typed word is its name)
+    "pkg": [{"fixed": [r"^install$", r"^[a-z0-9][a-z0-9-]{0,40}$"], "opts": {"--repo": (r"^[a-z0-9][a-z0-9-]{0,40}$", False)}},
+            [r"^(update|remove)$", r"^[a-z0-9][a-z0-9-]{0,40}$"],
+            [r"^fetch$"], [r"^fetch$", r"^[a-z0-9][a-z0-9-]{0,40}$"],
+            {"fixed": [r"^repo-add$", r"^[a-z0-9][a-z0-9-]{0,40}$", r"^(https://|ssh://git@|git@)[A-Za-z0-9._:/@~+-]{3,200}$"], "stdin": True},
+            [r"^repo-remove$", r"^[a-z0-9][a-z0-9-]{0,40}$"]],
     # an answer is `--set KEY=value` (no control characters); the one secret answer of a recipe is a single line on stdin
     "recipes": [{"fixed": [r"^[a-z0-9][a-z0-9-]{0,40}$", r"^run$"],
                  "opts": {"--name": (r"^[a-z0-9][a-z0-9-]{0,40}$", False), "--set": (r"^[A-Z][A-Z0-9_]{0,30}=[^\x00-\x1f]{0,300}$", True)}, "stdin": True}],
