@@ -14,7 +14,7 @@
 
 <svelte:window onkeydown={(e) => e.key === 'Escape' && onclose()} />
 
-<div class="dialog-backdrop" role="presentation" style="z-index:60" onclick={(e) => e.target === e.currentTarget && onclose()}>
+<div class="dialog-backdrop" role="presentation" style="z-index:60">
   <div class="dialog" role="dialog" aria-modal="true" aria-labelledby="pot" style="width:min(560px,100%);gap:14px">
     <span class="kicker" style="color:var(--color-accent-300)">Remote shares</span>
     <div id="pot" class="dialog-title">{offer.peer} can read {offer.share}</div>

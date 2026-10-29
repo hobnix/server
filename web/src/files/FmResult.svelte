@@ -13,7 +13,7 @@
 <svelte:window onkeydown={(e) => e.key === 'Escape' && close()} />
 
 {#if j && p}
-  <div class="dialog-backdrop" role="presentation" onclick={(e) => e.target === e.currentTarget && close()}>
+  <div class="dialog-backdrop" role="presentation">
     <div class="rdlg" role="dialog" aria-modal="true" aria-labelledby="fmrt">
       <div class="dh"><div class="dtop"><span class="eyebrow">Result</span><span class="grow"></span><Chip>{j.op}</Chip></div><h3 id="fmrt">{title}: {j.title}</h3></div>
       <div class="dbody">

@@ -117,7 +117,7 @@
 
 <svelte:window onkeydown={(e) => e.key === 'Escape' && close()} />
 
-<div class="dialog-backdrop" role="presentation" onclick={(e) => e.target === e.currentTarget && close()}>
+<div class="dialog-backdrop" role="presentation">
   <div class="pdlg" class:danger role="dialog" aria-modal="true" aria-labelledby="fmpt">
     {#if danger}<div class="stripe"></div>{/if}
     <div class="dh">
