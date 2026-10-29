@@ -16,11 +16,11 @@ jobs:
     steps:
       - uses: actions/checkout@v5
       - name: Syntax of every script
-        run: for f in scripts/*.sh scripts/lib/*.sh scripts/recipes/*.sh packages/*/run.sh packages/*/status.sh vps/*.sh tests/*.sh; do bash -n "$f" || exit 1; done
+        run: for f in scripts/*.sh scripts/lib/*.sh scripts/recipes/*.sh vps/*.sh tests/*.sh; do bash -n "$f" || exit 1; done
       - name: shellcheck (errors only)
         run: |
           sudo apt-get install -y -qq shellcheck
-          shellcheck -S error -x scripts/*.sh scripts/lib/*.sh scripts/recipes/*.sh packages/*/run.sh packages/*/status.sh vps/*.sh tests/*.sh
+          shellcheck -S error -x scripts/*.sh scripts/lib/*.sh scripts/recipes/*.sh vps/*.sh tests/*.sh
       - name: shellcheck warnings in the pool scripts (informational, counts only)
         continue-on-error: true
         run: |
@@ -31,6 +31,33 @@ jobs:
         run: |
           sudo apt-get install -y -qq jq python3-pil
           HS_TEST_CI=1 bash tests/run-all.sh
+
+  # The default package repositories at their latest main, checked against this core: manifests, indexes and their own tests. A core change
+  # that breaks a package is seen here, before a release (docs/PLAN-packages.md, "Compatibility and CI across repositories").
+  packages:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/checkout@v5
+        with:
+          repository: hobnix/recipes
+          path: pkgs/recipes
+      - uses: actions/checkout@v5
+        with:
+          repository: hobnix/extensions
+          path: pkgs/extensions
+      - name: Manifests and indexes
+        run: |
+          mkdir -p pkgs/tree
+          ln -s "$PWD/pkgs/recipes/recipes" pkgs/tree/packages
+          ln -s "$PWD/pkgs/extensions/extensions" pkgs/tree/capabilities
+          HS_PACKAGES_ROOT="$PWD/pkgs/tree" python3 -I scripts/pkg.py validate
+          python3 -I scripts/pkg.py repo-check pkgs/recipes
+          python3 -I scripts/pkg.py repo-check pkgs/extensions
+      - name: The tests of both repositories against this core
+        run: |
+          sudo apt-get update -qq && sudo apt-get install -y -qq jq python3-pil
+          for r in recipes extensions; do HS_CORE="$PWD" HS_TEST_CI=1 bash pkgs/$r/tests/run-all.sh || exit 1; done
 
   nixos:
     runs-on: ubuntu-latest

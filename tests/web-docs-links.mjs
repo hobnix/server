@@ -27,7 +27,7 @@ check(`all ${total} links between guides resolve (or point outside docs/)`, unre
 
 const r = makeResolver(index, 'en');
 check('a guide by its file name', r('install.md')?.slug === 'install');
-check('a guide of a package by its file name', r('arr.md')?.slug === 'arr' || index.langs.en.groups.every((g) => g.name !== 'Apps'));
+check('a guide of a package by its file name', r('fixapp.md')?.slug === 'fixapp');
 check('a slug works too', r('commands.md')?.slug === 'commands');
 check('an anchor is kept', r('backup-and-recovery.md#a-b')?.hash === 'a-b');
 check('a relative path to a guide resolves by its file name', r('../../docs/storage-and-disks.md')?.slug === 'storage-and-disks');

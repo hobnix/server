@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # Extension packages (docs/PLAN-extensions.md): the loader that merges scripts/lib/registry.tsv with capabilities/<name>/commands.tsv of every
 # package that is ON (scripts/lib/registry-load.sh), the namespace rule, `hs ext list|enable|disable|<name>`, "off = invisible", the legacy
-# rows of the moved commands, and the real packages (games, posters). A throwaway packages folder stands in for capabilities/. No root.
+# rows of the moved commands. A throwaway packages folder stands in for capabilities/. No root.
 # shellcheck source=tests/lib.sh
 . "$(dirname "$0")/lib.sh"
 export HS_LANG=en HS_PLAIN=1 HS_CALLER=test HS_STATE_DIR=$WORK/state HS_CAPABILITIES_FILE=$WORK/caps HS_MACHINE_FILE=$WORK/machine.toml
@@ -124,39 +124,6 @@ check_out "an unknown package is refused" "No extension called 'nope'" $HS ext e
 check_eq "with exit 1" "1" "$($HS ext enable nope >/dev/null 2>&1; echo $?)"
 check_eq "a name with a slash is refused" "1" "$($HS ext enable ../demo >/dev/null 2>&1; echo $?)"
 rm -f "$HS_STATE_DIR"/capabilities-on "$HS_STATE_DIR"/capabilities-off; : > "$HS_CAPABILITIES_FILE"
-
-echo "-- the real packages (games, posters), their old words, the web declarations"
-unset HS_PACKAGES_DIR
-check_eq "games and posters are packages" "yes" "$(ext_package_names | paste -sd' ' | grep -q 'games' && ext_package_names | grep -qx posters && echo yes)"
-check_eq "both are off by default" "0" "$($HS help --all | grep -cE 'ext (games|posters)')"
-printf 'games
-posters
-gateway
-passthrough
-' > "$HS_CAPABILITIES_FILE"
-for w in "ext passthrough list" "ext passthrough status" "ext passthrough add" "ext passthrough remove" "ext passthrough refresh" "sys ext passthrough state" "sys ext passthrough plan <domain> <action>" "sys ext passthrough start <domain> <action>"; do
-  check_out "row: $w" "${tab}$w${tab}" registry_rows
-done
-for w in "ext games list" "ext games add" "ext games remove" "ext games wake" "ext posters generate" "sys ext games list" "sys ext games state" "sys ext games plan <name> <action>" "sys ext games start <name> <action>" \
-         "sys ext posters generate" "sys ext posters list" "sys ext posters plan <action>" "sys ext posters start <action>"; do
-  check_out "row: $w" "${tab}$w${tab}" registry_rows
-done
-check_eq "no row of the real packages is refused" "" "$(registry_refused | paste -sd, -)"
-check_eq "hs ext games list runs pc.sh" "yes" "$($HS ext games list 2>&1 | grep -q 'No PC saved yet' && echo yes)"
-check_eq "hs sys ext games list is plain and empty without a PC" "" "$($HS sys ext games list)"
-$HS ext games add gaming AA:BB:CC:DD:EE:FF 10.10.95.30 >/dev/null 2>&1
-check_eq "hs sys ext games list prints the row" "$(printf 'gaming\taa:bb:cc:dd:ee:ff\t10.10.95.30')" "$($HS sys ext games list)"
-err=$($HS pc list 2>&1 >/dev/null)
-check_out "the old word says where it went" "'hs pc list' has moved to the extension games: hs ext games list" echo "$err"
-check_eq "and still runs while the package is on" "$(printf 'gaming\taa:bb:cc:dd:ee:ff\t10.10.95.30')" "$($HS sys ext games list)"
-check_eq "the old word is not in hs help" "0" "$($HS help --all | grep -cE '^  (pc |generate poster)')"
-: > "$HS_CAPABILITIES_FILE"
-check_eq "passthrough rows vanish while it is off" "0" "$($HS help --all | grep -c 'ext passthrough')"
-out=$($HS pc list 2>&1; echo "rc=$?")
-check_out "off: the old word names the new form and the switch" "hs ext enable games" echo "$out"
-check_out "and exits 1" "rc=1" echo "$out"
-out=$($HS generate poster 2>&1; echo "rc=$?")
-check_out "the old poster word moved too" "has moved to the extension posters: hs ext posters generate" echo "$out"
 
 echo "-- web allowlists come from the manifests of the packages that are on"
 if have python3; then

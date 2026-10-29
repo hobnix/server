@@ -2,8 +2,8 @@
 
 NixOS home server: Incus containers on ZFS or SnapRAID, Samba shares, backups, a web interface, one command `hs`. The repo lives at
 /etc/nixos on a server. Apply changes with `hs rebuild` or `hs update`. Commands are `scripts/<name>.sh`, `hs help` lists them,
-`scripts/lib/registry.tsv` is the one list. Apps (recipes) and optional parts (extensions) are packages: `packages/<name>/` and
-`capabilities/<name>/`, later their own repositories (docs/PLAN-packages.md).
+`scripts/lib/registry.tsv` is the one list. Apps (recipes) and optional parts (extensions) are packages that live in their own repositories, hobnix/recipes and
+hobnix/extensions (docs/PLAN-packages.md); the core fetches them with `hs pkg`.
 
 ## Rules that always apply
 - **Admin pages are never public.** Incus, Zoraxy, Arcane, the docs site, Grafana, Tdarr get no public route (guard: `ADMIN_TARGETS`

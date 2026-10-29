@@ -74,15 +74,56 @@ release v1.4.0 1.4.0 "$WORK/good" ">=99"; cd "$ROOT"; $PKG fetch test >/dev/null
 check_out "a package that needs a newer core is refused" "API level" bash -c "$PKG update demo --yes 2>&1; true"
 cd "$R"; release v1.5.0 1.5.0 "$WORK/good" ">=1" "../escape"; cd "$ROOT"; $PKG fetch test >/dev/null
 check_out "a path that leaves the repository is refused" "not allowed" bash -c "$PKG update demo --yes 2>&1; true"
-cd "$R"; git rm -q -r recipes; mkdir -p recipes/arr; cd "$ROOT"
+cd "$R"; git rm -q -r recipes; mkdir -p recipes/fixapp; cd "$ROOT"
 cd "$R"
-printf 'name = "arr"\nversion = "9.0.0"\nkind = "recipe"\ntitle = "Evil arr"\nrequires_core = ">=1"\nscript = "run.sh"\n' > recipes/arr/package.toml; echo 'echo evil' > recipes/arr/run.sh
-printf '[package.arr]\nversion = "9.0.0"\nkind = "recipe"\npath = "recipes/arr"\nrequires_core = ">=1"\n' > index.toml
-git add -A && git commit -q -m arr && git -c user.signingkey="$WORK/good.pub" tag -s v2.0.0 -m clash; cd "$ROOT"
+printf 'name = "fixapp"\nversion = "9.0.0"\nkind = "recipe"\ntitle = "Evil fixapp"\nrequires_core = ">=1"\nscript = "run.sh"\n' > recipes/fixapp/package.toml; echo 'echo evil' > recipes/fixapp/run.sh
+printf '[package.fixapp]\nversion = "9.0.0"\nkind = "recipe"\npath = "recipes/fixapp"\nrequires_core = ">=1"\n' > index.toml
+git add -A && git commit -q -m fixapp && git -c user.signingkey="$WORK/good.pub" tag -s v2.0.0 -m clash; cd "$ROOT"
+export HS_PACKAGES_ROOT=$ROOT/tests/fixtures/pkgtree   # a package of this installation: the fixture recipe
 $PKG fetch test >/dev/null
-check_out "a name that is built in cannot be replaced by a repository" "installation already" bash -c "$PKG install arr 2>&1; true"
+check_out "a name that is built in cannot be replaced by a repository" "installation already" bash -c "$PKG install fixapp 2>&1; true"
+echo "-- the packages the core refers to (install --core)"
+unset HS_PACKAGES_ROOT
+cd "$R"; git rm -q -r -f recipes; mkdir -p recipes/corer recipes/opt
+for n in corer opt; do
+  printf 'name = "%s"
+version = "1.0.0"
+kind = "recipe"
+title = "%s"
+requires_core = ">=1"
+audience = "generic"
+needs = []
+uses = []
+input = "none"
+script = "run.sh"
+' "$n" "$n" > "recipes/$n/package.toml"
+  printf '#!/usr/bin/env bash
+# kind: generic
+# needs: -
+# uses: -
+echo %s
+' "$n" > "recipes/$n/run.sh"
+done
+printf '[package.corer]
+version = "1.0.0"
+kind = "recipe"
+path = "recipes/corer"
+requires_core = ">=1"
+core = true
+
+[package.opt]
+version = "1.0.0"
+kind = "recipe"
+path = "recipes/opt"
+requires_core = ">=1"
+' > index.toml
+git add -A && git commit -q -m core && git -c user.signingkey="$WORK/good.pub" tag -s v3.0.0 -m core; cd "$ROOT"
+check_out "install --core fetches the core package" "^corer 1[.]0[.]0 from test" $PKG install --core
+check "and its run.sh arrived" test -f "$HS_STATE_DIR/packages/current/corer/run.sh"
+check "a package that is not core is left alone" test ! -e "$HS_STATE_DIR/packages/current/opt"
+check_eq "a second run has nothing to do" "" "$($PKG install --core)"
 check "a repository package can be removed" $PKG remove demo
 check "and its folder is gone" test ! -e "$HS_STATE_DIR/packages/current/demo"
-check "remove refuses a built-in" bash -c "! $PKG remove arr 2>/dev/null"
+check "remove refuses a built-in" bash -c "! $PKG remove fixapp 2>/dev/null"
 check "a repository can be removed" $PKG repo remove test
 finish
