@@ -27,7 +27,6 @@ sync=${HS_SYNC_SHARES:-$here/sync-shares.sh}
 state=${HS_STATE_DIR:-/var/lib/hs}
 bulk_type=$(cat "${HS_BULK_TYPE_FILE:-/etc/hs/bulk-type}" 2>/dev/null || echo zfs)
 
-[ "${#orig}" -le 80 ] || { echo "The name is too long." >&2; exit 1; }
 case "${orig,,}" in shares|sensitive|global|homes|printers) echo "'$orig' is a reserved name." >&2; exit 1 ;; esac
 listed=$("$net" conf listshares 2>/dev/null || true)   # read once: grep -q on a pipe would end the producer early (pipefail)
 is_listed() { awk -v n="$1" 'tolower($0) == tolower(n) { f = 1 } END { exit !f }' <<<"$listed"; }

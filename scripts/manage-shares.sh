@@ -225,7 +225,6 @@ rename_share() {   # rename_share <old> <new>
   newpath=$(dirname "$path")/$new
 
   [[ "$new" =~ ^[A-Za-z0-9][A-Za-z0-9._-]*$ ]] || fail "$(t "'%s' is not a usable name (letters, digits, . _ - only; at most one word)." "$new")"
-  [ "${#new}" -le 80 ] || fail "The name is too long."
   case "${new,,}" in shares|sensitive|global|homes|printers) fail "$(t "'%s' is a reserved name." "$new")" ;; esac
   [ "$new" != "$old" ] || fail "That is the name it has already."
   if net conf listshares 2>/dev/null | grep -qix "$new"; then fail "$(t "A share called '%s' exists already." "$new")"; fi
