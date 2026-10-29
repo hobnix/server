@@ -328,16 +328,19 @@ def run(pkg, cmd, rest):
                 for r_name, e, tag, _ in rows:
                     print("\t".join([r_name, pname, e.get("kind", "?"), str(e.get("version")), have.get(pname, {}).get("version", "-")]))
         elif cmd == "install" and rest and rest[0] == "--core":
-            # the packages the core refers to by name (`core = true` in the index): fetch what is neither built in nor installed yet
+            # the packages the core refers to by name (`core = true` in the index) and the ones applied here: fetch what is neither built in nor installed yet
             bad = 0
             for name, tag, commit, err in R.fetch_all():
                 bad += bool(err)
                 if err:
                     print("%s: %s" % (name, err), file=sys.stderr)
-            have = pkg.installed()
+            # wanted: the core packages and every recipe already applied on this server (installed.toml also holds the versions `hs recipe`
+            # recorded before packages came from a repository); there: its folder in current/ or a built-in one
+            applied = pkg.installed()
             builtin = {m.get("name") for p, m in pkg.manifests() if "/current/" not in p.replace("\\", "/")}
             for pname, rows in sorted(R.catalog().items()):
-                if not rows[0][1].get("core") or pname in have or pname in builtin:
+                there = os.path.isdir(os.path.join(R.state, "current", pname)) or pname in builtin
+                if there or not (rows[0][1].get("core") or pname in applied):
                     continue
                 try:
                     v, r_name, tag = R.install(pname, rows[0][0])

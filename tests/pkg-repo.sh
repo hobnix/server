@@ -130,6 +130,12 @@ check_out "install --core fetches the core package" "^corer 1[.]0[.]0 from test"
 check "and its run.sh arrived" test -f "$HS_STATE_DIR/packages/current/corer/run.sh"
 check "a package that is not core is left alone" test ! -e "$HS_STATE_DIR/packages/current/opt"
 check_eq "a second run has nothing to do" "" "$($PKG install --core)"
+# an app applied before packages came from a repository: installed.toml has its version, but there is no folder
+printf '[package.opt]
+version = "1.0.0"
+' >> "$HS_STATE_DIR/packages/installed.toml"
+check_out "an applied package without a folder is fetched too" "^opt 1[.]0[.]0 from test" $PKG install --core
+check "and its run.sh arrived" test -f "$HS_STATE_DIR/packages/current/opt/run.sh"
 check "a repository package can be removed" $PKG remove demo
 check "and its folder is gone" test ! -e "$HS_STATE_DIR/packages/current/demo"
 check "remove refuses a built-in" bash -c "! $PKG remove fixapp 2>/dev/null"
