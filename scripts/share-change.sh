@@ -167,7 +167,7 @@ case "$action" in
     grep -qxF -- "$snapname" <<<"$list" || refuse "No snapshot '$snapname' on this share."
     newer=$(awk -v t="$snapname" 'f { n++ } $0 == t { f = 1 } END { print n + 0 }' <<<"$list") ;;
   add)
-    if bash "$overview" 2>/dev/null | cut -f1 | grep -qxF -- "$share"; then refuse "A share called '$share' exists already."; fi
+    if "${HS_NET:-net}" conf listshares 2>/dev/null | grep -qxF -- "$share"; then refuse "A share called '$share' exists already."; fi
     case "${share,,}" in shares|sensitive|global|homes|printers) refuse "'$share' is a reserved name." ;; esac
     [ -z "$ct" ] || ${HS_INCUS:-incus} info "$ct" >/dev/null 2>&1 || refuse "'$ct' does not exist." ;;
   snapshot|auto)

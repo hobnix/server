@@ -55,6 +55,14 @@ esac
 printf '  rm -rf /mnt/bulk/data-01/shares/%s\n  rm -rf /mnt/bulk/data-02/shares/%s\n' "$1" "$1"
 FAKE
 chmod +x "$WORK/backup" "$WORK/purge"; export HS_SHARE_PURGE=$WORK/purge HS_SHARE_RESTORE=$WORK/restore
+cat > "$WORK/net" <<'FAKE'
+#!/usr/bin/env bash
+[ "$*" = "conf listshares" ] && printf 'docs
+media
+'
+exit 0
+FAKE
+chmod +x "$WORK/net"; export HS_NET=$WORK/net
 run() { rc=0; out=$(timeout 20 bash "$SCRIPTS/share-change.sh" "$@" </dev/null 2>/dev/null) || rc=$?; }
 has() { grep -q -- "$1" <<<"$out"; }
 
@@ -146,7 +154,8 @@ run plan newshare add
 check_eq "add without a kind" "2 status	needs
 needs	kind" "$rc $out"
 run plan docs add --kind shares
-check_eq "a name that exists" 1 "$rc"
+check_eq "a name that exists (the registry list, not the overview)" 1 "$rc"
+has "already" && pass "add: refusal names the reason" || fail "add refusal: $out"
 run plan newshare add --kind sensitive --ct nope --path /data
 check_eq "an instance that does not exist" 1 "$rc"
 run plan newshare add --kind shares --ct jellyfin --path /data --as 1000:100

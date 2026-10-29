@@ -82,7 +82,7 @@ size_of() {   # size_of <path>
   if [ "$bulk_type" = snapraid ]; then
     awk -F'\t' -v p="$1" '$1 == p { print $2; found = 1 } END { if (!found) print "-" }' "$sizes" 2>/dev/null || echo -
   else
-    zfs list -Hp -o used "${1#/}" 2>/dev/null || echo -
+    "${HS_ZFS:-zfs}" list -Hp -o used "${1#/}" 2>/dev/null || echo -
   fi
 }
 measure() {   # measure [share]: every share, or only one (its line in the sizes file is replaced)
@@ -109,26 +109,47 @@ measure() {   # measure [share]: every share, or only one (its line in the sizes
   chmod 644 "$sizes"
 }
 
+# The list reads the registry once (net conf list) and, on ZFS, every size with one zfs call: three process
+# starts per share took 2.5 s on a loaded server. A share the single read does not show, or a dataset the
+# map does not know, falls back to the old per-share call. Test knobs: HS_NET, HS_ZFS.
 shares() {
-  local s path kind cache size measured=""
+  local s path kind cache size measured="" netc=${HS_NET:-net} zfsc=${HS_ZFS:-zfs} name used
+  local -A paths=() useds=()
   if [ "$bulk_type" = snapraid ]; then
     measured=never
     [ ! -e "$sizes" ] || measured=$(date -r "$sizes" '+%d.%m. %H:%M')
   fi
-  for s in $(net conf listshares 2>/dev/null); do
-    path=$(net conf getparm "$s" path 2>/dev/null || true)
+  local names; names=$("$netc" conf listshares 2>/dev/null || true)
+  [ -n "$names" ] || return 0
+  while IFS=$'\t' read -r name path; do
+    [ -z "$name" ] || paths[$name]=$path
+  done < <("$netc" conf list 2>/dev/null | awk '
+    /^[ \t]*\[.*\][ \t]*$/ { sec = $0; sub(/^[ \t]*\[/, "", sec); sub(/\][ \t]*$/, "", sec); next }
+    sec != "" && /^[ \t]*path[ \t]*=/ { v = $0; sub(/^[^=]*=[ \t]*/, "", v); sub(/[ \t]+$/, "", v); print sec "\t" v; sec = "" }' || true)
+  if [ "$bulk_type" != snapraid ]; then
+    while IFS=$'\t' read -r name used; do
+      [ -z "$name" ] || useds[$name]=$used
+    done < <("$zfsc" list -Hp -o name,used -r bulk/shares bulk/sensitive 2>/dev/null || true)
+  fi
+  for s in $names; do
+    path=${paths[$s]-}
+    [ -n "$path" ] || path=$("$netc" conf getparm "$s" path 2>/dev/null || true)
     case "$path" in
       /bulk/shares/*)    kind=shares ;;
       /bulk/sensitive/*) kind=sensitive ;;
       *)                 kind=other ;;
     esac
     cache=-
-    if [ "$kind" != other ]; then
+    # on ZFS the cache script only answers "unsupported" (shown as -): no process needed for that
+    if [ "$kind" != other ] && [ "$bulk_type" = snapraid ]; then
       cache=$(bash "$here/share-cache.sh" --state "$path" 2>/dev/null | cut -f1 || true)
       [ "${cache:-unsupported}" != unsupported ] || cache=-
     fi
     size=-
-    [ "$kind" = other ] || size=$(size_of "$path")
+    if [ "$kind" != other ]; then
+      if [ "$bulk_type" != snapraid ] && [ -n "${useds[${path#/}]-}" ]; then size=${useds[${path#/}]}
+      else size=$(size_of "$path"); fi
+    fi
     printf '%s\t%s\t%s\t%s\t%s\t%s\n' "$s" "$kind" "$path" "$cache" "${size:--}" "$measured"
   done
 }
