@@ -241,7 +241,7 @@ refused "a user row of ports-admin" "container 'custom' on port 8123" example.co
 rm -f "$HS_STATE_DIR/ports-admin"
 A2="$R address 10.10.95.5 --host-addrs $HS_PT_HOST_ADDRS --instance-addrs $HS_PT_INSTANCE_ADDRS --container-ok yes --admin-from $SCRIPTS/services.py"
 check_eq "the real ports.sh parses (zoraxy 443 is fine)" "10.10.95.5" "$($A2 --ports-from $SCRIPTS/ports.sh)"
-sed '/^  printf .homepage/s/.*/  echo broken/' "$SCRIPTS/ports.sh" > "$WORK/ports-bad1.sh"
+sed '/^  printf .uptime-kuma/s/.*/  echo broken/' "$SCRIPTS/ports.sh" > "$WORK/ports-bad1.sh"
 sed '/zoraxy.t8000/d' "$SCRIPTS/ports.sh" > "$WORK/ports-bad2.sh"
 for bad in 1 2; do
   rc=0; out=$($A2 --ports-from "$WORK/ports-bad$bad.sh" 2>&1) || rc=$?

@@ -6,8 +6,8 @@ kind = "provider"
 requires = []
 # the interface this capability fulfils; a variant is a script scripts/providers/dashboard/<variant>.sh
 provides = ["dashboard"]
-variants = ["homepage"]
+variants = ["web"]
 needs = []
-# No NixOS module: Homepage runs in a container (its recipe). It counts as on once the runtime setting dashboard names a variant.
+# No NixOS module: variant web is part of the web interface (webUi). It counts as on once the runtime setting dashboard names a variant.
 implied_by = ["dashboard"]
 notes = "NOTES.md"

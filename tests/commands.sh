@@ -78,7 +78,7 @@ check_eq "a value is handed to the script" "args:docs ren --force" "$(HS_CALLER=
 echo "-- the REAL registry reaches the scripts with the right arguments (a wrong fixed-args field once sent "backup now" to backup.sh instead of "now")"
 real=$WORK/real; mkdir -p "$real/lib"
 cp -r "$SCRIPTS"/lib/job.sh "$SCRIPTS"/lib/hs.sh "$SCRIPTS"/lib/capability.sh "$SCRIPTS"/lib/registry-load.sh "$SCRIPTS"/lib/ui.sh "$SCRIPTS"/lib/i18n.sh "$SCRIPTS"/lib/setting.sh "$SCRIPTS"/lib/i18n "$SCRIPTS"/lib/registry.tsv "$real/lib/"
-for s in backup unlock; do printf 'echo "args:$*"
+for s in backup unlock services; do printf 'echo "args:$*"
 ' > "$real/$s.sh"; done
 R="bash $real/lib/hs.sh"
 check_eq "hs backup now --dry-run" "args:now --dry-run" "$(HS_CALLER=t $R backup now --dry-run)"
@@ -90,6 +90,8 @@ check_eq "hs backup prune" "args:prune" "$(HS_CALLER=t $R backup prune)"
 check_eq "hs backup status" "args:status" "$(HS_CALLER=t $R backup status)"
 check_eq "hs backup (bare)" "args:" "$(HS_CALLER=t $R backup)"
 check_eq "hs unlock --status" "args:--status" "$(HS_CALLER=t $R unlock --status)"
+check_eq "hs services key <service> keeps the service name" "args:key jellyfin" "$(HS_CALLER=t $R services key jellyfin)"
+check_eq "hs services declare-known --dry-run" "args:declare-known --dry-run" "$(HS_CALLER=t $R services declare-known --dry-run)"
 
 echo "-- system command warning"
 check_out "a person is warned" "system command" env -u HS_CALLER HS_FORCE_TTY=1 $F sys pool info </dev/null

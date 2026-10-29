@@ -37,9 +37,9 @@ bad=$(grep -h '^ *declare_service ' "$R"/*/run.sh | awk '{
   if (w[1] == "public-ok") print $0
 }')
 check_eq "no recipe declares its service public-ok" "" "$bad"
-admin=$(for n in docker zoraxy authentik tdarr qbittorrent sabnzbd uptime-kuma monitoring paperclip homepage stalwart; do grep -q "^ *declare_service $n .* never-public " "$R/$n/run.sh" 2>/dev/null || echo "$n "; done)
+admin=$(for n in docker zoraxy authentik tdarr qbittorrent sabnzbd uptime-kuma monitoring paperclip stalwart; do grep -q "^ *declare_service $n .* never-public " "$R/$n/run.sh" 2>/dev/null || echo "$n "; done)
 check_eq "the admin pages and download tools are never-public" "" "$admin"
 count=$(grep -l '^ *declare_service ' "$R"/*/run.sh | wc -l | tr -d ' ')
-check_eq "so far (update this number with a new recipe)" "23" "$count"
+check_eq "so far (update this number with a new recipe)" "22" "$count"
 
 finish

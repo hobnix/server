@@ -21,6 +21,12 @@ A descriptor is /var/lib/hs/services.d/<name>.toml (--dir DIR):
                        [--exposure E] [--public-path /p]... [--want a,b] [--icon I] [--health /]
   services.py declare NAME [--dir D] (what a recipe says: --container C --port N --title T --icon I --group G --description D --exposure E
                        --want a,b --public-name x.y; an existing service keeps what a person decided)  prints created or updated
+                       --stat 'kind|label|path|pointer|reduce|where|secret|auth|unit|format' (repeatable, empty = unset; replaces the
+                       service's [[stats]]; --no-stats removes them; neither keeps them)
+  services.py stats-plan --addrs F [--meta] [--dir D]           service, index, url, secret, auth (TSV, `-` = none) of every stat to fetch
+  services.py stat-value SERVICE INDEX [--dir D]        JSON on stdin -> the formatted value; exit 1 and no output when it does not fit
+  [[stats]] (at most 3): kind="http-json" label path pointer reduce="count" where secret="stat-<name>" auth unit format; a secret is
+  only NAMED here (the key lives in the state dir), never held
   services.py tiles  [--dir D] [--addrs F] [--plan F] [--info F] [--containers] [--local-domain D] group, title, link, description, icon, name of the dashboard tiles
   services.py remove NAME [--dir D]
   services.py plan   --info F --routes F --addrs F [--owned F] [--dir D]   act<TAB>host<TAB>path<TAB>target<TAB>service<TAB>note
@@ -44,9 +50,17 @@ LABEL = re.compile(r'^[a-z0-9]([a-z0-9-]*[a-z0-9])?$')
 FQDN = re.compile(r'^([a-z0-9]([a-z0-9-]*[a-z0-9])?\.)+[a-z]{2,}$')
 HOST = re.compile(r'^[A-Za-z0-9][A-Za-z0-9._:-]{0,100}$')
 DEAD_END = '127.0.0.1:1'
+MAX_STATS = 3
+STAT_KEYS = ('kind', 'label', 'path', 'pointer', 'reduce', 'where', 'secret', 'auth', 'unit', 'format')
+STAT_AUTHS = ('mediabrowser', 'x-api-key', 'bearer')
+STAT_FORMATS = ('int', 'float1', 'text')
+STAT_PATH = re.compile(r'^/[A-Za-z0-9._~/?&=%,-]{0,200}$')
+STAT_SECRET = re.compile(r'^stat-[a-z0-9][a-z0-9-]{0,40}$')
+POINTER = re.compile(r'^(/[^/]*)*$')
+STAT_MAX_BODY = 1048576
 # containers whose web page is an admin interface: found on a public proxy they are imported as never-public
 # (or public-ok with only their public paths), the way CLAUDE.md describes the two exceptions (Arcane webhook, Kuma status page)
-ADMIN_TARGETS = {('docker', 80), ('homepage', 80), ('zoraxy', 8000), ('monitoring', 3000), ('monitoring', 80), ('uptime-kuma', 3001), ('paperclip', 3100), ('stalwart', 8080)}
+ADMIN_TARGETS = {('docker', 80), ('zoraxy', 8000), ('monitoring', 3000), ('monitoring', 80), ('uptime-kuma', 3001), ('paperclip', 3100), ('stalwart', 8080)}
 
 
 def die(msg, code=2):
@@ -115,7 +129,7 @@ def problems(fname, s):
         p.append('%s: scheme must be http or https' % fname)
     if s.get('exposure', 'private-ok') not in EXPOSURES:
         p.append('%s: exposure must be one of %s' % (fname, ', '.join(EXPOSURES)))
-    # an admin page (Arcane, Homepage, Zoraxy's page, Grafana, Kuma's dashboard) is never public-ok as a whole, only through its public_paths
+    # an admin page (Arcane, Zoraxy's page, Grafana, Kuma's dashboard) is never public-ok as a whole, only through its public_paths
     if s.get('exposure') == 'public-ok' and not s.get('public_paths') and (s.get('container'), s.get('port')) in ADMIN_TARGETS:
         p.append('%s: %s:%s is an admin page and has no login of its own that can be trusted on the internet: use never-public, or give it public_paths (CLAUDE.md: no Zoraxy rule for admin pages)'
                  % (fname, s.get('container'), s.get('port')))
@@ -134,6 +148,56 @@ def problems(fname, s):
     w = s.get('want', {})
     if not isinstance(w, dict) or any(k not in WANTS or not isinstance(v, bool) for k, v in w.items()):
         p.append('%s: want may only hold %s, each true or false' % (fname, ', '.join(WANTS)))
+    st = s.get('stats', [])
+    if not isinstance(st, list) or any(not isinstance(x, dict) for x in st):
+        p.append('%s: stats must be a list of [[stats]] tables' % fname)
+    else:
+        if len(st) > MAX_STATS:
+            p.append('%s: at most %d stats' % (fname, MAX_STATS))
+        for i, x in enumerate(st):
+            p.extend(stat_problems(fname, i, x))
+    return p
+
+
+def stat_problems(fname, i, x):
+    """The rules of one [[stats]] table (docs: a stat names a secret, it never holds a value)"""
+    pre = '%s: stats[%d]' % (fname, i)
+    p = []
+    for k in x:
+        if k not in STAT_KEYS:
+            p.append('%s: unknown key %s' % (pre, k))
+
+    def text(k, n):
+        v = x.get(k)
+        return isinstance(v, str) and len(v) <= n
+    if x.get('kind') != 'http-json':
+        p.append('%s: kind must be http-json' % pre)
+    if not text('label', 24) or not x.get('label'):
+        p.append('%s: label must be 1 to 24 characters' % pre)
+    elif any(ord(c) < 32 or ord(c) == 127 for c in x['label']):
+        p.append('%s: label has a control character' % pre)
+    path = x.get('path')
+    if not isinstance(path, str) or not STAT_PATH.match(path) or '//' in path or '@' in path or '..' in path:
+        p.append('%s: path must start with / and use only A-Z a-z 0-9 . _ ~ / ? & = %% , - (no //, @, ..; 200 characters at most)' % pre)
+    for k in ('pointer', 'where'):
+        if k in x and (not isinstance(x[k], str) or not POINTER.match(x[k]) or len(x[k]) > 200):
+            p.append('%s: %s must be a JSON pointer (empty or /a/b)' % (pre, k))
+    if x.get('reduce', 'count') != 'count':
+        p.append('%s: reduce may only be count' % pre)
+    if 'where' in x and x.get('reduce') != 'count':
+        p.append('%s: where needs reduce = "count"' % pre)
+    if 'secret' in x and (not isinstance(x['secret'], str) or not STAT_SECRET.match(x['secret'])):
+        p.append('%s: secret must be a name like stat-<service>' % pre)
+    if x.get('auth') is not None and x['auth'] not in STAT_AUTHS:
+        p.append('%s: auth must be one of %s' % (pre, ', '.join(STAT_AUTHS)))
+    if 'secret' in x and 'auth' not in x:
+        p.append('%s: secret needs auth' % pre)
+    if 'auth' in x and 'secret' not in x:
+        p.append('%s: auth needs secret' % pre)
+    if 'unit' in x and not text('unit', 8):
+        p.append('%s: unit must be 8 characters at most' % pre)
+    if x.get('format', 'int') not in STAT_FORMATS:
+        p.append('%s: format must be one of %s' % (pre, ', '.join(STAT_FORMATS)))
     return p
 
 
@@ -158,6 +222,12 @@ def dump(s):
         lines.append('[want]')
         for k, v in s['want'].items():
             lines.append('%s = %s' % (k, 'true' if v else 'false'))
+    for x in s.get('stats', []):
+        lines.append('')
+        lines.append('[[stats]]')
+        for k in STAT_KEYS:
+            if k in x:
+                lines.append('%s = %s' % (k, q(x[k])))
     return '\n'.join(lines) + '\n'
 
 
@@ -621,11 +691,29 @@ def cmd_declare(d, args):
     wants = opt(args, '--want')
     new_want = {k: True for k in (wants or '').split(',') if k}
     public_name = opt(args, '--public-name')
+    stat_args = opts(args, '--stat')
+    no_stats = flag(args, '--no-stats')
     if args:
         die('unknown option %s' % args[0])
+    stats = None   # None: keep what the descriptor has
+    if stat_args:
+        stats = []
+        for sa in stat_args:
+            f = sa.split('|')
+            if len(f) != len(STAT_KEYS):
+                die('--stat needs %d fields: %s' % (len(STAT_KEYS), '|'.join(STAT_KEYS)))
+            stats.append({k: v for k, v in zip(STAT_KEYS, f) if v != ''})
+            if 'pointer' not in stats[-1]:
+                stats[-1]['pointer'] = ''
+    elif no_stats:
+        stats = []
     existing = load_all(d).get(name)
     if existing and '_error' not in existing:
         s = dict(existing)
+        if stats is not None:
+            s.pop('stats', None)
+            if stats:
+                s['stats'] = stats
         for k in ('title', 'container', 'host', 'port', 'scheme', 'icon', 'group', 'description', 'health'):
             if k in new:
                 s[k] = new[k]
@@ -653,6 +741,8 @@ def cmd_declare(d, args):
                 s['exposure'] = 'public-ok'
         if new_want:
             s['want'] = new_want
+        if stats:
+            s['stats'] = stats
         verb = 'created'
     bad = problems(name, s)
     if bad:
@@ -769,6 +859,93 @@ def cmd_tiles(d, args):
     return 0
 
 
+def cmd_stats_plan(d, args):
+    """service<TAB>index<TAB>url<TAB>secret<TAB>auth for every stat of a valid service whose address is known. The url comes from the
+    descriptor's own target only (nothing a person or the network says); `-` for no secret."""
+    addrs_f = opt(args, '--addrs')
+    with_label = flag(args, '--meta')   # two more columns: label and unit (hs services stats shows them)
+    if args or not addrs_f:
+        die('stats-plan needs --addrs F')
+    addrs = read_addrs(addrs_f) if os.path.exists(addrs_f) else {}
+    for name, s in load_all(d).items():
+        if '_error' in s or problems(name, s):
+            continue
+        ip = address_of(s, addrs)
+        if not ip:
+            continue
+        port = s['port']
+        scheme = s.get('scheme', 'http')
+        base = '%s://%s%s' % (scheme, ip, '' if port == {'http': 80, 'https': 443}.get(scheme) else ':%d' % port)
+        for i, x in enumerate(s.get('stats', [])):
+            cols = [name, str(i), base + x['path'], x.get('secret') or '-', x.get('auth') or '-']
+            if with_label:
+                cols.append(' '.join(str(x.get('label') or '-').split()) or '-')
+                cols.append(' '.join(str(x.get('unit') or '-').split()) or '-')
+            print('\t'.join(cols))
+    return 0
+
+
+def pointer_get(doc, ptr):
+    """RFC 6901; raises KeyError when it misses"""
+    if ptr == '':
+        return doc
+    for tok in ptr[1:].split('/'):
+        tok = tok.replace('~1', '/').replace('~0', '~')
+        if isinstance(doc, dict) and tok in doc:
+            doc = doc[tok]
+        elif isinstance(doc, list) and tok.isdigit() and int(tok) < len(doc):
+            doc = doc[int(tok)]
+        else:
+            raise KeyError(ptr)
+    return doc
+
+
+def cmd_stat_value(d, args):
+    """stat-value SERVICE INDEX: JSON on stdin -> the value, formatted; exit 1 (nothing printed) when it does not fit"""
+    import json
+    if len(args) != 2 or not args[1].isdigit():
+        die('stat-value needs SERVICE INDEX')
+    s = load_all(d).get(args[0])
+    if not s or '_error' in s or problems(args[0], s):
+        return 1
+    stats = s.get('stats', [])
+    if int(args[1]) >= len(stats):
+        return 1
+    x = stats[int(args[1])]
+    raw = sys.stdin.buffer.read(STAT_MAX_BODY + 1)
+    if len(raw) > STAT_MAX_BODY:
+        return 1
+    try:
+        v = pointer_get(json.loads(raw.decode('utf-8')), x.get('pointer', ''))
+    except (ValueError, KeyError):
+        return 1
+    if x.get('reduce') == 'count':
+        if not isinstance(v, list):
+            return 1
+        w = x.get('where')
+        if w is not None:
+            def has(item):
+                try:
+                    return pointer_get(item, w) not in (None, False, '')
+                except KeyError:
+                    return False
+            v = [i for i in v if has(i)]
+        v = len(v)
+    fmt = x.get('format', 'int')
+    if fmt == 'text':
+        if isinstance(v, (dict, list)) or v is None or isinstance(v, bool):
+            return 1
+        out = ''.join(' ' if ord(c) < 32 or ord(c) == 127 else c for c in str(v)).strip()[:24]
+        if not out:
+            return 1
+    else:
+        if isinstance(v, bool) or not isinstance(v, (int, float)):
+            return 1
+        out = str(int(v)) if fmt == 'int' else '%.1f' % v
+    print(out)
+    return 0
+
+
 def cmd_addrs():
     """`incus list --format json` on stdin -> container<TAB>address (the first global IPv4 of a running instance, eth0 or enp5s0 first)"""
     import json
@@ -808,6 +985,10 @@ def main(argv):
         return cmd_apps(d)
     if cmd == 'tiles':
         return cmd_tiles(d, args)
+    if cmd == 'stats-plan':
+        return cmd_stats_plan(d, args)
+    if cmd == 'stat-value':
+        return cmd_stat_value(d, args)
     if cmd == 'list':
         cmd_list(d)
         return 0

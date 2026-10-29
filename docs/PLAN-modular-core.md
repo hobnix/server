@@ -158,7 +158,7 @@ three verbs against a fake. The proxy contract is proven with two real variants 
    or removed.
    4e-1 and 4d-1 built 2026-10-19: `declare_service` in recipes/_lib.sh (jellyfin, immich, seerr, uptime-kuma, monitoring; one question per provider
    that is set up, private-ok by default, a recipe never makes a service public), `hs services declare|tiles`, the capability `dashboard`
-   (setting `dashboard`, provider `homepage`: tiles from `want.dashboard`, `homepage.sh --refresh`, `hs services apply` refreshes it).
+   (setting `dashboard`, provider `homepage`, removed 2026-10-29: the dashboard is built into the web interface: tiles from `want.dashboard`, `homepage.sh --refresh`, `hs services apply` refreshes it).
    The other recipes call `declare_service` too (2026-10-19: 18 recipes, tests/recipes-declare.sh).
    4e `docker` built 2026-10-19: `MANAGER` arcane | portainer | none per container, variant files in scripts/providers/docker/, switching keeps the data (tests/docker-managers.sh).
    Step 5a built 2026-10-19: `hs recipe <name> --name <ct>` (a container of your own name, a service of its own) and the recipe headers `# kind: generic|personal`, `# needs: docker share tailscale`, `# uses: gpu` (shown by `hs recipe --list`, kept true by tests/recipes-meta.sh).

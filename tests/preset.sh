@@ -32,7 +32,7 @@ check_eq "an existing machine.toml value is kept" '"UTC"' "$(python3 "$SCRIPTS/m
 check_eq "a missing one is set (gpu)" '"nvidia"' "$(python3 "$SCRIPTS/machine-toml.py" get "$WORK/machine.toml" gpu --json)"
 check_eq "a list is written as a list" '["metrics","tailscale","games","posters"]' "$(python3 "$SCRIPTS/machine-toml.py" get "$WORK/machine.toml" capabilities --json | tr -d ' ')"
 check_eq "an existing runtime setting is kept" caddy "$(cat "$HS_SETTINGS_DIR/reverseProxy")"
-check_eq "a missing one is set (dashboard)" homepage "$(cat "$HS_SETTINGS_DIR/dashboard")"
+check_eq "a missing one is set (dashboard)" web "$(cat "$HS_SETTINGS_DIR/dashboard")"
 out=$($P apply example-server --yes 2>&1)
 check_out "a second apply has nothing to do" "Nothing to set" echo "$out"
 out=$($P apply nonsense --yes 2>&1 || true)

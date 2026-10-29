@@ -142,6 +142,18 @@ case "$cmd" in
       if $dry; then note "$(t 'networkProvider = unifi would be set (the router is connected)')"
       else setting_set networkProvider unifi && ok "$(t 'networkProvider set to unifi (the router is connected)')"; fi
     fi
+    # the dashboard of the web interface replaced the Homepage recipe: homepage becomes web, nothing is removed (the container stays)
+    if [ "$(setting_get dashboard 2>/dev/null || true)" = homepage ]; then
+      if $dry; then note "$(t 'dashboard = web would be set (the Homepage recipe is gone; the dashboard is part of the web interface)')"
+      else
+        setting_set dashboard web
+        ok "$(t 'dashboard is now web (the Homepage recipe is gone)')"
+        made=$(bash "$here/services.sh" declare-known 2>/dev/null | grep -c '^created' || true)
+        [ "${made:-0}" -eq 0 ] || note "$(t '%s older container(s) described as services for the dashboard' "$made")"
+        note "$(t "The dashboard is now part of the web interface: http://<host>:%s/dashboard. The container 'homepage' is no longer used; remove it when you like: hs ct homepage remove" "$(machine_get webPort 2>/dev/null || echo 8480)")"
+        [ "$(machine_get webUi 2>/dev/null || true)" = true ] || warn "$(t 'The dashboard needs the web interface: hs config set webUi true, then hs rebuild')"
+      fi
+    fi
     [ -f "$machine" ] || exit 0
     moved=0
     for k in $settings; do

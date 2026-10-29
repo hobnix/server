@@ -69,7 +69,7 @@ sudo hs share add photos
 | pool | a ZFS pool, or the SnapRAID pool `bulk` | array |
 | share | a folder offered over the network (SMB) | shared folder |
 | vault | the encrypted volume that holds the server's secrets | safe, keyring |
-| web interface | the browser interface of the server | dashboard (the dashboard is the Homepage tile page) |
+| web interface | the browser interface of the server | dashboard (the tile page /dashboard of the web interface) |
 | `hs` | the command of the server: `hs <command>` | the CLI, the tool |
 
 ## Where guides live

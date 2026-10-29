@@ -10,6 +10,14 @@
   import { ctOf, link, servicesOf } from './instances/ct.js';
   import Table from '../shell/Table.svelte';
   import ServiceForm from '../forms/ops/ServiceForm.svelte';
+  import Board from '../dashboard/Board.svelte';
+  import { boardPoll } from '../dashboard/board.svelte.js';
+  import { onDestroy } from 'svelte';
+
+  // the tile dashboard (dashboard variant web); polled only while it is on
+  const boardOn = ui.features.dashboard === 'web';
+  const board = boardOn ? boardPoll() : null;
+  onDestroy(() => board?.stop?.());
 
   const svc = poll('/api/sys/services/list', 15000);
   const plan = poll('/api/sys/services/routes', 15000);
@@ -55,6 +63,19 @@
     <button class="btn btn-ghost" disabled={noProxy} use:tip={'Describe the routes of the proxy as services'} onclick={() => openPlan('routes', ['import'], 'Import services')}><i class="ph ph-download-simple"></i>Import…</button>
   {/snippet}
 </PageHeader>
+
+{#if boardOn}
+  <div class="card tc">
+    <div class="sh dh">
+      <span>Dashboard</span>
+      <a class="btn btn-ghost" href="/dashboard" target="_blank" rel="noopener noreferrer"><i class="ph ph-arrows-out"></i>Open full screen</a>
+    </div>
+    {#if board.error && !board.doc}<Banner tone="warn">{board.error}</Banner>
+    {:else if board.doc}<Board doc={board.doc} host={location.hostname} />{/if}
+  </div>
+{:else}
+  <div class="muted">The dashboard is off: <code>hs config set dashboard web</code></div>
+{/if}
 
 {#if noProxy}
   <Banner tone="info">No reverse proxy is set up. Run <code>hs recipe zoraxy</code>, then <code>hs config set reverseProxy zoraxy</code>.</Banner>
@@ -117,6 +138,7 @@
 <style>
   .tc { padding: 12px 14px; }
   .sh { font-size: 12px; color: var(--fg-3); margin-bottom: 6px; }
+  .dh { display: flex; align-items: center; justify-content: space-between; }
   .acts { display: flex; gap: 8px; margin: 8px 0; }
   .muted { font-size: 12px; color: var(--fg-3); }
   .c { color: var(--fg-2); }

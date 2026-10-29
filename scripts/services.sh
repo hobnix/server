@@ -21,8 +21,11 @@
 #                    terminal. Blocked services and violations are never touched. Needs the proxy in api mode.
 #   hs services declare <name> --container C --port N ...   what a recipe says about its service (created, or refreshed without touching
 #                    what a person decided); hs services tiles: the dashboard tiles of the services that want one
+#   hs services declare-known [--dry-run]   describe containers set up before their recipe declared a service (one release)
 #   hs services adopt [--yes]           routes made by hand that match a service become ones hs may change and remove (a list of
 #                    routes in /var/lib/hs/services.state; nothing is sent to the proxy)
+#   hs services stats [--table]         the live values of the dashboard tiles (hs sys services stats: service, index, label, state, value, unit)
+#   hs services key <service> [--stdin] the API key a dashboard value needs, kept as a secret (asked for, or one line on stdin)
 #   hs services proxy login             the admin login of the proxy (Zoraxy has no API keys): checked, then kept in the vault (zoraxy-admin)
 # The guard: on a public proxy a never-public or private-ok service gets no route, a public-ok one needs a typed confirmation.
 #   --proxy public|local  (plan, apply, import, adopt; default public) picks the slot: public = the reverse proxy (Zoraxy), local = the gateway
@@ -30,7 +33,7 @@
 #                    them with [want] reverse-proxy and local-proxy. The local proxy must never be public (refused when its info says so).
 #   hs services apply --proxy local --adds-only   only the routes to add, no question (what declare_service runs)
 #   hs services import --proxy local [--dry-run] [--yes]   the migration: every service without local-proxy gets local-proxy = true
-# Test knobs: HS_SERVICES_DIR, HS_STATE_DIR, HS_SETTINGS_DIR, HS_INCUS, HS_PROVIDER_DIR, HS_PYTHON, HS_DNS_SH, HS_CAPABILITIES_FILE.
+# Test knobs: HS_SERVICES_DIR, HS_STATE_DIR, HS_SETTINGS_DIR, HS_INCUS, HS_PROVIDER_DIR, HS_PYTHON, HS_DNS_SH, HS_CAPABILITIES_FILE, HS_CURL.
 set -euo pipefail
 here=$(cd "$(dirname "$0")" && pwd)
 . "$here/lib/ui.sh"
@@ -44,7 +47,7 @@ svc() { PYTHONUTF8=1 "$py" "$here/services.py" "$@"; }
 interactive() { [ -t 0 ] && [ -t 1 ] && [ -z "${HS_CALLER:-}" ] || [ -n "${HS_GUIDED_TTY:-}" ]; }
 
 usage() {
-  say "usage: hs services list | check | plan | add <name> ... | edit <name> ... | remove <name> | import [--dry-run] [--yes] | apply [--dry-run] [--confirm <host or service>] | adopt [--yes] | proxy login   (plan, apply, import, adopt: [--proxy public|local])"
+  say "usage: hs services list | check | plan | add <name> ... | edit <name> ... | remove <name> | import [--dry-run] [--yes] | apply [--dry-run] [--confirm <host or service>] | adopt [--yes] | proxy login | stats | key <service>   (plan, apply, import, adopt: [--proxy public|local])"
   exit 1
 }
 
@@ -79,6 +82,52 @@ gather() {
     fi
     slot_args=(--slot local --explicit "$work/explicit.tsv")
   fi
+}
+
+# The live values of the dashboard tiles (docs: a stat names a secret file, the key itself is read here and goes to curl on STDIN as a
+# curl config - never in argv, the environment, a log or the state database). One TSV line per stat: service, index, label, state, value,
+# unit; state ok|failed|locked|nokey, value `-` unless ok. Argument: one service name (all when empty).
+curl_bin=${HS_CURL:-curl}
+stats_rows() {
+  local only=${1:-} service index url secret auth label unit key hdr st value body rc kflag
+  "$inc" list --format json 2>/dev/null | svc addrs > "$work/addrs.tsv" || : > "$work/addrs.tsv"
+  svc stats-plan --addrs "$work/addrs.tsv" --meta > "$work/stats-plan.tsv" || return 0
+  while IFS=$'\t' read -r service index url secret auth label unit; do
+    [ -z "$only" ] || [ "$service" = "$only" ] || continue
+    st=failed; value=-; key=; kflag=()
+    if [ "$secret" != - ]; then
+      case "$(secret_state "$state/$secret")" in
+        locked) st=locked ;;
+        missing) st=nokey ;;
+        *) IFS= read -r key < "$state/$secret" 2>/dev/null || key=
+           if [[ "$key" =~ ^[A-Za-z0-9._-]{8,200}$ ]]; then st=fetch; fi ;;
+      esac
+    else st=fetch; fi
+    if [ "$st" = fetch ]; then
+      st=failed
+      case "$auth" in
+        mediabrowser) hdr="Authorization: MediaBrowser Token=\\\"$key\\\"" ;;
+        x-api-key) hdr="X-Api-Key: $key" ;;
+        bearer) hdr="Authorization: Bearer $key" ;;
+        *) hdr= ;;
+      esac
+      [ "$secret" = - ] || kflag=(-K -)
+      [[ "$url" != https://* ]] || kflag+=(-k)
+      body="$work/stat-body"
+      rc=0
+      if [ "$secret" = - ]; then
+        "$curl_bin" -s -f -m 3 --max-filesize 1048576 --proto =http,https --max-redirs 0 ${kflag[@]+"${kflag[@]}"} -o "$body" "$url" </dev/null 2>/dev/null || rc=$?
+      else
+        printf 'header = "%s"\n' "$hdr" | "$curl_bin" -s -f -m 3 --max-filesize 1048576 --proto =http,https --max-redirs 0 ${kflag[@]+"${kflag[@]}"} -o "$body" "$url" 2>/dev/null || rc=$?
+      fi
+      if [ "$rc" -eq 0 ] && value=$(svc stat-value "$service" "$index" < "$body" 2>/dev/null) && [ -n "$value" ]; then
+        st=ok
+      else value=-; fi
+      rm -f "$body"
+    fi
+    key=
+    printf '%s\t%s\t%s\t%s\t%s\t%s\n' "$service" "$index" "$label" "$st" "$value" "$unit"
+  done < "$work/stats-plan.tsv"
 }
 
 cmd=${1:-list}; [ $# -eq 0 ] || shift
@@ -259,6 +308,78 @@ case "$cmd" in
     if [ "${1:-}" != --table ]; then [ -z "$tiles_out" ] || printf '%s\n' "$tiles_out"; exit 0; fi   # plain: hs sys services tiles
     if [ -z "$tiles_out" ]; then note "$(t 'No service wants a tile on the dashboard (hs services declare ... --want dashboard).')"; exit 0; fi
     { thead 'Group' 'Title' 'Link' 'Description' 'Icon' 'Service'; printf '%s\n' "$tiles_out"; } | table ;;
+  stats)
+    # the live values the dashboard shows: service, index, label, state, value, unit (plain, hs sys services stats); --table: for people
+    stats_out=$(stats_rows)
+    if [ "${1:-}" != --table ]; then [ -z "$stats_out" ] || printf '%s\n' "$stats_out"; exit 0; fi
+    if [ -z "$stats_out" ]; then note "$(t 'No service declares a stat.')"; exit 0; fi
+    { thead 'Service' 'Label' 'State' 'Value'; awk -F'\t' '{ v = ($6 == "-" || $5 == "-") ? $5 : $5 " " $6; print $1 "\t" $3 "\t" $4 "\t" v }' <<<"$stats_out"; } | table ;;
+  key)
+    # the API key a dashboard value needs: asked for (hidden) or one line on stdin (--stdin), never an argument
+    use_stdin=false; ksvc=
+    for a in "$@"; do
+      case "$a" in
+        --stdin) use_stdin=true ;;
+        -*) usage ;;
+        *) if [ -z "$ksvc" ]; then ksvc=$a; else fail "$(t 'Not on the command line: hs services key %s asks for it, or give it with --stdin.' "$ksvc")"; fi ;;
+      esac
+    done
+    [ -n "$ksvc" ] || usage
+    "$inc" list --format json 2>/dev/null | svc addrs > "$work/addrs.tsv" || : > "$work/addrs.tsv"
+    ksecret=$(svc stats-plan --addrs "$work/addrs.tsv" | awk -F'\t' -v s="$ksvc" '$1 == s && $4 != "-" { print $4; exit }')
+    [ -n "$ksecret" ] || fail "$(t "'%s' has no dashboard value that needs a key." "$ksvc")"
+    if $use_stdin; then
+      IFS= read -r newkey || true
+    else
+      interactive || fail "$(t 'The key is asked for on a terminal (or give it with --stdin).')"
+      newkey=$(ask_secret "$(t 'API key for %s' "$ksvc")")
+    fi
+    [[ "${newkey:-}" =~ ^[A-Za-z0-9._-]{8,200}$ ]] || { newkey=; fail "$(t 'The key may only have letters, digits and . _ - (8 to 200 characters).')"; }
+    secret_prepare "$ksecret" "$state" || fail_fix "$(t 'The vault is closed.')" "hs unlock"
+    mkdir -p "$state"
+    ( umask 077; printf '%s\n' "$newkey" > "$state/$ksecret" )
+    newkey=
+    chmod 600 "$state/$ksecret" 2>/dev/null || true
+    ok "$(t 'The key for %s is stored.' "$ksvc")"
+    while IFS=$'\t' read -r r_svc r_idx r_label r_state r_value r_unit; do
+      if [ "$r_state" = ok ]; then ok "$(t '%s answers with a value: %s' "$ksvc" "$r_value")"
+      else warn "$(t '%s gives no value (state %s).' "$ksvc" "$r_state")"; fi
+    done < <(stats_rows "$ksvc") ;;
+  declare-known)
+    # Containers set up before their recipe declared a service (the list is the removed Homepage recipe's known() table). One release only:
+    # remove this verb, its registry row and tests/services.sh "declare-known" one release after dashboard-web.
+    # Prints created<TAB>name | skip<TAB>name<TAB>why (| would-create<TAB>name with --dry-run); no empty field.
+    dry=false
+    for a in "$@"; do case "$a" in --dry-run) dry=true ;; *) usage ;; esac; done
+    sdir=${HS_SERVICES_DIR:-$state/services.d}
+    running=$("$inc" list -c ns -f csv 2>/dev/null </dev/null | awk -F, '$2 == "RUNNING" { print $1 }' || true)
+    known='zoraxy|8000|Zoraxy|zoraxy|Administration|Reverse proxy: which address goes where|never-public
+monitoring|3000|Grafana|grafana|Monitoring|History: load, disks, containers|never-public
+jellyfin|8096|Jellyfin|jellyfin|Apps|Films, series, music|private-ok
+immich|2283|Immich|immich|Apps|Photos and videos|private-ok
+tdarr|8265|Tdarr|tdarr|Apps|Convert films for Jellyfin|never-public
+uptime-kuma|3001|Uptime Kuma|uptime-kuma|Monitoring|Service checks|never-public
+docker|80|Arcane|mdi-docker|Administration|Docker stacks|never-public
+pelican-panel|80|Pelican|mdi-gamepad-variant|Games|Game servers|private-ok
+authentik|9000|Authentik|authentik|Administration|Login: users, groups, applications|never-public
+bulwark|3000|Bulwark|mdi-email-outline|Apps|Webmail|private-ok
+stalwart|8080|Stalwart|mdi-email-lock|Administration|Mail server (admin)|never-public
+synapse|8008|Synapse|synapse|Apps|Matrix chat server|private-ok
+ntfy|80|ntfy|ntfy|Apps|Push messages|private-ok'
+    while IFS='|' read -r k_name k_port k_title k_icon k_group k_desc k_exp; do
+      grep -qx "$k_name" <<<"$running" || continue
+      if [ -e "$sdir/$k_name.toml" ]; then printf 'skip	%s	%s
+' "$k_name" "already declared"; continue; fi
+      p=$(sed -n 's/^PORT=//p' "$state/recipe-$k_name.conf" 2>/dev/null | tail -n1 | tr -d "\"' " || true)
+      case "$p" in ""|*[!0-9]*) p=$k_port ;; esac
+      if $dry; then printf 'would-create	%s
+' "$k_name"; continue; fi
+      if svc declare "$k_name" --container "$k_name" --port "$p" --title "$k_title" --icon "$k_icon" --group "$k_group"            --description "$k_desc" --exposure "$k_exp" --want dashboard >/dev/null 2>&1; then
+        printf 'created	%s
+' "$k_name"
+      else printf 'skip	%s	%s
+' "$k_name" "declare failed"; fi
+    done <<<"$known" ;;
   proxy)
     [ "${1:-}" = login ] || usage
     [ -n "$variant" ] || fail_fix "$(t 'No reverse proxy is set up.')" "hs config set reverseProxy zoraxy"

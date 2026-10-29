@@ -9,6 +9,7 @@ This file is the whole HTTP side of the entry page:
   POST /api/logout
   GET  /api/sys/...   a read-only `hs sys` call from the allowlist READS below (session needed), e.g. /api/sys/ct/list
   GET  /api/sys/jobs/stream/<unit>  the same job journal as `sys jobs tail`, as server-sent events (one JSON {rows} per look, `event: end` when the unit ended), session needed
+  GET  /api/board     the dashboard tiles and their stats, only while the dashboard variant is web; a session, or (setting dashboardOpen) a private address
   GET  /api/proxy/status  the VPS status document (machine.toml proxyStatusUrl, env HS_WEB_PROXY_URL; 404 while not configured), session needed
   GET  /api/docs/index|page/<lang>/<slug>|search?q=  the guides (capability docs; `hs docs build` writes them), session needed
   GET  /api/poster/<file>  a poster the web interface drew ($HS_STATE_DIR/posters, name checked), session needed
@@ -33,6 +34,7 @@ import base64
 import hashlib
 import html
 import http.server
+import ipaddress
 import json
 import math
 import mimetypes
@@ -71,6 +73,64 @@ def runtime_setting(key):
             return f.readline().strip()
     except OSError:
         return None
+
+
+PRIVATE_NETS = [ipaddress.ip_network(n) for n in (
+    "10.0.0.0/8", "172.16.0.0/12", "192.168.0.0/16", "100.64.0.0/10", "127.0.0.0/8", "::1/128", "fc00::/7", "fe80::/10")]
+
+
+def private_client(ip):
+    """True for an address of the home network, Tailscale or this machine (the open dashboard answers only these); False for anything unparsable."""
+    ip = (ip or "").strip()
+    if ip.lower().startswith("::ffff:"):
+        ip = ip[7:]
+    ip = ip.split("%", 1)[0]
+    try:
+        addr = ipaddress.ip_address(ip)
+    except ValueError:
+        return False
+    return any(addr in net for net in PRIVATE_NETS if net.version == addr.version)
+
+
+def board_host_ok(host_header):
+    """The Host header of a request without a session must name this server: an IP literal, the host name, <host>.local, a name below the
+    gateway's local domain (<site>.<realm>, scripts/lib/localdomain.sh) or <host>.<tailnet>.ts.net. A foreign name (DNS rebinding) is refused."""
+    h = (host_header or "").strip().lower()
+    if h.startswith("["):
+        h = h[1:].split("]", 1)[0]
+    elif h.count(":") == 1:
+        h = h.split(":", 1)[0]
+    if not h:
+        return False
+    try:
+        ipaddress.ip_address(h)
+        return True
+    except ValueError:
+        pass
+    h = h.rstrip(".")
+    names = {socket.gethostname().lower()}
+    name = runtime_setting("hostName") or env("HS_WEB_HOSTNAME", "")
+    if name:
+        names.add(name.lower())
+    if h in names or any(h == n + ".local" for n in names):
+        return True
+    if h.endswith(".ts.net") and h.split(".", 1)[0] in names:
+        return True
+    dom = local_domain()
+    return bool(dom) and (h == dom or h.endswith("." + dom))
+
+
+def local_domain():
+    """<siteName>.<realm> of the gateway (same as scripts/lib/localdomain.sh), or ''."""
+    import tomllib
+    try:
+        with open(env("HS_MACHINE_FILE", "/etc/nixos/machine.toml"), "rb") as f:
+            realm = str((tomllib.load(f).get("adDomain") or {}).get("realm", "")).strip().lower()
+        with open(env("HS_SITE_NAME_FILE", "/etc/hs/site-name"), encoding="utf-8") as f:
+            site = f.read().strip().lower()
+    except (OSError, ValueError):
+        return ""
+    return "%s.%s" % (site, realm) if realm and re.fullmatch(r"[a-z0-9]([a-z0-9-]{0,30}[a-z0-9])?", site) else ""
 
 
 def capabilities():
@@ -194,7 +254,7 @@ def docs_search(query, lang=""):
 
 def features(cfg):
     """what the server switched on, for the session answer"""
-    return {"terminal": cfg.terminal, "vps": cfg.vps, "capabilities": capabilities(), "extensions": ext_pages(), "host": socket.gethostname(), "language": runtime_setting("language") or ""}   # host: the local node's name = the first part of every address (/node/<host>/...)
+    return {"terminal": cfg.terminal, "vps": cfg.vps, "capabilities": capabilities(), "extensions": ext_pages(), "host": socket.gethostname(), "language": runtime_setting("language") or "", "dashboard": runtime_setting("dashboard") or ""}   # host: the local node's name = the first part of every address (/node/<host>/...)
 
 
 def _runtime(fn):
@@ -704,6 +764,8 @@ READS = {
     ("services", "app"): {"kind": "tsv", "ttl": 15},
     ("services", "routes"): {"kind": "tsv", "ttl": 15},
     ("services", "local-routes"): {"kind": "tsv", "ttl": 15},
+    ("services", "tiles"): {"kind": "tsv", "ttl": 30},
+    ("services", "stats"): {"kind": "tsv", "ttl": 30},
     ("gateway", "status"): {"kind": "tsv", "ttl": 30},
     ("gateway", "routes"): {"kind": "tsv", "ttl": 30},
     ("setup", "list"): {"kind": "tsv", "ttl": 5},
@@ -1703,6 +1765,8 @@ def make_handler(app):
                 return self._poster(urllib.parse.unquote(path[len("/api/poster/"):]))
             if path.startswith("/api/docs/"):
                 return self._docs(path[len("/api/docs/"):], urllib.parse.parse_qs(urllib.parse.urlsplit(self.path).query))
+            if path == "/api/board":
+                return self._board()
             if path.startswith("/api/sys/jobs/stream/"):
                 return self._jobs_stream(urllib.parse.unquote(path[len("/api/sys/jobs/stream/"):]), urllib.parse.parse_qs(urllib.parse.urlsplit(self.path).query))
             if path.startswith("/api/sys/"):
@@ -1766,6 +1830,48 @@ def make_handler(app):
                 return self._json(404, {"error": "unknown"})
             code, obj, age = app.reads.get_aged(*hit, fresh=fresh)
             self._json(code, obj, extra=(("X-HS-Age", str(int(age))),) if age is not None else ())
+
+        def _board(self):
+            """The dashboard tiles for the page /dashboard and the Services page. Only while the dashboard variant is web. A session always works;
+            without one the setting dashboardOpen, a private client address and a Host header that names this server are needed."""
+            if runtime_setting("dashboard") != "web" or "dashboard" not in capabilities():
+                return self._json(404, {"error": "the dashboard is not the web one"})
+            if not self._session():
+                if (runtime_setting("dashboardOpen") or "").lower() != "true":
+                    return self._json(403, {"error": "open dashboard is off: hs config set dashboardOpen true"})
+                if not private_client(self._client()):
+                    return self._json(403, {"error": "only from the home network or Tailscale"})
+                if not board_host_ok(self.headers.get("Host", "")):
+                    return self._json(403, {"error": "unknown host name"})
+            if app.auth.storage_locked():
+                return self._json(200, {"schema": 1, "locked": True, "tiles": [], "incus_ui": False})
+            ages, rows = [], {}
+            for words in (("services", "tiles"), ("services", "stats")):
+                hit = app.reads.resolve(list(words), {})
+                if hit is None:
+                    rows[words] = []
+                    continue
+                code, obj, age = app.reads.get_aged(*hit)
+                rows[words] = obj.get("rows", []) if code == 200 and isinstance(obj, dict) else []
+                if age is not None:
+                    ages.append(int(age))
+            tiles = []
+            for r in rows[("services", "tiles")]:
+                r = list(r) + [""] * (6 - len(r))
+                group, title, link, desc, icon, name = r[:6]
+                tiles.append({"service": name if name != "-" else "", "group": group if group != "-" else "Other", "title": title, "href": link,
+                              "description": "" if desc == "-" else desc, "icon": "" if icon == "-" else icon, "stats": []})
+            by = {t["service"]: t for t in tiles if t["service"]}
+            for r in rows[("services", "stats")]:        # service, index, label, state, value, unit (hs sys services stats); only ok ones
+                r = list(r) + [""] * (6 - len(r))
+                if r[3] == "ok" and r[0] in by and len(by[r[0]]["stats"]) < 3:
+                    by[r[0]]["stats"].append({"label": r[2], "value": r[4], "unit": "" if r[5] == "-" else r[5]})
+            try:
+                with open(env("HS_INCUS_UI_FILE", "/etc/hs/incus-ui"), encoding="utf-8") as f:
+                    incus_ui = f.readline().strip() == "on"
+            except OSError:
+                incus_ui = True
+            self._json(200, {"schema": 1, "locked": False, "age": max(ages) if ages else None, "incus_ui": incus_ui, "tiles": tiles})
 
         def _jobs_stream(self, unit, query):
             """Server-sent events for one job: the same `hs sys jobs tail` rows as the read, pushed as they appear, ended when the unit ends.

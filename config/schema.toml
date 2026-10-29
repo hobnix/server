@@ -894,12 +894,27 @@ settable = false
 secret = false
 capability = "dashboard"
 store = "settings"
-choices = ["homepage"]
+choices = ["web"]
 doc = '''
-# Which dashboard shows the services that want a tile (hs services): the name of a provider in scripts/providers/dashboard/.
-# `hs recipe homepage` sets it itself. Setting it switches the capability dashboard on. No rebuild.'''
+# Which dashboard shows the services that want a tile (hs services): web = the page /dashboard of the web interface (needs webUi).
+# Setting it switches the capability dashboard on. No rebuild.'''
 value = '''
-dashboard = "homepage"'''
+dashboard = "web"'''
+
+[[item]]
+kind = "option"
+key = "dashboardOpen"
+type = "bool"
+required = false
+settable = false
+secret = false
+store = "settings"
+default = 'false'
+doc = '''
+# The page /dashboard (variant web) may be opened without signing in, from the home network and Tailscale only. Off: it needs the sign-in of
+# the web interface. Default false. No rebuild.'''
+value = '''
+dashboardOpen = false'''
 
 [[item]]
 kind = "option"

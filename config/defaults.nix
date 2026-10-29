@@ -45,6 +45,7 @@
   deckApi = false;
   proxyStatusUrl = "";
   vpsHost = "";
+  dashboardOpen = false;
   gatewayPublicHttps = 0;
   gatewayPublicHttp = 0;
   gpu = null;

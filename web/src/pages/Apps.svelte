@@ -24,7 +24,7 @@
   // the icons the design gives the known recipes; anything else is a package
   const icons = {
     arr: 'film-slate', authentik: 'key', bulwark: 'envelope-open', cloudflared: 'cloud', docker: 'shipping-container', docs: 'book-open',
-    homeassistant: 'house-line', domain: 'identification-badge', homepage: 'house', immich: 'images', jellyfin: 'film-strip', 'matrix-hook': 'chat-circle-text',
+    homeassistant: 'house-line', domain: 'identification-badge', immich: 'images', jellyfin: 'film-strip', 'matrix-hook': 'chat-circle-text',
     monitoring: 'chart-line', ntfy: 'bell', paperclip: 'robot', pelican: 'game-controller', qbittorrent: 'download-simple', sabnzbd: 'download', seerr: 'magnifying-glass',
     stalwart: 'envelope-simple', sunshine: 'television', synapse: 'chat-circle', tdarr: 'swap', 'upload-storage': 'cloud-arrow-up', 'uptime-kuma': 'heartbeat', zoraxy: 'arrows-split',
   };

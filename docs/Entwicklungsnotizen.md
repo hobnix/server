@@ -541,6 +541,11 @@ Per-feature history and implementation details moved out of CLAUDE.md so that ev
 
 ## Recipes and apps
 
+- 2026-10-29: the Homepage recipe (packages/homepage, providers/dashboard/homepage.sh) was removed; the dashboard is built into the web interface
+  (`dashboard = web`, `/api/board`, web/src/dashboard/). `homepage` left ADMIN_TARGETS and ports.sh with it. `hs update` migrates the setting
+  (`config.sh migrate-settings`), `hs services declare-known` describes containers the old known() table covered (one release), `hs cleanup`
+  reports what the old recipe left.
+
 - Every recipe is a bash script built from the helpers in scripts/recipes/_lib.sh
   (`ensure_container`, `fixed_address`, `wait_internet`, `step`, `spin`, `in_ct`, `ok`/`note`/
   `warn`/`fail`, `box`), so all of them look the same and use gum; write new ones the same way

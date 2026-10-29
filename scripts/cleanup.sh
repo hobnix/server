@@ -27,6 +27,18 @@ if "$incus" list -c n -f csv 2>/dev/null </dev/null | grep -qx lam; then
   add container "The container 'lam' (LDAP Account Manager) is not needed any more; hs user and hs group replaced it" "hs ct lam remove"
 fi
 
+# the Homepage recipe is gone (the dashboard is part of the web interface): what it left on the server, reported only
+settings_dir=${HS_SETTINGS_DIR:-$state/settings}
+sdir=${HS_SERVICES_DIR:-$state/services.d}
+if [ "$(cat "$settings_dir/dashboard" 2>/dev/null || true)" != homepage ]; then
+  if "$incus" list -c n -f csv 2>/dev/null </dev/null | grep -qx homepage; then
+    add container "The container 'homepage' belongs to the removed Homepage recipe" "hs ct homepage remove"
+  fi
+  [ ! -e "$state/recipe-homepage.conf" ] || add leftover "$state/recipe-homepage.conf is left over from the removed Homepage recipe" "sudo rm $state/recipe-homepage.conf"
+  [ ! -e "$state/homepage-hide" ] || add leftover "$state/homepage-hide is left over from the removed Homepage recipe" "sudo rm $state/homepage-hide"
+  [ ! -e "$sdir/homepage.toml" ] || add service "The service description 'homepage' belongs to the removed Homepage recipe" "hs services remove homepage"
+fi
+
 # WebZFS: the service, its user and its state are gone from the configuration
 if [ -d "$webzfs" ]; then
   add leftover "$webzfs is left over from WebZFS (certificate, session key)" "sudo rm -rf $webzfs"

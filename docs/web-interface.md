@@ -88,6 +88,31 @@ Installed extensions add pages under **Extensions**. The first start shows the *
 The numbers on a page are read from a cache that is kept fresh while someone is signed in; the top bar says how old they are. The refresh
 button reads them again at once.
 
+## The dashboard
+
+A page with one tile for each app of the server, on a big screen or a phone. Not tested on hardware yet.
+
+```bash
+sudo hs config set dashboard web
+```
+
+Not tested on hardware yet. The page is **Services** with the dashboard card when you are signed in. For a wall screen open
+`http://<server address>:8480/dashboard` (use your `webPort`): full screen, no sign-in. That address answers only while
+`sudo hs config set dashboardOpen true` is set, and only to computers in your home network and over Tailscale. Everyone there sees the
+titles, descriptions, links and state of every tile. Not tested on hardware yet.
+
+A container gets a tile when its service says so:
+
+```bash
+sudo hs services declare jellyfin --container jellyfin --port 8096 --want dashboard
+```
+
+Not tested on hardware yet. The recipes do this for you. For a container set up before its recipe did it, `sudo hs services declare-known`
+describes it. Not tested on hardware yet.
+
+If you used the Homepage app before: `sudo hs update` sets `dashboard` to `web` and leaves the old container alone. Remove it when you like
+(`sudo hs ct homepage remove` asks you to type the name). Not tested on hardware yet.
+
 ## Make a change
 
 Every change shows a **plan** first: what would happen, in which order, and the exact command. Nothing runs before you press **Start**.
