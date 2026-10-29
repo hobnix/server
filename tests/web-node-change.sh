@@ -56,7 +56,7 @@ if command -v ssh-keygen >/dev/null 2>&1; then
   run plan key cousin --new
   has "^confirm_name${T}cousin\$" && has '^danger' && pass "plan key --new is red: the node's name is typed" || fail "key --new plan: $out"
   c1=$(cksum < "$HS_STATE_DIR/node-key-cousin")
-  run start key cousin --new
+  run start key cousin --new --confirm cousin
   check_eq "start key --new: done" 0 "$rc"
   [ "$c1" != "$(cksum < "$HS_STATE_DIR/node-key-cousin")" ] && pass "the key was replaced" || fail "the key is the same"
 else
@@ -69,6 +69,8 @@ has "^confirm_name${T}cousin\$" && has '^danger' && has "^command${T}.*node.sh r
 run plan remove nope
 check_eq "unknown node: refused" 1 "$rc"
 run start remove cousin
+check_eq "start remove without the word: refused" 1 "$rc"
+run start remove cousin --confirm cousin
 check_eq "start remove: done" 0 "$rc"
 check_eq "the node is gone from the list" "edge1|edge|edge1.example.org|2222" "$(list)"
 printf 'vpsHost = "vps.example"\n' >> "$HS_MACHINE_FILE"

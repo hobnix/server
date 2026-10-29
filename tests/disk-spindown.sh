@@ -8,6 +8,7 @@ S=$SCRIPTS/disk-spindown.sh
 BIN=$WORK/bin; SYS=$WORK/sys; mkdir -p "$BIN"
 export CALLS=$WORK/hdparm.log; : > "$CALLS"
 printf '#!/usr/bin/env bash\necho "$*" >> "$CALLS"\n[ "$1" = -C ] && echo " drive state is:  standby"\nexit 0\n' > "$BIN/hdparm"; chmod +x "$BIN/hdparm"
+printf '#!/usr/bin/env bash\nexit 1\n' > "$BIN/findmnt"; chmod +x "$BIN/findmnt"   # the runner's own root disk (often sda) must not count as the system disk
 export PATH=$BIN:$PATH
 for d in sda sdb nvme0n1 sdc; do mkdir -p "$SYS/$d/queue"; done
 echo 1 > "$SYS/sda/queue/rotational"; echo 1 > "$SYS/sdb/queue/rotational"; echo 0 > "$SYS/nvme0n1/queue/rotational"; echo 1 > "$SYS/sdc/queue/rotational"

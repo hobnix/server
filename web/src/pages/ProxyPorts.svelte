@@ -1,4 +1,5 @@
 <script>
+  import { tip } from '../ui/tooltip.svelte.js';
   // proxyserver Ports: every port the VPS forwards or opens itself, one tree-table like the Disks card of the Summary page (group rows with
   // the group's totals, port blocks indented underneath). Everything comes from the status document's `ports` key (docs/PLAN-web-backend.md).
   import { useProxy } from './proxy/proxy.svelte.js';
@@ -30,7 +31,7 @@
         <span class="ctitle">Ports</span>
         <span class="muted">{p.groups.length ? n(p.groups.length, 'group') : ''}</span>
         <span style="flex:1"></span>
-        <span class="dot {p.dot}" title={p.title}></span>
+        <span class="dot {p.dot}" use:tip={p.title}></span>
       </div>
       {#if p.dot === 'off' && !p.groups.length}
         <NotYet>The list of forwarded and open ports is not in the status document.</NotYet>

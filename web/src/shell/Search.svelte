@@ -1,4 +1,5 @@
 <script>
+  import { tip } from '../ui/tooltip.svelte.js';
   // Jump-to search of the top bar. Client side only: the lists are the reads the pages already use, fetched when the box gets focus.
   import { mainTree, vpsTree, visible } from '../nav.js';
   import { ui } from '../ui.svelte.js';
@@ -144,7 +145,7 @@
 <svelte:window onkeydown={slash} />
 
 <div class="search" class:expanded>
-  <button class="btn btn-ghost icon" aria-label="Search" title="Search" onclick={showInput}><i class="ph ph-magnifying-glass" style="font-size:16px"></i></button>
+  <button class="btn btn-ghost icon" aria-label="Search" use:tip={'Search'} onclick={showInput}><i class="ph ph-magnifying-glass" style="font-size:16px"></i></button>
   <div class="field">
     <i class="ph ph-magnifying-glass"></i>
     <input class="input" bind:this={input} bind:value={q} type="text" placeholder="Search shares, instances, users…" aria-label="Search" autocomplete="off" spellcheck="false"

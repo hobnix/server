@@ -1,4 +1,5 @@
 <script>
+  import { tip } from '../ui/tooltip.svelte.js';
   // One block of a GenericPage (see GenericPage.svelte for the whole declaration). Not used on its own except by the drawer of a table, which renders
   // its inner blocks with this component and the selected row as `row` (the context of `{field}` templates).
   import GenBlock from './GenBlock.svelte';
@@ -69,9 +70,9 @@
 {#snippet actionRow(list, r)}
   {#each list as a}
     {#if a.href}
-      <a class="btn sm {a.danger ? 'btn-ghost' : 'btn-secondary'}" href={tpl(a.href, r)} download={a.download ? tpl(a.download, r) : undefined} title={a.title ? tpl(a.title, r) : undefined}><i class="ph ph-{a.icon || 'download-simple'}"></i>{a.label}</a>
+      <a class="btn sm {a.danger ? 'btn-ghost' : 'btn-secondary'}" href={tpl(a.href, r)} download={a.download ? tpl(a.download, r) : undefined} use:tip={a.title ? tpl(a.title, r) : undefined}><i class="ph ph-{a.icon || 'download-simple'}"></i>{a.label}</a>
     {:else}
-      <button class="btn sm {a.primary ? 'btn-primary' : a.danger ? 'btn-ghost' : 'btn-secondary'}" class:icon={a.iconOnly} title={a.title ? tpl(a.title, r) : a.label} aria-label={a.iconOnly ? tpl(a.title ?? a.label, r) : undefined}
+      <button class="btn sm {a.primary ? 'btn-primary' : a.danger ? 'btn-ghost' : 'btn-secondary'}" class:icon={a.iconOnly} use:tip={a.title ? tpl(a.title, r) : a.label} aria-label={a.iconOnly ? tpl(a.title ?? a.label, r) : undefined}
               onclick={(e) => { e.stopPropagation(); run(a, r); }}>{#if a.icon}<i class="ph ph-{a.icon}"></i>{/if}{#if !a.iconOnly}{a.label}{/if}</button>
     {/if}
   {/each}
@@ -174,7 +175,7 @@
       {#if items.length > 1}
         <div class="thumbs">
           {#each items as r (r[block.key])}
-            <button class="thumb" class:on={r[block.key] === current[block.key]} onclick={() => (shown = r[block.key])} title={lbl(r)}><img src={tpl(block.image, r)} alt={lbl(r)} loading="lazy" /></button>
+            <button class="thumb" class:on={r[block.key] === current[block.key]} onclick={() => (shown = r[block.key])} use:tip={lbl(r)}><img src={tpl(block.image, r)} alt={lbl(r)} loading="lazy" /></button>
           {/each}
         </div>
       {/if}

@@ -65,7 +65,6 @@ Before the full config is applied: sudo bash /etc/nixos/scripts/manage-pool.sh	B
 Browse it from Windows, or copy on the server: hs disk temp copy %s <share>	Von Windows aus ansehen, oder auf dem Server kopieren: hs disk temp copy %s <Freigabe>
 Browsing is off.	Das Durchstöbern ist aus.
 Building the system and switching to it (after big changes: many minutes)	System bauen und umschalten (nach großen Änderungen: viele Minuten)
-Cancelled.	Abgebrochen.
 Container %s	Container %s
 Containers (opt in with: hs backup ct <name> on)	Container (aufnehmen mit: hs backup ct <Name> on)
 Copied.	Kopiert.
@@ -83,7 +82,6 @@ Done with it? hs disk temp eject %s	Fertig damit? hs disk temp eject %s
 Empty passphrase.	Leere Passphrase.
 Encrypted storage is locked: waiting for hs unlock.	Der verschlüsselte Speicher ist gesperrt: wartet auf hs unlock.
 Every nightly run copies new backups there. Now: hs backup offsite now	Jeder nächtliche Lauf kopiert neue Sicherungen dorthin. Jetzt: hs backup offsite now
-Everything it printed: hs rebuild --verbose	Alles, was ausgegeben wurde: hs rebuild --verbose
 Fetching the latest configuration	Neueste Konfiguration holen
 Key file removed. After a boot, run hs unlock.	Schlüsseldatei gelöscht. Nach einem Neustart: hs unlock.
 Mounted and shared as %s	Eingehängt und freigegeben als %s
@@ -153,7 +151,6 @@ Restore drill: %s file(s)	Wiederherstellungsprobe: %s Datei(en)
 Shares: %s	Freigaben: %s
 That is more than fits on the backup disk (%s): leave shares out (hs backup <share> off) or use a bigger disk	Das ist mehr, als auf die Backup-Platte passt (%s): lass Freigaben weg (hs backup <Freigabe> off) oder nimm eine größere Platte
 The parity disk must be at least as large as the largest data disk (%s). Check one with: hs migrate check --parity <disk>	Die Parität-Platte muss mindestens so groß sein wie die größte Datenplatte (%s). Prüfe eine mit: hs migrate check --parity <Platte>
-Local changes in %s that Git can't combine? Look at: git -C %s status	Lokale Änderungen in %s, die Git nicht zusammenführen kann? Sieh nach mit: git -C %s status
 Which recipe? (enter runs it, esc cancels)	Welches Rezept? (Enter startet es, Esc bricht ab)
 Recipes (run with: hs recipe <name>):	Rezepte (ausführen mit: hs recipe <Name>):
 No recipe called '%s'.	Kein Rezept namens '%s'.
@@ -252,7 +249,6 @@ usage: hs share <share> perm [<name>=<level> ...] [--show] [--dry-run]	Aufruf: h
        hs ct <container> logs [lines]	       hs ct <Container> logs [Zeilen]
 No group called '%s'.	Keine Gruppe namens '%s'.
 No groups found.	Keine Gruppen gefunden.
-No instance called '%s'. See: hs status	Keine Instanz namens '%s'. Siehe: hs status
 No user called '%s'.	Kein Benutzer namens '%s'.
 No users found.	Keine Benutzer gefunden.
 usage: hs ct <container> shell	Aufruf: hs ct <Container> shell
@@ -266,7 +262,6 @@ usage: hs user list | hs user <user> show | hs group list | hs group <group> sho
        hs net ip <container> set <address> [--dry-run]	       hs net ip <Container> set <Adresse> [--dry-run]
        hs system rollback       go back to the previous generation (what hs update/rebuild replaced)	       hs system rollback       zur vorherigen Generation zurück (was hs update/rebuild ersetzt hat)
 %s is in use: %s	%s ist belegt: %s
-%s is set. It takes effect with: hs rebuild	%s ist gesetzt. Wirksam nach: hs rebuild
 '%s' is not a key hs config handles.	'%s' ist kein Schlüssel, den hs config behandelt.
 '%s' is not an IPv4 address.	'%s' ist keine IPv4-Adresse.
 '%s' must be a URL (http:// or https://) or none.	'%s' muss eine URL (http:// oder https://) oder none sein.
@@ -299,7 +294,6 @@ Parity disk (by-id name, it will be erased):	Paritätsplatte (by-id-Name, sie wi
 Problems at any time: hs doctor	Probleme jederzeit: hs doctor
 Publish the folders as shares	Die Ordner als Freigaben veröffentlichen
 Report written: %s	Bericht geschrieben: %s
-Rolled back. The newer generation is still there; hs rebuild brings it back.	Zurückgesetzt. Die neuere Generation ist noch da; hs rebuild holt sie zurück.
 Say which disk: --parity <id>	Welche Platte? --parity <id>
 Say which disks: --disks <id,...> (see: hs migrate check)	Welche Platten? --disks <id,...> (siehe: hs migrate check)
 Step done: %s	Schritt erledigt: %s
@@ -343,7 +337,6 @@ Disk size in GB (empty = default):	Plattengröße in GB (leer = Standard):
 Disk size in GB:	Plattengröße in GB:
 Do it?	Ausführen?
 Docker inside (yes/no):	Docker darin (yes/no):
-Everything since this snapshot is lost, and newer snapshots are deleted (ZFS can only go back to the newest one). Attached storage is not part of a snapshot.	Alles seit diesem Schnappschuss geht verloren, und neuere Schnappschüsse werden gelöscht (ZFS kann nur zum neuesten zurück). Eingehängter Speicher gehört nicht zum Schnappschuss.
 Fixed address (empty = later):	Feste Adresse (leer = später):
 Folder or file inside the share (empty = the whole share):	Ordner oder Datei in der Freigabe (leer = die ganze Freigabe):
 Full name (empty = none):	Voller Name (leer = keiner):
@@ -351,7 +344,6 @@ Group name:	Gruppenname:
 Groups of %s	Gruppen von %s
 Label (empty = automatic):	Name (leer = automatisch):
 Login name:	Anmeldename:
-Memory in MB (empty = the script's default):	Arbeitsspeicher in MB (leer = Standard des Skripts):
 Memory in MB (none = no limit):	Arbeitsspeicher in MB (none = keine Grenze):
 Memory in MB:	Arbeitsspeicher in MB:
 Missing: %s (give it as an option)	Es fehlt: %s (als Option angeben)
@@ -375,7 +367,6 @@ Unchanged.	Unverändert.
 What kind of instance?	Was für eine Instanz?
 What now?	Was jetzt?
 What to attach?	Was soll eingehängt werden?
-Which installer?	Welcher Installer?
 Which share?	Welche Freigabe?
 Which snapshot?	Welcher Schnappschuss?
 Which snapshot? (latest, or an id from: hs backup list)	Welcher Schnappschuss? (latest, oder eine ID aus: hs backup list)
@@ -386,7 +377,6 @@ usage: hs share <share> restore [<folder or file inside the share>] [--snapshot 
 %s: %s self-test started	%s: %s-Selbsttest gestartet
 %s: could not start a self-test (busy, or the disk does not support it)	%s: Selbsttest ließ sich nicht starten (beschäftigt, oder die Platte kann es nicht)
 A newer kernel is installed: it is used after the next reboot.	Ein neuerer Kernel ist installiert: er wird nach dem nächsten Neustart benutzt.
-Done. Freed about %s.	Fertig. Etwa %s freigegeben.
 Names do not resolve: DNS or the network is down.	Namen werden nicht aufgelöst: DNS oder das Netzwerk ist gestört.
 Names resolve (DNS works).	Namen werden aufgelöst (DNS funktioniert).
 No disk found (needs root).	Keine Platte gefunden (braucht root).
@@ -402,7 +392,6 @@ The trust to the domain is broken: restart samba-winbindd, or re-join (net ads j
 Would start a %s self-test in %s	Würde einen %s-Selbsttest in %s starten
 usage: hs disk selftest short|long [--dry-run]	Aufruf: hs disk selftest short|long [--dry-run]
 usage: hs secrets [fix]	Aufruf: hs secrets [fix]
-Docsify could not be downloaded; the pages load it from the internet instead (run again later).	Docsify konnte nicht heruntergeladen werden; die Seiten laden es stattdessen aus dem Internet (später noch einmal bauen).
 Documentation built in %s (%s pages)	Dokumentation gebaut in %s (%s Seiten)
 The documentation pages could not be rebuilt: hs docs build	Die Dokumentationsseiten konnten nicht neu gebaut werden: hs docs build
 usage: hs docs build [--out <dir>] [--quiet]	Aufruf: hs docs build [--out <Ordner>] [--quiet]
@@ -411,7 +400,6 @@ usage: hs docs build [--out <dir>] [--quiet]	Aufruf: hs docs build [--out <Ordne
 '%s' is not a share name.	'%s' ist kein Freigabename.
 '%s' is not a snapshot name (letters, digits, . _ -).	'%s' ist kein Schnappschuss-Name (Buchstaben, Ziffern, . _ -).
 Everything written to the share after the snapshot %s is lost.	Alles, was nach dem Schnappschuss %s in die Freigabe geschrieben wurde, geht verloren.
-Go back to %s?	Zu %s zurückkehren?
 Newer snapshots exist; going back to %s deletes every snapshot after it.	Es gibt neuere Schnappschüsse; die Rückkehr zu %s löscht jeden Schnappschuss danach.
 No share called '%s'.	Keine Freigabe namens '%s'.
 No snapshot '%s' on this share.	Kein Schnappschuss '%s' bei dieser Freigabe.
@@ -436,7 +424,6 @@ Started as job %s. Follow it: hs job follow %s	Als Auftrag %s gestartet. Zuschau
 '%s' already exists.	'%s' gibt es schon.
 '%s' already has a device called '%s'.	'%s' hat schon ein Gerät namens '%s'.
 '%s' does not exist.	'%s' gibt es nicht.
-'%s' has no pinned MAC yet (hs mac %s), can't reserve an address.	'%s' hat noch keine festgelegte MAC (hs mac %s), eine Adresse lässt sich nicht reservieren.
 '%s' is back at '%s'. Attached storage (shares, volumes) is not part of a snapshot.	'%s' ist wieder auf dem Stand von '%s'. Angehängter Speicher (Freigaben, Volumes) gehört nicht zu einem Schnappschuss.
 --as expects <uid>:<gid>, got '%s'	--as erwartet <uid>:<gid>, bekommen: '%s'
 A VM needs no Docker setting.	Eine VM braucht keine Docker-Einstellung.
@@ -452,7 +439,6 @@ Docker runs in a VM without extra settings.	Docker läuft in einer VM ohne zusä
 Done. Connections that are already open stay until they are closed.	Erledigt. Verbindungen, die schon offen sind, bleiben bis sie geschlossen werden.
 Done: this file server asks the domain controller again from now on.	Erledigt: dieser Dateiserver fragt den Domänencontroller ab jetzt wieder.
 Every user is in Domain Users; that can't be changed here.	Jeder Benutzer ist in Domain Users; das lässt sich hier nicht ändern.
-Give '%s' access to shares in: hs share <share> perm	Gib '%s' Zugriff auf Freigaben in: hs share <share> perm
 If something broke: restore the snapshot '%s'.	Wenn etwas kaputt ist: den Schnappschuss '%s' zurückspielen.
 Invalid group name '%s': letters, digits, space, . _ -	Ungültiger Gruppenname '%s': Buchstaben, Ziffern, Leerzeichen, . _ -
 Invalid login name '%s': lowercase letters, digits, . _ - (at most 20, starting with a letter).	Ungültiger Anmeldename '%s': Kleinbuchstaben, Ziffern, . _ - (höchstens 20, mit einem Buchstaben am Anfang).
@@ -465,11 +451,7 @@ Not possible: Administrator must stay in Domain Admins.	Nicht möglich: Administ
 Not possible: locking Administrator would lock you out of the domain.	Nicht möglich: wenn du Administrator sperrst, sperrst du dich aus der Domäne aus.
 Password for the new user '%s' (typed twice, not shown):	Passwort für den neuen Benutzer '%s' (zweimal eingeben, wird nicht angezeigt):
 Restart '%s' for the Docker setting to take effect.	'%s' neu starten, damit die Docker-Einstellung wirkt.
-The domain controller '%s' is not running (hs ct list).	Der Domänencontroller '%s' läuft nicht (hs ct list).
 There is no network (profile) called '%s'. Known: %s	Es gibt kein Netz (Profil) namens '%s'. Bekannt: %s
-Type the group name (%s) to continue	Tippe den Gruppennamen (%s), um fortzufahren
-Type the name (%s) to delete it	Tippe den Namen (%s), um zu löschen
-Type the user name (%s) to continue	Tippe den Benutzernamen (%s), um fortzufahren
 cancelled	abgebrochen
 invalid name '%s' (lowercase letters, digits, -)	ungültiger Name '%s' (Kleinbuchstaben, Ziffern, -)
 invalid storage name '%s'	ungültiger Speichername '%s'
@@ -483,7 +465,6 @@ no answer after %s seconds	keine Antwort nach %s Sekunden
 no such command in this version	diesen Befehl gibt es in dieser Version nicht
 not installed: the commands print plain text instead of the styled version	nicht installiert: die Befehle zeigen dann einfachen Text statt der formatierten Ausgabe
 not installed; used by: %s	nicht installiert; gebraucht von: %s
-usage: hs smoke [--list] [--no-run]	Aufruf: hs smoke [--list] [--no-run]
        hs share <share> auto on|off          include a share or leave it out	       hs share <Freigabe> auto on|off          Freigabe aufnehmen oder ausnehmen
        hs snapshots list                     shares and whether they are included	       hs snapshots list                        Freigaben und ob sie dabei sind
 Automatic snapshots are off. Switch them on: hs config set shareSnapshots true	Die automatischen Schnappschüsse sind aus. Einschalten: hs config set shareSnapshots true
@@ -508,7 +489,6 @@ Updating the parity (hours)	Parität aktualisieren (Stunden)
 Updating the parity (the lines below show where it is)	Parität aktualisieren (die Zeilen darunter zeigen, wo es steht)
 Failed: %s (see: hs job log %s)	Fehlgeschlagen: %s (siehe: hs job log %s)
 Running: %s since %s (hs job follow %s)	Läuft: %s seit %s (hs job follow %s)
-Next: give it a fixed IP (hs ct %s ip, or by hand in UniFi), then restart '%s'.	Als Nächstes: feste IP vergeben (hs ct %s ip, oder von Hand in UniFi), dann '%s' neu starten.
 The domain join cannot be checked without root (run: sudo hs doctor).	Der Domänenbeitritt lässt sich ohne root nicht prüfen (starten mit: sudo hs doctor).
 usage: hs share <share> snapshot [name] [--yes]	Aufruf: hs share <Freigabe> snapshot [Name] [--yes]
        hs share <share> rollback [name] [--yes]	       hs share <Freigabe> rollback [Name] [--yes]
@@ -518,18 +498,8 @@ Go back to which snapshot? (newest first)	Zu welchem Schnappschuss zurückkehren
 Automatic snapshots for this share?	Automatische Schnappschüsse für diese Freigabe?
 usage: hs ports [<container>] [--list]	Aufruf: hs ports [<Container>] [--list]
        open ports of the server and the running containers; warns when an admin interface is behind Zoraxy	       offene Ports des Servers und der laufenden Container; warnt, wenn eine Verwaltungsoberfläche hinter Zoraxy hängt
-No running instance called '%s'. See: hs ct list	Keine laufende Instanz namens '%s'. Siehe: hs ct list
 Zoraxy ('%s') is not running or does not exist: the proxy check was skipped.	Zoraxy ('%s') läuft nicht oder gibt es nicht: die Prüfung der Weiterleitungen wurde übersprungen.
 No Zoraxy rule could be read and no connection is open: the proxy check found nothing.	Keine Zoraxy-Regel ließ sich lesen und keine Verbindung ist offen: die Prüfung der Weiterleitungen hat nichts gefunden.
-WHERE	WO
-PROTO	PROTO
-PORT	PORT
-BIND	ADRESSE
-PROGRAM	PROGRAMM
-STATUS	STATUS
-TARGET	ZIEL
-HOST NAME	HOSTNAME
-SOURCE	QUELLE
 WHAT	WAS
 Listening ports (loopback only is left out)	Offene Ports (nur auf Loopback Lauschendes fehlt)
 %s listener(s) are not in the list of expected ports. If they are fine: add a line "<name> <port>" to %s.	%s Lauschende stehen nicht in der Liste der erwarteten Ports. Wenn sie in Ordnung sind: eine Zeile "<Name> <Port>" in %s eintragen.
@@ -544,10 +514,6 @@ Update these containers now?	Diese Container jetzt aktualisieren?
 Run it as a background job (you can close the terminal)?	Als Hintergrundauftrag laufen lassen (das Terminal darf zu)?
 Updating %s (%s of %s)	%s wird aktualisiert (%s von %s)
 Result	Ergebnis
-CONTAINER	CONTAINER
-RESULT	ERGEBNIS
-SNAPSHOT	SCHNAPPSCHUSS
-TIME	DAUER
 %s of %s containers failed. The way back for each:	%s von %s Containern sind fehlgeschlagen. Der Weg zurück je Container:
 %s: no snapshot was made, nothing was changed before the failure	%s: es gab keinen Schnappschuss, vor dem Fehler wurde nichts geändert
 All containers are updated.	Alle Container sind aktualisiert.
@@ -568,9 +534,6 @@ The key is in machine.toml. It takes effect with: hs rebuild	Der Schlüssel steh
 There are no keys to remove.	Es gibt keine Schlüssel zum Entfernen.
 Which key should be removed?	Welcher Schlüssel soll entfernt werden?
 Nothing chosen.	Nichts gewählt.
-No key with the comment or fingerprint '%s'. See: hs ssh-key list	Kein Schlüssel mit Kommentar oder Fingerabdruck '%s'. Siehe: hs ssh-key list
-Several keys match '%s'. Use the fingerprint (hs ssh-key list).	Mehrere Schlüssel passen zu '%s'. Nimm den Fingerabdruck (hs ssh-key list).
-That is the last key. Without a key nobody could log in over SSH again: add the new one first (hs ssh-key add).	Das ist der letzte Schlüssel. Ohne Schlüssel könnte sich niemand mehr per SSH anmelden: trag zuerst den neuen ein (hs ssh-key add).
 This is the key your current SSH session used to log in. Log in with another key first, then remove this one from there.	Mit diesem Schlüssel bist du gerade per SSH angemeldet. Melde dich zuerst mit einem anderen an und entferne ihn dann von dort.
 Could not tell which key this session uses. Make sure you can still log in with one of the others.	Nicht erkennbar, welchen Schlüssel diese Sitzung benutzt. Stell sicher, dass du dich noch mit einem der anderen anmelden kannst.
 Remove the key %s (%s, %s)	Schlüssel %s entfernen (%s, %s)
@@ -589,7 +552,6 @@ This checkout has %s commit(s) that are not upstream: hs update (pull --ff-only)
 Local changes in files that change upstream too: hs update would stop.	Lokale Änderungen in Dateien, die sich auch im Upstream ändern: hs update würde anhalten.
 New options for machine.toml	Neue Optionen für machine.toml
 No %s yet.	Noch kein %s.
-hs update adds them to machine.toml, commented out; nothing of yours is changed.	hs update trägt sie auskommentiert in machine.toml ein; nichts von dir wird geändert.
 Nothing new: machine.toml has every option	Nichts Neues: machine.toml hat alle Optionen
 The build preview was skipped (--no-build).	Die Bau-Vorschau wurde übersprungen (--no-build).
 What the rebuild would do	Was der Neubau tun würde
@@ -653,8 +615,6 @@ The unit is gone, so its result is not known.	Die Einheit ist weg, deshalb ist d
 Finished successfully (exit status %s)%s	Erfolgreich beendet (Exit-Status %s)%s
 Failed: %s, exit status %s%s	Fehlgeschlagen: %s, Exit-Status %s%s
  after %s	 nach %s
-No job is running. See the list: hs job list	Es läuft kein Auftrag. Die Liste: hs job list
-Several jobs are running: name one (hs job follow <unit>)	Es laufen mehrere Aufträge: einen nennen (hs job follow <Einheit>)
 Which job?	Welcher Auftrag?
 Running now:	Läuft gerade:
 failed	fehlgeschlagen
@@ -691,10 +651,6 @@ title:	Titel:
 priority:	Prio:
 category:	Kategorie:
 usage: hs monitor [--plain]	Aufruf: hs monitor [--plain]
-Script '%s' not found: %s	Skript '%s' nicht gefunden: %s
-RAM limit %s MiB%s. Its installer asks its own questions below.	RAM-Grenze %s MiB%s. Der Installer stellt unten seine eigenen Fragen.
-Afterwards pin the MAC: hs mac %s   (hs ct add does that by itself)	Danach die MAC festnageln: hs mac %s   (hs ct add macht das von selbst)
-usage: hs net setup                      store the router address and the API key	Aufruf: hs net setup                      Adresse des Routers und den API-Schlüssel speichern
        hs net check                      list networks and DHCP ranges (changes nothing)	       hs net check                      Netze und DHCP-Bereiche auflisten (ändert nichts)
        hs sys unifi used <ip>            who has this address (nothing printed = free)	       hs sys unifi used <ip>            wer diese Adresse hat (keine Ausgabe = frei)
        hs sys unifi reserved <mac>       the address reserved for that MAC (nothing printed = none)	       hs sys unifi reserved <mac>       die für diese MAC reservierte Adresse (keine Ausgabe = keine)
@@ -813,41 +769,11 @@ Starting the tunnel with the system	Der Tunnel wird mit dem System gestartet
 The tunnel did not start; most often the token is wrong. Delete it (incus exec %s -- rm /etc/cloudflared/token) and run the recipe again. Details: incus exec %s -- journalctl -u cloudflared -n 20	Der Tunnel ist nicht gestartet; meist stimmt der Token nicht. Ihn löschen (incus exec %s -- rm /etc/cloudflared/token) und das Rezept noch einmal ausführen. Einzelheiten: incus exec %s -- journalctl -u cloudflared -n 20
 Waiting for the connection to Cloudflare	Warten auf die Verbindung zu Cloudflare
 No connection confirmed yet. Look at: incus exec %s -- journalctl -u cloudflared -n 20	Noch keine Verbindung bestätigt. Ansehen: incus exec %s -- journalctl -u cloudflared -n 20
-Done. The tunnel is running. In the Cloudflare dashboard, on the tunnel's page:	Fertig. Der Tunnel läuft. Im Cloudflare-Dashboard, auf der Seite des Tunnels:
-  Public Hostname -> Add:   subdomain *  (and one without subdomain), your domain,	  Public Hostname -> Add:   Subdomain *  (und eine ohne Subdomain), deine Domain,
-                            service  HTTP  %s:80	                            Service  HTTP  %s:80
 <address of zoraxy>	<Adresse von zoraxy>
-  The DNS record for the wildcard (*) has to be created by hand under DNS:	  Den DNS-Eintrag für den Platzhalter (*) musst du von Hand unter DNS anlegen:
-  type CNAME, name *, target <tunnel id>.cfargotunnel.com, proxied.	  Typ CNAME, Name *, Ziel <Tunnel-ID>.cfargotunnel.com, proxied.
-Everything that arrives goes to Zoraxy (hs recipe zoraxy), which decides by name	Alles, was ankommt, geht an Zoraxy (hs recipe zoraxy), das nach dem Namen entscheidet,
-where it goes. A name without a Zoraxy rule reaches nothing.	wohin es geht. Ein Name ohne Zoraxy-Regel erreicht nichts.
   create the container '%s' (Docker inside, 4096 MB RAM limit) unless it exists, with a fixed address (.20 to .29) if UniFi is connected (hs net setup)	  den Container '%s' anlegen (Docker darin, 4096 MB RAM-Grenze), falls es ihn nicht gibt, mit fester Adresse (.20 bis .29), wenn UniFi verbunden ist (hs net setup)
-  install Docker inside and start Arcane (/opt/arcane) on port 80; projects live in /opt/projects	  Docker darin installieren und Arcane (/opt/arcane) auf Port 80 starten; die Projekte liegen in /opt/projects
-Arcane	Arcane
-Writing /opt/arcane/docker-compose.yml	/opt/arcane/docker-compose.yml wird geschrieben
-Downloading Arcane	Arcane wird heruntergeladen
-Starting Arcane	Arcane wird gestartet
-Waiting for Arcane to answer	Warten, bis Arcane antwortet
-Arcane does not answer at %s. Look at: incus exec %s -- docker logs --tail 30 arcane	Arcane antwortet nicht unter %s. Ansehen: incus exec %s -- docker logs --tail 30 arcane
 Done. Open in the browser:   %s	Fertig. Im Browser öffnen:   %s
-  First login:  user  arcane   password  arcane-admin	  Erste Anmeldung:  Benutzer  arcane   Passwort  arcane-admin
-  Arcane asks for a new password right away. Choose your own.	  Arcane verlangt sofort ein neues Passwort. Ein eigenes wählen.
-Your apps: Projects -> New Project, paste a docker-compose file. They are stored in	Deine Apps: Projects -> New Project, eine docker-compose-Datei einfügen. Sie liegen in
-/opt/projects in the container. An app that should be reachable from outside gets a	/opt/projects im Container. Eine App, die von außen erreichbar sein soll, bekommt eine
-rule in Zoraxy to   %s:<its port>	Regel in Zoraxy auf   %s:<ihr Port>
-Private images from GitHub: Settings -> Container Registries (a docker login on the	Private Images von GitHub: Settings -> Container Registries (ein docker login auf der
-command line does not help Arcane).	Kommandozeile hilft Arcane nicht).
 Arcane itself never gets a Zoraxy rule.	Arcane selbst bekommt nie eine Zoraxy-Regel.
-  create the container '%s' (256 MB RAM limit) unless it exists, with a fixed address (.20-.29) if UniFi is connected (hs net setup)	  den Container '%s' anlegen (256 MB RAM-Grenze), falls es ihn nicht gibt, mit fester Adresse (.20-.29), wenn UniFi verbunden ist (hs net setup)
-  mount %s read-only at /var/www/html and install lighttpd (asks for the port, default 80)	  %s nur lesend unter /var/www/html einbinden und lighttpd installieren (fragt nach dem Port, Standard 80)
-Build the pages	Die Seiten bauen
-Writing the guides and the command reference	Die Anleitungen und die Befehlsübersicht werden geschrieben
-Web server	Webserver
-Installing lighttpd	lighttpd wird installiert
-Setting it up	Wird eingerichtet
 Waiting for it to answer	Warten, bis es antwortet
-  The guides are in German; the command reference exists in German and English, and the search covers all of it.	  Die Anleitungen sind auf Deutsch; die Befehlsübersicht gibt es auf Deutsch und Englisch, und die Suche umfasst alles.
-  No Zoraxy rule on purpose: it is for the home network and Tailscale only.	  Absichtlich keine Zoraxy-Regel: Sie ist nur für das Heimnetz und Tailscale gedacht.
   create the virtual machine '%s' (2 GB RAM, 2 cores, 20 GB) unless it exists, with a fixed address (.40 to .49)	  die virtuelle Maschine '%s' anlegen (2 GB RAM, 2 Kerne, 20 GB), falls es sie nicht gibt, mit fester Adresse (.40 bis .49)
   install Samba inside and create the domain (asks for its name and the Administrator password)	  Samba darin installieren und die Domäne anlegen (fragt nach ihrem Namen und dem Administrator-Passwort)
   tell you the DNS entry the router needs, and continue once it works	  dir den DNS-Eintrag nennen, den der Router braucht, und weitermachen, sobald er funktioniert
@@ -900,13 +826,6 @@ Joining failed. Is the password right? Run the recipe again to retry.	Der Beitri
 Waiting for the connection to the domain	Warten auf die Verbindung zur Domäne
 The server joined, but can't talk to the domain. Look at: journalctl -u samba-winbindd -n 30	Der Server ist beigetreten, kann aber nicht mit der Domäne reden. Ansehen: journalctl -u samba-winbindd -n 30
 Could not let Domain Admins manage share permissions. Later: sudo net rpc rights grant '%s' SeDiskOperatorPrivilege -U Administrator	Domain Admins konnten nicht die Rechte für Freigaben bekommen. Später: sudo net rpc rights grant '%s' SeDiskOperatorPrivilege -U Administrator
-Done. The domain %s is running and this server is its file server.	Fertig. Die Domäne %s läuft und dieser Server ist ihr Dateiserver.
-  Users and groups:    hs user add     (new user)	  Benutzer und Gruppen:    hs user add     (neuer Benutzer)
-  Who may use a share: hs share <share> perm  (e, then set read / write per user or group)	  Wer eine Freigabe nutzen darf: hs share <share> perm  (e, dann Lesen / Schreiben je Benutzer oder Gruppe setzen)
-People log in to shares as   %s   with their domain password.	Man meldet sich an Freigaben an als   %s   mit dem Domänenpasswort.
-Shares that existed before are still open to everyone: close them in hs share <share> perm	Freigaben, die es vorher gab, sind noch für alle offen: in hs share <share> perm schließen
-(set Everyone to none). hs health lists them.	(Everyone auf keine setzen). hs health listet sie auf.
-A Windows PC joins the domain with the account %s.	Ein Windows-PC tritt der Domäne mit dem Konto %s bei.
   create the container '%s' (512 MB RAM limit) unless it exists	  den Container '%s' anlegen (512 MB RAM-Grenze), falls es ihn nicht gibt
   reserve the first free address from .40 upwards in UniFi, if UniFi is connected (hs net setup)	  die erste freie Adresse ab .40 in UniFi reservieren, wenn UniFi verbunden ist (hs net setup)
   install ntfy inside and write /etc/ntfy/server.yml	  ntfy darin installieren und /etc/ntfy/server.yml schreiben
@@ -923,7 +842,6 @@ Done. On the phone:	Fertig. Auf dem Handy:
   1. Install the app "ntfy" (Android, iOS).	  1. Die App "ntfy" installieren (Android, iOS).
   2. In its settings set the default server to   %s	  2. In ihren Einstellungen den Standardserver setzen auf   %s
   3. Subscribe to the topic                       %s	  3. Das Thema abonnieren                          %s
-The phone must be in the home network or connected through Tailscale.	Das Handy muss im Heimnetz sein oder über Tailscale verbunden.
   create the container '%s' (2048 MB RAM limit) unless it exists, with a fixed address (.10 to .19) if UniFi is connected (hs net setup)	  den Container '%s' anlegen (2048 MB RAM-Grenze), falls es ihn nicht gibt, mit fester Adresse (.10 bis .19), wenn UniFi verbunden ist (hs net setup)
   install the newest Zoraxy inside (/opt/zoraxy), started by systemd; an existing one is updated, its rules are kept	  das neueste Zoraxy darin installieren (/opt/zoraxy), von systemd gestartet; ein vorhandenes wird aktualisiert, seine Regeln bleiben
 Port of Zoraxy's admin page (not 80, the proxy itself listens there)	Port der Admin-Seite von Zoraxy (nicht 80, dort lauscht der Proxy selbst)
@@ -952,9 +870,6 @@ your ntfy server and topic (hs recipe ntfy sets one up)	dein ntfy-Server und The
   pass /dev/ntsync (Wine's fast thread sync) into '%s'	  /dev/ntsync (Wines schnelle Thread-Synchronisierung) in '%s' einbinden
   set the Panel's APP_URL to its address, until you give it a public one	  APP_URL des Panels auf seine Adresse setzen, bis du ihm eine öffentliche gibst
 Containers	Container
-'%s' does not exist yet. Its installer asks questions: run this recipe on a terminal.	'%s' gibt es noch nicht. Sein Installer stellt Fragen: dieses Rezept in einem Terminal ausführen.
-The installer of %s starts now and asks a few questions; the defaults are fine.	Der Installer von %s startet jetzt und stellt ein paar Fragen; die Vorgaben passen.
-The installer finished, but there is no container '%s'. If it got another name, run: sudo RECIPE_%s=<name> hs recipe pelican	Der Installer ist fertig, aber es gibt keinen Container '%s'. Hat er einen anderen Namen bekommen, ausführen: sudo RECIPE_%s=<Name> hs recipe pelican
 Wings	Wings
 Its disk is %s already	Seine Platte hat schon %s
 Disk of '%s' set to 100 GB (game servers and their Docker images live there)	Platte von '%s' auf 100 GB gesetzt (Spieleserver und ihre Docker-Images liegen dort)
@@ -975,7 +890,6 @@ The Panel does not answer at http://%s yet. Look at: incus exec %s -- systemctl 
 Done. The rest happens in the browser (guide "Pelican Panel und Wings", steps 2 to 4):	Fertig. Der Rest geschieht im Browser (Anleitung "Pelican Panel und Wings", Schritte 2 bis 4):
   1. Panel:  http://%s/installer	  1. Panel:  http://%s/installer
      Database: SQLite. At the end you create your admin account. Switch on	     Datenbank: SQLite. Am Ende legst du dein Admin-Konto an. Schalte in deinem Profil
-     two-factor login in your profile.	     die Zwei-Faktor-Anmeldung ein.
   2. Public addresses, each as a rule in Zoraxy%s:	  2. Öffentliche Adressen, jede als Regel in Zoraxy%s:
        panel.<your domain>  ->  %s:80	       panel.<deine Domain>  ->  %s:80
        wings.<your domain>  ->  %s:8080, with the two extra response headers from the guide	       wings.<deine Domain>  ->  %s:8080, mit den zwei zusätzlichen Antwort-Headern aus der Anleitung
@@ -990,7 +904,6 @@ Would write this to %s in '%s':	Würde dies nach %s in '%s' schreiben:
 Links	Links
 Your previous list is kept as %s.before-recipe in '%s'.	Deine bisherige Liste bleibt als %s.before-recipe in '%s' erhalten.
 %s links written.	%s Links geschrieben.
-Done: http://%s	Fertig: http://%s
 Homepage reads the list on the next page load. After adding containers, run this recipe again.	Homepage liest die Liste beim nächsten Laden der Seite. Nach dem Anlegen von Containern dieses Rezept noch einmal ausführen.
   create the container '%s' (Docker inside, 6144 MB RAM limit) unless it exists, with a fixed address if UniFi is connected (hs net setup)	  den Container '%s' anlegen (Docker darin, 6144 MB RAM-Grenze), falls es ihn nicht gibt, mit fester Adresse, wenn UniFi verbunden ist (hs net setup)
   create a folder under /bulk/sensitive for the photos (asks for its name, default immich) and mount it at /mnt/immich	  einen Ordner unter /bulk/sensitive für die Fotos anlegen (fragt nach dem Namen, Standard immich) und unter /mnt/immich einbinden
@@ -1030,17 +943,7 @@ NVIDIA card in use. Smart search and faces run on it now.	NVIDIA-Karte in Benutz
 not used, Immich runs on the CPU.	nicht benutzt, Immich läuft auf der CPU.
   To use the NVIDIA card: hs recipe immich --ask, answer yes.	  Um die NVIDIA-Karte zu benutzen: hs recipe immich --ask, mit yes antworten.
 no NVIDIA card in this server, Immich runs on the CPU.	keine NVIDIA-Karte in diesem Server, Immich läuft auf der CPU.
-  1. "Getting Started": the first account you create becomes the admin.	  1. "Getting Started": das erste Konto, das du anlegst, wird der Admin.
-     More people: Administration -> Users.	     Weitere Leute: Administration -> Users.
-  2. Phone: install the app "Immich", server address  %s , log in,	  2. Handy: die App "Immich" installieren, Serveradresse  %s , anmelden,
-     then switch on the backup of your camera roll.	     dann die Sicherung der Kamerarolle einschalten.
-Where things are:	Wo was liegt:
-  photos and videos   /bulk/sensitive/%s  (read-only as the share %s)	  Fotos und Videos    /bulk/sensitive/%s  (nur lesend als Freigabe %s)
-  database            on the SSD pool in the container; a dump goes to the photo folder every night	  Datenbank           auf dem SSD-Pool im Container; jede Nacht landet ein Dump im Fotoordner
-  update Immich       hs recipe immich   (fetches the newest version and restarts it)	  Immich aktualisieren  hs recipe immich   (holt die neueste Version und startet neu)
 Graphics card: %s	Grafikkarte: %s
-From outside without Tailscale you could add a Zoraxy rule to %s. Mind that	Von außen ohne Tailscale könntest du eine Zoraxy-Regel auf %s anlegen. Bedenke:
-Cloudflare cuts uploads above 100 MB, so long videos only back up at home or through Tailscale.	Cloudflare kappt Uploads über 100 MB, lange Videos lassen sich also nur zu Hause oder über Tailscale sichern.
   create the container '%s' (4096 MB RAM limit) unless it exists, with a fixed address if UniFi is connected (hs net setup)	  den Container '%s' anlegen (4096 MB RAM-Grenze), falls es ihn nicht gibt, mit fester Adresse, wenn UniFi verbunden ist (hs net setup)
   install Jellyfin inside	  Jellyfin darin installieren
   create a share for the media (asks for its name, default media) with the folders: %s	  eine Freigabe für die Medien anlegen (fragt nach dem Namen, Standard media) mit den Ordnern: %s
@@ -1068,18 +971,6 @@ Install the Abyss theme for Jellyfin (github.com/AumGupta/abyss-jellyfin)? yes o
   optionally add the Abyss theme and its Spotlight banner to Jellyfin (asks; default no)	  auf Wunsch das Abyss-Design samt Spotlight-Banner in Jellyfin einbauen (fragt; Standard nein)
 4. Abyss: Settings -> Display -> Theme "Dark" (per user), then reload the page with Ctrl+F5.	4. Abyss: Einstellungen -> Anzeige -> Design "Dark" (pro Benutzer), dann die Seite mit Strg+F5 neu laden.
 Starting Jellyfin with the system	Jellyfin wird mit dem System gestartet
-  1. The first visit asks for the language and creates the admin account.	  1. Der erste Besuch fragt nach der Sprache und legt das Admin-Konto an.
-  2. "Add Media Library", one per kind, with these folders:	  2. "Add Media Library", eine pro Art, mit diesen Ordnern:
-  3. Dashboard -> Playback -> Transcoding: hardware acceleration "%s".	  3. Dashboard -> Playback -> Transcoding: Hardwarebeschleunigung "%s".
-     Then the graphics card converts videos for devices that need it, not the CPU.	     Dann wandelt die Grafikkarte Videos für Geräte um, die es brauchen, nicht die CPU.
-Where the films go: the share  %s  (folders %s).	Wohin die Filme kommen: die Freigabe  %s  (Ordner %s).
-  Copy them there from Windows, or let other containers write there	  Von Windows dorthin kopieren, oder andere Container dorthin schreiben lassen
-  (hs ct list: add storage, bulk share "%s").	  (hs ct list: Speicher hinzufügen, Bulk-Freigabe "%s").
-  A new share is open to Domain Admins only: give yourself write access in	  Eine neue Freigabe ist nur für Domain Admins offen: gib dir Schreibzugriff in
-  hs share <share> perm (tab Shares, e).	  hs share <share> perm (Reiter Shares, e).
-  Jellyfin picks up new files by itself; it can read them but never change them.	  Jellyfin findet neue Dateien von selbst; es kann sie lesen, aber nie ändern.
-  One folder per film ("Film (2020)/Film (2020).mkv") and per series	  Ein Ordner pro Film ("Film (2020)/Film (2020).mkv") und pro Serie
-  ("Series/Season 01/...") gives the best results.	  ("Serie/Season 01/...") ergibt die besten Ergebnisse.
   add 'metrics = true' to %s and rebuild, unless the server hands out numbers already	  'metrics = true' in %s eintragen und neu aufbauen, wenn der Server nicht schon Zahlen liefert
   let Incus hand out numbers about the containers on port 8444	  Incus Zahlen über die Container auf Port 8444 ausgeben lassen
   create the container '%s' (1536 MB RAM limit) unless it exists, with a fixed address if UniFi is connected (hs net setup)	  den Container '%s' anlegen (1536 MB RAM-Grenze), falls es ihn nicht gibt, mit fester Adresse, wenn UniFi verbunden ist (hs net setup)
@@ -1090,7 +981,6 @@ Could not add 'metrics = true' to %s. Add it by hand, run hs rebuild, then this 
 Added 'metrics = true' to %s	'metrics = true' in %s eingetragen
 Rebuilding the system (a few minutes)	Das System wird neu aufgebaut (einige Minuten)
 Waiting for the numbers	Warten auf die Zahlen
-The server still hands out no numbers. Look at: systemctl status prometheus-node-exporter	Der Server liefert noch immer keine Zahlen. Ansehen: systemctl status prometheus-node-exporter
 Incus hands out the numbers of the containers on port 8444	Incus liefert die Zahlen der Container auf Port 8444
 Days of history to keep	Tage Verlauf, die behalten werden
 Also collect the server's logs (kernel, Samba, disks, errors) so Grafana can search them? Gives this container read access to the server's journal. yes or no	Auch die Logs des Servers sammeln (Kernel, Samba, Platten, Fehler), damit Grafana sie durchsuchen kann? Gibt diesem Container Lesezugriff auf das Journal des Servers. yes oder no
@@ -1128,46 +1018,24 @@ Looking needs no login. To change dashboards, log in as admin:	Ansehen braucht k
 Done.	Fertig.
 SQLite	SQLite
 <- this session	<- diese Sitzung
-COMMAND	BEFEHL
-CREATED	ERSTELLT
 Comment	Kommentar
-DEVICE	GERÄT
 DHCP	DHCP
-FROM	VON
 FS	DATEISYSTEM
 Fingerprint	Fingerabdruck
 GROUP	GRUPPE
 GROUPS	GRUPPEN
-IPV4	IPV4
-JOB	AUFTRAG
-LABEL	BEZEICHNUNG
-LAST	ZULETZT
-LEVEL	STUFE
 MEMBERS	MITGLIEDER
-MODE	RECHTE
-NETWORK	NETZ
-NEXT	NÄCHSTES
-OWNER	BESITZER
-PROBLEM	PROBLEM
-SECRET	GEHEIMNIS
 SIZE	GRÖSSE
 STATE	ZUSTAND
-SUBNET	SUBNETZ
-TYPE	ART
 Type	Typ
 USER	BENUTZER
-WHAT / KEEP A COPY?	WAS / KOPIE AUFBEWAHREN?
 WRONG	FALSCH
 filesystem	Dateisystem
 fixed	repariert
-hours	Stunden
-model	Modell
 not pinned	nicht festgelegt
 not set up	nicht eingerichtet
-note	Hinweis
 size	Größe
 smart	SMART
-type	Art
 used	belegt
 Encrypted storage	Verschlüsselter Speicher
 locked	gesperrt
@@ -1180,7 +1048,6 @@ Services waiting: no	Dienste warten: nein
 Problems	Probleme
 None	Keine
 Address	Adresse
-Pinning the MAC addresses	MAC-Adressen festlegen
 Storage of %s	Speicher von %s
 Failed	Fehlgeschlagen
 Updated	Aktualisiert
@@ -1197,7 +1064,6 @@ missing (%s)	fehlt (%s)
 added (%s)	hinzugefügt (%s)
 folder %s is gone; remove with: hs share cleanup	Ordner %s ist weg; entfernen mit: hs share cleanup
 No Samba share points at a folder that is gone.	Keine Samba-Freigabe zeigt auf einen Ordner, der weg ist.
-Remove %s Samba share(s) whose folder is gone?	%s Samba-Freigabe(n) entfernen, deren Ordner weg ist?
 %s Samba share(s) removed.	%s Samba-Freigabe(n) entfernt.
 Could not remove the share '%s'.	Die Freigabe '%s' ließ sich nicht entfernen.
 The storage is locked, so no folder can be checked. Unlock it first:  hs unlock	Der Speicher ist gesperrt, es lässt sich kein Ordner prüfen. Erst entsperren:  hs unlock
@@ -1240,43 +1106,33 @@ Fine	In Ordnung
 Finished	Abgeschlossen
 Generation	Generation
 Generations:	Generationen:
-HEALTH	ZUSTAND
-HOURS	STUNDEN
 Host	Host
 Leftovers	Überbleibsel
 Listeners	Lauschende Ports
 Locked	Gesperrt
-MODEL	MODELL
 Migration	Umzug
 NOT READABLE: not shut down cleanly? Stop the old server properly, or repair it (%s)	NICHT LESBAR: nicht sauber heruntergefahren? Den alten Server ordentlich anhalten oder reparieren (%s)
 NixOS	NixOS
 No disk '%s' in /dev/disk/by-id	Keine Platte '%s' in /dev/disk/by-id
 None behind Zoraxy	Keine hinter Zoraxy
 Overall	Gesamt
-PENDING	AUSSTEHEND
-REALLOC	NEU ZUGEWIESEN
-ROLE	AUFGABE
 Readable by root only	Nur für root lesbar
 Repo	Repo
 Rolling back	Zurückrollen
 Root disk	Systemplatte
-SETTING	EINSTELLUNG
 SMART says BAD: %s	SMART sagt BAD: %s
 SMART: %s	SMART: %s
 SSH keys	SSH-Schlüssel
-STEP	SCHRITT
 Secrets	Geheimnisse
 Setup	Einrichtung
 Something needs a look (see above)	Etwas braucht einen Blick (siehe oben)
 Stopped %s	%s gestoppt
 Switching to the previous generation	Zur vorherigen Generation wechseln
-TEMP	TEMP
 The parity disk (%s) is at least as large as the largest data disk (%s)	Die Paritätsplatte (%s) ist mindestens so groß wie die größte Datenplatte (%s)
 The parity disk (%s) is smaller than the largest data disk (%s): not possible	Die Paritätsplatte (%s) ist kleiner als die größte Datenplatte (%s): nicht möglich
 This server	Dieser Server
 Unlocked	Entsperrt
 Uptime	Laufzeit
-VALUE	WERT
 can be adopted	kann übernommen werden
 encrypted: adopting asks for the passphrase (hs unlock)	verschlüsselt: beim Übernehmen wird die Passphrase gefragt (hs unlock)
 no filesystem found	kein Dateisystem gefunden
@@ -1285,7 +1141,6 @@ usage: hs job stop <unit>	Aufruf: hs job stop <Einheit>
 No %s yet: copy %s to it first.	Noch kein %s: kopiere zuerst %s dorthin.
 machine.toml has every option of the current example.	machine.toml hat jede Option des aktuellen Beispiels.
 %s: load %s, up %s	%s: Last %s, Laufzeit %s
-Fix: hs secrets fix	Beheben mit: hs secrets fix
   --if-full   do nothing unless the cache is at least %s %% full	  --if-full   nichts tun, solange der Cache nicht zu mindestens %s %% voll ist
   --no-sync   don't update the parity afterwards	  --no-sync   die Parität danach nicht aktualisieren
   --now       also move files changed within the last %s minutes (still not open ones)	  --now       auch Dateien verschieben, die in den letzten %s Minuten geändert wurden (offene bleiben)
@@ -1446,18 +1301,14 @@ Create the vault	Tresor anlegen
 Encryption	Verschlüsselung
 File system	Dateisystem
 Folder %s is in the vault now	Der Ordner %s liegt jetzt im Tresor
-KIND	ART
 Key file: in the vault, which is closed (hs unlock)	Schlüsseldatei: im Tresor, der geschlossen ist (hs unlock)
 Key file: no (the other disks take the passphrase)	Schlüsseldatei: nein (die anderen Platten nehmen die Passphrase)
 Key file: yes (in the vault, for the other disks)	Schlüsseldatei: ja (im Tresor, für die anderen Platten)
-Make it on a free partition of the system disk: hs vault init <partition>	Anlegen auf einer freien Partition der System-SSD: hs vault init <Partition>
 Mounted at	Eingehängt unter
 Move secrets into the vault	Geheimnisse in den Tresor verschieben
 Moved %s	%s verschoben
-Next: hs vault move   (puts the secrets in)	Danach: hs vault move   (legt die Geheimnisse hinein)
 No free partition found. Make one of about 1 GiB on the system disk first.	Keine freie Partition gefunden. Lege zuerst eine von etwa 1 GiB auf der System-SSD an.
 No such folder: %s	Diesen Ordner gibt es nicht: %s
-No vault is set up (hs vault init <partition>).	Es gibt keinen Tresor (hs vault init <Partition>).
 No vault is set up (hs vault init).	Es gibt keinen Tresor (hs vault init).
 Not a block device: %s	Kein Blockgerät: %s
 Not a folder to move: %s	Kein Ordner, der sich verschieben lässt: %s
@@ -1522,8 +1373,6 @@ The domain controller %s did not answer in time.	Der Domänencontroller %s hat n
   install PostgreSQL and Synapse (packages.matrix.org) inside, listening on the chosen port (asks for it, default 80)	  PostgreSQL und Synapse (packages.matrix.org) darin installieren, auf dem gewählten Port (fragt danach, Standard 80)
   ask for the server name (the part after the colon in @user:name, it cannot be changed later)	  nach dem Servernamen fragen (der Teil nach dem Doppelpunkt in @name:server, später nicht mehr änderbar)
   create the admin user 'admin' with a random password in %s/synapse-admin (root only)	  den Admin-Benutzer 'admin' mit Zufallspasswort in %s/synapse-admin anlegen (nur root)
-Port of the web page of Synapse	Port der Webseite von Synapse
-Matrix server name (@user:name, final)	Matrix-Servername (@name:server, endgültig)
 Install Synapse	Synapse installieren
 Installing PostgreSQL and tools	PostgreSQL und Werkzeuge werden installiert
 Adding the Matrix package repository	Das Matrix-Paketarchiv wird hinzugefügt
@@ -1550,7 +1399,6 @@ Done. The admin page is at   %s/admin	Fertig. Die Verwaltungsseite ist unter   %
   1. The first start is in bootstrap mode. The temporary admin password is in the journal:	  1. Der erste Start läuft im Bootstrap-Modus. Das vorläufige Admin-Passwort steht im Journal:
   2. Log in as admin and finish the setup there: hostname, domain, TLS certificate, accounts.	  2. Als admin anmelden und dort die Einrichtung beenden: Hostname, Domain, TLS-Zertifikat, Konten.
   install Synapse-Admin (admin web page, lighttpd, port asked, default 5173; no Zoraxy rule)	  Synapse-Admin installieren (Admin-Webseite, lighttpd, Port wird gefragt, Standard 5173; keine Zoraxy-Regel)
-Port of the admin page (Synapse-Admin)	Port der Admin-Seite (Synapse-Admin)
 Synapse-Admin (admin web page)	Synapse-Admin (Admin-Webseite)
 Installing it with a small web server	Wird mit einem kleinen Webserver installiert
   Admin page (Synapse-Admin):  http://%s:%s   (enter the Synapse address above as homeserver URL)	  Admin-Seite (Synapse-Admin):  http://%s:%s   (als Homeserver-URL die Synapse-Adresse oben eintragen)
@@ -1568,20 +1416,11 @@ Tailscale address: %s	Tailscale-Adresse: %s
   install Docker inside and run ghcr.io/bulwarkmail/webmail with docker compose in /opt/bulwark (asks for the port, default 80)	  Docker darin installieren und ghcr.io/bulwarkmail/webmail mit docker compose in /opt/bulwark starten (fragt nach dem Port, Standard 80)
   connect it to your Stalwart server (asked, default: the container 'stalwart' if there is one)	  mit deinem Stalwart-Server verbinden (wird gefragt, Standard: der Container 'stalwart', falls vorhanden)
   make an admin password for the admin page (/admin), kept in /opt/bulwark/.env	  ein Admin-Passwort für die Verwaltungsseite (/admin) anlegen, gespeichert in /opt/bulwark/.env
-Port of the web page of Bulwark Mail	Port der Webseite von Bulwark Mail
-Address of your Stalwart server	Adresse deines Stalwart-Servers
 Bulwark Mail	Bulwark Mail
 Writing the settings (port, mail server)	Einstellungen werden geschrieben (Port, Mailserver)
 Downloading Bulwark Mail	Bulwark Mail wird heruntergeladen
 Starting Bulwark Mail	Bulwark Mail wird gestartet
 skipped (RECIPE_SKIP_PULL): nothing downloaded, Bulwark not started	übersprungen (RECIPE_SKIP_PULL): nichts heruntergeladen, Bulwark nicht gestartet
-  1. Mail server: %s	  1. Mailserver: %s
-     The admin page of Bulwark is at /admin; its password:	     Die Verwaltungsseite von Bulwark ist unter /admin; ihr Passwort:
-       incus exec %s -- cat /opt/bulwark/.env	       incus exec %s -- cat /opt/bulwark/.env
-  2. Log in with an account of your Stalwart server (create accounts on its admin page).	  2. Mit einem Konto deines Stalwart-Servers anmelden (Konten legst du auf dessen Verwaltungsseite an).
-  3. The browser talks to Stalwart through Bulwark, so Stalwart needs no change for the full edition.	  3. Der Browser spricht über Bulwark mit Stalwart, Stalwart braucht für die volle Ausgabe also keine Änderung.
-     For use from outside the house give THIS page (not Stalwart's admin page) a Zoraxy rule.	     Für den Zugriff von außerhalb gib DIESER Seite (nicht der Verwaltungsseite von Stalwart) eine Zoraxy-Regel.
-  Settings: /opt/bulwark in the container (%s). Change the mail server: hs recipe bulwark --ask	  Einstellungen: /opt/bulwark im Container (%s). Mailserver ändern: hs recipe bulwark --ask
 deleted share, kept (not published; remove the folder by hand when you are sure)	Gelöschte Freigabe, aufbewahrt (nicht veröffentlicht; den Ordner von Hand entfernen, wenn du sicher bist)
 %s only works with hs reboot.	%s gibt es nur bei hs reboot.
 Choose one of --menu, --firmware and --entry.	Wähle eines von --menu, --firmware und --entry.
@@ -1592,51 +1431,24 @@ background job %s (hs job running)	Hintergrundauftrag %s (hs job running)
 %s is running	%s läuft
 This server did not start in EFI mode: there is no firmware setup to reboot into.	Dieser Server ist nicht im EFI-Modus gestartet: es gibt kein Firmware-Setup, in das er neu starten könnte.
 No boot entry %s. The entries: bootctl list	Es gibt keinen Boot-Eintrag %s. Die Einträge: bootctl list
-Shut the server down now?	Den Server jetzt herunterfahren?
-Reboot the server into the boot menu now?	Den Server jetzt neu starten, mit dem Boot-Menü?
-Reboot the server into the BIOS setup now?	Den Server jetzt neu starten, ins BIOS-Setup?
 Reboot the server once into the boot entry %s now?	Den Server jetzt einmal mit dem Boot-Eintrag %s neu starten?
-Reboot the server now?	Den Server jetzt neu starten?
 This is still running:	Das läuft noch:
-Not now. Wait until it is done, or go ahead anyway with --force.	Jetzt nicht. Warte, bis es fertig ist, oder mach mit --force trotzdem weiter.
-Dry run	Probelauf
-Whatever is running will be cut off.	Was gerade läuft, wird abgebrochen.
 Running: %s	Ausgeführt wird: %s
-  Addition User DN / Group DN   CN=Users  /  CN=Users	  Addition User DN / Group DN   CN=Users  /  CN=Users
-     Base DN         %s	     Base DN         %s
-     Then restrict who may log in with a group (e.g. panel-users): hs group add panel-users	     Dann beschränke mit einer Gruppe, wer sich anmelden darf (z. B. panel-users): hs group add panel-users
-     User property mappings   the 'authentik default LDAP/Active Directory' ones, group 'AD' too	     User property mappings   die 'authentik default LDAP/Active Directory'-Einträge, bei den Gruppen ebenso
-  %s  (nothing else of this server gets a rule that is behind it)	  %s  (sonst bekommt nichts von diesem Server eine Regel, was dahinter liegt)
-  First login: user  akadmin	  Erste Anmeldung: Benutzer  akadmin
-  backup   hs backup ct authentik on	  Sicherung   hs backup ct authentik on
   create the container '%s' (Docker inside, 2048 MB RAM limit) unless it exists, with a fixed address if UniFi is connected (hs net setup)	  den Container '%s' anlegen (Docker darin, 2048 MB RAM-Grenze), falls es ihn nicht gibt, mit fester Adresse, wenn UniFi verbunden ist (hs net setup)
   install Docker inside and start Authentik from its official docker-compose.yml (server, worker, database)	  Docker darin installieren und Authentik aus seiner offiziellen docker-compose.yml starten (Server, Worker, Datenbank)
   make the database password, the secret key and the first admin password once (in /opt/authentik/.env)	  Datenbank-Passwort, geheimen Schlüssel und erstes Admin-Passwort einmalig erzeugen (in /opt/authentik/.env)
-  password: %s   (also in /opt/authentik/.env inside the container; change it, then keep it safe)	  Passwort: %s   (steht auch in /opt/authentik/.env im Container; ändere es und bewahre es sicher auf)
   print the values for the LDAP source (your AD accounts) and for the Pelican login	  die Werte für die LDAP-Quelle (deine AD-Konten) und für den Pelican-Login ausgeben
-  update   hs recipe authentik   (fetches the newest version and restarts it)	  Update   hs recipe authentik   (holt die neueste Version und startet neu)
-1. Your AD account (Directory -> Federation and Social login -> Create -> LDAP Source):	1. Dein AD-Konto (Directory -> Federation and Social login -> Create -> LDAP Source):
 2. Friends: Directory -> Users -> Create. They need no AD account.	2. Freunde: Directory -> Users -> Create. Sie brauchen kein AD-Konto.
-3. Pelican (OIDC login): see packages/authentik/guide.md	3. Pelican (OIDC-Login): siehe packages/authentik/guide.md
-4. Turn on two-step login (TOTP) for your own account: Settings -> MFA devices.	4. Schalte die Zwei-Schritt-Anmeldung (TOTP) für dein eigenes Konto ein: Settings -> MFA devices.
 Authentik	Authentik
 Authentik is running	Authentik läuft
 Downloading Authentik	Authentik wird heruntergeladen
 Fetching Authentik's docker-compose.yml	Die docker-compose.yml von Authentik wird geholt
 Starting Authentik	Authentik wird gestartet
 skipped (RECIPE_SKIP_PULL): nothing downloaded, Authentik not started	übersprungen (RECIPE_SKIP_PULL): nichts heruntergeladen, Authentik nicht gestartet
-     Server URI      ldaps://%s	     Server URI      ldaps://%s
-     Bind CN         authentik-bind@%s  (make the user: hs user add authentik-bind)	     Bind CN         authentik-bind@%s  (den Benutzer anlegen: hs user add authentik-bind)
-     TLS verification certificate: leave empty (Samba's certificate is self-signed)	     TLS verification certificate: leer lassen (das Zertifikat von Samba ist selbst signiert)
-Zoraxy: a rule only for the login page, e.g. auth.example.com ->	Zoraxy: eine Regel nur für die Login-Seite, z. B. auth.example.com ->
-  - custom header  X-Forwarded-Proto: https  (else the login page is blocked as mixed content)	  - eigener Header  X-Forwarded-Proto: https  (sonst blockiert der Browser die Login-Seite als Mixed Content)
-  - virtual directory  /if/admin/  ->  127.0.0.1:1  (a dead end: the admin page stays at home)	  - virtuelles Verzeichnis  /if/admin/  ->  127.0.0.1:1  (Sackgasse: die Admin-Seite bleibt zu Hause)
-  - Applications -> Outposts -> embedded outpost: authentik_host: https://<that address>	  - Applications -> Outposts -> Embedded Outpost: authentik_host: https://<diese Adresse>
 Layout written to settings.yaml (Public as a grid of four)	Layout in settings.yaml geschrieben (Public als Raster mit vier Spalten)
 settings.yaml has a layout already, leaving it alone	settings.yaml hat schon ein Layout, es bleibt unverändert
        hs dns sync [--yes] [--dry-run]	       hs dns sync [--yes] [--dry-run]
 usage: hs dns list	Aufruf: hs dns list
-     Addition User DN / Group DN   CN=Users  /  CN=Users	     Addition User DN / Group DN   CN=Users  /  CN=Users
 %s changes made.	%s Änderungen vorgenommen.
 Action	Aktion
 Apply these %s changes to the DNS?	Diese %s Änderungen im DNS vornehmen?
@@ -1648,16 +1460,7 @@ The names under %s.%s are up to date (%s records).	Die Namen unter %s.%s sind ak
 There is no domain (adDomain) in machine.toml, so there is no DNS to put names into.	In machine.toml steht keine Domäne (adDomain), also gibt es kein DNS für Namen.
 siteName '%s' is not a name for DNS (letters, digits, hyphen). Set siteName in machine.toml.	siteName '%s' ist kein Name für DNS (Buchstaben, Ziffern, Bindestrich). Setze siteName in machine.toml.
 under %s.%s	unter %s.%s
-add	anlegen
-change	ändern
-remove	entfernen
 The page can also be opened as http://%s	Die Seite lässt sich auch als http://%s öffnen.
-WHEN	WANN
-EVENT	EREIGNIS
-TEXT	TEXT
-SERIAL	SERIENNUMMER
-LAST SEEN	ZULETZT GESEHEN
-NOTE	HINWEIS
 all present	alle da
 %s missing	%s fehlen
 Nothing is recorded yet. The collector runs every minute.	Noch nichts aufgezeichnet. Der Sammler läuft jede Minute.
@@ -1691,17 +1494,6 @@ Set it up once in the browser (Tdarr -> Libraries):	Einmal im Browser einrichten
   2. Tab "Transcode options": transcode cache  /temp  ; leave "output folder" empty, so the	  2. Reiter "Transcode options": Transcode-Cache  /temp ; "Output folder" leer lassen, damit die
      new file replaces the old one. In the plugin stack add the local plugin	     neue Datei die alte ersetzt. In den Plugin-Stack das lokale Plugin
      "Homeserver: make it easy for Jellyfin" (search: Jellyfin) and nothing else.	     "Homeserver: make it easy for Jellyfin" (Suche: Jellyfin) einfügen, sonst nichts.
-  3. Tab "Scheduling" (the clock): allow 01:00 to 06:00 only. A running film is finished.	  3. Reiter "Scheduling" (die Uhr): nur 01:00 bis 06:00 erlauben. Ein laufender Film wird fertig gemacht.
-  4. Tab "Library": switch "Scan on start" and "Folder watch" on, press "Scan (fresh)".	  4. Reiter "Library": "Scan on start" und "Folder watch" einschalten, "Scan (fresh)" drücken.
-  5. Tdarr -> Nodes: the worker "hs-node" does the work: 1 transcode (CPU) worker is enough.	  5. Tdarr -> Nodes: der Worker "hs-node" arbeitet: ein Transcode-(CPU-)Worker genügt.
-What it does to a film:	Was mit einem Film geschieht:
-  - Only TrueHD or DTS in a language: a new AC3 track is put FIRST (default); the old one stays.	  - Nur TrueHD oder DTS in einer Sprache: eine neue AC3-Tonspur kommt an ERSTE Stelle (Standard); die alte bleibt.
-  - The video stays as it is. Only DivX/Xvid, WMV, VC-1, MPEG-1/2, H.264 10-bit are converted.	  - Das Video bleibt, wie es ist. Nur DivX/Xvid, WMV, VC-1, MPEG-1/2, H.264 10-Bit werden umgewandelt.
-  - Already fine: nothing happens. Every changed film keeps its original as a hard link in	  - Schon in Ordnung: es passiert nichts. Von jedem geänderten Film bleibt das Original als Hardlink in
-    /media/_tdarr-originals (it uses no extra space until the film has been replaced).	    /media/_tdarr-originals (das braucht keinen zusätzlichen Platz, bis der Film ersetzt wurde).
-  - Happy with the results? Delete that folder (on the server, or from Windows):	  - Mit dem Ergebnis zufrieden? Den Ordner löschen (auf dem Server oder von Windows aus):
-  - Browsers: add an AAC stereo track too (plays everywhere): in the plugin set addAac to true.	  - Browser: auch eine AAC-Stereo-Spur ergänzen (spielt überall): im Plugin addAac auf true setzen.
-  - Jellyfin finds the changed files by itself (a library scan is enough).	  - Jellyfin findet die geänderten Dateien selbst (ein Bibliotheks-Scan genügt).
   create the container '%s' (Docker inside, 4096 MB RAM limit) unless it exists, with a fixed address if UniFi is connected (hs net setup)	  den Container '%s' anlegen (Docker darin, 4096 MB RAM-Grenze), falls es ihn nicht gibt, mit fester Adresse, wenn UniFi verbunden ist (hs net setup)
   mount the share for the films (asks for its name, default media) READ-WRITE at /media	  die Freigabe für die Filme (fragt nach dem Namen, Standard media) LESEND UND SCHREIBEND unter /media einbinden
   install Docker inside and start Tdarr (server and one worker, about 1 GB to download)	  Docker darin installieren und Tdarr starten (Server und ein Worker, etwa 1 GB Download)
@@ -1731,7 +1523,6 @@ no NVIDIA card in this server, videos are converted on the CPU.	keine NVIDIA-Kar
 not used, videos are converted on the CPU. To use the NVIDIA card: hs recipe tdarr --ask, answer yes.	nicht genutzt, Videos werden auf der CPU umgewandelt. Um die NVIDIA-Karte zu nutzen: hs recipe tdarr --ask, mit ja antworten.
 skipped (RECIPE_SKIP_PULL): nothing downloaded, Tdarr not started	übersprungen (RECIPE_SKIP_PULL): nichts heruntergeladen, Tdarr nicht gestartet
 skipped (RECIPE_SKIP_STORAGE): the films stay inside the container	übersprungen (RECIPE_SKIP_STORAGE): die Filme bleiben im Container
-    rm -r /bulk/shares/media/_tdarr-originals	    rm -r /bulk/shares/media/_tdarr-originals
 Refused: %s %s is not a client id	Abgelehnt: %s %s ist keine Client-ID
 Refused: this script may not call %s %s	Abgelehnt: dieses Skript darf %s %s nicht aufrufen
 Refused: %s is outside the networks this script may change (%s). Edit %s to allow more.	Abgelehnt: %s liegt außerhalb der Netze, die dieses Skript ändern darf (%s). Mit %s lassen sich weitere erlauben.
@@ -1747,11 +1538,8 @@ Could not set the worker. In Tdarr -> Nodes set the CPU transcode worker of 'hs-
      (all numbers 0) nothing is processed. The node also has a schedule per hour for the night.	     (alle Zahlen 0) wird nichts verarbeitet. Der Node hat auch einen Zeitplan pro Stunde für die Nacht.
      (SABnzbd: Config -> General), category  movies  /  tv.	     (SABnzbd: Config -> General), Kategorie  movies  /  tv.
      about 20 connections. (The indexer goes into Prowlarr, not here.)	     etwa 20 Verbindungen. (Der Indexer kommt in Prowlarr, nicht hierher.)
-  1. Radarr and Sonarr: Settings -> Media Management -> Root Folder:  /media/movies  and  /media/series  (Lidarr: /media/music)	  1. Radarr und Sonarr: Settings -> Media Management -> Root Folder:  /media/movies  und  /media/series  (Lidarr: /media/music)
   1. SABnzbd asks for your news provider the first time: server, port 563 with SSL, user, password,	  1. SABnzbd fragt beim ersten Mal nach deinem Usenet-Anbieter: Server, Port 563 mit SSL, Benutzer, Passwort,
-  2. Prowlarr: add your indexer, then Settings -> Apps: connect Radarr, Sonarr and Lidarr (the key is in each app: Settings -> General)	  2. Prowlarr: deinen Indexer eintragen, dann Settings -> Apps: Radarr, Sonarr und Lidarr verbinden (der Schlüssel steht in jeder App: Settings -> General)
   2. Radarr and Sonarr: Settings -> Download Clients -> add SABnzbd with this address and the API key	  2. Radarr und Sonarr: Settings -> Download Clients -> SABnzbd mit dieser Adresse und dem API-Schlüssel eintragen
-  3. Radarr, Sonarr and Lidarr: Settings -> Download Clients -> SABnzbd (hs recipe sabnzbd), category  movies  /  tv  (Lidarr: audio)	  3. Radarr, Sonarr und Lidarr: Settings -> Download Clients -> SABnzbd (hs recipe sabnzbd), Kategorie  movies  /  tv  (Lidarr: audio)
   Finish the setup wizard first (it is open to whoever gets there first): sign in with your Jellyfin	  Zuerst den Einrichtungsassistenten beenden (er steht jedem offen, der zuerst kommt): mit deinem Jellyfin-
   No Zoraxy rule yet: whether friends reach it from outside is described in the guide.	  Noch keine Zoraxy-Regel: ob Freunde die Seite von außen erreichen, steht in der Anleitung.
   No Zoraxy rule: it is for the home network only.	  Keine Zoraxy-Regel: sie ist nur für das Heimnetz.
@@ -1768,18 +1556,15 @@ Could not set the worker. In Tdarr -> Nodes set the CPU transcode worker of 'hs-
   start Seerr (asks for the port, default 80)	  Seerr starten (fragt nach dem Port, Standard 80)
 '%s' can't write to /media. Look at the storage of '%s' in: hs ct list	'%s' kann nicht nach /media schreiben. Sieh dir den Speicher von '%s' an in: hs ct list
 '%s' is in the nightly backup (hs backup ct %s off: take it out)	'%s' ist in der nächtlichen Sicherung (hs backup ct %s off: herausnehmen)
-(no rules at first: deletes nothing)	(zuerst ohne Regeln: löscht nichts)
 Could not add '%s' to the backup. Later: hs backup ct %s on	'%s' konnte nicht in die Sicherung aufgenommen werden. Später: hs backup ct %s on
 Could not set the folders. In SABnzbd: Config -> Folders: Completed Download Folder  /media/downloads/usenet/complete  and Temporary  /incomplete.	Die Ordner konnten nicht gesetzt werden. In SABnzbd: Config -> Folders: Completed Download Folder  /media/downloads/usenet/complete  und Temporary  /incomplete.
 Could not write the backup dump command.	Der Dump-Befehl für die Sicherung konnte nicht geschrieben werden.
 Does not answer: %s at port %s. Look at: incus exec %s -- docker compose -f /opt/arr/docker-compose.yml logs --tail 50	Keine Antwort: %s an Port %s. Sieh nach mit: incus exec %s -- docker compose -f /opt/arr/docker-compose.yml logs --tail 50
-Done. Open in the browser (no Zoraxy rule for any of them):	Fertig. Im Browser öffnen (für keine davon eine Zoraxy-Regel):
 Downloading SABnzbd	SABnzbd wird heruntergeladen
 Downloading Seerr	Seerr wird heruntergeladen
 Downloading the apps (about 1.5 GB, this takes a while)	Die Apps werden heruntergeladen (etwa 1,5 GB, das dauert)
 Finished downloads go to /media/downloads/usenet/complete, unfinished ones to the SSD	Fertige Downloads landen in /media/downloads/usenet/complete, unfertige auf der SSD
 Folders	Ordner
-Guide: http://%s.local:%s/docs/de/%s	Anleitung: http://%s.local:%s/docs/de/%s
 Guide: the file in docs/ of the repository (the web interface shows it as its Docs page: webUi = true).	Anleitung: die Datei in docs/ des Repositorys (die Weboberfläche zeigt sie als Seite Docs: webUi = true).
 Hard links do not work on this storage. Imports will copy every file (twice the space until the download is deleted).	Hardlinks funktionieren auf diesem Speicher nicht. Beim Import wird jede Datei kopiert (doppelter Platz, bis der Download gelöscht ist).
 Hard links work: a download moves into the library without a copy	Hardlinks funktionieren: ein Download kommt ohne Kopie in die Bibliothek
@@ -1810,10 +1595,6 @@ skipped (RECIPE_SKIP_STORAGE): the files stay inside the container	übersprungen
 The container '%s' does not exist. Install Synapse first: hs recipe synapse	Den Container '%s' gibt es nicht. Zuerst Synapse installieren: hs recipe synapse
 The container '%s' is not running (hs ct %s start)	Der Container '%s' läuft nicht (hs ct %s start)
 '%s' has no address. Check the network (hs ct list).	'%s' hat keine Adresse. Netzwerk prüfen (hs ct list).
-Port of the webhook receiver	Port des Webhook-Empfängers
-Width of the cards in the chat (900 = normal, 1350 = 1.5 times as large)	Breite der Karten im Chat (900 = normal, 1350 = 1,5-fach)
-Room for the messages (a-z, 0-9, -)	Raum für die Nachrichten (a-z, 0-9, -)
-Matrix ID that is invited to the room	Matrix-ID, die in den Raum eingeladen wird
 Webhook receiver	Webhook-Empfänger
 Checking Python and Pillow	Python und Pillow werden geprüft
 Creating the service user	Dienstbenutzer wird angelegt
@@ -1827,7 +1608,6 @@ Starting it	Wird gestartet
 Installing the service	Dienst wird installiert
 The receiver does not answer at %s. Look at: incus exec %s -- journalctl -u hs-matrix-hook	Der Empfänger antwortet nicht unter %s. Ansehen: incus exec %s -- journalctl -u hs-matrix-hook
 Cards	Karten
-Matrix did not take the message. Look at: incus exec %s -- journalctl -u hs-matrix-hook	Matrix hat die Nachricht nicht angenommen. Ansehen: incus exec %s -- journalctl -u hs-matrix-hook
 Done. The room "%s" is made with the first message, then %s gets an invitation (accept it in Element). No test card is posted: type  test  in the chat "Homeserver bot" to try it.	Fertig. Der Raum "%s" wird mit der ersten Nachricht angelegt, dann bekommt %s eine Einladung (in Element annehmen). Es wird keine Testkarte gesendet: schreib  test  in den Chat "Homeserver bot", um es auszuprobieren.
 Webhook address (the secret is part of it, no Zoraxy rule):  %s	Webhook-Adresse (das Geheimnis ist ein Teil davon, keine Zoraxy-Regel):  %s
   1. Radarr and Sonarr: Settings -> Connect -> + -> Webhook, Method POST, the address above.	  1. Radarr und Sonarr: Settings -> Connect -> + -> Webhook, Method POST, die Adresse oben.
@@ -1850,8 +1630,6 @@ usage: hs ext games list	Aufruf: hs ext games list
        hs ext games add <name> <mac> [<ip>]	       hs ext games add <Name> <MAC> [<IP>]
        hs ext games remove <name>	       hs ext games remove <Name>
        hs ext games wake <name> [--wait]	       hs ext games wake <Name> [--wait]
-No PC saved yet. Add one with: hs ext games add <name> <mac> [<ip>]	Noch kein PC gemerkt. Neuen PC merken mit: hs ext games add <Name> <MAC> [<IP>]
-No PC called '%s' (hs ext games list)	Kein PC mit dem Namen '%s' (hs ext games list)
 '%s' is not a usable name (letters, digits, . _ -)	'%s' ist kein brauchbarer Name (Buchstaben, Ziffern, . _ -)
 '%s' is not a MAC address (like aa:bb:cc:dd:ee:ff)	'%s' ist keine MAC-Adresse (wie aa:bb:cc:dd:ee:ff)
 '%s' is not an IPv4 address	'%s' ist keine IPv4-Adresse
@@ -1888,7 +1666,6 @@ Done. Sunshine web page (set-up only, never behind Zoraxy):  https://%s:47990	Fe
      http://%s:8083  (same password)	     http://%s:8083  (dasselbe Passwort)
 A game PC at home can be added as a second entry: hs ext games add, hs ext games wake.	Ein Spiele-PC zu Hause lässt sich als zweiter Eintrag dazunehmen: hs ext games add, hs ext games wake.
 Delete the lower-resolution file when a film has two (say 4K and FullHD) in its folder, after a grace period? yes or no	Die Datei mit der niedrigeren Auflösung löschen, wenn ein Film zwei hat (etwa 4K und FullHD in einem Ordner), nach einer Schonfrist? yes oder no
-Grace period in days before that file is deleted (it is announced first)	Schonfrist in Tagen, bevor die Datei gelöscht wird (vorher wird sie angekündigt)
   (if you say yes) install a nightly job that announces and then deletes the lower-resolution file of a film that has two (messages to ntfy and Matrix)	  (bei yes) einen nächtlichen Auftrag einrichten, der die Datei mit der niedrigeren Auflösung eines Films mit zwei Dateien ankündigt und dann löscht (Meldungen an ntfy und Matrix)
 Duplicates	Doppelte Filme
 Installing ffprobe and Python	ffprobe und Python werden installiert
@@ -1908,8 +1685,6 @@ Could not tell '%s' the Matrix address. Run its recipe again.	Die Matrix-Adresse
 usage: hs config sync [--check] | check | migrate	Aufruf: hs config sync [--check] | check | migrate
 There is a %s but no %s yet. Convert it with: hs config migrate	Es gibt eine %s, aber noch keine %s. Wandle sie um mit: hs config migrate
 Could not sync %s; nothing changed.	%s konnte nicht abgeglichen werden; nichts geändert.
-OPTION	OPTION
-WHAT IT IS	WAS ES IST
 Add them to your file with: hs config sync	In deine Datei eintragen mit: hs config sync
 Added %s option(s) in their place in %s (commented out).	%s Option(en) an ihrem Platz in %s eingetragen (auskommentiert).
 To use one, remove the '# ' and run: hs rebuild	Um eine zu nutzen, entferne das '# ' und führe aus: hs rebuild
@@ -1932,16 +1707,12 @@ Edit %s, then run: hs rebuild	Bearbeite %s und führe dann aus: hs rebuild
 machine.nix was not converted: the rebuild uses it as it is. Look at: hs config migrate	machine.nix wurde nicht umgewandelt: der Neubau nimmt sie, wie sie ist. Sieh nach mit: hs config migrate
 hs update converts machine.nix to machine.toml (the old file is kept as machine.nix.migrated).	hs update wandelt machine.nix in machine.toml um (die alte Datei bleibt als machine.nix.migrated).
 hs update adds them to machine.toml, commented out, and asks whether to stop before the rebuild.	hs update trägt sie auskommentiert in machine.toml ein und fragt, ob vor dem Neubau angehalten werden soll.
-Add to /etc/nixos/machine.toml:   gpu = "nvidia"    (several: gpu = ["nvidia", "intel"])	In /etc/nixos/machine.toml ergänzen:   gpu = "nvidia"    (mehrere: gpu = ["nvidia", "intel"])
 This recipe is parked: the Steam Headless container does not start inside an Incus container yet (details: CLAUDE.md, Game streaming). Stream from the PC itself instead (Sunshine on the PC, Moonlight on the other device). To try anyway: RECIPE_FORCE=1 hs recipe sunshine	Dieses Rezept ist zurückgestellt: Der Steam-Headless-Container startet in einem Incus-Container noch nicht (Einzelheiten: CLAUDE.md, Game streaming). Streame stattdessen vom PC selbst (Sunshine am PC, Moonlight am anderen Gerät). Trotzdem versuchen: RECIPE_FORCE=1 hs recipe sunshine
 '%s' must be a time zone such as Europe/Vienna (list: timedatectl list-timezones), or none.	'%s' muss eine Zeitzone wie Europe/Vienna sein (Liste: timedatectl list-timezones), oder none.
 Disk full, errors and warnings: tick them yourself in SABnzbd, Config -> Notifications (the API cannot set them)	Platte voll, Fehler und Warnungen: selbst ankreuzen in SABnzbd, Config -> Notifications (die Schnittstelle kann sie nicht setzen)
 Encrypted releases	Verschlüsselte Releases
 Encrypted downloads are aborted, so Radarr and Sonarr try another release	Verschlüsselte Downloads werden abgebrochen, Radarr und Sonarr probieren ein anderes Release
 Could not set it. In SABnzbd: Config -> Switches -> Action when encrypted RAR is downloaded: Abort.	Konnte es nicht setzen. In SABnzbd: Config -> Switches -> Action when encrypted RAR is downloaded: Abort.
-    Bind CN     authentik-bind@%s  (make the user: hs user add authentik-bind)	    Bind-CN     authentik-bind@%s  (Benutzer anlegen: hs user add authentik-bind)
-    Server URI  ldaps://%s    Base DN  %s	    Server-URI  ldaps://%s    Base-DN  %s
-    TLS certificate: leave empty (Samba's is self-signed). Addition User DN / Group DN: CN=Users	    TLS-Zertifikat: leer lassen (das von Samba ist selbst signiert). Addition User DN / Group DN: CN=Users
    The phone must be in the home network or connected through Tailscale.	   Das Handy muss im Heimnetz sein oder über Tailscale verbunden.
    virtual directory  /if/admin/  ->  127.0.0.1:1  (a dead end: the admin page stays at home).	   virtuelles Verzeichnis  /if/admin/  ->  127.0.0.1:1  (eine Sackgasse: die Admin-Seite bleibt zu Hause).
   subdomain *  (and one without subdomain), your domain, service  HTTP  %s:80	  Subdomain *  (und eine ohne Subdomain), deine Domain, Dienst  HTTP  %s:80
@@ -1951,7 +1722,6 @@ Could not set it. In SABnzbd: Config -> Switches -> Action when encrypted RAR is
 2. Phone: install the app "Immich", server address  %s , log in, switch on the backup of the camera roll.	2. Handy: die App "Immich" installieren, Serveradresse  %s , anmelden, die Sicherung der Kamerarolle einschalten.
 3. Zoraxy: a rule only for the login page, with the header  X-Forwarded-Proto: https  and the	3. Zoraxy: eine Regel nur für die Anmeldeseite, mit dem Header  X-Forwarded-Proto: https  und dem
 No instance called '%s'. See: hs ct list	Keine Instanz namens '%s'. Siehe: hs ct list
-Dry run: nothing was changed. Apply with: hs dns sync	Probelauf: nichts wurde geändert. Anwenden mit: hs dns sync
 Could not %s %s.%s (%s)	%s von %s.%s (%s) ist fehlgeschlagen
 Check that the domain controller is running (hs ct list), then run again: hs dns sync	Prüfe, ob der Domänencontroller läuft (hs ct list), und starte dann noch einmal: hs dns sync
 %s of %s changes failed.	%s von %s Änderungen sind fehlgeschlagen.
@@ -1971,20 +1741,15 @@ The check is done	Die Prüfung ist fertig
 The check did not finish (see above).	Die Prüfung wurde nicht fertig (siehe oben).
 See what is in it: hs backup status	Was drin ist: hs backup status
 Details: journalctl -u hs-backup. Try again: hs backup now	Einzelheiten: journalctl -u hs-backup. Nochmal versuchen: hs backup now
-Saved.	Gespeichert.
-It applies to new connections; someone already connected keeps the old rights until they reconnect.	Es gilt für neue Verbindungen; wer schon verbunden ist, behält die alten Rechte, bis er sich neu verbindet.
 The disks do it by themselves; nothing else to do. Look at the results later: hs disk <disk> results	Die Platten erledigen das selbst; sonst ist nichts zu tun. Ergebnisse später ansehen: hs disk <Platte> results
 Model	Modell
 Hours	Stunden
 Power	Betrieb
-spinning	dreht
-asleep	schläft
 Free	Frei
 Note	Hinweis
 Next: %s	Als Nächstes: %s
 Fix: %s	Beheben mit: %s
 Finished in %s	Fertig nach %s
-Back to the previous one, if something broke: hs system rollback	Zurück zur vorherigen, falls etwas kaputt ging: hs system rollback
 Recipe: %s	Rezept: %s
 Web page	Webseite
 Fans at full speed for %s s	Lüfter auf voller Drehzahl für %s s
@@ -2000,7 +1765,6 @@ Job	Auftrag
 What	Was
 Last	Zuletzt
 Step	Schritt
-Command	Befehl
 IPv4	IPv4
 Serial	Seriennummer
 Role	Aufgabe
@@ -2013,9 +1777,6 @@ Health	Zustand
 Realloc	Neu zugewiesen
 Pending	Ausstehend
 Could not fetch the configuration: GitHub not reachable, or local changes in %s that Git can't combine?	Konfiguration nicht geladen: GitHub nicht erreichbar, oder lokale Änderungen in %s, die Git nicht zusammenführen kann?
-No job is running.	Es läuft kein Auftrag.
-Several jobs are running: name one.	Es laufen mehrere Aufträge: einen nennen.
-Not now. Wait until it is done, or go ahead anyway.	Jetzt nicht. Warte, bis es fertig ist, oder mach trotzdem weiter.
 %s is set.	%s ist gesetzt.
 The result would not parse. Nothing was changed.	Das Ergebnis wäre ungültig. Es wurde nichts geändert.
 Freed about %s.	Etwa %s freigegeben.
@@ -2030,15 +1791,12 @@ No instance called '%s'.	Es gibt keine Instanz namens '%s'.
 '%s' / '%s' is set up already.	'%s' / '%s' ist schon eingerichtet.
 Kind	Art
 Make it on a free partition of the system disk.	Lege ihn auf einer freien Partition der System-SSD an.
-No vault is set up.	Es ist kein Tresor eingerichtet.
-That is the last key. Without a key nobody could log in over SSH again: add the new one first.	Das ist der letzte Schlüssel. Ohne Schlüssel könnte sich niemand mehr per SSH anmelden: zuerst den neuen hinzufügen.
 No key with the comment or fingerprint '%s'.	Kein Schlüssel mit dem Kommentar oder Fingerabdruck '%s'.
 Several keys match '%s'. Use the fingerprint.	Mehrere Schlüssel passen zu '%s'. Nimm den Fingerabdruck.
 Secret	Geheimnis
 Mode	Modus
 Owner	Besitzer
 What it is / keep a copy?	Was es ist / Kopie aufbewahren?
-Some secrets can be read by more than root.	Einige Geheimnisse kann mehr als root lesen.
 Time	Dauer
 Started as job %s.	Als Auftrag %s gestartet.
 Where	Wo
@@ -2059,9 +1817,6 @@ Docker	Docker
 '%s' is created and running.	'%s' ist angelegt und läuft.
 give it a fixed IP (hs ct %s ip, or by hand in UniFi), then restart '%s'.	gib ihr eine feste IP (hs ct %s ip, oder von Hand in UniFi) und starte '%s' neu.
 '%s' and its snapshots are deleted for good.	'%s' und seine Schnappschüsse werden endgültig gelöscht.
-the instance	die Instanz
-the user	der Benutzer
-the group	die Gruppe
 The domain controller '%s' is not running.	Der Domänencontroller '%s' läuft nicht.
 User '%s' created.	Benutzer '%s' angelegt.
 The password of '%s' is changed.	Das Passwort von '%s' ist geändert.
@@ -2076,8 +1831,6 @@ Network	Netzwerk
 Subnet	Subnetz
 No PC saved yet.	Noch kein PC gespeichert.
 No PC called '%s'	Es gibt keinen PC namens '%s'
---wait needs the address of the PC.	--wait braucht die Adresse des PCs.
-Users	Benutzer
 usage: hs shutdown [--yes] [--force] [--dry-run]	Aufruf: hs shutdown [--yes] [--force] [--dry-run]
        hs reboot [--menu | --firmware | --entry <id>] [--yes] [--force] [--dry-run]	       hs reboot [--menu | --firmware | --entry <id>] [--yes] [--force] [--dry-run]
 No password on standard input.	Kein Passwort auf der Standardeingabe.
@@ -2088,7 +1841,6 @@ Later: sudo nixos-rebuild switch --rollback	Später: sudo nixos-rebuild switch -
 Going back to the previous generation	Zurück zur vorherigen Generation
 Rolled back to the previous generation	Zur vorherigen Generation zurückgekehrt
 The rollback failed too. By hand: sudo nixos-rebuild switch --rollback	Auch der Rückweg ist fehlgeschlagen. Von Hand: sudo nixos-rebuild switch --rollback
-The switch failed after it had started	Das Umschalten ist nach dem Start fehlgeschlagen
        hs backup drill ct [<name>]           restore a container (the one drilled longest ago, smallest first) into a	       hs backup drill ct [<name>]           holt einen Container (den, der am längsten nicht dran war, kleinster zuerst) in eine
                                              throwaway instance without a network, boot it, delete it; also checks the	                                             Wegwerf-Instanz ohne Netzwerk, startet ihn, löscht sie wieder; prüft auch die
                                              domain controller backup file and the export file of one virtual machine	                                             Sicherungsdatei des Domänencontrollers und die Exportdatei einer virtuellen Maschine
@@ -2118,7 +1870,6 @@ The domain backup could not be unpacked	Die Domänen-Sicherung ließ sich nicht 
 The unpacked domain backup has no sam.ldb	Die entpackte Domänen-Sicherung hat keine sam.ldb
 Domain backup: it unpacks and holds sam.ldb	Domänen-Sicherung: lässt sich entpacken und enthält sam.ldb
 No container is in the backup, nothing to restore (hs backup ct <name> on)	Kein Container ist im Backup, nichts zurückzuholen (hs backup ct <Name> on)
-The container drill failed (see above)	Die Container-Probe ist fehlgeschlagen (siehe oben)
 Container restore drill done.	Container-Wiederherstellungsprobe abgeschlossen.
      Then set your own: Tools -> Options -> Web UI.	     Dann ein eigenes setzen: Tools -> Options -> Web UI.
   1. Log in as admin; the temporary password is in:  docker logs qbittorrent  (inside the container).	  1. Als admin anmelden; das vorläufige Passwort steht in:  docker logs qbittorrent  (im Container).
@@ -2143,7 +1894,6 @@ Provider %s, protocol %s. The values are in the account page or the config file 
 Push messages (Radarr/Sonarr: Settings -> Connect -> ntfy):  server %s   topic %s	Push-Nachrichten (Radarr/Sonarr: Settings -> Connect -> ntfy):  Server %s   Thema %s
 Starting the VPN and qBittorrent	VPN und qBittorrent werden gestartet
 Stored in the container (%s, root only)	Im Container gespeichert (%s, nur für root)
-The VPN account is typed in. Run the recipe in a terminal.	Das VPN-Konto wird eingetippt. Starte das Rezept in einem Terminal.
 The VPN did not come up, so qBittorrent was not started. Look at: incus exec %s -- docker logs gluetun --tail 30   (wrong key, address or provider name?)	Das VPN ist nicht hochgekommen, darum wurde qBittorrent nicht gestartet. Sieh nach mit: incus exec %s -- docker logs gluetun --tail 30   (falscher Schlüssel, falsche Adresse oder falscher Anbietername?)
 The address seen from the tunnel (%s) is your own. Do not use qBittorrent: look at the VPN settings.	Die Adresse, die man vom Tunnel aus sieht (%s), ist deine eigene. qBittorrent nicht benutzen: prüfe die VPN-Einstellungen.
 Torrent traffic leaves through the VPN (address %s, not your own)	Torrent-Verkehr geht durch das VPN (Adresse %s, nicht deine eigene)
@@ -2163,7 +1913,6 @@ skipped (RECIPE_SKIP_PULL): nothing downloaded, qBittorrent not started	überspr
 First login:  user  arcane   password  arcane-admin  (Arcane asks for a new one right away)	Erste Anmeldung:  Benutzer  arcane   Passwort  arcane-admin  (Arcane verlangt sofort ein neues)
 In the Cloudflare dashboard, on the tunnel's page: Public Hostname -> Add	Im Cloudflare-Dashboard, auf der Seite des Tunnels: Public Hostname -> Add
 Log in with an account of your Stalwart server. The admin page is /admin, its password:	Mit einem Konto deines Stalwart-Servers anmelden. Die Admin-Seite ist /admin, ihr Passwort:
-No Zoraxy rule on purpose: the page is for the home network and Tailscale only.	Absichtlich keine Zoraxy-Regel: Die Seite ist nur für das Heimnetz und Tailscale gedacht.
 People log in to shares as   %s   with their domain password; a Windows PC joins with %s.	Man meldet sich an Freigaben an als   %s   mit dem Domänenpasswort; ein Windows-PC tritt bei mit %s.
 Shares that existed before are still open to everyone: close them in hs share <share> perm (Everyone: none). hs health lists them.	Freigaben, die es vorher gab, sind noch für alle offen: in hs share <share> perm schließen (Everyone: none). hs health listet sie auf.
 The domain is running and this server is its file server.	Die Domäne läuft, und dieser Server ist ihr Dateiserver.
@@ -2243,9 +1992,7 @@ usage: hs dc cert ca                      (once, on the server that keeps the CA
        hs dc cert install [--cert <file>|-] [--dc <instance>] [--yes]	       hs dc cert install [--cert <Datei>|-] [--dc <Instanz>] [--yes]
        hs dc cert show [--dc <instance>]	       hs dc cert show [--dc <Instanz>]
 '%s' is not a usable name.	'%s' ist kein brauchbarer Name.
-openssl is not installed on this server.	openssl ist auf diesem Server nicht installiert.
 usage: hs ext posters generate [--eyebrow <text>] [--title <text>] [--color <name|#rrggbb>] [--seed <n>]	Aufruf: hs ext posters generate [--eyebrow <Text>] [--title <Text>] [--color <Name|#rrggbb>] [--seed <n>]
-                          [--size <WxH>] [--case upper|keep] [--out <file>] [--force]	                          [--size <BxH>] [--case upper|keep] [--out <Datei>] [--force]
 Eyebrow (the small line above the title, for example Library)	Eyebrow (die kleine Zeile über dem Titel, zum Beispiel Bibliothek)
 Title (for example Movies)	Titel (zum Beispiel Filme)
 Colour	Farbe
@@ -2257,7 +2004,6 @@ Drawing the poster	Das Poster wird gezeichnet
 Saved: %s	Gespeichert: %s
 Seed	Seed
 Draw another one with a new seed?	Noch eins mit einem neuen Seed zeichnen?
-The poster could not be drawn.	Das Poster ließ sich nicht zeichnen.
 Where to save it?	Wo soll es gespeichert werden?
 Folder (full path, it must exist)	Ordner (voller Pfad, er muss existieren)
 No shares found: the poster is saved in this folder.	Keine Freigaben gefunden: das Poster wird in diesem Ordner gespeichert.
@@ -2281,7 +2027,6 @@ http://homeassistant.local:8123 (or the address from your router)	http://homeass
 UniFi is not connected (hs net setup), so the address %s is not fixed. Reserve it in your router by hand.	UniFi ist nicht verbunden (hs net setup), darum ist die Adresse %s nicht fest. Reserviere sie von Hand in deinem Router.
 The web page listens on port %s	Die Webseite lauscht auf Port %s
 The page can be opened at http://%s	Die Seite lässt sich unter http://%s öffnen
-Port of the web page of Uchiyomi	Port der Webseite von Uchiyomi
 Name of the share for films, series and manga (under /bulk/shares)	Name der Freigabe für Filme, Serien und Manga (unter /bulk/shares)
   create the container '%s' (Docker inside, 5120 MB RAM limit) unless it exists, with a fixed address (.20-.29) if UniFi is connected (hs net setup)	  den Container '%s' anlegen (Docker darin, 5120 MB RAM-Grenze), falls es ihn nicht gibt, mit fester Adresse (.20-.29), wenn UniFi verbunden ist (hs net setup)
   mount the share for the media (asks for its name, default media) read and write at /media and create the folder manga in it	  die Freigabe für die Medien (fragt nach dem Namen, Standard media) mit Lesen und Schreiben unter /media einbinden und darin den Ordner manga anlegen
@@ -2370,17 +2115,13 @@ Nothing written.	Nichts geschrieben.
 %s service(s) described in %s	%s Dienst(e) beschrieben in %s
 Check the exposure of each: public-ok means it is reachable from the internet today.	Prüfe bei jedem die Sichtbarkeit: public-ok heißt, er ist heute aus dem Internet erreichbar.
 Making the routes of the services	Die Routen der Dienste anlegen
-Nothing to add.	Nichts hinzuzufügen.
 The proxy is read-only here, so no route can be made.	Der Proxy ist hier nur lesbar, also lässt sich keine Route anlegen.
 The API and the rule files of the proxy list different routes: nothing is made until that is understood.	Die API und die Regeldateien des Proxys nennen verschiedene Routen: es wird nichts angelegt, bis das geklärt ist.
 %s is public-ok: this puts '%s' on the internet.	%s ist public-ok: damit kommt '%s' ins Internet.
 Type the host name to confirm	Tippe zur Bestätigung den Hostnamen ein
-%s%s not made: it needs the typed confirmation (--confirm %s)	%s%s nicht angelegt: es braucht die eingetippte Bestätigung (--confirm %s)
 Would make %s%s -> %s	Würde anlegen: %s%s -> %s
 %s%s -> %s (%s)	%s%s -> %s (%s)
 %s%s could not be made: %s	%s%s ließ sich nicht anlegen: %s
-%s made, %s failed, %s waiting for a confirmation	%s angelegt, %s fehlgeschlagen, %s warten auf eine Bestätigung
-Left alone (see hs services plan): %s row(s) that are changes, blocked, or violations.	Unangetastet (siehe hs services plan): %s Zeile(n), die Änderungen, gesperrt oder Verstöße sind.
 No reverse proxy is set up.	Es ist kein Reverse-Proxy eingerichtet.
 The login is asked for on a terminal.	Der Login wird in einem Terminal abgefragt.
 Admin name of the proxy	Admin-Name des Proxys
@@ -2515,8 +2256,6 @@ Not a node name: %s (lower case letters, digits and dashes)	Kein Knotenname: %s 
 There is no node called %s.	Es gibt keinen Knoten namens %s.
 There are no other nodes yet.	Es gibt noch keine anderen Knoten.
 Add one: hs node add <name> <host> [--kind peer|vps|edge]	Einen hinzufügen: hs node add <Name> <Host> [--kind peer|vps|edge]
-Node	Knoten
-Key	Schlüssel
 Not a host name or address: %s	Kein Hostname und keine Adresse: %s
 The kind is peer, vps or edge.	Die Art ist peer, vps oder edge.
 Not a port: %s	Kein Port: %s
@@ -2528,7 +2267,6 @@ Remove node %s from the list? The other server is not touched.	Knoten %s aus der
 Node %s removed	Knoten %s entfernt
 Its key file stays (%s); delete the line from the other server authorized keys and remove the file.	Seine Schlüsseldatei bleibt (%s); die Zeile in den erlaubten Schlüsseln des anderen Servers und die Datei selbst bitte löschen.
 The key of the implicit node proxyserver is made by: hs vps key	Der Schlüssel des impliziten Knotens proxyserver wird mit hs vps key angelegt.
-The key lives in the closed vault.	Der Schlüssel liegt im geschlossenen Tresor.
 Replacing the key needs --yes when there is no terminal.	Den Schlüssel zu ersetzen braucht --yes, wenn es kein Terminal gibt.
 Replace the key? The other server stops accepting the old one.	Den Schlüssel ersetzen? Der andere Server nimmt den alten dann nicht mehr an.
 ssh-keygen is not installed.	ssh-keygen ist nicht installiert.
@@ -2582,7 +2320,6 @@ No single guide matches "%s" (see: hs docs verified)	Keine einzelne Anleitung pa
 The file is part of the repository (docs/verified.tsv): commit it, and hs docs build shows the date	Die Datei gehört zum Repository (docs/verified.tsv): einchecken, dann zeigt hs docs build das Datum
 After the switch the health check reports new problems: %s	Nach dem Umschalten meldet die Gesundheitsprüfung neue Probleme: %s
 Watching the health check for new problems (up to 5 minutes)	Die Gesundheitsprüfung wird auf neue Probleme beobachtet (bis zu 5 Minuten)
-That is the machine.toml line of the edge node (role = "edge"); it puts the forced command in front of the key itself. Then: hs rebuild there.	Das ist die machine.toml-Zeile des Edge-Knotens (role = "edge"); sie setzt den erzwungenen Befehl selbst vor den Schlüssel. Danach dort: hs rebuild.
 usage: hs ext list	Aufruf: hs ext list
        hs ext enable <package>	       hs ext enable <Paket>
        hs ext disable <package>	       hs ext disable <Paket>
@@ -2590,8 +2327,6 @@ usage: hs ext list	Aufruf: hs ext list
 No extension called '%s'	Keine Erweiterung mit dem Namen '%s'
 No extension packages on this server.	Auf diesem Server gibt es keine Erweiterungspakete.
 Package	Paket
-Commands	Befehle
-hs ext enable <package>	hs ext enable <Paket>
 The extension '%s' is on already.	Die Erweiterung '%s' ist schon an.
 Extension '%s' is in machine.toml.	Die Erweiterung '%s' steht in machine.toml.
 It brings a NixOS module: it is on after a rebuild.	Sie bringt ein NixOS-Modul mit: nach einem Rebuild ist sie an.
@@ -2677,9 +2412,6 @@ The recipe '%s' has not been applied yet.	Das Rezept '%s' wurde noch nicht angew
 not applied yet	noch nicht angewendet
 '%s' is a recipe: it is applied, not switched on.	'%s' ist ein Rezept: es wird angewendet, nicht eingeschaltet.
 '%s' is a recipe: its container is managed with hs ct.	'%s' ist ein Rezept: sein Container wird mit hs ct verwaltet.
-There is no container '%s' yet.	Es gibt noch keinen Container '%s'.
-App	App
-Open	Öffnen
 Release	Release
 Commit	Commit
 Package repository %s	Paket-Repository %s
@@ -2694,3 +2426,224 @@ Adding a repository needs a person at a terminal, or --confirm-name <name>.	Ein 
 Repository %s added.	Repository %s hinzugefügt.
 Repository removed.	Repository entfernt.
 Signed	Signiert
+                          [--size <WxH>] [--case upper|keep] [--out <file|folder>] [--force]	                          [--size <BxH>] [--case upper|keep] [--out <Datei|Ordner>] [--force]
+       hs sys unifi clients              every address that is reserved or online, plain: ip, mac, name, reserved|online|reserved+online	       hs sys unifi clients              alle reservierten oder online gesehenen Adressen, einfach: ip, mac, name, reserved|online|reserved+online
+       hs sys unifi networks             the router's networks, plain: name, subnet, dhcp, from, to	       hs sys unifi networks             die Netze des Routers, einfach: name, subnet, dhcp, from, to
+       hs unlock --list          the same for tools: type, device, state, size (tab separated)	       hs unlock --list          dasselbe für Programme: type, device, state, size (mit Tabulatoren getrennt)
+     Bind CN     authentik-bind@%s  (make the user: hs user add authentik-bind)	     Bind-CN     authentik-bind@%s  (den Benutzer anlegen: hs user add authentik-bind)
+     Server URI  ldaps://%s    Base DN  %s	     Server-URI  ldaps://%s    Base-DN  %s
+     TLS certificate: leave empty (Samba's is self-signed). Addition User DN / Group DN: CN=Users	     TLS-Zertifikat: leer lassen (das von Samba ist selbst signiert). Addition User DN / Group DN: CN=Users
+     The VM is on the same network as your devices, so discovery works.	     Die VM hängt im selben Netz wie deine Geräte, so wird sie gefunden.
+     it starts the queue worker, which needs the key the installer made.	     Er startet den Queue-Worker, der den Schlüssel braucht, den der Installer erzeugt hat.
+     two-factor login in your profile. Then run  hs recipe pelican  once more:	     die Zwei-Faktor-Anmeldung ein. Starte danach  hs recipe pelican  noch einmal:
+  --close     snapraid data disk: no NEW files go there any more (it stays in /bulk, readable); --drain also moves its files to the other disks	  --close     SnapRAID-Datenplatte: keine NEUEN Dateien mehr dorthin (sie bleibt in /bulk, lesbar); --drain verschiebt auch ihre Dateien auf die anderen Platten
+  --dry-run  only list the shares whose folder is gone, change nothing	  --dry-run  nur die Freigaben auflisten, deren Ordner fehlt, nichts ändern
+  --open      snapraid data disk: take the mark of --close away again	  --open      SnapRAID-Datenplatte: die Markierung von --close wieder aufheben
+  --yes      do not ask before removing them	  --yes      nicht nachfragen, bevor sie entfernt werden
+  1. The first visit creates the owner account: name, password, home location.	  1. Beim ersten Besuch legst du das Besitzerkonto an: Name, Passwort, Standort des Hauses.
+  1. remove the mark; new files are spread over the disks as before	  1. die Markierung entfernen; neue Dateien werden wieder wie zuvor auf die Platten verteilt
+  2. Home Assistant finds many devices on its own (Settings -> Devices & services).	  2. Home Assistant findet viele Geräte von selbst (Einstellungen -> Geräte & Dienste).
+  3. Updates run inside Home Assistant (Settings -> System -> Updates).	  3. Updates laufen in Home Assistant (Einstellungen -> System -> Updates).
+  create '%s' and '%s' unless they exist	  '%s' und '%s' anlegen, falls es sie nicht gibt
+  create the virtual machine '%s' (4096 MB RAM, 2 CPUs, 32 GB disk, asks) unless it exists	  die virtuelle Maschine '%s' anlegen (4096 MB RAM, 2 CPUs, 32 GB Platte, fragt vorher), falls es sie nicht gibt
+  download the Panel %s (panel.tar.gz) and the Wings binary %s from GitHub, only when the pin changed, and check their checksums	  das Panel %s (panel.tar.gz) und das Wings-Programm %s von GitHub laden, nur wenn sich der Pin geändert hat, und ihre Prüfsummen kontrollieren
+  download the latest Home Assistant OS image (about 400 MB) and import it as an Incus image	  das neueste Home-Assistant-OS-Abbild laden (etwa 400 MB) und als Incus-Abbild importieren
+  install Docker inside and start the manager you pick (Arcane in /opt/arcane, or Portainer in /opt/portainer, or none) on port 80; projects live in /opt/projects	  Docker darin installieren und die gewählte Verwaltung starten (Arcane in /opt/arcane, Portainer in /opt/portainer oder keine) auf Port 80; Projekte liegen in /opt/projects
+  install nginx, PHP-FPM and Composer from the package sources into '%s' and Docker into '%s'	  nginx, PHP-FPM und Composer aus den Paketquellen in '%s' und Docker in '%s' installieren
+  optionally pass a USB device (Zigbee/Z-Wave stick) into it	  auf Wunsch ein USB-Gerät (Zigbee-/Z-Wave-Stick) hineinreichen
+  reserve its address in UniFi, if UniFi is connected (hs net setup)	  seine Adresse in UniFi reservieren, wenn UniFi verbunden ist (hs net setup)
+  wait for the web page on port 8123 (the first start takes 10 to 20 minutes)	  auf die Webseite an Port 8123 warten (der erste Start dauert 10 bis 20 Minuten)
+%s is current (%s)	%s ist aktuell (%s)
+%s is detached. Not syncing until it is attached again (hs sys disk start attach %s).	%s ist abgehängt. Kein Abgleich, bis sie wieder angehängt ist (hs sys disk start attach %s).
+%s is out of the pool for a recovery. Not syncing until it is given back (hs sys disk start %s recover-finish).	%s ist für eine Wiederherstellung aus dem Verbund genommen. Kein Abgleich, bis sie zurückgegeben ist (hs sys disk start %s recover-finish).
+%s written	%s geschrieben
+%s: Recycling Bin /media/downloads/recycle, emptied after 7 days	%s: Papierkorb /media/downloads/recycle, nach 7 Tagen geleert
+%s: Recycling Bin not set. Click: Settings -> Media Management -> Recycling Bin	%s: Papierkorb nicht gesetzt. Klicke: Einstellungen -> Medienverwaltung -> Papierkorb
+%s: Remove Completed not set. Click: Settings -> Download Clients -> SABnzbd -> Remove Completed	%s: Abgeschlossene entfernen nicht gesetzt. Klicke: Einstellungen -> Download-Clients -> SABnzbd -> Abgeschlossene entfernen
+%s: SABnzbd client removes completed downloads	%s: der SABnzbd-Client entfernt abgeschlossene Downloads
+%s: no API key found yet, settings not written (run the recipe again)	%s: noch kein API-Schlüssel gefunden, Einstellungen nicht geschrieben (Rezept noch einmal ausführen)
+%s: no SABnzbd client yet; add it (step 3 below), then run this recipe again for Remove Completed	%s: noch kein SABnzbd-Client; lege ihn an (Schritt 3 unten) und führe dieses Rezept dann noch einmal aus, damit Abgeschlossene entfernen gesetzt wird
+'%s' got no address. Check the network (hs ct list), then run the recipe again.	'%s' hat keine Adresse bekommen. Prüfe das Netzwerk (hs ct list) und führe das Rezept dann noch einmal aus.
+'%s' is not a Home Assistant OS version number.	'%s' ist keine Home-Assistant-OS-Versionsnummer.
+'%s' is not an address of the router (like https://10.10.10.1).	'%s' ist keine Adresse des Routers (wie https://10.10.10.1).
+Bazarr	Bazarr
+Building Homepage %s (a few minutes)	Homepage %s wird gebaut (ein paar Minuten)
+Calls (MatrixRTC)	Anrufe (MatrixRTC)
+Calls need the public address of Synapse: RECIPE_PUBLIC_BASEURL=https://matrix.<your domain>/ hs recipe synapse	Anrufe brauchen die öffentliche Adresse von Synapse: RECIPE_PUBLIC_BASEURL=https://matrix.<deine Domain>/ hs recipe synapse
+Creating the folders of Wings	Die Ordner von Wings werden angelegt
+Docker is ready, without a web page. Projects go in /opt/projects.	Docker ist bereit, ohne Webseite. Projekte kommen nach /opt/projects.
+Done. LiveKit runs, three things are still yours:	Fertig. LiveKit läuft, drei Dinge bleiben bei dir:
+Downloading %s %s	%s %s wird heruntergeladen
+Enabling the web server, the scheduler and the queue worker	Webserver, Zeitplaner und Queue-Worker werden aktiviert
+Files	Dateien
+Files already on it stay; an existing file that grows is still written there.	Dateien, die schon darauf liegen, bleiben; eine bestehende Datei, die wächst, wird weiter dorthin geschrieben.
+Groups	Gruppen
+Guide: http://%s.local:%s/docs/en/%s	Anleitung: http://%s.local:%s/docs/en/%s
+Homepage	Homepage
+Homepage %s is installed	Homepage %s ist installiert
+Homepage %s is installed already	Homepage %s ist schon installiert
+Homepage %s is installed already, keeping its config	Homepage %s ist schon installiert, die Konfiguration bleibt
+Installing Node.js and pnpm	Node.js und pnpm werden installiert
+Installing nginx, PHP and Composer	nginx, PHP und Composer werden installiert
+Invalid description: one line, up to 255 characters.	Ungültige Beschreibung: eine Zeile, bis zu 255 Zeichen.
+Invalid email address.	Ungültige E-Mail-Adresse.
+Invalid full name: letters, digits, spaces, dot, dash and apostrophe only.	Ungültiger vollständiger Name: nur Buchstaben, Ziffern, Leerzeichen, Punkt, Bindestrich und Apostroph.
+Jellyfin: Radarr/Sonarr -> Settings -> Connect -> + -> Emby/Jellyfin: host, port 8096, API key (Jellyfin: Dashboard -> API Keys), tick Update Library. Not set by the recipe: the key needs a Jellyfin login	Jellyfin: Radarr/Sonarr -> Einstellungen -> Verbinden -> + -> Emby/Jellyfin: Host, Port 8096, API-Schlüssel (Jellyfin: Dashboard -> API-Schlüssel), Bibliothek aktualisieren ankreuzen. Vom Rezept nicht gesetzt: der Schlüssel braucht eine Jellyfin-Anmeldung
+Lidarr	Lidarr
+LiveKit	LiveKit
+LiveKit does not answer at %s. Look at: incus exec %s -- docker compose -f /opt/livekit/compose.yaml logs	LiveKit antwortet nicht unter %s. Sieh nach mit: incus exec %s -- docker compose -f /opt/livekit/compose.yaml logs
+Maintainerr	Maintainerr
+Moving the files can take hours. The disk stays in the array, only emptied.	Das Verschieben der Dateien kann Stunden dauern. Die Platte bleibt im Verbund, wird nur geleert.
+No %s called '%s'.	Kein(e) %s namens '%s'.
+Nothing changed since the last rebuild (%s): the system is up to date, no rebuild needed.	Seit dem letzten Rebuild hat sich nichts geändert (%s): das System ist aktuell, ein Rebuild ist nicht nötig.
+Nothing yet: hs pkg fetch	Noch nichts: hs pkg fetch
+Other computer	Anderer Computer
+Panel is current (%s)	Das Panel ist aktuell (%s)
+Panel release	Panel-Version
+Prowlarr	Prowlarr
+Radarr	Radarr
+Saved. The network list updates when a computer looks at the server again.	Gespeichert. Die Netzliste aktualisiert sich, wenn ein Computer wieder auf den Server schaut.
+Settings	Einstellungen
+Sonarr	Sonarr
+Starting Homepage %s	Homepage %s wird gestartet
+Starting it (downloads the images)	Wird gestartet (lädt die Abbilder)
+The Matrix server name is needed (your domain, e.g. example.com): RECIPE_MATRIX_SERVER=<name> hs recipe livekit	Der Matrix-Servername wird gebraucht (deine Domain, z. B. example.com): RECIPE_MATRIX_SERVER=<Name> hs recipe livekit
+The Panel in '%s' was installed before: keeping it as it is	Das Panel in '%s' war schon installiert: es bleibt, wie es ist
+The VPN account is typed in. Run the recipe in a terminal, or use the web interface (Apps, Run).	Das VPN-Konto wird eingetippt. Starte das Rezept in einem Terminal oder nutze die Weboberfläche (Apps, Starten).
+The checksum of %s does not match the pin; nothing was installed	Die Prüfsumme von %s passt nicht zum Pin; es wurde nichts installiert
+The details of '%s' are changed.	Die Angaben von '%s' sind geändert.
+The disks of the array could not be moved back to /mnt/bulk (hs pool bulk)	Die Platten des Verbunds konnten nicht zurück nach /mnt/bulk verschoben werden (hs pool bulk)
+The disks of the array could not be moved to /var/lib/hs/disks (hs pool bulk)	Die Platten des Verbunds konnten nicht nach /var/lib/hs/disks verschoben werden (hs pool bulk)
+The last UDP port must be higher than the first.	Der letzte UDP-Port muss höher sein als der erste.
+The password is also in /opt/authentik/.env inside the container: change it, then keep it safe.	Das Passwort steht auch in /opt/authentik/.env im Container: ändere es und bewahre es sicher auf.
+The pinned Wings binary is for x86_64; this machine is %s.	Das angepinnte Wings-Programm ist für x86_64; dieser Rechner ist %s.
+The public address of the VPS is needed: RECIPE_PUBLIC_IP=<address> hs recipe livekit	Die öffentliche Adresse des VPS wird gebraucht: RECIPE_PUBLIC_IP=<Adresse> hs recipe livekit
+The tunnel token is typed in: run the recipe in a terminal, or use the web interface (Apps, Run).	Der Tunnel-Token wird eingetippt: Starte das Rezept in einem Terminal oder nutze die Weboberfläche (Apps, Starten).
+The web server and PHP packages are in place	Webserver- und PHP-Pakete sind vorhanden
+To build anyway: hs update --force (or hs rebuild).	Trotzdem bauen: hs update --force (oder hs rebuild).
+To empty it use --drain. NEVER mv/cp/mc its files into /bulk or /mnt/bulk/pool by hand: they are the same files, and the copy empties them.	Zum Leeren nimm --drain. Verschiebe oder kopiere ihre Dateien NIE von Hand mit mv/cp/mc nach /bulk oder /mnt/bulk/pool: es sind dieselben Dateien, und das Kopieren leert sie.
+Wings %s runs	Wings %s läuft
+Wings in '%s' was installed before: keeping it as it is	Wings in '%s' war schon installiert: es bleibt, wie es ist
+Wings is current (%s)	Wings ist aktuell (%s)
+Wings program	Wings-Programm
+Wings release	Wings-Version
+Wings starts as soon as the Panel has given it its configuration (see below).	Wings startet, sobald das Panel ihm seine Konfiguration gegeben hat (siehe unten).
+Would download Homepage %s (github.com/gethomepage/homepage, checked against a pinned checksum), install Node.js and pnpm in '%s' and build it.	Würde Homepage %s laden (github.com/gethomepage/homepage, gegen eine angepinnte Prüfsumme geprüft), Node.js und pnpm in '%s' installieren und es bauen.
+Writing the configuration	Die Konfiguration wird geschrieben
+Your previous %s is kept as %s.before-recipe	Dein bisheriges %s bleibt als %s.before-recipe erhalten
+attr: v	attr: v
+current        Layout	aktuell        Layout
+skipped (RECIPE_SKIP_PULL): no settings written	übersprungen (RECIPE_SKIP_PULL): keine Einstellungen geschrieben
+unknown visibility '%s' (visible, hidden)	unbekannte Sichtbarkeit '%s' (visible, hidden)
+usage: hs net setup [--address <url>] [--stdin]   store the router address and the API key (--stdin: the key is the first line on standard input)	Aufruf: hs net setup [--address <URL>] [--stdin]   Adresse des Routers und API-Schlüssel speichern (--stdin: der Schlüssel ist die erste Zeile der Standardeingabe)
+usage: hs pkg list [--all] [--kind recipe|extension] | updates | validate | fetch | available | install | update | remove | repo	Aufruf: hs pkg list [--all] [--kind recipe|extension] | updates | validate | fetch | available | install | update | remove | repo
+usage: hs pkg repo add <name> <url> (--key <allowed_signers file> | --unsigned) [--confirm-name <name>]	Aufruf: hs pkg repo add <Name> <URL> (--key <allowed_signers-Datei> | --unsigned) [--confirm-name <Name>]
+usage: hs pkg repo list | add <name> <url> (--key <file> | --unsigned) | remove <name>	Aufruf: hs pkg repo list | add <Name> <URL> (--key <Datei> | --unsigned) | remove <Name>
+usage: hs share cleanup [--dry-run] [--yes]	Aufruf: hs share cleanup [--dry-run] [--yes]
+usage: hs smoke [--list] [--no-run] [--coverage]	Aufruf: hs smoke [--list] [--no-run] [--coverage]
+would update   Layout (new container)	würde aktualisieren   Layout (neuer Container)
+would update   Layout (not written yet)	würde aktualisieren   Layout (noch nicht geschrieben)
+would update   Links file (new container)	würde aktualisieren   Links-Datei (neuer Container)
+  incus exec %s -- cat /opt/bulwark/.env	  incus exec %s -- cat /opt/bulwark/.env
+1. Radarr and Sonarr: Settings -> Media Management -> Root Folder:  /media/movies  and  /media/series  (Lidarr: /media/music)	1. Radarr und Sonarr: Settings -> Media Management -> Root Folder:  /media/movies  und  /media/series  (Lidarr: /media/music)
+1. The first visit asks for the language and creates the admin account.	1. Der erste Besuch fragt nach der Sprache und legt das Admin-Konto an.
+2. Prowlarr: add your indexer, then Settings -> Apps: connect Radarr, Sonarr and Lidarr (the key is in each app: Settings -> General)	2. Prowlarr: deinen Indexer eintragen, dann Settings -> Apps: Radarr, Sonarr und Lidarr verbinden (der Schlüssel steht in jeder App: Settings -> General)
+3. Dashboard -> Playback -> Transcoding: hardware acceleration "%s".	3. Dashboard -> Playback -> Transcoding: Hardwarebeschleunigung "%s".
+3. Radarr, Sonarr and Lidarr: Settings -> Download Clients -> SABnzbd (hs recipe sabnzbd), category  movies  /  tv  (Lidarr: audio)	3. Radarr, Sonarr und Lidarr: Settings -> Download Clients -> SABnzbd (hs recipe sabnzbd), Kategorie  movies  /  tv  (Lidarr: audio)
+Mail server: %s	Mailserver: %s
+NAME	NAME
+       hs remote add <peer> <host> <share> --user <login> [--domain <DOMAIN>] [--stdin] [--yes]   (this server uses theirs)	       hs remote add <peer> <host> <share> --user <login> [--domain <DOMAIN>] [--stdin] [--yes]   (dieser Server nutzt die Freigabe des anderen)
+       hs remote attach <peer> <instance> [--path <inside>]     |  hs remote detach <peer> <instance>	       hs remote attach <peer> <instance> [--path <innen>]     |  hs remote detach <peer> <instance>
+       hs remote offer <share> --peer <name> [--new-password] [--yes]   (this server gives access)	       hs remote offer <share> --peer <name> [--new-password] [--yes]   (dieser Server gibt Zugriff)
+       hs remote remove <peer> [<share>] [--yes]	       hs remote remove <peer> [<share>] [--yes]
+       hs remote revoke <peer> [<share>] [--yes]	       hs remote revoke <peer> [<share>] [--yes]
+%s can read %s.	%s darf %s lesen.
+%s is in use: stop what reads it first.	%s wird benutzt: halte zuerst an, was darauf liest.
+%s sees the shares of %s under %s (read only).	%s sieht die Freigaben von %s unter %s (nur lesen).
+%s/%s: %s is not reachable or refused the login; it is tried again.	%s/%s: %s ist nicht erreichbar oder hat die Anmeldung abgelehnt; es wird erneut versucht.
+%s/%s: no credentials file.	%s/%s: keine Zugangsdatei.
+%s/%s: the vault is closed, not mounted.	%s/%s: der Tresor ist geschlossen, nicht eingehängt.
+'%s' has no device remote-%s.	'%s' hat kein Gerät remote-%s.
+Access given	Zugriff erteilt
+Access of %s revoked. Open connections end when they are closed.	Der Zugriff von %s ist entzogen. Offene Verbindungen enden, wenn sie geschlossen werden.
+Could not change the permissions of %s.	Die Berechtigungen von %s konnten nicht geändert werden.
+Description	Beschreibung
+Exposure	Erreichbarkeit
+Fan channel %s cannot be set, left alone	Lüfterkanal %s lässt sich nicht setzen, bleibt unverändert
+Fans are back as they were	Die Lüfter sind wieder wie vorher
+Give %s read access to %s	%s Lesezugriff auf %s geben
+Group	Gruppe
+Hosts	Hosts
+Icon	Symbol
+Instances that got the folder with 'attach' keep an empty folder.	Instanzen, die den Ordner mit 'attach' bekommen haben, behalten einen leeren Ordner.
+Invalid %s '%s'.	Ungültiger Wert für %s: '%s'.
+Link	Link
+Missing: the password (give it on standard input with --stdin).	Fehlt: das Passwort (auf der Standardeingabe mit --stdin angeben).
+Mount %s from %s	%s von %s einhängen
+Mounted %s/%s	%s/%s eingehängt
+Mounted from other servers	Von anderen Servern eingehängt
+No password.	Kein Passwort.
+Nothing is mounted from another server.	Von einem anderen Server ist nichts eingehängt.
+Nothing is shared with another server.	Mit einem anderen Server wird nichts geteilt.
+Password (shown once, they type it when asked):	Passwort (wird einmal gezeigt, es wird beim Nachfragen eingetippt):
+Password of %s	Passwort von %s
+Path	Pfad
+Proxy	Proxy
+Read only. Not part of /bulk, the parity or the backup.	Nur lesen. Nicht Teil von /bulk, der Parität oder des Backups.
+Removed from %s.	Aus %s entfernt.
+Removed. Files on the other server are untouched.	Entfernt. Dateien auf dem anderen Server bleiben unberührt.
+Revoke later with:	Später entziehen mit:
+Routes	Routen
+Stop using %s	%s nicht mehr nutzen
+Take access away from %s	%s den Zugriff entziehen
+Tell the other person (on their server):	Sage der anderen Person (auf deren Server):
+The extension '%s' has no command 'hs %s'.	Die Erweiterung '%s' hat keinen Befehl 'hs %s'.
+The login can only read the share %s, nothing else.	Die Anmeldung kann nur die Freigabe %s lesen, sonst nichts.
+The login exists already; its password stays as it is (--new-password makes a new one).	Die Anmeldung gibt es schon; ihr Passwort bleibt, wie es ist (--new-password erzeugt ein neues).
+The login or the address may be wrong. It stays set up and is tried every 2 minutes (hs remote list).	Die Anmeldung oder die Adresse stimmt vielleicht nicht. Es bleibt eingerichtet und wird alle 2 Minuten versucht (hs remote list).
+The path inside the instance starts with /.	Der Pfad in der Instanz beginnt mit /.
+Their login '%s' is deleted when no share is left.	Ihre Anmeldung '%s' wird gelöscht, wenn keine Freigabe mehr übrig ist.
+Title	Titel
+Wants	Will
+needs root (run it as: hs fans clean)	braucht root (starte es mit: hs fans clean)
+no fan channel could be set	kein Lüfterkanal ließ sich setzen
+no fan controller found (is the nct6775 driver loaded? see hs fans in the docs)	kein Lüfterregler gefunden (ist der Treiber nct6775 geladen? siehe hs fans in der Doku)
+seconds must be a number between 3 and 30	Sekunden müssen eine Zahl zwischen 3 und 30 sein
+the fan controller has no pwm channels that can be set	der Lüfterregler hat keine PWM-Kanäle, die sich setzen lassen
+usage: hs fans clean [seconds]	Aufruf: hs fans clean [Sekunden]
+usage: hs remote list	Aufruf: hs remote list
+%s service(s) now want a local name.	%s Dienst(e) wollen jetzt einen lokalen Namen.
+*.%s points at this server (%s)	*.%s zeigt auf diesen Server (%s)
+A name under %s does not resolve: the wildcard record is missing.	Ein Name unter %s wird nicht aufgelöst: der Wildcard-Eintrag fehlt.
+A name under %s resolves, but not to this server (%s).	Ein Name unter %s wird aufgelöst, aber nicht auf diesen Server (%s).
+A port is held by %s, not by Traefik (%s).	Ein Port wird von %s belegt, nicht von Traefik (%s).
+Direct address	Direkte Adresse
+Every service already says whether it wants a local name.	Jeder Dienst sagt schon, ob er einen lokalen Namen will.
+Format	Format
+Gateway proxy (Traefik)	Gateway-Proxy (Traefik)
+Give these %s service(s) a local name (local-proxy = true)?	Diesen %s Diensten einen lokalen Namen geben (local-proxy = true)?
+Local address: http://%s.%s	Lokale Adresse: http://%s.%s
+Local domain	Lokale Domain
+Local name for %s	Lokaler Name für %s
+Local routes	Lokale Routen
+Making the local names of the services	Die lokalen Namen der Dienste werden angelegt
+Next: hs services plan --proxy local, then hs services apply --proxy local	Danach: hs services plan --proxy local, dann hs services apply --proxy local
+No local domain: the gateway proxy needs adDomain in machine.toml.	Keine lokale Domain: der Gateway-Proxy braucht adDomain in machine.toml.
+On the DNS server, a person with the domain administrator password adds one record:	Auf dem DNS-Server legt eine Person mit dem Domänen-Administratorpasswort einen Eintrag an:
+Passthrough	Durchreichen
+Port 80	Port 80
+Public HTTP	Öffentliches HTTP
+Public HTTPS	Öffentliches HTTPS
+Services that get a local name	Dienste, die einen lokalen Namen bekommen
+The gateway proxy is off: put capabilities = ["gateway"] in machine.toml, then hs rebuild.	Der Gateway-Proxy ist aus: setze capabilities = ["gateway"] in machine.toml, dann hs rebuild.
+The gateway proxy is running and the wildcard record works.	Der Gateway-Proxy läuft und der Wildcard-Eintrag funktioniert.
+The local proxy must never be public: its provider says it is.	Der lokale Proxy darf nie öffentlich sein: sein Provider sagt, er ist es.
+The wildcard DNS record is %s.	Der Wildcard-DNS-Eintrag ist %s.
+Traefik is not running (%s).	Traefik läuft nicht (%s).
+Unmanaged files	Nicht verwaltete Dateien
+Web interface	Weboberfläche
+Wildcard DNS	Wildcard-DNS
+or in Windows DNS Manager: zone %s > %s > New Host, name *, address %s	oder im Windows-DNS-Manager: Zone %s > %s > Neuer Host, Name *, Adresse %s
+usage: hs gateway status | routes | check	Aufruf: hs gateway status | routes | check
+usage: hs services list | check | plan | add <name> ... | remove <name> | import [--dry-run] [--yes] | apply [--dry-run] [--confirm <host or service>] | adopt [--yes] | proxy login   (plan, apply, import, adopt: [--proxy public|local])	Aufruf: hs services list | check | plan | add <Name> ... | remove <Name> | import [--dry-run] [--yes] | apply [--dry-run] [--confirm <Host oder Dienst>] | adopt [--yes] | proxy login   (plan, apply, import, adopt: [--proxy public|local])
+Removing the old start page	Die alte Startseite wird entfernt

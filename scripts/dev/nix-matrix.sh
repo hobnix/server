@@ -12,6 +12,7 @@ repo=$(cd "$(dirname "$0")/../.." && pwd)
 only=""
 [ "${1:-}" != --only ] || only=${2:-}
 export NIX_PATH=${NIX_PATH:-nixpkgs=channel:nixos-unstable}
+command -v jq >/dev/null 2>&1 || { echo "jq is not installed: cannot compare the values"; exit 77; }
 command -v nix-instantiate >/dev/null 2>&1 || { echo "nix-instantiate is not installed: nothing to evaluate"; exit 77; }
 
 work=$(mktemp -d /tmp/nix-matrix.XXXXXX)
@@ -26,10 +27,15 @@ bad() { fail=$((fail + 1)); echo "  FAIL  $*"; }
 # write machine.toml: the example, CHANGEME replaced, plus the given lines
 machine() { cp "$work/machine.toml.example" "$work/machine.toml"; sed -i 's/CHANGEME/deadbeef/' "$work/machine.toml"; for l in "$@"; do printf '%s\n' "$l" >> "$work/machine.toml"; done; }
 evaluates() { ( cd "$work" && nix-instantiate '<nixpkgs/nixos>' -A system -I nixos-config=./configuration.nix >/dev/null 2>"$work/err.txt" ); }
-attr() {   # attr <config path> -> the value as Nix prints it
-  ( cd "$work" && nix-instantiate --eval --strict -I nixos-config=./configuration.nix \
-      -E "(import <nixpkgs/nixos> { configuration = ./configuration.nix; }).config.$1" 2>&1 | head -n 3 )
+# facts <config paths...> -> the values as a JSON list, from ONE evaluation of the system (a separate evaluation per value took ~7 s each)
+facts() {
+  local list="" a
+  for a in "$@"; do list="$list c.$a"; done
+  ( cd "$work" && nix-instantiate --eval --strict --json -I nixos-config=./configuration.nix \
+      -E "let c = (import <nixpkgs/nixos> { configuration = ./configuration.nix; }).config; in [$list ]" 2>&1 )
 }
+# as_json <Nix literal> -> the same value as JSON, so that "[ ]" and "[]" compare equal
+as_json() { nix-instantiate --eval --strict --json -E "$1" 2>&1; }
 
 # variant <name> <expected facts as "attr=value" separated by |> <machine.toml lines...>
 variant() {
@@ -39,13 +45,19 @@ variant() {
   machine "$@"
   if ! evaluates; then bad "$name: the system does not evaluate: $(grep -E 'error:|Failed assertions|^- ' "$work/err.txt" | head -n 2 | tr '\n' ' ')"; return; fi
   ok "$name: evaluates"
-  local f a want got
+  local f a want got i=0 attrs=() wants=() all
   IFS='|' read -ra F <<<"$facts"
   for f in "${F[@]}"; do
     [ -n "$f" ] || continue
-    a=${f%%=*}; want=${f#*=}
-    got=$(attr "$a")
-    if [ "$got" = "$want" ]; then ok "$name: $a = $want"; else bad "$name: $a is '$got', expected '$want'"; fi
+    attrs+=("${f%%=*}"); wants+=("${f#*=}")
+  done
+  [ "${#attrs[@]}" -gt 0 ] || return 0
+  all=$(facts "${attrs[@]}")
+  for a in "${attrs[@]}"; do
+    want=${wants[$i]}
+    got=$(printf '%s' "$all" | jq -c ".[$i]" 2>/dev/null || echo "not readable: $all")
+    if [ "$got" = "$(as_json "$want" | jq -c .)" ]; then ok "$name: $a = $want"; else bad "$name: $a is '$got', expected '$want'"; fi
+    i=$((i + 1))
   done
 }
 # a variant that must be refused (an assertion)
@@ -65,11 +77,22 @@ for dir in "$repo"/capabilities/*/; do
   case "$cap" in
     metrics)   variant "only-$cap" "$PROM=true|$TS=false|$PRIV=[ ]" "capabilities = [\"$cap\"]" ;;
     tailscale) variant "only-$cap" "$PROM=false|$TS=true|$PRIV=[ \"tailscale0\" ]" "capabilities = [\"$cap\"]" ;;
+    gateway)   variant "only-$cap" "$PROM=false|$TS=false|$PRIV=[ ]|services.traefik.enable=true" "capabilities = [\"$cap\"]" ;;
     *)         variant "only-$cap" "$PROM=false|$TS=false|$PRIV=[ ]" "capabilities = [\"$cap\"]" ;;   # no Nix module: it must still evaluate
   esac
 done
 all=$(ls -d "$repo"/capabilities/*/ | xargs -n1 basename | sed 's/.*/"&"/' | paste -sd, | sed 's/,/, /g')
 variant all          "$PROM=true|$TS=true|$PRIV=[ \"tailscale0\" ]" "capabilities = [$all]"
+refused gateway-webport-80 'capabilities = ["gateway"]' 'webUi = true' 'webPort = 80'
+variant gateway-public "services.traefik.enable=true" 'capabilities = ["gateway"]' 'gatewayPublicHttps = 4443' 'gatewayPublicHttp = 8008'
+variant gateway-public-direct "services.traefik.enable=true" 'capabilities = ["gateway"]' 'gatewayPublicHttps = 443' 'gatewayPublicHttp = 80'   # the router forwards 443 and 80 as they are
+LR='environment.etc."hs/gateway-lan-ranges".text'
+variant gateway-ranges-local "$LR="'"10.0.0.0/8 172.16.0.0/12 192.168.0.0/16 100.64.0.0/10 127.0.0.1/32 fc00::/7 ::1/128\n"' 'capabilities = ["gateway"]'
+variant gateway-ranges-public "$LR="'"10.0.0.0/8 172.16.0.0/12 192.168.0.0/16 127.0.0.1/32 fc00::/7 ::1/128\n"' 'capabilities = ["gateway"]' 'gatewayPublicHttp = 80'
+refused gateway-public-443-tailscale 'capabilities = ["gateway"]' 'gatewayPublicHttps = 443' 'webUi = true' 'webTailscale = true'
+refused gateway-public-https-80 'capabilities = ["gateway"]' 'gatewayPublicHttps = 80'
+refused gateway-public-http-443 'capabilities = ["gateway"]' 'gatewayPublicHttp = 443'
+variant gateway-ad "services.traefik.enable=true" 'capabilities = ["gateway"]' 'adDomain = { realm = "AD.HOME.LAN", workgroup = "HOME" }'   # the hs-webui Host router
 variant legacy-switches "$PROM=true|$TS=true" 'metrics = true' 'tailscaleRouter = true'
 variant ad-domain 'environment.etc."hs/capabilities".text="ad\nstorage\nincus\nsamba\nbackup\n"' 'adDomain = { realm = "AD.HOME.LAN", workgroup = "HOME" }'   # the capability ad is computed from adDomain
 # the author's preset as a whole (presets/example-server.toml [machine]): its lines must evaluate together, whatever the other variants say

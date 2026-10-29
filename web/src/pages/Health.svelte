@@ -1,4 +1,5 @@
 <script>
+  import { tip } from '../ui/tooltip.svelte.js';
   import { poll, rows } from '../data.svelte.js';
   import { openPlan, ui } from '../ui.svelte.js';
   import { go } from '../route.svelte.js';
@@ -101,14 +102,14 @@
 <div class="page">
   <PageHeader title="Health" crumb="{ui.host} / Health" {sub}>
     {#snippet actions()}
-      <button class="btn btn-secondary" title="Send a test message to the push address" onclick={() => openPlan('admin', ['test-push'], 'Test push message')}><i class="ph ph-bell-ringing"></i>Send test push</button>
-      <button class="btn btn-primary" onclick={() => openPlan('jobs', ['run', 'hs-health-check.service'], 'Health check')}><i class="ph ph-shield-check"></i>Run health check</button>
+      <button class="btn btn-secondary" use:tip={'Send a test message to the push address'} onclick={() => openPlan('admin', ['test-push'], 'Test push message')}><i class="ph ph-bell-ringing"></i>Send test push</button>
+      <button use:tip={'Check everything now and list the problems'} class="btn btn-primary" onclick={() => openPlan('jobs', ['run', 'hs-health-check.service'], 'Health check')}><i class="ph ph-shield-check"></i>Run health check</button>
     {/snippet}
   </PageHeader>
 
   {#if paused}
     <Banner tone="warn" icon="pause-circle">Sync, scrub and the cache mover are paused. Fix the cause first, then lift the pause.
-      {#snippet action()}<button class="btn btn-primary sm" title="Shows the plan first" onclick={() => openPlan('health', ['resume'], 'Resume the bulk jobs')}><i class="ph ph-play"></i>Resume</button>{/snippet}
+      {#snippet action()}<button class="btn btn-primary sm" use:tip={'Shows the plan first'} onclick={() => openPlan('health', ['resume'], 'Resume the bulk jobs')}><i class="ph ph-play"></i>Resume</button>{/snippet}
     </Banner>
   {/if}
 
@@ -125,16 +126,16 @@
               {#if p.how}<div class="how">{p.how}</div>{/if}
               <div class="meta">
                 {#if p.acked}<Chip>acknowledged</Chip>{/if}
-                {#if p.since}<span class="when" title="First seen by the health check">first seen {p.since}</span>{/if}
-                {#if p.id && !p.acked}<span class="when" title="The channels that took the last message about this problem">{p.told.length ? `told: ${p.told.join(', ')}` : 'no message sent yet'}</span>{/if}
-                {#if OBJECT[p.icon]}<button class="lnk" onclick={() => go(OBJECT[p.icon][1])}>{OBJECT[p.icon][0]}<i class="ph ph-arrow-right"></i></button>{/if}
+                {#if p.since}<span class="when" use:tip={'First seen by the health check'}>first seen {p.since}</span>{/if}
+                {#if p.id && !p.acked}<span class="when" use:tip={'The channels that took the last message about this problem'}>{p.told.length ? `told: ${p.told.join(', ')}` : 'no message sent yet'}</span>{/if}
+                {#if OBJECT[p.icon]}<button use:tip={'Open the page of the thing this problem is about'} class="lnk" onclick={() => go(OBJECT[p.icon][1])}>{OBJECT[p.icon][0]}<i class="ph ph-arrow-right"></i></button>{/if}
                 {#if p.fix}<code class="chip">{p.fix}</code>{/if}
               </div>
             </div>
             <div class="acts">
-              {#if p.id && p.acked}<button class="btn btn-ghost sm" title="Report it again and count it" onclick={() => openPlan('health', ['unack', p.id], 'Undo acknowledge')}>Undo</button>
-              {:else if p.id}<button class="btn btn-ghost sm" title="Silent until the problem is gone" onclick={() => openPlan('health', ['ack', p.id], 'Acknowledge')}>Acknowledge</button>{/if}
-              {#if p.act && !p.acked}<button class="btn btn-primary sm" title="Shows the plan first: {p.act.title}" onclick={() => openPlan(p.act.area, p.act.args, p.act.title)}>{p.act.label}</button>{/if}
+              {#if p.id && p.acked}<button class="btn btn-ghost sm" use:tip={'Report it again and count it'} onclick={() => openPlan('health', ['unack', p.id], 'Undo acknowledge')}>Undo</button>
+              {:else if p.id}<button class="btn btn-ghost sm" use:tip={'Silent until the problem is gone'} onclick={() => openPlan('health', ['ack', p.id], 'Acknowledge')}>Acknowledge</button>{/if}
+              {#if p.act && !p.acked}<button class="btn btn-primary sm" use:tip={`Shows the plan first: ${p.act.title}`} onclick={() => openPlan(p.act.area, p.act.args, p.act.title)}>{p.act.label}</button>{/if}
             </div>
           </div>
         {/each}

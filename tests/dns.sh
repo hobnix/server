@@ -88,6 +88,17 @@ ZONE
 check_out "nothing to do" "up to date \(5 records\)" $D sync
 check_out "list shows the full names" "docs.home.ad.home.lan +A +10.10.95.22" $D list
 
+echo "-- the hand-made wildcard *.<siteName> (gateway proxy) is never planned"
+cp "$WORK_ZONE" "$WORK/zone.keep"
+printf '  Name=*, Records=1, Children=0\n    A: 10.10.10.95 (flags=f0, serial=9, ttl=900)\n' >> "$WORK_ZONE"
+check_eq "sync --plain: no row for the wildcard" "" "$($D sync --plain)"
+check_out "up to date with a wildcard present" "up to date" $D sync
+check_out "list and raw still show it" '\*\.home\.ad\.home\.lan +A' $D list
+check_out "raw keeps its three columns" '^\*\.home\.ad\.home\.lan.A.10\.10\.10\.95$' $D raw
+sed -i 's/serial=9/serial=9/; $ s/10.10.10.95/10.10.10.1/' "$WORK_ZONE"
+check_eq "a wildcard with another value is left alone too" "" "$($D sync --plain)"
+cp "$WORK/zone.keep" "$WORK_ZONE"
+
 echo "-- machine-readable (hs sys dns list, hs sys dns plan)"
 check_eq "raw: name, type, value, no header" "$(printf 'arcane.home.ad.home.lan\tCNAME\tdocker.home.ad.home.lan\ndocker.home.ad.home.lan\tA\t10.10.95.20\ndocs.home.ad.home.lan\tA\t10.10.95.22\nhome.ad.home.lan\tA\t10.10.10.95\nincus.home.ad.home.lan\tA\t10.10.10.95')" "$($D raw)"
 check_eq "sync --plain prints nothing when the names are up to date" "" "$($D sync --plain)"

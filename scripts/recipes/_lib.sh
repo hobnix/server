@@ -409,11 +409,19 @@ declare_service() {
     setting "PROXY_$key" "$(t "Put '%s' on the reverse proxy?" "$title")" no no 'yes|no'
     var=PROXY_$key; [ "${!var}" != yes ] || want+=reverse-proxy,
   fi
+  # the gateway proxy (capability gateway) is private: its local name is wanted without a question, also for an admin page
+  if capability_on gateway; then want+=local-proxy,; fi
   # shellcheck disable=SC2086
   if out=$(bash "$scripts/services.sh" declare "$name" --container "$ct" --port "$port" --title "$title" --icon "$icon" --exposure "$exposure" \
         --group "$group" ${desc:+--description "$desc"} ${want:+--want "${want%,}"} ${SERVICE_PUBLIC_NAME:+--public-name "$SERVICE_PUBLIC_NAME"} 2>&1); then
     ok "$(t "Service '%s' is %s (hs services list)" "$name" "$out")"
     note "$(t 'Next: hs services apply (a public name is decided there: exposure public-ok)')"
+    if capability_on gateway; then
+      SPIN_SOFT=1 spin "$(t 'Local name for %s' "$name")" bash "$scripts/services.sh" apply --proxy local --adds-only
+      . "$scripts/lib/localdomain.sh"
+      ld=$(local_domain)
+      [ -z "$ld" ] || note "$(t 'Local address: http://%s.%s' "$name" "$ld")"
+    fi
   else
     warn "$(t "The service '%s' could not be described: %s" "$name" "$out")"
   fi

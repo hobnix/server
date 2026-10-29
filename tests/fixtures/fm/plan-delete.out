@@ -1,0 +1,13 @@
+status	ok
+heading	delete 2 item(s) (10B) from data-04:/shares/media
+step	- delete 2 files and 0 folders (10B) from data-04:/shares/media
+warn	Delete is permanent: there is no trash. The backup and ZFS snapshots are the only way back.
+note	The SnapRAID parity is out of date afterwards: files taken off a data disk count as removed until the next sync (hs pool bulk sync).
+note	The parity sync and the cache mover wait until this is done.
+files	2
+folders	0
+bytes	10
+conflicts	0
+parity	yes
+confirm_name	delete 2 files
+long	no

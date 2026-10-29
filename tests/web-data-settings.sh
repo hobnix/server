@@ -59,7 +59,8 @@ check_eq "not settable" "no" "$(col hostName 7)"
 check_eq "a secret shows only that it is set" "(set)" "$(col notifyUrl 3)"
 check_eq "a secret that is not set" "(not set)" "$(col heartbeatUrl 3)"
 if grep -q "very-secret" <<<"$list"; then fail "the secret value is in the list"; else pass "the secret value is not in the list"; fi
-if grep -q "ssh-ed25519" <<<"$list"; then fail "an SSH key is in the list"; else pass "no SSH key in the list"; fi
+# nodeKeys (the public keys of other nodes) is a plain list on purpose; the keys that log in as adminuser are secret
+if grep -a "^[^	]*	sshKeys	" <<<"$list" | grep -q "ssh-ed25519"; then fail "an SSH key is in the list"; else pass "no SSH key in the list"; fi
 case "$(col language 6)" in *"Language of the descriptions"*) pass "help text from the example" ;; *) fail "help text: $(col language 6)" ;; esac
 
 echo "-- config check"

@@ -1,8 +1,9 @@
 <script>
+  import { tip } from '../ui/tooltip.svelte.js';
   // The create dialog (design: "Create dialog", 960 px, form on the left, live plan on the right). A form component renders it with its own fields:
   //
   //   <CreateDialog title="New share" area="shares" args={() => [...] | null} stdin={() => password} onclose={...} ondone={...}>
-  //     {#snippet form()} ...fields bound to the form component's own state... {/snippet}
+  //     {#snippet form(plan)} ...fields bound to the form component's own state... {/snippet}   (`plan`: the last answer, null before the first)
   //   </CreateDialog>
   //
   // `args` is a function of the form state that returns the argument list of `hs sys <area> plan|start` (or null while the form cannot name a command yet).
@@ -83,7 +84,7 @@
         <div class="kicker">{kicker} <span class="tag tag-neutral" style="padding:1px 8px;margin-left:6px">{ui.host}</span></div>
         <div id="cdt" class="dialog-title">{title}</div>
       </div>
-      {@render form?.()}
+      {@render form?.(p)}
     </div>
 
     <div class="right">
@@ -116,7 +117,7 @@
 
       <div class="dialog-actions" style="margin-top:0">
         <button class="btn btn-secondary" onclick={onclose}>Cancel</button>
-        <button class="btn btn-primary" disabled={!canStart} onclick={go} style={danger ? 'color:var(--st-bad);border-color:var(--st-bad)' : ''}>
+        <button use:tip={canStart ? '' : p?.confirm_name && confirm !== p.confirm_name ? 'Type the name to confirm first' : busy ? 'Starting' : 'Fill in the form first'} class="btn btn-primary" disabled={!canStart} onclick={go} style={danger ? 'color:var(--st-bad);border-color:var(--st-bad)' : ''}>
           <i class="ph ph-play"></i>{busy ? 'Starting…' : 'Start'}
         </button>
       </div>

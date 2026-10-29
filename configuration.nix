@@ -68,7 +68,7 @@ let
   hasSamba = builtins.elem "samba" capabilities;
   # what the modules in capabilities/ get as their `hs` argument (the helpers are shared by storage, incus, samba and backup)
   hs = {
-    inherit machine hostName ad bulkSnapraid bulkReady whenUnlocked notifyFailure;
+    inherit machine hostName siteName ad bulkSnapraid bulkReady whenUnlocked notifyFailure;
     enabled = name: builtins.elem name capabilities;
     scripts = ./scripts;
   };
@@ -341,7 +341,7 @@ in
       HS_WEB_VPS_HOST = vpsHost;
       HS_WEB_BIND = if webTailscale && !webLan then "127.0.0.1" else "";
       HS_WEB_SECURE = if webTailscale then "1" else "";
-      HS_WEB_TRUST_PROXY = if webTailscale then "1" else "";
+      HS_WEB_TRUST_PROXY = if webTailscale || builtins.elem "gateway" capabilities then "1" else "";
       HS_WEB_WORKGROUP = if ad != null then ad.workgroup else "";
       HS_WEB_REALM = if ad != null then ad.realm else "";
       HS_WEB_LOCAL_USER = "adminuser";

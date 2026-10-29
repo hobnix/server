@@ -1,0 +1,15 @@
+status	ok
+heading	copy 2 item(s) (294KB) from data-04:/shares/media/movies to data-05:/shares/media/movies
+step	+ copy 3 files in 2 folders (294KB) to data-05:/shares/media/movies, each to a temporary name first, renamed when complete
+step	~ check every copied file (size and modification time) before it counts as done
+step	~ 1 file(s) exist at the target already: they are left alone (skipped)
+note	The parity sync and the cache mover wait until this is done.
+files	3
+folders	2
+bytes	301007
+free_after	16736626737
+conflicts	1
+parity	no
+confirm_name	
+long	no
+conflict	Heat	60	4	1793169533	1793169533

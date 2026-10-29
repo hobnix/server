@@ -29,6 +29,16 @@ fi
 [[ "$name" =~ ^[a-z][a-z0-9-]{0,30}$ ]] && [ "$name" != local ] && [ "$name" != main ] || refuse "not a node name (lower case letters, digits and dashes, at most 31, starting with a letter)"
 shift 3
 
+# the web interface appends --confirm <word> to start (the typed name of a red change); take it out of the arguments
+confirm="" rest=()
+while [ $# -gt 0 ]; do
+  case "$1" in
+    --confirm) [ $# -ge 2 ] || refuse "--confirm needs a value"; confirm=$2; shift 2 ;;
+    *) rest+=("$1"); shift ;;
+  esac
+done
+set -- ${rest[@]+"${rest[@]}"}
+
 export HS_PLAIN=1 HS_LANG=en HS_CALLER=${HS_CALLER:-ui}
 unset HS_GUIDED_TTY
 
@@ -66,6 +76,9 @@ case "$action" in
 esac
 
 if [ "$verb" = start ]; then
+  if [ "$action" = remove ] || { [ "$action" = key ] && $new; }; then
+    [ "$confirm" = "$name" ] || refuse "type the name of the node ($name) to confirm"
+  fi
   rc=0; out=$("${cmd[@]}" </dev/null 2>&1) || rc=$?
   if [ "$rc" -ne 0 ]; then
     printf 'status\trefused\nreason\t%s\n' "$(printf '%s' "$out" | sed -e 's/^[[:space:]]*//' -e 's/^[✗!] *//' | awk 'NF' | tail -n 1)"

@@ -57,6 +57,8 @@ case "$*" in *"-o cat"*) printf 'one
 two
 three
 '; exit 0 ;; esac
+case "$2" in hs-noisy.service) printf '%s
+' 'root : PWD=/ ; USER=adminuser ; COMMAND=/run/current-system/sw/bin/git -C /etc/nixos rev-parse HEAD' 'pam_unix(sudo:session): session opened for user adminuser(uid=1000) by (uid=0)' 'Fetching the latest configuration ...' 'pam_unix(sudo:session): session closed for user adminuser'; exit 0 ;; esac
 echo "journal line of $2"
 FAKE
 chmod +x "$BIN"/*
@@ -122,6 +124,8 @@ check_eq "--log defaults to 200 lines and adds .service" "journalctl -u hs-backu
 check_eq "--log only for hs-* units" "1" "$($J --log sshd.service >/dev/null 2>&1; echo $?)"
 check_eq "hs sys jobs show <unit>" "$($J --show hs-backup.service)" "$($F sys jobs show hs-backup.service)"
 check_eq "hs sys jobs log <unit> [N]" "journal line of hs-backup.service" "$($F sys jobs log hs-backup.service 30)"
+
+check_eq "--log leaves out the sudo lines a script writes into the journal" "Fetching the latest configuration ..." "$($J --log hs-noisy.service)"
 
 echo "-- tail (the interface's job view)"
 out=$($J tail hs-job-live 0)

@@ -1,4 +1,5 @@
 <script>
+  import { tip } from '../ui/tooltip.svelte.js';
   // Notifications: the channels (where a message can go) against the message classes they carry. hs sys notify channels / providers read,
   // hs sys notify plan|start add|set|remove|test change. A tick saves at once.
   import { poll, rows, refresh } from '../data.svelte.js';
@@ -98,19 +99,19 @@
 
 <div class="page">
   <PageHeader title="Notifications" crumb="{ui.host} / Monitoring" sub="Where messages go, and which kinds each place gets.">
-    {#snippet actions()}<button class="btn btn-primary" disabled={!prov.loaded} onclick={add}><i class="ph ph-plus"></i>Add channel</button>{/snippet}
+    {#snippet actions()}<button use:tip={!prov.loaded ? 'Loading the providers' : 'Add a push channel'} class="btn btn-primary" disabled={!prov.loaded} onclick={add}><i class="ph ph-plus"></i>Add channel</button>{/snippet}
   </PageHeader>
 
   {#if noOutside}
     <Banner tone="warn">No enabled channel outside this server carries alarms. While the storage is locked this server is down, and you will not hear about it. Add a channel on a service that is not on this server (the public ntfy.sh, or email).
-      {#snippet action()}<button class="btn sm" disabled={!prov.loaded} onclick={add}>Add channel</button>{/snippet}
+      {#snippet action()}<button use:tip={!prov.loaded ? 'Loading the providers' : 'Add a push channel'} class="btn sm" disabled={!prov.loaded} onclick={add}>Add channel</button>{/snippet}
     </Banner>
   {/if}
   {#if msg}<Banner tone={msgBad ? 'bad' : 'ok'}>{msg}</Banner>{/if}
 
   <PageState loading={!list.loaded} error={list.error?.message ?? ''} hasData={list.data != null} empty={list.loaded && !items.length}
              emptyIcon="bell" emptyTitle="No channel yet" emptyText="Add a channel to hear about problems. ntfy needs only a long random topic address (a secret you type once; it is never shown again).">
-    {#snippet emptyAction()}<button class="btn btn-primary" disabled={!prov.loaded} onclick={add}><i class="ph ph-plus"></i>Add channel</button>{/snippet}
+    {#snippet emptyAction()}<button use:tip={!prov.loaded ? 'Loading the providers' : 'Add a push channel'} class="btn btn-primary" disabled={!prov.loaded} onclick={add}><i class="ph ph-plus"></i>Add channel</button>{/snippet}
 
     <div class="card mat">
       <Table id="notify" {columns} rows={items} key="name">
@@ -122,12 +123,12 @@
           {:else if col.key === 'quiet'}{i.quiet === 'ignore' ? 'ignored' : 'respected'}
           {:else if col.key === 'outside'}<StatusDot state={i.outside === 'outside' ? 'ok' : 'off'} label={i.outside === 'outside' ? 'outside' : 'on this server'} />
           {:else if col.key === 'last'}
-            {#if i.last.result}<StatusDot state={i.last.result === 'ok' ? 'ok' : 'bad'} label={i.last.result === 'ok' ? 'sent' : 'failed'} /> <span class="when" title={i.last.reason}>{i.last.when}{i.last.reason ? ` · ${i.last.reason}` : ''}</span>{:else}<span class="when">never</span>{/if}
+            {#if i.last.result}<StatusDot state={i.last.result === 'ok' ? 'ok' : 'bad'} label={i.last.result === 'ok' ? 'sent' : 'failed'} /> <span class="when" use:tip={i.last.reason}>{i.last.when}{i.last.reason ? ` · ${i.last.reason}` : ''}</span>{:else}<span class="when">never</span>{/if}
           {:else if col.key === 'act'}
             <span class="acts">
-              <button class="btn btn-ghost sm" disabled={!!busy} onclick={() => test(i)} title="Send one test message to this channel">{busy === i.name + 'test' ? 'Sending…' : 'Send test'}</button>
-              <button class="btn btn-ghost btn-icon" aria-label="Edit {i.name}" title="Edit" onclick={() => edit(i)}><i class="ph ph-pencil-simple"></i></button>
-              <button class="btn btn-ghost btn-icon" aria-label="Remove {i.name}" title="Remove" onclick={() => openPlan('notify', ['remove', i.name], 'Remove ' + i.name)}><i class="ph ph-trash"></i></button>
+              <button use:tip={busy ? 'Another test is running' : 'Send one test message to this channel'} class="btn btn-ghost sm" disabled={!!busy} onclick={() => test(i)} use:tip={'Send one test message to this channel'}>{busy === i.name + 'test' ? 'Sending…' : 'Send test'}</button>
+              <button class="btn btn-ghost btn-icon" aria-label="Edit {i.name}" use:tip={'Edit'} onclick={() => edit(i)}><i class="ph ph-pencil-simple"></i></button>
+              <button class="btn btn-ghost btn-icon" aria-label="Remove {i.name}" use:tip={'Remove'} onclick={() => openPlan('notify', ['remove', i.name], 'Remove ' + i.name)}><i class="ph ph-trash"></i></button>
             </span>
           {:else}
             <Switch box checked={i.cats.has(col.key) && i.caps.has(col.key)} disabled={!!busy || !i.caps.has(col.key)} reason={why(i, col.key)} label="{i.name} carries {col.label}" onchange={() => toggleClass(i, col.key)} />
@@ -145,7 +146,7 @@
           {/each}
           <div class="meta">Last send: {i.last.result ? `${i.last.result === 'ok' ? 'sent' : 'failed'} ${i.last.when}${i.last.reason ? ` (${i.last.reason})` : ''}` : 'never'}</div>
           <div class="meta">Lowest priority {i.minprio} · quiet hours {i.quiet === 'ignore' ? 'ignored' : 'respected'} · {i.outside === 'outside' ? 'outside this server' : 'on this server'}</div>
-          <div class="acts"><button class="btn btn-secondary sm" disabled={!!busy} onclick={() => test(i)}>Send test</button><button class="btn btn-ghost sm" onclick={() => edit(i)}>Edit</button><button class="btn btn-ghost sm" onclick={() => openPlan('notify', ['remove', i.name], 'Remove ' + i.name)}>Remove</button></div>
+          <div class="acts"><button use:tip={busy ? 'Another test is running' : 'Send one test message to this channel'} class="btn btn-secondary sm" disabled={!!busy} onclick={() => test(i)}>Send test</button><button use:tip={'Change this channel'} class="btn btn-ghost sm" onclick={() => edit(i)}>Edit</button><button use:tip={'Remove this channel: no messages go there any more'} class="btn btn-ghost sm" onclick={() => openPlan('notify', ['remove', i.name], 'Remove ' + i.name)}>Remove</button></div>
         </div>
       {/each}
     </div>

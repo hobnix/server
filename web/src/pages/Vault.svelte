@@ -1,4 +1,5 @@
 <script>
+  import { tip } from '../ui/tooltip.svelte.js';
   import { poll, rows } from '../data.svelte.js';
   import { bytes } from '../format.js';
   import { openPlan } from '../ui.svelte.js';
@@ -41,10 +42,10 @@
 
 <PageHeader title="Vault" crumb="Storage" sub="Secrets for the server's own services, in a LUKS partition of their own.">
   {#snippet actions()}
-    <button class="btn" disabled={u.state !== 'open'} title="Save the LUKS header outside the vault" onclick={() => openPlan('secrets', ['header-backup'], 'Save the LUKS header')}><i class="ph ph-floppy-disk"></i>Save header</button>
-    <button class="btn" disabled={u.state !== 'open'} title="Move the usual secrets into the vault" onclick={() => openPlan('secrets', ['move'], 'Move secrets into the vault')}><i class="ph ph-arrow-square-in"></i>Move secrets in</button>
-    <button class="btn" title="Root-only permissions on the secret files" onclick={() => openPlan('secrets', ['secrets-fix'], 'Fix the permissions of the secrets')}><i class="ph ph-shield-check"></i>Fix permissions</button>
-    <button class="btn" disabled={u.state !== 'open'} title="Close the vault (refused while something uses it)" onclick={() => openPlan('secrets', ['close'], 'Close the vault')}><i class="ph ph-lock-simple"></i>Close…</button>
+    <button class="btn" disabled={u.state !== 'open'} use:tip={'Save the LUKS header outside the vault'} onclick={() => openPlan('secrets', ['header-backup'], 'Save the LUKS header')}><i class="ph ph-floppy-disk"></i>Save header</button>
+    <button class="btn" disabled={u.state !== 'open'} use:tip={'Move the usual secrets into the vault'} onclick={() => openPlan('secrets', ['move'], 'Move secrets into the vault')}><i class="ph ph-arrow-square-in"></i>Move secrets in</button>
+    <button class="btn" use:tip={'Root-only permissions on the secret files'} onclick={() => openPlan('secrets', ['secrets-fix'], 'Fix the permissions of the secrets')}><i class="ph ph-shield-check"></i>Fix permissions</button>
+    <button class="btn" disabled={u.state !== 'open'} use:tip={'Close the vault (refused while something uses it)'} onclick={() => openPlan('secrets', ['close'], 'Close the vault')}><i class="ph ph-lock-simple"></i>Close…</button>
   {/snippet}
 </PageHeader>
 

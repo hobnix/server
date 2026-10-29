@@ -1,0 +1,2 @@
+status	refused
+reason	The file manager is read only until you allow it: hs config set fileManagerWrite true (web: Settings, 'Allow the file manager to copy, move and delete files'). Test it in a VM first (docs/PLAN-file-manager.md).

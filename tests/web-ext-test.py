@@ -219,7 +219,7 @@ class RealPackages(unittest.TestCase):
         self.caps = os.path.join(self.tmp, "caps")
         os.environ["HS_CAPABILITIES_FILE"] = self.caps
         os.environ["HS_STATE_DIR"] = os.path.join(self.tmp, "state")
-        write(self.caps, "games\nposters\n")
+        write(self.caps, "games\nposters\ngateway\npassthrough\n")
         ws.ext_refresh(force=True)
 
     def tearDown(self):
@@ -239,6 +239,23 @@ class RealPackages(unittest.TestCase):
         for bad in (["gaming", "sleep"], ["-x", "wake"], ["gaming", "add", "--mac", "nonsense"], ["gaming", "add", "--ip", "10.10.10.500"]):
             self.assertFalse(self.ok("ext/games", bad), bad)
 
+    def test_passthrough(self):
+        for words, ttl in ((("ext", "passthrough", "list"), 30), (("ext", "passthrough", "state"), 15), (("ext", "passthrough", "status"), 30)):
+            self.assertEqual(ws.READS[words], {"kind": "tsv", "ttl": ttl})
+        a = "ext/passthrough"
+        self.assertTrue(self.ok(a, ["example.com", "add", "--address", "192.168.1.20", "--proxy-protocol"]))
+        self.assertTrue(self.ok(a, ["example.com", "add", "--address", "fd00::5", "--https-port", "8443", "--no-http"]))
+        self.assertTrue(self.ok(a, ["example.com", "remove"]))
+        # a container target: the switch sends --container-ok, the typed domain travels as `confirm` (appended as --confirm at start)
+        self.assertTrue(self.ok(a, ["example.com", "add", "--address", "10.10.95.5", "--container-ok"]))
+        got = ws.validate_change({"area": a, "args": ["example.com", "add", "--address", "10.10.95.5", "--container-ok"], "confirm": "example.com"})
+        self.assertIsNotNone(got)
+        self.assertEqual(got[2], "example.com")
+        self.assertFalse(self.ok(a, ["example.com", "add", "--address", "10.10.95.5", "--container-ok", "yes"]))
+        for bad in (["Example.com", "add"], ["a b", "remove"], ["example.com", "add", "--address", "1.2.3.4;x"],
+                    ["example.com", "add", "--https-port", "x"], ["example.com", "wipe"]):
+            self.assertFalse(self.ok(a, bad), bad)
+
     def test_posters(self):
         self.assertEqual(ws.READS[("ext", "posters", "list")], {"kind": "tsv", "ttl": 5})
         self.assertTrue(self.ok("ext/posters", ["generate", "--eyebrow", "a", "--title", "b", "--color", "#12ab9f", "--seed", "42", "--case", "keep"]))
@@ -254,7 +271,7 @@ class RealPackages(unittest.TestCase):
 
     def test_the_pages_are_declared_by_the_packages_that_are_on(self):
         pages = {p["name"]: p for p in ws.ext_pages()}
-        self.assertEqual(sorted(pages), ["games", "posters"])
+        self.assertEqual(sorted(pages), ["games", "passthrough", "posters"])
         self.assertEqual(pages["games"]["title"], "Game streaming")
         self.assertEqual(pages["games"]["blocks"][0]["read"], "list")
         self.assertEqual(pages["posters"]["blocks"][0]["type"], "gallery")
@@ -265,7 +282,7 @@ class RealPackages(unittest.TestCase):
 
     def test_every_plan_a_page_declares_is_allowed_by_the_changes(self):
         # the plans of the actions, with a sample value in every {placeholder}, must pass validate_change
-        sample = {"name": "gaming-pc", "file": "poster-dune-42.png"}
+        sample = {"name": "gaming-pc", "file": "poster-dune-42.png", "domain": "example.com"}
         for p in ws.ext_pages():
             for b in p["blocks"]:
                 for a in b.get("rowActions", []) + p.get("actions", []):

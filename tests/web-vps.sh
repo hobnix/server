@@ -123,7 +123,7 @@ run start update
 check_eq "start: exit 1, no job" "1:" "$rc:$(cat "$WORK/jobcalls")"
 rc=0; kout=$(timeout 30 bash "$SCRIPTS/vps.sh" key </dev/null 2>&1) || rc=$?
 check_eq "hs vps key refuses and writes nothing" "1:0" "$rc:$([ -e "$HS_VAULT_DIR/secrets/vps-key" ] && echo 1 || echo 0)"
-check_eq "...and says hs unlock" 1 "$(grep -c 'hs unlock' <<<"$kout" | tr -d ' ')"
+check "...and says hs unlock" grep -q "hs unlock" <<<"$kout"
 else
   skip "closed vault (this system makes no symbolic links)"
 fi

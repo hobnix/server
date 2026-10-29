@@ -28,6 +28,7 @@
   shareSnapshots = false;
   zfsArcMaxGB = 12;
   diskSpindownMinutes = 0;
+  fileManagerWrite = false;
   setupDone = false;
   backupNewShares = false;
   adDomain = null;
@@ -44,6 +45,8 @@
   deckApi = false;
   proxyStatusUrl = "";
   vpsHost = "";
+  gatewayPublicHttps = 0;
+  gatewayPublicHttp = 0;
   gpu = null;
   nvidiaDriver = "stable";
   pciBind = [ ];

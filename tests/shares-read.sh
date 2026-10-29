@@ -53,8 +53,9 @@ echo "-- hs share repair (adds the missing ones)"
 : > "$CALLS"
 out=$($S 2>&1)
 check_out "the new share is added" "^old +added \(/bulk/sensitive/old\)" echo "$out"
-check_eq "sensitive folders are read-only and run as root" "net conf addshare old /bulk/sensitive/old writeable=n guest_ok=n
-net conf setparm old force user root" "$(cat "$CALLS")"
+check_eq "sensitive folders are read-only, run as root and are hidden when browsing" "net conf addshare old /bulk/sensitive/old writeable=n guest_ok=n
+net conf setparm old force user root
+net conf setparm old browseable no" "$(cat "$CALLS")"
 check_out "without a domain the new share starts open, and it says so" "open to every Samba user" echo "$out"
 
 echo "-- hs share repair (--fix-owner) goes through the registry"

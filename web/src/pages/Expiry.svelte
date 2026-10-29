@@ -1,4 +1,5 @@
 <script>
+  import { tip } from '../ui/tooltip.svelte.js';
   import PageHeader from '../shell/PageHeader.svelte';
   import { poll, rows } from '../data.svelte.js';
   import { openCreate, openPlan } from '../ui.svelte.js';
@@ -39,7 +40,7 @@
 
 <div class="page">
   <PageHeader title="Expiry dates" crumb="Protection" sub="The health check warns 30 and 7 days before.">
-    {#snippet actions()}<button class="btn btn-primary" title="Write down something that runs out" onclick={() => openCreate(ExpiryForm)}><i class="ph ph-plus"></i>Add</button>{/snippet}
+    {#snippet actions()}<button class="btn btn-primary" use:tip={'Write down something that runs out'} onclick={() => openCreate(ExpiryForm)}><i class="ph ph-plus"></i>Add</button>{/snippet}
   </PageHeader>
 
   <div class="card elev-sm" style="padding:12px 14px">
@@ -53,14 +54,14 @@
             <span class="left" style="color:{warn(i) ? 'var(--st-warn)' : 'var(--color-neutral-300)'}">{left(i)}</span>
           </div>
         {:else if col.key === 'note'}<span class="note">{i.note}</span>
-        {:else}<button class="btn btn-ghost btn-icon rm" title="Remove {i.name} from the list" aria-label="Remove {i.name}" onclick={() => openPlan('expiry', ['remove', i.name], 'Remove ' + i.name)}><i class="ph ph-x"></i></button>{/if}
+        {:else}<button class="btn btn-ghost btn-icon rm" use:tip={`Remove ${i.name} from the list`} aria-label="Remove {i.name}" onclick={() => openPlan('expiry', ['remove', i.name], 'Remove ' + i.name)}><i class="ph ph-x"></i></button>{/if}
       {/snippet}
     </Table>
   </div>
 
   {#if certs.length}
     <div class="card elev-sm" style="padding:12px 14px;gap:6px">
-      <div class="crow"><b>Certificates</b><span class="grow"></span><button class="btn btn-ghost sm" onclick={() => go('/identity/certificates')}>Manage<i class="ph ph-arrow-right"></i></button></div>
+      <div class="crow"><b>Certificates</b><span class="grow"></span><button use:tip={'Open the certificates page'} class="btn btn-ghost sm" onclick={() => go('/identity/certificates')}>Manage<i class="ph ph-arrow-right"></i></button></div>
       {#each certs as k}
         <div class="crow"><span>{k.what}</span><span class="grow"></span><span class="date">{k.until}</span>
           {#if k.days !== null}<span class="left" style="color:{k.days < 60 ? 'var(--st-warn)' : 'var(--color-neutral-300)'}">{k.days < 0 ? `${-k.days} d ago` : `${k.days} d`}</span>{/if}</div>

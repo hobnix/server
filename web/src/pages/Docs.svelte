@@ -1,4 +1,5 @@
 <script>
+  import { tip } from '../ui/tooltip.svelte.js';
   // The guides: a navigation (language, search, groups with their pages), the page rendered from Markdown, an outline of the page and
   // previous / next. Everything comes from /api/docs/* (capability docs; PageFrame handles "switched off").
   // Layout: the page scrolls as a whole (the shell's main area); the navigation and the outline stick while it does. On a phone the groups
@@ -90,6 +91,7 @@
         b.className = 'copy';
         b.setAttribute('aria-label', 'Copy the code');
         b.innerHTML = '<i class="ph ph-copy"></i><span>Copy</span>';
+        tip(b, 'Copy the code to the clipboard');   // not a Svelte element: call the action by hand
         pre.append(b);
       }
     });
@@ -233,7 +235,7 @@
     {#if indexError}
       <Banner tone={indexError.retry ? 'bad' : 'info'}>
         {indexError.text}
-        {#snippet action()}{#if indexError.retry}<button class="btn sm" onclick={indexError.retry}><i class="ph ph-arrow-clockwise"></i>Try again</button>{/if}{/snippet}
+        {#snippet action()}{#if indexError.retry}<button use:tip={'Read the list of guides again'} class="btn sm" onclick={indexError.retry}><i class="ph ph-arrow-clockwise"></i>Try again</button>{/if}{/snippet}
       </Banner>
     {:else if !index}
       <div class="sheet"><Skeleton lines={9} height={14} gap={14} /></div>
@@ -255,7 +257,7 @@
           </ul>
         {:else if hits}
           <EmptyState icon="magnifying-glass" title="No guide mentions that" text="Try a shorter word, or the name of a command.">
-            {#snippet action()}<button class="btn" onclick={clear}>Back to the guide</button>{/snippet}
+            {#snippet action()}<button use:tip={'Leave the search and show the guide'} class="btn" onclick={clear}>Back to the guide</button>{/snippet}
           </EmptyState>
         {:else}
           <Skeleton lines={4} height={44} />
@@ -270,7 +272,7 @@
         {:else}
           <Banner tone="bad">
             This page could not be read: {pageError.text}
-            {#snippet action()}<button class="btn sm" onclick={() => tries++}><i class="ph ph-arrow-clockwise"></i>Try again</button>{/snippet}
+            {#snippet action()}<button use:tip={'Read this guide again'} class="btn sm" onclick={() => tries++}><i class="ph ph-arrow-clockwise"></i>Try again</button>{/snippet}
           </Banner>
         {/if}
       </section>

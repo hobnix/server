@@ -73,7 +73,9 @@ py=${HS_PYTHON:-python3}; command -v "$py" >/dev/null 2>&1 || py=python
 [ -f "$machine" ] || refuse "There is no machine.toml on this server."
 
 # the type of the option, from the example (the one schema)
-type=$(bash "$here/config-read.sh" list 2>/dev/null | awk -F'\t' -v k="$key" '$2 == k { print $5; exit }')
+# no `exit` in awk: it closes the pipe, config-read.sh gets SIGPIPE and pipefail + set -e end the script without a word
+list=$(bash "$here/config-read.sh" list 2>/dev/null || true)
+type=$(awk -F'\t' -v k="$key" '$2 == k && !f { print $5; f = 1 }' <<<"$list")
 [ -n "$type" ] || refuse "'$key' is not an option of machine.toml.example."
 
 toml=""; off=false
@@ -100,7 +102,7 @@ if ! $off; then
   if [ -n "${r_pattern:-}" ] && ! grep -Eq -- "$r_pattern" <<<"$value"; then refuse "'$key' must be ${r_hint:-valid}."; fi
 fi
 
-store=$(bash "$here/config-read.sh" list 2>/dev/null | awk -F'\t' -v k="$key" '$2 == k { print $8; exit }')
+store=$(awk -F'\t' -v k="$key" '$2 == k && !f { print $8; f = 1 }' <<<"$list")
 
 # runtime settings (store = settings): one file in /var/lib/hs/settings, no machine.toml, no rebuild
 if [ "$store" = settings ]; then

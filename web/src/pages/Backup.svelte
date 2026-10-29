@@ -1,4 +1,5 @@
 <script>
+  import { tip } from '../ui/tooltip.svelte.js';
   import { poll, rows, refresh } from '../data.svelte.js';
   import { bytes, ago } from '../format.js';
   import { openPlan, openCreate, ui } from '../ui.svelte.js';
@@ -76,7 +77,7 @@
   // actions that need the backup disk: say why one is not possible
   const why = $derived(!st.loaded ? 'Loading…' : !configured ? 'The backup is not set up yet' : s.vault === 'closed' ? 'The vault is closed: unlock it first' : s.disk !== 'present' ? 'The backup disk is not plugged in' : '');
   const browsing = $derived(s.browse === 'on');
-  const tip = (t) => (why ? `${t} (${why})` : t);
+  const tipWhy = (t) => (why ? `${t} (${why})` : t);
   const headDot = $derived(!configured ? 'off' : s.status === 'failed' ? 'bad' : s.last_ok ? 'ok' : 'warn');
   const itemLink = (i) => (i.kind === 'ct' ? link('/instances', 'instances', i.name) : link('/storage/bulk/shares', 'shares', i.name));
   const toggle = (i) => openPlan('backup', ['toggle', '--name', i.name, '--kind', i.kind, '--to', i.on ? 'off' : 'on'], `${i.on ? 'Leave out of' : 'Put into'} the backup: ${i.name}`);
@@ -97,11 +98,11 @@
 
 <PageHeader title="Backup" crumb="{ui.host} › Protection" sub="restic on the backup disk · 7 daily / 4 weekly / 6 monthly · the one place that decides what is in the backup">
   {#snippet actions()}
-    <button class="btn" disabled={!!why} title={tip('Read part of the stored data and check it')} onclick={() => openPlan('backup', ['verify'], 'Verify the backup')}><i class="ph ph-seal-check"></i>Verify</button>
-    <button class="btn" disabled={!!why} title={tip('Give space back: delete leftovers of a failed run, apply the retention, prune')} onclick={() => openPlan('backup', ['prune'], 'Free space on the backup disk')}><i class="ph ph-broom"></i>Free space</button>
-    <button class="btn" disabled={!!why} title={tip('Restore a few random files and compare them with the originals')} onclick={() => openPlan('backup', ['drill'], 'Restore drill')}><i class="ph ph-first-aid-kit"></i>Restore drill</button>
-    <button class="btn" disabled={!!why && !browsing} title={browsing ? 'Stop showing the backup as a read-only share' : tip('Show the whole backup as a read-only share')} onclick={() => openPlan('backup', ['browse', '--to', browsing ? 'off' : 'on'], browsing ? 'Stop browsing the backup' : 'Browse the backup')}><i class="ph ph-folder-open"></i>{browsing ? 'Stop browsing' : 'Browse'}</button>
-    <button class="btn btn-primary" disabled={!!why} title={tip('Back up right now')} onclick={() => openPlan('backup', ['now'], 'Back up now')}><i class="ph ph-cloud-arrow-up"></i>Back up now</button>
+    <button class="btn" disabled={!!why} use:tip={tipWhy('Read part of the stored data and check it')} onclick={() => openPlan('backup', ['verify'], 'Verify the backup')}><i class="ph ph-seal-check"></i>Verify</button>
+    <button class="btn" disabled={!!why} use:tip={tipWhy('Give space back: delete leftovers of a failed run, apply the retention, prune')} onclick={() => openPlan('backup', ['prune'], 'Free space on the backup disk')}><i class="ph ph-broom"></i>Free space</button>
+    <button class="btn" disabled={!!why} use:tip={tipWhy('Restore a few random files and compare them with the originals')} onclick={() => openPlan('backup', ['drill'], 'Restore drill')}><i class="ph ph-first-aid-kit"></i>Restore drill</button>
+    <button class="btn" disabled={!!why && !browsing} use:tip={browsing ? 'Stop showing the backup as a read-only share' : tipWhy('Show the whole backup as a read-only share')} onclick={() => openPlan('backup', ['browse', '--to', browsing ? 'off' : 'on'], browsing ? 'Stop browsing the backup' : 'Browse the backup')}><i class="ph ph-folder-open"></i>{browsing ? 'Stop browsing' : 'Browse'}</button>
+    <button class="btn btn-primary" disabled={!!why} use:tip={tipWhy('Back up right now')} onclick={() => openPlan('backup', ['now'], 'Back up now')}><i class="ph ph-cloud-arrow-up"></i>Back up now</button>
   {/snippet}
 </PageHeader>
 
@@ -109,7 +110,7 @@
   {#if !configured}
     <div class="card">
       <EmptyState icon="cloud-slash" title="No backup set up" text="Nothing is backed up yet. Make a free disk the backup disk: it is erased, the plan shows what happens first, and the backup password is made inside the vault.">
-        {#snippet action()}<button class="btn btn-primary" title="Make a free disk the backup disk (it is erased; shows the plan first)" onclick={() => openCreate(SetupDisk)}><i class="ph ph-hard-drive"></i>Set up backup disk…</button>{/snippet}
+        {#snippet action()}<button class="btn btn-primary" use:tip={'Make a free disk the backup disk (it is erased)'} onclick={() => openCreate(SetupDisk)}><i class="ph ph-hard-drive"></i>Set up backup disk…</button>{/snippet}
       </EmptyState>
     </div>
   {:else}
@@ -125,8 +126,8 @@
       </div>
       <div class="offs">
         {#if s.offsite}
-          <button class="btn sm" disabled={!!why} title={tip('Copy the new backups to the off-site repository now')} onclick={() => openPlan('backup', ['offsite-now'], 'Copy to the off-site repository')}><i class="ph ph-arrows-clockwise"></i>Copy off-site now</button>
-          <button class="btn sm btn-ghost" title="Stop copying to the off-site repository (what is there stays there)" onclick={() => openPlan('backup', ['offsite-off'], 'Switch the off-site copy off')}><i class="ph ph-cloud-slash"></i>Switch off</button>
+          <button class="btn sm" disabled={!!why} use:tip={tipWhy('Copy the new backups to the off-site repository now')} onclick={() => openPlan('backup', ['offsite-now'], 'Copy to the off-site repository')}><i class="ph ph-arrows-clockwise"></i>Copy off-site now</button>
+          <button class="btn sm btn-ghost" use:tip={'Stop copying off site (what is there stays)'} onclick={() => openPlan('backup', ['offsite-off'], 'Switch the off-site copy off')}><i class="ph ph-cloud-slash"></i>Switch off</button>
         {:else}
           <span class="muted">Off-site copy: set one on the server with <span class="mono">hs backup offsite set &lt;repo&gt;</span> (an address can carry a password, so it is not typed here).</span>
         {/if}
@@ -138,7 +139,7 @@
       {#if locked}<Banner tone="warn">The storage is locked: the shares and instances are not listed until it is unlocked.</Banner>{/if}
       <Table id="backup-items" {columns} rows={items} loading={!ov.loaded} empty={ov.error ? 'This could not be read (is the backup disk there?).' : 'Nothing listed.'}>
         {#snippet cell(i, col)}
-          {#if col.key === 'name'}<span class="row7"><i class="ph ph-{kindIcon[i.kind] ?? 'folder'}"></i>{#if i.kind === 'always'}{i.name}{:else}<a {...itemLink(i)} title={i.kind === 'ct' ? 'Open the instance' : 'Open the share'}>{i.name}</a>{/if}</span>
+          {#if col.key === 'name'}<span class="row7"><i class="ph ph-{kindIcon[i.kind] ?? 'folder'}"></i>{#if i.kind === 'always'}{i.name}{:else}<a {...itemLink(i)} use:tip={i.kind === 'ct' ? 'Open the instance' : 'Open the share'}>{i.name}</a>{/if}</span>
           {:else if col.key === 'kind'}<span class="n400">{kindName[i.kind] ?? i.kind}</span>
           {:else if col.key === 'size'}{i.size && i.size !== '-' && !isNaN(i.size) ? bytes(Number(i.size)) : '–'}
           {:else if i.kind === 'always'}<span class="tag tag-accent">always</span>
@@ -150,7 +151,7 @@
     <div class="card tc">
       <div class="ctl">
         <b>Restore points</b>{#if s.snapshots}<span class="cs">{s.snapshots} in the repository</span>{/if}
-        <button class="btn sm" title="Bring files back into the share restored (the originals are not touched)" style="margin-left:auto" onclick={() => openCreate(RestoreFiles)}><i class="ph ph-arrow-counter-clockwise"></i>Restore files…</button>
+        <button class="btn sm" use:tip={'Bring files back into the share restored; originals stay'} style="margin-left:auto" onclick={() => openCreate(RestoreFiles)}><i class="ph ph-arrow-counter-clockwise"></i>Restore files…</button>
       </div>
       <Table id="backup-points" columns={pointCols} rows={points} loading={!snapsLoaded}
              empty={snapsError ? 'The restore points could not be read (backup disk missing or storage locked).' : 'No restore points yet.'}>
@@ -166,7 +167,7 @@
       <div class="ctl"><b>Find a file</b><span class="cs">in every restore point</span></div>
       <form class="findrow" onsubmit={(e) => { e.preventDefault(); find(); }}>
         <input class="input" bind:value={q} placeholder="Part of a file name, e.g. Rechnung" maxlength="80" autocomplete="off" spellcheck="false" aria-label="Part of a file name" />
-        <button class="btn" type="submit" disabled={!findOk || finding}><i class="ph ph-magnifying-glass"></i>{finding ? 'Searching…' : 'Find'}</button>
+        <button use:tip={!findOk ? 'Type at least part of a file name first' : 'Look for this name in all backups'} class="btn" type="submit" disabled={!findOk || finding}><i class="ph ph-magnifying-glass"></i>{finding ? 'Searching…' : 'Find'}</button>
       </form>
       {#if findError}<div class="muted">{findError}</div>{/if}
       {#if found}

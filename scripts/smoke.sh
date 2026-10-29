@@ -74,6 +74,7 @@ default_probes() {
     $'hs disk inventory\tdisk inventory\t0 1' \
     $'hs pool bulk\tpool bulk\t0 1' \
     $'hs sys pool state\tsys pool state\t0' \
+    $'hs sys fm locations\tsys fm locations\t0 1' \
     $'hs user list\tuser list\t0' \
     $'hs user show\tuser Administrator show\t0 1' \
     $'hs group list\tgroup list\t0' \
@@ -107,6 +108,9 @@ default_probes() {
     $'hs services check\tservices check\t0 1' \
     $'hs services plan\tservices plan\t0 1' \
     $'hs services tiles\tservices tiles\t0 1' \
+    $'hs gateway status\tgateway status\t0 1' \
+    $'hs gateway routes\tgateway routes\t0 1' \
+    $'hs gateway check\tgateway check\t0 1' \
     $'hs dc cert show\tdc cert show\t0 1' \
     $'hs update --preview\tupdate --preview\t0 1\t120' \
     $'hs ssh-key list\tssh-key list\t0 1' \
@@ -114,6 +118,8 @@ default_probes() {
     $'hs notify channel list\tnotify channel list\t0' \
     $'hs notify channel providers\tnotify channel providers\t0' \
     $'hs ext games list\text games list\t0 1' \
+    $'hs ext passthrough list\text passthrough list\t0 1' \
+    $'hs ext passthrough status\text passthrough status\t0 1' \
     $'hs remote list\tremote list\t0 1' \
     $'hs cheatsheet\tcheatsheet\t0' \
     $'hs expiry\texpiry\t0' \
@@ -176,7 +182,7 @@ if $coverage; then
 fi
 
 # ---- 1. the programs the scripts call ------------------------------------------------------
-tools=${HS_SMOKE_TOOLS-"incus zpool zfs smartctl restic samba-tool wbinfo sharesec snapraid mergerfs cryptsetup lsblk blkid jq curl rsync sgdisk wipefs systemctl git setfacl getfacl xfs_admin e2label btrfs mkfs.ext4 findmnt nix-env"}
+tools=${HS_SMOKE_TOOLS-"incus zpool zfs smartctl restic samba-tool wbinfo sharesec snapraid mergerfs cryptsetup lsblk blkid jq curl rsync wipefs systemctl git setfacl getfacl xfs_admin e2label btrfs mkfs.ext4 findmnt nix-env"}
 $list || step "Programs the scripts need"
 for tool in $tools; do
   if command -v "$tool" >/dev/null 2>&1; then continue; fi
