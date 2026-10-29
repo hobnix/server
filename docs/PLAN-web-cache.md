@@ -97,4 +97,13 @@ Phases 2 to 4 for the Summary page, none of it run on hardware yet:
 - `/api/events` (server-sent events): `changed` per topic, `down` and `up` when the server's Redis subscription is lost or back.
 - Browser: `web/src/live.svelte.js` opens the stream when `features.live` is on; `poll(path, ms, topic)` has no timer while the stream is open and reads again when the topic changes. While the stream is down (or `liveState` is off) it polls as before and the Summary shows a quiet "Live updates paused" line.
 
-Not built: phase 1 (plan dialog skeleton and plan cache), the other pages (they keep their polls and have no topic), the homeserver-deck, retiring the old collector (`reads-collect.sh`, the `reads` table), the Health entries `live:down` and `live:stale:<topic>`.
+Phase 1, plan dialog, not run on hardware:
+
+- A create dialog shows its form and a skeleton at once and asks for the plan without the 300 ms wait on open; Start works only for the plan of the current form.
+- A newer question aborts the older request in the browser; the backend kills that plan's process group when the client goes away (plans only, never a start).
+- Finished plans without stdin are kept `HS_WEB_PLAN_TTL` seconds (default 5); every start and every read-cache clear empties the cache.
+- Every plan and start writes `web timing: <verb> <shape> <ms> ms <how> rc= status=` (values as `*`).
+
+Phase 0 is not done: the measurement is `journalctl -u hs-web | grep 'web timing'` on the server while using the pages; the table is still to fill. Unverified: that browsers close the connection on abort, that no plan starts a process outside its group, the frontend build.
+
+Not built: the other pages (they keep their polls and have no topic), the homeserver-deck, retiring the old collector (`reads-collect.sh`, the `reads` table), the Health entries `live:down` and `live:stale:<topic>`.
