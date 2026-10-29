@@ -44,7 +44,9 @@ import queue
 import re
 import sqlite3
 import secrets
+import select
 import shutil
+import signal
 import socket
 import socketserver
 import subprocess
@@ -321,6 +323,7 @@ class Config:
         self.session_file = env("HS_WEB_SESSION_FILE", "/run/hs-web/sessions.json")   # hashes only; "" = sessions stay in memory; the directory is made by systemd (RuntimeDirectory), never here
         self.stale_factor = float(env("HS_WEB_STALE_FACTOR", "40"))   # a cached read may be served up to ttl*factor (and stale_max s) old while it is refreshed in the background
         self.stale_max = float(env("HS_WEB_STALE_MAX", "1800"))      # up to half an hour old is shown at once (X-HS-Age says how old) while a fresh answer is read
+        self.plan_ttl = float(env("HS_WEB_PLAN_TTL", "5"))   # a finished plan is answered again for this many seconds (same area and args); 0 = off
         self.cache_file = env("HS_WEB_CACHE_FILE", "/run/hs-web/cache.json")   # the answers survive a restart of this service (tmpfs: not a reboot); "" = memory only
         self.warm_all = env("HS_WEB_WARM_ALL", "1") == "1"            # keep every read without arguments warm (see Warmer), not only the common ones
         self.warm_idle_ttl = float(env("HS_WEB_WARM_IDLE_TTL", "120")) # such a read that nobody has asked for is read again at most this often
@@ -447,6 +450,77 @@ def _run(cmd, stdin=None, timeout=10):
         return p.returncode, p.stdout.decode("utf-8", "replace")
     except (OSError, subprocess.SubprocessError):
         return 127, ""
+
+
+_run_plain = _run      # tests replace _run with a fake; while they do, plans go through that fake and the plan cache is off (see _change)
+
+
+def _client_gone(sock):
+    """True when the browser closed the connection (it aborted the request): readable and a peek reads nothing. poll, not select: select
+    raises for a descriptor above 1024; an error we cannot read is "not gone" (the plan runs to its end)."""
+    try:
+        if hasattr(select, "poll"):
+            po = select.poll()
+            po.register(sock, select.POLLIN)
+            readable = bool(po.poll(0))
+        else:
+            readable = bool(select.select([sock], [], [], 0)[0])
+        return readable and sock.recv(1, socket.MSG_PEEK) == b""
+    except BlockingIOError:
+        return False
+    except (OSError, ValueError):
+        return False
+
+
+def _kill_tree(p):
+    """End a plan and everything it started (its own session = process group): TERM, up to 2 s for the leader, then KILL to the whole group
+    even when the leader is gone (a child may ignore TERM). Never waits forever."""
+    kill = getattr(signal, "SIGKILL", signal.SIGTERM)
+    for sig in (signal.SIGTERM, kill):
+        try:
+            if hasattr(os, "killpg"):
+                os.killpg(p.pid, sig)
+            else:
+                p.kill()
+        except OSError:
+            pass            # ProcessLookupError: the group is gone already
+        if sig == kill:
+            break
+        try:
+            p.wait(timeout=2)
+        except subprocess.TimeoutExpired:
+            pass
+    try:
+        p.wait(timeout=2)
+    except subprocess.TimeoutExpired:
+        pass
+    for f in (p.stdin, p.stdout):
+        try:
+            if f:
+                f.close()
+        except OSError:
+            pass
+
+
+def _run_watched(cmd, stdin=None, timeout=60, gone=None):
+    """-> (rc, stdout, how), how = "run" | "timeout" | "gone". Like _run, but polls every 0.2 s and kills the process group when the client
+    went away (gone() is True) or the timeout passed. Only for plans: a plan changes nothing, so stopping it is safe. Never for start."""
+    try:
+        p = subprocess.Popen(cmd, stdin=subprocess.PIPE if stdin is not None else subprocess.DEVNULL, stdout=subprocess.PIPE,
+                             stderr=subprocess.DEVNULL, start_new_session=hasattr(os, "killpg"))
+    except (OSError, ValueError):
+        return 127, "", "run"
+    end, data = time.monotonic() + timeout, stdin
+    while True:
+        try:
+            out, _ = p.communicate(input=data, timeout=0.2)
+            return p.returncode, out.decode("utf-8", "replace"), "run"
+        except subprocess.TimeoutExpired:
+            data = None            # communicate() keeps sending the first input; passing it again raises
+            how = "gone" if gone is not None and gone() else "timeout" if time.monotonic() > end else None
+            if how:
+                _kill_tree(p)
+                return 127, "", how
 
 
 class Auth:
@@ -1297,6 +1371,82 @@ def parse_change(out, rc):
     return d
 
 
+class Plans:
+    """Finished plans for cfg.plan_ttl seconds, key (area, args). Cleared by every start and by every Reads.clear(); a plan that started
+    before a clear is not stored (gen). At most 64 entries, the oldest goes first."""
+    MAX = 64
+
+    def __init__(self, ttl):
+        self.ttl, self.lock, self.items, self.gen = ttl, threading.Lock(), {}, 0
+
+    def get(self, key):
+        if self.ttl <= 0:
+            return None
+        with self.lock:
+            hit = self.items.get(key)
+            if hit and time.monotonic() - hit[0] < self.ttl:
+                return hit[1]
+            self.items.pop(key, None)
+            return None
+
+    def put(self, key, gen, d):
+        if self.ttl <= 0:
+            return
+        with self.lock:
+            if gen != self.gen:
+                return
+            self.items.pop(key, None)
+            while len(self.items) >= self.MAX:
+                self.items.pop(next(iter(self.items)))
+            self.items[key] = (time.monotonic(), d)
+
+    def clear(self):
+        with self.lock:
+            self.items.clear()
+            self.gen += 1
+
+
+def plan_cacheable(area, args, stdin):
+    """Never a plan that carried stdin (password, passphrase, file manager selection), nor one whose matching entry takes stdin or a selection."""
+    if stdin is not None:
+        return False
+    for e in CHANGES.get(area, []):
+        ok, st = _entry_match(e, args)
+        if ok and (st or (isinstance(e, dict) and e.get("selection"))):
+            return False
+    return True
+
+
+def plan_stable(out, rc, d):
+    """Worth keeping: the script printed its own status line, it is ok/needs/refused, ok only with exit 0, no secret in it, not a failed run."""
+    explicit = any(line.startswith("status\t") for line in out.splitlines())
+    return (explicit and rc != 127 and d["status"] in ("ok", "needs", "refused") and (d["status"] != "ok" or rc == 0)
+            and "secret" not in d)
+
+
+_LITERAL = re.compile(r"\^?\(?-{0,2}[a-z][a-z0-9-]*(\|-{0,2}[a-z][a-z0-9-]*)*\)?\$?")
+
+
+def change_shape(area, args):
+    """The change for the log without values: an argument stays only when its pattern is a fixed word (or a choice of fixed words) or it is an
+    option flag of the entry; everything else is "*". "pool bulk convert --member * --fs *". Never the stdin."""
+    for e in CHANGES.get(area, []):
+        ok, _ = _entry_match(e, args)
+        if not ok:
+            continue
+        pats = e if isinstance(e, list) else e["fixed"]
+        opts = {} if isinstance(e, list) else e.get("opts", {})
+        words = [a if (i < len(pats) and _LITERAL.fullmatch(pats[i])) or (i >= len(pats) and a in opts) else "*" for i, a in enumerate(args)]
+        return " ".join([area] + words)
+    return area
+
+
+def _timing(verb, shape, t0, how, rc, status):
+    """One line per plan and start in the web log (journal of hs-web): `web timing: plan pool bulk add --disks * 1834 ms run rc=0 status=ok`."""
+    print("web timing: %s %s %d ms %s rc=%s status=%s" % (verb, shape, round((time.monotonic() - t0) * 1000), how,
+                                                          "-" if rc is None else rc, status or "-"), flush=True)
+
+
 class Reads:
     """Runs an allowlisted `hs sys` read and keeps the answer for its ttl. One run at a time per question, so ten viewers cost one call."""
 
@@ -1304,11 +1454,14 @@ class Reads:
         self.cfg, self.lock, self.cache, self.locks, self.refreshing, self.gen = cfg, threading.Lock(), {}, {}, set(), 0
         self.seen = {}        # key -> (spec, argv, when it was last asked for): what the warm-up keeps fresh, also reads with arguments (an instance, a pool)
         self.dirty = False    # something new in the cache since it was last saved
+        self.on_clear = None   # App sets it: the plan cache is cleared together with the reads
 
     def clear(self):
         with self.lock:
             self.cache.clear()
             self.gen += 1          # a refresh that started before this must not put its (older) answer back
+        if self.on_clear:
+            self.on_clear()
 
     def resolve(self, segments, query):
         """-> (spec, argv words, cache key) or None when this is not an allowlisted read."""
@@ -1843,6 +1996,8 @@ class App:
         self.cfg = cfg or Config()
         self.auth = auth or Auth(self.cfg)
         self.sessions, self.throttle, self.facts, self.reads = Sessions(self.cfg), Throttle(), Facts(self.cfg), Reads(self.cfg)
+        self.plans = Plans(self.cfg.plan_ttl)
+        self.reads.on_clear = self.plans.clear
         self.store = RedisStore(self.cfg, self.reads) if self.cfg.live == "redis" else OffStore(self.reads)
         self.events = Events(self.cfg)       # started by main() in mode redis
         self.proxy = Proxy(self.cfg)
@@ -2259,11 +2414,32 @@ def make_handler(app):
                 cmd += ["--by", re.sub(r"[^A-Za-z0-9._@-]", "_", str(s["user"]))]       # who, for the audit log of the file manager
             if verb == "start":
                 print("web change: %s: %s %s" % (s["user"], area, " ".join(args)), flush=True)   # never the stdin line
-            rc, out = _run(cmd, stdin=(stdin if isinstance(stdin, bytes) else (stdin + chr(10)).encode()) if stdin is not None else None, timeout=60)
+            data = (stdin if isinstance(stdin, bytes) else (stdin + chr(10)).encode()) if stdin is not None else None
+            t0, shape = time.monotonic(), change_shape(area, args)
+            if verb == "plan" and _run is _run_plain:
+                key = (area, tuple(args)) if plan_cacheable(area, args, stdin) else None
+                hit = app.plans.get(key) if key else None
+                if hit is not None:
+                    _timing("plan", shape, t0, "cached", None, hit["status"])
+                    return self._json(200, hit)
+                gen = app.plans.gen
+                rc, out, how = _run_watched(cmd, stdin=data, timeout=60, gone=lambda: _client_gone(self.connection))
+                if how == "gone":           # the browser asked something newer: no answer, the connection is closed
+                    _timing("plan", shape, t0, how, None, None)
+                    self.close_connection = True
+                    return
+                d = parse_change(out, rc)
+                if key and how == "run" and plan_stable(out, rc, d):
+                    app.plans.put(key, gen, d)
+                _timing("plan", shape, t0, how, rc, d["status"])
+                return self._json(200, d)
+            rc, out = _run(cmd, stdin=data, timeout=60)
+            d = parse_change(out, rc)
             if verb == "start":
-                app.reads.clear()      # what the pages show next is read again, not served from before the change
+                app.reads.clear()      # what the pages show next is read again, not served from before the change (clears the plan cache too)
                 app.store.request("*")      # mode redis: the collector reads every topic again (a no-op in mode off)
-            self._json(200, parse_change(out, rc))
+            _timing(verb, shape, t0, "run", rc, d["status"])
+            self._json(200, d)
 
         # --- browser terminal (outside the READS/CHANGES allowlists on purpose; scripts/web_terminal.py)
         def _terminal_ticket(self, body):
@@ -2363,6 +2539,7 @@ def make_handler(app):
             finally:
                 UNLOCK_LOCK.release()
             status, reason = parse_unlock(rc, out, pw)
+            app.plans.clear()      # a plan answered "locked" (or the reverse) must not be served again after this, whatever the outcome
             if status == "failed" and reason != UNLOCK_NOT_RUN:
                 app.throttle.failed(*keys)
                 time.sleep(cfg.fail_delay)

@@ -121,6 +121,20 @@ Red plans (not reversible: erase a disk, delete a user, reboot) make you type a 
 also say "needs one more value" or "refused", with the reason. Long work runs as a task in the background and goes on when you close the
 page; open **Tasks** to see its log. Passwords and passphrases never go into a command or a log, they are passed on standard input.
 
+A create dialog shows its form and a placeholder at once and asks for the plan when it opens, then 300 ms after your last edit. An older
+question is cancelled, and the server stops the check it was running. **Start** is enabled only for the plan of what the form shows now.
+The server answers the same plan again for 5 seconds without running it again; any change you start clears that. Not tested on hardware yet.
+
+To see how long plans and changes take, read the log. One line per plan and start, with no values and no passwords:
+
+```bash
+journalctl -u hs-web | grep 'web timing'
+```
+
+A line reads `web timing: plan pool bulk add --disks * 1834 ms run rc=0 status=ok`: the command with values as `*`, the time, then
+`run` (it ran), `cached` (answered again), `timeout` (took over 60 s) or `gone` (you changed the form, the check was stopped), the exit code and
+the result. Not tested on hardware yet.
+
 ## Use a terminal in the browser
 
 Off by default. It adds a **Terminal** button next to Update (a shell as `adminuser`, like an SSH login; `sudo` asks for that user's

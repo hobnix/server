@@ -21,9 +21,11 @@
   const canStart = $derived(allowed && !busy && (!p.confirm_name || confirm === p.confirm_name));
   const kicker = $derived(p && !allowed ? 'Plan · refused' : danger ? 'Plan · danger' : 'Plan');
 
-  onMount(async () => {
-    try { p = await askPlan(dialog.area, dialog.args); }
-    catch (e) { loadError = e.message; }
+  onMount(() => {
+    const ctl = new AbortController();
+    askPlan(dialog.area, dialog.args, undefined, undefined, ctl.signal)
+      .then((r) => { p = r; }, (e) => { if (e.name !== 'AbortError') loadError = e.message; });
+    return () => ctl.abort();
   });
 
   function close() { ui.dialog = null; }

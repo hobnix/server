@@ -7,11 +7,13 @@
   //   </CreateDialog>
   //
   // `args` is a function of the form state that returns the argument list of `hs sys <area> plan|start` (or null while the form cannot name a command yet).
-  // The dialog asks the server for a plan whenever it changes (debounced) and shows what comes back: allowed / needs input / refused. A password or a
+  // The dialog asks the server for a plan at once when it opens, then 300 ms after the last change (the older request is aborted), and shows what
+  // comes back: allowed / needs input / refused. Start is enabled only for the plan of the current form. A password or a
   // passphrase is returned by `stdin` (one line): it is sent in the request body for the server to put on the command's standard input, never in `args`.
   import { plan as askPlan, start as doStart } from '../api.js';
   import { ui, track, showTab } from '../ui.svelte.js';
   import PlanSteps from './PlanSteps.svelte';
+  import Skeleton from '../ui/Skeleton.svelte';
 
   let { title, kicker = 'New', area, args, stdin = () => undefined, form, onclose = () => { ui.create = null; }, ondone = () => {} } = $props();
 
@@ -22,40 +24,48 @@
   let busy = $state(false);
   let startError = $state('');
   let seq = 0;
+  let planKey = $state('');             // the form state the shown plan answers
+  let wantKey = $state('');             // the form state now
+  const keyOf = (a, s) => JSON.stringify([a, s ?? null]);   // stays in memory, never sent or logged
 
   const danger = $derived(!!p?.steps.some((s) => s[0] === 'danger'));
   const status = $derived(!p ? 'waiting' : p.status);
   const allowed = $derived(p?.status === 'ok');
-  const canStart = $derived(allowed && !busy && !asking && (!p.confirm_name || confirm === p.confirm_name));
+  const canStart = $derived(allowed && !busy && !asking && planKey !== '' && planKey === wantKey && (!p.confirm_name || confirm === p.confirm_name));
 
-  // a new plan whenever the form changes (300 ms after the last change); the answer of an older question is dropped
+  // a new plan at once when the dialog opens, then 300 ms after the last change; the older request is aborted, its answer dropped
+  let first = true;
   $effect(() => {
     const a = args();
     const s = stdin();
-    clearTimeout(timer);
-    if (!a) { p = null; asking = false; loadError = ''; return; }
-    asking = true;
+    const k = a ? keyOf(a, s) : '';   // a local: reading wantKey back here would make the effect depend on its own write and run twice
+    wantKey = k;
     const my = ++seq;
-    timer = setTimeout(async () => {
+    if (!a) { p = null; planKey = ''; asking = false; loadError = ''; return; }
+    asking = true;
+    const ctl = new AbortController();
+    const timer = setTimeout(async () => {
       try {
-        const r = await askPlan(area, a, s);
-        if (my === seq) { p = r; loadError = ''; if (r.confirm_name !== p?.confirm_name) confirm = ''; }
+        const r = await askPlan(area, a, s, undefined, ctl.signal);
+        if (my === seq && r) { const prev = p?.confirm_name; p = r; planKey = k; loadError = ''; if (r.confirm_name !== prev) confirm = ''; }
       } catch (e) {
-        if (my === seq) { loadError = e.message; p = null; }
+        if (e.name !== 'AbortError' && my === seq) { loadError = e.message; p = null; planKey = ''; }
       } finally {
         if (my === seq) asking = false;
       }
-    }, 300);
+    }, first ? 0 : 300);
+    first = false;
+    return () => { clearTimeout(timer); ctl.abort(); };   // a newer edit or closing the dialog: the old question is dropped and its request aborted
   });
-  let timer;
 
   async function go() {
     const a = args();
-    if (!a) return;
+    const s = stdin();
+    if (!a || keyOf(a, s) !== planKey) return;
     busy = true;
     startError = '';
     try {
-      const r = await doStart(area, a, p.confirm_name ? confirm : '', stdin());
+      const r = await doStart(area, a, p.confirm_name ? confirm : '', s);
       if (r.status === 'started' && r.unit) {
         track(r.unit, title);
         showTab('tasks');
@@ -94,6 +104,7 @@
       </div>
 
       <div class="scroll">
+        {#if asking && !p && !loadError}<Skeleton lines={3} /><div class="lede">Asking the server what would happen…</div>{/if}
         {#if loadError}
           <div class="refused"><i class="ph ph-warning-circle"></i>{loadError}</div>
         {:else if p?.status === 'needs'}
@@ -104,7 +115,7 @@
           <div class="refused"><i class="ph ph-prohibit"></i>{p.reason || 'The server refused this.'}</div>
         {/if}
         {#if p && p.heading && p.status === 'ok'}<div style="font-size:14px;font-weight:500;margin-bottom:2px">{p.heading}</div>{/if}
-        {#if p}<PlanSteps steps={p.steps} long={p.long && allowed} dim={!allowed} />{/if}
+        {#if p}<PlanSteps steps={p.steps} long={p.long && allowed} dim={!allowed || asking} />{/if}
         {#if p?.command && allowed}<code class="cmd">{p.command}</code>{/if}
         {#if p?.confirm_name && allowed}
           <div class="field" style="margin-top:10px">
@@ -117,7 +128,7 @@
 
       <div class="dialog-actions" style="margin-top:0">
         <button class="btn btn-secondary" onclick={onclose}>Cancel</button>
-        <button use:tip={canStart ? '' : p?.confirm_name && confirm !== p.confirm_name ? 'Type the name to confirm first' : busy ? 'Starting' : 'Fill in the form first'} class="btn btn-primary" disabled={!canStart} onclick={go} style={danger ? 'color:var(--st-bad);border-color:var(--st-bad)' : ''}>
+        <button use:tip={canStart ? '' : asking ? 'Waiting for the plan' : p?.confirm_name && confirm !== p.confirm_name ? 'Type the name to confirm first' : busy ? 'Starting' : 'Fill in the form first'} class="btn btn-primary" disabled={!canStart} onclick={go} style={danger ? 'color:var(--st-bad);border-color:var(--st-bad)' : ''}>
           <i class="ph ph-play"></i>{busy ? 'Starting…' : 'Start'}
         </button>
       </div>

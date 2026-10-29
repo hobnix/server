@@ -8,11 +8,11 @@ export const ageOf = (path) => {
   return a ? a.age + (Date.now() - a.at) / 1000 : null;
 };
 
-async function call(method, path, body, ageKey) {
+async function call(method, path, body, ageKey, signal) {
   const headers = {};
   if (body !== undefined) headers['Content-Type'] = 'application/json';
   if (method !== 'GET' && csrf) headers['X-CSRF-Token'] = csrf;
-  const r = await fetch(path, { method, headers, body: body === undefined ? undefined : JSON.stringify(body), credentials: 'same-origin' });
+  const r = await fetch(path, { method, headers, body: body === undefined ? undefined : JSON.stringify(body), credentials: 'same-origin', signal });
   if (method === 'GET' && r.ok) ages.set(ageKey ?? path, { age: Number(r.headers.get('X-HS-Age') ?? 0) || 0, at: Date.now() });
   let data = null;
   try { data = await r.json(); } catch { /* no body */ }
@@ -82,5 +82,5 @@ export async function get(path, fresh = false) {
 
 // A change is always a plan first, then a start (with the typed word when the plan has a confirm_name).
 // selection: the file manager's list of item names (the server hands it to the script on stdin, NUL separated)
-export const plan = (area, args, stdin, selection) => call('POST', '/api/plan', { area, args, ...(stdin ? { stdin } : {}), ...(selection ? { selection } : {}) });
+export const plan = (area, args, stdin, selection, signal) => call('POST', '/api/plan', { area, args, ...(stdin ? { stdin } : {}), ...(selection ? { selection } : {}) }, undefined, signal);   // an aborted call rejects with e.name === 'AbortError'
 export const start = (area, args, confirm, stdin, selection) => call('POST', '/api/start', { area, args, ...(confirm ? { confirm } : {}), ...(stdin ? { stdin } : {}), ...(selection ? { selection } : {}) });
