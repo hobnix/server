@@ -1,6 +1,8 @@
 // Polled reads. `poll('/api/sys/ct/list', 5000)` gives a reactive { data, error, loaded }. The path may be a function (or return
 // '' to pause, e.g. while a panel is collapsed). A failed read keeps the last data, so a page never flashes empty on one bad answer.
 import { get } from './api.js';
+import { live } from './live.svelte.js';
+import { nextDelay } from './polldelay.js';
 export { ageOf } from './api.js';
 
 // The last answer per path, for the whole session: a page revisited (or the tree's counts) shows it at once and then reads again.
@@ -37,26 +39,32 @@ export async function refresh(paths) {
   }
 }
 
-export function poll(path, ms) {
+// topic: the name of the server's live state for this read (Summary: 'status'); while the live stream is open the read follows it instead of a timer.
+export function poll(path, ms, topic) {
   const st = $state({ data: null, error: null, loaded: false });
   $effect(() => {
     sync.n;   // a refresh re-runs this effect: the new answer is in the cache
     const p = typeof path === 'function' ? path() : path;
     if (!p) return;
+    const liveOpen = !!topic && live.open;
+    if (topic) live.gen[topic];   // a change of the topic re-runs this effect, which reads again
     if (cache.has(p)) { st.data = cache.get(p); st.error = null; st.loaded = true; }
     let alive = true;
     let timer;
     const run = async () => {
+      let err = null;
       try {
         const d = await get(p);
         cache.set(p, d);
         if (alive) { st.data = d; st.error = null; }
       } catch (e) {
+        err = e;
         if (alive) st.error = e;
       }
       if (alive) {
         st.loaded = true;
-        timer = setTimeout(run, ms);
+        const wait = nextDelay(topic, liveOpen, ms, err);
+        if (wait !== null) timer = setTimeout(run, wait);
       }
     };
     run();

@@ -11,6 +11,7 @@ edge-status		Edge node: status document
 edge-watcher		Edge node: outside watcher of the home server
 gateway		Gateway proxy (Traefik: local names for the services)
 incus		Incus (containers and VMs, VLAN profiles)
+live-state		Live state (Redis cache for the web interface)
 metrics		Metrics (Prometheus on this server)
 network	networkProvider	Router connection (fixed addresses for instances)
 notifications	notifyUrl,notifyUrlSecond,notifications	Notification channels (ntfy and other providers)

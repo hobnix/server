@@ -19,6 +19,7 @@ hs_job() {
     -E HS_CALLER=job -E "HS_LANG=${hs_lang:-en}" -E "PATH=$PATH" ${extra[@]+"${extra[@]}"} \
     bash -c 'd=$1; shift   # $0 = scripts dir, $1 = description, the rest = the command
              "$@"; rc=$?
+             bash "$0/live.sh" refresh --all >/dev/null 2>&1 || true   # live state: read again (no-op without the capability)
              [ "$rc" -ne 0 ] || bash "$0/notify.sh" --category ok hs "$d finished" >/dev/null 2>&1
              exit "$rc"' "$here" "$desc" "$@" || return 1
   printf '%s\n' "$unit"
