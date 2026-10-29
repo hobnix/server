@@ -1,10 +1,12 @@
 <script>
   // Describe a service (hs sys routes plan|start add <name> --port N --container C | --host H ...). Only the description is written; the route on the
   // reverse proxy is made by "Apply" on the Services page. public-ok is red: the typed word is the service name.
+  // With `edit` (the name of a described service) the same form changes it: `hs sys routes plan|start edit <name> ...` sends every field, a field
+  // left empty is cleared (--clear), what the form does not show (fqdn, scheme, health, other wants) stays in the file.
   import CreateDialog from '../../shell/CreateDialog.svelte';
   import { poll, rows } from '../../data.svelte.js';
 
-  let { onclose, ondone = () => {} } = $props();
+  let { onclose, ondone = () => {}, edit = '' } = $props();
 
   const cts = poll('/api/sys/ct/list', 15000);
   const instances = $derived(rows(cts).map((r) => r[0]));
@@ -19,31 +21,54 @@
   let exposure = $state('private-ok');
   let paths = $state('');
   let dashboard = $state(true);
+  let proxied = $state(true);   // want reverse-proxy of the file, kept as it is
+
+  // the facts of the service being edited: key, value rows (a dash is empty)
+  const cur = poll(() => (edit ? `/api/sys/services/show/${encodeURIComponent(edit)}` : ''), 600000);
+  let filled = false;
+  $effect(() => {
+    if (!edit || filled || !cur.loaded) return;
+    const v = Object.fromEntries(rows(cur).map((r) => [r[0], r[1] === '-' ? '' : (r[1] ?? '')]));
+    if (!v.name) return;
+    filled = true;
+    name = v.name; where = v.where || 'container';
+    if (where === 'container') ct = v.machine; else host = v.machine;
+    port = v.port; title = v.title; names = v.names === v.name ? '' : v.names;
+    exposure = v.exposure || 'private-ok'; paths = v.public_paths.split(',').join(' ');
+    const want = v.want.split(',');
+    dashboard = want.includes('dashboard'); proxied = want.includes('reverse-proxy');
+  });
 
   const args = () => {
     if (!/^[a-z0-9][a-z0-9-]{0,40}$/.test(name)) return null;
+    if (edit && !filled) return null;
     if (!/^[0-9]{1,5}$/.test(port) || +port < 1 || +port > 65535) return null;
-    const a = ['add', name, '--port', port];
+    const a = [edit ? 'edit' : 'add', name, '--port', port];
     if (where === 'container') { if (!ct) return null; a.push('--container', ct); }
     else { if (!/^[A-Za-z0-9][A-Za-z0-9._:-]{0,100}$/.test(host.trim())) return null; a.push('--host', host.trim()); }
     if (title.trim()) a.push('--title', title.trim());
+    else if (edit) a.push('--clear', 'title');
     const n = names.replace(/\s+/g, '');
     if (n) { if (!/^[a-z0-9][a-z0-9,-]{0,100}$/.test(n)) return null; a.push('--names', n); }
+    else if (edit) a.push('--clear', 'names');
     a.push('--exposure', exposure);
-    for (const p of paths.split(/[\s,]+/).filter(Boolean)) {
+    const ps = paths.split(/[\s,]+/).filter(Boolean);
+    for (const p of ps) {
       if (!/^\/[A-Za-z0-9._/-]{0,100}$/.test(p)) return null;
       a.push('--public-path', p);
     }
-    a.push('--want', dashboard ? 'reverse-proxy,dashboard' : 'reverse-proxy');
+    if (!ps.length && edit) a.push('--clear', 'public-path');
+    if (edit) a.push('--want', [proxied && 'reverse-proxy', dashboard && 'dashboard'].filter(Boolean).join(',') || 'none');
+    else a.push('--want', dashboard ? 'reverse-proxy,dashboard' : 'reverse-proxy');
     return a;
   };
 </script>
 
-<CreateDialog title="Describe a service" kicker="Services" area="routes" {args} {onclose} {ondone}>
+<CreateDialog title={edit ? 'Change ' + edit : 'Describe a service'} kicker="Services" area="routes" {args} {onclose} {ondone}>
   {#snippet form()}
     <div class="field">
       <label for="sv-name">Name</label>
-      <input id="sv-name" class="input" bind:value={name} placeholder="wiki" maxlength="41" autocomplete="off" />
+      <input id="sv-name" class="input" bind:value={name} readonly={!!edit} placeholder="wiki" maxlength="41" autocomplete="off" />
     </div>
     <div class="field">
       <label for="sv-where">Runs on</label>

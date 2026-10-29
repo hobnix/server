@@ -243,6 +243,97 @@ def cmd_add(d, args):
     return 0
 
 
+EDIT_WANTS = ('reverse-proxy', 'dashboard')   # the wants the edit form owns; every other want of the file stays as it is
+EDIT_CLEAR = {'title': 'title', 'icon': 'icon', 'group': 'group', 'description': 'description', 'names': 'names', 'public-path': 'public_paths'}
+
+
+def cmd_edit(d, args):
+    """Change a described service: only the options given change, everything else in the file stays (fqdn, scheme, health, wants the form
+    does not own). --clear <title|icon|group|description|names|public-path> drops that key. --want names the wants of EDIT_WANTS that are
+    on; one of them that was in the file and is not named becomes false. Nothing is sent to the proxy: `apply` does that."""
+    name = args.pop(0) if args and not args[0].startswith('--') else die('edit needs a name')
+    existing = load_all(d).get(name)
+    if not existing or '_error' in existing:
+        print('%s is not a service' % name, file=sys.stderr)
+        return 3
+    s = dict(existing)
+    container, host = opt(args, '--container'), opt(args, '--host')
+    if container and host:
+        die('give a container or a host, not both')
+    if container:
+        s['container'] = container
+        s.pop('host', None)
+    if host:
+        s['host'] = host
+        s.pop('container', None)
+    port = opt(args, '--port')
+    if port is not None:
+        try:
+            s['port'] = int(port)
+        except ValueError:
+            die('port must be a number')
+    for key, o in (('title', '--title'), ('scheme', '--scheme'), ('exposure', '--exposure'), ('icon', '--icon'), ('group', '--group'),
+                   ('description', '--description'), ('health', '--health')):
+        v = opt(args, o)
+        if v:
+            s[key] = v
+    names = opt(args, '--names')
+    if names:
+        s['names'] = [x for x in names.split(',') if x]
+    fq = opt(args, '--fqdn')
+    if fq:
+        s['fqdn'] = [x for x in fq.split(',') if x]
+    paths = opts(args, '--public-path')
+    if paths:
+        s['public_paths'] = paths
+    wants = opt(args, '--want')
+    if wants is not None:
+        named = {k for k in wants.split(',') if k and k != 'none'}   # `none`: the form switched every want it owns off
+        want = dict(s.get('want', {}))
+        for k in EDIT_WANTS:
+            if k in named:
+                want[k] = True
+            elif k in want:
+                want[k] = False
+        for k in named - set(EDIT_WANTS):
+            want[k] = True
+        s['want'] = want
+    for c in opts(args, '--clear'):
+        if c not in EDIT_CLEAR:
+            die('--clear takes one of %s' % ', '.join(EDIT_CLEAR))
+        s.pop(EDIT_CLEAR[c], None)
+    if args:
+        die('unknown option %s' % args[0])
+    bad = problems(name, s)
+    if bad:
+        print('\n'.join(bad), file=sys.stderr)
+        return 1
+    write(d, s)
+    return 0
+
+
+def cmd_show(d, args):
+    """One service as key<TAB>value lines (the edit form reads them): name, title, where (container|host), machine, port, scheme, names, fqdn,
+    exposure, public_paths, icon, group, description, health, want. A list is comma separated; - when empty."""
+    name = args[0] if args else die('show needs a name')
+    s = load_all(d).get(name)
+    if not s or '_error' in s:
+        print('%s is not a service' % name, file=sys.stderr)
+        return 3
+    def val(v):
+        v = ','.join(v) if isinstance(v, list) else v
+        return str(v).replace('\t', ' ').replace('\n', ' ') if v not in (None, '') else '-'
+    rows = [('name', name), ('title', s.get('title')), ('where', 'container' if s.get('container') else 'host'),
+            ('machine', s.get('container') or s.get('host')), ('port', s.get('port')), ('scheme', s.get('scheme', 'http')),
+            ('names', s.get('names', [name])), ('fqdn', s.get('fqdn')), ('exposure', s.get('exposure', 'private-ok')),
+            ('public_paths', s.get('public_paths')), ('icon', s.get('icon')), ('group', s.get('group')),
+            ('description', s.get('description')), ('health', s.get('health')),
+            ('want', [k for k, v in s.get('want', {}).items() if v])]
+    for k, v in rows:
+        print('%s\t%s' % (k, val(v)))
+    return 0
+
+
 def cmd_remove(d, args):
     name = args[0] if args else die('remove needs a name')
     if not NAME.match(name):
@@ -722,6 +813,10 @@ def main(argv):
         return cmd_check(d)
     if cmd == 'add':
         return cmd_add(d, args)
+    if cmd == 'edit':
+        return cmd_edit(d, args)
+    if cmd == 'show':
+        return cmd_show(d, args)
     if cmd == 'remove':
         return cmd_remove(d, args)
     if cmd in ('plan', 'import'):

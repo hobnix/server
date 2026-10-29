@@ -197,6 +197,45 @@ $S add hidden --container jellyfin --port 9101 --exposure never-public >/dev/nul
 check_out "never-public is refused" "never public" $S set hidden --public yes --public-name hidden.example.org
 check "set of an unknown service fails" bash -c '! '"$S"' set nosuch --local yes 2>/dev/null'
 $S remove setme >/dev/null 2>&1; $S remove hidden >/dev/null 2>&1
+echo "-- edit and show"
+# written by hand: scheme, fqdn and a public path are what the form does not set (and a /path argument gets mangled by Git Bash)
+printf 'name = "wiki"
+title = "Wiki"
+container = "wikict"
+port = 3000
+scheme = "https"
+names = ["wiki", "notes"]
+fqdn = ["wiki.example.com"]
+exposure = "private-ok"
+public_paths = ["/hook"]
+
+[want]
+reverse-proxy = true
+dashboard = true
+local-proxy = true
+' > "$HS_SERVICES_DIR/wiki.toml"
+check_out "show prints where and machine" "where${T}container" $S show wiki
+check_out "show prints the names" "names${T}wiki,notes" $S show wiki
+check_out "show prints the paths" "public_paths${T}/hook" $S show wiki
+check "show of an unknown service fails" bash -c '! '"$S"' show nosuch 2>/dev/null'
+check "edit of an unknown service fails" bash -c '! '"$S"' edit nosuch --title X 2>/dev/null'
+$S edit wiki --port 3001 --title Notes --want reverse-proxy >/dev/null 2>&1
+check_out "edit changes the port" "port${T}3001" $S show wiki
+check_out "edit changes the title" "title${T}Notes" $S show wiki
+check_out "edit keeps what it was not given (names)" "names${T}wiki,notes" $S show wiki
+check_out "edit keeps what the form does not show (fqdn)" "fqdn${T}wiki.example.com" $S show wiki
+check_out "edit keeps a want the form does not own" "want${T}reverse-proxy,local-proxy" $S show wiki
+$S edit wiki --clear title --clear names --clear public-path --want none >/dev/null 2>&1
+check_out "edit clears the title" "title${T}-" $S show wiki
+check_out "edit clears the names (back to the name)" "names${T}wiki" $S show wiki
+check_out "edit clears the paths" "public_paths${T}-" $S show wiki
+check_out "want none switches the owned wants off" "want${T}local-proxy" $S show wiki
+$S edit wiki --host 10.0.0.9 >/dev/null 2>&1
+check_out "edit switches container to host" "where${T}host" $S show wiki
+check "edit refuses both targets" bash -c '! '"$S"' edit wiki --host a --container b 2>/dev/null'
+check "edit refuses a bad exposure" bash -c '! '"$S"' edit wiki --exposure sometimes 2>/dev/null'
+check "edit refuses a bad --clear" bash -c '! '"$S"' edit wiki --clear port 2>/dev/null'
+$S remove wiki >/dev/null 2>&1
 
 echo "-- a real Zoraxy: default site, several apps in one container, blocked paths, one host for several services"
 rm -rf "$HS_SERVICES_DIR"
@@ -337,10 +376,10 @@ export HS_SERVICES_DIR=$SAVE_SVC
 unset HS_CAPABILITIES_FILE
 
 echo "-- registry"
-for w in "services list" "services check" "services plan" "services add" "services remove" "services import"; do
+for w in "services list" "services check" "services plan" "services add" "services edit" "services remove" "services import"; do
   check "user row: $w" grep -q "^user${T}$w${T}services.sh${T}" "$SCRIPTS/lib/registry.tsv"
 done
-for w in "sys services list" "sys services plan"; do
+for w in "sys services list" "sys services show <name>" "sys services plan"; do
   check "row: $w" grep -q "^sys${T}$w${T}services.sh${T}" "$SCRIPTS/lib/registry.tsv"
 done
 

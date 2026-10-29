@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # help: the services of this server (a web page, an API ...) and where they are published: list, check, plan, add, remove, import
 # help.de: die Dienste dieses Servers (eine Weboberfläche, eine API ...) und wo sie veröffentlicht sind: list, check, plan, add, remove, import
-# args: list | check | plan | add <name> --port <n> (--container <ct> | --host <h>) [...] | remove <name> | import [--dry-run] [--yes]
+# args: list | check | plan | add <name> --port <n> (--container <ct> | --host <h>) [...] | edit <name> [...] | show <name> | remove <name> | import [--dry-run] [--yes]
 # A service is a small file in /var/lib/hs/services.d (scripts/services.py describes it). Recipes and people write them; the providers
 # (the reverse proxy, later DNS, the dashboard ...) are asked to match them. Nothing here changes a proxy yet: `plan` shows what a
 # provider has and what the services want, `import` makes services out of the routes the proxy has today (docs/PLAN-modular-core.md step 4).
@@ -44,7 +44,7 @@ svc() { PYTHONUTF8=1 "$py" "$here/services.py" "$@"; }
 interactive() { [ -t 0 ] && [ -t 1 ] && [ -z "${HS_CALLER:-}" ] || [ -n "${HS_GUIDED_TTY:-}" ]; }
 
 usage() {
-  say "usage: hs services list | check | plan | add <name> ... | remove <name> | import [--dry-run] [--yes] | apply [--dry-run] [--confirm <host or service>] | adopt [--yes] | proxy login   (plan, apply, import, adopt: [--proxy public|local])"
+  say "usage: hs services list | check | plan | add <name> ... | edit <name> ... | remove <name> | import [--dry-run] [--yes] | apply [--dry-run] [--confirm <host or service>] | adopt [--yes] | proxy login   (plan, apply, import, adopt: [--proxy public|local])"
   exit 1
 }
 
@@ -285,6 +285,12 @@ case "$cmd" in
     svc set "$@" && ok "$(t "Service '%s' is changed (Apply makes the route)." "$1")" || fail "$(t "Could not change '%s'." "$1")" ;;
   apps)
     rows=$(svc apps); [ -z "$rows" ] || printf '%s\n' "$rows" ;;   # hs sys services app
+  edit)
+    [ $# -ge 1 ] || usage
+    svc edit "$@" && ok "$(t "Service '%s' is changed." "$1")" || fail "$(t "Could not change '%s'." "$1")" ;;
+  show)
+    [ $# -eq 1 ] || usage
+    svc show "$1" ;;
   remove)
     [ $# -eq 1 ] || usage
     svc remove "$1" && ok "$(t "Service '%s' is removed (its routes stay)." "$1")" || fail "$(t "'%s' is not a service." "$1")" ;;

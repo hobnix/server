@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # help: change the services and their routes on the reverse proxy without asking anything: what would happen (plan), then do it (start)
 # help.de: die Dienste und ihre Routen am Reverse-Proxy ändern, ohne etwas zu fragen: was passieren würde (plan), dann ausführen (start)
-# args: plan|start apply | adopt | import | remove <service> | add <name> --port N (--container C | --host H) [--title T] [--names a,b] [--exposure E] [--public-path P]... [--want w,w] | set <name> [--local yes|no] [--public yes|no] [--public-name FQDN]
+# args: plan|start apply | adopt | import | remove <service> | add <name> --port N (--container C | --host H) [--title T] [--names a,b] [--exposure E] [--public-path P]... [--want w,w] | set <name> [--local yes|no] [--public yes|no] [--public-name FQDN] | edit <name> [the options of add] [--clear title|icon|group|description|names|public-path]...
 # System command (hs sys routes plan|start): for the interface and tests. It never asks and prints plain key<TAB>value lines like
 # backup-change.sh. The work is services.sh's (no logic is repeated here). The reads are `hs sys services list|plan|tiles`.
 #   apply          do what `hs services plan` says: add, publish (confirm), change and remove routes. The plan lists every route; when one goes on
@@ -13,6 +13,8 @@
 #                  typed word is the service name. The options go to `hs services add` as they are; services.py checks them.
 #   set <name>     change an existing service: local name, public yes/no (+ public name). public yes is red (typed word: the service name).
 #                  Routes are not touched: `apply` does that.
+#   edit <name>    change the description of a service: only the options given change (`hs services edit`, merge); nothing is sent to the proxy
+#                  (`apply` does that). Going to public-ok is red like add (the typed word is the service name).
 #   remove <name>  forget the description of a service; its routes on the proxy stay
 # plan: exit 0 = allowed, 1 = refused (no proxy, nothing to do). Output: status ok|refused, reason<TAB><text>,
 #   heading|step|note|warn|danger|command<TAB><line>, confirm_name<TAB>apply, long<TAB>yes|no.
@@ -33,10 +35,12 @@ case "$action" in
   apply|adopt|import) ;;
   remove) name=${1:-}; shift || true; [[ "$name" =~ ^[A-Za-z0-9][A-Za-z0-9._-]{0,60}$ ]] || refuse "that is not a service name" ;;
   add) name=${1:-}; shift || true; [[ "$name" =~ ^[a-z0-9][a-z0-9-]{0,40}$ ]] || refuse "A service name is lower case letters, digits and - (at most 41)." ;;
+  edit) name=${1:-}; shift || true; [[ "$name" =~ ^[a-z0-9][a-z0-9-]{0,40}$ ]] || refuse "That is not a service name." ;;
   set) name=${1:-}; shift || true; [[ "$name" =~ ^[a-z0-9][a-z0-9-]{0,40}$ ]] || refuse "A service name is lower case letters, digits and - (at most 41)." ;;
-  *) refuse "unknown action (apply, adopt, import, add, set or remove)" ;;
+  *) refuse "unknown action (apply, adopt, import, add, edit, set or remove)" ;;
 esac
 pargs=() addargs=() exposure=private-ok port="" container="" host="" title="" setargs=() set_public="" set_pname="" set_local=""
+[ "$action" != edit ] || exposure=   # an edit changes the exposure only when it is given
 while [ $# -gt 0 ]; do
   case "$1" in
     --proxy) [ $# -ge 2 ] || refuse "--proxy needs a value"
@@ -53,8 +57,9 @@ while [ $# -gt 0 ]; do
       esac
       case "$1" in --local) set_local=$2 ;; --public) set_public=$2 ;; --public-name) set_pname=$2 ;; esac
       setargs+=("$1" "$2"); shift 2 ;;
-    --port|--container|--host|--title|--names|--exposure|--public-path|--want|--group|--icon|--description)
-      [ "$action" = add ] || refuse "unknown option $1"
+    --port|--container|--host|--title|--names|--exposure|--public-path|--want|--group|--icon|--description|--clear)
+      case "$action" in add|edit) ;; *) refuse "unknown option $1" ;; esac
+      [ "$1" != --clear ] || [ "$action" = edit ] || refuse "unknown option $1"
       [ $# -ge 2 ] || refuse "$1 needs a value"
       case "$1" in --port) port=$2 ;; --container) container=$2 ;; --host) host=$2 ;; --exposure) exposure=$2 ;; --title) title=$2 ;; esac
       addargs+=("$1" "$2"); shift 2 ;;
@@ -95,6 +100,33 @@ case "$action" in
       printf 'danger\t%s may be put on the internet by the next Apply.\nconfirm_name\t%s\n' "$name" "$name"
     fi
     printf 'command\ths services add %s %s\nlong\tno\n' "$name" "${addargs[*]}"
+    exit 0 ;;
+  edit)
+    cur=$(bash "$svc" show "$name" </dev/null 2>/dev/null) || refuse "There is no service called '$name'."
+    [ "${#addargs[@]}" -gt 0 ] || refuse "Nothing to change."
+    [ -z "$port" ] || { [[ "$port" =~ ^[0-9]{1,5}$ ]] && [ "$port" -ge 1 ] && [ "$port" -le 65535 ] || refuse "The port is a number from 1 to 65535."; }
+    if [ -n "$container" ] && [ -n "$host" ]; then refuse "Give a container or a host, not both."; fi
+    case "$exposure" in ''|never-public|private-ok|public-ok) ;; *) refuse "The exposure is never-public, private-ok or public-ok." ;; esac
+    was=$(awk -F'\t' '$1 == "exposure" { print $2; exit }' <<<"$cur")
+    going_public=""
+    if [ "$exposure" = public-ok ] && [ "$was" != public-ok ]; then going_public=yes; fi
+    if [ "$verb" = start ]; then
+      if [ -n "$going_public" ] && [ "$confirm" != "$name" ]; then refuse "type the word to confirm: $name"; fi
+      err=$(bash "$svc" edit "$name" "${addargs[@]}" </dev/null 2>&1 >/dev/null) || refuse "$(tail -n 1 <<<"$err" | tr -d '\t')"
+      printf 'status\tdone\n'
+      exit 0
+    fi
+    printf 'status\tok\nheading\tchange the service %s\n' "$name"
+    printf 'step\trewrite the description of %s (only what you changed)\n' "$name"
+    printf 'note\tNothing is sent to the reverse proxy yet: Apply makes the change there.\n'
+    printf 'note\tIf a recipe declared this service, running the recipe again refreshes its container, port and title.\n'
+    if [ "$was" = public-ok ] && [ -n "$exposure" ] && [ "$exposure" != public-ok ]; then
+      printf 'warn\t%s is public-ok today: the next Apply takes its route off the internet.\n' "$name"
+    fi
+    if [ -n "$going_public" ]; then
+      printf 'danger\t%s may be put on the internet by the next Apply.\nconfirm_name\t%s\n' "$name" "$name"
+    fi
+    printf 'command\ths services edit %s %s\nlong\tno\n' "$name" "${addargs[*]}"
     exit 0 ;;
   set)
     list=$(bash "$svc" list --plain </dev/null 2>/dev/null || true)
