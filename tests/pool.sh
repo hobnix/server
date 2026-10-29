@@ -48,6 +48,55 @@ bash "$SCRIPTS/bulk-sync.sh" --no-mover >/dev/null 2>&1
 check "the next sync forgets it" test ! -s /var/lib/hs/removals
 check_out "a parity disk cannot be converted" "only data disks" pool bulk --convert parity-1 --dry-run
 
+echo "-- convert changes the filesystem, each way"
+for f in ext4 xfs btrfs; do
+  fs_works "$f" || { skip "mkfs.$f is not available: convert to $f not checked"; continue; }
+  cur=$(fstype bulk-data-02)
+  [ "$cur" != "$f" ] || { other=ext4; [ "$f" != ext4 ] || other=$alt; [ "$other" != "$f" ] || continue; echo data-02 | pool bulk --convert data-02 --fs "$other" >/dev/null 2>&1 || true; }
+  echo data-02 | pool bulk --convert data-02 --fs "$f" >"$WORK/conv-$f.log" 2>&1 || true
+  check_eq "convert gives a $f disk" "$f" "$(fstype bulk-data-02)"
+  check "and it is mounted" mountpoint -q /mnt/bulk/data-02
+done
+
+echo "-- convert --discard: the files of the disk are not moved"
+mkdir -p /mnt/bulk/data-02/shares/media; echo gone > /mnt/bulk/data-02/shares/media/discarded.txt
+before_fs=$(fstype bulk-data-02)
+to=ext4; [ "$before_fs" != ext4 ] || to=$alt
+[ "$to" != "$before_fs" ] || to=ext4
+out=$(echo data-02 | pool bulk --convert data-02 --discard --fs "$to" 2>&1 || true)
+check_out "discard reports the conversion" "data-02 is converted" echo "$out"
+check_eq "the filesystem changed" "$to" "$(fstype bulk-data-02)"
+check "the discarded file is gone" test ! -e /bulk/shares/media/discarded.txt
+check_eq "the other files are untouched" only-on-2 "$(cat /bulk/shares/media/two.txt 2>/dev/null)"
+
+echo "-- convert: a file that cannot be moved aborts and changes nothing, a retry then works"
+have chattr || skip "chattr is not installed: the unmovable file is not checked"
+if have chattr; then
+  mkdir -p /mnt/bulk/data-02/shares/media
+  : > /mnt/bulk/data-02/shares/media/.hidden-stuck
+  chattr +i /mnt/bulk/data-02/shares/media/.hidden-stuck 2>/dev/null
+  if lsattr /mnt/bulk/data-02/shares/media/.hidden-stuck 2>/dev/null | grep -q '^....i'; then
+    fs_now=$(fstype bulk-data-02); uuid_now=$(blkid -s UUID -o value "$(blkid -L bulk-data-02)")
+    want=ext4; [ "$fs_now" != ext4 ] || want=$alt
+    out=$(echo data-02 | pool bulk --convert data-02 --fs "$want" 2>&1); rc=$?
+    check_eq "it exits with an error" 1 "$rc"
+    check_out "it names how many files are left" "1 left" echo "$out"
+    check_out "it says hidden files count" "hidden files count" echo "$out"
+    check_out "and that the disk is not changed" "is not changed" echo "$out"
+    check_eq "the disk is the same filesystem" "$fs_now" "$(fstype bulk-data-02)"
+    check_eq "and the same filesystem UUID" "$uuid_now" "$(blkid -s UUID -o value "$(blkid -L bulk-data-02)")"
+    chattr -i /mnt/bulk/data-02/shares/media/.hidden-stuck
+    rm -f /mnt/bulk/data-02/shares/media/.hidden-stuck /bulk/shares/media/.hidden-stuck
+    # the branch is gone from /bulk now (the failed run took it out): the retry must still go through
+    out=$(echo data-02 | pool bulk --convert data-02 --fs "$want" 2>&1 || true)
+    check_out "the retry converts" "data-02 is converted" echo "$out"
+    check_eq "the retry changed the filesystem" "$want" "$(fstype bulk-data-02)"
+  else
+    skip "this filesystem has no immutable flag: the unmovable file is not checked"
+  fi
+fi
+bash "$SCRIPTS/bulk-sync.sh" --no-mover >/dev/null 2>&1
+
 echo "-- remove: files move, no parity run"
 mkdir -p /bulk/shares/docs
 for i in 1 2 3 4 5 6; do echo "file-$i" > "/bulk/shares/docs/f$i.txt"; done

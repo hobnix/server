@@ -34,6 +34,17 @@ crypt_record() {   # crypt_record <luks device>: this disk belongs to the server
   mkdir -p "$crypt_state"
   crypt_known_uuid "$u" || echo "$u" >> "$crypt_uuids"
 }
+crypt_forget_uuid() {   # crypt_forget_uuid <uuid>: the disk is not this server's any more (hs unlock does not call it locked)
+  [ -n "$1" ] && [ -f "$crypt_uuids" ] || return 0
+  sed -i "/^$1\$/d" "$crypt_uuids" 2>/dev/null || true
+}
+crypt_close_forget() {   # crypt_close_forget <mapper device or name>: close it and forget the disk behind it
+  local name=${1##*/} dev u=""
+  dev=$(cryptsetup status "$name" 2>/dev/null | awk '$1 == "device:" { print $2 }' || true)
+  [ -z "$dev" ] || u=$(cryptsetup luksUUID "$dev" 2>/dev/null || true)
+  cryptsetup close "$name" 2>/dev/null || true
+  crypt_forget_uuid "$u"
+}
 luks_name() {      # luks_name <luks device>
   local u
   u=$(cryptsetup luksUUID "$1")
