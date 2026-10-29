@@ -1,6 +1,6 @@
 # Packages: recipes and extensions as one thing, in repositories of their own
 
-Status: design, decided with the owner on 2026-10-28. Nothing is built. It replaces the "Packages from a repository (later)" section of
+Status: design, decided with the owner on 2026-10-28; steps 1 to 4 are built, step 5 is half done (see below). It replaces the "Packages from a repository (later)" section of
 docs/PLAN-extensions.md and the "recipes as packages" open point there. Goal behind it: the project becomes public and open source, so
 other people can write, update and share parts without touching the core.
 
@@ -225,10 +225,17 @@ Each step is shippable on its own and keeps the server working.
    ("Smart updates"), `--check` on every recipe; then `cs.sh` and every community-scripts reference are removed.
 3. **Recipes get commands and pages** (built 2026-10-28: the loader and `scripts/web-serve.py` read `packages/<name>/commands.tsv` and the `[web.*]` tables of its `package.toml`; a recipe package is on once `hs recipe` has applied it; pilot `arr`: `hs ext arr status`, `hs sys ext arr status`, the page "Films and series"; `hs ext list` shows extensions only, `hs ext enable` refuses a recipe). Loader reads `commands.tsv` and `[web.page]` of recipes. Pilot: `arr` page with its services, state
    and basic counts (reads through `hs sys ext arr ...`). The generic Recipes page keeps working for recipes without a page.
-4. **Repositories and trust** (built 2026-10-28: `scripts/pkg_repo.py`, `hs pkg repo|fetch|available|install|update|remove`, defaults in config/package-repos.toml, trusted keys in config/trusted-keys/<name>.allowed_signers, added repositories in /var/lib/hs/packages/repos.toml instead of a machine.toml option; installs go to /var/lib/hs/packages/current/<name> (read-only, the loaders read that folder), the one before to previous/; tests/pkg-repo.sh with SSH-signed tags in a local git repository; the two default repositories fail closed until their key files exist; the repository URLs are placeholders for the future organisation). `/var/lib/hs/packages/<name>@<commit>`, the loader's second location (`ext_package_dir`, `ext_roots`),
+4. **Repositories and trust** (built 2026-10-28: `scripts/pkg_repo.py`, `hs pkg repo|fetch|available|install|update|remove`, defaults in config/package-repos.toml, trusted keys in config/trusted-keys/<name>.allowed_signers, added repositories in /var/lib/hs/packages/repos.toml instead of a machine.toml option; installs go to /var/lib/hs/packages/current/<name> (read-only, the loaders read that folder), the one before to previous/; tests/pkg-repo.sh with SSH-signed tags in a local git repository; the two default repositories fail closed until their key files exist; the default URLs are github.com/hobnix/hobnix-recipes and github.com/hobnix/hobnix-extensions). `/var/lib/hs/packages/<name>@<commit>`, the loader's second location (`ext_package_dir`, `ext_roots`),
    `index.toml`, `hs pkg repo`, tag signing and verification, diff-and-ask in `hs update` and the web update, default repositories in the
    schema. Done against a local file:// repository first, so it is testable on the Windows checkout and in CI without the network.
-5. **Split** (built 2026-10-28 up to the export: recipes are packages/<name>/run.sh with their own files, the extensions' scripts live in their capabilities/ folder, `scripts/dev/export-package-repos.py` writes the two clean repositories, tests/pkg-export.sh installs from them; the in-tree copies stay until the repositories are published and signed, then they are deleted and the six `core = true` recipes are fetched at setup). `git filter-repo` the package folders (keeping history) into extensions and recipes, sign the first tags, the
+5. **Split** (built 2026-10-28 up to the export: recipes are packages/<name>/run.sh with their own files, the extensions' scripts live in their capabilities/ folder, `scripts/dev/export-package-repos.py` writes the two clean repositories, tests/pkg-export.sh installs from them; the in-tree copies stay until the repositories are published and signed, then they are deleted and the five `core = true` recipes are fetched at setup).
+   **State on 2026-10-29:** both repositories exist on GitHub (hobnix-recipes, hobnix-extensions) with one import commit and no tags, so they
+   already trail this tree (arr, pelican and stalwart 1.1.0, passthrough; `homepage` is gone from the core and from the export). Left to do,
+   in this order: (a) re-run the exporter into the existing clones (it replaces the tree; the import commit's history is not worth keeping
+   while nothing is tagged), (b) sign `v1.0.0` in both and commit the keys to `config/trusted-keys/{recipes,extensions}.allowed_signers`,
+   (c) setup fetches the five `core = true` recipes, (d) delete the in-tree copies (`packages/`, `capabilities/{games,posters,passthrough}`)
+   and split the tests listed under "Compatibility", (e) CI in all three. From (b) on, a change to a package is made in its repository, so
+   no package is edited here between (a) and (d). `git filter-repo` the package folders (keeping history) into extensions and recipes, sign the first tags, the
    core fetches its defaults from them; CI in all three repositories as above. The in-tree copies are deleted in the same release, the old
    `hs recipe` / `hs ext` words keep working through the loader.
 6. **Public release.** Personal data audit (including git history of the split repositories: secrets, hostnames, mail addresses), LICENSE
@@ -236,6 +243,12 @@ Each step is shippable on its own and keeps the server working.
    is called out), issue and PR templates, a security contact, the trusted-key process (who may sign, how a key is rotated).
 
 ## Open points (decide when the step is reached)
+
+- **Gateway and passthrough** (decided 2026-10-29): `gateway` (Traefik on the host, the `local-proxy` slot, ships a Nix module) is a core
+  capability and stays here. `passthrough` (forward outside domains to reverse proxies on the LAN, `requires = ["gateway"]`, no Nix module)
+  is an extension and moves to hobnix-extensions. An extension may therefore require a core capability; `hs pkg install` has to refuse it
+  when the capability is missing, and the extensions CI checks it against the core. Recipes that publish services on the gateway (`arr`)
+  only use the generic `hs services` interface, never gateway files, so they work without it.
 
 - **Silent patch updates**: whether a patch release of an already approved package may apply without a diff prompt (leaning: only for
   packages in the default repositories, never for added ones).

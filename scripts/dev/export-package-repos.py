@@ -24,7 +24,7 @@ import tomllib
 HERE = os.path.dirname(os.path.abspath(__file__))
 ROOT = os.path.dirname(os.path.dirname(HERE))
 CORE_RECIPES = ("docker", "zoraxy", "monitoring", "ntfy", "domain")   # the core refers to these by name
-EXTENSIONS = ("games", "posters")
+EXTENSIONS = ("games", "posters", "passthrough")   # passthrough needs the core capability gateway (requires)
 
 
 def q(s):
@@ -190,11 +190,11 @@ def build(out, name, org, kind, packages, force, git, author, branding=None):
     if os.path.isdir(bdir):
         shutil.copytree(bdir, os.path.join(repo, ".github", "branding"))
     banner = next((f for f in ("banner@2x.webp", "banner.png", "banner.svg") if os.path.isfile(os.path.join(repo, ".github", "branding", f))), None)
-    w("README.md", readme(name, org, kind, banner))
+    w("README.md", readme(f"hobnix-{name}", org, kind, banner))
     w("CONTRIBUTING.md", contributing(kind))
     w(".gitignore", "__pycache__/\n*.pyc\n")
     w("LICENSE", MIT)
-    w("SECURITY.md", security(name, org))
+    w("SECURITY.md", security(f"hobnix-{name}", org))
     w(".github/workflows/check.yml", WORKFLOW.format(org=org, folder=folder, treename="packages" if kind == "recipe" else "capabilities"))
     if git:
         sha = subprocess.run(["git", "rev-parse", "--short", "HEAD"], cwd=ROOT, capture_output=True, text=True).stdout.strip()
