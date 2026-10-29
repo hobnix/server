@@ -1,0 +1,12 @@
+# Manifest of a package (docs/PLAN-packages.md): a fixture for the tests of the core.
+name = "fixpersonal"
+version = "1.0.0"
+kind = "recipe"
+title = "Fixture personal app: hidden from the list unless asked for"
+title_de = "Fixture-Eigenbau: nur auf Wunsch in der Liste"
+requires_core = ">=1"
+audience = "personal"
+needs = []
+uses = []
+input = "none"
+script = "run.sh"

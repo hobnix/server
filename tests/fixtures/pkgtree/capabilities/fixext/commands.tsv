@@ -1,0 +1,2 @@
+# kind	path	script	args	help	help.de	flags
+user	ext fixext list	@/list.sh	-	list the fixture rows	-	reads

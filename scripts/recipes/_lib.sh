@@ -10,6 +10,9 @@
 . "$(dirname "${BASH_SOURCE[0]}")/../lib/capability.sh"   # capability_on: is the Docs page there (docs_hint)
 . "$(dirname "${BASH_SOURCE[0]}")/../lib/setting.sh"   # setting_get: which providers are set up (reverseProxy, dashboard)
 . "$(dirname "${BASH_SOURCE[0]}")/../lib/network.sh"   # network_provider / network_run: the router connection
+# the recipe's own German texts: <package folder>/i18n/<lang>.tsv (the run.sh that sourced this file is BASH_SOURCE[1]); the texts of this file and of
+# the shared helpers are in the core catalog
+if [ "${hs_lang:-en}" != en ] && [ -n "${BASH_SOURCE[1]:-}" ]; then _i18n_read "$(dirname "${BASH_SOURCE[1]}")/i18n/$hs_lang.tsv"; fi
 
 # ── Preferences ──
 # A recipe asks a few things the first time it sets a container up: which

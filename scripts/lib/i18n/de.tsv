@@ -213,6 +213,7 @@ Encrypt the new disk(s)? (LUKS, one passphrase for all encrypted disks; you type
               snapraid remove of a data disk: move (default, files go to the other disks) or nomove (files stay on the disk)	              snapraid: Datenplatte entfernen: move (Standard, Dateien wandern auf die anderen Platten) oder nomove (Dateien bleiben auf der Platte)
 ZFS keeps a small mapping table for the removed data until it is rewritten.	ZFS behält eine kleine Zuordnungstabelle für die entfernten Daten, bis sie neu geschrieben werden.
   --convert   snapraid data disk: empty it onto the other disks and format it again (use --fs / --encrypt)	  --convert   snapraid-Datenplatte: auf die anderen Platten leeren und neu formatieren (mit --fs / --encrypt)
+  --discard   with --convert: do NOT move the files, erase them with the disk (they are gone for good)	  --discard   mit --convert: die Dateien NICHT verschieben, sie werden mit der Platte gelöscht (unwiderruflich)
   4. the parity follows with the next scheduled sync	  4. die Parität folgt beim nächsten geplanten Sync
 Moving the files can take hours. The moved files exist once until that sync, like every new file.	Das Verschieben kann Stunden dauern. Die verschobenen Dateien gibt es bis zu diesem Sync nur einmal, wie jede neue Datei.
 The parity is brought in line by the next scheduled sync.	Die Parität wird beim nächsten geplanten Sync nachgezogen.
@@ -748,271 +749,10 @@ Updating the package lists	Die Paketlisten werden aktualisiert
 Installing curl	curl wird installiert
 Adding the Docker package source	Die Docker-Paketquelle wird hinzugefügt
 Installing Docker	Docker wird installiert
-Would:	Würde:
-  create the container '%s' (512 MB RAM limit) unless it exists, with a fixed address (.10 to .19) if UniFi is connected (hs net setup)	  den Container '%s' anlegen (512 MB RAM-Grenze), falls es ihn nicht gibt, mit fester Adresse (.10 bis .19), wenn UniFi verbunden ist (hs net setup)
-  install cloudflared inside	  cloudflared darin installieren
-  ask for the tunnel token (unless it is stored already) and start the tunnel	  nach dem Tunnel-Token fragen (falls er nicht schon gespeichert ist) und den Tunnel starten
-Install cloudflared	cloudflared installieren
-Adding the Cloudflare package source	Die Cloudflare-Paketquelle wird hinzugefügt
-Installing cloudflared	cloudflared wird installiert
-Tunnel token	Tunnel-Token
-A token is stored already, keeping it	Ein Token ist schon gespeichert, er bleibt
-Another tunnel? Delete it first: incus exec %s -- rm /etc/cloudflared/token	Ein anderer Tunnel? Erst löschen: incus exec %s -- rm /etc/cloudflared/token
-Where it comes from: Cloudflare dashboard -> Zero Trust -> Networks -> Tunnels -> Create a tunnel	Woher er kommt: Cloudflare-Dashboard -> Zero Trust -> Networks -> Tunnels -> Create a tunnel
-(type Cloudflared). The page then shows an install command; the long word starting with	(Typ Cloudflared). Die Seite zeigt dann einen Installationsbefehl; das lange Wort, das mit
-"eyJ" in it is the token. You can paste the whole command.	"eyJ" beginnt, ist der Token. Du kannst den ganzen Befehl einfügen.
-Tunnel token (not shown):	Tunnel-Token (wird nicht angezeigt):
-That does not look like a tunnel token. Nothing was stored; run the recipe again.	Das sieht nicht wie ein Tunnel-Token aus. Es wurde nichts gespeichert; das Rezept noch einmal ausführen.
-Stored in the container (/etc/cloudflared/token, root only)	Im Container gespeichert (/etc/cloudflared/token, nur root)
-Start	Start
-Starting the tunnel with the system	Der Tunnel wird mit dem System gestartet
-The tunnel did not start; most often the token is wrong. Delete it (incus exec %s -- rm /etc/cloudflared/token) and run the recipe again. Details: incus exec %s -- journalctl -u cloudflared -n 20	Der Tunnel ist nicht gestartet; meist stimmt der Token nicht. Ihn löschen (incus exec %s -- rm /etc/cloudflared/token) und das Rezept noch einmal ausführen. Einzelheiten: incus exec %s -- journalctl -u cloudflared -n 20
-Waiting for the connection to Cloudflare	Warten auf die Verbindung zu Cloudflare
-No connection confirmed yet. Look at: incus exec %s -- journalctl -u cloudflared -n 20	Noch keine Verbindung bestätigt. Ansehen: incus exec %s -- journalctl -u cloudflared -n 20
-<address of zoraxy>	<Adresse von zoraxy>
-  create the container '%s' (Docker inside, 4096 MB RAM limit) unless it exists, with a fixed address (.20 to .29) if UniFi is connected (hs net setup)	  den Container '%s' anlegen (Docker darin, 4096 MB RAM-Grenze), falls es ihn nicht gibt, mit fester Adresse (.20 bis .29), wenn UniFi verbunden ist (hs net setup)
-Done. Open in the browser:   %s	Fertig. Im Browser öffnen:   %s
 Arcane itself never gets a Zoraxy rule.	Arcane selbst bekommt nie eine Zoraxy-Regel.
-Waiting for it to answer	Warten, bis es antwortet
-  create the virtual machine '%s' (2 GB RAM, 2 cores, 20 GB) unless it exists, with a fixed address (.40 to .49)	  die virtuelle Maschine '%s' anlegen (2 GB RAM, 2 Kerne, 20 GB), falls es sie nicht gibt, mit fester Adresse (.40 bis .49)
-  install Samba inside and create the domain (asks for its name and the Administrator password)	  Samba darin installieren und die Domäne anlegen (fragt nach ihrem Namen und dem Administrator-Passwort)
-  tell you the DNS entry the router needs, and continue once it works	  dir den DNS-Eintrag nennen, den der Router braucht, und weitermachen, sobald er funktioniert
-  add adDomain to %s, rebuild, join this server to the domain (asks for the Administrator password)	  adDomain in %s eintragen, neu aufbauen, diesen Server der Domäne beitreten lassen (fragt nach dem Administrator-Passwort)
-Waiting for the virtual machine to accept commands	Warten, bis die virtuelle Maschine Befehle annimmt
-'%s' does not answer. Look at it in: hs ct list	'%s' antwortet nicht. Ansehen in: hs ct list
-Domain	Domäne
-'%s' has a domain, but it does not answer. Look at: incus exec %s -- systemctl status samba-ad-dc	'%s' hat eine Domäne, sie antwortet aber nicht. Ansehen: incus exec %s -- systemctl status samba-ad-dc
-The domain %s (short name %s) exists already, keeping it	Die Domäne %s (Kurzname %s) gibt es schon, sie bleibt
-Is %s reserved for '%s' in UniFi (Client Devices -> Fixed IP Address)? Without that the domain breaks when the address changes.	Ist %s in UniFi für '%s' reserviert (Client Devices -> Fixed IP Address)? Ohne das geht die Domäne kaputt, wenn sich die Adresse ändert.
-Reserve the address first (or run: hs net setup), then start the recipe again.	Zuerst die Adresse reservieren (oder ausführen: hs net setup), dann das Rezept noch einmal starten.
-Name of the domain	Name der Domäne
-A name that exists nowhere on the internet, ending in a name of yours, for example ad.home.lan.	Ein Name, den es im Internet nirgends gibt und der auf einen Namen von dir endet, zum Beispiel ad.home.lan.
-The short name is what people type before their user name: %s.	Der Kurzname ist das, was man vor den Benutzernamen tippt: %s.
-Full name of the domain	Vollständiger Name der Domäne
-Short name (max. 15 letters)	Kurzname (höchstens 15 Buchstaben)
-'%s' is not a usable name (letters, digits, at least one dot).	'%s' ist kein brauchbarer Name (Buchstaben, Ziffern, mindestens ein Punkt).
-'%s' is not a usable short name (letters and digits, at most 15).	'%s' ist kein brauchbarer Kurzname (Buchstaben und Ziffern, höchstens 15).
-Install Samba	Samba installieren
-Installing Samba (about 150 MB)	Samba wird installiert (etwa 150 MB)
-Stopping the services the package started	Die vom Paket gestarteten Dienste werden angehalten
-Create the domain %s	Die Domäne %s anlegen
-Preparing name and DNS of the controller	Name und DNS des Controllers werden vorbereitet
-Creating the domain	Die Domäne wird angelegt
-Starting the controller	Der Controller wird gestartet
-Checking that it answers	Es wird geprüft, ob er antwortet
-The controller does not answer for %s. Look at: incus exec %s -- journalctl -u samba-ad-dc -n 30	Der Controller antwortet nicht für %s. Ansehen: incus exec %s -- journalctl -u samba-ad-dc -n 30
-Password of the domain's Administrator	Passwort des Administrators der Domäne
-At least 7 characters with upper and lower case letters and digits. Typed twice, not shown.	Mindestens 7 Zeichen mit Groß- und Kleinbuchstaben und Ziffern. Zweimal tippen, wird nicht angezeigt.
-This account manages the domain; keep the password somewhere safe.	Dieses Konto verwaltet die Domäne; das Passwort gut aufbewahren.
-skipped (RECIPE_SKIP_PASSWORD): the random one from the setup stays	übersprungen (RECIPE_SKIP_PASSWORD): das zufällige aus der Einrichtung bleibt
-The password was not set. Do it later: incus exec %s -t -- samba-tool user setpassword Administrator	Das Passwort wurde nicht gesetzt. Später nachholen: incus exec %s -t -- samba-tool user setpassword Administrator
-Taking a snapshot of the fresh controller	Ein Snapshot des frischen Controllers wird gemacht
-The domain in your network	Die Domäne in deinem Netz
-The router does not know the domain yet. In UniFi, where the local DNS entries are:	Der Router kennt die Domäne noch nicht. In UniFi, dort wo die lokalen DNS-Einträge sind:
-  Type          Forward Domain	  Type          Forward Domain
-  Domain Name   %s	  Domain Name   %s
-  DNS Server    %s	  DNS Server    %s
-Then run this recipe again: it continues from here and joins this server to the domain.	Dann dieses Rezept noch einmal ausführen: es macht hier weiter und lässt diesen Server der Domäne beitreten.
-Check on a PC:   nslookup %s    (must answer %s)	Auf einem PC prüfen:   nslookup %s    (muss %s antworten)
-%s resolves to %s	%s wird zu %s aufgelöst
-This server as file server of the domain	Dieser Server als Dateiserver der Domäne
-skipped (RECIPE_SKIP_HOST)	übersprungen (RECIPE_SKIP_HOST)
-The configuration already names a domain	Die Konfiguration nennt schon eine Domäne
-Could not add adDomain to %s. Add this line by hand, run hs rebuild, then the recipe again:  %s	adDomain ließ sich nicht in %s eintragen. Diese Zeile von Hand ergänzen, hs rebuild ausführen, dann das Rezept noch einmal:  %s
-Added to %s:  %s	In %s eingetragen:  %s
-This server is a member of the domain already	Dieser Server ist schon Mitglied der Domäne
-The Administrator password of the domain is asked for now (twice: joining, then a permission).	Jetzt wird nach dem Administrator-Passwort der Domäne gefragt (zweimal: Beitritt, dann eine Berechtigung).
-Joining failed. Is the password right? Run the recipe again to retry.	Der Beitritt ist fehlgeschlagen. Stimmt das Passwort? Das Rezept noch einmal ausführen.
-Waiting for the connection to the domain	Warten auf die Verbindung zur Domäne
-The server joined, but can't talk to the domain. Look at: journalctl -u samba-winbindd -n 30	Der Server ist beigetreten, kann aber nicht mit der Domäne reden. Ansehen: journalctl -u samba-winbindd -n 30
-Could not let Domain Admins manage share permissions. Later: sudo net rpc rights grant '%s' SeDiskOperatorPrivilege -U Administrator	Domain Admins konnten nicht die Rechte für Freigaben bekommen. Später: sudo net rpc rights grant '%s' SeDiskOperatorPrivilege -U Administrator
-  create the container '%s' (512 MB RAM limit) unless it exists	  den Container '%s' anlegen (512 MB RAM-Grenze), falls es ihn nicht gibt
-  reserve the first free address from .40 upwards in UniFi, if UniFi is connected (hs net setup)	  die erste freie Adresse ab .40 in UniFi reservieren, wenn UniFi verbunden ist (hs net setup)
-  install ntfy inside and write /etc/ntfy/server.yml	  ntfy darin installieren und /etc/ntfy/server.yml schreiben
-  write %s/notify-url so hs notify sends there, and send a test message	  %s/notify-url schreiben, damit hs notify dorthin sendet, und eine Testnachricht schicken
-Install ntfy	ntfy installieren
-Adding the ntfy package source	Die ntfy-Paketquelle wird hinzugefügt
-Installing ntfy	ntfy wird installiert
-Configure	Einrichten
-Writing /etc/ntfy/server.yml and starting ntfy	/etc/ntfy/server.yml wird geschrieben und ntfy gestartet
-Connect this server's notifications	Die Benachrichtigungen dieses Servers verbinden
-Test message sent and stored	Testnachricht gesendet und gespeichert
-The test message did not arrive at %s.	Die Testnachricht ist bei %s nicht angekommen.
-Done. On the phone:	Fertig. Auf dem Handy:
-  1. Install the app "ntfy" (Android, iOS).	  1. Die App "ntfy" installieren (Android, iOS).
-  2. In its settings set the default server to   %s	  2. In ihren Einstellungen den Standardserver setzen auf   %s
-  3. Subscribe to the topic                       %s	  3. Das Thema abonnieren                          %s
-  create the container '%s' (2048 MB RAM limit) unless it exists, with a fixed address (.10 to .19) if UniFi is connected (hs net setup)	  den Container '%s' anlegen (2048 MB RAM-Grenze), falls es ihn nicht gibt, mit fester Adresse (.10 bis .19), wenn UniFi verbunden ist (hs net setup)
-  install the newest Zoraxy inside (/opt/zoraxy), started by systemd; an existing one is updated, its rules are kept	  das neueste Zoraxy darin installieren (/opt/zoraxy), von systemd gestartet; ein vorhandenes wird aktualisiert, seine Regeln bleiben
-Port of Zoraxy's admin page (not 80, the proxy itself listens there)	Port der Admin-Seite von Zoraxy (nicht 80, dort lauscht der Proxy selbst)
-Install Zoraxy	Zoraxy installieren
-Downloading the newest Zoraxy	Das neueste Zoraxy wird heruntergeladen
-Starting it with the system	Wird mit dem System gestartet
-  1. The first visit creates the admin account.	  1. Der erste Besuch legt das Admin-Konto an.
-Every rule here is reachable from the whole internet. Never add one for an admin page	Jede Regel hier ist aus dem ganzen Internet erreichbar. Nie eine für eine Admin-Seite anlegen
-(Incus, this page, Arcane, Grafana, Uptime Kuma).	(Incus, diese Seite, Arcane, Grafana, Uptime Kuma).
-  create the container '%s' (1024 MB RAM limit) unless it exists, with a fixed address if UniFi is connected (hs net setup)	  den Container '%s' anlegen (1024 MB RAM-Grenze), falls es ihn nicht gibt, mit fester Adresse, wenn UniFi verbunden ist (hs net setup)
-  install Node.js and Uptime Kuma inside (/opt/uptime-kuma), started by systemd (asks for the port, default 80)	  Node.js und Uptime Kuma darin installieren (/opt/uptime-kuma), von systemd gestartet (fragt nach dem Port, Standard 80)
-  list the addresses worth checking	  die Adressen auflisten, die sich zu prüfen lohnen
-Install Uptime Kuma	Uptime Kuma installieren
-Installing Node.js and git	Node.js und git werden installiert
-Downloading Uptime Kuma	Uptime Kuma wird heruntergeladen
-Installing it (a few minutes)	Wird installiert (einige Minuten)
-installed	installiert
-Addresses worth checking	Adressen, die sich zu prüfen lohnen
-server and topic as in  %s	Server und Thema wie in  %s
-your ntfy server and topic (hs recipe ntfy sets one up)	dein ntfy-Server und Thema (hs recipe ntfy richtet einen ein)
-  1. The first visit asks which database to use: choose "SQLite" (nothing else to install).	  1. Der erste Besuch fragt nach der Datenbank: "SQLite" wählen (nichts weiter zu installieren).
-     Then it asks for a user name and password: that becomes the admin login.	     Danach fragt es nach Benutzername und Passwort: das wird die Admin-Anmeldung.
-     Then it warns on the same channel as this server.	     Dann warnt es auf demselben Kanal wie dieser Server.
-  give both a fixed address (.30 to .39) if UniFi is connected (hs net setup)	  beiden eine feste Adresse geben (.30 bis .39), wenn UniFi verbunden ist (hs net setup)
-  set the disk of '%s' to 100 GB and mount /bulk/sensitive/pelican-backups at /var/lib/pelican/backups	  die Platte von '%s' auf 100 GB setzen und /bulk/sensitive/pelican-backups unter /var/lib/pelican/backups einbinden
-  pass /dev/ntsync (Wine's fast thread sync) into '%s'	  /dev/ntsync (Wines schnelle Thread-Synchronisierung) in '%s' einbinden
-  set the Panel's APP_URL to its address, until you give it a public one	  APP_URL des Panels auf seine Adresse setzen, bis du ihm eine öffentliche gibst
 Containers	Container
-Wings	Wings
-Its disk is %s already	Seine Platte hat schon %s
-Disk of '%s' set to 100 GB (game servers and their Docker images live there)	Platte von '%s' auf 100 GB gesetzt (Spieleserver und ihre Docker-Images liegen dort)
-Backups	Datensicherungen
-The backup folder is mounted already	Der Sicherungsordner ist schon eingebunden
-skipped (RECIPE_SKIP_STORAGE)	übersprungen (RECIPE_SKIP_STORAGE)
-Creating /bulk/sensitive/pelican-backups and mounting it at /var/lib/pelican/backups	/bulk/sensitive/pelican-backups wird angelegt und unter /var/lib/pelican/backups eingebunden
-Wine sync device	Wine-Synchronisierung
-The server has no /dev/ntsync. Run  hs rebuild  (it loads the module), then  hs recipe pelican  again. Windows game servers still run without it, only slower.	Der Server hat kein /dev/ntsync. Ausführen:  hs rebuild  (das lädt das Modul), danach  hs recipe pelican  noch einmal. Windows-Spieleserver laufen auch ohne, nur langsamer.
-/dev/ntsync is passed in already	/dev/ntsync ist schon eingebunden
-/dev/ntsync is passed into '%s'	/dev/ntsync wird in '%s' eingebunden
-Panel	Panel
-The Panel has a public address already (%s), keeping it	Das Panel hat schon eine öffentliche Adresse (%s), sie bleibt
-APP_URL is http://%s already	APP_URL ist schon http://%s
-Setting APP_URL to http://%s	APP_URL wird auf http://%s gesetzt
-Waiting for the Panel to answer	Warten, bis das Panel antwortet
-The Panel does not answer at http://%s yet. Look at: incus exec %s -- systemctl status nginx php*-fpm	Das Panel antwortet unter http://%s noch nicht. Ansehen: incus exec %s -- systemctl status nginx php*-fpm
-Done. The rest happens in the browser (guide "Pelican Panel und Wings", steps 2 to 4):	Fertig. Der Rest geschieht im Browser (Anleitung "Pelican Panel und Wings", Schritte 2 bis 4):
-  1. Panel:  http://%s/installer	  1. Panel:  http://%s/installer
-     Database: SQLite. At the end you create your admin account. Switch on	     Datenbank: SQLite. Am Ende legst du dein Admin-Konto an. Schalte in deinem Profil
-  2. Public addresses, each as a rule in Zoraxy%s:	  2. Öffentliche Adressen, jede als Regel in Zoraxy%s:
-       panel.<your domain>  ->  %s:80	       panel.<deine Domain>  ->  %s:80
-       wings.<your domain>  ->  %s:8080, with the two extra response headers from the guide	       wings.<deine Domain>  ->  %s:8080, mit den zwei zusätzlichen Antwort-Headern aus der Anleitung
-     Then in the Panel's .env:  APP_URL=https://panel.<your domain>  and  TRUSTED_PROXIES=%s	     Dann in der .env des Panels:  APP_URL=https://panel.<deine Domain>  und  TRUSTED_PROXIES=%s
-     (incus exec %s -- nano %s, afterwards run this recipe again: it leaves a public address alone).	     (incus exec %s -- nano %s, danach dieses Rezept noch einmal ausführen: eine öffentliche Adresse lässt es in Ruhe).
-  3. In the Panel: Nodes -> Create. Address wings.<your domain>, port 443, behind a proxy.	  3. Im Panel: Nodes -> Create. Adresse wings.<deine Domain>, Port 443, hinter einem Proxy.
-     Copy the configuration it shows into Wings:  incus exec %s -- nano /etc/pelican/config.yml	     Die angezeigte Konfiguration in Wings einfügen:  incus exec %s -- nano /etc/pelican/config.yml
-     then:  incus exec %s -- systemctl restart wings	     dann:  incus exec %s -- systemctl restart wings
-  4. Allocations (ports of the game servers) use the address 0.0.0.0, not %s.	  4. Allocations (Ports der Spieleserver) benutzen die Adresse 0.0.0.0, nicht %s.
-Backups of the game servers land in /bulk/sensitive/pelican-backups.	Datensicherungen der Spieleserver landen in /bulk/sensitive/pelican-backups.
-Links	Links
-  create the container '%s' (Docker inside, 6144 MB RAM limit) unless it exists, with a fixed address if UniFi is connected (hs net setup)	  den Container '%s' anlegen (Docker darin, 6144 MB RAM-Grenze), falls es ihn nicht gibt, mit fester Adresse, wenn UniFi verbunden ist (hs net setup)
-  create a folder under /bulk/sensitive for the photos (asks for its name, default immich) and mount it at /mnt/immich	  einen Ordner unter /bulk/sensitive für die Fotos anlegen (fragt nach dem Namen, Standard immich) und unter /mnt/immich einbinden
-  install Docker inside and start Immich from its official docker-compose.yml (several GB to download)	  Docker darin installieren und Immich aus seiner offiziellen docker-compose.yml starten (mehrere GB Download)
-  keep the database on the SSD pool (/opt/immich/postgres in the container)	  die Datenbank auf dem SSD-Pool halten (/opt/immich/postgres im Container)
-  if the server has an NVIDIA card (and you say yes): pass it into the container, install NVIDIA's container toolkit for Docker and run Immich's machine learning on it	  wenn der Server eine NVIDIA-Karte hat (und du ja sagst): sie in den Container durchreichen, NVIDIAs Container Toolkit für Docker installieren und das maschinelle Lernen von Immich darauf laufen lassen
-Name of the folder for the photos (under /bulk/sensitive, also the share's name)	Name des Ordners für die Fotos (unter /bulk/sensitive, zugleich der Name der Freigabe)
-Use the NVIDIA graphics card for Immich (smart search, faces, video conversion)? yes or no	Die NVIDIA-Grafikkarte für Immich benutzen (intelligente Suche, Gesichter, Videoumwandlung)? yes oder no
-Storage for the photos	Speicher für die Fotos
-skipped (RECIPE_SKIP_STORAGE): the photos stay inside the container	übersprungen (RECIPE_SKIP_STORAGE): die Fotos bleiben im Container
-/mnt/immich is mounted already	/mnt/immich ist schon eingebunden
-Creating /bulk/sensitive/%s and mounting it at /mnt/immich	/bulk/sensitive/%s wird angelegt und unter /mnt/immich eingebunden
-The container can't write to /mnt/immich. Look at the storage of '%s' in: hs ct list	Der Container kann nicht nach /mnt/immich schreiben. Den Speicher von '%s' ansehen in: hs ct list
-NVIDIA graphics card	NVIDIA-Grafikkarte
-passed in already	schon durchgereicht
-'%s' can see the NVIDIA card	'%s' sieht die NVIDIA-Karte
-The NVIDIA card could not be passed in. Immich runs on the CPU; try again with: hs recipe immich --ask	Die NVIDIA-Karte ließ sich nicht durchreichen. Immich läuft auf der CPU; noch einmal versuchen mit: hs recipe immich --ask
-Docker can't use the NVIDIA card. Immich runs on the CPU; try again with: hs recipe immich --ask	Docker kann die NVIDIA-Karte nicht benutzen. Immich läuft auf der CPU; noch einmal versuchen mit: hs recipe immich --ask
-Immich	Immich
-Fetching Immich's docker-compose.yml	Die docker-compose.yml von Immich wird geholt
-Fetching the graphics card settings of Immich	Die Grafikkarten-Einstellungen von Immich werden geholt
-Writing the settings (port, graphics card)	Die Einstellungen werden geschrieben (Port, Grafikkarte)
-The graphics card settings of Immich could not be set up. Immich runs on the CPU.	Die Grafikkarten-Einstellungen von Immich ließen sich nicht einrichten. Immich läuft auf der CPU.
-Writing the settings (port)	Die Einstellungen werden geschrieben (Port)
-skipped (RECIPE_SKIP_PULL): nothing downloaded, Immich not started	übersprungen (RECIPE_SKIP_PULL): nichts heruntergeladen, Immich nicht gestartet
-Downloading Immich (several GB, this takes a while)	Immich wird heruntergeladen (mehrere GB, das dauert)
-Starting Immich with the graphics card	Immich wird mit der Grafikkarte gestartet
-Immich did not start with the graphics card. Switching to the CPU.	Immich ist mit der Grafikkarte nicht gestartet. Es wird auf die CPU umgestellt.
-Starting Immich	Immich wird gestartet
-is running	läuft
-Immich's machine learning has the NVIDIA card	Das maschinelle Lernen von Immich hat die NVIDIA-Karte
-The machine learning container does not show the card; it may be running on the CPU. Look at: incus exec %s -- docker logs immich_machine_learning	Der Container für maschinelles Lernen zeigt die Karte nicht; er läuft vielleicht auf der CPU. Ansehen: incus exec %s -- docker logs immich_machine_learning
-NVIDIA card in use. Smart search and faces run on it now.	NVIDIA-Karte in Benutzung. Intelligente Suche und Gesichter laufen jetzt darauf.
-  Video conversion needs one switch, once, in Immich: Administration -> Settings ->	  Die Videoumwandlung braucht einmal einen Schalter in Immich: Administration -> Settings ->
-  Video Transcoding Settings -> Hardware Acceleration -> NVENC (Nvidia), save.	  Video Transcoding Settings -> Hardware Acceleration -> NVENC (Nvidia), speichern.
-  Turn it off again: hs recipe immich --ask, answer no.	  Wieder ausschalten: hs recipe immich --ask, mit no antworten.
-not used, Immich runs on the CPU.	nicht benutzt, Immich läuft auf der CPU.
-  To use the NVIDIA card: hs recipe immich --ask, answer yes.	  Um die NVIDIA-Karte zu benutzen: hs recipe immich --ask, mit yes antworten.
-no NVIDIA card in this server, Immich runs on the CPU.	keine NVIDIA-Karte in diesem Server, Immich läuft auf der CPU.
-Graphics card: %s	Grafikkarte: %s
-  create the container '%s' (4096 MB RAM limit) unless it exists, with a fixed address if UniFi is connected (hs net setup)	  den Container '%s' anlegen (4096 MB RAM-Grenze), falls es ihn nicht gibt, mit fester Adresse, wenn UniFi verbunden ist (hs net setup)
-  install Jellyfin inside	  Jellyfin darin installieren
-  create a share for the media (asks for its name, default media) with the folders: %s	  eine Freigabe für die Medien anlegen (fragt nach dem Namen, Standard media) mit den Ordnern: %s
-  mount it read-only at /media, readable for Jellyfin	  sie nur lesend unter /media einbinden, lesbar für Jellyfin
-  pass a graphics card into the container: the NVIDIA card, or else the processor's chip (Intel, AMD)	  eine Grafikkarte in den Container durchreichen: die NVIDIA-Karte, sonst den Chip des Prozessors (Intel, AMD)
-Name of the share for films, series and music (under /bulk/shares)	Name der Freigabe für Filme, Serien und Musik (unter /bulk/shares)
-Install Jellyfin	Jellyfin installieren
-Adding the Jellyfin package source	Die Jellyfin-Paketquelle wird hinzugefügt
-Installing Jellyfin (about 300 MB)	Jellyfin wird installiert (etwa 300 MB)
-Storage for films, series and music	Speicher für Filme, Serien und Musik
 /media is mounted already	/media ist schon eingebunden
-Creating the share '%s' and mounting it read-only at /media	Die Freigabe '%s' wird angelegt und nur lesend unter /media eingebunden
-Folders in the share: %s	Ordner in der Freigabe: %s
-Jellyfin can't read /media. Look at the storage of '%s' in: hs ct list	Jellyfin kann /media nicht lesen. Den Speicher von '%s' ansehen in: hs ct list
-Graphics card	Grafikkarte
-No usable graphics card found; Jellyfin converts videos on the CPU.	Keine brauchbare Grafikkarte gefunden; Jellyfin wandelt Videos auf der CPU um.
-Jellyfin can use the NVIDIA card (%s)	Jellyfin kann die NVIDIA-Karte benutzen (%s)
-Jellyfin can use the graphics chip of the processor	Jellyfin kann den Grafikchip des Prozessors benutzen
-The graphics card is passed in, but a test encode failed; Jellyfin may fall back to the CPU.	Die Grafikkarte ist durchgereicht, aber ein Test-Encode ist fehlgeschlagen; Jellyfin fällt vielleicht auf die CPU zurück.
-Setting the port of the web page to %s	Der Port der Webseite wird auf %s gesetzt
-Adding the Abyss theme to the Custom CSS	Das Abyss-Design wird in das eigene CSS eingetragen
-Adding the Abyss Spotlight to Jellyfin's web files	Der Abyss-Spotlight wird in Jellyfins Web-Dateien eingebaut
-Removing the Abyss theme and its Spotlight	Das Abyss-Design und sein Spotlight werden entfernt
-Install the Abyss theme for Jellyfin (github.com/AumGupta/abyss-jellyfin)? yes or no	Das Abyss-Design für Jellyfin installieren (github.com/AumGupta/abyss-jellyfin)? yes oder no
-  optionally add the Abyss theme and its Spotlight banner to Jellyfin (asks; default no)	  auf Wunsch das Abyss-Design samt Spotlight-Banner in Jellyfin einbauen (fragt; Standard nein)
-4. Abyss: Settings -> Display -> Theme "Dark" (per user), then reload the page with Ctrl+F5.	4. Abyss: Einstellungen -> Anzeige -> Design "Dark" (pro Benutzer), dann die Seite mit Strg+F5 neu laden.
-Starting Jellyfin with the system	Jellyfin wird mit dem System gestartet
-  add 'metrics = true' to %s and rebuild, unless the server hands out numbers already	  'metrics = true' in %s eintragen und neu aufbauen, wenn der Server nicht schon Zahlen liefert
-  let Incus hand out numbers about the containers on port 8444	  Incus Zahlen über die Container auf Port 8444 ausgeben lassen
-  create the container '%s' (1536 MB RAM limit) unless it exists, with a fixed address if UniFi is connected (hs net setup)	  den Container '%s' anlegen (1536 MB RAM-Grenze), falls es ihn nicht gibt, mit fester Adresse, wenn UniFi verbunden ist (hs net setup)
-  show the server's journal (/var/log/journal) to '%s' read-only (read-only; ACL for the container's group)	  das Journal des Servers (/var/log/journal) '%s' nur lesend zeigen (nur lesen; ACL für die Gruppe des Containers)
-  store Grafana's admin password in %s/grafana-admin (root only)	  das Admin-Passwort von Grafana in %s/grafana-admin speichern (nur root)
-Numbers from the server	Zahlen vom Server
-Could not add 'metrics = true' to %s. Add it by hand, run hs rebuild, then this recipe again.	'metrics = true' ließ sich nicht in %s eintragen. Von Hand ergänzen, hs rebuild ausführen, dann dieses Rezept noch einmal.
-Added 'metrics = true' to %s	'metrics = true' in %s eingetragen
-Rebuilding the system (a few minutes)	Das System wird neu aufgebaut (einige Minuten)
-Waiting for the numbers	Warten auf die Zahlen
-Incus hands out the numbers of the containers on port 8444	Incus liefert die Zahlen der Container auf Port 8444
-Days of history to keep	Tage Verlauf, die behalten werden
-Also collect the server's logs (kernel, Samba, disks, errors) so Grafana can search them? Gives this container read access to the server's journal. yes or no	Auch die Logs des Servers sammeln (Kernel, Samba, Platten, Fehler), damit Grafana sie durchsuchen kann? Gibt diesem Container Lesezugriff auf das Journal des Servers. yes oder no
-Journal of the server	Journal des Servers
-Logs are off (hs recipe monitoring --ask to switch them on).	Logs sind aus (hs recipe monitoring --ask schaltet sie ein).
-No persistent journal at %s: logs are skipped (Storage=persistent in journald.conf, then run this again).	Kein dauerhaftes Journal unter %s: Logs werden übersprungen (Storage=persistent in journald.conf, dann noch einmal ausführen).
-Could not work out the group mapping of '%s': logs are skipped.	Die Gruppenzuordnung von '%s' ließ sich nicht ermitteln: Logs werden übersprungen.
-Could not set the read access for '%s' on %s (needs root; setfacl).	Der Lesezugriff für '%s' auf %s ließ sich nicht setzen (braucht root; setfacl).
-The journal is shown to '%s' (read-only, through an ACL for group %s)	Das Journal wird '%s' gezeigt (nur lesend, über eine ACL für die Gruppe %s)
-Adding the Grafana package source	Die Grafana-Paketquelle wird hinzugefügt
-Installing Grafana (about 130 MB)	Grafana wird installiert (etwa 130 MB)
-Install Loki and Alloy	Loki und Alloy installieren
-Installing Loki and Alloy	Loki und Alloy werden installiert
-Loki and Alloy: store, read the journal, keep %s days	Loki und Alloy: speichern, das Journal lesen, %s Tage behalten
-Grafana: its source and the dashboards	Grafana: seine Quelle und die Dashboards
-Some ready-made dashboards could not be downloaded; run the recipe again later.	Einige fertige Dashboards ließen sich nicht herunterladen; das Rezept später noch einmal ausführen.
-Waiting for Grafana to answer	Warten, bis Grafana antwortet
-Grafana does not answer at %s. Look at: incus exec %s -- journalctl -u grafana-server	Grafana antwortet nicht unter %s. Ansehen: incus exec %s -- journalctl -u grafana-server
-Admin login of Grafana	Admin-Anmeldung von Grafana
-Kept as it is (password in %s/grafana-admin)	Bleibt wie es ist (Passwort in %s/grafana-admin)
-Random admin password set, stored in %s/grafana-admin (root only)	Zufälliges Admin-Passwort gesetzt, gespeichert in %s/grafana-admin (nur root)
-Check	Prüfung
-One round of collecting	Eine Runde Sammeln
-%s: numbers arrive	%s: Zahlen kommen an
-%s: no numbers yet	%s: noch keine Zahlen
-Check the logs	Die Logs prüfen
-Waiting for Loki	Warten auf Loki
-Loki is not ready yet. Look at: incus exec %s -- journalctl -u loki	Loki ist noch nicht bereit. Ansehen: incus exec %s -- journalctl -u loki
-The server's journal arrives in Loki	Das Journal des Servers kommt in Loki an
-No log lines yet.	Noch keine Logzeilen.
-Look at: incus exec %s -- journalctl -u alloy   (can it read /var/log/host-journal as group %s?)	Ansehen: incus exec %s -- journalctl -u alloy   (kann es /var/log/host-journal als Gruppe %s lesen?)
-  Home page "Homeserver": problems, disk temperatures and errors, pools, containers.	  Startseite "Homeserver": Probleme, Plattentemperaturen und Fehler, Pools, Container.
-Looking needs no login. To change dashboards, log in as admin:	Ansehen braucht keine Anmeldung. Um Dashboards zu ändern, als Admin anmelden:
-  sudo cat %s/grafana-admin	  sudo cat %s/grafana-admin
 Done.	Fertig.
-SQLite	SQLite
 <- this session	<- diese Sitzung
 Comment	Kommentar
 DHCP	DHCP
@@ -1365,41 +1105,7 @@ Pool %s	Pool %s
 Change it: hs pool %s add | replace | remove | convert%s	Ändern: hs pool %s add | replace | remove | convert%s
 Wait for the domain controller	Auf den Domänencontroller warten
 The domain controller %s did not answer in time.	Der Domänencontroller %s hat nicht rechtzeitig geantwortet.
-  create the container '%s' (2048 MB RAM limit) unless it exists, with a fixed address if UniFi is connected (hs net setup)	  den Container '%s' anlegen (2048 MB RAM-Grenze), falls es ihn nicht gibt, mit fester Adresse, wenn UniFi verbunden ist (hs net setup)
-  install PostgreSQL and Synapse (packages.matrix.org) inside, listening on the chosen port (asks for it, default 80)	  PostgreSQL und Synapse (packages.matrix.org) darin installieren, auf dem gewählten Port (fragt danach, Standard 80)
-  ask for the server name (the part after the colon in @user:name, it cannot be changed later)	  nach dem Servernamen fragen (der Teil nach dem Doppelpunkt in @name:server, später nicht mehr änderbar)
-  create the admin user 'admin' with a random password in %s/synapse-admin (root only)	  den Admin-Benutzer 'admin' mit Zufallspasswort in %s/synapse-admin anlegen (nur root)
-Install Synapse	Synapse installieren
-Installing PostgreSQL and tools	PostgreSQL und Werkzeuge werden installiert
-Adding the Matrix package repository	Das Matrix-Paketarchiv wird hinzugefügt
-Installing Synapse (a few minutes)	Synapse wird installiert (einige Minuten)
-Database and listener	Datenbank und Port
-Creating the PostgreSQL database	Die PostgreSQL-Datenbank wird angelegt
-Setting the port and starting it	Port wird gesetzt und Synapse gestartet
-Admin login	Admin-Login
-Kept as it is (password in %s/synapse-admin)	Bleibt wie es ist (Passwort in %s/synapse-admin)
-Could not create the admin user. If it exists already, set its password with: incus exec %s -- hash_password	Der Admin-Benutzer konnte nicht angelegt werden. Gibt es ihn schon, setze das Passwort mit: incus exec %s -- hash_password
-Admin user created, password stored in %s/synapse-admin (root only)	Admin-Benutzer angelegt, Passwort in %s/synapse-admin gespeichert (nur root)
-Done. Synapse answers at   %s	Fertig. Synapse antwortet unter   %s
-  Matrix ID of the admin:  @admin:%s	  Matrix-ID des Admins:  @admin:%s
-  sudo cat %s/synapse-admin	  sudo cat %s/synapse-admin
-  1. Log in with a Matrix client (Element, or any other) and set the server to the address above.	  1. Mit einem Matrix-Client (Element oder einem anderen) anmelden und als Server die Adresse oben eintragen.
-  download the latest Stalwart release from GitHub into /opt/stalwart (data in /opt/stalwart_data) and start it as the service stalwart	  die neueste Stalwart-Version von GitHub nach /opt/stalwart laden (Daten in /opt/stalwart_data) und als Dienst stalwart starten
-  leave the first setup (admin password from the journal, domains, DNS, TLS) to the web page on port 8080	  die Ersteinrichtung (Admin-Passwort aus dem Journal, Domains, DNS, TLS) der Webseite auf Port 8080 überlassen
-Install Stalwart	Stalwart installieren
-Installing tools	Werkzeuge werden installiert
-Downloading Stalwart	Stalwart wird heruntergeladen
 Service	Dienst
-Writing the service and starting it	Der Dienst wird angelegt und gestartet
-Done. The admin page is at   %s/admin	Fertig. Die Verwaltungsseite ist unter   %s/admin
-  1. The first start is in bootstrap mode. The temporary admin password is in the journal:	  1. Der erste Start läuft im Bootstrap-Modus. Das vorläufige Admin-Passwort steht im Journal:
-  2. Log in as admin and finish the setup there: hostname, domain, TLS certificate, accounts.	  2. Als admin anmelden und dort die Einrichtung beenden: Hostname, Domain, TLS-Zertifikat, Konten.
-  install Synapse-Admin (admin web page, lighttpd, port asked, default 5173; no Zoraxy rule)	  Synapse-Admin installieren (Admin-Webseite, lighttpd, Port wird gefragt, Standard 5173; keine Zoraxy-Regel)
-Synapse-Admin (admin web page)	Synapse-Admin (Admin-Webseite)
-Installing it with a small web server	Wird mit einem kleinen Webserver installiert
-  Admin page (Synapse-Admin):  http://%s:%s   (enter the Synapse address above as homeserver URL)	  Admin-Seite (Synapse-Admin):  http://%s:%s   (als Homeserver-URL die Synapse-Adresse oben eintragen)
-  with Tailscale = yes (asked, default no): add /dev/net/tun if the container lacks it, install Tailscale inside and sign it in (you open a link)	  bei Tailscale = yes (wird gefragt, Standard no): /dev/net/tun hinzufügen, falls es im Container fehlt, Tailscale darin installieren und anmelden (du öffnest einen Link)
-Install Tailscale in the container (e.g. so a VPS in front can deliver mail over the tailnet)? yes or no	Tailscale im Container installieren (z. B. damit ein vorgeschalteter VPS Mail über das Tailnet zustellen kann)? yes oder no
 Tailscale	Tailscale
 Adding the network device /dev/net/tun and restarting	Netzwerkgerät /dev/net/tun wird hinzugefügt, Neustart
 Installing Tailscale	Tailscale wird installiert
@@ -1407,16 +1113,6 @@ Signed in to Tailscale already	Bei Tailscale schon angemeldet
 Open the link below in a browser to sign the container in:	Öffne den Link unten im Browser, um den Container anzumelden:
 Sign-in did not finish. Run: incus exec %s -- tailscale up --hostname=%s --accept-dns=false	Die Anmeldung wurde nicht beendet. Ausführen: incus exec %s -- tailscale up --hostname=%s --accept-dns=false
 Sign it in with: incus exec %s -- tailscale up --hostname=%s --accept-dns=false	Anmelden mit: incus exec %s -- tailscale up --hostname=%s --accept-dns=false
-Tailscale address: %s	Tailscale-Adresse: %s
-  Tailscale address of this container: %s	  Tailscale-Adresse dieses Containers: %s
-  install Docker inside and run ghcr.io/bulwarkmail/webmail with docker compose in /opt/bulwark (asks for the port, default 80)	  Docker darin installieren und ghcr.io/bulwarkmail/webmail mit docker compose in /opt/bulwark starten (fragt nach dem Port, Standard 80)
-  connect it to your Stalwart server (asked, default: the container 'stalwart' if there is one)	  mit deinem Stalwart-Server verbinden (wird gefragt, Standard: der Container 'stalwart', falls vorhanden)
-  make an admin password for the admin page (/admin), kept in /opt/bulwark/.env	  ein Admin-Passwort für die Verwaltungsseite (/admin) anlegen, gespeichert in /opt/bulwark/.env
-Bulwark Mail	Bulwark Mail
-Writing the settings (port, mail server)	Einstellungen werden geschrieben (Port, Mailserver)
-Downloading Bulwark Mail	Bulwark Mail wird heruntergeladen
-Starting Bulwark Mail	Bulwark Mail wird gestartet
-skipped (RECIPE_SKIP_PULL): nothing downloaded, Bulwark not started	übersprungen (RECIPE_SKIP_PULL): nichts heruntergeladen, Bulwark nicht gestartet
 deleted share, kept (not published; remove the folder by hand when you are sure)	Gelöschte Freigabe, aufbewahrt (nicht veröffentlicht; den Ordner von Hand entfernen, wenn du sicher bist)
 %s only works with hs reboot.	%s gibt es nur bei hs reboot.
 Choose one of --menu, --firmware and --entry.	Wähle eines von --menu, --firmware und --entry.
@@ -1430,17 +1126,6 @@ No boot entry %s. The entries: bootctl list	Es gibt keinen Boot-Eintrag %s. Die 
 Reboot the server once into the boot entry %s now?	Den Server jetzt einmal mit dem Boot-Eintrag %s neu starten?
 This is still running:	Das läuft noch:
 Running: %s	Ausgeführt wird: %s
-  create the container '%s' (Docker inside, 2048 MB RAM limit) unless it exists, with a fixed address if UniFi is connected (hs net setup)	  den Container '%s' anlegen (Docker darin, 2048 MB RAM-Grenze), falls es ihn nicht gibt, mit fester Adresse, wenn UniFi verbunden ist (hs net setup)
-  install Docker inside and start Authentik from its official docker-compose.yml (server, worker, database)	  Docker darin installieren und Authentik aus seiner offiziellen docker-compose.yml starten (Server, Worker, Datenbank)
-  make the database password, the secret key and the first admin password once (in /opt/authentik/.env)	  Datenbank-Passwort, geheimen Schlüssel und erstes Admin-Passwort einmalig erzeugen (in /opt/authentik/.env)
-  print the values for the LDAP source (your AD accounts) and for the Pelican login	  die Werte für die LDAP-Quelle (deine AD-Konten) und für den Pelican-Login ausgeben
-2. Friends: Directory -> Users -> Create. They need no AD account.	2. Freunde: Directory -> Users -> Create. Sie brauchen kein AD-Konto.
-Authentik	Authentik
-Authentik is running	Authentik läuft
-Downloading Authentik	Authentik wird heruntergeladen
-Fetching Authentik's docker-compose.yml	Die docker-compose.yml von Authentik wird geholt
-Starting Authentik	Authentik wird gestartet
-skipped (RECIPE_SKIP_PULL): nothing downloaded, Authentik not started	übersprungen (RECIPE_SKIP_PULL): nichts heruntergeladen, Authentik nicht gestartet
 usage: hs dns list	Aufruf: hs dns list
 Action	Aktion
 DNS names	DNS-Namen
@@ -1459,162 +1144,22 @@ forget removes a disk from the list: run it on a terminal or add --yes	forget ni
 Forgot %s	%s vergessen
 %s is in the machine: only a missing disk can be forgotten	%s steckt im Rechner: nur eine fehlende Platte kann vergessen werden
 %s is not in the inventory. See: hs disk inventory	%s ist nicht in der Liste. Siehe: hs disk inventory
-The server hands out and collects its numbers already	Der Server liefert und sammelt seine Zahlen schon
-Install Grafana	Grafana installieren
-Prometheus of the server	Prometheus des Servers
-The server still hands out no numbers. Look at: systemctl status prometheus-node-exporter prometheus	Der Server liefert noch immer keine Zahlen. Ansehen: systemctl status prometheus-node-exporter prometheus
-Stopping the Prometheus inside the container (the server runs it now)	Das Prometheus im Container wird angehalten (der Server betreibt es jetzt)
-The old Prometheus of '%s' is stopped and disabled. Its data stays in /var/lib/prometheus inside the container (delete it yourself when you do not need it).	Das alte Prometheus von '%s' ist angehalten und abgeschaltet. Seine Daten bleiben in /var/lib/prometheus im Container (lösche sie selbst, wenn du sie nicht brauchst).
-The container reaches the server's Prometheus already	Der Container erreicht das Prometheus des Servers schon
-Could not add the proxy device 'prometheus' to '%s'.	Das Proxy-Gerät 'prometheus' konnte '%s' nicht hinzugefügt werden.
-'%s' reaches the server's Prometheus at 127.0.0.1:9090 (proxy device, nothing new listens on the network)	'%s' erreicht das Prometheus des Servers unter 127.0.0.1:9090 (Proxy-Gerät, im Netz lauscht nichts Neues)
-Could not set 'metricsDays = %s' in %s. Set it by hand, run hs rebuild, then this recipe again.	'metricsDays = %s' konnte in %s nicht gesetzt werden. Trage es von Hand ein, führe hs rebuild aus, dann dieses Rezept noch einmal.
-Set 'metricsDays = %s' in %s	'metricsDays = %s' in %s eingetragen
-  let the server run Prometheus itself (127.0.0.1:9090, on the system disk; machine.toml: metricsDays, metricsMaxGB)	  den Server selbst Prometheus betreiben lassen (127.0.0.1:9090, auf der Systemplatte; machine.toml: metricsDays, metricsMaxGB)
-  connect '%s' to it with a proxy device and stop a Prometheus of its own, if it has one (its data stays)	  '%s' per Proxy-Gerät damit verbinden und ein eigenes Prometheus anhalten, falls vorhanden (seine Daten bleiben)
-  install Loki (%s days) with Alloy reading the journal, and Grafana, with five dashboards	  Loki (%s Tage) mit Alloy, das das Journal liest, und Grafana installieren, mit fünf Dashboards
-Prometheus on the server cannot reach every source. The disks need up to five minutes for	Prometheus auf dem Server erreicht nicht jede Quelle. Die Platten brauchen bis zu fünf Minuten für
-their first numbers, and the Incus numbers are missing while the storage is locked. Details:	ihre ersten Zahlen, und die Incus-Zahlen fehlen, solange der Speicher gesperrt ist. Details:
-incus exec %s -- curl -s 127.0.0.1:9090/api/v1/targets	incus exec %s -- curl -s 127.0.0.1:9090/api/v1/targets
-  Tdarr's page has no login. It is for you at home only: never give it a Zoraxy rule.	  Die Seite von Tdarr hat keine Anmeldung. Sie ist nur für dich zu Hause: gib ihr nie eine Zoraxy-Regel.
-Set it up once in the browser (Tdarr -> Libraries):	Einmal im Browser einrichten (Tdarr -> Libraries):
-  1. "Library +" -> name "Movies", source  /media/movies ; a second one  "Series" with  /media/series	  1. "Library +" -> Name "Movies", Quelle  /media/movies ; eine zweite  "Series" mit  /media/series
-     (not /media/music, and never /media/_tdarr-originals).	     (nicht /media/music und nie /media/_tdarr-originals).
-  2. Tab "Transcode options": transcode cache  /temp  ; leave "output folder" empty, so the	  2. Reiter "Transcode options": Transcode-Cache  /temp ; "Output folder" leer lassen, damit die
-     new file replaces the old one. In the plugin stack add the local plugin	     neue Datei die alte ersetzt. In den Plugin-Stack das lokale Plugin
-     "Homeserver: make it easy for Jellyfin" (search: Jellyfin) and nothing else.	     "Homeserver: make it easy for Jellyfin" (Suche: Jellyfin) einfügen, sonst nichts.
-  create the container '%s' (Docker inside, 4096 MB RAM limit) unless it exists, with a fixed address if UniFi is connected (hs net setup)	  den Container '%s' anlegen (Docker darin, 4096 MB RAM-Grenze), falls es ihn nicht gibt, mit fester Adresse, wenn UniFi verbunden ist (hs net setup)
-  mount the share for the films (asks for its name, default media) READ-WRITE at /media	  die Freigabe für die Filme (fragt nach dem Namen, Standard media) LESEND UND SCHREIBEND unter /media einbinden
-  install Docker inside and start Tdarr (server and one worker, about 1 GB to download)	  Docker darin installieren und Tdarr starten (Server und ein Worker, etwa 1 GB Download)
-  install the Tdarr plugin of this server (extra AC3 track, old formats to H.264, hard link of every original)	  das Tdarr-Plugin dieses Servers installieren (zusätzliche AC3-Spur, alte Formate zu H.264, Hardlink von jedem Original)
-  if the server has an NVIDIA card (and you say yes): pass it into the container for the rare video conversion	  wenn der Server eine NVIDIA-Karte hat (und du ja sagst): sie in den Container geben, für die seltene Video-Umwandlung
-Backup of the originals	Sicherung der Originale
-Docker can't use the NVIDIA card. Videos are converted on the CPU; try again with: hs recipe tdarr --ask	Docker kann die NVIDIA-Karte nicht nutzen. Videos werden auf der CPU umgewandelt; nochmal versuchen mit: hs recipe tdarr --ask
-Downloading Tdarr (about 1 GB, this takes a while)	Tdarr wird heruntergeladen (etwa 1 GB, das dauert)
-Hard links do not work on this storage. The plugin then leaves every film alone (no backup, no change).	Hardlinks funktionieren auf diesem Speicher nicht. Das Plugin lässt dann jeden Film in Ruhe (keine Sicherung, keine Änderung).
-Hard links work: originals are kept in /media/_tdarr-originals	Hardlinks funktionieren: Originale bleiben in /media/_tdarr-originals erhalten
 Mounting the share '%s' at /media (read and write)	Die Freigabe '%s' wird unter /media eingebunden (lesen und schreiben)
-NVIDIA card in use for the rare video conversion.	NVIDIA-Karte wird für die seltene Video-Umwandlung genutzt.
-Name of the share with the films (the one Jellyfin reads, under /bulk/shares)	Name der Freigabe mit den Filmen (die, die Jellyfin liest, unter /bulk/shares)
-Plugin installed: %s	Plugin installiert: %s
-Plugin of this server	Plugin dieses Servers
-Starting Tdarr	Tdarr wird gestartet
-Storage for the films	Speicher für die Filme
-Tdarr	Tdarr
-Tdarr can't write to /media. Look at the storage of '%s' in: hs ct list	Tdarr kann nicht nach /media schreiben. Sieh dir den Speicher von '%s' an in: hs ct list
-The NVIDIA card could not be passed in. Videos are converted on the CPU; try again with: hs recipe tdarr --ask	Die NVIDIA-Karte konnte nicht durchgereicht werden. Videos werden auf der CPU umgewandelt; nochmal versuchen mit: hs recipe tdarr --ask
-Update Tdarr: hs recipe tdarr   (fetches the newest image and restarts it)	Tdarr aktualisieren: hs recipe tdarr   (holt das neueste Image und startet neu)
-Use the NVIDIA graphics card when a video has to be converted? yes or no	Die NVIDIA-Grafikkarte nutzen, wenn ein Video umgewandelt werden muss? ja oder nein
-User 'tdarr' (%s)	Benutzer 'tdarr' (%s)
 User for the files	Benutzer für die Dateien
-Writing the settings (port, user, graphics card)	Die Einstellungen werden geschrieben (Port, Benutzer, Grafikkarte)
-no NVIDIA card in this server, videos are converted on the CPU.	keine NVIDIA-Karte in diesem Server, Videos werden auf der CPU umgewandelt.
-not used, videos are converted on the CPU. To use the NVIDIA card: hs recipe tdarr --ask, answer yes.	nicht genutzt, Videos werden auf der CPU umgewandelt. Um die NVIDIA-Karte zu nutzen: hs recipe tdarr --ask, mit ja antworten.
-skipped (RECIPE_SKIP_PULL): nothing downloaded, Tdarr not started	übersprungen (RECIPE_SKIP_PULL): nichts heruntergeladen, Tdarr nicht gestartet
-skipped (RECIPE_SKIP_STORAGE): the films stay inside the container	übersprungen (RECIPE_SKIP_STORAGE): die Filme bleiben im Container
 Refused: %s %s is not a client id	Abgelehnt: %s %s ist keine Client-ID
 Refused: this script may not call %s %s	Abgelehnt: dieses Skript darf %s %s nicht aufrufen
 Refused: %s is outside the networks this script may change (%s). Edit %s to allow more.	Abgelehnt: %s liegt außerhalb der Netze, die dieses Skript ändern darf (%s). Mit %s lassen sich weitere erlauben.
-Worker	Worker
-skipped (RECIPE_SKIP_PULL): no Tdarr running	übersprungen (RECIPE_SKIP_PULL): Tdarr läuft nicht
-The Tdarr node has not registered yet. In Tdarr -> Nodes set the CPU transcode worker of 'hs-node' to 1, or nothing is processed.	Der Tdarr-Node hat sich noch nicht gemeldet. In Tdarr -> Nodes den CPU-Transcode-Worker von 'hs-node' auf 1 stellen, sonst wird nichts verarbeitet.
-The node has workers already	Der Node hat schon Worker
-One CPU transcode worker set for the node 'hs-node'	Ein CPU-Transcode-Worker für den Node 'hs-node' eingestellt
-Could not set the worker. In Tdarr -> Nodes set the CPU transcode worker of 'hs-node' to 1, or nothing is processed.	Der Worker konnte nicht gesetzt werden. In Tdarr -> Nodes den CPU-Transcode-Worker von 'hs-node' auf 1 stellen, sonst wird nichts verarbeitet.
-  3. Tab "Source" of the library: switch "Folder watch" and "Scan on start" on.	  3. Reiter "Source" der Library: "Folder watch" und "Scan on start" einschalten.
-     Back in the list of libraries: "Library options" -> "Scan (Fresh)".	     Zurück in der Liste der Libraries: "Library options" -> "Scan (Fresh)".
-  4. Tdarr -> Nodes -> "hs-node": the recipe set 1 CPU transcode worker. Without a worker	  4. Tdarr -> Nodes -> "hs-node": das Rezept hat 1 CPU-Transcode-Worker eingestellt. Ohne Worker
-     (all numbers 0) nothing is processed. The node also has a schedule per hour for the night.	     (alle Zahlen 0) wird nichts verarbeitet. Der Node hat auch einen Zeitplan pro Stunde für die Nacht.
-     (SABnzbd: Config -> General), category  movies  /  tv.	     (SABnzbd: Config -> General), Kategorie  movies  /  tv.
-     about 20 connections. (The indexer goes into Prowlarr, not here.)	     etwa 20 Verbindungen. (Der Indexer kommt in Prowlarr, nicht hierher.)
-  1. SABnzbd asks for your news provider the first time: server, port 563 with SSL, user, password,	  1. SABnzbd fragt beim ersten Mal nach deinem Usenet-Anbieter: Server, Port 563 mit SSL, Benutzer, Passwort,
-  2. Radarr and Sonarr: Settings -> Download Clients -> add SABnzbd with this address and the API key	  2. Radarr und Sonarr: Settings -> Download Clients -> SABnzbd mit dieser Adresse und dem API-Schlüssel eintragen
-  Finish the setup wizard first (it is open to whoever gets there first): sign in with your Jellyfin	  Zuerst den Einrichtungsassistenten beenden (er steht jedem offen, der zuerst kommt): mit deinem Jellyfin-
-  No Zoraxy rule yet: whether friends reach it from outside is described in the guide.	  Noch keine Zoraxy-Regel: ob Freunde die Seite von außen erreichen, steht in der Anleitung.
-  No Zoraxy rule: it is for the home network only.	  Keine Zoraxy-Regel: sie ist nur für das Heimnetz.
-  account, then add Radarr (http://<arr address>:7878) and Sonarr (:8989) with their API keys.	  Konto anmelden, dann Radarr (http://<Adresse von arr>:7878) und Sonarr (:8989) mit ihren API-Schlüsseln eintragen.
-  create the container '%s' (Docker inside, 1024 MB RAM limit) unless it exists, with a fixed address (.20-.29) if UniFi is connected (hs net setup)	  den Container '%s' anlegen (Docker darin, 1024 MB RAM), falls es ihn nicht gibt, mit fester Adresse (.20-.29), wenn UniFi verbunden ist (hs net setup)
-  create the container '%s' (Docker inside, 2048 MB RAM limit) unless it exists, with a fixed address (.20-.29) if UniFi is connected (hs net setup)	  den Container '%s' anlegen (Docker darin, 2048 MB RAM), falls es ihn nicht gibt, mit fester Adresse (.20-.29), wenn UniFi verbunden ist (hs net setup)
-  create the container '%s' (Docker inside, 3072 MB RAM limit) unless it exists, with a fixed address (.20-.29) if UniFi is connected (hs net setup)	  den Container '%s' anlegen (Docker darin, 3072 MB RAM), falls es ihn nicht gibt, mit fester Adresse (.20-.29), wenn UniFi verbunden ist (hs net setup)
-  make a push topic of its own for them, and put the container in the nightly backup with a database dump	  ein eigenes Push-Thema für sie anlegen und den Container mit Datenbank-Dump in die nächtliche Sicherung aufnehmen
-  mount the share for the films (asks for its name, default media) READ-WRITE at /media, with folders movies, series, music, downloads	  die Freigabe für die Filme (fragt nach dem Namen, Standard media) LESEND UND SCHREIBEND unter /media einbinden, mit den Ordnern movies, series, music, downloads
-  put the container in the nightly backup	  den Container in die nächtliche Sicherung aufnehmen
-  put the container in the nightly backup with a database dump	  den Container mit Datenbank-Dump in die nächtliche Sicherung aufnehmen
-  start Radarr, Sonarr, Lidarr, Prowlarr, Bazarr and (if you say yes) Maintainerr; install Recyclarr as a tool	  Radarr, Sonarr, Lidarr, Prowlarr, Bazarr und (bei ja) Maintainerr starten; Recyclarr als Werkzeug bereitstellen
-  start SABnzbd (asks for the port, default 80), finished downloads in /media/downloads/usenet/complete	  SABnzbd starten (fragt nach dem Port, Standard 80), fertige Downloads in /media/downloads/usenet/complete
-  start Seerr (asks for the port, default 80)	  Seerr starten (fragt nach dem Port, Standard 80)
 '%s' can't write to /media. Look at the storage of '%s' in: hs ct list	'%s' kann nicht nach /media schreiben. Sieh dir den Speicher von '%s' an in: hs ct list
-'%s' is in the nightly backup (hs backup ct %s off: take it out)	'%s' ist in der nächtlichen Sicherung (hs backup ct %s off: herausnehmen)
 Could not add '%s' to the backup. Later: hs backup ct %s on	'%s' konnte nicht in die Sicherung aufgenommen werden. Später: hs backup ct %s on
-Could not set the folders. In SABnzbd: Config -> Folders: Completed Download Folder  /media/downloads/usenet/complete  and Temporary  /incomplete.	Die Ordner konnten nicht gesetzt werden. In SABnzbd: Config -> Folders: Completed Download Folder  /media/downloads/usenet/complete  und Temporary  /incomplete.
 Could not write the backup dump command.	Der Dump-Befehl für die Sicherung konnte nicht geschrieben werden.
-Does not answer: %s at port %s. Look at: incus exec %s -- docker compose -f /opt/arr/docker-compose.yml logs --tail 50	Keine Antwort: %s an Port %s. Sieh nach mit: incus exec %s -- docker compose -f /opt/arr/docker-compose.yml logs --tail 50
-Downloading SABnzbd	SABnzbd wird heruntergeladen
-Downloading Seerr	Seerr wird heruntergeladen
-Downloading the apps (about 1.5 GB, this takes a while)	Die Apps werden heruntergeladen (etwa 1,5 GB, das dauert)
-Finished downloads go to /media/downloads/usenet/complete, unfinished ones to the SSD	Fertige Downloads landen in /media/downloads/usenet/complete, unfertige auf der SSD
-Folders	Ordner
 Guide: the file in docs/ of the repository (the web interface shows it as its Docs page: webUi = true).	Anleitung: die Datei in docs/ des Repositorys (die Weboberfläche zeigt sie als Seite Docs: webUi = true).
 Hard links do not work on this storage. Imports will copy every file (twice the space until the download is deleted).	Hardlinks funktionieren auf diesem Speicher nicht. Beim Import wird jede Datei kopiert (doppelter Platz, bis der Download gelöscht ist).
 Hard links work: a download moves into the library without a copy	Hardlinks funktionieren: ein Download kommt ohne Kopie in die Bibliothek
-Install Maintainerr (cleans up unwatched media by your own rules, deletes nothing at first)? yes or no	Maintainerr installieren (räumt nicht angesehene Medien nach deinen eigenen Regeln auf, löscht zuerst nichts)? yes oder no
-Installing the dump tool	Das Dump-Werkzeug wird installiert
-Push messages (Settings -> Connect -> ntfy):  server %s   topic %s	Push-Nachrichten (Settings -> Connect -> ntfy):  Server %s   Thema %s
-SABnzbd	SABnzbd
-Seerr	Seerr
-Starting SABnzbd	SABnzbd wird gestartet
-Starting Seerr	Seerr wird gestartet
-Starting the apps	Die Apps werden gestartet
 Storage for films and downloads	Speicher für Filme und Downloads
-The apps	Die Apps
-The few clicks that cannot wait:	Die wenigen Klicks, die nicht warten können:
 User '%s' (%s)	Benutzer '%s' (%s)
 Waiting for %s to answer (the first start prepares its files)	Warten, bis %s antwortet (der erste Start bereitet seine Dateien vor)
-Writing the dump command	Der Dump-Befehl wird geschrieben
-Writing the settings	Die Einstellungen werden geschrieben
-Writing the settings (port, user)	Die Einstellungen werden geschrieben (Port, Benutzer)
-skipped (RECIPE_SKIP_PULL): nothing downloaded, SABnzbd not started	übersprungen (RECIPE_SKIP_PULL): nichts heruntergeladen, SABnzbd nicht gestartet
-skipped (RECIPE_SKIP_PULL): nothing downloaded, Seerr not started	übersprungen (RECIPE_SKIP_PULL): nichts heruntergeladen, Seerr nicht gestartet
-skipped (RECIPE_SKIP_PULL): nothing downloaded, nothing started	übersprungen (RECIPE_SKIP_PULL): nichts heruntergeladen, nichts gestartet
 skipped (RECIPE_SKIP_STORAGE): the files stay inside the container	übersprungen (RECIPE_SKIP_STORAGE): die Dateien bleiben im Container
-  use the container '%s' (hs recipe synapse first), install the webhook receiver there as the service hs-matrix-hook	  den Container '%s' benutzen (vorher hs recipe synapse), darin den Webhook-Empfänger als Dienst hs-matrix-hook installieren
-  create the Matrix user 'hs-bot' and a secret address, stored in %s/matrix-hook (root only)	  den Matrix-Benutzer 'hs-bot' und eine geheime Adresse anlegen, gespeichert in %s/matrix-hook (nur root)
-  post no test card; the room 'media' is made with the first message and the owner is invited; every event is a card with the poster (Pillow, fonts included)	  keine Testkarte senden; der Raum 'media' wird mit der ersten Nachricht angelegt und der Besitzer eingeladen; jedes Ereignis wird eine Karte mit dem Poster (Pillow, Schriften sind dabei)
-  print the webhook address for Radarr, Sonarr and Seerr	  die Webhook-Adresse für Radarr, Sonarr und Seerr anzeigen
-The container '%s' does not exist. Install Synapse first: hs recipe synapse	Den Container '%s' gibt es nicht. Zuerst Synapse installieren: hs recipe synapse
-The container '%s' is not running (hs ct %s start)	Der Container '%s' läuft nicht (hs ct %s start)
-'%s' has no address. Check the network (hs ct list).	'%s' hat keine Adresse. Netzwerk prüfen (hs ct list).
-Webhook receiver	Webhook-Empfänger
-Checking Python and Pillow	Python und Pillow werden geprüft
-Creating the service user	Dienstbenutzer wird angelegt
-Copying the program	Programm wird kopiert
-Bot user and secret	Bot-Benutzer und Geheimnis
-Kept as it is (in %s/matrix-hook)	Bleibt wie es ist (in %s/matrix-hook)
-Could not create the user hs-bot. If it exists already, remove it in the admin page (Synapse-Admin) and run this again.	Der Benutzer hs-bot konnte nicht angelegt werden. Gibt es ihn schon, in der Admin-Seite (Synapse-Admin) löschen und das Rezept noch einmal starten.
-Bot user created, secret and password stored in %s/matrix-hook (root only)	Bot-Benutzer angelegt, Geheimnis und Passwort in %s/matrix-hook gespeichert (nur root)
-%s/matrix-hook is incomplete. Remove the file and the user hs-bot, then run this again.	%s/matrix-hook ist unvollständig. Die Datei und den Benutzer hs-bot löschen, dann das Rezept noch einmal starten.
-Starting it	Wird gestartet
-Installing the service	Dienst wird installiert
-The receiver does not answer at %s. Look at: incus exec %s -- journalctl -u hs-matrix-hook	Der Empfänger antwortet nicht unter %s. Ansehen: incus exec %s -- journalctl -u hs-matrix-hook
-Cards	Karten
-Done. The room "%s" is made with the first message, then %s gets an invitation (accept it in Element). No test card is posted: type  test  in the chat "Homeserver bot" to try it.	Fertig. Der Raum "%s" wird mit der ersten Nachricht angelegt, dann bekommt %s eine Einladung (in Element annehmen). Es wird keine Testkarte gesendet: schreib  test  in den Chat "Homeserver bot", um es auszuprobieren.
-Webhook address (the secret is part of it, no Zoraxy rule):  %s	Webhook-Adresse (das Geheimnis ist ein Teil davon, keine Zoraxy-Regel):  %s
-  1. Radarr and Sonarr: Settings -> Connect -> + -> Webhook, Method POST, the address above.	  1. Radarr und Sonarr: Settings -> Connect -> + -> Webhook, Method POST, die Adresse oben.
-     Triggers: On Grab, On Import, On Upgrade, On Health Issue, On Health Restored. Test sends a message.	     Triggers: On Grab, On Import, On Upgrade, On Health Issue, On Health Restored. Test schickt eine Nachricht.
-  2. Seerr: Settings -> Notifications -> Webhook, Webhook URL = the address above, keep the JSON payload as it is.	  2. Seerr: Settings -> Notifications -> Webhook, Webhook URL = die Adresse oben, die JSON-Payload so lassen.
-     Enable: Request Approved and Request Automatically Approved.	     Einschalten: Request Approved und Request Automatically Approved.
-Making the program folder	Programmordner wird angelegt
-Cards are off: Pillow is missing or switched off, the room gets text messages.	Karten sind aus: Pillow fehlt oder ist abgeschaltet, der Raum bekommt Textnachrichten.
-Rate limit of the bot	Ratenbegrenzung des Bots
-Lifting the limit for hs-bot, so a big clear is quick	Begrenzung für hs-bot wird aufgehoben, damit ein großes Aufräumen schnell geht
-Could not lift the rate limit of hs-bot. A big clear will work, but slowly.	Die Ratenbegrenzung von hs-bot konnte nicht aufgehoben werden. Ein großes Aufräumen klappt, dauert aber lange.
-No admin login in %s/synapse-admin, so the rate limit of hs-bot stays. A big clear will work, but slowly.	Kein Admin-Login in %s/synapse-admin, darum bleibt die Ratenbegrenzung von hs-bot. Ein großes Aufräumen klappt, dauert aber lange.
-  3. Accept the second invitation too, the chat 'Homeserver bot', and type  help  there: the commands (clear, status, test, mute) work in it for your Matrix ID only.	  3. Auch die zweite Einladung annehmen, den Chat 'Homeserver bot', und dort  help  eintippen: Die Befehle (clear, status, test, mute) gelten darin nur für deine Matrix-ID.
-     The room for the messages is read-only for you (you can still delete and react).	     Der Raum mit den Meldungen ist für dich nur lesbar (Löschen und Reagieren geht weiter).
 Host name	Hostname
-SABnzbd accepts the name %s	SABnzbd akzeptiert den Namen %s
-No domain name known for the container (or already set): SABnzbd answers on the address only. Other names: Config -> Special -> host_whitelist.	Der Container kennt keinen Domainnamen (oder er ist schon gesetzt): SABnzbd antwortet nur auf die Adresse. Weitere Namen: Config -> Special -> host_whitelist.
-Could not set host_whitelist. In SABnzbd: Config -> Special -> host_whitelist.	host_whitelist konnte nicht gesetzt werden. In SABnzbd: Config -> Special -> host_whitelist.
 usage: hs ext games list	Aufruf: hs ext games list
        hs ext games add <name> <mac> [<ip>]	       hs ext games add <Name> <MAC> [<IP>]
        hs ext games remove <name>	       hs ext games remove <Name>
@@ -1629,48 +1174,8 @@ Wake-up packet sent to '%s' (%s)	Aufweck-Paket an '%s' gesendet (%s)
 Waiting for Sunshine on '%s' (%s)	Warte auf Sunshine auf '%s' (%s)
 '%s' did not answer within %s seconds. Is Wake-on-LAN on in its BIOS and is Sunshine running?	'%s' hat nicht innerhalb von %s Sekunden geantwortet. Ist Wake-on-LAN im BIOS an und läuft Sunshine?
 '%s' is up and Sunshine answers	'%s' ist an und Sunshine antwortet
-  create the container '%s' (Docker inside, 8192 MB RAM limit) unless it exists, with a fixed address (.30-.39) if UniFi is connected (hs net setup)	  den Container '%s' anlegen (Docker darin, 8192 MB RAM), falls es ihn nicht gibt, mit fester Adresse (.30-.39), wenn UniFi verbunden ist (hs net setup)
-  pass the NVIDIA card and the input devices (/dev/uinput, /dev/input) into the container	  die NVIDIA-Karte und die Eingabegeräte (/dev/uinput, /dev/input) in den Container reichen
-  install Docker and NVIDIA's container toolkit inside	  Docker und NVIDIAs Container-Toolkit darin installieren
-  start Steam Headless with Sunshine from its image (several GB to download)	  Steam Headless mit Sunshine aus seinem Image starten (mehrere GB Download)
-  keep the Steam library on the SSD pool (/opt/sunshine/home in the container)	  die Steam-Bibliothek auf dem SSD-Pool halten (/opt/sunshine/home im Container)
-Input devices	Eingabegeräte
-/dev/uinput and /dev/input are passed in	/dev/uinput und /dev/input sind durchgereicht
-The server has no /dev/uinput. Run  hs rebuild  (it loads the module), then  hs recipe sunshine  again. Mouse, keyboard and gamepads will not work until then.	Der Server hat kein /dev/uinput. Führe  hs rebuild  aus (es lädt das Modul), dann  hs recipe sunshine  noch einmal. Maus, Tastatur und Controller gehen bis dahin nicht.
-The NVIDIA card could not be passed into the container.	Die NVIDIA-Karte konnte nicht in den Container gereicht werden.
-Docker can't use the NVIDIA card. Look at the lines above.	Docker kann die NVIDIA-Karte nicht nutzen. Sieh dir die Zeilen darüber an.
-Sunshine and Steam	Sunshine und Steam
-Kept as it is (password in %s/sunshine-admin)	Bleibt wie es ist (Passwort in %s/sunshine-admin)
-Downloading Steam Headless (several GB, this takes a while)	Steam Headless wird geladen (mehrere GB, das dauert)
-skipped (RECIPE_SKIP_PULL): nothing downloaded, Sunshine not started	übersprungen (RECIPE_SKIP_PULL): nichts geladen, Sunshine nicht gestartet
-Waiting for Sunshine to answer (the first start installs Steam and the driver parts)	Warte, bis Sunshine antwortet (der erste Start installiert Steam und die Treiberteile)
-Sunshine does not answer at https://%s:47990 . Look at: incus exec %s -- docker compose -f /opt/sunshine/docker-compose.yml logs --tail 80	Sunshine antwortet nicht unter https://%s:47990 . Sieh nach mit: incus exec %s -- docker compose -f /opt/sunshine/docker-compose.yml logs --tail 80
-Sunshine found the NVIDIA encoder (NVENC)	Sunshine hat den NVIDIA-Encoder gefunden (NVENC)
-No sign of NVENC in the log yet; Sunshine may be encoding on the CPU. Look at: incus exec %s -- docker compose -f /opt/sunshine/docker-compose.yml logs | grep -i -e nvenc -e encoder	Noch kein Hinweis auf NVENC im Protokoll; Sunshine kodiert vielleicht auf dem Prozessor. Sieh nach mit: incus exec %s -- docker compose -f /opt/sunshine/docker-compose.yml logs | grep -i -e nvenc -e encoder
-Done. Sunshine web page (set-up only, never behind Zoraxy):  https://%s:47990	Fertig. Sunshine-Seite (nur zum Einrichten, nie hinter Zoraxy):  https://%s:47990
-  1. The login is in  /var/lib/hs/sunshine-admin  (user and password).	  1. Die Anmeldung steht in  /var/lib/hs/sunshine-admin  (Benutzer und Passwort).
-  2. On the TV: app "Moonlight", add the computer by address  %s ,	  2. Am Fernseher: App "Moonlight", den Rechner mit der Adresse  %s  hinzufügen,
-     it shows a PIN: enter it in the Sunshine web page under PIN.	     es zeigt eine PIN: gib sie auf der Sunshine-Seite unter PIN ein.
-  3. The desktop with Steam (log in to Steam once, install games):	  3. Der Desktop mit Steam (einmal bei Steam anmelden, Spiele installieren):
-     http://%s:8083  (same password)	     http://%s:8083  (dasselbe Passwort)
-A game PC at home can be added as a second entry: hs ext games add, hs ext games wake.	Ein Spiele-PC zu Hause lässt sich als zweiter Eintrag dazunehmen: hs ext games add, hs ext games wake.
-Delete the lower-resolution file when a film has two (say 4K and FullHD) in its folder, after a grace period? yes or no	Die Datei mit der niedrigeren Auflösung löschen, wenn ein Film zwei hat (etwa 4K und FullHD in einem Ordner), nach einer Schonfrist? yes oder no
-  (if you say yes) install a nightly job that announces and then deletes the lower-resolution file of a film that has two (messages to ntfy and Matrix)	  (bei yes) einen nächtlichen Auftrag einrichten, der die Datei mit der niedrigeren Auflösung eines Films mit zwei Dateien ankündigt und dann löscht (Meldungen an ntfy und Matrix)
-Duplicates	Doppelte Filme
-Installing ffprobe and Python	ffprobe und Python werden installiert
-Copying the programs	Die Programme werden kopiert
-Setting up the nightly job	Der nächtliche Auftrag wird eingerichtet
-Every night at 03:30: a film with two resolutions is announced, its lower file deleted after %s days	Jede Nacht um 03:30: Ein Film mit zwei Auflösungen wird angekündigt, die niedrigere Datei nach %s Tagen gelöscht
-Duplicates: list what would happen:  incus exec %s -- python3 /usr/local/lib/hs/hs-arr-dedupe.py --dry-run   (keep both: touch .keep-both in the film's folder)	Doppelte Filme, was passieren würde:  incus exec %s -- python3 /usr/local/lib/hs/hs-arr-dedupe.py --dry-run   (beide behalten: touch .keep-both im Ordner des Films)
-Skipped: no duplicate cleanup (hs recipe arr --ask turns it on)	Übersprungen: keine Bereinigung doppelter Filme (hs recipe arr --ask schaltet sie ein)
 Messages from the helpers go to ntfy and to Matrix (%s)	Meldungen der Helfer gehen an ntfy und an Matrix (%s)
 Messages from the helpers go to ntfy only (no Matrix hook yet: hs recipe matrix-hook, then run this recipe again)	Meldungen der Helfer gehen nur an ntfy (noch kein Matrix-Hook: hs recipe matrix-hook, danach dieses Rezept erneut starten)
-  switch on SABnzbd's notification script: queued, finished and failed downloads go to ntfy and Matrix	  das Benachrichtigungsskript von SABnzbd einschalten: eingereihte, fertige und fehlgeschlagene Downloads gehen an ntfy und Matrix
-Messages	Meldungen
-SABnzbd posts queued, finished and failed downloads to ntfy and Matrix	SABnzbd meldet eingereihte, fertige und fehlgeschlagene Downloads an ntfy und Matrix
-Could not switch the messages on. In SABnzbd: Config -> Folders: Scripts Folder  /config/scripts, then Config -> Notifications -> Notification Script: script hs-media-notify.py, tick the events (Added NZB, Job finished, Failed).	Die Meldungen ließen sich nicht einschalten. In SABnzbd: Config -> Folders: Scripts Folder  /config/scripts, dann Config -> Notifications -> Notification Script: Skript hs-media-notify.py, die Ereignisse ankreuzen (Added NZB, Job finished, Failed).
-Could not tell '%s' the Matrix address. Run its recipe again.	Die Matrix-Adresse ließ sich '%s' nicht mitteilen. Das Rezept dazu erneut starten.
-  Maintainerr (Script) and SABnzbd need no click: their helpers got this address (hs recipe arr / sabnzbd run again if they were installed before).	  Maintainerr (Script) und SABnzbd brauchen keinen Klick: ihre Helfer haben diese Adresse bekommen (war ein Rezept vorher installiert: hs recipe arr / sabnzbd erneut starten).
 usage: hs config sync [--check] | check | migrate	Aufruf: hs config sync [--check] | check | migrate
 There is a %s but no %s yet. Convert it with: hs config migrate	Es gibt eine %s, aber noch keine %s. Wandle sie um mit: hs config migrate
 Could not sync %s; nothing changed.	%s konnte nicht abgeglichen werden; nichts geändert.
@@ -1696,20 +1201,7 @@ Edit %s, then run: hs rebuild	Bearbeite %s und führe dann aus: hs rebuild
 machine.nix was not converted: the rebuild uses it as it is. Look at: hs config migrate	machine.nix wurde nicht umgewandelt: der Neubau nimmt sie, wie sie ist. Sieh nach mit: hs config migrate
 hs update converts machine.nix to machine.toml (the old file is kept as machine.nix.migrated).	hs update wandelt machine.nix in machine.toml um (die alte Datei bleibt als machine.nix.migrated).
 hs update adds them to machine.toml, commented out, and asks whether to stop before the rebuild.	hs update trägt sie auskommentiert in machine.toml ein und fragt, ob vor dem Neubau angehalten werden soll.
-This recipe is parked: the Steam Headless container does not start inside an Incus container yet (details: CLAUDE.md, Game streaming). Stream from the PC itself instead (Sunshine on the PC, Moonlight on the other device). To try anyway: RECIPE_FORCE=1 hs recipe sunshine	Dieses Rezept ist zurückgestellt: Der Steam-Headless-Container startet in einem Incus-Container noch nicht (Einzelheiten: CLAUDE.md, Game streaming). Streame stattdessen vom PC selbst (Sunshine am PC, Moonlight am anderen Gerät). Trotzdem versuchen: RECIPE_FORCE=1 hs recipe sunshine
 '%s' must be a time zone such as Europe/Vienna (list: timedatectl list-timezones), or none.	'%s' muss eine Zeitzone wie Europe/Vienna sein (Liste: timedatectl list-timezones), oder none.
-Disk full, errors and warnings: tick them yourself in SABnzbd, Config -> Notifications (the API cannot set them)	Platte voll, Fehler und Warnungen: selbst ankreuzen in SABnzbd, Config -> Notifications (die Schnittstelle kann sie nicht setzen)
-Encrypted releases	Verschlüsselte Releases
-Encrypted downloads are aborted, so Radarr and Sonarr try another release	Verschlüsselte Downloads werden abgebrochen, Radarr und Sonarr probieren ein anderes Release
-Could not set it. In SABnzbd: Config -> Switches -> Action when encrypted RAR is downloaded: Abort.	Konnte es nicht setzen. In SABnzbd: Config -> Switches -> Action when encrypted RAR is downloaded: Abort.
-   The phone must be in the home network or connected through Tailscale.	   Das Handy muss im Heimnetz sein oder über Tailscale verbunden.
-   virtual directory  /if/admin/  ->  127.0.0.1:1  (a dead end: the admin page stays at home).	   virtuelles Verzeichnis  /if/admin/  ->  127.0.0.1:1  (eine Sackgasse: die Admin-Seite bleibt zu Hause).
-  subdomain *  (and one without subdomain), your domain, service  HTTP  %s:80	  Subdomain *  (und eine ohne Subdomain), deine Domain, Dienst  HTTP  %s:80
-1. "Getting Started": the first account you create becomes the admin (more people: Administration -> Users).	1. "Getting Started": das erste Konto, das du anlegst, wird Admin (weitere Personen: Administration -> Users).
-1. Your AD account: Directory -> Federation and Social login -> Create -> LDAP Source	1. Dein AD-Konto: Directory -> Federation and Social login -> Create -> LDAP Source
-2. "Add Media Library", one per kind: Movies /media/movies, Shows /media/series, Music /media/music, Anime shows /media/anime/series, Anime movies /media/anime/movies.	2. "Add Media Library", eine pro Art: Movies /media/movies, Shows /media/series, Music /media/music, Anime-Serien /media/anime/series, Anime-Filme /media/anime/movies.
-2. Phone: install the app "Immich", server address  %s , log in, switch on the backup of the camera roll.	2. Handy: die App "Immich" installieren, Serveradresse  %s , anmelden, die Sicherung der Kamerarolle einschalten.
-3. Zoraxy: a rule only for the login page, with the header  X-Forwarded-Proto: https  and the	3. Zoraxy: eine Regel nur für die Anmeldeseite, mit dem Header  X-Forwarded-Proto: https  und dem
 No instance called '%s'. See: hs ct list	Keine Instanz namens '%s'. Siehe: hs ct list
 Show the result with: hs dns list	Das Ergebnis zeigt: hs dns list
 There are no instances yet. Make one with: hs ct add <name>	Es gibt noch keine Instanzen. Lege eine an mit: hs ct add <Name>
@@ -1741,7 +1233,6 @@ Web page	Webseite
 Fans at full speed for %s s	Lüfter auf voller Drehzahl für %s s
 Fan %s	Lüfter %s
 Login	Anmeldung
-Photos	Fotos
 Setting	Einstellung
 Option	Option
 What it is	Was es ist
@@ -1857,82 +1348,7 @@ The unpacked domain backup has no sam.ldb	Die entpackte Domänen-Sicherung hat k
 Domain backup: it unpacks and holds sam.ldb	Domänen-Sicherung: lässt sich entpacken und enthält sam.ldb
 No container is in the backup, nothing to restore (hs backup ct <name> on)	Kein Container ist im Backup, nichts zurückzuholen (hs backup ct <Name> on)
 Container restore drill done.	Container-Wiederherstellungsprobe abgeschlossen.
-     Then set your own: Tools -> Options -> Web UI.	     Dann ein eigenes setzen: Tools -> Options -> Web UI.
-  1. Log in as admin; the temporary password is in:  docker logs qbittorrent  (inside the container).	  1. Als admin anmelden; das vorläufige Passwort steht in:  docker logs qbittorrent  (im Container).
-  2. Radarr and Sonarr: Settings -> Download Clients -> qBittorrent, host %s, port %s, category  movies  /  tv	  2. Radarr und Sonarr: Settings -> Download Clients -> qBittorrent, Host %s, Port %s, Kategorie  movies  /  tv
-  ask for your VPN provider and account (WireGuard or OpenVPN) and keep it inside the container	  nach deinem VPN-Anbieter und -Konto fragen (WireGuard oder OpenVPN) und es im Container aufbewahren
-  give it the tunnel device /dev/net/tun (gluetun needs it)	  ihm das Tunnelgerät /dev/net/tun geben (gluetun braucht es)
-  make a push topic of its own and put the container in the nightly backup	  ein eigenes Push-Thema anlegen und den Container in die nächtliche Sicherung nehmen
-  open qBittorrent's page (asks for the port, default 80), downloads in /media/downloads/torrents	  die Seite von qBittorrent öffnen (fragt nach dem Port, Standard 80), Downloads in /media/downloads/torrents
-  start gluetun and qBittorrent in one compose project: qBittorrent has no network outside the VPN	  gluetun und qBittorrent in einem Compose-Projekt starten: qBittorrent hat kein Netz außerhalb des VPN
-/dev/net/tun added to the container	/dev/net/tun zum Container hinzugefügt
-/dev/net/tun is in the container already	/dev/net/tun ist schon im Container
-A VPN account is stored already, keeping it	Ein VPN-Konto ist schon gespeichert, es bleibt
-Another account? Delete it first: incus exec %s -- rm %s	Ein anderes Konto? Erst löschen: incus exec %s -- rm %s
-Could not look up the address behind the VPN. Check it yourself: incus exec %s -- docker exec gluetun wget -qO- https://api.ipify.org	Die Adresse hinter dem VPN ließ sich nicht abfragen. Prüfe sie selbst: incus exec %s -- docker exec gluetun wget -qO- https://api.ipify.org
-Downloading gluetun and qBittorrent	gluetun und qBittorrent werden heruntergeladen
-Key and address are both needed. Nothing was stored; run the recipe again.	Schlüssel und Adresse werden beide gebraucht. Nichts wurde gespeichert; starte das Rezept erneut.
-Kill switch	Notaus
-Networks of your home that may open qBittorrent's page, comma separated	Netze deines Zuhauses, die die Seite von qBittorrent öffnen dürfen, durch Komma getrennt
-OpenVPN password (not shown):	OpenVPN-Passwort (wird nicht angezeigt):
-OpenVPN user name	OpenVPN-Benutzername
-Provider %s, protocol %s. The values are in the account page or the config file of your provider.	Anbieter %s, Protokoll %s. Die Werte stehen auf der Kontoseite oder in der Konfigurationsdatei deines Anbieters.
-Push messages (Radarr/Sonarr: Settings -> Connect -> ntfy):  server %s   topic %s	Push-Nachrichten (Radarr/Sonarr: Settings -> Connect -> ntfy):  Server %s   Thema %s
-Starting the VPN and qBittorrent	VPN und qBittorrent werden gestartet
-Stored in the container (%s, root only)	Im Container gespeichert (%s, nur für root)
-The VPN did not come up, so qBittorrent was not started. Look at: incus exec %s -- docker logs gluetun --tail 30   (wrong key, address or provider name?)	Das VPN ist nicht hochgekommen, darum wurde qBittorrent nicht gestartet. Sieh nach mit: incus exec %s -- docker logs gluetun --tail 30   (falscher Schlüssel, falsche Adresse oder falscher Anbietername?)
-The address seen from the tunnel (%s) is your own. Do not use qBittorrent: look at the VPN settings.	Die Adresse, die man vom Tunnel aus sieht (%s), ist deine eigene. qBittorrent nicht benutzen: prüfe die VPN-Einstellungen.
-Torrent traffic leaves through the VPN (address %s, not your own)	Torrent-Verkehr geht durch das VPN (Adresse %s, nicht deine eigene)
-Tunnel device	Tunnelgerät
-User and password are both needed. Nothing was stored; run the recipe again.	Benutzer und Passwort werden beide gebraucht. Nichts wurde gespeichert; starte das Rezept erneut.
-VPN account	VPN-Konto
-WireGuard address from the provider's config (Address =, like 10.2.0.2/32)	WireGuard-Adresse aus der Konfiguration des Anbieters (Address =, wie 10.2.0.2/32)
-WireGuard private key (not shown):	WireGuard-Schlüssel, privat (wird nicht angezeigt):
-Writing the settings (port, user, networks)	Einstellungen werden geschrieben (Port, Benutzer, Netze)
-qBittorrent	qBittorrent
-skipped (RECIPE_SKIP_PULL): no VPN account asked	übersprungen (RECIPE_SKIP_PULL): kein VPN-Konto abgefragt
-skipped (RECIPE_SKIP_PULL): nothing downloaded, qBittorrent not started	übersprungen (RECIPE_SKIP_PULL): nichts heruntergeladen, qBittorrent nicht gestartet
-  2. HTTP Proxy -> New Proxy Rule, one per service you want reachable from outside (matching name, target address:port).	  2. HTTP Proxy -> New Proxy Rule, eine pro Dienst, der von außen erreichbar sein soll (matching name, Ziel Adresse:Port).
-  2. Registration is closed (new users, public address and federation: see the guide). Never give an admin page a rule.	  2. Die Registrierung ist geschlossen (neue Benutzer, öffentliche Adresse und Föderation: siehe Anleitung). Eine Admin-Seite bekommt nie eine Regel.
-  2. Settings -> Notifications -> "Setup Notification", type "Ntfy":	  2. Settings -> Notifications -> "Setup Notification", Typ "Ntfy":
-  Never give the admin page a Zoraxy rule. Real mail traffic needs more (ports, DNS records): see the guide.	  Die Admin-Seite bekommt nie eine Zoraxy-Regel. Echter Mailverkehr braucht mehr (Ports, DNS-Einträge): siehe Anleitung.
 First login:  user  arcane   password  arcane-admin  (Arcane asks for a new one right away)	Erste Anmeldung:  Benutzer  arcane   Passwort  arcane-admin  (Arcane verlangt sofort ein neues)
-In the Cloudflare dashboard, on the tunnel's page: Public Hostname -> Add	Im Cloudflare-Dashboard, auf der Seite des Tunnels: Public Hostname -> Add
-Log in with an account of your Stalwart server. The admin page is /admin, its password:	Mit einem Konto deines Stalwart-Servers anmelden. Die Admin-Seite ist /admin, ihr Passwort:
-People log in to shares as   %s   with their domain password; a Windows PC joins with %s.	Man meldet sich an Freigaben an als   %s   mit dem Domänenpasswort; ein Windows-PC tritt bei mit %s.
-Shares that existed before are still open to everyone: close them in hs share <share> perm (Everyone: none). hs health lists them.	Freigaben, die es vorher gab, sind noch für alle offen: in hs share <share> perm schließen (Everyone: none). hs health listet sie auf.
-The domain is running and this server is its file server.	Die Domäne läuft, und dieser Server ist ihr Dateiserver.
-No Zoraxy rule for any of these pages. The few clicks that cannot wait:	Keine Zoraxy-Regel für eine dieser Seiten. Die wenigen Klicks, die nicht warten können:
-       %s  ->  http://%s:7880      (signalling)	       %s  ->  http://%s:7880      (Signalisierung)
-       %s  ->  http://%s:8080      (ticket service)	       %s  ->  http://%s:8080      (Ticket-Dienst)
-     and the same ports for tag:vps in the Tailscale ACL, then nixos-rebuild switch on the VPS.	     und dieselben Ports für tag:vps in der Tailscale-ACL, dann auf dem VPS nixos-rebuild switch.
-  1. Zoraxy rules (both with WebSocket support; nothing else of this container, never a rule for another port):	  1. Zoraxy-Regeln (beide mit WebSocket-Unterstützung; sonst nichts von diesem Container, nie eine Regel für einen anderen Port):
-  3. Calls: clients find %s through https://<server name>/.well-known/matrix/client, so that path must reach Synapse (Zoraxy: Matrix API rule). Check: curl https://<server name>/.well-known/matrix/client	  3. Anrufe: Clients finden %s über https://<Servername>/.well-known/matrix/client, dieser Pfad muss also bei Synapse ankommen (Zoraxy: Matrix-API-Regel). Prüfen: curl https://<Servername>/.well-known/matrix/client
-  3. hs recipe synapse  (asks for the ticket service address https://%s and advertises it to clients)	  3. hs recipe synapse  (fragt nach der Adresse des Ticket-Dienstes https://%s und gibt sie an die Clients weiter)
-  ask for the public address of the VPS and the two host names (signalling, ticket service)	  nach der öffentlichen Adresse des VPS und den zwei Namen fragen (Signalisierung, Ticket-Dienst)
-  create the container '%s' (1024 MB RAM limit) with Docker unless it exists, with a fixed address if UniFi is connected (hs net setup)	  den Container '%s' (1024 MB RAM-Grenze) mit Docker anlegen, falls es ihn nicht gibt, mit fester Adresse, wenn UniFi verbunden ist (hs net setup)
-  install Tailscale inside and sign it in (you open a link): the VPS reaches the media ports through it	  Tailscale darin installieren und anmelden (du öffnest einen Link): der VPS erreicht die Medien-Ports darüber
-  print the Zoraxy rules, the proxyserver machine.nix lines and the Tailscale ACL ports to set	  die Zoraxy-Regeln, die machine.nix-Zeilen des proxyserver und die Ports für die Tailscale-ACL ausgeben
-  run livekit-server and lk-jwt-service with Docker (/opt/livekit), with a random API key	  livekit-server und lk-jwt-service mit Docker starten (/opt/livekit), mit zufälligem API-Schlüssel
-  with calls = an address (asked, empty = off): advertise the LiveKit ticket service of hs recipe livekit to clients (Cinny, Element Call) and turn on what Synapse needs for it	  mit Anrufen = eine Adresse (wird gefragt, leer = aus): den LiveKit-Ticket-Dienst aus hs recipe livekit den Clients (Cinny, Element Call) bekannt machen und einschalten, was Synapse dafür braucht
-  copy the domain from %s and check that the copying works	  die Domäne von %s kopieren und prüfen, dass das Kopieren funktioniert
-  install Samba inside and join the existing domain as a second domain controller (asks for the Administrator password)	  Samba darin installieren und der vorhandenen Domäne als zweiter Domänencontroller beitreten (fragt das Administrator-Passwort)
-  tell you the second DNS entry the router needs	  dir den zweiten DNS-Eintrag nennen, den der Router braucht
-%s does not resolve yet; the first controller may still be copying the new name	%s wird noch nicht aufgelöst; der erste Controller kopiert den neuen Namen vielleicht noch
-'%s' joined, but does not say the short name of the domain. Look at: incus exec %s -- samba-tool domain info 127.0.0.1	'%s' ist beigetreten, nennt aber den Kurznamen der Domäne nicht. Sieh nach mit: incus exec %s -- samba-tool domain info 127.0.0.1
-Checking that the first controller answers	Prüfen, ob der erste Controller antwortet
-Full name of the existing domain	Vollständiger Name der vorhandenen Domäne
-Join the domain %s as a controller	Der Domäne %s als Controller beitreten
-Joining as a controller failed. Is the Administrator password right? Run the recipe again to retry.	Der Beitritt als Controller ist fehlgeschlagen. Stimmt das Administrator-Passwort? Starte das Rezept noch einmal, um es erneut zu versuchen.
-No domain controller for %s answers at %s. Is it running? Are the ports open between the two networks (53, 88, 135, 389, 445, 3268)?	Kein Domänencontroller für %s antwortet unter %s. Läuft er? Sind die Ports zwischen den beiden Netzen offen (53, 88, 135, 389, 445, 3268)?
-Taking a snapshot of the new controller	Snapshot des neuen Controllers anlegen
-The Administrator password of the existing domain is asked for now. It is typed straight into Samba.	Jetzt wird das Administrator-Passwort der vorhandenen Domäne abgefragt. Es wird direkt in Samba eingegeben.
-The copying does not work. Look at: incus exec %s -- samba-tool drs showrepl	Das Kopieren funktioniert nicht. Sieh nach mit: incus exec %s -- samba-tool drs showrepl
-The existing domain	Die vorhandene Domäne
-The first controller is %s. It must be running, and this server must reach it (DNS, Kerberos, LDAP, SMB).	Der erste Controller ist %s. Er muss laufen, und dieser Server muss ihn erreichen (DNS, Kerberos, LDAP, SMB).
-The router already sends the domain to the first controller. Add a SECOND entry, so it asks this one when the first is off.	Der Router schickt die Domäne schon zum ersten Controller. Lege einen ZWEITEN Eintrag an, damit er diesen fragt, wenn der erste aus ist.
-This server also holds a copy of the domain (controller %s); hs finds it by itself.	Dieser Server hält auch eine Kopie der Domäne (Controller %s); hs findet ihn selbst.
-Waiting for the first copy of the domain	Warten auf die erste Kopie der Domäne
 '%s' is outside the domain %s: refused.	'%s' liegt außerhalb der Domäne %s: abgelehnt.
 CA made. Key (in the vault): %s	Zertifizierungsstelle angelegt. Schlüssel (im Tresor): %s
 Cannot read %s	%s kann nicht gelesen werden
@@ -1993,75 +1409,10 @@ Draw another one with a new seed?	Noch eins mit einem neuen Seed zeichnen?
 Where to save it?	Wo soll es gespeichert werden?
 Folder (full path, it must exist)	Ordner (voller Pfad, er muss existieren)
 No shares found: the poster is saved in this folder.	Keine Freigaben gefunden: das Poster wird in diesem Ordner gespeichert.
-Could not ask GitHub for the newest Home Assistant OS version. Try again, or name it: RECIPE_VERSION=17.0 hs recipe homeassistant	GitHub kennt die neueste Home-Assistant-OS-Version nicht (keine Antwort). Versuche es nochmal oder nenne sie: RECIPE_VERSION=17.0 hs recipe homeassistant
-Disk size in GB (32 or more)	Plattengröße in GB (32 oder mehr)
-Downloading the image	Lade das Abbild herunter
-Home Assistant	Home Assistant
-Home Assistant OS %s	Home Assistant OS %s
-Home Assistant OS image	Home-Assistant-OS-Abbild
-Home Assistant answers at http://%s:8123	Home Assistant antwortet unter http://%s:8123
-Importing it into Incus	Importiere es in Incus
-It does not answer yet. The first start can take longer: try the address in a few minutes. Console: incus console homeassistant --type=vga	Es antwortet noch nicht. Der erste Start kann länger dauern: probiere die Adresse in ein paar Minuten. Konsole: incus console homeassistant --type=vga
-Memory in MB	Arbeitsspeicher in MB
-Number of CPUs	Anzahl der Kerne
-USB device %s is passed into the VM	USB-Gerät %s wird in die VM durchgereicht
-USB devices of the server	USB-Geräte des Servers
-USB stick for Home Assistant (vendor:product from the list, or none)	USB-Stick für Home Assistant (Hersteller:Produkt aus der Liste, oder none)
-Unpacking it	Entpacke es
-Waiting for the web page (the first start downloads Home Assistant: 10 to 20 minutes)	Warte auf die Webseite (der erste Start lädt Home Assistant nach: 10 bis 20 Minuten)
-http://homeassistant.local:8123 (or the address from your router)	http://homeassistant.local:8123 (oder die Adresse aus deinem Router)
-UniFi is not connected (hs net setup), so the address %s is not fixed. Reserve it in your router by hand.	UniFi ist nicht verbunden (hs net setup), darum ist die Adresse %s nicht fest. Reserviere sie von Hand in deinem Router.
-Name of the share for films, series and manga (under /bulk/shares)	Name der Freigabe für Filme, Serien und Manga (unter /bulk/shares)
-  create the container '%s' (Docker inside, 5120 MB RAM limit) unless it exists, with a fixed address (.20-.29) if UniFi is connected (hs net setup)	  den Container '%s' anlegen (Docker darin, 5120 MB RAM-Grenze), falls es ihn nicht gibt, mit fester Adresse (.20-.29), wenn UniFi verbunden ist (hs net setup)
-  mount the share for the media (asks for its name, default media) read and write at /media and create the folder manga in it	  die Freigabe für die Medien (fragt nach dem Namen, Standard media) mit Lesen und Schreiben unter /media einbinden und darin den Ordner manga anlegen
-  start Uchiyomi with FlareSolverr and Suwayomi (asks for the port, default 80)	  Uchiyomi mit FlareSolverr und Suwayomi starten (fragt nach dem Port, Standard 80)
-Storage for the manga	Speicher für die Manga
-Folder 'manga' in the share '%s'	Ordner 'manga' in der Freigabe '%s'
-'%s' can't write to /media/manga. Look at the storage of '%s' in: hs ct list	'%s' kann nicht nach /media/manga schreiben. Sieh dir den Speicher von '%s' an in: hs ct list
-Uchiyomi	Uchiyomi
-Writing the settings (port, user, address)	Einstellungen werden geschrieben (Port, Benutzer, Adresse)
-skipped (RECIPE_SKIP_PULL): nothing downloaded, Uchiyomi not started	übersprungen (RECIPE_SKIP_PULL): nichts heruntergeladen, Uchiyomi nicht gestartet
-Downloading Uchiyomi and its helpers (about 2 GB, this takes a while)	Uchiyomi und seine Helfer werden heruntergeladen (etwa 2 GB, das dauert)
-Starting Uchiyomi	Uchiyomi wird gestartet
-Manga folder	Manga-Ordner
-  The first visit creates the admin account. The library is /media/manga (the folder 'manga' in the share).	  Der erste Besuch legt das Admin-Konto an. Die Bibliothek ist /media/manga (der Ordner 'manga' in der Freigabe).
-  Add the manga sources in the settings; Jellyfin does not read manga, so nothing else needs the folder.	  Die Manga-Quellen in den Einstellungen hinzufügen; Jellyfin liest keine Manga, der Ordner braucht sonst nichts.
-  No Zoraxy rule: the sign-in page is the whole app.	  Keine Zoraxy-Regel: die Anmeldeseite ist die ganze App.
   1. stop putting new files on it and take it out of /bulk	  1. keine neuen Dateien mehr darauf legen und aus /bulk nehmen
   2. take it out of the array (the parity follows with the next scheduled sync, or now if you ask for it)	  2. aus dem Verbund nehmen (die Parität folgt beim nächsten geplanten Sync, oder gleich, wenn du es willst)
   The disk holds no files (the rest df shows is the filesystem's own space).	  Auf der Platte liegen keine Dateien (der Rest, den df zeigt, ist Platz des Dateisystems selbst).
 The disk itself is not erased, only unlabelled; format it afterwards.	Die Platte selbst wird nicht gelöscht, nur ihre Bezeichnung entfernt; formatiere sie danach.
-     The last step shows an install command with a token: copy it, it is shown once.	     Der letzte Schritt zeigt einen Installationsbefehl mit einem Token: kopiere ihn, er wird nur einmal gezeigt.
-  2. Admin -> Nodes -> Register Node: type the address of the node (hs recipe catalyst-node makes it).	  2. Admin -> Nodes -> Register Node: die Adresse des Nodes eintragen (hs recipe catalyst-node legt ihn an).
-  3. On this server run:  sudo hs recipe catalyst-node  and paste the command when it asks.	  3. Auf diesem Server ausführen:  sudo hs recipe catalyst-node  und den Befehl einfügen, wenn danach gefragt wird.
-  ask for the install command of the node (panel: Admin -> Nodes -> Register Node) and run it inside	  nach dem Installationsbefehl des Nodes fragen (Panel: Admin -> Nodes -> Register Node) und ihn darin ausführen
-  create the container '%s' (nesting on, 8192 MB RAM limit) unless it exists, with a fixed address (.30 to .39) if UniFi is connected (hs net setup)	  den Container '%s' anlegen (Nesting an, 8192 MB RAM-Grenze), falls es ihn nicht gibt, mit fester Adresse (.30 bis .39), wenn UniFi verbunden ist (hs net setup)
-  install Docker inside and run Catalyst's installer (it makes the secrets and the Compose stack: panel, database, Redis)	  Docker darin installieren und den Installer von Catalyst ausführen (er legt die Geheimnisse und den Compose-Stack an: Panel, Datenbank, Redis)
-  start the stack and wait for the web page	  den Stack starten und auf die Webseite warten
-  wait until the agent runs	  warten, bis der Agent läuft
-  1. Open %s and finish the setup wizard: the first account you make is the administrator.	  1. %s öffnen und den Einrichtungsassistenten abschließen: das erste Konto, das du anlegst, ist der Administrator.
-Agent	Agent
-Catalyst	Catalyst
-Catalyst is running	Catalyst läuft
-Catalyst is still experimental: use it for tests, not for worlds you cannot lose.	Catalyst ist noch experimentell: nur für Tests, nicht für Welten, die du nicht verlieren darfst.
-Downloading Catalyst	Catalyst wird heruntergeladen
-Games are not tunneled: friends reach them over Tailscale, as with Pelican.	Spiele werden nicht getunnelt: Freunde erreichen sie über Tailscale, wie bei Pelican.
-Install command of the node (Admin -> Nodes -> Register Node):	Installationsbefehl des Nodes (Admin -> Nodes -> Register Node):
-Installing containerd and the agent	containerd und der Agent werden installiert
-Installing curl and sudo	curl und sudo werden installiert
-No Zoraxy rule for the panel: it is an admin page.	Keine Zoraxy-Regel für das Panel: es ist eine Admin-Seite.
-Running Catalyst's installer	Der Installer von Catalyst läuft
-Starting Catalyst	Catalyst wird gestartet
-That does not look like the install command of the panel (it starts with curl).	Das sieht nicht nach dem Installationsbefehl des Panels aus (er beginnt mit curl).
-The agent does not run. Look at: incus exec %s -- journalctl -u catalyst-agent -n 50	Der Agent läuft nicht. Ansehen: incus exec %s -- journalctl -u catalyst-agent -n 50
-The agent runs	Der Agent läuft
-The agent runs already	Der Agent läuft schon
-The installer failed. Look at: incus exec %s -- journalctl -u catalyst-agent -n 50	Der Installer ist fehlgeschlagen. Ansehen: incus exec %s -- journalctl -u catalyst-agent -n 50
-The node shows as online in the panel (Admin -> Nodes) within a minute.	Der Node erscheint im Panel (Admin -> Nodes) innerhalb einer Minute als online.
-Then: Admin -> Templates (a game), then create a server on this node.	Danach: Admin -> Templates (ein Spiel), dann einen Server auf diesem Node anlegen.
-There is no install command. Register the node in the panel (Admin -> Nodes -> Register Node), then run:  sudo RECIPE_DEPLOY_CMD='<the command>' hs recipe catalyst-node	Es gibt keinen Installationsbefehl. Den Node im Panel anlegen (Admin -> Nodes -> Register Node), dann ausführen:  sudo RECIPE_DEPLOY_CMD='<der Befehl>' hs recipe catalyst-node
-Waiting for the agent	Warten auf den Agent
-skipped (RECIPE_SKIP_PULL): nothing downloaded, Catalyst not started	übersprungen (RECIPE_SKIP_PULL): nichts heruntergeladen, Catalyst nicht gestartet
 settings: %s removed	Einstellung: %s entfernt
 settings: %s = %s	Einstellung: %s = %s
 It takes effect at once; no rebuild is needed.	Wirkt sofort; kein Rebuild nötig.
@@ -2141,99 +1492,13 @@ Service '%s' is %s (hs services list)	Dienst '%s' ist %s (hs services list)
 Next: hs services apply (a public name is decided there: exposure public-ok)	Weiter: hs services apply (ein öffentlicher Name wird dort entschieden: Sichtbarkeit public-ok)
 The service '%s' could not be described: %s	Der Dienst '%s' ließ sich nicht beschreiben: %s
 No service wants a tile on the dashboard (hs services declare ... --want dashboard).	Kein Dienst will eine Kachel auf der Startseite (hs services declare ... --want dashboard).
-Address of an Ollama server for local models (http://host:11434, or - for none)	Adresse eines Ollama-Servers für lokale Modelle (http://Host:11434, oder - für keinen)
-Anthropic API key for Claude Code (not shown, enter = none, log in by hand later):	Anthropic-API-Schlüssel für Claude Code (wird nicht angezeigt, Enter = keiner, später von Hand anmelden):
-GitHub token that may only push branches and open pull requests (not shown, enter = none):	GitHub-Token, das nur Branches pushen und Pull Requests öffnen darf (wird nicht angezeigt, Enter = keins):
-Paperclip version (npm: a number like 1.2.3, or latest)	Paperclip-Version (npm: eine Nummer wie 1.2.3, oder latest)
-Install the tools	Werkzeuge installieren
-Installing git, the GitHub CLI and a compiler	git, die GitHub-CLI und einen Compiler installieren
-Installing Node.js 24 from nodejs.org	Node.js 24 von nodejs.org installieren
-Node.js 24 or newer is installed already	Node.js 24 oder neuer ist schon installiert
-Installing Paperclip, Claude Code and Pi (a few minutes)	Paperclip, Claude Code und Pi installieren (ein paar Minuten)
-Creating the user paperclip	Benutzer paperclip anlegen
-Settings and keys	Einstellungen und Schlüssel
-settings exist already, keeping them (keys: edit /etc/paperclip/env inside the container)	Einstellungen gibt es schon, sie bleiben (Schlüssel: /etc/paperclip/env im Container bearbeiten)
-settings written inside the container (mode 0600)	Einstellungen im Container geschrieben (Rechte 0600)
-Ollama answers	Ollama antwortet
-The container cannot reach %s now. Is the PC on, and does Ollama listen on the network (OLLAMA_HOST)? A container has no Tailscale: use the PC address on the LAN, or put Tailscale into this container.	Der Container erreicht %s gerade nicht. Ist der PC an, und lauscht Ollama im Netz (OLLAMA_HOST)? Ein Container hat kein Tailscale: nimm die Adresse des PCs im Heimnetz oder installiere Tailscale im Container.
-Start Paperclip with the system	Paperclip mit dem System starten
-Writing the service	Dienst schreiben
-  install Node.js 24, Paperclip, the Claude Code and Pi CLIs and the GitHub CLI inside, run by systemd as the user paperclip (asks for the port, default 3100)	  Node.js, Paperclip, die Claude-Code- und Pi-CLI und die GitHub-CLI darin installieren, von systemd als Benutzer paperclip gestartet (fragt nach dem Port, Standard 3100)
-  optionally store an Anthropic key and a GitHub token inside the container (0600) and set up an Ollama server as provider for Pi	  optional einen Anthropic-Schlüssel und ein GitHub-Token im Container ablegen (0600) und einen Ollama-Server als Anbieter für Pi einrichten
-  2. Add an agent with the adapter Claude Code (claude_local); without an API key log in once:	  2. Einen Agenten mit dem Adapter Claude Code (claude_local) anlegen; ohne API-Schlüssel einmal anmelden:
-  3. Set a monthly budget on every agent before the first task.	  3. Vor der ersten Aufgabe jedem Agenten ein Monatsbudget geben.
-Web page to manage Docker: arcane, portainer or none	Webseite zur Verwaltung von Docker: arcane, portainer oder none
-Replacing %s	%s wird ersetzt
-Stopping %s (its data and compose file stay in %s)	%s wird gestoppt (Daten und Compose-Datei bleiben in %s)
-Preparing %s	%s wird vorbereitet
-Wrote %s/docker-compose.yml	%s/docker-compose.yml geschrieben
-Downloading %s	%s wird heruntergeladen
-Starting %s	%s wird gestartet
 Waiting for %s to answer	Warten, bis %s antwortet
 %s does not answer at %s. Look at: incus exec %s -- %s	%s antwortet unter %s nicht. Schau nach mit: incus exec %s -- %s
-No web page: use docker compose in /opt/projects inside the container (incus exec %s -- ...).	Keine Webseite: nutze docker compose in /opt/projects im Container (incus exec %s -- ...).
 Give a container name after --name.	Gib nach --name einen Container-Namen an.
 '%s' is not a container name (lower-case letters, digits and dashes, starting with a letter or digit).	'%s' ist kein Container-Name (Kleinbuchstaben, Ziffern und Bindestriche, am Anfang Buchstabe oder Ziffer).
 NEEDS	BRAUCHT
 networkProvider = unifi would be set (the router is connected)	networkProvider = unifi würde gesetzt (der Router ist verbunden)
 networkProvider set to unifi (the router is connected)	networkProvider auf unifi gesetzt (der Router ist verbunden)
-First setup of Paperclip	Erste Einrichtung von Paperclip
-Creating the configuration and the first invite (a minute)	Konfiguration und erste Einladung anlegen (eine Minute)
-  1. Become the administrator with the one-time invite (valid 3 days, treat it as a password):	  1. Mit der einmaligen Einladung Administrator werden (3 Tage gültig, wie ein Passwort behandeln):
-Models registered: %s	Modelle eingetragen: %s
-     Sign in to Steam, then Steam -> Settings -> Remote Play -> Enable Remote Play.	     Bei Steam anmelden, dann Steam -> Einstellungen -> Remote Play -> Remote Play aktivieren.
-     Steam Link shows a PIN: type it on the VNC desktop.	     Steam Link zeigt eine PIN: auf dem VNC-Desktop eingeben.
-     incus exec %s -- systemctl disable --now hs-vnc	     incus exec %s -- systemctl disable --now hs-vnc
-     server is not found (another network), choose "Other computer" and enter  %s .	     Server nicht gefunden (anderes Netz): "Anderer Computer" wählen und  %s  eingeben.
-  1. Open a VNC viewer at  %s:5900  (login in /var/lib/hs/steamos-admin, password only).	  1. Ein VNC-Programm auf  %s:5900  öffnen (Zugang in /var/lib/hs/steamos-admin, nur das Passwort).
-  3. Games are installed from the desktop (Linux and Proton, Steam Play on).	  3. Spiele werden auf dem Desktop installiert (Linux und Proton, Steam Play einschalten).
-  create the container '%s' (Debian, no Docker, 8192 MB RAM limit) unless it exists, with a fixed address (.30-.39) if UniFi is connected (hs net setup)	  den Container '%s' anlegen (Debian, ohne Docker, 8192 MB RAM-Grenze), falls es ihn nicht gibt, mit fester Adresse (.30-.39), wenn UniFi verbunden ist (hs net setup)
-  install Xorg, Steam (from Valve), a window manager, sound and a VNC server inside	  Xorg, Steam (von Valve), einen Fenstermanager, Ton und einen VNC-Server darin installieren
-  keep the Steam library on the SSD pool (/home/steam in the container)	  die Steam-Bibliothek auf dem SSD-Pool halten (/home/steam im Container)
-  start Xorg on the NVIDIA card with a virtual monitor, and Steam in Big Picture mode	  Xorg auf der NVIDIA-Karte mit einem virtuellen Monitor starten, dazu Steam im Big-Picture-Modus
-Downloading Steam (from Valve)	Steam wird geladen (von Valve)
-Installing Xorg, sound and the 32-bit libraries	Xorg, Ton und die 32-Bit-Bibliotheken werden installiert
-Kept as it is (password in %s/steamos-admin)	Bleibt wie es ist (Passwort in %s/steamos-admin)
-Password written to %s/steamos-admin	Passwort geschrieben nach %s/steamos-admin
-Starting the desktop and Steam	Desktop und Steam werden gestartet
-Steam is running on the server's NVIDIA card. Log in to Steam once:	Steam läuft auf der NVIDIA-Karte des Servers. Einmal bei Steam anmelden:
-The 32-bit NVIDIA libraries are missing: Steam draws its window in software and 32-bit games fall back to the CPU. Set hardware.graphics.enable32Bit = true on the server, rebuild and restart the container.	Die 32-Bit-NVIDIA-Bibliotheken fehlen: Steam zeichnet sein Fenster in Software und 32-Bit-Spiele rechnen auf der CPU. Auf dem Server hardware.graphics.enable32Bit = true setzen, neu bauen und den Container neu starten.
-The VNC port 5900 is an admin door: never a Zoraxy rule. Stop it after the first login:	Der VNC-Port 5900 ist eine Verwaltungstür: nie eine Zoraxy-Regel. Nach der ersten Anmeldung schließen:
-The desktop is up but does not render on the NVIDIA card. Look at: incus exec %s -- bash -c "DISPLAY=:0 glxinfo -B"	Der Desktop läuft, rechnet aber nicht auf der NVIDIA-Karte. Nachsehen: incus exec %s -- bash -c "DISPLAY=:0 glxinfo -B"
-The desktop renders on the NVIDIA card	Der Desktop rechnet auf der NVIDIA-Karte
-The server has no /dev/uinput. Run  hs rebuild  (it loads the module), then  hs recipe steamos  again. Gamepads will not work until then.	Der Server hat kein /dev/uinput. Mit  hs rebuild  (lädt das Modul) bauen, dann  hs recipe steamos  noch einmal. Bis dahin gehen keine Controller.
-Waiting for the virtual screen	Warten auf den virtuellen Bildschirm
-Writing the desktop, sound and the units	Desktop, Ton und die Dienste werden geschrieben
-Xorg did not start on the NVIDIA card. Look at: incus exec %s -- journalctl -u hs-xorg -n 60 ; hs recipe steamos copies nvidia_drv.so from the server; run it again after a driver update.	Xorg startet auf der NVIDIA-Karte nicht. Nachsehen: incus exec %s -- journalctl -u hs-xorg -n 60 ; hs recipe steamos kopiert nvidia_drv.so vom Server; nach einem Treiber-Update das Rezept noch einmal ausführen.
-skipped (RECIPE_SKIP_PULL): no packages, Steam not downloaded	übersprungen (RECIPE_SKIP_PULL): keine Pakete, Steam nicht geladen
-skipped (RECIPE_SKIP_PULL): nothing started	übersprungen (RECIPE_SKIP_PULL): nichts gestartet
-  ask which product: Seafile or ownCloud	  fragen, welches Produkt: Seafile oder ownCloud
-  create a folder under /bulk/sensitive for the files (asks for its name, default upload-storage) and mount it at /mnt/upload-storage	  einen Ordner unter /bulk/sensitive für die Dateien anlegen (fragt nach dem Namen, Standard upload-storage) und unter /mnt/upload-storage einbinden
-  install Docker inside and start the product with MariaDB and a cache (docker compose, a few hundred MB to download)	  Docker darin installieren und das Produkt mit MariaDB und einem Zwischenspeicher starten (docker compose, einige hundert MB zum Herunterladen)
-  keep the database on the SSD pool (/opt/upload-storage/mysql in the container)	  die Datenbank auf dem SSD-Pool halten (/opt/upload-storage/mysql im Container)
-'%s' runs %s already. For %s use a container of its own: hs recipe upload-storage --name <container>	'%s' betreibt schon %s. Für %s einen eigenen Container nehmen: hs recipe upload-storage --name <Container>
-/mnt/upload-storage is mounted already	/mnt/upload-storage ist schon eingebunden
-Creating /bulk/sensitive/%s and mounting it at /mnt/upload-storage	/bulk/sensitive/%s wird angelegt und unter /mnt/upload-storage eingebunden
-The container can't write to /mnt/upload-storage. Look at the storage of '%s' in: hs ct list	Der Container kann nicht nach /mnt/upload-storage schreiben. Den Speicher von '%s' ansehen in: hs ct list
-Name of the folder for the files (under /bulk/sensitive, also the share's name)	Name des Ordners für die Dateien (unter /bulk/sensitive, zugleich der Name der Freigabe)
-Which one: seafile or owncloud	Welches: seafile oder owncloud
-Writing docker-compose.yml	docker-compose.yml wird geschrieben
-Storage for the files	Speicher für die Dateien
-Log in as %s	Als %s anmelden
-Log in as admin	Als admin anmelden
-Seafile stores files as blocks: the share shows them, but only Seafile (web, apps, sync client) shows them as files.	Seafile speichert Dateien als Blöcke: die Freigabe zeigt sie, als Dateien sieht sie aber nur Seafile (Web, Apps, Sync-Client).
-The files of every user are plain files under  <folder>/files/<user>/files  (read only over the share).	Die Dateien jeder Person liegen als normale Dateien unter  <Ordner>/files/<Person>/files  (über die Freigabe nur lesbar).
-1. Read the first password:  incus exec %s -- grep ADMIN_PASSWORD /opt/upload-storage/.secrets	1. Das erste Passwort lesen:  incus exec %s -- grep ADMIN_PASSWORD /opt/upload-storage/.secrets
-2. Open %s . %s, then change the password (Profile -> Settings) and add the other users.	2. %s öffnen. %s, dann das Passwort ändern (Profil -> Einstellungen) und die anderen Personen anlegen.
-3. Phone and PC: install the app or sync client of the product, server address  %s . The device must be in the home network or connected through Tailscale.	3. Handy und PC: die App bzw. den Sync-Client des Produkts installieren, Serveradresse  %s . Das Gerät muss im Heimnetz sein oder über Tailscale verbunden.
-Make the route for %s on the reverse proxy now (hs services apply)?	Die Route für %s auf dem Reverse-Proxy jetzt anlegen (hs services apply)?
-The route was not made. Look at: hs services plan	Die Route wurde nicht angelegt. Ansehen mit: hs services plan
-Public name %s: the route is made by  hs services apply  (it asks you to type the host name). Until then use the home address.	Öffentlicher Name %s: die Route legt  hs services apply  an (es fragt nach dem Host-Namen). Bis dahin die Adresse im Heimnetz benutzen.
-Not public: to give it a public name run  hs recipe upload-storage --ask  and type one (needs the reverse proxy).	Nicht öffentlich: für einen öffentlichen Namen  hs recipe upload-storage --ask  ausführen und einen eintippen (braucht den Reverse-Proxy).
-Setting the address of Seafile	Die Adresse von Seafile wird gesetzt
-Public name	Öffentlicher Name
-Xorg driver of the NVIDIA card	Xorg-Treiber der NVIDIA-Karte
-Copied nvidia_drv.so and the GLX extension from the server	nvidia_drv.so und die GLX-Erweiterung vom Server kopiert
 usage: hs node list	Aufruf: hs node list
        hs node show <name>	        hs node show <Name>
        hs node add <name> <host> [--kind peer|vps|edge] [--port N]	        hs node add <Name> <Host> [--kind peer|vps|edge] [--port N]
@@ -2267,10 +1532,8 @@ The owner of the other server puts this line into the authorized keys of its use
 Node %s	Knoten %s
 Node %s: %s	Knoten %s: %s
   --flush    send what the quiet hours held back (no title or message)	  --flush    nachholen, was die Ruhezeit zurückhielt (ohne Titel und Nachricht)
-'%s' is in the nightly backup with a database dump (hs backup ct %s off: take it out)	'%s' ist in der nächtlichen Sicherung, mit Datenbank-Dump (hs backup ct %s off: herausnehmen)
 Installing the dump tool (sqlite3)	Das Dump-Werkzeug (sqlite3) wird installiert
 Installing the dump command	Der Dump-Befehl wird installiert
-Removing the old dump script	Das alte Dump-Skript wird entfernt
 %s is the domain controller: its backup is the samba backup file, not an export of the machine	%s ist der Domänencontroller: gesichert wird seine Samba-Sicherungsdatei, nicht ein Export der Maschine
 %s: the export needs about %s free in %s, only %s is free (HS_VM_EXPORT_DIR points it to another disk)	%s: der Export braucht etwa %s frei in %s, frei sind nur %s (HS_VM_EXPORT_DIR zeigt ihn auf eine andere Platte)
 Virtual machine %s	Virtuelle Maschine %s
@@ -2418,101 +1681,36 @@ Signed	Signiert
        hs sys unifi clients              every address that is reserved or online, plain: ip, mac, name, reserved|online|reserved+online	       hs sys unifi clients              alle reservierten oder online gesehenen Adressen, einfach: ip, mac, name, reserved|online|reserved+online
        hs sys unifi networks             the router's networks, plain: name, subnet, dhcp, from, to	       hs sys unifi networks             die Netze des Routers, einfach: name, subnet, dhcp, from, to
        hs unlock --list          the same for tools: type, device, state, size (tab separated)	       hs unlock --list          dasselbe für Programme: type, device, state, size (mit Tabulatoren getrennt)
-     Bind CN     authentik-bind@%s  (make the user: hs user add authentik-bind)	     Bind-CN     authentik-bind@%s  (den Benutzer anlegen: hs user add authentik-bind)
-     Server URI  ldaps://%s    Base DN  %s	     Server-URI  ldaps://%s    Base-DN  %s
-     TLS certificate: leave empty (Samba's is self-signed). Addition User DN / Group DN: CN=Users	     TLS-Zertifikat: leer lassen (das von Samba ist selbst signiert). Addition User DN / Group DN: CN=Users
-     The VM is on the same network as your devices, so discovery works.	     Die VM hängt im selben Netz wie deine Geräte, so wird sie gefunden.
-     it starts the queue worker, which needs the key the installer made.	     Er startet den Queue-Worker, der den Schlüssel braucht, den der Installer erzeugt hat.
-     two-factor login in your profile. Then run  hs recipe pelican  once more:	     die Zwei-Faktor-Anmeldung ein. Starte danach  hs recipe pelican  noch einmal:
   --close     snapraid data disk: no NEW files go there any more (it stays in /bulk, readable); --drain also moves its files to the other disks	  --close     SnapRAID-Datenplatte: keine NEUEN Dateien mehr dorthin (sie bleibt in /bulk, lesbar); --drain verschiebt auch ihre Dateien auf die anderen Platten
   --dry-run  only list the shares whose folder is gone, change nothing	  --dry-run  nur die Freigaben auflisten, deren Ordner fehlt, nichts ändern
   --open      snapraid data disk: take the mark of --close away again	  --open      SnapRAID-Datenplatte: die Markierung von --close wieder aufheben
   --yes      do not ask before removing them	  --yes      nicht nachfragen, bevor sie entfernt werden
-  1. The first visit creates the owner account: name, password, home location.	  1. Beim ersten Besuch legst du das Besitzerkonto an: Name, Passwort, Standort des Hauses.
   1. remove the mark; new files are spread over the disks as before	  1. die Markierung entfernen; neue Dateien werden wieder wie zuvor auf die Platten verteilt
-  2. Home Assistant finds many devices on its own (Settings -> Devices & services).	  2. Home Assistant findet viele Geräte von selbst (Einstellungen -> Geräte & Dienste).
-  3. Updates run inside Home Assistant (Settings -> System -> Updates).	  3. Updates laufen in Home Assistant (Einstellungen -> System -> Updates).
-  create '%s' and '%s' unless they exist	  '%s' und '%s' anlegen, falls es sie nicht gibt
-  create the virtual machine '%s' (4096 MB RAM, 2 CPUs, 32 GB disk, asks) unless it exists	  die virtuelle Maschine '%s' anlegen (4096 MB RAM, 2 CPUs, 32 GB Platte, fragt vorher), falls es sie nicht gibt
-  download the Panel %s (panel.tar.gz) and the Wings binary %s from GitHub, only when the pin changed, and check their checksums	  das Panel %s (panel.tar.gz) und das Wings-Programm %s von GitHub laden, nur wenn sich der Pin geändert hat, und ihre Prüfsummen kontrollieren
-  download the latest Home Assistant OS image (about 400 MB) and import it as an Incus image	  das neueste Home-Assistant-OS-Abbild laden (etwa 400 MB) und als Incus-Abbild importieren
-  install Docker inside and start the manager you pick (Arcane in /opt/arcane, or Portainer in /opt/portainer, or none) on port 80; projects live in /opt/projects	  Docker darin installieren und die gewählte Verwaltung starten (Arcane in /opt/arcane, Portainer in /opt/portainer oder keine) auf Port 80; Projekte liegen in /opt/projects
-  install nginx, PHP-FPM and Composer from the package sources into '%s' and Docker into '%s'	  nginx, PHP-FPM und Composer aus den Paketquellen in '%s' und Docker in '%s' installieren
-  optionally pass a USB device (Zigbee/Z-Wave stick) into it	  auf Wunsch ein USB-Gerät (Zigbee-/Z-Wave-Stick) hineinreichen
-  reserve its address in UniFi, if UniFi is connected (hs net setup)	  seine Adresse in UniFi reservieren, wenn UniFi verbunden ist (hs net setup)
-  wait for the web page on port 8123 (the first start takes 10 to 20 minutes)	  auf die Webseite an Port 8123 warten (der erste Start dauert 10 bis 20 Minuten)
 %s is current (%s)	%s ist aktuell (%s)
 %s is detached. Not syncing until it is attached again (hs sys disk start attach %s).	%s ist abgehängt. Kein Abgleich, bis sie wieder angehängt ist (hs sys disk start attach %s).
 %s is out of the pool for a recovery. Not syncing until it is given back (hs sys disk start %s recover-finish).	%s ist für eine Wiederherstellung aus dem Verbund genommen. Kein Abgleich, bis sie zurückgegeben ist (hs sys disk start %s recover-finish).
 %s written	%s geschrieben
-%s: Recycling Bin /media/downloads/recycle, emptied after 7 days	%s: Papierkorb /media/downloads/recycle, nach 7 Tagen geleert
-%s: Recycling Bin not set. Click: Settings -> Media Management -> Recycling Bin	%s: Papierkorb nicht gesetzt. Klicke: Einstellungen -> Medienverwaltung -> Papierkorb
-%s: Remove Completed not set. Click: Settings -> Download Clients -> SABnzbd -> Remove Completed	%s: Abgeschlossene entfernen nicht gesetzt. Klicke: Einstellungen -> Download-Clients -> SABnzbd -> Abgeschlossene entfernen
-%s: SABnzbd client removes completed downloads	%s: der SABnzbd-Client entfernt abgeschlossene Downloads
-%s: no API key found yet, settings not written (run the recipe again)	%s: noch kein API-Schlüssel gefunden, Einstellungen nicht geschrieben (Rezept noch einmal ausführen)
-%s: no SABnzbd client yet; add it (step 3 below), then run this recipe again for Remove Completed	%s: noch kein SABnzbd-Client; lege ihn an (Schritt 3 unten) und führe dieses Rezept dann noch einmal aus, damit Abgeschlossene entfernen gesetzt wird
-'%s' got no address. Check the network (hs ct list), then run the recipe again.	'%s' hat keine Adresse bekommen. Prüfe das Netzwerk (hs ct list) und führe das Rezept dann noch einmal aus.
-'%s' is not a Home Assistant OS version number.	'%s' ist keine Home-Assistant-OS-Versionsnummer.
 '%s' is not an address of the router (like https://10.10.10.1).	'%s' ist keine Adresse des Routers (wie https://10.10.10.1).
-Bazarr	Bazarr
-Calls (MatrixRTC)	Anrufe (MatrixRTC)
-Calls need the public address of Synapse: RECIPE_PUBLIC_BASEURL=https://matrix.<your domain>/ hs recipe synapse	Anrufe brauchen die öffentliche Adresse von Synapse: RECIPE_PUBLIC_BASEURL=https://matrix.<deine Domain>/ hs recipe synapse
-Creating the folders of Wings	Die Ordner von Wings werden angelegt
-Docker is ready, without a web page. Projects go in /opt/projects.	Docker ist bereit, ohne Webseite. Projekte kommen nach /opt/projects.
-Done. LiveKit runs, three things are still yours:	Fertig. LiveKit läuft, drei Dinge bleiben bei dir:
 Downloading %s %s	%s %s wird heruntergeladen
-Enabling the web server, the scheduler and the queue worker	Webserver, Zeitplaner und Queue-Worker werden aktiviert
-Files	Dateien
 Files already on it stay; an existing file that grows is still written there.	Dateien, die schon darauf liegen, bleiben; eine bestehende Datei, die wächst, wird weiter dorthin geschrieben.
 Groups	Gruppen
 Guide: http://%s.local:%s/docs/en/%s	Anleitung: http://%s.local:%s/docs/en/%s
-Installing nginx, PHP and Composer	nginx, PHP und Composer werden installiert
 Invalid description: one line, up to 255 characters.	Ungültige Beschreibung: eine Zeile, bis zu 255 Zeichen.
 Invalid email address.	Ungültige E-Mail-Adresse.
 Invalid full name: letters, digits, spaces, dot, dash and apostrophe only.	Ungültiger vollständiger Name: nur Buchstaben, Ziffern, Leerzeichen, Punkt, Bindestrich und Apostroph.
-Jellyfin: Radarr/Sonarr -> Settings -> Connect -> + -> Emby/Jellyfin: host, port 8096, API key (Jellyfin: Dashboard -> API Keys), tick Update Library. Not set by the recipe: the key needs a Jellyfin login	Jellyfin: Radarr/Sonarr -> Einstellungen -> Verbinden -> + -> Emby/Jellyfin: Host, Port 8096, API-Schlüssel (Jellyfin: Dashboard -> API-Schlüssel), Bibliothek aktualisieren ankreuzen. Vom Rezept nicht gesetzt: der Schlüssel braucht eine Jellyfin-Anmeldung
-Lidarr	Lidarr
-LiveKit	LiveKit
-LiveKit does not answer at %s. Look at: incus exec %s -- docker compose -f /opt/livekit/compose.yaml logs	LiveKit antwortet nicht unter %s. Sieh nach mit: incus exec %s -- docker compose -f /opt/livekit/compose.yaml logs
-Maintainerr	Maintainerr
 Moving the files can take hours. The disk stays in the array, only emptied.	Das Verschieben der Dateien kann Stunden dauern. Die Platte bleibt im Verbund, wird nur geleert.
 No %s called '%s'.	Kein(e) %s namens '%s'.
 Nothing changed since the last rebuild (%s): the system is up to date, no rebuild needed.	Seit dem letzten Rebuild hat sich nichts geändert (%s): das System ist aktuell, ein Rebuild ist nicht nötig.
 Nothing yet: hs pkg fetch	Noch nichts: hs pkg fetch
-Other computer	Anderer Computer
-Panel is current (%s)	Das Panel ist aktuell (%s)
-Panel release	Panel-Version
-Prowlarr	Prowlarr
-Radarr	Radarr
 Saved. The network list updates when a computer looks at the server again.	Gespeichert. Die Netzliste aktualisiert sich, wenn ein Computer wieder auf den Server schaut.
-Settings	Einstellungen
-Sonarr	Sonarr
-Starting it (downloads the images)	Wird gestartet (lädt die Abbilder)
-The Matrix server name is needed (your domain, e.g. example.com): RECIPE_MATRIX_SERVER=<name> hs recipe livekit	Der Matrix-Servername wird gebraucht (deine Domain, z. B. example.com): RECIPE_MATRIX_SERVER=<Name> hs recipe livekit
-The Panel in '%s' was installed before: keeping it as it is	Das Panel in '%s' war schon installiert: es bleibt, wie es ist
-The VPN account is typed in. Run the recipe in a terminal, or use the web interface (Apps, Run).	Das VPN-Konto wird eingetippt. Starte das Rezept in einem Terminal oder nutze die Weboberfläche (Apps, Starten).
 The checksum of %s does not match the pin; nothing was installed	Die Prüfsumme von %s passt nicht zum Pin; es wurde nichts installiert
 The details of '%s' are changed.	Die Angaben von '%s' sind geändert.
 The disks of the array could not be moved back to /mnt/bulk (hs pool bulk)	Die Platten des Verbunds konnten nicht zurück nach /mnt/bulk verschoben werden (hs pool bulk)
 The disks of the array could not be moved to /var/lib/hs/disks (hs pool bulk)	Die Platten des Verbunds konnten nicht nach /var/lib/hs/disks verschoben werden (hs pool bulk)
-The last UDP port must be higher than the first.	Der letzte UDP-Port muss höher sein als der erste.
-The password is also in /opt/authentik/.env inside the container: change it, then keep it safe.	Das Passwort steht auch in /opt/authentik/.env im Container: ändere es und bewahre es sicher auf.
-The pinned Wings binary is for x86_64; this machine is %s.	Das angepinnte Wings-Programm ist für x86_64; dieser Rechner ist %s.
-The public address of the VPS is needed: RECIPE_PUBLIC_IP=<address> hs recipe livekit	Die öffentliche Adresse des VPS wird gebraucht: RECIPE_PUBLIC_IP=<Adresse> hs recipe livekit
-The tunnel token is typed in: run the recipe in a terminal, or use the web interface (Apps, Run).	Der Tunnel-Token wird eingetippt: Starte das Rezept in einem Terminal oder nutze die Weboberfläche (Apps, Starten).
-The web server and PHP packages are in place	Webserver- und PHP-Pakete sind vorhanden
 To build anyway: hs update --force (or hs rebuild).	Trotzdem bauen: hs update --force (oder hs rebuild).
 To empty it use --drain. NEVER mv/cp/mc its files into /bulk or /mnt/bulk/pool by hand: they are the same files, and the copy empties them.	Zum Leeren nimm --drain. Verschiebe oder kopiere ihre Dateien NIE von Hand mit mv/cp/mc nach /bulk oder /mnt/bulk/pool: es sind dieselben Dateien, und das Kopieren leert sie.
-Wings %s runs	Wings %s läuft
-Wings in '%s' was installed before: keeping it as it is	Wings in '%s' war schon installiert: es bleibt, wie es ist
-Wings is current (%s)	Wings ist aktuell (%s)
-Wings program	Wings-Programm
-Wings release	Wings-Version
-Wings starts as soon as the Panel has given it its configuration (see below).	Wings startet, sobald das Panel ihm seine Konfiguration gegeben hat (siehe unten).
-Writing the configuration	Die Konfiguration wird geschrieben
 Your previous %s is kept as %s.before-recipe	Dein bisheriges %s bleibt als %s.before-recipe erhalten
 attr: v	attr: v
-skipped (RECIPE_SKIP_PULL): no settings written	übersprungen (RECIPE_SKIP_PULL): keine Einstellungen geschrieben
 unknown visibility '%s' (visible, hidden)	unbekannte Sichtbarkeit '%s' (visible, hidden)
 usage: hs net setup [--address <url>] [--stdin]   store the router address and the API key (--stdin: the key is the first line on standard input)	Aufruf: hs net setup [--address <URL>] [--stdin]   Adresse des Routers und API-Schlüssel speichern (--stdin: der Schlüssel ist die erste Zeile der Standardeingabe)
 usage: hs pkg list [--all] [--kind recipe|extension] | updates | validate | fetch | available | install | update | remove | repo	Aufruf: hs pkg list [--all] [--kind recipe|extension] | updates | validate | fetch | available | install | update | remove | repo
@@ -2520,13 +1718,6 @@ usage: hs pkg repo add <name> <url> (--key <allowed_signers file> | --unsigned) 
 usage: hs pkg repo list | add <name> <url> (--key <file> | --unsigned) | remove <name>	Aufruf: hs pkg repo list | add <Name> <URL> (--key <Datei> | --unsigned) | remove <Name>
 usage: hs share cleanup [--dry-run] [--yes]	Aufruf: hs share cleanup [--dry-run] [--yes]
 usage: hs smoke [--list] [--no-run] [--coverage]	Aufruf: hs smoke [--list] [--no-run] [--coverage]
-  incus exec %s -- cat /opt/bulwark/.env	  incus exec %s -- cat /opt/bulwark/.env
-1. Radarr and Sonarr: Settings -> Media Management -> Root Folder:  /media/movies  and  /media/series  (Lidarr: /media/music)	1. Radarr und Sonarr: Settings -> Media Management -> Root Folder:  /media/movies  und  /media/series  (Lidarr: /media/music)
-1. The first visit asks for the language and creates the admin account.	1. Der erste Besuch fragt nach der Sprache und legt das Admin-Konto an.
-2. Prowlarr: add your indexer, then Settings -> Apps: connect Radarr, Sonarr and Lidarr (the key is in each app: Settings -> General)	2. Prowlarr: deinen Indexer eintragen, dann Settings -> Apps: Radarr, Sonarr und Lidarr verbinden (der Schlüssel steht in jeder App: Settings -> General)
-3. Dashboard -> Playback -> Transcoding: hardware acceleration "%s".	3. Dashboard -> Playback -> Transcoding: Hardwarebeschleunigung "%s".
-3. Radarr, Sonarr and Lidarr: Settings -> Download Clients -> SABnzbd (hs recipe sabnzbd), category  movies  /  tv  (Lidarr: audio)	3. Radarr, Sonarr und Lidarr: Settings -> Download Clients -> SABnzbd (hs recipe sabnzbd), Kategorie  movies  /  tv  (Lidarr: audio)
-Mail server: %s	Mailserver: %s
 NAME	NAME
        hs remote add <peer> <host> <share> --user <login> [--domain <DOMAIN>] [--stdin] [--yes]   (this server uses theirs)	       hs remote add <peer> <host> <share> --user <login> [--domain <DOMAIN>] [--stdin] [--yes]   (dieser Server nutzt die Freigabe des anderen)
        hs remote attach <peer> <instance> [--path <inside>]     |  hs remote detach <peer> <instance>	       hs remote attach <peer> <instance> [--path <innen>]     |  hs remote detach <peer> <instance>
@@ -2622,7 +1813,6 @@ Wildcard DNS	Wildcard-DNS
 or in Windows DNS Manager: zone %s > %s > New Host, name *, address %s	oder im Windows-DNS-Manager: Zone %s > %s > Neuer Host, Name *, Adresse %s
 usage: hs gateway status | routes | check	Aufruf: hs gateway status | routes | check
 usage: hs services list | check | plan | add <name> ... | edit <name> ... | remove <name> | import [--dry-run] [--yes] | apply [--dry-run] [--confirm <host or service>] | adopt [--yes] | proxy login | stats | key <service>   (plan, apply, import, adopt: [--proxy public|local])	Aufruf: hs services list | check | plan | add <Name> ... | edit <Name> ... | remove <Name> | import [--dry-run] [--yes] | apply [--dry-run] [--confirm <Host oder Dienst>] | adopt [--yes] | proxy login | stats | key <Dienst>   (plan, apply, import, adopt: [--proxy public|local])
-Removing the old start page	Die alte Startseite wird entfernt
 dashboard = web would be set (the Homepage recipe is gone; the dashboard is part of the web interface)	dashboard = web würde gesetzt (das Homepage-Rezept gibt es nicht mehr; das Dashboard ist Teil der Weboberfläche)
 dashboard is now web (the Homepage recipe is gone)	dashboard ist jetzt web (das Homepage-Rezept gibt es nicht mehr)
 %s older container(s) described as services for the dashboard	%s ältere(r) Container als Dienst für das Dashboard beschrieben
@@ -2637,7 +1827,6 @@ Not on the command line: hs services key %s asks for it, or give it with --stdin
 '%s' has no dashboard value that needs a key.	'%s' hat keinen Wert auf der Startseite, der einen Schlüssel braucht.
 The key is asked for on a terminal (or give it with --stdin).	Der Schlüssel wird an einem Terminal abgefragt (oder gib ihn mit --stdin).
 The key may only have letters, digits and . _ - (8 to 200 characters).	Der Schlüssel darf nur Buchstaben, Ziffern und . _ - enthalten (8 bis 200 Zeichen).
-5. Dashboard tile "Streams": Dashboard -> API Keys -> add a key, then run: hs services key %s (the key is asked hidden).	5. Kachel "Streams" im Dashboard: Dashboard -> API-Schlüssel -> Schlüssel anlegen, dann ausführen: hs services key %s (der Schlüssel wird verdeckt abgefragt).
        hs dns clean [--yes] [--dry-run]	       hs dns clean [--yes] [--dry-run]
 Check that the domain controller is running (hs ct list), then run again: hs dns clean	Prüfe, ob der Domänencontroller läuft (hs ct list), und starte dann noch einmal: hs dns clean
 Remove these %s names from the DNS?	Diese %s Namen aus dem DNS entfernen?

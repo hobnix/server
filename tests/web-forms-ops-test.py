@@ -9,9 +9,8 @@ here = os.path.dirname(os.path.abspath(__file__))
 spec = importlib.util.spec_from_file_location("web_serve", os.path.join(here, "..", "scripts", "web-serve.py"))
 ws = importlib.util.module_from_spec(spec)
 spec.loader.exec_module(ws)
-# the game PC calls belong to the extension package "games" (capabilities/games/capability.toml): switch it on for the allowlist
 _caps = tempfile.NamedTemporaryFile("w", suffix=".caps", delete=False)
-_caps.write("games\n")
+_caps.write("")
 _caps.close()
 os.environ["HS_CAPABILITIES_FILE"] = _caps.name
 os.environ["HS_STATE_DIR"] = tempfile.mkdtemp()
@@ -32,47 +31,12 @@ class Changes(unittest.TestCase):
             self.assertFalse(ok("system", bad), bad)
         self.assertFalse(ok("system", ["reboot"], stdin="x"))
 
-    def test_pc_wake(self):
-        self.assertTrue(ok("ext/games", ["gaming-pc", "wake"]))
-        self.assertTrue(ok("ext/games", ["PC.1", "wake"]))
-        for bad in (["gaming", "sleep"], ["gaming", "wake", "--wait"], ["-x", "wake"], ["a b", "wake"], ["wake"], ["../x", "wake"], ["x" * 42, "wake"]):
-            self.assertFalse(ok("ext/games", bad), bad)
-
-    def test_pc_add_remove(self):
-        self.assertTrue(ok("ext/games", ["gaming", "remove"]))
-        self.assertTrue(ok("ext/games", ["gaming", "add"]))                                    # the plan answers "needs mac"
-        self.assertTrue(ok("ext/games", ["gaming", "add", "--mac", "aa:bb:cc:dd:ee:ff"]))
-        self.assertTrue(ok("ext/games", ["gaming", "add", "--mac", "AA-BB-CC-DD-EE-FF", "--ip", "10.10.10.50"]))
-        self.assertTrue(ok("ext/games", ["gaming", "add", "--ip", "10.10.10.50", "--mac", "aa:bb:cc:dd:ee:ff"]))
-        bad = [
-            ["gaming", "add", "--mac", "aa:bb:cc:dd:ee"],
-            ["gaming", "add", "--mac", "aa:bb:cc:dd:ee:ff:00"],
-            ["gaming", "add", "--mac", "aa:bb:cc:dd:ee:gg"],
-            ["gaming", "add", "--mac", "aa:bb:cc:dd:ee:ff\n"],
-            ["gaming", "add", "--mac", "aa:bb:cc:dd:ee:ff", "--mac", "aa:bb:cc:dd:ee:00"],
-            ["gaming", "add", "--mac", "aa:bb:cc:dd:ee:ff", "--ip", "10.10.10.256"],
-            ["gaming", "add", "--mac", "aa:bb:cc:dd:ee:ff", "--ip", "10.10.10"],
-            ["gaming", "add", "--mac", "aa:bb:cc:dd:ee:ff", "--ip", "host.lan"],
-            ["gaming", "add", "--mac", "aa:bb:cc:dd:ee:ff", "--ip", "10.0.0.1;id"],
-            ["gaming", "add", "--mac", "aa:bb:cc:dd:ee:ff", "--wait"],
-            ["gaming", "add", "--mac", "aa:bb:cc:dd:ee:ff", "extra"],
-            ["gaming", "remove", "--yes"],
-            ["gaming", "remove", "x"],
-            ["../x", "add", "--mac", "aa:bb:cc:dd:ee:ff"],
-            ["a b", "add", "--mac", "aa:bb:cc:dd:ee:ff"],
-            ["-x", "remove"],
-            ["add", "--mac", "aa:bb:cc:dd:ee:ff"],
-        ]
-        for b in bad:
-            self.assertFalse(ok("ext/games", b), b)
-        self.assertFalse(ok("ext/games", ["gaming", "add", "--mac", "aa:bb:cc:dd:ee:ff"], stdin="x"))      # nothing here takes a password
-
     def test_new_reads(self):
-        for words in (("hardware",), ("encryption", "list"), ("vault", "usage"), ("vault", "uses"), ("ext", "games", "state")):
+        for words in (("hardware",), ("encryption", "list"), ("vault", "usage"), ("vault", "uses")):
             self.assertEqual(ws.READS[words]["kind"], "tsv", words)
             self.assertNotIn("args", ws.READS[words], words)            # nothing from the browser reaches these commands
             self.assertNotIn("query", ws.READS[words], words)
-        for words in (("encryption",), ("vault",), ("unlock", "list"), ("ext", "games"), ("pc", "state"), ("vault", "list", "x"), ("encryption", "list", "x")):
+        for words in (("encryption",), ("vault",), ("unlock", "list"), ("pc", "state"), ("vault", "list", "x"), ("encryption", "list", "x")):
             self.assertNotIn(words, ws.READS, words)
 
     def test_expiry_add(self):
