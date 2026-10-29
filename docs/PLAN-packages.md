@@ -246,7 +246,7 @@ Each step is shippable on its own and keeps the server working.
 
 - **Gateway and passthrough** (decided 2026-10-29): `gateway` (Traefik on the host, the `local-proxy` slot, ships a Nix module) is a core
   capability and stays here. `passthrough` (forward outside domains to reverse proxies on the LAN, `requires = ["gateway"]`, no Nix module)
-  is an extension and moves to hobnix-extensions. An extension may therefore require a core capability; `hs pkg install` has to refuse it
+  is an extension and moves to the extensions repository. An extension may therefore require a core capability; `hs pkg install` has to refuse it
   when the capability is missing, and the extensions CI checks it against the core. Recipes that publish services on the gateway (`arr`)
   only use the generic `hs services` interface, never gateway files, so they work without it.
 
