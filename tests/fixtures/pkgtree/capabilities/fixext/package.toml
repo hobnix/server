@@ -1,0 +1,8 @@
+# Manifest of a package (docs/PLAN-packages.md): a fixture extension for the tests of the core.
+name = "fixext"
+version = "1.0.0"
+kind = "extension"
+title = "Fixture extension"
+title_de = "Fixture-Erweiterung"
+requires_core = ">=1"
+audience = "generic"

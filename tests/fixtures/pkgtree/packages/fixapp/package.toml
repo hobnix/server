@@ -1,0 +1,29 @@
+# Manifest of a package (docs/PLAN-packages.md): a fixture for the tests of the core, not a real app.
+name = "fixapp"
+version = "1.1.0"
+kind = "recipe"
+title = "Fixture app: a recipe package for the tests of the core (no real app)"
+title_de = "Fixture-App: ein Rezept-Paket für die Tests des Kerns"
+requires_core = ">=1"
+audience = "generic"
+needs = ["docker"]
+uses = []
+input = "none"
+script = "run.sh"
+
+[[web.reads]]
+words = "status"
+kind = "tsv"
+ttl = 15
+
+[web.page]
+title = "Fixture app"
+icon = "film-strip"
+crumb = "Apps"
+sub = "A recipe package with a page"
+
+[[web.page.blocks]]
+type = "table"
+title = "Services"
+read = "status"
+columns = [{ key = "app", label = "App" }]

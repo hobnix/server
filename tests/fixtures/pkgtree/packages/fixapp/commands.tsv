@@ -1,0 +1,4 @@
+# Commands of the fixture recipe package (same columns and rules as an extension, scripts/lib/registry-load.sh).
+# kind	path	script	args	help	help.de	flags
+user	ext fixapp status	@/status.sh	-	-	-	topic:instances,reads
+sys	sys ext fixapp status	@/status.sh	--list	the services of the fixture app as data	-

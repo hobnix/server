@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # The reads behind the Hardware, Encryption, Vault and Game streaming pages of the web interface: hs sys hardware, hs sys encryption list,
-# hs sys vault usage|uses, hs sys ext games state. Stand-ins for /sys/class/hwmon, /proc/cpuinfo, cryptsetup, lsblk, blkid, zfs, df. No root.
+# hs sys vault usage|uses,. Stand-ins for /sys/class/hwmon, /proc/cpuinfo, cryptsetup, lsblk, blkid, zfs, df. No root.
 # shellcheck source=tests/lib.sh
 . "$(dirname "$0")/lib.sh"
 export HS_LANG=en HS_PLAIN=1 HS_CALLER=ui
@@ -11,7 +11,6 @@ reg=$SCRIPTS/lib/registry.tsv
 for r in "sys hardware" "sys encryption list" "sys vault usage" "sys vault uses"; do
   check "row: $r" grep -q "^sys${tab}${r}${tab}" "$reg"
 done
-check "row: sys ext games state (the package games)" grep -q "^sys${tab}sys ext games state${tab}" "$ROOT/capabilities/games/commands.tsv"
 
 echo "-- hardware"
 hw=$WORK/hw; mkdir -p "$hw/hwmon0" "$hw/hwmon1" "$hw/hwmon2" "$hw/hwmon3"
@@ -36,15 +35,7 @@ check_eq "a fan that does not spin is still listed" "fan${tab}nct6798 fan2${tab}
 out=$(HS_HWMON_DIR=$WORK/none HS_CPUINFO=$WORK/none bash "$SCRIPTS/hardware.sh"); rc=$?
 check_eq "no sensors, no cpuinfo: nothing, exit 0" "0:" "$rc:$out"
 
-echo "-- pc --state"
 export HS_STATE_DIR=$WORK/state; mkdir -p "$HS_STATE_DIR"
-check_eq "no PC, no rows" "" "$(bash "$ROOT/capabilities/games/pc.sh" --state)"
-printf 'gaming\taa:bb:cc:dd:ee:ff\t10.10.10.50\nlaptop\t11:22:33:44:55:66\t\nsleeper\t11:22:33:44:55:77\t10.10.10.51\n' > "$HS_STATE_DIR/pcs"
-printf '#!/usr/bin/env bash\n[ "$1" = 10.10.10.50 ] && [ "$2" = 47989 ]\n' > "$WORK/probe"; chmod +x "$WORK/probe"
-out=$(HS_PC_PROBE=$WORK/probe bash "$ROOT/capabilities/games/pc.sh" --state)
-check_eq "up when the probe answers" "gaming${tab}10.10.10.50${tab}up" "$(sed -n 1p <<<"$out")"
-check_eq "unknown without an address" "laptop${tab}-${tab}unknown" "$(sed -n 2p <<<"$out")"
-check_eq "down when it does not" "sleeper${tab}10.10.10.51${tab}down" "$(sed -n 3p <<<"$out")"
 
 echo "-- vault usage and uses"
 export HS_VAULT_DIR=$WORK/vault HS_SAMBA_PRIVATE=$WORK/samba

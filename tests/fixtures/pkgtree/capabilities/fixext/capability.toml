@@ -1,0 +1,9 @@
+# Manifest of a capability (docs/PLAN-modular-core.md): a fixture extension for the tests of the core.
+name = "fixext"
+title = "Fixture extension"
+title_de = "Fixture-Erweiterung"
+kind = "feature"
+requires = []
+provides = []
+needs = []
+extension = true

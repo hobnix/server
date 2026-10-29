@@ -1,10 +1,14 @@
 #!/usr/bin/env bash
-# hs docs build: guides + package guides + generated command reference + index.json for the Docs page of the web interface. No root, no network.
+# hs docs build: guides + the guides of installed packages (a fixture package here) + generated command reference + index.json for the Docs page of the web interface. No root, no network.
 # The guides are English and follow docs/GUIDE-TEMPLATE.md; this test checks the parts a machine can.
 # shellcheck source=tests/lib.sh
 . "$(dirname "$0")/lib.sh"
 export HS_LANG=en HS_PLAIN=1
 OUT=$WORK/site
+FIX=$ROOT/tests/fixtures/pkgtree
+# a package installed from a repository brings its guide.md (the real packages are checked in their own repositories)
+export HS_STATE_DIR=$WORK/state
+mkdir -p "$HS_STATE_DIR/packages/current" && cp -r "$FIX/packages/fixapp" "$HS_STATE_DIR/packages/current/"
 B="bash $SCRIPTS/docs-build.sh --out $OUT"
 REG=$SCRIPTS/lib/registry.tsv
 DOCS=$ROOT/docs
@@ -71,7 +75,7 @@ for g in $CORE; do
 done
 check_eq "the nine guides exist and have the template's sections" "" "$bad"
 bad=""
-for f in "$DOCS"/*.md "$ROOT"/packages/*/guide.md "$ROOT"/capabilities/*/guide.md; do
+for f in "$DOCS"/*.md "$FIX"/packages/*/guide.md; do
   [ -f "$f" ] || continue
   case "$(basename "$f")" in README.md|PLAN-*|Entwicklungsnotizen.md|CLI-DESIGN.md) continue ;; esac
   grep -qE '<(p|br|div|span|details|summary|img|a|table|b|i|small|center)[ >/]' "$f" && bad="$bad [html:$f]"
@@ -80,13 +84,13 @@ for f in "$DOCS"/*.md "$ROOT"/packages/*/guide.md "$ROOT"/capabilities/*/guide.m
 done
 check_eq "no raw HTML and no \$ prompt in a command block" "" "$bad"
 bad=""
-for f in "$ROOT"/packages/*/guide.md "$ROOT"/capabilities/*/guide.md; do
+for f in "$FIX"/packages/*/guide.md; do
   [ -f "$f" ] || continue
   [ "$(grep -c '^# ' "$f")" = 1 ] || bad="$bad [one H1:$f]"
   [ "$(wc -l < "$f")" -le 220 ] || bad="$bad [too long:$f]"
 done
 check_eq "a package guide has one H1 and stays short" "" "$bad"
-for f in "$ROOT"/packages/*/guide.md "$ROOT"/capabilities/*/guide.md; do
+for f in "$FIX"/packages/*/guide.md; do
   [ -f "$f" ] || continue
   n=$(basename "$(dirname "$f")")
   check "the guide of the package $n is a page" test -s "$OUT/en/$n.md"
