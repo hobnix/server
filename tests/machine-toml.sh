@@ -15,7 +15,7 @@ difflines() { diff "$M" "$EX" | grep -c '^[<>]' || true; }
 
 echo "-- the example itself"
 check "the example parses" python3 -c "import tomllib,sys; tomllib.load(open(sys.argv[1],'rb'))" "$EX"
-check_eq "every option paragraph has a key the tool finds" "53" "$(grep -cE '^(# )?[A-Za-z][A-Za-z0-9]* = ' "$EX")"
+check_eq "every option paragraph has a key the tool finds" "54" "$(grep -cE '^(# )?[A-Za-z][A-Za-z0-9]* = ' "$EX")"
 check_out "check against itself: only CHANGEME is wrong" "hostId.*still CHANGEME" $TOOL check "$EX" "$EX"
 
 echo "-- sync creates the file from the example"

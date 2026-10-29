@@ -1,0 +1,15 @@
+# Manifest of a capability (docs/PLAN-modular-core.md). Identity and dependencies only: the options of this
+# capability carry `capability = "live-state"` in config/schema.toml, its commands `capability:live-state` in
+# scripts/lib/registry.tsv.
+name = "live-state"
+title = "Live state (Redis cache for the web interface)"
+title_de = "Live-Zustand (Redis-Zwischenspeicher für die Weboberfläche)"
+kind = "feature"
+# capabilities this one needs, and what it provides to others (names of capabilities / interfaces)
+requires = []
+provides = []
+# services that must stay down while encrypted storage is locked: none, Redis and the collector run on the system disk (RAM only)
+needs = []
+# the NixOS module, loaded only while the capability is on (capabilities/default.nix)
+nix = "module.nix"
+notes = "NOTES.md"

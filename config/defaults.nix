@@ -16,6 +16,7 @@
   webTailscale = false;
   webLan = true;
   webDocs = true;
+  liveState = "off";
   webTerminal = false;
   webTerminalIdleMinutes = 30;
   webTerminalMaxHours = 8;

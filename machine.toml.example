@@ -78,6 +78,11 @@ sshKeys = [
 # Built by `hs docs build` (`hs update` does it). Default true. Needs webUi = true and a rebuild.
 # webDocs = false
 
+# Live state for the web interface (the capability live-state): a collector reads `hs sys status` into Redis (unix socket only, nothing on
+# disk) and the web serves it from there and pushes changes to the browser. "off" (the default) keeps the direct reads. Needs webUi = true and a rebuild.
+# Not tested on hardware yet.
+# liveState = "off"
+
 # ═══ Network ══════════════════════════════════════════════════════════════
 
 # The physical network card, check with `ip link`.
