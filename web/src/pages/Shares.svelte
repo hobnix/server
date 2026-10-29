@@ -189,7 +189,7 @@
                 <div class="pad">
                   <div class="sh"><b>Visibility</b><span class="mute">in the network list of the server</span></div>
                   <div class="arow2">
-                    <span class="mute">Hidden shares can still be opened by typing the path.</span>
+                    <span class="mute">Hidden shares can still be opened by typing the path. Visible shares are listed only for people with at least read access below.</span>
                     <div class="lv" role="group" aria-label="Visibility of {sel.name}">
                       {#each ['hidden', 'visible'] as v}<button type="button" class="lvb" class:on={v === visibility} aria-pressed={v === visibility} disabled={locked || !vis.loaded} use:tip={v === visibility ? '' : `Make ${sel.name} ${v}`} onclick={() => v !== visibility && openPlan('shares', [sel.name, 'visibility', '--to', v], `${sel.name}: ${v}`)}>{v === 'hidden' ? 'Hidden' : 'Visible'}</button>{/each}
                     </div>

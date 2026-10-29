@@ -342,7 +342,7 @@ case "$1" in
     if [ "$2" = hidden ]; then
       echo "  nobody sees it when browsing the server; whoever has access can still open it by typing \\\\server\\$share"
     else
-      echo "  everyone who browses the server sees it (only people with access can open it)"
+      echo "  everyone with at least read access sees it; someone set to 'none' in the permissions does not"
     fi
     if $dry; then exit 0; fi
     net conf setparm "$share" browseable "$yn"
