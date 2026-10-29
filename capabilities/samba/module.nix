@@ -28,6 +28,10 @@ in
         # Per-dataset shares (`hs share add`, `hs share repair`) are stored in
         # Samba's registry; their per-user access is set from Windows (fsmgmt.msc).
         "include" = "registry";
+        # The network list shows a share only to people whose share ACL gives them at least read
+        # access, so a group or user set to "none" in the share's permissions does not see it.
+        # (`browseable = no` still hides it for everybody.)
+        "access based share enum" = "yes";
       } // lib.optionalAttrs (ad != null) {
         # Domain member: join once with `net ads join -U Administrator`.
         "realm" = ad.realm;
