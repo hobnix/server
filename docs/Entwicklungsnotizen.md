@@ -535,6 +535,9 @@ Per-feature history and implementation details moved out of CLAUDE.md so that ev
 - Login message: `hs motd` (scripts/motd.sh, runs as the caller, no root: the wrapper lets it through like `help`) prints three lines from
   health.state (number of problem keys), backup.state (last_ok/status) and uptime/df; configuration.nix runs it from the zsh/bash
   login hook when `$SSH_TTY` is set. `loginMessage = false;` (-> /etc/hs/login-message) silences it; `--force` ignores that. tests/motd.sh.
+- 2026-10-29 DNS: `hs dns sync` and `hs sys dns plan|start` (dns-change.sh) are removed; local names come only from the gateway
+  (`<service>.<siteName>.<domain>`). `hs dns list` / `sys dns list` stay (services.sh reads `raw` for explicit records that shadow the
+  wildcard). `hs dns clean` removes what the old sync left (names `<siteName>`, `<x>.<siteName>`, never `*`; plan first, --yes, --dry-run).
 
 ## Recipes and apps
 

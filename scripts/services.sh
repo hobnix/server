@@ -248,6 +248,12 @@ case "$cmd" in
       svc plan --info "$work/info.tsv" --routes "$work/routes.tsv" --addrs "$work/addrs.tsv" --owned "$work/owned.tsv" ${slot_args[@]+"${slot_args[@]}"} > "$work/plan.tsv" &&
         extra=(--plan "$work/plan.tsv" --info "$work/info.tsv")
     fi
+    if capability_on gateway; then   # a service with a gateway name links to <name>.<siteName>.<domain>
+      declare -F machine_get >/dev/null || . "$here/lib/machine.sh"
+      . "$here/lib/localdomain.sh"
+      ld=$(local_domain)
+      [ -z "$ld" ] || extra+=(--local-domain "$ld")
+    fi
     tiles_out=$(svc tiles --addrs "$work/addrs.tsv" ${extra[@]+"${extra[@]}"})
     if [ "${1:-}" != --table ]; then [ -z "$tiles_out" ] || printf '%s\n' "$tiles_out"; exit 0; fi   # plain: hs sys services tiles
     if [ -z "$tiles_out" ]; then note "$(t 'No service wants a tile on the dashboard (hs services declare ... --want dashboard).')"; exit 0; fi

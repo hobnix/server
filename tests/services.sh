@@ -261,6 +261,20 @@ pp=$($S plan --plain)
 check_eq "public: the local-only services are not planned" "0" "$(grep -cE "docker|secure" <<<"$pp" | head -n1)"
 check_eq "public: pubonly has its public row" "1" "$(grep -c "pubonly.example.org" <<<"$pp")"
 check_eq "public: the both-wants service has a public row" "1" "$(grep -cE "^(add|confirm|ok|change)${T}jellyfin.example.org" <<<"$pp")"
+$S add dd --container docker --port 7300 --exposure public-ok --names dd --fqdn dd.example.org --want reverse-proxy >/dev/null
+check_eq "public: a fqdn equal to <name>.<domain> makes one add row, not two" "1" "$($S plan --plain | grep -cE "^(add|confirm)${T}dd.example.org")"
+$S remove dd >/dev/null 2>&1
+$S add tilel --container docker --port 7400 --title TileL --want dashboard,local-proxy >/dev/null
+$S add tilep --container docker --port 7500 --title TileP --want dashboard >/dev/null
+tl=$($S tiles)
+check_eq "tiles: a service with a gateway name links to <name>.<local domain>" "http://tilel.homeserver.ad.example.org" "$(awk -F"$T" '$2 == "TileL" { print $3 }' <<<"$tl")"
+check_eq "tiles: without the local-proxy want it links to the address" "http://10.10.95.20:7500" "$(awk -F"$T" '$2 == "TileP" { print $3 }' <<<"$tl")"
+printf 'cloud
+' > "$HS_CAPABILITIES_FILE"
+check_eq "tiles: gateway off, the address again" "http://10.10.95.20:7400" "$($S tiles | awk -F"$T" '$2 == "TileL" { print $3 }')"
+printf 'gateway
+' > "$HS_CAPABILITIES_FILE"
+$S remove tilel >/dev/null 2>&1; $S remove tilep >/dev/null 2>&1
 printf 'zoraxy' > "$HS_SETTINGS_DIR/reverseProxy"
 
 echo "-- the local slot: apply, explicit DNS records, adds-only, import"

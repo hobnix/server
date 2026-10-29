@@ -1447,16 +1447,12 @@ Starting Authentik	Authentik wird gestartet
 skipped (RECIPE_SKIP_PULL): nothing downloaded, Authentik not started	übersprungen (RECIPE_SKIP_PULL): nichts heruntergeladen, Authentik nicht gestartet
 Layout written to settings.yaml (Public as a grid of four)	Layout in settings.yaml geschrieben (Public als Raster mit vier Spalten)
 settings.yaml has a layout already, leaving it alone	settings.yaml hat schon ein Layout, es bleibt unverändert
-       hs dns sync [--yes] [--dry-run]	       hs dns sync [--yes] [--dry-run]
 usage: hs dns list	Aufruf: hs dns list
-%s changes made.	%s Änderungen vorgenommen.
 Action	Aktion
-Apply these %s changes to the DNS?	Diese %s Änderungen im DNS vornehmen?
 DNS names	DNS-Namen
 Name	Name
 Value	Wert
 The domain controller '%s' does not exist here.	Den Domänencontroller '%s' gibt es hier nicht.
-The names under %s.%s are up to date (%s records).	Die Namen unter %s.%s sind aktuell (%s Einträge).
 There is no domain (adDomain) in machine.toml, so there is no DNS to put names into.	In machine.toml steht keine Domäne (adDomain), also gibt es kein DNS für Namen.
 siteName '%s' is not a name for DNS (letters, digits, hyphen). Set siteName in machine.toml.	siteName '%s' ist kein Name für DNS (Buchstaben, Ziffern, Bindestrich). Setze siteName in machine.toml.
 under %s.%s	unter %s.%s
@@ -1722,9 +1718,6 @@ Could not set it. In SABnzbd: Config -> Switches -> Action when encrypted RAR is
 2. Phone: install the app "Immich", server address  %s , log in, switch on the backup of the camera roll.	2. Handy: die App "Immich" installieren, Serveradresse  %s , anmelden, die Sicherung der Kamerarolle einschalten.
 3. Zoraxy: a rule only for the login page, with the header  X-Forwarded-Proto: https  and the	3. Zoraxy: eine Regel nur für die Anmeldeseite, mit dem Header  X-Forwarded-Proto: https  und dem
 No instance called '%s'. See: hs ct list	Keine Instanz namens '%s'. Siehe: hs ct list
-Could not %s %s.%s (%s)	%s von %s.%s (%s) ist fehlgeschlagen
-Check that the domain controller is running (hs ct list), then run again: hs dns sync	Prüfe, ob der Domänencontroller läuft (hs ct list), und starte dann noch einmal: hs dns sync
-%s of %s changes failed.	%s von %s Änderungen sind fehlgeschlagen.
 Show the result with: hs dns list	Das Ergebnis zeigt: hs dns list
 There are no instances yet. Make one with: hs ct add <name>	Es gibt noch keine Instanzen. Lege eine an mit: hs ct add <Name>
 The instance gets a new address after a restart: hs ct %s restart	Die Instanz bekommt nach einem Neustart eine neue Adresse: hs ct %s restart
@@ -2148,7 +2141,9 @@ A service that no longer wants one of them now shows it as a remove row in hs se
 Dashboard: %s	Startseite: %s
 The dashboard could not be refreshed: %s	Die Startseite ließ sich nicht auffrischen: %s
 Show '%s' on the dashboard?	'%s' auf der Startseite zeigen?
-Put '%s' on the reverse proxy?	'%s' an den Reverse-Proxy hängen?
+Make '%s' public?	'%s' öffentlich machen?
+Public name?	Öffentlicher Name?
+'%s' stays private: there is no public name (hs config set proxyDomains, or RECIPE_PUBLIC_NAME_%s)	'%s' bleibt privat: es gibt keinen öffentlichen Namen (hs config set proxyDomains, oder RECIPE_PUBLIC_NAME_%s)
 Service '%s' is %s (hs services list)	Dienst '%s' ist %s (hs services list)
 Next: hs services apply (a public name is decided there: exposure public-ok)	Weiter: hs services apply (ein öffentlicher Name wird dort entschieden: Sichtbarkeit public-ok)
 The service '%s' could not be described: %s	Der Dienst '%s' ließ sich nicht beschreiben: %s
@@ -2647,3 +2642,10 @@ or in Windows DNS Manager: zone %s > %s > New Host, name *, address %s	oder im W
 usage: hs gateway status | routes | check	Aufruf: hs gateway status | routes | check
 usage: hs services list | check | plan | add <name> ... | remove <name> | import [--dry-run] [--yes] | apply [--dry-run] [--confirm <host or service>] | adopt [--yes] | proxy login   (plan, apply, import, adopt: [--proxy public|local])	Aufruf: hs services list | check | plan | add <Name> ... | remove <Name> | import [--dry-run] [--yes] | apply [--dry-run] [--confirm <Host oder Dienst>] | adopt [--yes] | proxy login   (plan, apply, import, adopt: [--proxy public|local])
 Removing the old start page	Die alte Startseite wird entfernt
+       hs dns clean [--yes] [--dry-run]	       hs dns clean [--yes] [--dry-run]
+Check that the domain controller is running (hs ct list), then run again: hs dns clean	Prüfe, ob der Domänencontroller läuft (hs ct list), und starte dann noch einmal: hs dns clean
+Remove these %s names from the DNS?	Diese %s Namen aus dem DNS entfernen?
+%s names removed.	%s Namen entfernt.
+No leftover names under %s.%s.	Keine übrig gebliebenen Namen unter %s.%s.
+%s of %s removals failed.	%s von %s Entfernungen sind fehlgeschlagen.
+Could not remove %s.%s (%s)	%s.%s (%s) konnte nicht entfernt werden

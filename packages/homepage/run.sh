@@ -26,7 +26,6 @@ dry=false
 [ "${1:-}" = --dry-run ] && dry=true
 . "$scripts/lib/ui.sh"
 . "$scripts/lib/machine.sh"
-. "$scripts/lib/dc.sh"
 . "$scripts/lib/setting.sh"
 state=${HS_STATE_DIR:-/var/lib/hs}
 . "${HS_RECIPE_LIB:-$scripts/recipes/_lib.sh}"   # setting/port_setting, low_ports
@@ -97,41 +96,26 @@ web_url() {   # web_url <name> <ip>
 }
 
 # The page lives in groups: Administration, Apps, Monitoring, Games, Other, Public.
-# A link uses the name <instance>.<siteName>.<adDomain> (hs dns sync) when the domain controller knows it
-# (same address), else the address. Only devices that use the domain controller for
-# DNS (the PC, or Tailscale with split DNS) can open the names. Public = the hosts of the Zoraxy rules
+# A link uses the address. Services registered by recipes come as tiles from `hs services tiles`, which uses the
+# gateway's local name <service>.<siteName>.<domain> when the gateway is on. Public = the hosts of the Zoraxy rules
 # (not the apex, root, wings and docker: those are an API and a webhook);
 # names in /var/lib/hs/homepage-hide (one per line) are left out as well.
 generate() {
-  local host name type ip line url desc icon grp label domain dns_ip sh
+  local host name type ip line url desc icon grp label dns_ip sh
   local -A entries=()
-  local site claimed
+  local claimed
   # the containers whose services say what their tile is (hs services declare): their tile comes from the service, not from the table below
   claimed=$(bash "$scripts/services.sh" tiles --containers 2>/dev/null || true)
-  site=$(tr -d ' 
-' <"${HS_SITE_NAME_FILE:-/etc/hs/site-name}" 2>/dev/null | tr 'A-Z' 'a-z' || true)
   local order=(Administration Apps Monitoring Games Other Public)
-  # adDomain = { realm = "AD.HOME.LAN", workgroup = "HOME" }
-  domain=$(machine_get adDomain.realm 2>/dev/null | tr 'A-Z' 'a-z' || true)
   host=$(ip -4 -o addr show br0 2>/dev/null | awk '{ sub(/\/.*/, "", $4); print $4; exit }')
   host=${host:-$(hostname -I | awk '{ print $1 }')}
 
-  # use the name instead of the address when the domain knows it for this very address
-  named() {   # named <instance-name> <ip> <url>  ->  url
-    local n=$1 a=$2 u=$3 got
-    if [ -n "$domain" ] && [ -n "$site" ]; then
-      # the host itself does not ask the domain controller, so ask that (hs dns sync makes these names)
-      got=$(incus exec "$(dc_name)" -- getent hosts "$n.$site.$domain" 2>/dev/null </dev/null | awk '{ print $1; exit }' || true)
-      [ "$got" = "$a" ] && u=${u/$a/$n.$site.$domain}
-    fi
-    printf '%s' "$u"
-  }
   add() {   # add <group> <label> <href> <description> <icon>
     entries[$1]+=$(printf '    - %s:\n        href: %s\n        description: "%s"\n        icon: %s\n' "$2" "$3" "$4" "$5")$'\n'
   }
 
   if [ "$(cat /etc/hs/incus-ui 2>/dev/null || echo on)" = on ]; then
-    add Administration Incus "$(named incus "$host" "https://$host:8443/ui/")" "Containers and VMs" mdi-cube-outline
+    add Administration Incus "https://$host:8443/ui/" "Containers and VMs" mdi-cube-outline
   fi
   while IFS=$'\t' read -r name type ip; do
     [ "$name" != "$ct" ] && [ "$ip" != - ] || continue
@@ -144,7 +128,7 @@ generate() {
     else
       continue   # nothing to open in a browser (e.g. a tunnel, a domain controller or Wings)
     fi
-    add "$(group_of "$name")" "$(label_of "$name")" "$(named "$name" "$ip" "$url")" "$desc" "$icon"
+    add "$(group_of "$name")" "$(label_of "$name")" "$url" "$desc" "$icon"
   done < <(bash "$scripts/manage-ct.sh" --list | awk -F'\t' '$3 == "Running" { print $1 "\t" $2 "\t" $4 }')
 
   # the public addresses (Zoraxy rules)
@@ -315,6 +299,8 @@ if [ "$legacy" != "$PORT" ]; then
     systemctl daemon-reload; systemctl restart homepage' "$PORT" "$dropin"
 fi
 ok "$(t 'The web page listens on port %s' "$PORT")"
+SERVICE_NO_DASHBOARD=1   # no tile of its own (the page does not list itself)
+declare_service homepage Homepage homepage never-public Administration "Start page: links to every page" "$PORT"
 
 step "Links"
 new=$(generate)
@@ -355,14 +341,15 @@ fi
 
 ip=$(bash "$scripts/manage-ct.sh" --list | awk -F'\t' -v c="$ct" '$1 == c { print $4 }')
 
-# Homepage refuses any host name it was not told about ("Host validation failed"), so the name
-# <ct>.<siteName>.<adDomain> (made by hs dns sync) is allowed next to the address. The page does not list itself.
-site=$(tr -d ' \r\n' <"${HS_SITE_NAME_FILE:-/etc/hs/site-name}" 2>/dev/null | tr 'A-Z' 'a-z' || true)
-realm=$(machine_get adDomain.realm 2>/dev/null | tr 'A-Z' 'a-z' || true)
+# Homepage refuses any host name it was not told about ("Host validation failed"), so the gateway's local name
+# <ct>.<local domain> is allowed next to the address (Traefik passes the Host header unchanged). The page does not list itself.
+. "$scripts/lib/localdomain.sh"
+ld=""
+capability_on gateway && ld=$(local_domain) || true
 allowed="$ip,$ip:$PORT"
 fullname=""
-if [ -n "$site" ] && [ -n "$realm" ]; then
-  fullname=$ct.$site.$realm
+if [ -n "$ld" ]; then
+  fullname=$ct.$ld
   allowed="$allowed,$fullname,$fullname:$PORT"
 fi
 envfile=/opt/homepage/.env

@@ -812,7 +812,6 @@ CHANGES = {
              {"fixed": [TEMP_PART, r"^temp-mount$"], "opts": {"--name": (TEMP_NAME, False)}},
              {"fixed": [TEMP_NAME, r"^temp-copy$"], "opts": {"--to": (SHARE, False)}},
              [TEMP_NAME, r"^temp-eject$"]],
-    "dns": [[r"^sync$"]],
     # run a recipe as a job with the stored answers or the defaults; a recipe that needs something typed is refused by the plan (recipe-change.sh)
     # the services and their routes on the reverse proxy (services-change.sh): apply (red when a route goes public, changes or goes away), adopt, import, forget one
     # shares between two homeservers (peer-change.sh): the password of an added share is one line on stdin; `offer` answers with the new password in the

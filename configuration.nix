@@ -37,7 +37,7 @@ let
   # Incus web UI and the network address of the Incus API (machine.toml: incusUi, default true)
   incusUi = machine.incusUi;
   sshOverIp = machine.sshOverIp;
-  # The label in front of the domain for this server's DNS names, <instance>.<siteName>.<domain> (machine.toml: siteName, default hostName; hs dns)
+  # The label in front of the domain for this server's local names (machine.toml: siteName, default hostName); the gateway's local names are <service>.<siteName>.<domain>
   siteName = machine.siteName or hostName;
   # This server as a Tailscale subnet router for the home networks (machine.toml: tailscaleRouter, default false)
   tailscaleRouter = machine.tailscaleRouter;
