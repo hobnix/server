@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # help: change a pool without asking anything: what would happen (plan), then do it as a background job (start)
 # help.de: einen Pool ändern, ohne etwas zu fragen: was passieren würde (plan), dann als Hintergrundjob ausführen (start)
-# args: plan|start <pool> <add|adopt|replace|remove|convert|close|open> [--member <name>] [--disks <id,...>] [--role data|parity] [--fs ext4|xfs|btrfs] [--encrypt] [--mode detach|vdev] [--drain] [--merge] [--chown] [--confirm <word>]
+# args: plan|start <pool> <add|adopt|replace|remove|convert|close|open> [--member <name>] [--disks <id,...>] [--role data|parity] [--fs ext4|xfs|btrfs] [--encrypt] [--discard] [--mode detach|vdev] [--drain] [--merge] [--chown] [--confirm <word>]
 # System command (hs sys pool plan|start): for the interface, timers and tests. It never asks and prints plain
 # key<TAB>value lines. The questions of the console wizards are
 # manage-pool.sh's; both use the same code for the plan: this script runs manage-pool.sh --dry-run and sorts its lines.
@@ -28,7 +28,7 @@ case "$verb" in plan|start) ;; *) echo "usage: pool-change.sh plan|start <pool> 
 case "$action" in add|adopt|replace|remove|convert|close|open) ;; *) printf 'status\trefused\nreason\tunknown action (add, adopt, replace, remove, convert, close or open)\n'; exit 1 ;; esac
 shift 3
 
-member="" disks="" role="" fs="" mode="" confirm="" encrypt=false merge=false chown=false drain=false
+member="" disks="" role="" fs="" mode="" confirm="" encrypt=false merge=false chown=false drain=false discard=false
 while [ $# -gt 0 ]; do
   case "$1" in
     --member)  member=${2:-}; shift 2 ;;
@@ -40,7 +40,8 @@ while [ $# -gt 0 ]; do
     --encrypt) encrypt=true; shift ;;
     --merge)   merge=true; shift ;;
     --drain)   drain=true; shift ;;
-    --chown)   chown=true; shift ;;
+    --discard) discard=true; shift ;;
+    --chown)  chown=true; shift ;;
     *) printf 'status\trefused\nreason\tunknown option %s\n' "$1"; exit 1 ;;
   esac
 done
@@ -69,7 +70,7 @@ case "$action" in
   add|adopt) args+=(--disks "$disks"); [ -z "$role" ] || args+=(--role "$role") ;;
   replace)   args+=(--replace "$member" --disks "$disks") ;;
   remove)    args+=(--remove "$member"); [ -z "$mode" ] || args+=(--mode "$mode") ;;
-  convert)   args+=(--convert "$member") ;;
+  convert)   args+=(--convert "$member"); ! $discard || args+=(--discard) ;;
   close)     args+=(--close "$member"); ! $drain || args+=(--drain) ;;
   open)      args+=(--open "$member") ;;
 esac
