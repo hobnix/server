@@ -26,6 +26,14 @@ release() {   # release <tag> <version> <key> [requires_core] [path]: package.to
 release v1.0.0 1.0.0 "$WORK/good"
 cd "$ROOT"
 
+echo "-- the default repositories are found from the Nix store copy of the scripts"
+# on a server the scripts run from /nix/store (no config/); the checkout in /etc/nixos has the list
+mkdir -p "$WORK/store" "$WORK/nixos/config"
+cp -r "$SCRIPTS" "$WORK/store/scripts"
+cp "$ROOT/config/package-repos.toml" "$WORK/nixos/config/"
+check_out "the list comes from the checkout, not the store copy" "^recipes${tab}.*${tab}default" env HS_NIXOS_DIR="$WORK/nixos" python3 -I "$WORK/store/scripts/pkg.py" repo list
+check_out "with no checkout either there is no default" "^$" bash -c "HS_NIXOS_DIR=$WORK/none python3 -I $WORK/store/scripts/pkg.py repo list; echo"
+
 echo "-- adding a repository"
 check "an unsigned repository is refused without --unsigned" bash -c "! $PKG repo add test '$R' 2>/dev/null"
 check "a bad key file is refused" bash -c "echo nonsense > $WORK/bad.signers; ! $PKG repo add test '$R' --key $WORK/bad.signers 2>/dev/null"

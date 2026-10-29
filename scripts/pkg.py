@@ -46,8 +46,13 @@ REQUIRES = re.compile(r"^>=\s*([1-9]\d*)$")
 
 
 def root():
-    for r in (os.environ.get("HS_PACKAGES_ROOT"), os.path.dirname(HERE), "/etc/nixos"):
-        if r and os.path.isdir(os.path.join(r, "packages")):
+    """The tree with config/ (the default repositories, the trusted keys) and, in a checkout that still has them, packages/ and capabilities/.
+    The scripts run from a copy in the Nix store that has no config/: the checkout in /etc/nixos (HS_NIXOS_DIR in tests) is the source then."""
+    env = os.environ.get("HS_PACKAGES_ROOT")
+    if env and os.path.isdir(env):
+        return env
+    for r in (os.path.dirname(HERE), os.environ.get("HS_NIXOS_DIR", "/etc/nixos")):
+        if os.path.isfile(os.path.join(r, "config", "package-repos.toml")):
             return r
     return os.path.dirname(HERE)
 
