@@ -1,6 +1,6 @@
 # Packages: recipes and extensions as one thing, in repositories of their own
 
-Status: design, decided with the owner on 2026-10-28; steps 1 to 4 are built, step 5 is half done (see below). It replaces the "Packages from a repository (later)" section of
+Status: design, decided with the owner on 2026-10-28; steps 1 to 5 are built (see "Order of work"); step 6, the public release, is left. It replaces the "Packages from a repository (later)" section of
 docs/PLAN-extensions.md and the "recipes as packages" open point there. Goal behind it: the project becomes public and open source, so
 other people can write, update and share parts without touching the core.
 
@@ -228,16 +228,16 @@ Each step is shippable on its own and keeps the server working.
 4. **Repositories and trust** (built 2026-10-28: `scripts/pkg_repo.py`, `hs pkg repo|fetch|available|install|update|remove`, defaults in config/package-repos.toml, trusted keys in config/trusted-keys/<name>.allowed_signers, added repositories in /var/lib/hs/packages/repos.toml instead of a machine.toml option; installs go to /var/lib/hs/packages/current/<name> (read-only, the loaders read that folder), the one before to previous/; tests/pkg-repo.sh with SSH-signed tags in a local git repository; the two default repositories fail closed until their key files exist; the default URLs are github.com/hobnix/recipes and github.com/hobnix/extensions). `/var/lib/hs/packages/<name>@<commit>`, the loader's second location (`ext_package_dir`, `ext_roots`),
    `index.toml`, `hs pkg repo`, tag signing and verification, diff-and-ask in `hs update` and the web update, default repositories in the
    schema. Done against a local file:// repository first, so it is testable on the Windows checkout and in CI without the network.
-5. **Split** (built 2026-10-28 up to the export: recipes are packages/<name>/run.sh with their own files, the extensions' scripts live in their capabilities/ folder, `scripts/dev/export-package-repos.py` writes the two clean repositories, tests/pkg-export.sh installs from them; the in-tree copies stay until the repositories are published and signed, then they are deleted and the five `core = true` recipes are fetched at setup).
-   **State on 2026-10-29:** both repositories exist on GitHub (hobnix/recipes, hobnix/extensions) with one import commit and no tags, so they
-   already trail this tree (arr, pelican and stalwart 1.1.0, passthrough; `homepage` is gone from the core and from the export). Left to do,
-   in this order: (a) re-run the exporter into the existing clones (it replaces the tree; the import commit's history is not worth keeping
-   while nothing is tagged), (b) sign `v1.0.0` in both and commit the keys to `config/trusted-keys/{recipes,extensions}.allowed_signers`,
-   (c) setup fetches the five `core = true` recipes, (d) delete the in-tree copies (`packages/`, `capabilities/{games,posters,passthrough}`)
-   and split the tests listed under "Compatibility", (e) CI in all three. From (b) on, a change to a package is made in its repository, so
-   no package is edited here between (a) and (d). `git filter-repo` the package folders (keeping history) into extensions and recipes, sign the first tags, the
-   core fetches its defaults from them; CI in all three repositories as above. The in-tree copies are deleted in the same release, the old
-   `hs recipe` / `hs ext` words keep working through the loader.
+5. **Split** (built 2026-10-29). The recipes are in github.com/hobnix/recipes (`recipes/<name>/`), the extensions in github.com/hobnix/extensions
+   (`extensions/<name>/`); both carry `index.toml`, their own tests (`tests/run-all.sh`, run against a checkout of the core through `HS_CORE`),
+   a CI that checks the core out, and German texts of their own (`i18n/de.tsv` per package; a recipe's file is loaded by `scripts/recipes/_lib.sh`).
+   Releases are tags `vX.Y.Z` signed with the release key in `config/trusted-keys/{recipes,extensions}.allowed_signers`. The core holds no package
+   any more: `hs pkg install --core` (called by `hs first-run`) fetches the five `core = true` recipes, `tests/fixtures/pkgtree` is the small fixture
+   its own tests use, and its CI has a job `packages` that runs both repositories' validators and tests against the core. `gateway` stays a core
+   capability; `passthrough` is an extension that requires it. Found on the way: the export from Windows dropped every executable bit (fixed in a
+   release after v1.0.0), and the old i18n check matched part of a longer line, which had hidden an untranslated text. Left over: the web
+   interface's `readsfor.js` still names the pages of games and posters; `hs pkg convert` and the header-versus-manifest check of the validator have
+   done their job and can go; no fresh install or update of an existing server was run yet.
 6. **Public release.** Personal data audit (including git history of the split repositories: secrets, hostnames, mail addresses), LICENSE
    per repository, CONTRIBUTING (how to write a package, the API doc, the review rule that a diff touching `commands.tsv`/`[web.*]`/`needs`
    is called out), issue and PR templates, a security contact, the trusted-key process (who may sign, how a key is rotated).
