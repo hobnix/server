@@ -36,6 +36,9 @@ git -C "$OUT/extensions" -c gpg.format=ssh -c user.signingkey="$WORK/key.pub" -c
 check "recipes repository added" $PKG repo add rtest "$OUT/recipes" --key "$WORK/signers"
 check "extensions repository added" $PKG repo add etest "$OUT/extensions" --key "$WORK/signers"
 check_out "fetch verifies both" "^rtest${tab}v1[.]0[.]0" $PKG fetch
+check_out "install --core fetches the core recipes" "^ntfy 1[.]0[.]0 from rtest" $PKG install --core
+check "a core recipe arrived" test -f "$HS_STATE_DIR/packages/current/docker/run.sh"
+check_out "install --core a second time has nothing to do" "^$" $PKG install --core
 check_out "a recipe installs from the repository" "ntfy 1[.]0[.]0 from rtest" $PKG install ntfy
 check "its run.sh arrived" test -f "$HS_STATE_DIR/packages/current/ntfy/run.sh"
 check_out "an extension installs from the repository" "posters 1[.]0[.]0 from etest" $PKG install posters

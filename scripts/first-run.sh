@@ -35,6 +35,9 @@ if [ -z "$notify" ] && [ -t 0 ] && ! $yes; then
 fi
 if [ -n "$notify" ]; then cfg set notifyUrl "$notify"; else note "Notifications unchanged."; fi
 
+step "Core packages"
+if "$hsbin" pkg install --core; then :; else warn "Some core packages could not be fetched; try again with: hs pkg install --core"; fi
+
 step "What is still to do"
 check() {   # check <label> <command to run when open> <test...>
   local label=$1 cmd=$2; shift 2

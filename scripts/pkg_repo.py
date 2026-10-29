@@ -327,6 +327,25 @@ def run(pkg, cmd, rest):
             for pname, rows in sorted(R.catalog().items()):
                 for r_name, e, tag, _ in rows:
                     print("\t".join([r_name, pname, e.get("kind", "?"), str(e.get("version")), have.get(pname, {}).get("version", "-")]))
+        elif cmd == "install" and rest and rest[0] == "--core":
+            # the packages the core refers to by name (`core = true` in the index): fetch what is neither built in nor installed yet
+            bad = 0
+            for name, tag, commit, err in R.fetch_all():
+                bad += bool(err)
+                if err:
+                    print("%s: %s" % (name, err), file=sys.stderr)
+            have = pkg.installed()
+            builtin = {m.get("name") for p, m in pkg.manifests() if "/current/" not in p.replace("\\", "/")}
+            for pname, rows in sorted(R.catalog().items()):
+                if not rows[0][1].get("core") or pname in have or pname in builtin:
+                    continue
+                try:
+                    v, r_name, tag = R.install(pname, rows[0][0])
+                    print("%s %s from %s (%s)" % (pname, v, r_name, tag))
+                except Refused as e:
+                    bad += 1
+                    print("%s: %s" % (pname, e), file=sys.stderr)
+            return 1 if bad else 0
         elif cmd == "install":
             repo = rest[rest.index("--repo") + 1] if "--repo" in rest else None
             v, r_name, tag = R.install(rest[0], repo)
