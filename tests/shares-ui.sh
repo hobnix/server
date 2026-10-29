@@ -13,6 +13,43 @@ MS="bash $SCRIPTS/manage-shares.sh"; CS="bash $SCRIPTS/create-share.sh"
 echo "-- manage-shares: what the interface reads is unchanged"
 check_eq "--list: name, kind, path, cache, bytes, measured (empty = live)" "docs	shares	/bulk/shares/docs	-	1234	
 media	sensitive	/bulk/sensitive/media	-	99	" "$($MS --list)"
+
+echo "-- manage-shares --list: one registry read and one zfs call, not three process starts per share"
+FB=$WORK/fastbin; mkdir -p "$FB"; export NCALLS=$WORK/ncalls ZCALLS=$WORK/zcalls
+cat > "$FB/net" <<'FAKE'
+#!/usr/bin/env bash
+echo "$*" >> "$NCALLS"
+case "$*" in
+  "conf listshares") printf 'docs\nmedia\nother\n' ;;
+  "conf list") [ -z "${NOLIST:-}" ] || exit 0
+    printf '[global]\n\tworkgroup = HOME\n[docs]\n\tpath = /bulk/shares/docs\n\tread only = no\n[media]\n\tread only = yes\n\tpath = /bulk/sensitive/media\n[other]\n\tpath = /srv/other\n' ;;
+  "conf getparm docs path") echo /bulk/shares/docs ;;
+  "conf getparm media path") echo /bulk/sensitive/media ;;
+  "conf getparm other path") echo /srv/other ;;
+esac
+FAKE
+cat > "$FB/zfs" <<'FAKE'
+#!/usr/bin/env bash
+echo "$*" >> "$ZCALLS"
+case "$*" in
+  "list -Hp -o name,used -r bulk/shares bulk/sensitive") [ -z "${NOLIST:-}" ] || exit 1
+    printf 'bulk/shares\t5\nbulk/shares/docs\t1234\nbulk/sensitive\t6\nbulk/sensitive/media\t99\n' ;;
+  "list -Hp -o used bulk/shares/docs") echo 1234 ;;
+  "list -Hp -o used bulk/sensitive/media") echo 99 ;;
+  *) exit 1 ;;
+esac
+FAKE
+chmod +x "$FB/net" "$FB/zfs"
+want="docs	shares	/bulk/shares/docs	-	1234	
+media	sensitive	/bulk/sensitive/media	-	99	
+other	other	/srv/other	-	-	"
+: > "$NCALLS"; : > "$ZCALLS"
+fast=$(HS_NET=$FB/net HS_ZFS=$FB/zfs $MS --list)
+check_eq "batched --list: same lines" "$want" "$fast"
+check_eq "batched: net started 2 times, zfs once" "2 1" "$(wc -l < "$NCALLS" | tr -d ' ') $(wc -l < "$ZCALLS" | tr -d ' ')"
+: > "$NCALLS"; : > "$ZCALLS"
+slow=$(NOLIST=1 HS_NET=$FB/net HS_ZFS=$FB/zfs $MS --list)
+check_eq "fallback --list: same lines" "$want" "$slow"
 check_eq "--principals: sid, name, kind (noise groups left out)" "S-1-1-0	Everyone	group
 S-1-5-21-1-512	Domain Admins	group
 S-1-5-21-1-513	Staff	group
