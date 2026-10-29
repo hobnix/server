@@ -3,8 +3,8 @@
 # nothing is fetched from it: it fails closed. More repositories: hs pkg repo add <name> <url> --key <allowed_signers file>.
 [[repo]]
 name = "recipes"
-url = "https://github.com/hobnix/hobnix-recipes"
+url = "https://github.com/hobnix/recipes"
 
 [[repo]]
 name = "extensions"
-url = "https://github.com/hobnix/hobnix-extensions"
+url = "https://github.com/hobnix/extensions"
