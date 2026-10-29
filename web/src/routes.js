@@ -18,6 +18,7 @@ import Setup from './pages/Setup.svelte';
 import Expiry from './pages/Expiry.svelte';
 import Extension from './pages/Extension.svelte';
 import Apps from './pages/Apps.svelte';
+import Marketplace from './pages/Marketplace.svelte';
 import Services from './pages/Services.svelte';
 import Docs from './pages/Docs.svelte';
 import Certificates from './pages/Certificates.svelte';
@@ -58,6 +59,7 @@ export const routes = {
   '/operations/health': Health,
   '/protection/expiry': Expiry,
   '/instances/apps': Apps,
+  '/marketplace': Marketplace,
   '/instances/services': Services,
   '/operations/notifications': Notifications,
   '/monitoring/diagnostics': Data,

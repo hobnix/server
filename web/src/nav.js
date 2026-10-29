@@ -22,6 +22,7 @@ export const tree = [
         { label: 'Apps', icon: 'package', path: '/instances/apps', storage: true },
         { label: 'Services', icon: 'arrows-split', path: '/instances/services', capability: 'reverse-proxy' },
       ] },
+      { label: 'Marketplace', icon: 'storefront', path: '/marketplace' },
       { label: 'Network', icon: 'network', path: '/network' },
       { label: 'Identity', icon: 'users-three', path: '/identity', storage: true, capability: 'ad', children: [
         { label: 'Groups', icon: 'users-four', path: '/identity/groups', storage: true },

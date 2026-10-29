@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # help: packages (recipes and extensions): list them with their version, see which have an update, check the manifests
 # help.de: Pakete (Rezepte und Erweiterungen): mit Version auflisten, Updates sehen, die Manifeste prüfen
-# args: list [--all] [--kind recipe|extension] | updates | validate | fetch | available | install <name> | update <name> | remove <name> | repo list|add|remove | --list
+# args: --market | --repos | list [--all] [--kind recipe|extension] | updates | validate | fetch | available | install <name> | update <name> | remove <name> | repo list|add|remove | --list
 # A package is a recipe (packages/<name>/package.toml) or an extension (capabilities/<name>/package.toml) with a semver `version`
 # (docs/PLAN-packages.md). This is step 1: the manifests of this repository only; repositories and `install` come later.
 #   list        name, kind, version in the tree, version last applied here, who it is for; personal ones only with --all
@@ -25,6 +25,8 @@ py() { python3 -I "$here/pkg.py" "$@"; }
 
 case "${1:-list}" in
   --list) py list --all ;;
+  --market) py market ;;
+  --repos) py repo list ;;
   list)
     shift
     rows=$(py list "$@")

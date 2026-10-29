@@ -31,6 +31,20 @@ class Changes(unittest.TestCase):
             self.assertFalse(ok("system", bad), bad)
         self.assertFalse(ok("system", ["reboot"], stdin="x"))
 
+    def test_marketplace(self):
+        for good in (["install", "arr"], ["install", "arr", "--repo", "recipes"], ["update", "arr"], ["remove", "arr"], ["fetch"], ["fetch", "recipes"],
+                     ["repo-add", "friends", "https://github.com/someone/recipes"], ["repo-add", "friends", "git@github.com:someone/recipes.git"],
+                     ["repo-remove", "friends"]):
+            self.assertTrue(ok("pkg", good), good)
+        for bad in (["install"], ["install", "Arr"], ["install", "arr;x"], ["install", "arr", "--repo"], ["install", "arr", "--force"], ["update", "arr", "x"],
+                    ["remove"], ["fetch", "a b"], ["repo-add", "friends"], ["repo-add", "friends", "file:///tmp/x"], ["repo-add", "friends", "/tmp/x"],
+                    ["repo-add", "friends", "https://x y"], ["repo-add", "Friends", "https://github.com/a/b"], ["repo-remove"], ["wipe", "arr"]):
+            self.assertFalse(ok("pkg", bad), bad)
+        self.assertTrue(ok("pkg", ["repo-add", "friends", "https://github.com/someone/recipes"], stdin="ssh-ed25519 AAAAC3Nza"))   # the key is the one stdin line
+        for words in (("pkg", "market"), ("pkg", "repos")):
+            self.assertEqual(ws.READS[words]["kind"], "tsv", words)
+            self.assertNotIn("args", ws.READS[words], words)
+
     def test_new_reads(self):
         for words in (("hardware",), ("encryption", "list"), ("vault", "usage"), ("vault", "uses")):
             self.assertEqual(ws.READS[words]["kind"], "tsv", words)
