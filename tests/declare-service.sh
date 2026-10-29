@@ -33,7 +33,7 @@ check "the group and description" bash -c 'grep -q "group = \"Apps\"" "$1" && gr
 check "no want at all" bash -c '! grep -q want "$1"' _ "$HS_SERVICES_DIR/demo.toml"
 
 echo "-- a dashboard is set up: asked (default yes), remembered"
-printf 'homepage' > "$HS_SETTINGS_DIR/dashboard"
+printf 'web' > "$HS_SETTINGS_DIR/dashboard"
 DEMO_CT=demo2 run demo2 "Demo 2" mdi-test >/dev/null
 check "the tile is wanted by default" grep -q 'dashboard = true' "$HS_SERVICES_DIR/demo2.toml"
 check "the answer is remembered per container" grep -q '^DASH_DEMO2=yes' "$HS_STATE_DIR/recipe-demo2.conf"
@@ -59,6 +59,14 @@ check "running again refreshes the port and the title" bash -c 'grep -q "port = 
 check "but keeps what a person decided (public-ok)" grep -q 'exposure = "public-ok"' "$HS_SERVICES_DIR/demo5.toml"
 out=$(DEMO_PORT= DEMO_CT=demo7 run demo7 "Demo 7" mdi-test || true)
 check "without a port nothing is declared (a recipe without a web page)" test ! -e "$HS_SERVICES_DIR/demo7.toml"
+
+echo "-- SERVICE_STATS: one stat per line becomes a [[stats]] block"
+SERVICE_STATS='http-json|Streams|/Sessions||count|/NowPlayingItem|stat-demo9|mediabrowser||' DEMO_CT=demo9 run demo9 "Demo 9" mdi-test >/dev/null
+check "a [[stats]] block" grep -q '^\[\[stats\]\]' "$HS_SERVICES_DIR/demo9.toml"
+check "label, path and reduce" bash -c 'grep -q "label = \"Streams\"" "$1" && grep -q "path = \"/Sessions\"" "$1" && grep -q "reduce = \"count\"" "$1"' _ "$HS_SERVICES_DIR/demo9.toml"
+check "secret name and auth, no key" bash -c 'grep -q "secret = \"stat-demo9\"" "$1" && grep -q "auth = \"mediabrowser\"" "$1"' _ "$HS_SERVICES_DIR/demo9.toml"
+DEMO_CT=demo9 run demo9 "Demo 9" mdi-test >/dev/null
+check "running again without SERVICE_STATS keeps the stat" grep -q '^\[\[stats\]\]' "$HS_SERVICES_DIR/demo9.toml"
 
 echo "-- a container with a name of its own is a service of its own"
 out=$(RECIPE_NAME=demo8b DEMO_CT=demo8b run demo8 "Demo 8" mdi-test private-ok Apps "A demo")

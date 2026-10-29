@@ -6,7 +6,7 @@ NixOS home server: Incus containers on ZFS or SnapRAID, Samba shares, backups, a
 `capabilities/<name>/`, later their own repositories (docs/PLAN-packages.md).
 
 ## Rules that always apply
-- **Admin pages are never public.** Incus, Zoraxy, Arcane, Homepage, the docs site, Grafana, Tdarr get no public route (guard: `ADMIN_TARGETS`
+- **Admin pages are never public.** Incus, Zoraxy, Arcane, the docs site, Grafana, Tdarr get no public route (guard: `ADMIN_TARGETS`
   in scripts/services.py).
 - **Destructive commands** make the user type the NAME of the thing that changes (the disk, not the pool), show a plan first, and offer a
   background job for long work. Never put a reboot or wipe in the same code block as the step it depends on.

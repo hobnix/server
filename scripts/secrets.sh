@@ -27,6 +27,7 @@ $state/vps-key|SSH key of the web interface for the proxyserver (vps update / wa
 $state/zoraxy-admin|admin login of Zoraxy for hs services apply (name, then password)|no: hs services proxy login sets it again|file
 $state/dc-ca-key|key of the CA that signs the domain controllers' certificates (hs dc cert)|no: hs dc cert ca makes a new CA, every controller then needs a new certificate|file
 $samba|Samba domain database (private)|covered by the backup (hs backup)|bind"
+for k in "$state"/stat-*; do [ -e "$k" ] || [ -L "$k" ] && items+=$'\n'"$k|API key of a dashboard value|no: make a new one in the app (hs services key)|file"; done
 for k in "$ssh_dir"/ssh_host_*_key; do [ -e "$k" ] && items+=$'\n'"$k|SSH host key|covered by the backup, otherwise clients see a new host key|"; done
 
 # The vault: its secrets are links at the old paths. Mode and owner of what is inside the

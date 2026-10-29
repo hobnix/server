@@ -850,7 +850,7 @@ Downloading the newest Zoraxy	Das neueste Zoraxy wird heruntergeladen
 Starting it with the system	Wird mit dem System gestartet
   1. The first visit creates the admin account.	  1. Der erste Besuch legt das Admin-Konto an.
 Every rule here is reachable from the whole internet. Never add one for an admin page	Jede Regel hier ist aus dem ganzen Internet erreichbar. Nie eine für eine Admin-Seite anlegen
-(Incus, this page, Arcane, Grafana, Uptime Kuma, Homepage).	(Incus, diese Seite, Arcane, Grafana, Uptime Kuma, Homepage).
+(Incus, this page, Arcane, Grafana, Uptime Kuma).	(Incus, diese Seite, Arcane, Grafana, Uptime Kuma).
   create the container '%s' (1024 MB RAM limit) unless it exists, with a fixed address if UniFi is connected (hs net setup)	  den Container '%s' anlegen (1024 MB RAM-Grenze), falls es ihn nicht gibt, mit fester Adresse, wenn UniFi verbunden ist (hs net setup)
   install Node.js and Uptime Kuma inside (/opt/uptime-kuma), started by systemd (asks for the port, default 80)	  Node.js und Uptime Kuma darin installieren (/opt/uptime-kuma), von systemd gestartet (fragt nach dem Port, Standard 80)
   list the addresses worth checking	  die Adressen auflisten, die sich zu prüfen lohnen
@@ -900,11 +900,7 @@ Done. The rest happens in the browser (guide "Pelican Panel und Wings", steps 2 
      then:  incus exec %s -- systemctl restart wings	     dann:  incus exec %s -- systemctl restart wings
   4. Allocations (ports of the game servers) use the address 0.0.0.0, not %s.	  4. Allocations (Ports der Spieleserver) benutzen die Adresse 0.0.0.0, nicht %s.
 Backups of the game servers land in /bulk/sensitive/pelican-backups.	Datensicherungen der Spieleserver landen in /bulk/sensitive/pelican-backups.
-Would write this to %s in '%s':	Würde dies nach %s in '%s' schreiben:
 Links	Links
-Your previous list is kept as %s.before-recipe in '%s'.	Deine bisherige Liste bleibt als %s.before-recipe in '%s' erhalten.
-%s links written.	%s Links geschrieben.
-Homepage reads the list on the next page load. After adding containers, run this recipe again.	Homepage liest die Liste beim nächsten Laden der Seite. Nach dem Anlegen von Containern dieses Rezept noch einmal ausführen.
   create the container '%s' (Docker inside, 6144 MB RAM limit) unless it exists, with a fixed address if UniFi is connected (hs net setup)	  den Container '%s' anlegen (Docker darin, 6144 MB RAM-Grenze), falls es ihn nicht gibt, mit fester Adresse, wenn UniFi verbunden ist (hs net setup)
   create a folder under /bulk/sensitive for the photos (asks for its name, default immich) and mount it at /mnt/immich	  einen Ordner unter /bulk/sensitive für die Fotos anlegen (fragt nach dem Namen, Standard immich) und unter /mnt/immich einbinden
   install Docker inside and start Immich from its official docker-compose.yml (several GB to download)	  Docker darin installieren und Immich aus seiner offiziellen docker-compose.yml starten (mehrere GB Download)
@@ -1445,8 +1441,6 @@ Downloading Authentik	Authentik wird heruntergeladen
 Fetching Authentik's docker-compose.yml	Die docker-compose.yml von Authentik wird geholt
 Starting Authentik	Authentik wird gestartet
 skipped (RECIPE_SKIP_PULL): nothing downloaded, Authentik not started	übersprungen (RECIPE_SKIP_PULL): nichts heruntergeladen, Authentik nicht gestartet
-Layout written to settings.yaml (Public as a grid of four)	Layout in settings.yaml geschrieben (Public als Raster mit vier Spalten)
-settings.yaml has a layout already, leaving it alone	settings.yaml hat schon ein Layout, es bleibt unverändert
        hs dns sync [--yes] [--dry-run]	       hs dns sync [--yes] [--dry-run]
 usage: hs dns list	Aufruf: hs dns list
 %s changes made.	%s Änderungen vorgenommen.
@@ -1460,7 +1454,6 @@ The names under %s.%s are up to date (%s records).	Die Namen unter %s.%s sind ak
 There is no domain (adDomain) in machine.toml, so there is no DNS to put names into.	In machine.toml steht keine Domäne (adDomain), also gibt es kein DNS für Namen.
 siteName '%s' is not a name for DNS (letters, digits, hyphen). Set siteName in machine.toml.	siteName '%s' ist kein Name für DNS (Buchstaben, Ziffern, Bindestrich). Setze siteName in machine.toml.
 under %s.%s	unter %s.%s
-The page can also be opened as http://%s	Die Seite lässt sich auch als http://%s öffnen.
 all present	alle da
 %s missing	%s fehlen
 Nothing is recorded yet. The collector runs every minute.	Noch nichts aufgezeichnet. Der Sammler läuft jede Minute.
@@ -2025,8 +2018,6 @@ Unpacking it	Entpacke es
 Waiting for the web page (the first start downloads Home Assistant: 10 to 20 minutes)	Warte auf die Webseite (der erste Start lädt Home Assistant nach: 10 bis 20 Minuten)
 http://homeassistant.local:8123 (or the address from your router)	http://homeassistant.local:8123 (oder die Adresse aus deinem Router)
 UniFi is not connected (hs net setup), so the address %s is not fixed. Reserve it in your router by hand.	UniFi ist nicht verbunden (hs net setup), darum ist die Adresse %s nicht fest. Reserviere sie von Hand in deinem Router.
-The web page listens on port %s	Die Webseite lauscht auf Port %s
-The page can be opened at http://%s	Die Seite lässt sich unter http://%s öffnen
 Name of the share for films, series and manga (under /bulk/shares)	Name der Freigabe für Filme, Serien und Manga (unter /bulk/shares)
   create the container '%s' (Docker inside, 5120 MB RAM limit) unless it exists, with a fixed address (.20-.29) if UniFi is connected (hs net setup)	  den Container '%s' anlegen (Docker darin, 5120 MB RAM-Grenze), falls es ihn nicht gibt, mit fester Adresse (.20-.29), wenn UniFi verbunden ist (hs net setup)
   mount the share for the media (asks for its name, default media) read and write at /media and create the folder manga in it	  die Freigabe für die Medien (fragt nach dem Namen, Standard media) mit Lesen und Schreiben unter /media einbinden und darin den Ordner manga anlegen
@@ -2467,7 +2458,6 @@ Signed	Signiert
 '%s' is not a Home Assistant OS version number.	'%s' ist keine Home-Assistant-OS-Versionsnummer.
 '%s' is not an address of the router (like https://10.10.10.1).	'%s' ist keine Adresse des Routers (wie https://10.10.10.1).
 Bazarr	Bazarr
-Building Homepage %s (a few minutes)	Homepage %s wird gebaut (ein paar Minuten)
 Calls (MatrixRTC)	Anrufe (MatrixRTC)
 Calls need the public address of Synapse: RECIPE_PUBLIC_BASEURL=https://matrix.<your domain>/ hs recipe synapse	Anrufe brauchen die öffentliche Adresse von Synapse: RECIPE_PUBLIC_BASEURL=https://matrix.<deine Domain>/ hs recipe synapse
 Creating the folders of Wings	Die Ordner von Wings werden angelegt
@@ -2479,11 +2469,6 @@ Files	Dateien
 Files already on it stay; an existing file that grows is still written there.	Dateien, die schon darauf liegen, bleiben; eine bestehende Datei, die wächst, wird weiter dorthin geschrieben.
 Groups	Gruppen
 Guide: http://%s.local:%s/docs/en/%s	Anleitung: http://%s.local:%s/docs/en/%s
-Homepage	Homepage
-Homepage %s is installed	Homepage %s ist installiert
-Homepage %s is installed already	Homepage %s ist schon installiert
-Homepage %s is installed already, keeping its config	Homepage %s ist schon installiert, die Konfiguration bleibt
-Installing Node.js and pnpm	Node.js und pnpm werden installiert
 Installing nginx, PHP and Composer	nginx, PHP und Composer werden installiert
 Invalid description: one line, up to 255 characters.	Ungültige Beschreibung: eine Zeile, bis zu 255 Zeichen.
 Invalid email address.	Ungültige E-Mail-Adresse.
@@ -2505,7 +2490,6 @@ Radarr	Radarr
 Saved. The network list updates when a computer looks at the server again.	Gespeichert. Die Netzliste aktualisiert sich, wenn ein Computer wieder auf den Server schaut.
 Settings	Einstellungen
 Sonarr	Sonarr
-Starting Homepage %s	Homepage %s wird gestartet
 Starting it (downloads the images)	Wird gestartet (lädt die Abbilder)
 The Matrix server name is needed (your domain, e.g. example.com): RECIPE_MATRIX_SERVER=<name> hs recipe livekit	Der Matrix-Servername wird gebraucht (deine Domain, z. B. example.com): RECIPE_MATRIX_SERVER=<Name> hs recipe livekit
 The Panel in '%s' was installed before: keeping it as it is	Das Panel in '%s' war schon installiert: es bleibt, wie es ist
@@ -2528,11 +2512,9 @@ Wings is current (%s)	Wings ist aktuell (%s)
 Wings program	Wings-Programm
 Wings release	Wings-Version
 Wings starts as soon as the Panel has given it its configuration (see below).	Wings startet, sobald das Panel ihm seine Konfiguration gegeben hat (siehe unten).
-Would download Homepage %s (github.com/gethomepage/homepage, checked against a pinned checksum), install Node.js and pnpm in '%s' and build it.	Würde Homepage %s laden (github.com/gethomepage/homepage, gegen eine angepinnte Prüfsumme geprüft), Node.js und pnpm in '%s' installieren und es bauen.
 Writing the configuration	Die Konfiguration wird geschrieben
 Your previous %s is kept as %s.before-recipe	Dein bisheriges %s bleibt als %s.before-recipe erhalten
 attr: v	attr: v
-current        Layout	aktuell        Layout
 skipped (RECIPE_SKIP_PULL): no settings written	übersprungen (RECIPE_SKIP_PULL): keine Einstellungen geschrieben
 unknown visibility '%s' (visible, hidden)	unbekannte Sichtbarkeit '%s' (visible, hidden)
 usage: hs net setup [--address <url>] [--stdin]   store the router address and the API key (--stdin: the key is the first line on standard input)	Aufruf: hs net setup [--address <URL>] [--stdin]   Adresse des Routers und API-Schlüssel speichern (--stdin: der Schlüssel ist die erste Zeile der Standardeingabe)
@@ -2541,9 +2523,6 @@ usage: hs pkg repo add <name> <url> (--key <allowed_signers file> | --unsigned) 
 usage: hs pkg repo list | add <name> <url> (--key <file> | --unsigned) | remove <name>	Aufruf: hs pkg repo list | add <Name> <URL> (--key <Datei> | --unsigned) | remove <Name>
 usage: hs share cleanup [--dry-run] [--yes]	Aufruf: hs share cleanup [--dry-run] [--yes]
 usage: hs smoke [--list] [--no-run] [--coverage]	Aufruf: hs smoke [--list] [--no-run] [--coverage]
-would update   Layout (new container)	würde aktualisieren   Layout (neuer Container)
-would update   Layout (not written yet)	würde aktualisieren   Layout (noch nicht geschrieben)
-would update   Links file (new container)	würde aktualisieren   Links-Datei (neuer Container)
   incus exec %s -- cat /opt/bulwark/.env	  incus exec %s -- cat /opt/bulwark/.env
 1. Radarr and Sonarr: Settings -> Media Management -> Root Folder:  /media/movies  and  /media/series  (Lidarr: /media/music)	1. Radarr und Sonarr: Settings -> Media Management -> Root Folder:  /media/movies  und  /media/series  (Lidarr: /media/music)
 1. The first visit asks for the language and creates the admin account.	1. Der erste Besuch fragt nach der Sprache und legt das Admin-Konto an.
@@ -2647,3 +2626,18 @@ or in Windows DNS Manager: zone %s > %s > New Host, name *, address %s	oder im W
 usage: hs gateway status | routes | check	Aufruf: hs gateway status | routes | check
 usage: hs services list | check | plan | add <name> ... | remove <name> | import [--dry-run] [--yes] | apply [--dry-run] [--confirm <host or service>] | adopt [--yes] | proxy login   (plan, apply, import, adopt: [--proxy public|local])	Aufruf: hs services list | check | plan | add <Name> ... | remove <Name> | import [--dry-run] [--yes] | apply [--dry-run] [--confirm <Host oder Dienst>] | adopt [--yes] | proxy login   (plan, apply, import, adopt: [--proxy public|local])
 Removing the old start page	Die alte Startseite wird entfernt
+dashboard = web would be set (the Homepage recipe is gone; the dashboard is part of the web interface)	dashboard = web würde gesetzt (das Homepage-Rezept gibt es nicht mehr; das Dashboard ist Teil der Weboberfläche)
+dashboard is now web (the Homepage recipe is gone)	dashboard ist jetzt web (das Homepage-Rezept gibt es nicht mehr)
+%s older container(s) described as services for the dashboard	%s ältere(r) Container als Dienst für das Dashboard beschrieben
+The dashboard is now part of the web interface: http://<host>:%s/dashboard. The container 'homepage' is no longer used; remove it when you like: hs ct homepage remove	Das Dashboard ist jetzt Teil der Weboberfläche: http://<Host>:%s/dashboard. Der Container 'homepage' wird nicht mehr gebraucht; entferne ihn, wann du willst: hs ct homepage remove
+The dashboard needs the web interface: hs config set webUi true, then hs rebuild	Das Dashboard braucht die Weboberfläche: hs config set webUi true, dann hs rebuild
+No service declares a stat.	Kein Dienst deklariert einen Wert.
+API key for %s	API-Schlüssel für %s
+The key for %s is stored.	Der Schlüssel für %s ist abgelegt.
+%s answers with a value: %s	%s antwortet mit einem Wert: %s
+%s gives no value (state %s).	%s liefert keinen Wert (Zustand %s).
+Not on the command line: hs services key %s asks for it, or give it with --stdin.	Nicht auf der Kommandozeile: hs services key %s fragt danach, oder gib ihn mit --stdin.
+'%s' has no dashboard value that needs a key.	'%s' hat keinen Wert auf der Startseite, der einen Schlüssel braucht.
+The key is asked for on a terminal (or give it with --stdin).	Der Schlüssel wird an einem Terminal abgefragt (oder gib ihn mit --stdin).
+The key may only have letters, digits and . _ - (8 to 200 characters).	Der Schlüssel darf nur Buchstaben, Ziffern und . _ - enthalten (8 bis 200 Zeichen).
+5. Dashboard tile "Streams": Dashboard -> API Keys -> add a key, then run: hs services key %s (the key is asked hidden).	5. Kachel "Streams" im Dashboard: Dashboard -> API-Schlüssel -> Schlüssel anlegen, dann ausführen: hs services key %s (der Schlüssel wird verdeckt abgefragt).

@@ -45,7 +45,7 @@ cat > "$B/list.csv" <<'EOF'
 zoraxy,RUNNING,CONTAINER,10.10.95.11 (eth0)
 docker,RUNNING,CONTAINER,"10.10.95.20 (eth0)
 172.17.0.1 (docker0)"
-homepage,RUNNING,CONTAINER,10.10.95.21 (eth0)
+uptime-kuma,RUNNING,CONTAINER,10.10.95.21 (eth0)
 webapp,RUNNING,CONTAINER,10.10.95.22 (eth0)
 pelican-panel,RUNNING,CONTAINER,10.10.95.30 (eth0)
 noss,RUNNING,CONTAINER,10.10.95.50 (eth0)
@@ -54,7 +54,7 @@ old,STOPPED,CONTAINER,
 EOF
 printf 'tcp LISTEN 0 4096 0.0.0.0:80 0.0.0.0:* users:(("caddy",pid=1,fd=3))\ntcp LISTEN 0 4096 *:8000 *:* users:(("zoraxy",pid=2,fd=3))\n' > "$B/ss-zoraxy"
 printf 'tcp LISTEN 0 511 *:80 *:* users:(("node",pid=1,fd=3))\ntcp LISTEN 0 511 *:3333 *:* users:(("node",pid=4,fd=3))\n' > "$B/ss-docker"
-printf 'tcp LISTEN 0 511 *:80 *:* users:(("nginx",pid=1,fd=3))\n' > "$B/ss-homepage"
+printf 'tcp LISTEN 0 511 *:80 *:* users:(("nginx",pid=1,fd=3))\n' > "$B/ss-uptime-kuma"
 printf 'tcp LISTEN 0 511 *:8080 *:* users:(("app",pid=1,fd=3))\ntcp LISTEN 0 511 127.0.0.1:9000 *:*\n' > "$B/ss-webapp"
 printf 'tcp LISTEN 0 511 *:80 *:* users:(("nginx",pid=1,fd=3))\n' > "$B/ss-pelican-panel"
 cat > "$B/zoraxy-rules" <<'EOF'
@@ -74,7 +74,7 @@ cat > "$B/zoraxy-rules" <<'EOF'
 ## /opt/zoraxy/conf/proxy/ghost.example.com.config
 {"RootOrMatchingDomain":"ghost.example.com","Domain":"10.10.95.77:80"}
 ## /opt/zoraxy/conf/proxy/home.example.com.config
-{"RootOrMatchingDomain":"home.example.com","Domain":"homepage"}
+{"RootOrMatchingDomain":"home.example.com","Domain":"uptime-kuma"}
 EOF
 
 echo "-- listeners"
@@ -104,7 +104,7 @@ check_eq "a normal app is ok (new field names, pretty JSON)" "ok" "$(awk -F'\t' 
 check_eq "Incus on the host address warns" "WARN" "$(awk -F'\t' '$1=="proxy" && $2=="host" && $4==8443 {print $7}' <<<"$out")"
 check_eq "a target without a port means 80; the panel is info" "info" "$(awk -F'\t' '$1=="proxy" && $2=="pelican-panel" && $4==80 {print $7}' <<<"$out")"
 check_eq "a target that is no instance is unknown" "unknown" "$(awk -F'\t' '$1=="proxy" && $2=="?" {print $7}' <<<"$out")"
-check_eq "a container name as target works" "WARN" "$(awk -F'\t' '$1=="proxy" && $2=="homepage" {print $7}' <<<"$out")"
+check_eq "a container name as target works" "WARN" "$(awk -F'\t' '$1=="proxy" && $2=="uptime-kuma" {print $7}' <<<"$out")"
 check_eq "the source is the rule files" "rules" "$(awk -F'\t' '$1=="proxy" && $2=="webapp" {print $6}' <<<"$out")"
 check_eq "--list needs no header and every line has 8 fields" "" "$(awk -F'\t' 'NF != 8' <<<"$out")"
 printf 'panel.example.com\n' >/dev/null

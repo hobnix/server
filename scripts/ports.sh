@@ -5,7 +5,7 @@
 # Read only. Looks at what listens (`ss` on the host and, through `incus exec`, in each running container),
 # compares it with a built-in list of expected ports (/var/lib/hs/ports-expected adds to it: lines "name port",
 # name = host or a container name, port = 443, 8000-8100 or *), and checks every Zoraxy proxy target against
-# the list of admin interfaces (Incus 8443, WebZFS, Arcane, Homepage, Zoraxy admin 8000, Grafana ...;
+# the list of admin interfaces (Incus 8443, WebZFS, Arcane, Zoraxy admin 8000, Grafana ...;
 # /var/lib/hs/ports-admin adds lines "name port label [warn|info]", name may be a glob).
 #
 # What this can and cannot see (be honest about it):
@@ -106,7 +106,6 @@ admin_builtin_dc1() {
   printf 'host\t9090\tPrometheus (127.0.0.1 only)\twarn\n'
   printf 'zoraxy\t8000\tZoraxy admin\twarn\n'
   printf 'docker\t80\tArcane\twarn\n'
-  printf 'homepage\t*\tHomepage\twarn\n'
   printf 'monitoring\t*\tGrafana/Prometheus/Loki\twarn\n'
   printf 'uptime-kuma\t*\tUptime Kuma\twarn\n'
   printf 'paperclip\t*\tPaperclip (its agents run shell commands)\twarn\n'

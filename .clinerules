@@ -40,7 +40,7 @@ anything needing root. Check your work with the cheap checks below, then stop an
 - New user-visible English text: add the German row in `scripts/lib/i18n/de.tsv` (English TAB German);
   Rust: wrap in `tr(...)` and add a row in `src/i18n_de.rs`. Add new core scripts to CORE in tests/i18n.sh.
 - Scheduled jobs get `onFailure` -> `hs-notify-failure@<unit>.service`. `bulk-mount.service` keeps `restartIfChanged = false`.
-- Admin UIs (Incus, Zoraxy, Arcane, Homepage, docs site) never get a Zoraxy rule. Do not re-add Cockpit/WebZFS.
+- Admin UIs (Incus, Zoraxy, Arcane, docs site) never get a Zoraxy rule. Do not re-add Cockpit/WebZFS.
 - Per-machine files `machine.toml` and `hardware-configuration.nix` are git-ignored: never create or edit them.
   New options go in `machine.toml.example` (one option per paragraph, in the right section, `# name = value` if optional; the last `name = ` line of a paragraph is the option, prose lines must not look like one), with `or default` in configuration.nix.
 - Docs for the cousin are German; commands stay English. Parts not run yet are marked "noch nicht erprobt".

@@ -130,7 +130,7 @@ Decision 2026-10-28: the project no longer depends on community-scripts (https:/
 its entry in the guided container dialog, the German guides (Container einrichten 2.4, Homeserver-Anleitung 9.2 and the curl note), the
 README row, the `var_ram`/`var_os` note in CLAUDE.md and the build dependencies configuration.nix keeps for them.
 
-Two recipes use it today and need a formula of their own first: `pelican` (panel and wings: `pelican-panel`, `pelican-wings`) and `homepage`.
+Two recipes use it today and need a formula of their own first: `pelican` (panel and wings: `pelican-panel`, `pelican-wings`) (and `homepage`, removed 2026-10-29: the dashboard is built into the web interface).
 They are written like every other recipe (`ensure_container`, `step`, `spin`, `in_ct`, from the makers' releases or images, pinned and
 checked, see "Smart updates"), asking nothing interactive, so they also become web-startable. Until both exist, `cs.sh` stays; the removal
 is the last commit of that work, not the first. A free-form installer for "any app" is not replaced: whoever wants an app we do not have
@@ -148,7 +148,7 @@ must **detect what is up to date and skip it**:
   differ, verifies the checksum, then sets the stamp. A recipe states the version it wants (a release tag, an image digest) in one
   place at the top, so a package update that moves the pin is exactly what makes it download the new thing.
 - **`ensure_image <ct> <image:tag>`** pulls only when the local image id differs from the wanted digest; **`ensure_file <path>`**
-  rewrites a config only when its generated content changed (and keeps a copy of a hand-edited one, as `homepage` does now).
+  rewrites a config only when its generated content changed (and keeps a copy of a hand-edited one, as the removed `homepage` did).
 - **`hs recipe <name> --check`** (no changes, no questions): prints one line per piece, `current` or `would update: <piece>
   (<old> -> <new>)`, exit 0 when everything is current. The web Packages page shows it as the detail of an "update available" chip.
   The plan lines of `--dry-run` become the same list, so the preview says what will really be downloaded.
@@ -185,7 +185,7 @@ interface and its generic renderers, `hs services`, the registry loader, notific
 presets, the installer. These stay capabilities of the core.
 
 Recipes that other parts reference by name (`docker` is a **need**, `zoraxy` is the reverse proxy the `reverse-proxy` capability
-manages, `homepage` is the dashboard capability's backend, `domain` is the Active Directory capability's installer, `monitoring`, `ntfy`)
+manages, `homepage` (removed 2026-10-29, the dashboard is built into the web interface) was the dashboard capability's backend, `domain` is the Active Directory capability's installer, `monitoring`, `ntfy`)
 are the **hard cases**: they ship in recipes but are marked `core = true` in the index; core CI refuses a core change that breaks
 them, and a fresh install fetches them as part of setup. Whether some should rather become a core capability is decided one by one in
 step 3, not by rule.
@@ -221,7 +221,7 @@ Each step is shippable on its own and keeps the server working.
    `hs recipe`, tests/pkg.sh; the header lines stay the source until step 2 and the test keeps both in step). `package.toml` for every capability that is an extension and every recipe (converter,
    header lines stay as the source until the loader reads the manifest, then go). Add `version` everywhere (start at `1.0.0`), the
    `HS_API_LEVEL`, `hs pkg list` / `updates` reading local files only, `installed.toml`. Tests: manifest validator, converter round trip.
-2. **Own formulas and smart updates.** `pelican` and `homepage` get installers of their own, `_lib.sh` gets the stamp and pin helpers
+2. **Own formulas and smart updates.** `pelican` gets an installer of its own, `_lib.sh` gets the stamp and pin helpers
    ("Smart updates"), `--check` on every recipe; then `cs.sh` and every community-scripts reference are removed.
 3. **Recipes get commands and pages** (built 2026-10-28: the loader and `scripts/web-serve.py` read `packages/<name>/commands.tsv` and the `[web.*]` tables of its `package.toml`; a recipe package is on once `hs recipe` has applied it; pilot `arr`: `hs ext arr status`, `hs sys ext arr status`, the page "Films and series"; `hs ext list` shows extensions only, `hs ext enable` refuses a recipe). Loader reads `commands.tsv` and `[web.page]` of recipes. Pilot: `arr` page with its services, state
    and basic counts (reads through `hs sys ext arr ...`). The generic Recipes page keeps working for recipes without a page.

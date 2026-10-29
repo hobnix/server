@@ -108,6 +108,7 @@ default_probes() {
     $'hs services check\tservices check\t0 1' \
     $'hs services plan\tservices plan\t0 1' \
     $'hs services tiles\tservices tiles\t0 1' \
+    $'hs services stats\tservices stats\t0 1' \
     $'hs gateway status\tgateway status\t0 1' \
     $'hs gateway routes\tgateway routes\t0 1' \
     $'hs gateway check\tgateway check\t0 1' \

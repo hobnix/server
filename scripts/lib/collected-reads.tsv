@@ -24,3 +24,5 @@ services routes	30
 encryption list	30
 system updates	60
 dns list	120
+services tiles	30
+services stats	30

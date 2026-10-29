@@ -387,6 +387,7 @@ if [[ " $* " != *" --dry-run "* && " $* " != *" --refresh "* ]]; then step "$(t 
 # What the recipe says about the service it set up (docs/PLAN-modular-core.md step 4): a descriptor for `hs services`, from which the dashboard
 # tile and the reverse-proxy route come. declare_service <name> <title> <icon> [exposure] [group] [description] [port]
 #   exposure: private-ok (default), or never-public for an admin page. A recipe never makes a service public: that is `hs services`.
+#   SERVICE_STATS=<lines> (optional): the live numbers of the tile, see below
 #   SERVICE_PUBLIC_NAME=<full name> (set by a recipe whose person typed a public host name): the service gets that fqdn, becomes public-ok
 #   and wants the reverse proxy; the route is still made by `hs services apply` (typed host name on a public proxy).
 # One question per provider that is set up (asked like the other preferences, remembered in recipe-<ct>.conf, --ask asks again):
@@ -411,9 +412,16 @@ declare_service() {
   fi
   # the gateway proxy (capability gateway) is private: its local name is wanted without a question, also for an admin page
   if capability_on gateway; then want+=local-proxy,; fi
+  # SERVICE_STATS (optional, one stat per line, 'kind|label|path|pointer|reduce|where|secret|auth|unit|format'): a number on the tile;
+  # a secret named stat-<service> holds the app's API key (hs services key <service>), it is never given here
+  local stat_args=() sline
+  while IFS= read -r sline; do
+    [ -z "$sline" ] || stat_args+=(--stat "$sline")
+  done <<<"${SERVICE_STATS:-}"
   # shellcheck disable=SC2086
   if out=$(bash "$scripts/services.sh" declare "$name" --container "$ct" --port "$port" --title "$title" --icon "$icon" --exposure "$exposure" \
-        --group "$group" ${desc:+--description "$desc"} ${want:+--want "${want%,}"} ${SERVICE_PUBLIC_NAME:+--public-name "$SERVICE_PUBLIC_NAME"} 2>&1); then
+        --group "$group" ${desc:+--description "$desc"} ${want:+--want "${want%,}"} ${SERVICE_PUBLIC_NAME:+--public-name "$SERVICE_PUBLIC_NAME"} \
+        ${stat_args[@]+"${stat_args[@]}"} 2>&1); then
     ok "$(t "Service '%s' is %s (hs services list)" "$name" "$out")"
     note "$(t 'Next: hs services apply (a public name is decided there: exposure public-ok)')"
     if capability_on gateway; then

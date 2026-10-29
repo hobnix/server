@@ -12,7 +12,7 @@ export const isRunning = (c) => /running/i.test(c.state);
 export const ipOf = (addr) => (/(\d+\.\d+\.\d+\.\d+)/.exec(addr || '') || [])[1] ?? '';
 
 // the icons the design gives the known instances; anything else is a cube (a VM a tower)
-export const ctIcons = { dc1: 'identification-badge', cloudflared: 'cloud', zoraxy: 'arrows-split', docker: 'shipping-container', homepage: 'house', jellyfin: 'film-strip', immich: 'images', stalwart: 'envelope-simple', 'pelican-panel': 'game-controller', 'pelican-wings': 'wind', monitoring: 'chart-line' };
+export const ctIcons = { dc1: 'identification-badge', cloudflared: 'cloud', zoraxy: 'arrows-split', docker: 'shipping-container', jellyfin: 'film-strip', immich: 'images', stalwart: 'envelope-simple', 'pelican-panel': 'game-controller', 'pelican-wings': 'wind', monitoring: 'chart-line' };
 export const ctIcon = (c) => ctIcons[c.name] ?? (isVm(c) ? 'desktop-tower' : 'cube');
 
 // A link that opens another page of this node with an item preselected (kind = the select.svelte.js kind of that page). `href` makes it a real

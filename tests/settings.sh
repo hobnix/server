@@ -64,6 +64,18 @@ check_out "machine.toml still checks out" "machine.toml is fine|CHANGEME" bash "
 check_out "a second run has nothing to move" "Nothing to move" $CFG migrate-settings
 check_eq "quiet mode (hs update, hs config sync) says nothing when there is nothing to move" "" "$(HS_QUIET_OK=1 $CFG migrate-settings 2>&1)"
 
+echo "-- migrate-settings: dashboard homepage becomes web, nothing is removed"
+mkdir -p "$HS_STATE_DIR/settings"; echo homepage > "$HS_STATE_DIR/settings/dashboard"
+export HS_INCUS=$WORK/no-incus HS_SERVICES_DIR=$WORK/svc.d
+check_out "--dry-run only says it" "dashboard = web would be set" $CFG migrate-settings --dry-run
+check_eq "--dry-run changes nothing" "homepage" "$(cat "$HS_STATE_DIR/settings/dashboard")"
+out=$($CFG migrate-settings 2>&1)
+check_eq "homepage is now web" "web" "$(cat "$HS_STATE_DIR/settings/dashboard")"
+check "it says where the dashboard is and how to remove the container" bash -c 'grep -Eq "/dashboard.*hs ct homepage remove" <<<"$1"' _ "$out"
+check "webUi off: it warns" bash -c 'grep -q "needs the web interface" <<<"$1"' _ "$out"
+check_eq "a second run says nothing about it" "0" "$($CFG migrate-settings 2>&1 | grep -c 'dashboard' || true)"
+unset HS_INCUS HS_SERVICES_DIR
+
 echo "-- the state after an update with the OLD update.sh (moved options in the closing section of machine.toml)"
 export HS_MACHINE_EXAMPLE=$ROOT/machine.toml.example
 SYNC="bash $SCRIPTS/machine-sync.sh"

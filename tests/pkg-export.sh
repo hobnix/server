@@ -20,7 +20,7 @@ check_eq "the repository has exactly one commit" "1" "$(git -C "$OUT/recipes" re
 # the built-in secret and e-mail checks run, which is all CI can do.
 pat=${HS_LEAK_PATTERNS:-$WORK/no-patterns}; [ -n "${HS_LEAK_PATTERNS:-}" ] || : > "$pat"
 check "no secrets, e-mail addresses${HS_LEAK_PATTERNS:+ or author names} in the recipes repository (leak-scan)" python3 "$SCRIPTS/dev/leak-scan.py" "$OUT/recipes" --all-files --patterns "$pat"
-check_out "core recipes are flagged" 'core = true' grep -A8 'package.homepage' "$OUT/recipes/index.toml"
+check_out "core recipes are flagged" 'core = true' grep -A8 'package.ntfy' "$OUT/recipes/index.toml"
 
 echo "-- a mistake in the index is found"
 cp -r "$OUT/recipes" "$WORK/broken"
@@ -36,8 +36,8 @@ git -C "$OUT/extensions" -c gpg.format=ssh -c user.signingkey="$WORK/key.pub" -c
 check "recipes repository added" $PKG repo add rtest "$OUT/recipes" --key "$WORK/signers"
 check "extensions repository added" $PKG repo add etest "$OUT/extensions" --key "$WORK/signers"
 check_out "fetch verifies both" "^rtest${tab}v1[.]0[.]0" $PKG fetch
-check_out "a recipe installs from the repository" "homepage 1[.]0[.]0 from rtest" $PKG install homepage
-check "its run.sh arrived" test -f "$HS_STATE_DIR/packages/current/homepage/run.sh"
+check_out "a recipe installs from the repository" "ntfy 1[.]0[.]0 from rtest" $PKG install ntfy
+check "its run.sh arrived" test -f "$HS_STATE_DIR/packages/current/ntfy/run.sh"
 check_out "an extension installs from the repository" "posters 1[.]0[.]0 from etest" $PKG install posters
 check "the installed manifests validate" $PKG validate
 check_out "hs pkg list shows both kinds" "^posters${tab}extension" $PKG list

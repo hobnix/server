@@ -8,6 +8,7 @@
   import Login from './Login.svelte';
   import Terminal from './shell/Terminal.svelte';
   import Tooltip from './ui/Tooltip.svelte';
+  import Kiosk from './dashboard/Kiosk.svelte';
 
   let user = $state(null);
   let ready = $state(false);
@@ -15,9 +16,13 @@
   const pop = new URLSearchParams(location.search).get('terminal');
   const popTitle = new URLSearchParams(location.search).get('title') ?? '';
 
+  // the full-screen dashboard: no sign-in, session() is not called
+  const kiosk = location.pathname === '/dashboard';
+
   setAuthLostHandler(() => { clearPollCache(); user = null; });
 
   onMount(async () => {
+    if (kiosk) return;
     try { user = await session(); } catch { user = null; }
     ui.features = user?.features ?? { terminal: false, vps: false };
     initLang(ui.features.language);
@@ -31,7 +36,9 @@
   }
 </script>
 
-{#if !ready}
+{#if kiosk}
+  <Kiosk />
+{:else if !ready}
   <div style="flex:1"></div>
 {:else if !user}
   <Login onsignedin={(s) => { ui.features = s?.features ?? { terminal: false, vps: false }; initLang(ui.features.language); user = s; }} />

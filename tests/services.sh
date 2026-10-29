@@ -123,9 +123,9 @@ unset HS_PROVIDER_DIR
 printf 'zoraxy' > "$HS_SETTINGS_DIR/reverseProxy"
 
 echo "-- an admin page cannot be made public-ok as a whole"
-check_out "homepage:80 public-ok is refused, with the reason" "admin page" $S add hs-test --container homepage --port 80 --exposure public-ok --want reverse-proxy
+check_out "docker:80 public-ok is refused, with the reason" "admin page" $S add hs-test --container docker --port 80 --exposure public-ok --want reverse-proxy
 check "and nothing was written" test ! -e "$HS_SERVICES_DIR/hs-test.toml"
-$S add hs-ok --container homepage --port 80 --exposure never-public --want reverse-proxy >/dev/null 2>&1
+$S add hs-ok --container docker --port 80 --exposure never-public --want reverse-proxy >/dev/null 2>&1
 check "never-public is fine for it" test -e "$HS_SERVICES_DIR/hs-ok.toml"
 $S remove hs-ok >/dev/null 2>&1
 $S add hs-paths --container docker --port 80 --exposure public-ok --public-path /api/webhooks/trigger --want reverse-proxy >/dev/null 2>&1
@@ -147,7 +147,7 @@ check "and the title" grep -q 'title = "Ghost TV 2"' "$HS_SERVICES_DIR/ghosttv.t
 check "the exposure stays what it was: a recipe never makes a service public" grep -q 'exposure = "private-ok"' "$HS_SERVICES_DIR/ghosttv.toml"
 check "a want a person set is kept" grep -q 'dashboard = false' "$HS_SERVICES_DIR/ghosttv.toml"
 check "a want that was missing is added" grep -q 'reverse-proxy = true' "$HS_SERVICES_DIR/ghosttv.toml"
-check_out "an admin page cannot be declared public-ok" "admin page" $S declare adm --container homepage --port 80 --exposure public-ok
+check_out "an admin page cannot be declared public-ok" "admin page" $S declare adm --container docker --port 80 --exposure public-ok
 check "and nothing was written for it" test ! -e "$HS_SERVICES_DIR/adm.toml"
 $S remove ghosttv >/dev/null 2>&1
 $S declare jellyfin --container jellyfin --port 8096 --title Jellyfin --icon mdi-movie-open --group Apps --description "Films" --want dashboard >/dev/null 2>&1
@@ -159,7 +159,7 @@ check_eq "one without a route links to address and port" "http://10.10.95.20:808
 check_eq "a container that is not running has no tile" "0" "$(grep -c Sleeper <<<"$tiles" || true)"
 check_eq "without a description or icon: group Apps, description -, icon mdi-application" "Apps${T}Plain${T}http://10.10.95.20:8080${T}-${T}mdi-application${T}plain" "$(grep Plain <<<"$tiles")"
 check_eq "no tile line has an empty field (bash read would shift the icon into the description)" "0" "$(awk -F"$T" '{ for (i = 1; i <= NF; i++) if ($i == "") bad++ } END { print bad + 0 }' <<<"$tiles")"
-# what homepage.sh does with the line: the same read
+# what a bash reader does with the line: the same read
 IFS="$T" read -r g ti hr de ic _ <<<"$(grep Plain <<<"$tiles")"
 check_eq "read keeps the fields in place: the icon is the icon" "mdi-application" "$ic"
 check_eq "tiles --containers names the containers that have a say" "docker jellyfin stopped" "$($S tiles --containers | tr '\n' ' ' | sed 's/ $//')"
@@ -304,8 +304,101 @@ check_out "refused" "must never be public" env HS_PROVIDER_DIR=$WORK/prov2 bash 
 export HS_SERVICES_DIR=$SAVE_SVC
 unset HS_CAPABILITIES_FILE
 
+echo "-- declare-known (containers set up before their recipe declared a service; one release)"
+DK=$WORK/dk; mkdir -p "$DK/state" "$DK/svc"
+cat > "$DK/incus" <<'EOF'
+#!/usr/bin/env bash
+case "$*" in "list -c ns -f csv") printf 'jellyfin,RUNNING\nzoraxy,RUNNING\nimmich,STOPPED\nother,RUNNING\n' ;; esac
+EOF
+chmod +x "$DK/incus"
+printf 'PORT=8001\n' > "$DK/state/recipe-zoraxy.conf"
+printf 'name = "jellyfin"\n' > "$DK/svc/jellyfin.toml"
+DKS="env HS_INCUS=$DK/incus HS_STATE_DIR=$DK/state HS_SERVICES_DIR=$DK/svc bash $SCRIPTS/services.sh declare-known"
+out=$($DKS --dry-run 2>&1)
+check_eq "--dry-run says what it would do and writes nothing" "would-create${T}zoraxy
+skip${T}jellyfin${T}already declared" "$out"
+check "dry-run: no file" test ! -e "$DK/svc/zoraxy.toml"
+out=$($DKS 2>&1)
+check_eq "creates zoraxy only; jellyfin is skipped; stopped and unknown containers are not named" "created${T}zoraxy
+skip${T}jellyfin${T}already declared" "$out"
+check "the descriptor is there" test -e "$DK/svc/zoraxy.toml"
+check_out "the port comes from recipe-zoraxy.conf" "8001" cat "$DK/svc/zoraxy.toml"
+check_out "it wants the dashboard" "dashboard" cat "$DK/svc/zoraxy.toml"
+check_eq "a second run creates nothing" "0" "$($DKS 2>&1 | grep -c '^created' || true)"
+check_eq "no empty field in the lines" "0" "$($DKS 2>&1 | awk -F"$T" '{ for (i = 1; i <= NF; i++) if ($i == "") bad++ } END { print bad + 0 }')"
+
+echo "-- stats: [[stats]] descriptors, stats-plan, stat-value"
+SP="python3 $SCRIPTS/services.py"
+SD=$WORK/stats.d; mkdir -p "$SD"
+JS='http-json|Streams|/Sessions?activeWithinSeconds=960||count|/NowPlayingItem|stat-jellyfin|mediabrowser||int'
+out=$($SP declare jellyfin --dir "$SD" --container jellyfin --port 8096 --stat "$JS" 2>&1)
+check_eq "declare --stat creates the service" "created" "$out"
+check_out "the descriptor holds a [[stats]] block" '\[\[stats\]\]' cat "$SD/jellyfin.toml"
+check_out "the stat names its secret" 'secret = "stat-jellyfin"' cat "$SD/jellyfin.toml"
+check_out "the empty pointer is written" 'pointer = ""' cat "$SD/jellyfin.toml"
+check "the descriptor is valid" $SP check --dir "$SD"
+$SP declare jellyfin --dir "$SD" --container jellyfin --port 8096 --icon mdi-movie >/dev/null 2>&1
+check_out "no --stat keeps the stats" 'label = "Streams"' cat "$SD/jellyfin.toml"
+$SP declare jellyfin --dir "$SD" --stat 'http-json|Films|/Items/Counts|/MovieCount|||stat-jellyfin|mediabrowser||int' >/dev/null 2>&1
+check_eq "--stat replaces them" "1" "$(grep -c '^label' "$SD/jellyfin.toml")"
+check_out "the new one is there" 'label = "Films"' cat "$SD/jellyfin.toml"
+$SP declare jellyfin --dir "$SD" --no-stats >/dev/null 2>&1
+check_eq "--no-stats removes them" "0" "$(grep -c 'stats' "$SD/jellyfin.toml" || true)"
+$SP declare jellyfin --dir "$SD" --stat "$JS" >/dev/null 2>&1
+check_out "a stat with a wrong field count is refused" "needs 10 fields" $SP declare jellyfin --dir "$SD" --stat 'http-json|x'
+
+bad() {   # bad "what" "stat" "text of the problem"
+  rm -rf "$SD/b.d"; mkdir -p "$SD/b.d"
+  local o; o=$($SP declare b --dir "$SD/b.d" --container jellyfin --port 80 --stat "$2" 2>&1) || true
+  case "$o" in *"$3"*) pass "$1" ;; *) fail "$1 (got: $o)" ;; esac
+}
+bad "a path with // is refused" 'http-json|X|/a//b|||||||' "path must"
+bad "a path with @ is refused" 'http-json|X|/a@b|||||||' "path must"
+bad "a path with .. is refused" 'http-json|X|/a/../b|||||||' "path must"
+bad "a path without a slash is refused" 'http-json|X|a|||||||' "path must"
+bad "a label over 24 characters is refused" 'http-json|0123456789012345678901234|/a|||||||' "label must"
+bad "an unknown kind is refused" 'shell|X|/a|||||||' "kind must"
+bad "a secret without auth is refused" 'http-json|X|/a||||stat-x|||' "secret needs auth"
+bad "a foreign secret name is refused" 'http-json|X|/a||||restic-password|bearer||' "secret must"
+bad "an unknown auth is refused" 'http-json|X|/a||||stat-x|basic||' "auth must"
+bad "where without count is refused" 'http-json|X|/a|||/b||||' "where needs"
+bad "a pointer without a slash is refused" 'http-json|X|/a|abc||||||' "pointer must"
+bad "a unit over 8 characters is refused" 'http-json|X|/a||||||123456789|' "unit must"
+bad "an unknown format is refused" 'http-json|X|/a|||||||hex' "format must"
+printf 'name = "u"\ncontainer = "jellyfin"\nport = 80\n[[stats]]\nkind = "http-json"\nlabel = "X"\npath = "/a"\nrun = "rm"\n' > "$SD/u.toml"
+check_out "an unknown key is refused" "unknown key run" $SP check --dir "$SD"
+rm -f "$SD/u.toml"
+printf 'name = "f"\ncontainer = "jellyfin"\nport = 80\n' > "$SD/f.toml"
+for i in 1 2 3 4; do printf '[[stats]]\nkind = "http-json"\nlabel = "X"\npath = "/a"\n' >> "$SD/f.toml"; done
+check_out "four stats are refused" "at most 3" $SP check --dir "$SD"
+rm -f "$SD/f.toml"
+
+printf 'jellyfin\t10.10.95.50\n' > "$WORK/stats-addrs"
+$SP declare web --dir "$SD" --host 192.168.1.9 --port 8443 --scheme https --stat 'http-json|Up|/s|||||||text' >/dev/null 2>&1
+$SP declare ghost --dir "$SD" --container nowhere --port 80 --stat 'http-json|X|/a|||||||' >/dev/null 2>&1
+out=$($SP stats-plan --dir "$SD" --addrs "$WORK/stats-addrs" 2>&1)
+check_eq "stats-plan: own address, secret and auth, - for none; no address, no line" "jellyfin${T}0${T}http://10.10.95.50:8096/Sessions?activeWithinSeconds=960${T}stat-jellyfin${T}mediabrowser
+web${T}0${T}https://192.168.1.9:8443/s${T}-${T}-" "$out"
+
+sv() {   # sv JSON STAT: the value stat-value prints for that body
+  rm -rf "$SD/v.d"; mkdir -p "$SD/v.d"
+  $SP declare v --dir "$SD/v.d" --container jellyfin --port 80 --stat "$2" >/dev/null 2>&1
+  printf '%s' "$1" | $SP stat-value v 0 --dir "$SD/v.d" 2>&1
+}
+check_eq "pointer, int" "7" "$(sv '{"a":{"b":7}}' 'http-json|X|/a|/a/b||||||')"
+check_eq "pointer into a list, ~1 escape" "5" "$(sv '{"a/b":[1,5]}' 'http-json|X|/a|/a~1b/1||||||')"
+check_eq "count" "3" "$(sv '[1,2,3]' 'http-json|X|/a||count|||||')"
+check_eq "count + where" "2" "$(sv '[{"N":{"a":1}},{"N":null},{"N":"x"},{"M":1}]' 'http-json|X|/a||count|/N||||')"
+check_eq "float1" "3.5" "$(sv '{"v":3.456}' 'http-json|X|/a|/v||||||float1')"
+check_eq "text is cut at 24" "012345678901234567890123" "$(sv '{"v":"0123456789012345678901234567"}' 'http-json|X|/a|/v||||||text')"
+for c in 'a miss|{"a":1}|/b|int' 'a text for int|{"a":"x"}|/a|int' 'a bool for int|{"a":true}|/a|int' 'a dict for text|{"a":{}}|/a|text'; do
+  IFS='|' read -r nm js pt fm <<< "$c"
+  sv "$js" "http-json|X|/a|$pt||||||$fm" > "$WORK/sv.out" 2>&1 && rc=0 || rc=$?
+  check_eq "$nm: exit 1 and nothing printed" "1:" "$rc:$(cat "$WORK/sv.out")"
+done
+
 echo "-- registry"
-for w in "services list" "services check" "services plan" "services add" "services remove" "services import"; do
+for w in "services list" "services check" "services plan" "services add" "services remove" "services import" "services declare-known"; do
   check "user row: $w" grep -q "^user${T}$w${T}services.sh${T}" "$SCRIPTS/lib/registry.tsv"
 done
 for w in "sys services list" "sys services plan"; do

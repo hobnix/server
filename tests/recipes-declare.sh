@@ -8,7 +8,6 @@ R=$ROOT/packages
 
 # recipe -> why it declares nothing
 declare -A NONE=(
-  [homepage]="the dashboard does not list itself"
   [pelican]="two containers (panel and Wings): declared by hand for now"
   [stalwart]="the web page is the mail server's admin page on https"
   [livekit]="not a web page"

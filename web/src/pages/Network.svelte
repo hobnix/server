@@ -171,7 +171,7 @@
         {:else}<span class="goes"><StatusDot state={ruleDot(r.status)} bare label={r.status} />{r.where}:{r.port}{#if r.status === 'WARN'}<span class="tag tag-neutral" style="color:var(--bad)">admin interface</span>{/if}</span>{/if}
       {/snippet}
     </Table>
-    <div class="note">Every rule is reachable from the internet. Admin interfaces (Incus, Zoraxy, Arcane, Homepage, Grafana, docs) have no rule on purpose. Games go through the proxyserver instead.</div>
+    <div class="note">Every rule is reachable from the internet. Admin interfaces (Incus, Zoraxy, Arcane, Grafana, docs) have no rule on purpose. Games go through the proxyserver instead.</div>
   </div>
 
 {:else if tab === 'dns'}

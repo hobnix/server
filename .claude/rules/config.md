@@ -84,7 +84,7 @@ Loaded when you touch the files above (path-scoped rule). The root CLAUDE.md has
 
 - `incusUi` in machine.toml (default true) -> /etc/hs/incus-ui (on|off). Off: no Incus web UI, port 8443
   closed, no `core.https_address` in the preseed (an address set earlier stays until you unset it by hand:
-  `incus config unset core.https_address`), no Incus tile in the Homepage.
+  `incus config unset core.https_address`), no Incus tile on the dashboard.
 
 - New servers are installed with install.nix (minimal, no pools needed), then switched to
   configuration.nix once the pools exist. No config editing in between.
