@@ -245,6 +245,12 @@ there while its package is installed.
 The web interface runs recipes too: **Instances > Apps** shows the list with a form for the questions. A recipe that needs a person at a
 terminal (one that asks you to type a password into a setup) says so and runs only from the command line.
 
+A recipe that has a web page registers it as a service. While a reverse proxy is set (`reverseProxy`), it asks two more questions for
+a service that may be public: "Make '<title>' public?" (default no) and, on yes, "Public name?" (default `<service>.<first entry of
+proxyDomains>`). The answers are stored in `/var/lib/hs/recipe-<container>.conf`. Preset them with `RECIPE_PUBLIC_<NAME>=yes` and
+`RECIPE_PUBLIC_NAME_<NAME>=media.example.org` (terminal), or `--set PUBLIC_<NAME>=yes` through `hs sys recipes plan|start`. Admin pages never
+ask. A recipe only registers the wish: the route appears with `hs services apply`. Not tested on hardware yet.
+
 Two rules hold for every recipe. An admin page (Incus, the reverse proxy, a Docker manager, the dashboard, the docs, Grafana) never gets a
 public route. And nothing becomes public by itself: reaching a service from the internet is a separate, deliberate step with
 `hs services`, which asks you to type the host name.

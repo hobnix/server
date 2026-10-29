@@ -2,7 +2,7 @@
 # help: small server chores without asking anything: a test push message, pin the MACs, move the upload cache, clean the fans (plan, then start)
 # help.de: kleine Wartungsaufgaben ohne Rückfragen: eine Test-Push-Nachricht, MAC-Adressen festnageln, den Upload-Cache leeren, Lüfter reinigen (plan, dann start)
 # args: plan|start test-push | pin-macs | cache-mover | fans-clean [--seconds N]
-# System command (hs sys admin plan|start): for the interface and tests. It never asks and prints plain key<TAB>value lines like dns-change.sh.
+# System command (hs sys admin plan|start): for the interface and tests. It never asks and prints plain key<TAB>value lines like backup-change.sh.
 # The work is health.sh's, mac.sh's, cache-mover.sh's and fans.sh's (no logic is repeated here).
 #   test-push    send a test message to the push address (health.sh test); refused while no address is set (hs config set notifyUrl ...). Answers done.
 #   pin-macs     pin the current MAC address of every instance (mac.sh; harmless, it only writes what is there already). Answers done.

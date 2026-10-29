@@ -69,6 +69,7 @@ setting() {
 a_port='[1-9][0-9]{0,3}|[1-5][0-9]{4}|6[0-4][0-9]{3}|65[0-4][0-9]{2}|655[0-2][0-9]|6553[0-5]'
 a_number='[1-9][0-9]*'
 a_name='[A-Za-z0-9][A-Za-z0-9._-]*'
+a_fqdn='([a-z0-9]([a-z0-9-]*[a-z0-9])?\.)+[a-z]{2,}'
 
 # The port of the app's web page. A container has its own address, so 80 is
 # free and saves typing a port in the browser. $2: the port an install from
@@ -386,12 +387,14 @@ if [[ " $* " != *" --dry-run "* && " $* " != *" --refresh "* ]]; then step "$(t 
 
 # What the recipe says about the service it set up (docs/PLAN-modular-core.md step 4): a descriptor for `hs services`, from which the dashboard
 # tile and the reverse-proxy route come. declare_service <name> <title> <icon> [exposure] [group] [description] [port]
-#   exposure: private-ok (default), or never-public for an admin page. A recipe never makes a service public: that is `hs services`.
+#   exposure: private-ok (default), or never-public for an admin page (never asks about a public name).
 #   SERVICE_STATS=<lines> (optional): the live numbers of the tile, see below
 #   SERVICE_PUBLIC_NAME=<full name> (set by a recipe whose person typed a public host name): the service gets that fqdn, becomes public-ok
-#   and wants the reverse proxy; the route is still made by `hs services apply` (typed host name on a public proxy).
-# One question per provider that is set up (asked like the other preferences, remembered in recipe-<ct>.conf, --ask asks again):
-# "show it on the dashboard?" (default yes) and "put it on the reverse proxy?" (default no). The answers go into the service's `want`;
+#   and wants the reverse proxy; the route is still made by `hs services apply` (typed host name on a public proxy). It overrides the questions.
+#   SERVICE_NO_DASHBOARD=1: no dashboard question and no tile (the start page itself).
+# Questions per provider that is set up (asked like the other preferences, remembered in recipe-<ct>.conf, --ask asks again):
+# "show it on the dashboard?" (default yes), "make it public?" (default no) and, on yes, "public name?" (default <name>.<first proxyDomains>;
+# RECIPE_PUBLIC_<KEY>, RECIPE_PUBLIC_NAME_<KEY> preset them). The answers go into the service's `want`;
 # a service that exists keeps what a person set (exposure, names, wants); the facts the recipe knows (port, title, icon) are refreshed.
 declare_service() {
   local name=$1 title=$2 icon=$3 exposure=${4:-private-ok} group=${5:-Apps} desc=${6:-} port=${7:-${PORT:-}} key var want="" out
@@ -400,16 +403,24 @@ declare_service() {
   if [ -n "${RECIPE_NAME:-}" ] && [ "$ct" != "$name" ]; then name=$ct; title="$title ($ct)"; fi
   key=${name//-/_}; key=${key^^}
   step "Service"
-  if [ -n "$(setting_get dashboard 2>/dev/null || true)" ]; then
+  if [ "${SERVICE_NO_DASHBOARD:-}" != 1 ] && [ -n "$(setting_get dashboard 2>/dev/null || true)" ]; then
     setting "DASH_$key" "$(t "Show '%s' on the dashboard?" "$title")" yes yes 'yes|no'
     var=DASH_$key; [ "${!var}" != yes ] || want+=dashboard,
   fi
+  local pub="" dom pvar nvar
   if [ -n "${SERVICE_PUBLIC_NAME:-}" ]; then
-    want+=reverse-proxy,
-  elif [ -n "$(setting_get reverseProxy 2>/dev/null || true)" ]; then
-    setting "PROXY_$key" "$(t "Put '%s' on the reverse proxy?" "$title")" no no 'yes|no'
-    var=PROXY_$key; [ "${!var}" != yes ] || want+=reverse-proxy,
+    pub=$SERVICE_PUBLIC_NAME
+  elif [ "$exposure" != never-public ] && [ -n "$(setting_get reverseProxy 2>/dev/null || true)" ]; then
+    setting "PUBLIC_$key" "$(t "Make '%s' public?" "$title")" no no 'yes|no'
+    pvar=PUBLIC_$key
+    if [ "${!pvar}" = yes ]; then
+      dom=$(setting_get proxyDomains 2>/dev/null | tr -d ' ' | cut -d, -f1 || true)
+      setting "PUBLIC_NAME_$key" "$(t 'Public name?')" "${dom:+$name.$dom}" "${dom:+$name.$dom}" "$a_fqdn"
+      nvar=PUBLIC_NAME_$key; pub=${!nvar}
+      [[ "$pub" =~ ^($a_fqdn)$ ]] || { warn "$(t "'%s' stays private: there is no public name (hs config set proxyDomains, or RECIPE_PUBLIC_NAME_%s)" "$title" "$key")"; pub=""; }
+    fi
   fi
+  [ -z "$pub" ] || want+=reverse-proxy,
   # the gateway proxy (capability gateway) is private: its local name is wanted without a question, also for an admin page
   if capability_on gateway; then want+=local-proxy,; fi
   # SERVICE_STATS (optional, one stat per line, 'kind|label|path|pointer|reduce|where|secret|auth|unit|format'): a number on the tile;
@@ -420,13 +431,14 @@ declare_service() {
   done <<<"${SERVICE_STATS:-}"
   # shellcheck disable=SC2086
   if out=$(bash "$scripts/services.sh" declare "$name" --container "$ct" --port "$port" --title "$title" --icon "$icon" --exposure "$exposure" \
-        --group "$group" ${desc:+--description "$desc"} ${want:+--want "${want%,}"} ${SERVICE_PUBLIC_NAME:+--public-name "$SERVICE_PUBLIC_NAME"} \
+        --group "$group" ${desc:+--description "$desc"} ${want:+--want "${want%,}"} ${pub:+--public-name "$pub"} \
         ${stat_args[@]+"${stat_args[@]}"} 2>&1); then
     ok "$(t "Service '%s' is %s (hs services list)" "$name" "$out")"
     note "$(t 'Next: hs services apply (a public name is decided there: exposure public-ok)')"
     if capability_on gateway; then
       SPIN_SOFT=1 spin "$(t 'Local name for %s' "$name")" bash "$scripts/services.sh" apply --proxy local --adds-only
       . "$scripts/lib/localdomain.sh"
+      local ld
       ld=$(local_domain)
       [ -z "$ld" ] || note "$(t 'Local address: http://%s.%s' "$name" "$ld")"
     fi

@@ -3,14 +3,16 @@
   import CreateDialog from '../../shell/CreateDialog.svelte';
   import Switch from '../../ui/Switch.svelte';
 
-  let { onclose, ondone } = $props();
+  // `row` (from the Edit row action): the forwarded domain to change. `add` on a forwarded domain replaces its target, the plan says so.
+  let { onclose, ondone, row = null } = $props();
 
-  let domain = $state('');
-  let address = $state('');
-  let httpsPort = $state('443');
-  let httpPort = $state('80');
-  let forwardHttp = $state(true);
-  let proxy = $state(false);
+  const dash = (v) => (v && v !== '-' ? v : '');
+  let domain = $state(row?.domain ?? '');
+  let address = $state(dash(row?.address));
+  let httpsPort = $state(dash(row?.https) || '443');
+  let httpPort = $state(dash(row?.http) || '80');
+  let forwardHttp = $state(row ? !!dash(row.http) : true);
+  let proxy = $state(row?.proxy === 'on');
   let containerOk = $state(false);   // never pre-ticked: shown only once the plan refuses a container of this server
 
   // the plan answers "needs address" while it is empty and refuses a domain or address the script does not accept
@@ -28,11 +30,11 @@
   };
 </script>
 
-<CreateDialog title="Forward a domain" kicker="Add" area="ext/passthrough" {args} {onclose} {ondone}>
+<CreateDialog title={row ? 'Change ' + row.domain : 'Forward a domain'} kicker={row ? 'Edit' : 'Add'} area="ext/passthrough" {args} {onclose} {ondone}>
   {#snippet form(plan)}
     <div class="field">
       <label for="pt-domain">Domain</label>
-      <input id="pt-domain" class="input" bind:value={domain} placeholder="example.com" maxlength="64" autocomplete="off" spellcheck="false" />
+      <input id="pt-domain" class="input" bind:value={domain} readonly={!!row} placeholder="example.com" maxlength="64" autocomplete="off" spellcheck="false" />
     </div>
     <div class="field">
       <label for="pt-address">Address of the reverse proxy on the LAN</label>

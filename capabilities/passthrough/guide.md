@@ -72,6 +72,13 @@ sudo hs ext passthrough add example.com 192.168.1.20 --proxy-protocol
 sudo hs ext passthrough add example.com 192.168.1.20 --no-http
 ```
 
+## Change a domain
+Run `add` again for a domain that is forwarded already: the target, the ports and the PROXY protocol are replaced, and the plan says so. In the web interface use the pencil in the row of the domain; the form starts with the current values and the domain cannot be changed. Not tested on hardware yet.
+
+```bash
+sudo hs ext passthrough add example.com 192.168.1.21 --proxy-protocol
+```
+
 ## Stop forwarding
 **Visitors of the domain and its subdomains get no answer until it is added again.** You type the domain to confirm.
 

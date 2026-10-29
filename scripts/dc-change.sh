@@ -2,7 +2,7 @@
 # help: certificates of the domain controller without asking anything: what would happen (plan), then do it (start)
 # help.de: Zertifikate des Domänencontrollers ohne Rückfragen: was passieren würde (plan), dann ausführen (start)
 # args: plan|start ca | renew [--dc <instance>] [--confirm <instance>]
-# System command (hs sys dc plan|start): for the interface and tests. It never asks and prints plain key<TAB>value lines like dns-change.sh.
+# System command (hs sys dc plan|start): for the interface and tests. It never asks and prints plain key<TAB>value lines like backup-change.sh.
 # The work is dc-cert.sh's (no logic is repeated here). The read is `hs sys dc state`.
 #   ca      make the small CA of this setup (once; key in the vault, certificate in /var/lib/hs). Refused when it exists; answers done.
 #   renew   a new certificate for the controller that runs on THIS server: new key inside the controller, signed by the CA of this server,

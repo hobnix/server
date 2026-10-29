@@ -97,7 +97,7 @@
         {:else if col.key === 'exposure'}<span class="tag {s.exposure === 'public-ok' ? 'tag-accent' : 'tag-neutral'}">{s.exposure}</span>
         {:else if col.key === 'names'}<span class="c">{dash(s.names)}</span>
         {:else if col.key === 'wants'}<span class="c">{dash(s.wants)}</span>
-        {:else}<button class="btn btn-ghost btn-icon rm" use:tip={`Forget the description of ${s.name} (its routes stay)`} aria-label="Forget {s.name}" onclick={() => openPlan('routes', ['remove', s.name], 'Forget ' + s.name)}><i class="ph ph-x"></i></button>{/if}
+        {:else}<button class="btn btn-ghost btn-icon rm" use:tip={`Change ${s.name}`} aria-label="Change {s.name}" onclick={() => openCreate(ServiceForm, { edit: s.name })}><i class="ph ph-pencil-simple"></i></button><button class="btn btn-ghost btn-icon rm" use:tip={`Forget the description of ${s.name} (its routes stay)`} aria-label="Forget {s.name}" onclick={() => openPlan('routes', ['remove', s.name], 'Forget ' + s.name)}><i class="ph ph-x"></i></button>{/if}
       {/snippet}
     </Table>
   </div>

@@ -77,7 +77,7 @@
 
 <svelte:window onkeydown={(e) => e.key === 'Escape' && onclose()} />
 
-<div class="dialog-backdrop" role="presentation" style="z-index:50" onclick={(e) => e.target === e.currentTarget && onclose()}>
+<div class="dialog-backdrop" role="presentation" style="z-index:50">
   <div class="dialog wide" role="dialog" aria-modal="true" aria-labelledby="cdt">
     <div class="left">
       <div>

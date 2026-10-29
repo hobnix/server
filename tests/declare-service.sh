@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # declare_service (scripts/recipes/_lib.sh, docs/PLAN-modular-core.md step 4e): what a recipe says about its service becomes a descriptor for
-# `hs services`; the questions are asked per provider that is set up and remembered; a recipe never makes a service public.
+# `hs services`; the questions are asked per provider that is set up and remembered; a service becomes public only when the person says so.
 # A stub recipe sources the real _lib.sh with a fake incus; no root, no server.
 # shellcheck source=tests/lib.sh
 . "$(dirname "$0")/lib.sh"
@@ -40,23 +40,40 @@ check "the answer is remembered per container" grep -q '^DASH_DEMO2=yes' "$HS_ST
 RECIPE_DASH_DEMO3=no DEMO_CT=demo3 run demo3 "Demo 3" mdi-test >/dev/null
 check "RECIPE_DASH_<NAME>=no leaves the tile out" bash -c '! grep -q "dashboard = true" "$1"' _ "$HS_SERVICES_DIR/demo3.toml"
 
-echo "-- a reverse proxy is set up: asked (default no)"
+echo "-- a reverse proxy is set up: asked 'public?' (default no)"
 printf 'zoraxy' > "$HS_SETTINGS_DIR/reverseProxy"
 DEMO_CT=demo4 run demo4 "Demo 4" mdi-test >/dev/null
-check "not put on the proxy by default" bash -c '! grep -q "reverse-proxy = true" "$1"' _ "$HS_SERVICES_DIR/demo4.toml"
+check "not public by default" bash -c '! grep -q "reverse-proxy = true" "$1"' _ "$HS_SERVICES_DIR/demo4.toml"
+check "private-ok" grep -q 'exposure = "private-ok"' "$HS_SERVICES_DIR/demo4.toml"
+check "the answer is remembered" grep -q '^PUBLIC_DEMO4=no' "$HS_STATE_DIR/recipe-demo4.conf"
 check "but the tile is" grep -q 'dashboard = true' "$HS_SERVICES_DIR/demo4.toml"
-RECIPE_PROXY_DEMO5=yes DEMO_CT=demo5 run demo5 "Demo 5" mdi-test >/dev/null
-check "RECIPE_PROXY_<NAME>=yes puts it on the proxy" grep -q 'reverse-proxy = true' "$HS_SERVICES_DIR/demo5.toml"
-check "and it is still not public" grep -q 'exposure = "private-ok"' "$HS_SERVICES_DIR/demo5.toml"
+printf 'example.org' > "$HS_SETTINGS_DIR/proxyDomains"
+RECIPE_PUBLIC_DEMO5=yes DEMO_CT=demo5 run demo5 "Demo 5" mdi-test >/dev/null
+check "RECIPE_PUBLIC_<NAME>=yes: the default name is <name>.<first proxy domain>" grep -q 'fqdn = \["demo5.example.org"\]' "$HS_SERVICES_DIR/demo5.toml"
+check "public-ok" grep -q 'exposure = "public-ok"' "$HS_SERVICES_DIR/demo5.toml"
+check "it wants the reverse proxy" grep -q 'reverse-proxy = true' "$HS_SERVICES_DIR/demo5.toml"
+RECIPE_PUBLIC_NAME_DEMO9=media.example.net RECIPE_PUBLIC_DEMO9=yes DEMO_CT=demo9 run demo9 "Demo 9" mdi-test >/dev/null
+check "RECIPE_PUBLIC_NAME_<NAME> sets the public name" grep -q 'fqdn = \["media.example.net"\]' "$HS_SERVICES_DIR/demo9.toml"
+RECIPE_PUBLIC_ADM2=yes DEMO_CT=adm2 run adm2 "Adm 2" mdi-test never-public >/dev/null
+check "never-public: no reverse proxy, whatever the answer" bash -c '! grep -q "reverse-proxy = true" "$1"' _ "$HS_SERVICES_DIR/adm2.toml"
+check "and no PUBLIC_ line (the question is not asked)" bash -c '! grep -q "^PUBLIC_" "$1"' _ "$HS_STATE_DIR/recipe-adm2.conf"
+rm -f "$HS_SETTINGS_DIR/proxyDomains"
+out=$(RECIPE_PUBLIC_DEMO10=yes DEMO_CT=demo10 run demo10 "Demo 10" mdi-test)
+check_out "public yes without a proxy domain: it says it stays private" "stays private" echo "$out"
+check "and is private-ok" grep -q 'exposure = "private-ok"' "$HS_SERVICES_DIR/demo10.toml"
+check "without the reverse proxy" bash -c '! grep -q "reverse-proxy = true" "$1"' _ "$HS_SERVICES_DIR/demo10.toml"
+SERVICE_NO_DASHBOARD=1 DEMO_CT=demo11 run demo11 "Demo 11" mdi-test >/dev/null
+check "SERVICE_NO_DASHBOARD=1: no tile" bash -c '! grep -q "dashboard = true" "$1"' _ "$HS_SERVICES_DIR/demo11.toml"
+check "and no DASH_ question" bash -c '! grep -q "^DASH_" "$1"' _ "$HS_STATE_DIR/recipe-demo11.conf"
 
 echo "-- never-public, a name with a dash, running again"
 DEMO_CT=demo-six run demo-six "Demo Six" mdi-test never-public Monitoring >/dev/null
 check "an admin page is never-public" grep -q 'exposure = "never-public"' "$HS_SERVICES_DIR/demo-six.toml"
 check "a dash in the name is fine for the setting (DASH_DEMO_SIX)" grep -q '^DASH_DEMO_SIX=' "$HS_STATE_DIR/recipe-demo-six.conf"
-sed -i 's/exposure = "private-ok"/exposure = "public-ok"/' "$HS_SERVICES_DIR/demo5.toml"   # a person made it public
-DEMO_PORT=9090 DEMO_CT=demo5 run demo5 "Demo Five" mdi-test >/dev/null
-check "running again refreshes the port and the title" bash -c 'grep -q "port = 9090" "$1" && grep -q "title = \"Demo Five\"" "$1"' _ "$HS_SERVICES_DIR/demo5.toml"
-check "but keeps what a person decided (public-ok)" grep -q 'exposure = "public-ok"' "$HS_SERVICES_DIR/demo5.toml"
+sed -i 's/exposure = "private-ok"/exposure = "public-ok"/' "$HS_SERVICES_DIR/demo4.toml"   # a person made it public
+DEMO_PORT=9090 DEMO_CT=demo4 run demo4 "Demo Four" mdi-test >/dev/null
+check "running again refreshes the port and the title" bash -c 'grep -q "port = 9090" "$1" && grep -q "title = \"Demo Four\"" "$1"' _ "$HS_SERVICES_DIR/demo4.toml"
+check "but keeps what a person decided (public-ok)" grep -q 'exposure = "public-ok"' "$HS_SERVICES_DIR/demo4.toml"
 out=$(DEMO_PORT= DEMO_CT=demo7 run demo7 "Demo 7" mdi-test || true)
 check "without a port nothing is declared (a recipe without a web page)" test ! -e "$HS_SERVICES_DIR/demo7.toml"
 

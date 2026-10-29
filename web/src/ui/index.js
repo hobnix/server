@@ -15,3 +15,4 @@ export { default as Split } from './Split.svelte';
 // new in shell/: Halftone, PageHeader, PageState (loading, empty, error with stale data), PageFrame (locked, off, unreachable: the shell does it)
 export { default as Tooltip } from './Tooltip.svelte';   // mounted once in App.svelte; a control asks for it: <button use:tip={'text'}>
 export { tip } from './tooltip.svelte.js';
+export { backdropClose } from './backdrop.js';           // read-only dialogs only: <div class="dialog-backdrop" use:backdropClose={close}>

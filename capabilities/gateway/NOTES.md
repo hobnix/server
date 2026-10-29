@@ -40,9 +40,9 @@ module from adding `providers.file.filename`, which cannot sit beside `directory
 
 ## DNS
 One wildcard record `*.<site>` A <host ip>, made ONCE BY A PERSON (it needs the DC administrator's password; hs never asks for it). hs only
-checks it (`hs gateway check`, the first-run item `gateway-dns`). `hs dns sync` never plans, changes or removes a record whose name is `*` or
-starts with `*.` (dns.sh `is_hand`). An explicit record beats the wildcard: names `hs dns sync` writes for containers go straight to the
-container; `hs services plan --proxy local` says so in the note column.
+checks it (`hs gateway check`, the first-run item `gateway-dns`). hs writes no DNS records any more (the sync was removed 2026-10-29); `hs dns clean` never touches a record whose
+name is `*` or starts with `*.`. An explicit record beats the wildcard: leftovers of the old sync go straight to the container (dns.sh `raw`
+feeds the explicit list); `hs services plan --proxy local` says so in the note column.
 
 ## Local HTTPS (out of scope; plug-in point)
 An entrypoint `lan-https` on :443 (free, because the router forwards to 4443); local routers get `tls: {}` and a certificate from the file

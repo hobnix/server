@@ -58,12 +58,9 @@ class Changes(unittest.TestCase):
 
     def test_no_stdin_no_confirm_word_for_these(self):
         self.assertFalse(ok("disk", ["sdg1", "temp-mount"], stdin="x"))
-        self.assertFalse(ok("dns", ["sync"], stdin="x"))
 
-    def test_dns_sync(self):
-        self.assertTrue(ok("dns", ["sync"]))
-        for bad in (["sync", "--yes"], ["sync", "--dry-run"], ["list"], ["add", "x"], [], ["SYNC"], ["sync;ls"]):
-            self.assertFalse(ok("dns", bad), bad)
+    def test_dns_sync_is_gone(self):
+        self.assertNotIn("dns", ws.CHANGES)
 
     def test_offsite_buttons_only_now_and_off(self):
         self.assertTrue(ok("backup", ["offsite-now"]))
@@ -102,11 +99,10 @@ class Reads(unittest.TestCase):
                 if c[0] == "sys":
                     rows[c[1]] = c
         for name, script, fixed in (("sys unifi networks", "unifi.sh", "networks"), ("sys unifi clients", "unifi.sh", "clients"),
-                                    ("sys ports list", "ports.sh", "--list"), ("sys dns list", "dns.sh", "raw"),
-                                    ("sys dns plan <action>", "dns-change.sh", "plan {1} {rest}"),
-                                    ("sys dns start <action>", "dns-change.sh", "start {1} {rest}")):
+                                    ("sys ports list", "ports.sh", "--list"), ("sys dns list", "dns.sh", "raw")):
             self.assertIn(name, rows)
             self.assertEqual(rows[name][2:4], [script, fixed], name)
+        self.assertNotIn("sys dns plan <action>", rows)
 
 
 if __name__ == "__main__":

@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # help: the services of this server (a web page, an API ...) and where they are published: list, check, plan, add, remove, import
 # help.de: die Dienste dieses Servers (eine Weboberfläche, eine API ...) und wo sie veröffentlicht sind: list, check, plan, add, remove, import
-# args: list | check | plan | add <name> --port <n> (--container <ct> | --host <h>) [...] | remove <name> | import [--dry-run] [--yes]
+# args: list | check | plan | add <name> --port <n> (--container <ct> | --host <h>) [...] | edit <name> [...] | show <name> | remove <name> | import [--dry-run] [--yes]
 # A service is a small file in /var/lib/hs/services.d (scripts/services.py describes it). Recipes and people write them; the providers
 # (the reverse proxy, later DNS, the dashboard ...) are asked to match them. Nothing here changes a proxy yet: `plan` shows what a
 # provider has and what the services want, `import` makes services out of the routes the proxy has today (docs/PLAN-modular-core.md step 4).
@@ -12,7 +12,8 @@
 #                                       unresolved, unmanaged (plain: act, host, path, target, service, note; hs sys services plan)
 #   hs services add <name> --port N (--container C | --host H) [--title T] [--names a,b] [--fqdn x.y] [--exposure E]
 #                    [--public-path /p] [--want reverse-proxy,dns] [--icon I] [--health /]
-#   hs services remove <name>           the description only; routes the proxy has stay (plan shows them as unmanaged)
+#   hs services set <name> [--local yes|no] [--public yes|no] [--public-name FQDN]   change an existing service (routes: apply)
+#   hs services remove <name>        the description only; routes the proxy has stay (plan shows them as unmanaged)
 #   hs services import [--dry-run] [--yes]   one service per route the proxy has, public ones marked public-ok (admin pages never-public)
 #   hs services apply [--dry-run] [--confirm <host or service>]...   do what the plan says: add, confirm (publish on the internet),
 #                    change (a route hs made or adopted gets another target) and remove (a route hs made or adopted that no service wants
@@ -46,7 +47,7 @@ svc() { PYTHONUTF8=1 "$py" "$here/services.py" "$@"; }
 interactive() { [ -t 0 ] && [ -t 1 ] && [ -z "${HS_CALLER:-}" ] || [ -n "${HS_GUIDED_TTY:-}" ]; }
 
 usage() {
-  say "usage: hs services list | check | plan | add <name> ... | remove <name> | import [--dry-run] [--yes] | apply [--dry-run] [--confirm <host or service>] | adopt [--yes] | proxy login | stats | key <service>   (plan, apply, import, adopt: [--proxy public|local])"
+  say "usage: hs services list | check | plan | add <name> ... | edit <name> ... | remove <name> | import [--dry-run] [--yes] | apply [--dry-run] [--confirm <host or service>] | adopt [--yes] | proxy login | stats | key <service>   (plan, apply, import, adopt: [--proxy public|local])"
   exit 1
 }
 
@@ -297,6 +298,12 @@ case "$cmd" in
       svc plan --info "$work/info.tsv" --routes "$work/routes.tsv" --addrs "$work/addrs.tsv" --owned "$work/owned.tsv" ${slot_args[@]+"${slot_args[@]}"} > "$work/plan.tsv" &&
         extra=(--plan "$work/plan.tsv" --info "$work/info.tsv")
     fi
+    if capability_on gateway; then   # a service with a gateway name links to <name>.<siteName>.<domain>
+      declare -F machine_get >/dev/null || . "$here/lib/machine.sh"
+      . "$here/lib/localdomain.sh"
+      ld=$(local_domain)
+      [ -z "$ld" ] || extra+=(--local-domain "$ld")
+    fi
     tiles_out=$(svc tiles --addrs "$work/addrs.tsv" ${extra[@]+"${extra[@]}"})
     if [ "${1:-}" != --table ]; then [ -z "$tiles_out" ] || printf '%s\n' "$tiles_out"; exit 0; fi   # plain: hs sys services tiles
     if [ -z "$tiles_out" ]; then note "$(t 'No service wants a tile on the dashboard (hs services declare ... --want dashboard).')"; exit 0; fi
@@ -394,6 +401,17 @@ ntfy|80|ntfy|ntfy|Apps|Push messages|private-ok'
   add)
     [ $# -ge 1 ] || usage
     svc add "$@" && ok "$(t "Service '%s' is described." "$1")" || fail "$(t "Could not add '%s'." "$1")" ;;
+  set)
+    [ $# -ge 2 ] || usage
+    svc set "$@" && ok "$(t "Service '%s' is changed (Apply makes the route)." "$1")" || fail "$(t "Could not change '%s'." "$1")" ;;
+  apps)
+    rows=$(svc apps); [ -z "$rows" ] || printf '%s\n' "$rows" ;;   # hs sys services app
+  edit)
+    [ $# -ge 1 ] || usage
+    svc edit "$@" && ok "$(t "Service '%s' is changed." "$1")" || fail "$(t "Could not change '%s'." "$1")" ;;
+  show)
+    [ $# -eq 1 ] || usage
+    svc show "$1" ;;
   remove)
     [ $# -eq 1 ] || usage
     svc remove "$1" && ok "$(t "Service '%s' is removed (its routes stay)." "$1")" || fail "$(t "'%s' is not a service." "$1")" ;;

@@ -13,6 +13,9 @@ cat > "$WORK/services.sh" <<FAKE
 echo "\$*" >> "$CALLS"
 case "\$1" in
   list) printf 'jellyfin${T}Jellyfin${T}jellyfin:8096${T}private-ok${T}-${T}reverse-proxy\n' ;;
+  show) [ "\$2" = jellyfin ] || exit 3; printf 'name${T}jellyfin
+exposure${T}%s
+' "\${FAKE_EXPOSURE:-private-ok}" ;;
   plan) cat "\$FAKE_PLAN" ;;
   import) cat "\$FAKE_IMPORT" ;;
 esac
@@ -91,6 +94,23 @@ run plan apply --port 3; check_eq "add options on another action: refused" 1 "$r
 echo "-- bad calls"
 run plan bogus; check_eq "unknown action: refused" 1 "$rc"
 run plan apply --bogus; check_eq "unknown option: refused" 1 "$rc"
+echo "-- set"
+run plan set jellyfin --local yes; check_eq "plan: exit 0" 0 "$rc"
+has "^step${T}give a local name for jellyfin" && pass "lists the local name" || fail "$out"
+has "^confirm_name" && fail "a local name alone must not be red" || pass "local alone has no typed word"
+run plan set jellyfin --public yes --public-name media.example.org; has "^confirm_name${T}jellyfin" && pass "public yes asks for the name" || fail "$out"
+run plan set jellyfin --public no; has "^confirm_name" && fail "public no must not be red" || pass "public no has no typed word"
+run plan set jellyfin --public yes; check_eq "public without a name: refused" 1 "$rc"
+run plan set jellyfin --public-name 'not a name'; check_eq "bad public name: refused" 1 "$rc"
+run plan set jellyfin --local maybe; check_eq "bad yes/no: refused" 1 "$rc"
+run plan set jellyfin; check_eq "nothing to change: refused" 1 "$rc"
+run plan set nosuch --local yes; check_eq "unknown service: refused" 1 "$rc"
+run plan set 'W k' --local yes; check_eq "bad name: refused" 1 "$rc"
+run plan remove jellyfin --local yes; check_eq "set option on another action: refused" 1 "$rc"
+: > "$CALLS"; run start set jellyfin --public yes --public-name media.example.org; check_eq "public without the word: refused" 1 "$rc"
+: > "$CALLS"; run start set jellyfin --public yes --public-name media.example.org --confirm jellyfin; check_eq "with the word: exit 0" 0 "$rc"
+grep -qx "set jellyfin --public yes --public-name media.example.org" "$CALLS" && pass "services.sh set gets the options" || fail "$(cat "$CALLS")"
+run start set jellyfin --local no; check_eq "start local: exit 0" 0 "$rc"
 echo "-- the local slot (--proxy local)"
 : > "$CALLS"
 printf 'add	app.lan	/	10.0.0.5:80	app	-
@@ -104,4 +124,26 @@ check_eq "and asks for the public plan" "plan --plain" "$(head -n1 "$CALLS")"
 run plan import --proxy local; check_eq "import --proxy local is accepted" 0 "$rc"
 run plan remove x --proxy local; check_eq "--proxy on remove is refused" 1 "$rc"
 run plan apply --proxy other; check_eq "a bad --proxy is refused" 1 "$rc"
+
+echo "-- edit"
+run plan edit jellyfin --title Jelly; check_eq "plan: exit 0" 0 "$rc"
+has "^note${T}Nothing is sent to the reverse proxy" && pass "says nothing is sent" || fail "$out"
+has "^note${T}If a recipe declared" && pass "warns about recipes" || fail "$out"
+has "^confirm_name" && fail "a plain edit must not be red" || pass "no typed word for a plain edit"
+run plan edit nosuch --title X; check_eq "unknown service: refused" 1 "$rc"
+run plan edit jellyfin; check_eq "nothing to change: refused" 1 "$rc"
+run plan edit jellyfin --port 0; check_eq "port 0: refused" 1 "$rc"
+run plan edit jellyfin --host x --container y; check_eq "both targets: refused" 1 "$rc"
+run plan edit jellyfin --exposure open; check_eq "bad exposure: refused" 1 "$rc"
+run plan edit 'J k' --title X; check_eq "bad name: refused" 1 "$rc"
+run plan edit jellyfin --clear title --clear names; check_eq "--clear is accepted" 0 "$rc"
+run plan add wiki --port 80 --host x --clear title; check_eq "--clear on add is refused" 1 "$rc"
+run plan edit jellyfin --exposure public-ok; has "^confirm_name${T}jellyfin" && pass "going public asks for the name" || fail "$out"
+run start edit jellyfin --exposure public-ok; check_eq "going public without the word: refused" 1 "$rc"
+: > "$CALLS"; run start edit jellyfin --exposure public-ok --confirm jellyfin; check_eq "with the word: exit 0" 0 "$rc"
+grep -qx "edit jellyfin --exposure public-ok" "$CALLS" && pass "services.sh edit gets the options" || fail "$(cat "$CALLS")"
+export FAKE_EXPOSURE=public-ok
+run plan edit jellyfin --exposure public-ok --title J; has "^confirm_name" && fail "already public: no word" || pass "already public-ok: no typed word"
+run plan edit jellyfin --exposure private-ok; has "^warn${T}jellyfin is public-ok today" && pass "leaving public-ok warns" || fail "$out"
+unset FAKE_EXPOSURE
 finish

@@ -27,7 +27,7 @@ A descriptor is /var/lib/hs/services.d/<name>.toml (--dir DIR):
   services.py stat-value SERVICE INDEX [--dir D]        JSON on stdin -> the formatted value; exit 1 and no output when it does not fit
   [[stats]] (at most 3): kind="http-json" label path pointer reduce="count" where secret="stat-<name>" auth unit format; a secret is
   only NAMED here (the key lives in the state dir), never held
-  services.py tiles  [--dir D] [--addrs F] [--plan F] [--info F] [--containers]   group, title, link, description, icon, name of the dashboard tiles
+  services.py tiles  [--dir D] [--addrs F] [--plan F] [--info F] [--containers] [--local-domain D] group, title, link, description, icon, name of the dashboard tiles
   services.py remove NAME [--dir D]
   services.py plan   --info F --routes F --addrs F [--owned F] [--dir D]   act<TAB>host<TAB>path<TAB>target<TAB>service<TAB>note
   services.py import --info F --routes F --addrs F [--dir D] [--write]   create|skip<TAB>name<TAB>target<TAB>exposure<TAB>names<TAB>note
@@ -60,7 +60,7 @@ POINTER = re.compile(r'^(/[^/]*)*$')
 STAT_MAX_BODY = 1048576
 # containers whose web page is an admin interface: found on a public proxy they are imported as never-public
 # (or public-ok with only their public paths), the way CLAUDE.md describes the two exceptions (Arcane webhook, Kuma status page)
-ADMIN_TARGETS = {('docker', 80), ('zoraxy', 8000), ('monitoring', 3000), ('monitoring', 80), ('uptime-kuma', 3001), ('paperclip', 3100)}
+ADMIN_TARGETS = {('docker', 80), ('zoraxy', 8000), ('monitoring', 3000), ('monitoring', 80), ('uptime-kuma', 3001), ('paperclip', 3100), ('stalwart', 8080)}
 
 
 def die(msg, code=2):
@@ -313,6 +313,97 @@ def cmd_add(d, args):
     return 0
 
 
+EDIT_WANTS = ('reverse-proxy', 'dashboard')   # the wants the edit form owns; every other want of the file stays as it is
+EDIT_CLEAR = {'title': 'title', 'icon': 'icon', 'group': 'group', 'description': 'description', 'names': 'names', 'public-path': 'public_paths'}
+
+
+def cmd_edit(d, args):
+    """Change a described service: only the options given change, everything else in the file stays (fqdn, scheme, health, wants the form
+    does not own). --clear <title|icon|group|description|names|public-path> drops that key. --want names the wants of EDIT_WANTS that are
+    on; one of them that was in the file and is not named becomes false. Nothing is sent to the proxy: `apply` does that."""
+    name = args.pop(0) if args and not args[0].startswith('--') else die('edit needs a name')
+    existing = load_all(d).get(name)
+    if not existing or '_error' in existing:
+        print('%s is not a service' % name, file=sys.stderr)
+        return 3
+    s = dict(existing)
+    container, host = opt(args, '--container'), opt(args, '--host')
+    if container and host:
+        die('give a container or a host, not both')
+    if container:
+        s['container'] = container
+        s.pop('host', None)
+    if host:
+        s['host'] = host
+        s.pop('container', None)
+    port = opt(args, '--port')
+    if port is not None:
+        try:
+            s['port'] = int(port)
+        except ValueError:
+            die('port must be a number')
+    for key, o in (('title', '--title'), ('scheme', '--scheme'), ('exposure', '--exposure'), ('icon', '--icon'), ('group', '--group'),
+                   ('description', '--description'), ('health', '--health')):
+        v = opt(args, o)
+        if v:
+            s[key] = v
+    names = opt(args, '--names')
+    if names:
+        s['names'] = [x for x in names.split(',') if x]
+    fq = opt(args, '--fqdn')
+    if fq:
+        s['fqdn'] = [x for x in fq.split(',') if x]
+    paths = opts(args, '--public-path')
+    if paths:
+        s['public_paths'] = paths
+    wants = opt(args, '--want')
+    if wants is not None:
+        named = {k for k in wants.split(',') if k and k != 'none'}   # `none`: the form switched every want it owns off
+        want = dict(s.get('want', {}))
+        for k in EDIT_WANTS:
+            if k in named:
+                want[k] = True
+            elif k in want:
+                want[k] = False
+        for k in named - set(EDIT_WANTS):
+            want[k] = True
+        s['want'] = want
+    for c in opts(args, '--clear'):
+        if c not in EDIT_CLEAR:
+            die('--clear takes one of %s' % ', '.join(EDIT_CLEAR))
+        s.pop(EDIT_CLEAR[c], None)
+    if args:
+        die('unknown option %s' % args[0])
+    bad = problems(name, s)
+    if bad:
+        print('\n'.join(bad), file=sys.stderr)
+        return 1
+    write(d, s)
+    return 0
+
+
+def cmd_show(d, args):
+    """One service as key<TAB>value lines (the edit form reads them): name, title, where (container|host), machine, port, scheme, names, fqdn,
+    exposure, public_paths, icon, group, description, health, want. A list is comma separated; - when empty."""
+    name = args[0] if args else die('show needs a name')
+    s = load_all(d).get(name)
+    if not s or '_error' in s:
+        print('%s is not a service' % name, file=sys.stderr)
+        return 3
+    def val(v):
+        v = ','.join(v) if isinstance(v, list) else v
+        return str(v).replace('\t', ' ').replace('\n', ' ') if v not in (None, '') else '-'
+    rows = [('name', name), ('title', s.get('title')), ('where', 'container' if s.get('container') else 'host'),
+            ('machine', s.get('container') or s.get('host')), ('port', s.get('port')), ('scheme', s.get('scheme', 'http')),
+            ('names', s.get('names', [name])), ('fqdn', s.get('fqdn')), ('exposure', s.get('exposure', 'private-ok')),
+            ('public_paths', s.get('public_paths')), ('icon', s.get('icon')), ('group', s.get('group')),
+            ('description', s.get('description')), ('health', s.get('health')),
+            ('want', [k for k, v in s.get('want', {}).items() if v])]
+    for k, v in rows:
+        print('%s\t%s' % (k, val(v)))
+    return 0
+
+
 def cmd_remove(d, args):
     name = args[0] if args else die('remove needs a name')
     if not NAME.match(name):
@@ -383,9 +474,11 @@ def norm_target(t, keep_https=False):
 
 def desired_hosts(s, info, slot='public'):
     if slot == 'local':   # fqdn is a public name: the local slot only has <label>.<local domain>
-        return ['%s.%s' % (n, dom) for n in s.get('names', [s['name']]) for dom in info['domains']]
+        return list(dict.fromkeys('%s.%s' % (n, dom) for n in s.get('names', [s['name']]) for dom in info['domains']))
+    if s.get('fqdn') and 'names' not in s:   # a public name replaces the default <name>.<domain> label on the public proxy
+        return list(dict.fromkeys(s['fqdn']))
     hosts = ['%s.%s' % (n, dom) for n in s.get('names', [s['name']]) for dom in info['domains']]
-    return hosts + list(s.get('fqdn', []))
+    return list(dict.fromkeys(hosts + list(s.get('fqdn', []))))
 
 
 def address_of(s, addrs):
@@ -660,12 +753,80 @@ def cmd_declare(d, args):
     return 0
 
 
+def is_admin(s):
+    return s.get('exposure') == 'never-public' or (s.get('container'), s.get('port')) in ADMIN_TARGETS
+
+
+def cmd_set(d, args):
+    """Change what a person decided about an existing service: --local yes|no (want.local-proxy), --public yes|no (want.reverse-proxy,
+    fqdn, exposure private-ok <-> public-ok), --public-name FQDN (required with --public yes; alone it renames a public service).
+    Routes are not touched: `hs services apply` makes them."""
+    name = args.pop(0) if args and not args[0].startswith('--') else die('set needs a name')
+    local, public, pname = opt(args, '--local'), opt(args, '--public'), opt(args, '--public-name')
+    if args:
+        die('unknown option %s' % args[0])
+    for v in (local, public):
+        if v not in (None, 'yes', 'no'):
+            die('--local and --public take yes or no')
+    if local is None and public is None and pname is None:
+        die('set needs --local, --public or --public-name')
+    s = load_all(d).get(name)
+    if not s or '_error' in s:
+        print("'%s' is not a service" % name, file=sys.stderr)
+        return 1
+    s = dict(s)
+    want = dict(s.get('want', {}))
+    if local is not None:
+        want['local-proxy'] = local == 'yes'
+    if public == 'yes' or (public is None and pname):
+        if public is None and not want.get('reverse-proxy'):
+            die('%s is not public: use --public yes with --public-name' % name)
+        if is_admin(s) and not s.get('public_paths'):
+            print('%s is an admin page, never public' % name, file=sys.stderr)
+            return 1
+        if not pname:
+            die('--public yes needs --public-name <full name>')
+        if not FQDN.match(pname):
+            die('%r is not a full name' % pname)
+        want['reverse-proxy'] = True
+        s['fqdn'] = [pname]
+        if s.get('exposure', 'private-ok') == 'private-ok':
+            s['exposure'] = 'public-ok'
+    elif public == 'no':
+        want['reverse-proxy'] = False
+        s.pop('fqdn', None)
+        if s.get('exposure') == 'public-ok':
+            s['exposure'] = 'private-ok'
+    s['want'] = want
+    bad = problems(name, s)
+    if bad:
+        print('\n'.join(bad), file=sys.stderr)
+        return 1
+    write(d, s)
+    print('updated')
+    return 0
+
+
+def cmd_apps(d):
+    """One row per service for the Apps page: name, container, title, local, public, fqdn, exposure, admin (no empty field)"""
+    for name, s in load_all(d).items():
+        if '_error' in s:
+            continue
+        w = s.get('want', {})
+        print('\t'.join([name, s.get('container') or '-', s.get('title') or name, 'yes' if w.get('local-proxy') else 'no',
+                         'yes' if w.get('reverse-proxy') else 'no', ','.join(s.get('fqdn', [])) or '-',
+                         s.get('exposure', 'private-ok'), 'yes' if is_admin(s) else 'no']))
+    return 0
+
+
 def cmd_tiles(d, args):
     """The dashboard tiles: group, title, link, description, icon, name for every service that wants a dashboard tile (--containers: only
-    the containers they live in). The link: the public host when the service is published on a public proxy, a LAN host of a private proxy, else
-    the address and port. A service whose container is not running has no tile."""
+    the containers they live in). The link: the public host when the service is published on a public proxy, else (--local-domain D given and
+    the service wants local-proxy) http://<first name or service name>.D, else the address and port. A service whose container is not running
+    has no tile."""
     only_containers = flag(args, '--containers')
     addrs_f, plan_f, info_f = opt(args, '--addrs'), opt(args, '--plan'), opt(args, '--info')
+    local_dom = opt(args, '--local-domain')
     services = {n: s for n, s in load_all(d).items() if '_error' not in s and not problems(n, s) and s.get('want', {}).get('dashboard')}
     if only_containers:
         for c in sorted({s['container'] for s in services.values() if s.get('container')}):
@@ -686,6 +847,8 @@ def cmd_tiles(d, args):
         ip = address_of(s, addrs)
         if name in hosts:
             href = ('https://' if public else 'http://') + hosts[name]
+        elif ip and local_dom and s.get('want', {}).get('local-proxy'):
+            href = 'http://%s.%s' % ((s.get('names') or [name])[0], local_dom)
         elif ip:
             scheme = s.get('scheme', 'http')
             href = '%s://%s%s' % (scheme, ip, '' if s['port'] in (80, 443) else ':%d' % s['port'])
@@ -816,6 +979,10 @@ def main(argv):
         return cmd_addrs()
     if cmd == 'declare':
         return cmd_declare(d, args)
+    if cmd == 'set':
+        return cmd_set(d, args)
+    if cmd == 'apps':
+        return cmd_apps(d)
     if cmd == 'tiles':
         return cmd_tiles(d, args)
     if cmd == 'stats-plan':
@@ -829,6 +996,10 @@ def main(argv):
         return cmd_check(d)
     if cmd == 'add':
         return cmd_add(d, args)
+    if cmd == 'edit':
+        return cmd_edit(d, args)
+    if cmd == 'show':
+        return cmd_show(d, args)
     if cmd == 'remove':
         return cmd_remove(d, args)
     if cmd in ('plan', 'import'):

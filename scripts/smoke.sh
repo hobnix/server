@@ -69,6 +69,7 @@ default_probes() {
     $'hs status\tstatus\t0 1' \
     $'hs health\thealth\t0 1\t120' \
     $'hs ct list\tct list\t0' \
+    $'hs ct hardware\tct hardware\t0 1' \
     $'hs disk list\tdisk list\t0 1' \
     $'hs disk events\tdisk events\t0 1' \
     $'hs disk inventory\tdisk inventory\t0 1' \
@@ -109,6 +110,7 @@ default_probes() {
     $'hs services plan\tservices plan\t0 1' \
     $'hs services tiles\tservices tiles\t0 1' \
     $'hs services stats\tservices stats\t0 1' \
+    $'hs sys services app\tsys services app\t0 1' \
     $'hs gateway status\tgateway status\t0 1' \
     $'hs gateway routes\tgateway routes\t0 1' \
     $'hs gateway check\tgateway check\t0 1' \
@@ -131,7 +133,7 @@ default_probes() {
     printf '%s\t%s\t%s\n' "hs share $first_share show" "share $first_share show" "0" "hs share $first_share snapshots" "share $first_share snapshots" "0 1"
   fi
   if [ -n "$first_ct" ]; then
-    printf '%s\t%s\t%s\n' "hs ct $first_ct snapshots" "ct $first_ct snapshots" "0 1" "hs ct $first_ct storage list" "ct $first_ct storage list" "0 1" "hs ct $first_ct logs" "ct $first_ct logs 5" "0 1"
+    printf '%s\t%s\t%s\n' "hs ct $first_ct snapshots" "ct $first_ct snapshots" "0 1" "hs ct $first_ct storage list" "ct $first_ct storage list" "0 1" "hs ct $first_ct logs" "ct $first_ct logs 5" "0 1" "hs ct $first_ct device list" "ct $first_ct device list" "0 1"
   fi
   if [ -n "$first_disk" ]; then
     printf '%s\t%s\t%s\t%s\n' "hs disk $first_disk health" "disk $first_disk health" "0 1" 120 "hs disk $first_disk results" "disk $first_disk results" "0 1" ""

@@ -19,7 +19,7 @@ UniFi, Active Directory, Matrix ...) is an optional capability, and the author's
   - VPS (`vpsHost`): configuration.nix, vps.sh, vps-change.sh, web-serve.py, ProxyHead; copies of ntfy.sh,
     deck-serve.py and hs-watch.sh live in the proxyserver repo.
 - A recipe cannot offer "also add this to the reverse proxy / Tailscale / DNS": each integration is a manual step
-  (`hs dns sync` is run by hand) or hard-coded in the recipe. Removing a container leaves its route and name behind.
+  (`hs dns sync` is run by hand) or hard-coded in the recipe. Removing a container leaves its route and name behind. (`hs dns sync` was removed 2026-10-29; local names come from the gateway.)
 - CLAUDE.md carries the author's container table and public-access rules, which are not generic.
 
 ## The model

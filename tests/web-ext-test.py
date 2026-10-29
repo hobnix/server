@@ -290,6 +290,15 @@ class RealPackages(unittest.TestCase):
                         args = [re.sub(r"\{(\w+)\}", lambda m: sample[m.group(1)], x) for x in a["plan"][1:]]
                         self.assertTrue(self.ok(a["plan"][0], args), a)
 
+    def test_a_passthrough_domain_can_be_edited(self):
+        # the Edit row action opens the same form as Add with the row; saving is `add` on a forwarded domain, which the changes already allow
+        page = {p["name"]: p for p in ws.ext_pages()}["passthrough"]
+        table = next(b for b in page["blocks"] if b.get("type") == "table")
+        edit = next(a for a in table["rowActions"] if a.get("edit"))
+        self.assertEqual(edit["form"], next(a for a in page["actions"] if a.get("primary"))["form"])
+        cols = {c["key"] for c in table["columns"]}
+        self.assertTrue({"domain", "address", "https", "http", "proxy"} <= cols)   # the form reads these keys of the row
+
     def test_off_the_pages_have_nothing(self):
         write(self.caps, "")
         ws.ext_refresh(force=True)

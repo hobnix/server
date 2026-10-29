@@ -3,9 +3,10 @@
 # help.de: ein Rezept ausführen, ohne etwas zu fragen: was passieren würde (plan), dann als Hintergrundjob ausführen (start)
 # args: plan|start <recipe> run [--name <container>] [--set KEY=value]...
 # System command (hs sys recipes plan|start): for the interface and tests. It never asks and prints plain key<TAB>value lines like
-# dns-change.sh. The work is recipe.sh's. A recipe run this way has no terminal, so every preference takes the answer stored last time or
+# backup-change.sh. The work is recipe.sh's. A recipe run this way has no terminal, so every preference takes the answer stored last time or
 # its default, and every question the recipe declares (`# ask:` lines in its header, `hs sys recipes asks <recipe>`) must be answered:
-#   --set KEY=value   an answer to a text or choice question (it reaches the recipe as RECIPE_<KEY> in the job's environment)
+#   --set KEY=value   an answer to a text or choice question (it reaches the recipe as RECIPE_<KEY> in the job's environment); also the
+#                     generic service keys DASH_<K>, PUBLIC_<K> (yes|no) and PUBLIC_NAME_<K> (a host name) without a `# ask:` line
 #   standard input    ONE line: the answer to the secret question that counts (never in an argument, a log or the environment: the job runner
 #                     writes it as a root-only file in a folder that is removed when the job ends; the recipe reads it with `answer KEY`)
 #   run   set the app up, or bring it up to date (recipes are safe to run again)
@@ -20,6 +21,7 @@ here=$(dirname "$0")
 . "$here/lib/recipe-path.sh"
 recipe=${HS_RECIPE:-$here/recipe.sh}
 
+a_fqdn='([a-z0-9]([a-z0-9-]*[a-z0-9])?\.)+[a-z]{2,}'
 refuse() { printf 'status\trefused\nreason\t%s\n' "$1"; exit 1; }
 
 verb=${1:-}; name=${2:-}; action=${3:-}
@@ -69,6 +71,14 @@ active() {   # active <index>: does the `when` condition hold
 for k in "${!given[@]}"; do
   found=false
   for i in "${!ak[@]}"; do [ "${ak[$i]}" = "$k" ] && [ "${at[$i]}" != secret ] && found=true; done
+  # the generic service keys (declare_service) need no `# ask:` line
+  if [[ "$k" =~ ^PUBLIC_NAME_[A-Z0-9_]+$ ]]; then
+    [[ "${given[$k]}" =~ ^($a_fqdn)$ ]] || refuse "the answer to $k is not a host name (like media.example.org)"
+    found=true
+  elif [[ "$k" =~ ^(DASH|PUBLIC)_[A-Z0-9_]+$ ]]; then
+    [[ "${given[$k]}" =~ ^(yes|no)$ ]] || refuse "the answer to $k must be yes or no"
+    found=true
+  fi
   $found || refuse "$name does not ask '$k'"
 done
 
@@ -116,6 +126,9 @@ if [ "$verb" = start ]; then
     [ "${at[$i]}" != secret ] || continue
     v=$(value_of "${ak[$i]}")
     [ -z "$v" ] || env_lines+="RECIPE_${ak[$i]}=$v"$'\n'
+  done
+  for k in "${!given[@]}"; do   # the generic service keys (validated above) have no `# ask:` line
+    [[ "$k" =~ ^(DASH|PUBLIC|PUBLIC_NAME)_[A-Z0-9_]+$ ]] && env_lines+="RECIPE_$k=${given[$k]}"$'\n'
   done
   slug="recipe-$name${ct:+-$ct}"
   if [ -n "$secret_key" ]; then

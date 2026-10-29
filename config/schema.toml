@@ -399,10 +399,9 @@ settable = false
 secret = false
 default = 'hostName'
 doc = '''
-# The name of this server inside the domain's DNS: instances get <instance>.<siteName>.<domain>
-# (docs.home.ad.home.lan). Needed once two servers share one domain (a second domain
-# controller), so both can have a `docs` and a `zoraxy`. Lower case letters, digits and hyphens.
-# Default: hostName. `hs dns sync` creates the records.'''
+# The label in front of the domain for this server's local names: the gateway proxy gives services
+# <service>.<siteName>.<domain> (one wildcard record *.<siteName>, made by a person). Lower case
+# letters, digits and hyphens. Default: hostName.'''
 value = '''
 siteName = "home"'''
 

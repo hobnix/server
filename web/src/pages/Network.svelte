@@ -176,16 +176,16 @@
 
 {:else if tab === 'dns'}
   <div class="card" style="padding:12px 14px;gap:8px">
-    <div class="ch"><b>DNS names</b><span class="sub">of the instances, in the domain</span>
-      <button class="btn btn-primary sm" style="margin-left:auto" use:tip={'Create, correct and remove the DNS names of the instances'} onclick={() => openPlan('dns', ['sync'], 'Sync DNS names')}><i class="ph ph-arrows-clockwise"></i>Sync DNS names</button></div>
+    <div class="ch"><b>DNS names</b><span class="sub">in the domain, under this server's name</span></div>
     <Table id="dns-names" columns={dnsCols} rows={dnsNames} compact loading={!dnsRead.loaded}
-           empty={dnsRead.error ? 'The names could not be read (no domain, or the domain controller is down).' : 'No names yet: Sync DNS names creates them.'}>
+           empty={dnsRead.error ? 'The names could not be read (no domain, or the domain controller is down).' : "No names under this server's name."}>
       {#snippet cell(n, col)}
         {#if col.key === 'name'}{#if cts.some((c) => c.name === n.name.split('.')[0])}<a {...link('/instances', 'instances', n.name.split('.')[0])}>{n.name}</a>{:else}{n.name}{/if}
         {:else if col.key === 'type'}<span class="kd">{n.type}</span>
         {:else}<span class="mono">{n.value}</span>{/if}
       {/snippet}
     </Table>
+    <div class="note">hs no longer writes these names. A name listed here goes straight to its address and is not reached through the gateway.</div>
   </div>
 
 {:else if tab === 'ports'}

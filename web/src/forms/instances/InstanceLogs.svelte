@@ -2,6 +2,7 @@
   // The last lines of an instance's journal (`hs sys ct logs <ct> [lines]`, read only), in a window over the page.
   import { poll } from '../../data.svelte.js';
   import { ui } from '../../ui.svelte.js';
+  import { backdropClose } from '../../ui/backdrop.js';
 
   let { ct } = $props();
 
@@ -22,7 +23,7 @@
 
 <svelte:window onkeydown={(e) => e.key === 'Escape' && close()} />
 
-<div class="dialog-backdrop" role="presentation" style="z-index:50" onclick={(e) => e.target === e.currentTarget && close()}>
+<div class="dialog-backdrop" role="presentation" style="z-index:50" use:backdropClose={close}>
   <div class="dialog" role="dialog" aria-modal="true" aria-labelledby="ilt" style="width:min(960px,100%);height:min(640px,calc(100vh - 40px));gap:12px">
     <div style="display:flex;align-items:center;gap:10px">
       <div id="ilt" class="dialog-title" style="flex:1">Logs · {ct}</div>
