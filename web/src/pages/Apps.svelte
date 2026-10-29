@@ -4,6 +4,8 @@
   import { takeSelection } from '../select.svelte.js';
   import { openCreate, ui } from '../ui.svelte.js';
   import RunRecipe from '../forms/ops/RunRecipe.svelte';
+  import AppServices from '../forms/ops/AppServices.svelte';
+  import Table from '../shell/Table.svelte';
   import PageHeader from '../shell/PageHeader.svelte';
   import PageState from '../shell/PageState.svelte';
   import StatusDot from '../ui/StatusDot.svelte';
@@ -25,6 +27,16 @@
   const tag = (a) => (a.state === 'installed' ? (a.cts ? `in ${a.cts.split(',').join(', ')}` : 'installed') : a.state);
 
   const run = (a) => openCreate(RunRecipe, { recipe: a.name });
+  const services = (a) => openCreate(AppServices, { app: a.name, cts: a.cts ? a.cts.split(',') : [] });
+
+  let q = $state('');
+  let show = $state('all');
+  const shown = $derived(apps.filter((a) => (show === 'all' || (show === 'installed' ? a.state === 'installed' : a.state !== 'installed'))
+    && (!q.trim() || (a.name + ' ' + a.desc).toLowerCase().includes(q.trim().toLowerCase()))));
+  const columns = [
+    { key: 'go', label: '', sort: false }, { key: 'name', label: 'App' }, { key: 'desc', label: 'What it does' },
+    { key: 'state', label: 'State' }, { key: 'tools', label: '', sort: false, align: 'right' },
+  ];
 
   let copied = $state('');
   let hl = $state('');
@@ -46,48 +58,43 @@
   }
 </script>
 
-<PageHeader title="Apps" crumb="{ui.host} › Instances" sub={list.loaded && !list.error ? `${installed} installed · one-command installers, safe to run again` : 'One-command installers, safe to run again.'} />
-
-<div class="note"><i class="ph ph-terminal-window"></i>Run shows the plan first, then sets an app up with the answers you give in the form (a token, a VPN account ...), the answers stored last time and the defaults; it shows up under Tasks. Only the domain recipe needs a terminal: the Administrator password is typed into Samba.</div>
+<PageHeader title="Apps" crumb="{ui.host} › Instances" sub={list.loaded && !list.error ? `${installed} of ${apps.length} installed · safe to run again` : 'One-command installers, safe to run again.'} />
 
 <PageState loading={!list.loaded} error={list.error?.message} hasData={list.data != null} empty={list.loaded && !list.error && !apps.length}
            emptyIcon="package" emptyTitle="No recipes" emptyText="This server has no app recipes." retry={() => refresh(['/api/sys/recipes/list'])}>
-  <div class="grid">
-    {#each apps as a (a.name)}
-      {@const on = a.state === 'installed'}
-      <div class="card app" id="app-{a.name}" class:hl={hl === a.name}>
-        <div class="top">
-          <i class="ph ph-{icons[a.name] ?? 'package'}" style="font-size:18px;color:{on ? 'var(--accent-ink)' : 'var(--fg-3)'}"></i>
-          <span class="nm">{a.name}</span>
-          <span class="st"><StatusDot state={on ? 'ok' : a.state === 'partly' ? 'warn' : 'off'} label={a.state} /></span>
-        </div>
-        <div class="ds">{a.desc}</div>
-        {#if a.cts}
-          <div class="in">In {#each a.cts.split(',') as c, i}{i ? ', ' : ''}<a {...link('/instances', 'instances', c)}>{c}</a>{/each}</div>
-        {/if}
-        <div class="act"><button class="btn sm" disabled={a.state === 'parked'} use:tip={a.state === 'parked' ? 'This recipe is parked' : on ? 'Run again: repairs or updates the setup' : 'Set this app up'} onclick={() => run(a)}><i class="ph ph-play"></i>{on ? 'Run again…' : 'Run…'}</button></div>
-        <div class="cmd">
-          <code>hs recipe {a.name}</code>
-          <button class="btn btn-ghost btn-icon cp" use:tip={copied === a.name ? 'Copied' : 'Copy'} aria-label="Copy hs recipe {a.name}" onclick={() => copy(a.name)}><i class="ph ph-{copied === a.name ? 'check' : 'copy'}"></i></button>
-        </div>
-      </div>
+  <div class="bar">
+    {#each [['all', 'All'], ['installed', 'Installed'], ['todo', 'Not installed']] as [k, l]}
+      <button class="btn sm {show === k ? 'btn-primary' : 'btn-ghost'}" onclick={() => (show = k)}>{l}</button>
     {/each}
+    <input class="input find" bind:value={q} placeholder="Search apps" aria-label="Search apps" autocomplete="off" />
+  </div>
+  <div class="card tc">
+    <Table id="apps" {columns} rows={shown} key="name" loading={!list.loaded} empty="No app matches.">
+      {#snippet cell(a, col)}
+        {@const on = a.state === 'installed'}
+        {#if col.key === 'go'}
+          <button class="btn sm {on ? '' : 'btn-primary'}" disabled={a.state === 'parked'} use:tip={a.state === 'parked' ? 'This recipe is parked' : on ? 'Run again: repairs or updates the setup' : 'Set this app up'} onclick={() => run(a)}><i class="ph ph-{on ? 'arrows-clockwise' : 'download-simple'}"></i>{on ? 'Update' : 'Install'}</button>
+        {:else if col.key === 'name'}
+          <span id="app-{a.name}" class="nm" class:hl={hl === a.name}><i class="ph ph-{icons[a.name] ?? 'package'}" style="color:{on ? 'var(--accent-ink)' : 'var(--fg-3)'}"></i>{a.name}</span>
+        {:else if col.key === 'desc'}
+          <span class="ds">{a.desc}</span>{#if a.cts}<div class="in">In {#each a.cts.split(',') as c, i}{i ? ', ' : ''}<a {...link('/instances', 'instances', c)}>{c}</a>{/each}</div>{/if}
+        {:else if col.key === 'state'}
+          <StatusDot state={on ? 'ok' : a.state === 'partly' ? 'warn' : 'off'} label={a.state} />
+        {:else}
+          <button class="btn btn-ghost btn-icon" disabled={!a.cts} use:tip={a.cts ? 'Services: local and public access' : 'Install the app first'} aria-label="Services of {a.name}" onclick={() => services(a)}><i class="ph ph-globe-hemisphere-west"></i></button>
+          <button class="btn btn-ghost btn-icon" use:tip={copied === a.name ? 'Copied' : 'Copy the terminal command: hs recipe ' + a.name} aria-label="Copy hs recipe {a.name}" onclick={() => copy(a.name)}><i class="ph ph-{copied === a.name ? 'check' : 'terminal-window'}"></i></button>
+        {/if}
+      {/snippet}
+    </Table>
   </div>
 </PageState>
 
 <style>
-  .note { display: flex; gap: 10px; align-items: center; padding: 10px 12px; border: 1px solid var(--line); background: var(--panel); font-size: 12.5px; color: var(--fg-2); }
-  .note i { font-size: 16px; color: var(--accent-ink); }
-  .grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(250px, 1fr)); gap: 12px; }
-  .app { padding: 14px 16px; gap: 8px; }
-  .app.hl { outline: 2px solid var(--accent); }
-  .top { display: flex; align-items: center; gap: 8px; }
-  .nm { font-weight: 600; }
-  .st { margin-left: auto; font-size: 12px; }
-  .ds { font-size: 12.5px; color: var(--fg-3); flex: 1; }
-  .in { font-size: 12.5px; color: var(--fg-2); }
-  .cmd { display: flex; align-items: center; gap: 6px; }
-  code { flex: 1; font-size: 11.5px; padding: 4px 8px; background: var(--bg); color: var(--fg-2); overflow: hidden; text-overflow: ellipsis; }
-  .cp { width: 28px; min-height: 28px; color: var(--fg-3); }
-  .act { display: flex; }
+  .bar { display: flex; gap: 6px; align-items: center; flex-wrap: wrap; }
+  .find { margin-left: auto; max-width: 240px; }
+  .nm { display: inline-flex; align-items: center; gap: 8px; font-weight: 600; font-size: 13.5px; }
+  .nm i { font-size: 18px; }
+  .nm.hl { outline: 2px solid var(--accent); outline-offset: 3px; }
+  .ds { font-size: 12.5px; color: var(--fg-3); }
+  .in { font-size: 12px; color: var(--fg-2); }
 </style>

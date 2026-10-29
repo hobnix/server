@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # help: change the services and their routes on the reverse proxy without asking anything: what would happen (plan), then do it (start)
 # help.de: die Dienste und ihre Routen am Reverse-Proxy ändern, ohne etwas zu fragen: was passieren würde (plan), dann ausführen (start)
-# args: plan|start apply | adopt | import | remove <service> | add <name> --port N (--container C | --host H) [--title T] [--names a,b] [--exposure E] [--public-path P]... [--want w,w]
+# args: plan|start apply | adopt | import | remove <service> | add <name> --port N (--container C | --host H) [--title T] [--names a,b] [--exposure E] [--public-path P]... [--want w,w] | set <name> [--local yes|no] [--public yes|no] [--public-name FQDN]
 # System command (hs sys routes plan|start): for the interface and tests. It never asks and prints plain key<TAB>value lines like
 # backup-change.sh. The work is services.sh's (no logic is repeated here). The reads are `hs sys services list|plan|tiles`.
 #   apply          do what `hs services plan` says: add, publish (confirm), change and remove routes. The plan lists every route; when one goes on
@@ -11,6 +11,8 @@
 #   import         one service description per route the proxy has and no service describes yet (writes service files)
 #   add <name>     describe a new service (a file in the services folder; nothing is sent to the proxy: `apply` does that). public-ok is red: the
 #                  typed word is the service name. The options go to `hs services add` as they are; services.py checks them.
+#   set <name>     change an existing service: local name, public yes/no (+ public name). public yes is red (typed word: the service name).
+#                  Routes are not touched: `apply` does that.
 #   remove <name>  forget the description of a service; its routes on the proxy stay
 # plan: exit 0 = allowed, 1 = refused (no proxy, nothing to do). Output: status ok|refused, reason<TAB><text>,
 #   heading|step|note|warn|danger|command<TAB><line>, confirm_name<TAB>apply, long<TAB>yes|no.
@@ -31,9 +33,10 @@ case "$action" in
   apply|adopt|import) ;;
   remove) name=${1:-}; shift || true; [[ "$name" =~ ^[A-Za-z0-9][A-Za-z0-9._-]{0,60}$ ]] || refuse "that is not a service name" ;;
   add) name=${1:-}; shift || true; [[ "$name" =~ ^[a-z0-9][a-z0-9-]{0,40}$ ]] || refuse "A service name is lower case letters, digits and - (at most 41)." ;;
-  *) refuse "unknown action (apply, adopt, import, add or remove)" ;;
+  set) name=${1:-}; shift || true; [[ "$name" =~ ^[a-z0-9][a-z0-9-]{0,40}$ ]] || refuse "A service name is lower case letters, digits and - (at most 41)." ;;
+  *) refuse "unknown action (apply, adopt, import, add, set or remove)" ;;
 esac
-pargs=() addargs=() exposure=private-ok port="" container="" host="" title=""
+pargs=() addargs=() exposure=private-ok port="" container="" host="" title="" setargs=() set_public="" set_pname="" set_local=""
 while [ $# -gt 0 ]; do
   case "$1" in
     --proxy) [ $# -ge 2 ] || refuse "--proxy needs a value"
@@ -41,6 +44,15 @@ while [ $# -gt 0 ]; do
       case "$2" in public) ;; local) pargs=(--proxy local) ;; *) refuse "--proxy is public or local" ;; esac
       shift 2 ;;
     --confirm) [ $# -ge 2 ] || refuse "--confirm needs a value"; confirm=$2; shift 2 ;;
+    --local|--public|--public-name)
+      [ "$action" = set ] || refuse "unknown option $1"
+      [ $# -ge 2 ] || refuse "$1 needs a value"
+      case "$1" in
+        --local|--public) case "$2" in yes|no) ;; *) refuse "$1 is yes or no" ;; esac ;;
+        --public-name) [[ "$2" =~ ^[A-Za-z0-9]([A-Za-z0-9-]*[A-Za-z0-9])?(\.[A-Za-z0-9]([A-Za-z0-9-]*[A-Za-z0-9])?)+$ ]] || refuse "The public name is a full name like app.example.org." ;;
+      esac
+      case "$1" in --local) set_local=$2 ;; --public) set_public=$2 ;; --public-name) set_pname=$2 ;; esac
+      setargs+=("$1" "$2"); shift 2 ;;
     --port|--container|--host|--title|--names|--exposure|--public-path|--want|--group|--icon|--description)
       [ "$action" = add ] || refuse "unknown option $1"
       [ $# -ge 2 ] || refuse "$1 needs a value"
@@ -83,6 +95,28 @@ case "$action" in
       printf 'danger\t%s may be put on the internet by the next Apply.\nconfirm_name\t%s\n' "$name" "$name"
     fi
     printf 'command\ths services add %s %s\nlong\tno\n' "$name" "${addargs[*]}"
+    exit 0 ;;
+  set)
+    list=$(bash "$svc" list --plain </dev/null 2>/dev/null || true)
+    awk -F'\t' -v n="$name" '$1 == n { f = 1 } END { exit !f }' <<<"$list" || refuse "There is no service called '$name'."
+    [ ${#setargs[@]} -gt 0 ] || refuse "Nothing to change: give --local, --public or --public-name."
+    if [ "$set_public" = yes ] && [ -z "$set_pname" ]; then refuse "A public service needs its public name."; fi
+    if [ "$verb" = start ]; then
+      if [ "$set_public" = yes ] && [ "$confirm" != "$name" ]; then refuse "type the word to confirm: $name"; fi
+      err=$(bash "$svc" set "$name" "${setargs[@]}" </dev/null 2>&1 >/dev/null) || refuse "$(tail -n 1 <<<"$err" | tr -d '\t')"
+      printf 'status\tdone\n'
+      exit 0
+    fi
+    printf 'status\tok\nheading\tchange the service %s\n' "$name"
+    [ -z "$set_local" ] || printf 'step\t%s a local name for %s\n' "$([ "$set_local" = yes ] && echo give || echo take away)" "$name"
+    [ "$set_public" != yes ] || printf 'step\tpublish %s as %s\n' "$name" "$set_pname"
+    [ "$set_public" != no ] || printf 'step\tstop publishing %s\n' "$name"
+    [ "$set_public" != "" ] || [ -z "$set_pname" ] || printf 'step\trename the public name of %s to %s\n' "$name" "$set_pname"
+    printf 'note\tNothing is sent to the proxy yet: Apply makes the route.\n'
+    if [ "$set_public" = yes ]; then
+      printf 'danger\t%s may be put on the internet by the next Apply.\nconfirm_name\t%s\n' "$name" "$name"
+    fi
+    printf 'command\ths services set %s %s\nlong\tno\n' "$name" "${setargs[*]}"
     exit 0 ;;
   remove)
     list=$(bash "$svc" list --plain </dev/null 2>/dev/null || true)

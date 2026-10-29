@@ -180,6 +180,24 @@ $S remove broken >/dev/null 2>&1
 check "remove takes the file away" test ! -e "$HS_SERVICES_DIR/broken.toml"
 check "remove of an unknown service fails" bash -c '! '"$S"' remove nosuch 2>/dev/null'
 
+echo "-- set: local and public of an existing service, and the Apps read"
+$S add setme --container jellyfin --port 9100 --title "Set me" >/dev/null 2>&1
+check_eq "set --local yes" "updated" "$($S set setme --local yes 2>&1 | grep -o updated || true)"
+check "local-proxy is true" grep -q 'local-proxy = true' "$HS_SERVICES_DIR/setme.toml"
+$S set setme --public yes --public-name setme.example.org >/dev/null 2>&1
+check "public is public-ok with the name" grep -q 'public-ok' "$HS_SERVICES_DIR/setme.toml"
+check "reverse-proxy is true" grep -q 'reverse-proxy = true' "$HS_SERVICES_DIR/setme.toml"
+check_eq "the Apps read has a row" "setme${T}jellyfin${T}Set me${T}yes${T}yes${T}setme.example.org${T}public-ok${T}no" "$($S apps | grep '^setme')"
+$S set setme --public-name other.example.org >/dev/null 2>&1
+check "--public-name alone renames" grep -q 'other.example.org' "$HS_SERVICES_DIR/setme.toml"
+$S set setme --public no >/dev/null 2>&1
+check "public no drops the name, goes private-ok" bash -c '! grep -q fqdn "$1" && grep -q private-ok "$1" && grep -q "reverse-proxy = false" "$1"' _ "$HS_SERVICES_DIR/setme.toml"
+check "public yes needs a name" bash -c '! '"$S"' set setme --public yes 2>/dev/null'
+$S add hidden --container jellyfin --port 9101 --exposure never-public >/dev/null 2>&1
+check_out "never-public is refused" "never public" $S set hidden --public yes --public-name hidden.example.org
+check "set of an unknown service fails" bash -c '! '"$S"' set nosuch --local yes 2>/dev/null'
+$S remove setme >/dev/null 2>&1; $S remove hidden >/dev/null 2>&1
+
 echo "-- a real Zoraxy: default site, several apps in one container, blocked paths, one host for several services"
 rm -rf "$HS_SERVICES_DIR"
 printf 'example.org,example.net' > "$HS_SETTINGS_DIR/proxyDomains"
