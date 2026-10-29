@@ -24,7 +24,7 @@ import tomllib
 HERE = os.path.dirname(os.path.abspath(__file__))
 ROOT = os.path.dirname(os.path.dirname(HERE))
 CORE_RECIPES = ("docker", "zoraxy", "monitoring", "ntfy", "domain")   # the core refers to these by name
-EXTENSIONS = ("games", "posters")
+EXTENSIONS = ("games", "posters", "passthrough")   # passthrough needs the core capability gateway (requires)
 
 
 def q(s):
