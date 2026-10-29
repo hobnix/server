@@ -1,5 +1,7 @@
 <script>
   // The shortcut list (the `?` overlay). Every key is also a button in the toolbar.
+  import { backdropClose } from '../ui/backdrop.js';
+
   let { onclose } = $props();
   const GROUPS = [
     { t: 'Move around', k: [['↑ ↓', 'Move the cursor'], ['Enter', 'Open the folder (or show the info of a file)'], ['Backspace', 'Up one folder'], ['Tab', 'Switch to the other pane'], ['/', 'Filter the list'], ['Ctrl R', 'Read the lists again']] },
@@ -10,7 +12,7 @@
 
 <svelte:window onkeydown={(e) => e.key === 'Escape' && (e.stopPropagation(), onclose())} />
 
-<div class="dialog-backdrop" role="presentation" onclick={(e) => e.target === e.currentTarget && onclose()}>
+<div class="dialog-backdrop" role="presentation" use:backdropClose={onclose}>
   <div class="kdlg" role="dialog" aria-modal="true" aria-labelledby="fmkt">
     <div class="dh"><span class="eyebrow">Files</span><h3 id="fmkt">Keyboard shortcuts</h3></div>
     <div class="body">
