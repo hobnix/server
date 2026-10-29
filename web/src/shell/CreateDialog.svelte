@@ -117,7 +117,7 @@
 
       <div class="dialog-actions" style="margin-top:0">
         <button class="btn btn-secondary" onclick={onclose}>Cancel</button>
-        <button use:tip={canStart ? '' : p.confirm_name && confirm !== p.confirm_name ? 'Type the name to confirm first' : busy ? 'Starting' : 'Fill in the form first'} class="btn btn-primary" disabled={!canStart} onclick={go} style={danger ? 'color:var(--st-bad);border-color:var(--st-bad)' : ''}>
+        <button use:tip={canStart ? '' : p?.confirm_name && confirm !== p.confirm_name ? 'Type the name to confirm first' : busy ? 'Starting' : 'Fill in the form first'} class="btn btn-primary" disabled={!canStart} onclick={go} style={danger ? 'color:var(--st-bad);border-color:var(--st-bad)' : ''}>
           <i class="ph ph-play"></i>{busy ? 'Starting…' : 'Start'}
         </button>
       </div>
