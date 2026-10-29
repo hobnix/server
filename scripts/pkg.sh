@@ -13,6 +13,7 @@
 #                          releases must be signed (--key <allowed_signers file>); --unsigned is marked everywhere and asks twice
 #   fetch [<repo>]         update the local clones, find the newest release tag whose signature verifies
 #   available              what the repositories offer (from the last fetch)
+#   install --core         fetch every package the core refers to by name (core = true in the index) that is not there yet
 #   install <name>         fetch a package at the verified tag into /var/lib/hs/packages/current (read-only, root-owned)
 #   update <name> [--yes]  show what changed since the installed tag (it is code that runs as root), then install the new one
 #   remove <name>          forget an installed repository package (a recipe's container stays)

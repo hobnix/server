@@ -2646,3 +2646,5 @@ No leftover names under %s.%s.	Keine übrig gebliebenen Namen unter %s.%s.
 %s of %s removals failed.	%s von %s Entfernungen sind fehlgeschlagen.
 Could not remove %s.%s (%s)	%s.%s (%s) konnte nicht entfernt werden
 Service '%s' is changed.	Dienst '%s' ist geändert.
+Core packages	Kernpakete
+Some core packages could not be fetched; try again with: hs pkg install --core	Einige Kernpakete konnten nicht geladen werden; nochmal versuchen mit: hs pkg install --core
