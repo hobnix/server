@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # help: menu to create the pools "fast" and "bulk" from mirror pairs, or add pairs to them
 # help.de: Menü, um die Pools "fast" und "bulk" aus Spiegelpaaren anzulegen oder Paare hinzuzufügen
-# args: [pool] [--dry-run] [--plain] [--disks <id,...>] [--role data|parity|adopt] [--encrypt] [--chown] [--merge] [--replace [member]] [--remove [member]] [--convert [member]] [--close [member] [--drain]] [--open [member]]
+# args: [pool] [--dry-run] [--plain] [--disks <id,...>] [--role data|parity|adopt] [--encrypt] [--chown] [--merge] [--replace [member]] [--remove [member]] [--convert [member] [--discard]] [--close [member] [--drain]] [--open [member]]
 # Bare use (a terminal): --replace/--remove/--convert without a member ask which one (the registry rows "hs pool <pool> replace|remove|convert" are guided).
 # Stand-in for tests: HS_GUIDED_TTY=1 = "there is a terminal" (answers on stdin).
 set -euo pipefail
@@ -28,6 +28,7 @@ usage() {
   say "  --mode      ZFS remove of a disk in a 2-disk mirror: detach (the other disk stays alone) or vdev (whole mirror, data moves)"
   say "              snapraid remove of a data disk: move (default, files go to the other disks) or nomove (files stay on the disk)"
   say "  --convert   snapraid data disk: empty it onto the other disks and format it again (use --fs / --encrypt)"
+  say "  --discard   with --convert: do NOT move the files, erase them with the disk (they are gone for good)"
   say "  --close     snapraid data disk: no NEW files go there any more (it stays in /bulk, readable); --drain also moves its files to the other disks"
   say "  --open      snapraid data disk: take the mark of --close away again"
   say "  --remove    take a member out: a whole mirror pair (ZFS) or a single disk (snapraid)"
@@ -44,6 +45,7 @@ plain=false
 chown_files=false
 merge_folders=false
 drain=false   # --close: also move the files off the disk onto the others
+discard=false   # --convert: erase the disk without moving its files (the data is not needed any more)
 encrypt=false
 fs_type=""   # ext4 | xfs | btrfs for new snapraid disks; empty = ask (terminal) or ext4
 assume_yes=false   # --yes: skip the typed confirmation (jobs started after the wizard asked)
@@ -71,6 +73,7 @@ while [ $# -gt 0 ]; do
     --show)    mode=show; shift ;;   # bare `hs pool <pool>`: only look, change nothing
     # the member is optional: without it (or when an option follows) a person at a terminal is asked
     --drain)   drain=true; shift ;;
+    --discard) discard=true; shift ;;
     --replace|--remove|--convert|--close|--open)
                action=${1#--}; member=""
                if [ $# -ge 2 ] && [[ "$2" != -* ]]; then member="$2"; shift 2; else shift; fi ;;
@@ -587,9 +590,16 @@ if [ -n "$action" ]; then
       [ -z "$left" ] || { echo "Some files could not be moved (e.g. $left). $member stays out of /bulk but is not changed."; exit 1; }
       umount "$dir" || umount -l "$dir"
     }
+    # --discard: take the disk out of /bulk and unmount it, its files are not moved (they go with the format)
+    discard_disk() {
+      setfattr -n user.mergerfs.branches -v "-$dir" /bulk/.mergerfs
+      if mountpoint -q /mnt/bulk/pool; then setfattr -n user.mergerfs.branches -v "-$dir" /mnt/bulk/pool/.mergerfs; fi
+      umount "$dir" || umount -l "$dir"
+    }
     # does everything on the disk fit on the others? sets used / free_others
     data_room() {
       used=$(df -B1 --output=used "$dir" | tail -n1 | tr -d ' ')
+      if $discard; then free_others=0; return 0; fi
       free_others=$(for d in "$(disks_root)"/data-*; do [ "$d" = "$dir" ] || { ! mountpoint -q "$d" || df -B1 --output=avail "$d" | tail -n1; }; done | awk '{ s += $1 } END { print s + 0 }')
       [ "$free_others" -gt "$used" ] || { echo "Not possible: $member holds $(human "$used"), the other data disks have only $(human "$free_others") free."; exit 1; }
     }
@@ -649,6 +659,7 @@ if [ -n "$action" ]; then
       exit 0
     fi
 
+    if $discard && [ "$action" != convert ]; then echo "--discard only goes with --convert."; exit 1; fi
     if [ "$action" = convert ]; then
       [ "$mgroup" = data ] || { echo "Not possible: only data disks can be converted."; exit 1; }
       [ "$mstate" = ONLINE ] || { echo "Not possible: $member is $mstate."; exit 1; }
@@ -657,11 +668,19 @@ if [ -n "$action" ]; then
       src=$(findmnt -no SOURCE "$dir" || true)
       phead "Plan: convert the data disk $member in '$pool' (${fs_type:-ext4}$($encrypt && echo ', encrypted (LUKS)'))"
       plt "  1. stop putting new files on it"
-      pl "  2. move its $(human "$used") onto the other data disks ($(human "$free_others") free)"
+      if $discard; then
+        pl "  2. take it out of /bulk WITHOUT moving its files ($(human "$used") are erased with it, also files that /bulk does not show)"
+      else
+        pl "  2. move its $(human "$used") onto the other data disks ($(human "$free_others") free)"
+      fi
       pl "  3. erase it and format it again as $member (${fs_type:-ext4}$($encrypt && echo ', encrypted (LUKS)'))"
       plt "  4. the parity follows with the next scheduled sync"
-      plt "Moving the files can take hours. The moved files exist once until that sync, like every new file."
-      pdanger "ALL DATA on the disk is erased after it was moved."
+      if $discard; then
+        pdanger "ALL DATA on the disk is erased, NOT moved anywhere. It cannot be brought back."
+      else
+        plt "Moving the files can take hours. The moved files exist once until that sync, like every new file."
+        pdanger "ALL DATA on the disk is erased after it was moved."
+      fi
       confirm_plan
       # the disk as the system names it, also when it sits under LUKS
       base=$src
@@ -674,7 +693,11 @@ if [ -n "$action" ]; then
       done
       [ -n "$byid" ] || { echo "Can't find the stable name of $base in /dev/disk/by-id."; exit 1; }
       if $encrypt; then crypt_new_pass || exit 1; fi
-      SPIN_STREAM=1 SPIN_TAIL=15 spin "Moving the files of $member onto the other data disks ($(human "$used"); hours, the lines below show where it is)" evacuate_disk || exit 1
+      if $discard; then
+        discard_disk || exit 1
+      else
+        SPIN_STREAM=1 SPIN_TAIL=15 spin "Moving the files of $member onto the other data disks ($(human "$used"); hours, the lines below show where it is)" evacuate_disk || exit 1
+      fi
       case "$src" in /dev/mapper/*) cryptsetup close "${src##*/}" 2>/dev/null || true ;; esac
       old=$(blkid -L "$label" 2>/dev/null || true); [ -z "$old" ] || wipefs -a -q "$old" || true
       clean_disk "$byid"

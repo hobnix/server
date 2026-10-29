@@ -795,7 +795,7 @@ CHANGES = {
              {"fixed": [r"^bulk$", r"^open$", r"^--member$", DISKID]},
              # convert: a SnapRAID data disk is emptied and formatted again (--fs, --encrypt); ZFS has nothing to convert, so only bulk
              {"fixed": [r"^bulk$", r"^convert$", r"^--member$", DISKID],
-              "opts": {"--fs": (FSTYPE, False), "--encrypt": (None, False)}, "stdin": True}],
+              "opts": {"--fs": (FSTYPE, False), "--encrypt": (None, False), "--discard": (None, False)}, "stdin": True}],
     "disk": [[DISKID, r"^test$", r"^(short|long)$"],
              # wipe: erase a disk that belongs to nothing (disk-change.sh refuses a mounted, pool, array or backup disk); red, the disk name is typed
              [DISKID, r"^wipe$"],

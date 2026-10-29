@@ -45,6 +45,8 @@ class Convert(lt.Base):
             ["bulk", "convert", "--member", "data-01", "--fs", "xfs"],
             ["bulk", "convert", "--member", "data-01", "--fs", "btrfs", "--encrypt"],
             ["bulk", "convert", "--member", "data-02", "--encrypt", "--fs", "ext4"],
+            ["bulk", "convert", "--member", "data-06", "--discard"],
+            ["bulk", "convert", "--member", "data-06", "--fs", "xfs", "--discard", "--encrypt"],
         ]
         for a in ok:
             self.assertTrue(self.allowed("pool", a), a)
@@ -65,6 +67,8 @@ class Convert(lt.Base):
             ["bulk", "convert", "--member", "data-01", "--chown"],
             ["bulk", "convert", "--member", "data-01", "--confirm", "data-01"],
             ["bulk", "convert", "--member", "data-01", "x"],
+            ["bulk", "convert", "--member", "data-01", "--discard", "--discard"],
+            ["bulk", "close", "--member", "data-01", "--discard"],        # --discard is for convert; close has --drain
         ]
         for a in bad:
             self.assertEqual(self.post("/api/plan", {"area": "pool", "args": a})[0], 400, a)
