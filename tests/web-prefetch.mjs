@@ -17,7 +17,6 @@ for (const name of readdirSync(capDir)) {
 }
 check('the allowlist was read', known.size > 50 && known.has('ct/list') && known.has('status'), String(known.size));
 
-// (the pages of games and posters prefetch reads that exist only while those extensions are installed: readsfor.js keeps their entries)
 const routes = ['/', '/instances', '/network', '/identity/users', '/identity/groups', '/identity/certificates', '/monitoring/hardware', '/protection/backup', '/storage/pools', '/storage/pools/bulk', '/storage/pools/fast', '/storage/disks', '/storage/shares', '/storage/files',
   '/protection/expiry', '/operations/health', '/operations/apps', '/operations/services', '/instances/apps', '/instances/services', '/storage/encryption', '/storage/vault', '/storage/unassigned',
   '/settings', '/setup', '/nodes', '/storage/bulk', '/storage/fast', '/storage/bulk/disks', '/storage/fast/disks', '/storage/bulk/shares'];
@@ -34,6 +33,9 @@ for (const r of routes) {
   }
 }
 check(`every one of the ${total} prefetched paths is an allowlisted read`, missing.length === 0, '\n    ' + missing.join('\n    '));
+const pages = [{ name: 'demo', blocks: [{ type: 'table', read: 'list' }, { type: 'stats', read: 'disk state' }, { type: 'x', read: 'list' }] }];
+check('an extension page reads what its declaration names, once each', JSON.stringify(readsFor('/extensions/demo', pages)) === JSON.stringify(['/api/sys/ext/demo/list', '/api/sys/ext/demo/disk/state']));
+check('an extension that is off reads nothing', readsFor('/extensions/demo').length === 0 && readsFor('/extensions/other', pages).length === 0);
 check('an unknown page prefetches nothing', readsFor('/nowhere').length === 0);
 check('the new pool address names its pool', readsFor('/node/hs/storage/pools/fast').some((p) => p.endsWith('pool=fast')) && readsFor('/storage/pools/bulk').some((p) => p.endsWith('pool=bulk')));
 check('a pool page names its pool', readsFor('/storage/fast').some((p) => p.endsWith('pool=fast')) && readsFor('/storage/bulk').some((p) => p.endsWith('pool=bulk')));

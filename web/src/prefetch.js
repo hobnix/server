@@ -3,6 +3,7 @@
 // (data.svelte.js) before the page asks. A page that is not listed just loads as it always did.
 import { touch } from './data.svelte.js';
 import { readsFor } from './readsfor.js';
+import { ui } from './ui.svelte.js';
 
 export { readsFor };
 
@@ -13,6 +14,6 @@ export function prefetchRoute(path) {
   const now = Date.now();
   if (!path || now - (last.get(path) ?? 0) < 5000) return;
   last.set(path, now);
-  const paths = readsFor(path);
+  const paths = readsFor(path, ui.features.extensions);
   if (paths.length) touch(paths);
 }
