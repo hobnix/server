@@ -284,6 +284,23 @@ webDocs = false'''
 
 [[item]]
 kind = "option"
+key = "liveState"
+type = "string"
+choices = ["redis", "off"]
+required = false
+settable = false
+secret = false
+capability = "live-state"
+default = '"off"'
+doc = '''
+# Live state for the web interface (the capability live-state): a collector reads `hs sys status` into Redis (unix socket only, nothing on
+# disk) and the web serves it from there and pushes changes to the browser. "off" (the default) keeps the direct reads. Needs webUi = true and a rebuild.
+# Not tested on hardware yet.'''
+value = '''
+liveState = "off"'''
+
+[[item]]
+kind = "option"
 key = "webTerminal"
 type = "bool"
 required = false

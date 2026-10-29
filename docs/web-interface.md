@@ -166,6 +166,13 @@ the whole system, the recipe `domain`, creating the vault (`hs vault init`), off
 password once), the sign-in to the reverse proxy, anything that asks questions, and the `machine.toml` keys the Settings page does not offer
 (for example `sshKeys`, `hostName`, addresses).
 
+## Live state
+
+With `liveState = "redis"` in `machine.toml` (default `off`) the Summary page updates within about a second after a change, without polling.
+The server keeps the status in a Redis service on a local socket (no network port) and tells the browser through `/api/events` when it changes.
+If the service is down, the status read answers "state service down" and the page retries every 15 seconds; "Live updates paused" shows when an already open live stream is lost. `sudo hs sys live status` shows the state.
+With `liveState = "off"` nothing changes. Not tested on hardware yet.
+
 ## Check that it worked
 
 - Open the page and sign in; the summary shows your server and its disks.

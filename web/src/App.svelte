@@ -3,6 +3,7 @@
   import { session, logout, setAuthLostHandler } from './api.js';
   import { initLang } from './lang.svelte.js';
   import { clearPollCache } from './data.svelte.js';
+  import { startLive, stopLive } from './live.svelte.js';
   import { ui } from './ui.svelte.js';
   import Shell from './shell/Shell.svelte';
   import Login from './Login.svelte';
@@ -19,7 +20,10 @@
   // the full-screen dashboard: no sign-in, session() is not called
   const kiosk = location.pathname === '/dashboard';
 
-  setAuthLostHandler(() => { clearPollCache(); user = null; });
+  setAuthLostHandler(() => { stopLive(); clearPollCache(); user = null; });
+
+  // the live stream runs while somebody is signed in and the server has it on
+  $effect(() => { if (user && ui.features.live) startLive(); else stopLive(); });
 
   onMount(async () => {
     if (kiosk) return;
@@ -31,6 +35,7 @@
 
   async function signOut() {
     try { await logout(); } catch { /* the session is gone either way */ }
+    stopLive();
     clearPollCache();
     user = null;
   }

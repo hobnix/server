@@ -422,6 +422,9 @@ sys	sys state reads	state.sh	reads	what the collector keeps for the web interfac
 sys	sys state read-put <key>	state.sh	read-put {1} {rest}	keep the output of a read (standard input) in the state database; only the collector (reads-collect.sh) calls it	-
 sys	sys state read-get <key>	state.sh	read-get {1}	the output the collector kept for a read (exit 1: none)	-
 sys	sys reads status	reads-collect.sh	--status	every read the collector keeps, as data: read, interval in seconds, age of the kept output (-1 = never), milliseconds, exit code, bytes	-
+sys	sys live refresh	live.sh	refresh {rest}	ask the live-state collector to read these topics again now (--all: every topic); returns at once	-	capability:live-state
+sys	sys live status	live.sh	status	every live-state topic: topic, interval, age in seconds (-1 = none), generation, exit code, error, error time	-	capability:live-state
+sys	sys live check	live.sh	check	problems of the live state (Redis down, a topic older than three intervals): key and text	-	capability:live-state
 sys	sys reads collect	reads-collect.sh	{rest}	read the slow reads of the web interface and keep their output in the state database (the timer hs-reads-collect does it every 15 s; --all ignores the intervals)	-
 sys	sys ext list	ext.sh	--list	extension packages as name, on|off, commands, nix (yes = a rebuild switches it), title	-
 user	pkg list	pkg.sh	list {rest}	list the packages (recipes and extensions) with their version: hs pkg list [--all] [--kind recipe|extension]	die Pakete (Rezepte und Erweiterungen) mit Version auflisten: hs pkg list [--all] [--kind recipe|extension]	topic:system,reads

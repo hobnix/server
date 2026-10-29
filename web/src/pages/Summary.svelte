@@ -6,8 +6,9 @@
   import UsageBar from '../shell/UsageBar.svelte';
   import { untrack } from 'svelte';
   import { poll, rows } from '../data.svelte.js';
+  import { live } from '../live.svelte.js';
   import { go } from '../route.svelte.js';
-  import { openPlan } from '../ui.svelte.js';
+  import { openPlan, ui } from '../ui.svelte.js';
   import { pct, duration } from '../format.js';
   import Spark from '../shell/Spark.svelte';
   import Halftone from '../shell/Halftone.svelte';
@@ -18,7 +19,7 @@
 
   let { deck } = $props();    // the shared status document (Shell polls it)
 
-  const status = poll('/api/sys/status', 15000);
+  const status = poll('/api/sys/status', 15000, 'status');
   const ups = poll('/api/sys/ups/status', 20000);
   const setup = poll('/api/sys/setup/list', 30000);
   const updates = poll(() => (deck.data?.locked ? '' : '/api/sys/system/updates'), 60000);
@@ -131,6 +132,12 @@
     <Banner tone="warn" icon="list-checks">Finish the setup: {setupOpen} item{setupOpen === 1 ? '' : 's'} still open.
       {#snippet action()}<button use:tip={'Open the first-run checklist'} class="btn sm" onclick={() => go('/setup')}>Open Setup<i class="ph ph-arrow-right"></i></button>{/snippet}
     </Banner>
+  {/if}
+  {#if ui.features.live && !live.open}
+    <Banner tone="info" icon="pause-circle">Live updates paused. The page reads every few seconds until they are back.</Banner>
+  {/if}
+  {#if status.error?.status === 503 && !status.data}
+    <Banner tone="warn">{status.error.retryAfter ? 'The server is refreshing its state. This page updates in a moment.' : 'The state service is down. Other pages still work.'}</Banner>
   {/if}
   {#if deck.error && !d}
     <Banner tone="bad">This server does not answer.</Banner>

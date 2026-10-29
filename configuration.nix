@@ -62,7 +62,9 @@ let
   isHome = role == "homeserver";
   isEdge = role == "edge";
   roleCapabilities = lib.optionals isHome [ "storage" "incus" "samba" "backup" ];
-  capabilities = lib.unique (capabilitiesSetting ++ lib.optional metrics "metrics" ++ lib.optional (tailscaleRouter || webTailscale) "tailscale" ++ lib.optional (ad != null) "ad" ++ lib.optional (webUi && machine.webDocs) "docs" ++ roleCapabilities);
+  # live state (capability live-state): the web reads from Redis; off means direct reads (machine.toml liveState)
+  liveOn = webUi && isHome && machine.liveState == "redis";
+  capabilities = lib.unique (capabilitiesSetting ++ lib.optional metrics "metrics" ++ lib.optional (tailscaleRouter || webTailscale) "tailscale" ++ lib.optional (ad != null) "ad" ++ lib.optional (webUi && machine.webDocs) "docs" ++ lib.optional liveOn "live-state" ++ roleCapabilities);
   hasStorage = builtins.elem "storage" capabilities;
   hasIncus = builtins.elem "incus" capabilities;
   hasSamba = builtins.elem "samba" capabilities;
@@ -351,6 +353,7 @@ in
       # PrivateTmp gives hs-web its own mount namespace: the unlock (vault mount) must run outside it, in a transient unit
       HS_WEB_UNLOCK_IN_UNIT = "1";
       HS_WEB_SESSION_FILE = "/run/hs-web/sessions.json";
+      HS_WEB_LIVE = if builtins.elem "live-state" capabilities then "redis" else "";
     };
     serviceConfig = {
       ExecStart = "${pkgs.python3}/bin/python3 ${./scripts}/web-serve.py";
@@ -361,6 +364,8 @@ in
       RuntimeDirectory = "hs-web";
       RuntimeDirectoryMode = "0700";
       RuntimeDirectoryPreserve = "yes";
+      # the Redis socket of the live state (capability live-state); hs-web still starts without Redis and answers 503
+      SupplementaryGroups = lib.optionals (builtins.elem "live-state" capabilities) [ "hs-live" "redis-hobnix" ];
     };
   };
 

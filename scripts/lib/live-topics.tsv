@@ -1,0 +1,3 @@
+# Live-state topics (scripts/live-collect.py). Columns, tab separated: topic, words of the `hs sys` read, interval in seconds,
+# while the storage is locked: run|skip. The key is hs:v1:<topic>.
+status	status	15	run
