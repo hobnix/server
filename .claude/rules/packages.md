@@ -1,30 +1,25 @@
 ---
 paths:
-  - "packages/**"
   - "scripts/recipes/**"
   - "scripts/recipe*.sh"
   - "scripts/pkg*"
   - "scripts/ext.sh"
-  - "scripts/dev/export-package-repos.py"
   - "scripts/lib/recipe-path.sh"
   - "scripts/lib/registry-load.sh"
-  - "capabilities/games/**"
-  - "capabilities/posters/**"
+  - "tests/fixtures/pkgtree/**"
   - "config/package-repos.toml"
   - "config/trusted-keys/**"
   - "tests/pkg*.sh"
   - "tests/recipe*.sh"
-  - "tests/media-recipes.sh"
   - "tests/declare-service.sh"
   - "tests/ext.sh"
-  - "tests/matrix-hook.sh"
-  - "tests/sunshine.sh"
-  - "tests/steamos.sh"
 ---
 
 # Recipes, packages, extensions
 
 Loaded when you touch the files above (path-scoped rule). The root CLAUDE.md has the rules that always apply.
+
+- **Where the packages live (since 2026-10-29):** the recipes are in github.com/hobnix/recipes (`recipes/<name>/`) and the extensions in github.com/hobnix/extensions (`extensions/<name>/`), not in this tree. A package is changed there (sibling checkouts, e.g. ../hobnix-recipes), released with a signed tag `vX.Y.Z` (key: config/trusted-keys/), and reaches a server with `hs pkg install|update`; `hs pkg install --core` (called by `hs first-run`) fetches the packages the core refers to by name. Their tests run in their own repositories against a checkout of this one (`HS_CORE=<this tree> bash tests/run-all.sh`). This tree keeps the loaders, the shared helpers (scripts/recipes/_lib.sh, _media.sh, files/) and a small fixture package tree for its own tests (tests/fixtures/pkgtree). Where the text below says `packages/<name>/` or `capabilities/games`, read: the package repository.
 
 - **Packages** (docs/PLAN-packages.md; step 1 built 2026-10-28): recipes and extensions are both *packages* with a semver `version` and `requires_core` (the API level in scripts/lib/api-level) in a `package.toml`: `packages/<recipe>/package.toml` (`run.sh` beside it; the header lines of run.sh must agree, tests/pkg.sh) and `capabilities/<ext>/package.toml`. `hs pkg list|updates|validate`, `hs sys pkg list`, scripts/pkg.py; `hs recipe` records the applied version in /var/lib/hs/packages/installed.toml. A new recipe needs its package.toml (`python3 scripts/pkg.py convert scripts/recipes/<name>.sh`). Recipes install themselves from pinned releases (NO community-scripts any more); `piece`/`fetch_pinned`/`ensure_file` in recipes/_lib.sh and `hs recipe <name> --check` do only what changed. A recipe package may carry commands.tsv + `[web.*]` (pilot `arr`: `hs ext arr status`). Repositories: `hs pkg repo|fetch|available|install|update|remove` (scripts/pkg_repo.py; release tags `vX.Y.Z` signed with an SSH key, only the newest tag that verifies against config/trusted-keys/<repo>.allowed_signers (defaults) or the key given at `hs pkg repo add` is used, installs are read-only copies in /var/lib/hs/packages/current, `update` shows the git diff first and needs `--yes` without a terminal; never a branch, never an unsigned tag unless the repo was added `--unsigned`). Step 5 (2026-10-28): recipes moved to packages/<name>/run.sh, the games/posters scripts into their capabilities/ folders (HS_SCRIPTS points them at the core helpers); `python3 scripts/dev/export-package-repos.py [--out <dir>]` writes the clean repositories recipes and extensions (index.toml, one commit, CI that validates against the core via `pkg.py repo-check`); tests/pkg-export.sh proves the way back (signed tag, add, fetch, install). The packages are still ALSO in this repository: they leave it only after the two repositories are published, signed and their keys are in config/trusted-keys/, otherwise a fresh install would have no recipes (the six the core refers to by name are flagged `core = true` in the index). Next: step 6, the public-release cleanup.
 

@@ -1160,20 +1160,6 @@ User '%s' (%s)	Benutzer '%s' (%s)
 Waiting for %s to answer (the first start prepares its files)	Warten, bis %s antwortet (der erste Start bereitet seine Dateien vor)
 skipped (RECIPE_SKIP_STORAGE): the files stay inside the container	übersprungen (RECIPE_SKIP_STORAGE): die Dateien bleiben im Container
 Host name	Hostname
-usage: hs ext games list	Aufruf: hs ext games list
-       hs ext games add <name> <mac> [<ip>]	       hs ext games add <Name> <MAC> [<IP>]
-       hs ext games remove <name>	       hs ext games remove <Name>
-       hs ext games wake <name> [--wait]	       hs ext games wake <Name> [--wait]
-'%s' is not a usable name (letters, digits, . _ -)	'%s' ist kein brauchbarer Name (Buchstaben, Ziffern, . _ -)
-'%s' is not a MAC address (like aa:bb:cc:dd:ee:ff)	'%s' ist keine MAC-Adresse (wie aa:bb:cc:dd:ee:ff)
-'%s' is not an IPv4 address	'%s' ist keine IPv4-Adresse
-Saved '%s' (%s)	'%s' gemerkt (%s)
-Removed '%s'	'%s' entfernt
-python3 is needed to send the packet	python3 wird gebraucht, um das Paket zu senden
-Wake-up packet sent to '%s' (%s)	Aufweck-Paket an '%s' gesendet (%s)
-Waiting for Sunshine on '%s' (%s)	Warte auf Sunshine auf '%s' (%s)
-'%s' did not answer within %s seconds. Is Wake-on-LAN on in its BIOS and is Sunshine running?	'%s' hat nicht innerhalb von %s Sekunden geantwortet. Ist Wake-on-LAN im BIOS an und läuft Sunshine?
-'%s' is up and Sunshine answers	'%s' ist an und Sunshine antwortet
 Messages from the helpers go to ntfy and to Matrix (%s)	Meldungen der Helfer gehen an ntfy und an Matrix (%s)
 Messages from the helpers go to ntfy only (no Matrix hook yet: hs recipe matrix-hook, then run this recipe again)	Meldungen der Helfer gehen nur an ntfy (noch kein Matrix-Hook: hs recipe matrix-hook, danach dieses Rezept erneut starten)
 usage: hs config sync [--check] | check | migrate	Aufruf: hs config sync [--check] | check | migrate
@@ -1306,8 +1292,6 @@ Group '%s' deleted.	Gruppe '%s' gelöscht.
 '%s' is no longer in '%s'.	'%s' ist nicht mehr in '%s'.
 Network	Netzwerk
 Subnet	Subnetz
-No PC saved yet.	Noch kein PC gespeichert.
-No PC called '%s'	Es gibt keinen PC namens '%s'
 usage: hs shutdown [--yes] [--force] [--dry-run]	Aufruf: hs shutdown [--yes] [--force] [--dry-run]
        hs reboot [--menu | --firmware | --entry <id>] [--yes] [--force] [--dry-run]	       hs reboot [--menu | --firmware | --entry <id>] [--yes] [--force] [--dry-run]
 No password on standard input.	Kein Passwort auf der Standardeingabe.
@@ -1394,21 +1378,6 @@ usage: hs dc cert ca                      (once, on the server that keeps the CA
        hs dc cert install [--cert <file>|-] [--dc <instance>] [--yes]	       hs dc cert install [--cert <Datei>|-] [--dc <Instanz>] [--yes]
        hs dc cert show [--dc <instance>]	       hs dc cert show [--dc <Instanz>]
 '%s' is not a usable name.	'%s' ist kein brauchbarer Name.
-usage: hs ext posters generate [--eyebrow <text>] [--title <text>] [--color <name|#rrggbb>] [--seed <n>]	Aufruf: hs ext posters generate [--eyebrow <Text>] [--title <Text>] [--color <Name|#rrggbb>] [--seed <n>]
-Eyebrow (the small line above the title, for example Library)	Eyebrow (die kleine Zeile über dem Titel, zum Beispiel Bibliothek)
-Title (for example Movies)	Titel (zum Beispiel Filme)
-Colour	Farbe
-Colour as #rrggbb	Farbe als #rrggbb
-Seed (the same seed always draws the same poster)	Seed (derselbe Seed zeichnet immer dasselbe Poster)
-Seed (a whole number)	Seed (eine ganze Zahl)
-The eyebrow and the title are required.	Eyebrow und Titel sind nötig.
-Drawing the poster	Das Poster wird gezeichnet
-Saved: %s	Gespeichert: %s
-Seed	Seed
-Draw another one with a new seed?	Noch eins mit einem neuen Seed zeichnen?
-Where to save it?	Wo soll es gespeichert werden?
-Folder (full path, it must exist)	Ordner (voller Pfad, er muss existieren)
-No shares found: the poster is saved in this folder.	Keine Freigaben gefunden: das Poster wird in diesem Ordner gespeichert.
   1. stop putting new files on it and take it out of /bulk	  1. keine neuen Dateien mehr darauf legen und aus /bulk nehmen
   2. take it out of the array (the parity follows with the next scheduled sync, or now if you ask for it)	  2. aus dem Verbund nehmen (die Parität folgt beim nächsten geplanten Sync, oder gleich, wenn du es willst)
   The disk holds no files (the rest df shows is the filesystem's own space).	  Auf der Platte liegen keine Dateien (der Rest, den df zeigt, ist Platz des Dateisystems selbst).
@@ -1677,7 +1646,6 @@ Adding a repository needs a person at a terminal, or --confirm-name <name>.	Ein 
 Repository %s added.	Repository %s hinzugefügt.
 Repository removed.	Repository entfernt.
 Signed	Signiert
-                          [--size <WxH>] [--case upper|keep] [--out <file|folder>] [--force]	                          [--size <BxH>] [--case upper|keep] [--out <Datei|Ordner>] [--force]
        hs sys unifi clients              every address that is reserved or online, plain: ip, mac, name, reserved|online|reserved+online	       hs sys unifi clients              alle reservierten oder online gesehenen Adressen, einfach: ip, mac, name, reserved|online|reserved+online
        hs sys unifi networks             the router's networks, plain: name, subnet, dhcp, from, to	       hs sys unifi networks             die Netze des Routers, einfach: name, subnet, dhcp, from, to
        hs unlock --list          the same for tools: type, device, state, size (tab separated)	       hs unlock --list          dasselbe für Programme: type, device, state, size (mit Tabulatoren getrennt)

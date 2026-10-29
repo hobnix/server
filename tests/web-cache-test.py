@@ -136,7 +136,7 @@ class Cache(unittest.TestCase):
     def test_warm_targets_hold_every_read_without_arguments(self):
         r = self.reads()
         names = {"/".join(k[0].words) if hasattr(k[0], "words") else "/".join(k[1]) for k in r.warm_targets()}
-        for must in ("ct/list", "shares/overview", "recipes/list", "services/list", "dc/state", "ext/posters/list", "state/disks"):
+        for must in ("ct/list", "shares/overview", "recipes/list", "services/list", "dc/state", "state/disks"):
             self.assertIn(must, names)
         self.assertNotIn("config/check", names)         # ttl 0: always read fresh, never warmed
         self.assertFalse(any(k[1][:2] == ["ct", "bindings"] for k in r.warm_targets()))   # needs an argument nobody gave yet

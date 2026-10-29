@@ -98,6 +98,4 @@ check_out "a row per question" "^PROVIDER${T}Provider${T}text${T}proton${T}" ech
 check_out "the condition is a column" "^KEY${T}Private key${T}secret${T}-${T}-${T}KIND=wg" echo "$a"
 check_out "the last row says how it is answered" "^input${T}form" echo "$a"
 check_out "a recipe without questions says none" "^input${T}none" env HS_RECIPES_DIR=$R bash "$SCRIPTS/recipe-asks.sh" fine
-check_out "domain needs a terminal" "^input${T}terminal" env -u HS_RECIPES_DIR bash "$SCRIPTS/recipe-asks.sh" domain
-check_out "qbittorrent has a form" "^input${T}form" env -u HS_RECIPES_DIR bash "$SCRIPTS/recipe-asks.sh" qbittorrent
 finish
