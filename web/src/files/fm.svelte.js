@@ -250,18 +250,18 @@ export class Fm {
     const src = this.locOf(a.loc), dst = this.locOf(b.loc);
     if (this.locsState !== 'ok' || !src) return 'No location is open';
     const ro = (l) => (l.reason || 'This location is read only');
-    if (op === 'mkdir') return src.writable ? '' : ro(src);
+    if (op === 'mkdir') return src.modifiable ? '' : ro(src);
     const s = this.source(side);
     if (!s.ok) return s.why || 'Select something first';
     if (op === 'rename') {
       if (s.n !== 1) return 'Rename works on one item at a time';
       if (s.items[0].flags?.includes('badname')) return 'This name has odd characters and cannot be renamed here';
-      return src.writable ? '' : ro(src);
+      return src.modifiable ? '' : ro(src);
     }
-    if (op === 'delete') return src.writable ? '' : ro(src);
+    if (op === 'delete') return src.modifiable ? '' : ro(src);
     if (!dst) return 'Open a location in the other pane first';
-    if (!dst.writable) return `${dst.label} is read only: ${ro(dst)}`;
-    if (op === 'move' && !src.writable) return `${src.label} is read only, so nothing can be moved out of it`;
+    if (!dst.writable) return dst.modifiable ? ro(dst) : `${dst.label} is read only: ${ro(dst)}`;
+    if (op === 'move' && !src.modifiable) return `${src.label} is read only, so nothing can be moved out of it`;
     return '';
   }
 

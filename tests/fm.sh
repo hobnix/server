@@ -39,6 +39,8 @@ l=$(loc disk:data-04); [ "$(echo "$l" | cut -f3,8,9,10,11)" = "disk${T}yes${T}-$
 l=$(loc disk:data-06); [ "$(echo "$l" | cut -f8)" = no ] && echo "$l" | cut -f9 | grep -q closed && pass "a closed disk: not writable, reason" || fail "data-06: $l"
 l=$(loc disk:data-07); [ "$(echo "$l" | cut -f8)" = no ] && echo "$l" | cut -f9 | grep -q recovery && pass "a disk out for recovery: not writable, reason" || fail "data-07: $l"
 l=$(loc disk:data-08); [ "$(echo "$l" | cut -f8)" = no ] && echo "$l" | cut -f9 | grep -q detached && pass "a detached disk: not writable, reason" || fail "data-08: $l"
+l=$(loc disk:data-06); [ "$(echo "$l" | cut -f8,12)" = "no${T}yes" ] && pass "a closed disk takes no files but can still be emptied (modifiable yes)" || fail "data-06: $l"
+l=$(loc disk:data-08); [ "$(echo "$l" | cut -f12)" = no ] && pass "a detached disk is not modifiable" || fail "data-08 mod: $l"
 l=$(loc temp:usb); [ "$(echo "$l" | cut -f3,8)" = "temp${T}no" ] && pass "a temporary disk is a source only" || fail "temp: $l"
 l=$(loc pool:bulk); echo "$l" | cut -f3,10 | grep -q "pool${T}bulk" && pass "pool:bulk" || fail "pool: $l"
 [ -n "$(loc cache:bulk)" ] && [ -n "$(loc share:media)" ] && [ -n "$(loc pool:fast)" ] && pass "cache, share and fast pool are listed" || fail "ids: $out"

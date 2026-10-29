@@ -72,14 +72,14 @@ cmd_locations() {
     n=$(basename "$d"); [[ $n =~ ^[a-z0-9][a-z0-9-]{0,31}$ ]] || continue
     fm_ismnt "${d%/}" && ids+=("temp:$n") || true
   done
-  local id w r
+  local id w r m
   for id in "${ids[@]}"; do
     fm_resolve "$id" || continue
-    w=$LADD; r=$LREASON
-    [ "$LUSABLE" = yes ] || { w=no; [ "$r" != - ] || r=$LERR; }
+    w=$LADD; m=$LMOD; r=$LREASON
+    [ "$LUSABLE" = yes ] || { w=no; m=no; [ "$r" != - ] || r=$LERR; }
     [ "$w" = yes ] && r=-
     r=${r//$'\t'/ }
-    printf 'loc\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\n' "$id" "$LKIND" "$LLABEL" "$LFS" "$LSIZE" "$LFREE" "$w" "$r" "$LPOOL" "$LDISK"
+    printf 'loc\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\n' "$id" "$LKIND" "$LLABEL" "$LFS" "$LSIZE" "$LFREE" "$w" "$r" "$LPOOL" "$LDISK" "$m"
   done
 }
 

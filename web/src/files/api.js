@@ -2,7 +2,7 @@
 // web/src/files works with the objects this module returns, so a change of the wire format is a change here.
 //
 // READS (GET /api/sys/fm/<words>, tsv rows; the first row is `status<TAB>ok|refused`, a refusal has `reason<TAB>text`):
-//   fm/locations                     loc <id> <kind> <label> <fs> <size> <free> <writable yes|no> <reason|-> <pool|-> <disk|->
+//   fm/locations                     loc <id> <kind> <label> <fs> <size> <free> <writable yes|no> <reason|-> <pool|-> <disk|-> <modifiable yes|no>
 //   fm/pair/<left>/<right>           status ok | refused + reason (the same-files rule)
 //   fm/ls/<loc>?path=&cursor=&limit= row <type d|f|l> <bytes> <mtime> <name> <disks|-> <flags|-> <busy op:pct|->, then `cursor <X>` or `end`
 //   fm/progress/<unit>               key<TAB>value: files_done files_total bytes_done bytes_total speed eta current phase result skipped failed
@@ -36,6 +36,8 @@ export async function locations() {
   const locs = s.rows.filter((r) => r[0] === 'loc').map((r) => ({
     id: r[1], kind: r[2], label: r[3], fs: r[4] === '-' ? '' : r[4], size: Number(r[5]) || 0, free: r[6] === '-' || r[6] === '' ? NaN : Number(r[6]),
     writable: r[7] === 'yes', reason: r[8] === '-' ? '' : (r[8] ?? ''), pool: r[9] === '-' ? '' : (r[9] ?? ''), disk: r[10] === '-' ? '' : (r[10] ?? ''),
+    // files may be removed or renamed in it: a closed disk takes no new files (writable no) but is still a source that can be emptied; an older server sends no column
+    modifiable: r[11] ? r[11] === 'yes' : r[7] === 'yes',
   }));
   return { ok: s.ok, reason: s.reason, locs, locked: s.kv.locked === 'yes', write: s.kv.write !== 'no' };
 }

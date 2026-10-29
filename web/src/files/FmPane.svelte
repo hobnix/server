@@ -112,7 +112,7 @@
         {#if loc}<Chip>{loc.kind}</Chip><b class="mono">{loc.label}</b>{#if loc.fs}<span class="fsx">{loc.fs}</span>{/if}{:else}<span class="fsx">{p.loc || 'Choose a location'}</span>{/if}
         <span class="cv" aria-hidden="true"></span>
       </button>
-      {#if loc && !loc.writable}<span class="tag tag-neutral warnchip" use:tip={loc.reason || 'Nothing can be written here'}>read only</span>{/if}
+      {#if loc && !loc.writable}<span class="tag tag-neutral warnchip" use:tip={loc.reason || 'Nothing can be written here'}>{loc.modifiable ? 'closed' : 'read only'}</span>{/if}
       <span class="grow"></span>
       <input class="input fmfilter" type="search" placeholder="Filter" aria-label="Filter the list" data-fmfilter={side} bind:value={p.filter} onkeydown={(e) => { if (e.key === 'Escape') { p.filter = ''; e.currentTarget.blur(); e.stopPropagation(); } else if (e.key === 'Enter') e.currentTarget.blur(); else if (e.key !== 'Tab') e.stopPropagation(); }} />
       <button class="btn btn-ghost btn-icon sq" aria-pressed={p.hidden} aria-label="Show hidden files" use:tip={p.hidden ? 'Hide dot files' : 'Show dot files'} onclick={() => (p.hidden = !p.hidden)}><i class="ph ph-{p.hidden ? 'eye' : 'eye-slash'}"></i></button>
@@ -138,7 +138,7 @@
     {/if}
   </div>
 
-  {#if loc && !loc.writable}<div class="fmnote"><i class="ph ph-lock"></i>{loc.reason || 'This location is read only.'} It can be a source, never a target.</div>{/if}
+  {#if loc && !loc.writable}<div class="fmnote"><i class="ph ph-lock"></i>{loc.reason || 'This location is read only.'} {loc.modifiable ? 'Files can be moved or deleted here, but nothing can be added.' : 'It can be a source, never a target.'}</div>{/if}
   {#if jobHere}<div class="fmnote info"><i class="ph ph-arrows-clockwise"></i>A {fm.job.op} is running here; the list may change.</div>{/if}
   {#if p.status === 'error'}
     <div class="fmnote bad"><i class="ph ph-warning-octagon"></i><span class="grow">{p.error || 'This location stopped answering.'}{#if p.rows.length} Showing the last listing, greyed.{/if}</span>

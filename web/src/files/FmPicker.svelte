@@ -46,7 +46,7 @@
       {#each g.rows as { l, child } (l.id)}
         {@const no = why(l)}
         <button type="button" class="fmpr" class:cur={l.id === cur} class:child class:locked={!!no} role="option" aria-selected={l.id === cur} aria-disabled={!!no} use:tip={no} onclick={() => pick(l)}>
-          <span class="pl"><b class="mono">{l.label}</b><Chip>{l.kind}</Chip>{#if l.fs}<span class="fsx">{l.fs}</span>{/if}{#if !l.writable}<Chip>read only</Chip>{/if}</span>
+          <span class="pl"><b class="mono">{l.label}</b><Chip>{l.kind}</Chip>{#if l.fs}<span class="fsx">{l.fs}</span>{/if}{#if !l.writable}<Chip>{l.modifiable ? 'closed' : 'read only'}</Chip>{/if}</span>
           <span class="pm">{l.size > 0 ? `${sizeTxt(l.size)}${Number.isFinite(l.free) ? `, ${sizeTxt(l.free)} free` : ''}` : ''}{#if !l.writable && l.reason} · {l.reason}{/if}</span>
           {#if no}
             <span class="pr2"><i class="ph ph-lock"></i>{no}</span>
