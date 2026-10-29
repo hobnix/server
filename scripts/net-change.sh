@@ -2,7 +2,7 @@
 # help: connect the router (UniFi) without asking anything: what would happen (plan), then do it (start)
 # help.de: den Router (UniFi) verbinden, ohne Rückfragen: was passieren würde (plan), dann ausführen (start)
 # args: plan|start setup --address <url>   (the API key is ONE LINE ON STANDARD INPUT)
-# System command (hs sys net plan|start): for the interface and tests. It never asks and prints plain key<TAB>value lines like dns-change.sh.
+# System command (hs sys net plan|start): for the interface and tests. It never asks and prints plain key<TAB>value lines like backup-change.sh.
 # The work is unifi.sh's `setup --address <url> --stdin`: the address and the key are kept in a root-only file (inside the vault when there is one),
 # the runtime setting networkProvider is set to unifi (which switches the capability network on) and the router is asked once for its networks.
 #   setup   the key travels on standard input only, never in an argument, the environment or a log. It replaces an address and key stored before.

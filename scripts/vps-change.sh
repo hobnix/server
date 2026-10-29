@@ -2,7 +2,7 @@
 # help: run `vps update` or `vps watch` on the proxyserver (the VPS) without asking anything: what would happen (plan), then do it as a background job (start)
 # help.de: `vps update` oder `vps watch` auf dem Proxyserver (dem VPS) ausführen, ohne etwas zu fragen: was passieren würde (plan), dann als Hintergrundjob ausführen (start)
 # args: plan|start update|watch
-# System command (hs sys vps plan|start): for the interface and tests. It never asks and prints plain key<TAB>value lines like dns-change.sh.
+# System command (hs sys vps plan|start): for the interface and tests. It never asks and prints plain key<TAB>value lines like backup-change.sh.
 # The VPS is reached with a key of its own (hs vps key; the private half is the secret /var/lib/hs/vps-key, in the vault when there is one).
 # That key can do ONLY update, watch and status on the VPS (its machine.nix: webKey; the forced command modules/cli/vps-remote.sh in the
 # proxyserver repo). The only word that reaches the VPS is the verb, checked here against a fixed list.

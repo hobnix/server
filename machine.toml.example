@@ -96,10 +96,9 @@ vlans = { home = { id = 95, default = true } }
 # from and to. Fixed addresses should lie outside. Default [100, 199].
 # dhcpRange = [100, 199]
 
-# The name of this server inside the domain's DNS: instances get <instance>.<siteName>.<domain>
-# (docs.home.ad.home.lan). Needed once two servers share one domain (a second domain
-# controller), so both can have a `docs` and a `zoraxy`. Lower case letters, digits and hyphens.
-# Default: hostName. `hs dns sync` creates the records.
+# The label in front of the domain for this server's local names: the gateway proxy gives services
+# <service>.<siteName>.<domain> (one wildcard record *.<siteName>, made by a person). Lower case
+# letters, digits and hyphens. Default: hostName.
 # siteName = "home"
 
 # The Incus web UI (https://<server>:8443/ui/) and the network address of the Incus API.

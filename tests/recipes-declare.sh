@@ -8,9 +8,6 @@ R=$ROOT/packages
 
 # recipe -> why it declares nothing
 declare -A NONE=(
-  [homepage]="the dashboard does not list itself"
-  [pelican]="two containers (panel and Wings): declared by hand for now"
-  [stalwart]="the web page is the mail server's admin page on https"
   [livekit]="not a web page"
   [matrix-hook]="not a web page"
   [cloudflared]="a tunnel, no web page"
@@ -40,9 +37,9 @@ bad=$(grep -h '^ *declare_service ' "$R"/*/run.sh | awk '{
   if (w[1] == "public-ok") print $0
 }')
 check_eq "no recipe declares its service public-ok" "" "$bad"
-admin=$(for n in docker zoraxy authentik tdarr qbittorrent sabnzbd uptime-kuma monitoring paperclip; do grep -q "^ *declare_service $n .* never-public " "$R/$n/run.sh" 2>/dev/null || echo "$n "; done)
+admin=$(for n in docker zoraxy authentik tdarr qbittorrent sabnzbd uptime-kuma monitoring paperclip homepage stalwart; do grep -q "^ *declare_service $n .* never-public " "$R/$n/run.sh" 2>/dev/null || echo "$n "; done)
 check_eq "the admin pages and download tools are never-public" "" "$admin"
 count=$(grep -l '^ *declare_service ' "$R"/*/run.sh | wc -l | tr -d ' ')
-check_eq "so far (update this number with a new recipe)" "20" "$count"
+check_eq "so far (update this number with a new recipe)" "23" "$count"
 
 finish

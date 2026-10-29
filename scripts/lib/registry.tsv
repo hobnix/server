@@ -139,8 +139,8 @@ user	preset apply	preset.sh	apply	set what a preset chooses and is not set yet (
 user	installer	install-wizard.sh	-	install a new server from the installer ISO (run on the stick as root: the system disk, name, SSH key, preset): hs-install	einen neuen Server vom Installer-Stick einrichten (auf dem Stick als root: Systemplatte, Name, SSH-Schlüssel, Vorlage): hs-install	topic:system,changes,nohelp
 user	net setup	unifi.sh	setup {rest}	store the router address and API key	Router-Adresse und API-Schlüssel speichern	topic:network,changes
 user	net check	unifi.sh	check	list the router's networks and DHCP ranges	Netzwerke und DHCP-Bereiche des Routers anzeigen	topic:network,reads,capability:network
-user	dns list	dns.sh	list	the DNS names of this server's instances (<instance>.<siteName>.<domain>)	die DNS-Namen der Instanzen dieses Servers (<Instanz>.<siteName>.<Domäne>)	topic:network,reads,capability:ad
-user	dns sync	dns.sh	sync {rest}	create, correct and remove the DNS names of the instances (asks first; --yes, --dry-run)	DNS-Namen der Instanzen anlegen, korrigieren und entfernen (fragt vorher; --yes, --dry-run)	topic:network,changes,capability:ad
+user	dns list	dns.sh	list	the DNS names under this server's name in the domain (<name>.<siteName>.<domain>; hs no longer writes them)	die DNS-Namen unter dem Namen dieses Servers in der Domäne (<Name>.<siteName>.<Domäne>; hs schreibt sie nicht mehr)	topic:network,reads,capability:ad
+user	dns clean	dns.sh	clean {rest}	remove the leftover names the old DNS sync wrote under this server's name (shows a plan, asks first; --yes, --dry-run)	die Namen entfernen, die der alte DNS-Abgleich unter dem Namen dieses Servers angelegt hat (zeigt einen Plan, fragt vorher; --yes, --dry-run)	topic:network,changes,capability:ad
 user	services list	services.sh	list {rest}	the services of this server and where they are published (reverse proxy)	die Dienste dieses Servers und wo sie veröffentlicht sind (Reverse-Proxy)	topic:network,reads
 user	services check	services.sh	check	check the service files for mistakes	die Dienstdateien auf Fehler prüfen	topic:network,reads
 user	services plan	services.sh	plan {rest}	what the reverse proxy has against what the services want: ok, add, change, blocked, violation, unmanaged [--proxy local]	was der Reverse-Proxy hat gegen das, was die Dienste wollen: ok, add, change, blocked, violation, unmanaged [--proxy local]	topic:network,reads
@@ -250,8 +250,6 @@ sys	sys unifi networks	unifi.sh	networks	the router's networks, no header: name,
 sys	sys unifi clients	unifi.sh	clients	every address the router has reserved or sees online, no header, by address: ip, mac, name (- when none), reserved|online|reserved+online	-
 sys	sys ports list	ports.sh	--list	what listens on the server and in each running container, and the Zoraxy proxy targets with their warnings (listen and proxy lines, see scripts/ports.sh)	-
 sys	sys dns list	dns.sh	raw	the DNS names of the instances in the zone, no header: name, type, value	-
-sys	sys dns plan <action>	dns-change.sh	plan {1} {rest}	what syncing the DNS names of the instances would add, change and remove, as data: status and plan lines (never asks; exit 0 ok, 1 refused or nothing to do)	-
-sys	sys dns start <action>	dns-change.sh	start {1} {rest}	do it as a background job (hs sys dns start sync)	-
 sys	sys services list	services.sh	list --plain	the services as data: name, title, target, exposure, names, wants	-
 sys	sys services plan	services.sh	plan --plain	the proxy routes against the services as data: act, host, path, target, service, note (status none without a proxy)	-
 sys	sys services routes	services.sh	plan --plain	the proxy routes against the services, as data (the same as sys services plan; the web page reads this one because a read must not be named plan): act, host, path, target, service, note	-

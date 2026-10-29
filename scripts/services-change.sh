@@ -3,7 +3,7 @@
 # help.de: die Dienste und ihre Routen am Reverse-Proxy ändern, ohne etwas zu fragen: was passieren würde (plan), dann ausführen (start)
 # args: plan|start apply | adopt | import | remove <service> | add <name> --port N (--container C | --host H) [--title T] [--names a,b] [--exposure E] [--public-path P]... [--want w,w]
 # System command (hs sys routes plan|start): for the interface and tests. It never asks and prints plain key<TAB>value lines like
-# dns-change.sh. The work is services.sh's (no logic is repeated here). The reads are `hs sys services list|plan|tiles`.
+# backup-change.sh. The work is services.sh's (no logic is repeated here). The reads are `hs sys services list|plan|tiles`.
 #   apply          do what `hs services plan` says: add, publish (confirm), change and remove routes. The plan lists every route; when one goes on
 #                  the internet, changes a live route or removes one it is red: confirm_name = apply, and start passes --confirm for each host.
 #                  Runs as a background job. Blocked services, violations and routes not made by hs are never touched.

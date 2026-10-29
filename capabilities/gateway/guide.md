@@ -45,7 +45,7 @@ sudo hs services apply --proxy local
 `import` marks every service as wanting a local name (a service you set to `local-proxy = false` stays out). A new recipe asks nothing: its service gets a local name by itself. `hs services plan --proxy local` shows the plan.
 
 ## Names with their own DNS record
-An explicit record beats the wildcard. `hs dns sync` writes records for containers (for example `jellyfin.homeserver.ad.example.org` and the arr apps), so those names go straight to the container and not through Traefik. The plan says so in its note column. Give a service a second label (`names`, for example `media`) to reach it through the gateway.
+An explicit record beats the wildcard. Records an older hs wrote for containers (`hs dns sync`, removed; for example `jellyfin.homeserver.ad.example.org` and the arr apps) may still be in the zone: `hs dns list` shows them, and those names go straight to the container and not through Traefik. `hs dns clean` removes them (it shows a plan first) Not tested on hardware yet., so the names go through the gateway. The services plan says so in its note column. Give a service a second label (`names`, for example `media`) to reach it through the gateway.
 
 ## Reach the web interface
 Not tested on hardware yet.

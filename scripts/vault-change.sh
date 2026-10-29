@@ -3,7 +3,7 @@
 # help.de: den Tresor und die Geheimnisse ändern, ohne etwas zu fragen: was passieren würde (plan), dann als Hintergrundjob ausführen (start)
 # args: plan|start header-backup | move [<name>...] | close | secrets-fix
 # System command (hs sys secrets plan|start): for the interface and tests. It never asks and prints plain key<TAB>value lines like
-# dns-change.sh. The work is vault.sh's and secrets.sh's (no logic is repeated here). The reads are `hs sys vault list|usage|uses`.
+# backup-change.sh. The work is vault.sh's and secrets.sh's (no logic is repeated here). The reads are `hs sys vault list|usage|uses`.
 #   header-backup   save the LUKS header of the vault (/var/lib/hs/vault-header); needs the vault open
 #   move [<name>]   copy secrets into the vault, check the copy and leave a link; without names the usual ones that exist; needs the vault open
 #   close           close the vault (red: confirm_name = close); refused while something uses it. Everything that needs a secret waits for the unlock

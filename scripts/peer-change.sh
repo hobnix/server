@@ -2,7 +2,7 @@
 # help: change the shares between two homeservers without asking anything: what would happen (plan), then do it (start)
 # help.de: die Freigaben zwischen zwei Homeservern ändern, ohne etwas zu fragen: was passieren würde (plan), dann ausführen (start)
 # args: plan|start offer <peer> <share> [--new-password] | add <peer> <host> <share> --user <login> [--domain <D>] | remove <peer> [<share>] | revoke <peer> [<share>] | attach <peer> <instance> [--path <inside>] | detach <peer> <instance>
-# System command (hs sys peers plan|start): for the interface and tests. It never asks and prints plain key<TAB>value lines like dns-change.sh.
+# System command (hs sys peers plan|start): for the interface and tests. It never asks and prints plain key<TAB>value lines like backup-change.sh.
 # The work is remote.sh's (no logic is repeated here). The reads are `hs sys remote list`.
 #   offer    give another homeserver read access to a share (the login remote-<peer>). It is answered in the start answer itself, never as a
 #            background job, so no job log keeps the new password: the lines `secret<TAB>login|domain|host|password<TAB>value` hold what the

@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
-# Web interface, gap-filling round: another disk (disk-change.sh temp-mount|temp-copy|temp-eject), DNS names (dns-change.sh), the router view
-# (unifi.sh networks|clients) and the allowlists in scripts/web-serve.py. Stand-ins for temp-disk.sh, dns.sh and curl: no root, no hardware.
+# Web interface, gap-filling round: another disk (disk-change.sh temp-mount|temp-copy|temp-eject), the router view
+# (unifi.sh networks|clients) and the allowlists in scripts/web-serve.py. Stand-ins for temp-disk.sh and curl: no root, no hardware.
 # shellcheck source=tests/lib.sh
 . "$(dirname "$0")/lib.sh"
 export HS_PLAIN=1 HS_LANG=en
@@ -95,39 +95,6 @@ check_eq "no other options" 1 "$rc"
 run plan temp-format sdg1
 check_eq "an unknown action" 1 "$rc"
 
-echo "-- DNS names (dns-change.sh)"
-cat > "$WORK/dns" <<'FAKE'
-#!/usr/bin/env bash
-printf '%s\n' "$*" >> "$(dirname "$0")/dns-calls"
-[ "$1" = sync ] || exit 1
-case "${FAKE_DNS:-changes}" in
-  broken) echo "There is no domain (adDomain) in machine.toml, so there is no DNS to put names into."; exit 1 ;;
-  uptodate) exit 0 ;;
-esac
-if [ "${2:-}" = --plain ]; then
-  printf 'add\tdocs.home.ad.home.lan\tA\t10.10.95.22\t\n'
-  printf 'change\tdocker.home.ad.home.lan\tA\t10.10.95.20\t10.10.95.99\n'
-  printf 'remove\told.home.ad.home.lan\tA\t10.10.95.77\t\n'
-fi
-FAKE
-chmod +x "$WORK/dns"
-export HS_DNS=$WORK/dns
-runc() { rc=0; out=$(timeout 20 bash "$SCRIPTS/dns-change.sh" "$@" </dev/null 2>/dev/null) || rc=$?; }
-runc plan sync
-check_eq "dns plan: exit 0" 0 "$rc"
-has "^step${T}add docs.home.ad.home.lan (A) = 10.10.95.22$" && has "^step${T}change docker.home.ad.home.lan (A) from 10.10.95.99 to 10.10.95.20$" && has "^step${T}remove old.home.ad.home.lan (A = 10.10.95.77)$" && pass "every record is a step" || fail "dns plan: $out"
-has "^warn${T}Names that no running instance" && has "^command${T}bash .*dns sync --yes$" && has "^long${T}yes$" && pass "removal warned about, command named" || fail "dns plan tail: $out"
-FAKE_DNS=uptodate runc plan sync
-check_eq "nothing to do is a refusal" 1 "$rc"
-has "up to date" && pass "says so" || fail "uptodate: $out"
-FAKE_DNS=broken runc plan sync
-check_eq "no domain: refused" 1 "$rc"
-has "^reason${T}There is no domain" && pass "with the reason of dns.sh" || fail "broken: $out"
-runc plan nonsense
-check_eq "unknown action" 1 "$rc"
-runc plan sync --yes
-check_eq "no extra word" 1 "$rc"
-
 echo "-- router view (unifi.sh networks|clients)"
 if ! have python3; then
   skip "python3 missing for unifi clients"
@@ -176,7 +143,7 @@ fi
 
 echo "-- registry"
 reg=$SCRIPTS/lib/registry.tsv
-for r in "sys unifi networks" "sys unifi clients" "sys ports list" "sys dns list" "sys dns plan <action>" "sys dns start <action>"; do
+for r in "sys unifi networks" "sys unifi clients" "sys ports list" "sys dns list"; do
   check "row: $r" grep -q "^sys${T}$r${T}" "$reg"
 done
 

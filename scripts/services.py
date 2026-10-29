@@ -21,7 +21,7 @@ A descriptor is /var/lib/hs/services.d/<name>.toml (--dir DIR):
                        [--exposure E] [--public-path /p]... [--want a,b] [--icon I] [--health /]
   services.py declare NAME [--dir D] (what a recipe says: --container C --port N --title T --icon I --group G --description D --exposure E
                        --want a,b --public-name x.y; an existing service keeps what a person decided)  prints created or updated
-  services.py tiles  [--dir D] [--addrs F] [--plan F] [--info F] [--containers]   group, title, link, description, icon, name of the dashboard tiles
+  services.py tiles  [--dir D] [--addrs F] [--plan F] [--info F] [--containers] [--local-domain D] group, title, link, description, icon, name of the dashboard tiles
   services.py remove NAME [--dir D]
   services.py plan   --info F --routes F --addrs F [--owned F] [--dir D]   act<TAB>host<TAB>path<TAB>target<TAB>service<TAB>note
   services.py import --info F --routes F --addrs F [--dir D] [--write]   create|skip<TAB>name<TAB>target<TAB>exposure<TAB>names<TAB>note
@@ -46,7 +46,7 @@ HOST = re.compile(r'^[A-Za-z0-9][A-Za-z0-9._:-]{0,100}$')
 DEAD_END = '127.0.0.1:1'
 # containers whose web page is an admin interface: found on a public proxy they are imported as never-public
 # (or public-ok with only their public paths), the way CLAUDE.md describes the two exceptions (Arcane webhook, Kuma status page)
-ADMIN_TARGETS = {('docker', 80), ('homepage', 80), ('zoraxy', 8000), ('monitoring', 3000), ('monitoring', 80), ('uptime-kuma', 3001), ('paperclip', 3100)}
+ADMIN_TARGETS = {('docker', 80), ('homepage', 80), ('zoraxy', 8000), ('monitoring', 3000), ('monitoring', 80), ('uptime-kuma', 3001), ('paperclip', 3100), ('stalwart', 8080)}
 
 
 def die(msg, code=2):
@@ -313,9 +313,9 @@ def norm_target(t, keep_https=False):
 
 def desired_hosts(s, info, slot='public'):
     if slot == 'local':   # fqdn is a public name: the local slot only has <label>.<local domain>
-        return ['%s.%s' % (n, dom) for n in s.get('names', [s['name']]) for dom in info['domains']]
+        return list(dict.fromkeys('%s.%s' % (n, dom) for n in s.get('names', [s['name']]) for dom in info['domains']))
     hosts = ['%s.%s' % (n, dom) for n in s.get('names', [s['name']]) for dom in info['domains']]
-    return hosts + list(s.get('fqdn', []))
+    return list(dict.fromkeys(hosts + list(s.get('fqdn', []))))
 
 
 def address_of(s, addrs):
@@ -572,10 +572,12 @@ def cmd_declare(d, args):
 
 def cmd_tiles(d, args):
     """The dashboard tiles: group, title, link, description, icon, name for every service that wants a dashboard tile (--containers: only
-    the containers they live in). The link: the public host when the service is published on a public proxy, a LAN host of a private proxy, else
-    the address and port. A service whose container is not running has no tile."""
+    the containers they live in). The link: the public host when the service is published on a public proxy, else (--local-domain D given and
+    the service wants local-proxy) http://<first name or service name>.D, else the address and port. A service whose container is not running
+    has no tile."""
     only_containers = flag(args, '--containers')
     addrs_f, plan_f, info_f = opt(args, '--addrs'), opt(args, '--plan'), opt(args, '--info')
+    local_dom = opt(args, '--local-domain')
     services = {n: s for n, s in load_all(d).items() if '_error' not in s and not problems(n, s) and s.get('want', {}).get('dashboard')}
     if only_containers:
         for c in sorted({s['container'] for s in services.values() if s.get('container')}):
@@ -596,6 +598,8 @@ def cmd_tiles(d, args):
         ip = address_of(s, addrs)
         if name in hosts:
             href = ('https://' if public else 'http://') + hosts[name]
+        elif ip and local_dom and s.get('want', {}).get('local-proxy'):
+            href = 'http://%s.%s' % ((s.get('names') or [name])[0], local_dom)
         elif ip:
             scheme = s.get('scheme', 'http')
             href = '%s://%s%s' % (scheme, ip, '' if s['port'] in (80, 443) else ':%d' % s['port'])
