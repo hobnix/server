@@ -141,6 +141,7 @@ in
     ++ lib.optional bulkSnapraid "bulk-mount.service"
     ++ [ "incus.service" "samba-smbd.service" ]
     ++ lib.optional (ad != null) "samba-winbindd.service"
+    ++ [ "hs-disk-erc.service" ]
   );
 
   systemd.services.zfs-mount.unitConfig = whenUnlocked;
@@ -170,6 +171,17 @@ in
     onFailure = notifyFailure;
   };
 
+  # The daily SMART check (docs/PLAN-disk-health.md): compares every disk with its reading of the night before and rates it healthy, watch
+  # or failing (state.db table baseline; problems through state.sh problems). -n standby; a disk not read for 6 days is woken, in the window.
+  systemd.services.hs-smart-baseline = {
+    description = "Daily SMART check: what changed on every disk since the last reading (hs disk baseline run)";
+    path = [ "/run/current-system/sw" pkgs.python3 ];
+    serviceConfig.Type = "oneshot";
+    script = "bash ${scripts}/state.sh baseline-run";
+    startAt = "*-*-* 03:05:00";    # maintenance window (starts 03:00)
+    onFailure = notifyFailure;
+  };
+
   # (With diskSpindownMinutes > 0 these self-tests DO wake a sleeping disk and keep it busy; that is wanted. The list, the monitor and the
   # smartctl exporter read with -n standby and leave sleeping disks alone.)
   # SMART self-tests inside the disks (they stay usable): a short one every week, a long one
@@ -183,12 +195,28 @@ in
     startAt = "Sat 03:10";    # maintenance window (starts 03:00)
     onFailure = notifyFailure;
   };
+  # The long test is staggered (docs/PLAN-disk-health.md Part 3): every night ONE disk, ordered by serial, so no two disks are busy at once
+  # and a disk is tested every N nights (N disks). `hs disk selftest long` still starts all disks at once, by hand.
   systemd.services.hs-selftest-long = {
-    description = "Start a long SMART self-test in every disk (hs disk selftest long)";
+    description = "Start a long SMART self-test in one disk per night, ordered by serial (hs disk selftest long)";
     path = [ "/run/current-system/sw" ];
     serviceConfig.Type = "oneshot";
-    script = "bash ${scripts}/selftest.sh long";
-    startAt = "*-*-01 03:15";    # maintenance window (starts 03:00)
+    script = "bash ${scripts}/selftest.sh long --night";
+    startAt = "*-*-* 03:15";    # maintenance window (starts 03:00)
+    onFailure = notifyFailure;
+  };
+
+  # Error recovery time (ERC/TLER, 7 s) only on members of a ZFS mirror or raidz: a disk that retries for minutes would stall the pool
+  # (scripts/disk-erc.sh). SnapRAID data/parity disks and single disks keep the default. Lost at a power cycle, so it runs at boot.
+  systemd.services.hs-disk-erc = {
+    description = "Set the error recovery time on ZFS mirror and raidz members (hs disk erc)";
+    # No whenUnlocked: a natively encrypted pool lists its members while locked, so the setting is made at every boot. Pools on LUKS
+    # disks are not imported before the unlock, so the unit is also in /etc/hs/unlock-units (hs unlock starts it again).
+    wantedBy = [ "multi-user.target" ];
+    after = [ "zfs-mount.service" "systemd-udev-settle.service" ];
+    path = [ "/run/current-system/sw" ];
+    serviceConfig.Type = "oneshot";
+    script = "bash ${scripts}/disk-erc.sh apply";
     onFailure = notifyFailure;
   };
 

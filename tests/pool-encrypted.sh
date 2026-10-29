@@ -57,6 +57,29 @@ check_eq "the files are back" "$before" "$(docs_sum)"
 check_eq "both encrypted disks are recorded" 2 "$(wc -l < "$WORK/state/luks-uuids" 2>/dev/null | tr -d ' ')"
 check_out "the old disk is free again (no pool label)" "^$" bash -c "blkid -s LABEL -o value $(disk_of d2) || echo"
 
+echo "-- remove an encrypted parity and data disk: they are forgotten, not 'locked'"
+uuid_of() { cryptsetup luksUUID "$1" 2>/dev/null; }
+mkloop p2 600M >/dev/null
+out=$(echo bulk | pool bulk --role parity --disks ata-TEST_p2 --encrypt 2>&1 || true)
+p2=$(disk_of p2)
+check "the second parity is LUKS" test "$(blkid -p -o value -s TYPE "$p2")" = crypto_LUKS
+u_p2=$(uuid_of "$p2"); u_n1=$(uuid_of "$n1")
+check "both are recorded as ours" bash -c "grep -qx '$u_p2' '$WORK/state/luks-uuids' && grep -qx '$u_n1' '$WORK/state/luks-uuids'"
+out=$(echo parity-2 | pool bulk --remove parity-2 2>&1 || true)
+check_out "the parity removal reports it" "parity-2 removed" echo "$out"
+check "the parity UUID is forgotten" bash -c "! grep -qx '$u_p2' '$WORK/state/luks-uuids'"
+check "its mapper is closed" test ! -e "/dev/mapper/hs-$(echo "$u_p2" | tr -d - | cut -c1-12)"
+sync_
+out=$(echo data-02 | pool bulk --remove data-02 2>&1 || true)
+echo "$out" | tail -n 6 | sed 's/^/   | /'
+check_out "the data removal reports it" "data-02 removed from /bulk" echo "$out"
+check "the data UUID is forgotten" bash -c "! grep -qx '$u_n1' '$WORK/state/luks-uuids'"
+check "the other disk stays recorded" grep -qx "$(uuid_of "$d1")" "$WORK/state/luks-uuids"
+st=$(bash "$SCRIPTS/unlock.sh" --status 2>&1 || true)
+check "hs unlock --status: the summary is not locked" bash -c "! echo \"\$1\" | grep -Eq 'Encrypted storage.*locked'" _ "$st"
+check "hs unlock --status: the summary is open" bash -c "echo \"\$1\" | grep -Eq 'Encrypted storage.*open'" _ "$st"
+check "no row of ours is LOCKED" bash -c "! echo \"\$1\" | grep -Eq 'LUKS.*[[:space:]]LOCKED[[:space:]]*\$'" _ "$st"
+
 rm -f /etc/hs/bulk-type /var/lib/hs/removals /var/lib/snapraid/snapraid.content*
 ! $made_user || userdel adminuser 2>/dev/null
 finish

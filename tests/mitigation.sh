@@ -112,4 +112,32 @@ if grep -q '^zfs:tank:DEGRADED' "$WORK/health-since"; then fail "the cleared key
 check_out "the acknowledge command still lists the problem" "^zfs:tank:FAULTED" $HA ack
 rm -f "$WORK/state/poolstate"
 
+echo "-- the daily SMART check: failing pauses, watch does not"
+if command -v python3 >/dev/null; then
+  if command -v cygpath >/dev/null 2>&1; then export HS_TEST_BASH=$(cygpath -m "$BASH"); export HS_STATE_DIR=$(cygpath -m "$WORK/state"); fi
+  cat > "$WORK/bin/zpool" <<'FAKE'
+#!/usr/bin/env bash
+case "$*" in
+  "list -H -o name") echo tank ;;
+  "status -x tank") echo "pool 'tank' is healthy" ;;
+  "list -Hp -o name,alloc,size") printf 'tank\t100\t1000\n' ;;
+  "list -H -o name,cap") printf 'tank\t10%%\n' ;;
+  "status tank") echo "  scan: scrub repaired 0B in 00:01:00 with 0 errors on Sun Oct  4 00:24:01 2099" ;;
+esac
+FAKE
+  printf '#!/usr/bin/env bash\ncat "$RD"\n' > "$WORK/dh"; chmod +x "$WORK/dh"
+  export RD=$WORK/rd.txt HS_DISK_HEALTH=$WORK/dh HS_AUTO_MITIGATE=true HS_DISK_HEALTH_NOROOT=1
+  rdl() { printf 'sda\tread\tHDD\tS9\tW9\t100\t0\t%s\t0\t%s\t-\t-\t-\t-\t-\tWDC\n' "$1" "$2"; }
+  rdl 0 0 > "$RD"; bash "$SCRIPTS/state.sh" baseline-run
+  rdl 0 4 > "$RD"; bash "$SCRIPTS/state.sh" baseline-run
+  check_out "CRC errors only: smart-watch is listed" "^disk:S9:smart-watch" keys
+  $HC >/dev/null 2>&1 || true
+  [ ! -e "$WORK/paused" ] && pass "smart-watch does not pause" || fail "smart-watch does not pause"
+  rdl 2 4 > "$RD"; bash "$SCRIPTS/state.sh" baseline-run
+  $HC >/dev/null 2>&1 || true
+  check_out "smart-failing pauses" "^keys=.*disk:S9:smart-failing" cat "$WORK/paused"
+else
+  skip "python3 missing: the SMART check part not run"
+fi
+
 finish

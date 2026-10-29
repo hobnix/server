@@ -29,6 +29,19 @@ $T long >/dev/null 2>&1
 check_eq "short and long are both kept" "2" "$(wc -l < "$HS_STATE_DIR/selftest.state" | tr -d ' ')"
 check_out "dry run starts nothing" "Would start a long self-test in sda" $T long --dry-run
 check_out "a bad kind is refused" "usage" $T weekly
+printf '#!/usr/bin/env bash\ncase "$1" in --list) printf "sdc\\t1T\\tUSB\\tC\\tOK\\t1\\t\\n" ;; --test) exit 1 ;; esac\n' > "$BIN/dh-sdc.sh"; chmod +x "$BIN/dh-sdc.sh"
+cat > "$BIN/lsblk" <<'FAKE'
+#!/usr/bin/env bash
+case "${*: -1}" in /dev/sda) echo Z9 ;; /dev/sdb) echo A1 ;; /dev/sdc) echo M5 ;; esac
+FAKE
+chmod +x "$BIN/lsblk"; : > "$DHLOG"
+for day in 0 1 2 3; do PATH=$BIN:$PATH HS_NOW=$((day * 86400)) $T long --night >/dev/null 2>&1; done
+check_eq "--night tests one disk per night, ordered by serial; a disk that refuses (sdc) is skipped for the next one" "dh --test long sdb
+dh --test long sdc
+dh --test long sda
+dh --test long sda
+dh --test long sdb" "$(cat "$DHLOG")"
+check_eq "--night exits 0 when no disk can be tested" "0" "$(PATH=$BIN:$PATH HS_NOW=$((1 * 86400)) HS_DISK_HEALTH=$BIN/dh-sdc.sh $T long --night >/dev/null 2>&1; echo $?)"
 cat > "$BIN/dh-none.sh" <<'FAKE'
 #!/usr/bin/env bash
 exit 0

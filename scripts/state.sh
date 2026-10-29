@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # help: the state database: which disks the server has had (also the ones that are gone), what happened to them, how their SMART values moved
 # help.de: die Zustandsdatenbank: welche Platten der Server hatte (auch die fehlenden), was mit ihnen geschah, wie sich ihre SMART-Werte entwickelten
-# args: inventory | events [N] | forget <disk> [--yes] | collect | disks | smart <serial> | problems | deck-disks | inventory-json | history <now> | history-record <readings> | usage-record <key> <used> <size> | usage <key> [days] | read-put <key> | read-get <key> | reads
+# args: inventory | events [N] | forget <disk> [--yes] | collect | disks | smart <serial> | problems | deck-disks | inventory-json | history <now> | history-record <readings> | usage-record <key> <used> <size> | usage <key> [days] | read-put <key> | read-get <key> | reads | baseline | baseline-run
 # Front end of scripts/state-db.py. `collect` is the ONE writer (root; hs-deck-status / hs-state-collect / disk-event.sh start it);
 # everything else reads /var/lib/hs/state.db read-only. A person at a terminal gets tables (inventory, events); `hs sys state ...` and
 # pipes get the tab separated lines. `forget` removes a MISSING disk from the list for good and asks first (--yes skips it).
@@ -49,6 +49,29 @@ case "$cmd" in
       2) fail "$(t '%s is in the machine: only a missing disk can be forgotten' "$who")" ;;
       *) fail "$(t '%s is not in the inventory. See: hs disk inventory' "$who")" ;;
     esac ;;
+  baseline)
+    if people; then
+      out=$(db baseline)
+      [ -n "$out" ] || { note "No daily SMART check has run yet. It runs every night at 03:05, or now: sudo hs disk baseline run"; exit 0; }
+      nf=$(awk -F'\t' '$4 == "failing"' <<<"$out" | grep -c . || true)
+      nw=$(awk -F'\t' '$4 == "watch"' <<<"$out" | grep -c . || true)
+      if [ "$nf" -gt 0 ]; then status_line "Daily SMART check" "$(t '%s failing, %s watch' "$nf" "$nw")" bad
+      elif [ "$nw" -gt 0 ]; then status_line "Daily SMART check" "$(t '%s watch' "$nw")" warn
+      else status_line "Daily SMART check" "all healthy"; fi
+      { thead 'Disk' 'Serial' 'Level' 'Since' 'Last read' 'Note'
+        awk -F'\t' -v OFS='\t' 'function day(s,   w) { if (s == "-") return s; cmd = "date -d @" s " +\"%Y-%m-%d\""; cmd | getline w; close(cmd); return w }
+          { print $2, $1, $4, day($5), day($6), ($18 == "-" ? "" : $18) }' <<<"$out"
+      } | table
+      note "Compared with the reading of the night before; a change stays listed for 7 days. Absolute values: hs disk list"
+    else db baseline; fi ;;
+  baseline-run)
+    if [ "$(id -u)" != 0 ] && [ -z "${HS_DISK_HEALTH_NOROOT:-}" ]; then
+      . "$here/lib/ui.sh"
+      fail "$(t 'The daily SMART check reads the disks and writes the state database: it needs root. Run it as: sudo hs disk baseline run')"
+    fi
+    db baseline-run "$@"; rc=$?
+    [ "$rc" -ne 0 ] || ! people || exec bash "$0" baseline
+    exit "$rc" ;;
   collect|disks|smart|problems|deck-disks|inventory-json|disks-json|events-json|history|history-record|usage-record|usage|read-put|read-get|reads) db "$cmd" "$@" ;;
   *) echo "usage: hs disk inventory | hs disk events | hs disk <serial> forget" >&2; exit 1 ;;
 esac

@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # help: how healthy is a disk? SMART verdict (OK / WATCH / BAD), age, bad sectors, errors; starts a self-test
 # help.de: wie gesund ist eine Platte? SMART-Befund (OK / WATCH / BAD), Alter, defekte Sektoren, Fehler; startet einen Selbsttest
-# args: [<disk>] | --list | --test short|long <disk> | --results <disk> [--dry-run]
+# args: [<disk>] | --list | --test short|long <disk> | --results <disk> [--dry-run] | --readings [--wake <name,...>]
 set -euo pipefail
 here=$(dirname "$0")
 . "$here/lib/ui.sh"
@@ -15,6 +15,8 @@ usage() {
   say "       hs disk <disk> results      the outcome of the last self-tests"
   say "       --list     the verdict list as tab separated lines (for the interface)"
   say "       --dry-run  with --test: only show the command"
+  say "       --readings  one reading line per disk for the daily SMART check (tab separated)"
+  say "       --wake <names>  with --readings: read only these disks, without the standby flag (wakes them)"
   say "Verdicts: OK = nothing to see; WATCH = works, but see the notes (old, reallocated sectors, cable errors, hot);"
   say "          BAD = replace it (failed assessment, pending sectors, failed self-test)."
   exit 1
@@ -22,6 +24,8 @@ usage() {
 
 dry=false
 list=false
+readings=false
+wake=""
 action=detail
 kind=""
 target=""
@@ -29,6 +33,8 @@ while [ $# -gt 0 ]; do
   case "$1" in
     --dry-run) dry=true; shift ;;
     --list)    list=true; shift ;;
+    --readings) readings=true; shift ;;
+    --wake)    [ $# -ge 2 ] || usage; wake=$2; shift 2 ;;
     --test)    [ $# -ge 3 ] || usage; action=test; kind=$2; target=$3; shift 3 ;;
     --results) [ $# -ge 2 ] || usage; action=results; target=$2; shift 2 ;;
     -*)        usage ;;
@@ -171,6 +177,49 @@ list_rows() {   # name, size, kind, model, verdict, hours, first reason, power (
   done < <(disks)
 }
 
+# One reading line per disk for the daily SMART check (state-db.py baseline-run), tab separated, 16 fields, never an empty one:
+# name, state (read|asleep|unreadable), kind, serial, wwn, hours, realloc, pending, uncorr, crc, nv_crit, nv_media, nv_used, nv_spare,
+# nv_spare_thr, model. Normal mode reads with -n standby (a sleeping disk stays asleep); with --wake <names> only those disks are
+# read, without the standby flag (the weekly wake, docs/PLAN-disk-health.md decision 11).
+readings_jq='
+def attr(n): ((.ata_smart_attributes.table // []) | map(select(.id == n)) | .[0].raw.value) // null;
+def v(x): if x == null then "-" else (x | tostring) end;
+(.nvme_smart_health_information_log // null) as $nv
+| [ v(.power_on_time.hours),
+    v(attr(5) // .scsi_grown_defect_list), v(attr(197)), v(attr(198) // .scsi_error_counter_log.read.total_uncorrected_errors), v(attr(199)),
+    v($nv.critical_warning), v($nv.media_errors), v($nv.percentage_used), v($nv.available_spare), v($nv.available_spare_threshold) ] | @tsv'
+
+readings_rows() {
+  local name size rota js kind serial state wwn vals model
+  while read -r name size rota; do
+    if [ -n "$wake" ]; then
+      case ",$wake," in *",$name,"*) ;; *) continue ;; esac
+      js=$(smart_json "/dev/$name")
+    else
+      js=$(smart_json "/dev/$name" standby)
+    fi
+    if [[ "$name" == nvme* ]]; then kind=NVMe; elif [ "$rota" = 1 ]; then kind=HDD; else kind=SSD; fi
+    serial=$(jq -r '.serial_number // empty' <<<"$js" 2>/dev/null || true)
+    [ -n "$serial" ] || serial=$(lsblk -dno SERIAL "/dev/$name" 2>/dev/null | awk 'NR == 1' || true)
+    [ -n "$serial" ] || serial=-
+    if jq -e '(.smartctl.messages // []) | map(.string) | join(" ") | test("STANDBY|SLEEP")' <<<"$js" >/dev/null 2>&1; then
+      state=asleep
+    elif ! jq -e '.smart_status' <<<"$js" >/dev/null 2>&1; then
+      state=unreadable
+    else
+      state=read
+    fi
+    if [ "$state" = read ]; then
+      wwn=$(jq -r 'if .wwn then "\(.wwn.naa)-\(.wwn.oui)-\(.wwn.id)" elif ((.nvme_namespaces // [])[0].eui64 // null) then (.nvme_namespaces[0].eui64 | "eui-\(.oui)-\(.ext_id)") else "-" end' <<<"$js")
+      vals=$(jq -r "$readings_jq" <<<"$js")
+      model=$(jq -r '(.model_name // .scsi_model_name // "-") | gsub("\t"; " ")' <<<"$js")
+    else
+      wwn=-; vals=$'-\t-\t-\t-\t-\t-\t-\t-\t-\t-'; model=-
+    fi
+    printf '%s\t%s\t%s\t%s\t%s\t%s\t%s\n' "$name" "$state" "$kind" "$serial" "$wwn" "$vals" "$model"
+  done < <(disks)
+}
+
 human() { numfmt --to=si --suffix=B "$1" 2>/dev/null || echo "$1"; }
 
 detail() {
@@ -224,6 +273,8 @@ detail() {
 
 # label and value per line (tab separated on stdin) as kv rows; the labels here are longer than kv's default width
 kv_rows() { local k v; while IFS=$'\t' read -r k v; do KV_WIDTH=22 kv "$k" "$v"; done; }
+
+if $readings; then readings_rows; exit 0; fi
 
 case "$action" in
   detail)

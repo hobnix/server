@@ -1805,3 +1805,18 @@ Could not remove %s.%s (%s)	%s.%s (%s) konnte nicht entfernt werden
 Service '%s' is changed.	Dienst '%s' ist geändert.
 Core packages	Kernpakete
 Some core packages could not be fetched; try again with: hs pkg install --core	Einige Kernpakete konnten nicht geladen werden; nochmal versuchen mit: hs pkg install --core
+No daily SMART check has run yet. It runs every night at 03:05, or now: sudo hs disk baseline run	Die tägliche SMART-Prüfung lief noch nie. Sie läuft jede Nacht um 03:05, oder jetzt: sudo hs disk baseline run
+Daily SMART check	Tägliche SMART-Prüfung
+%s failing, %s watch	%s kritisch, %s beobachten
+%s watch	%s beobachten
+all healthy	alle gesund
+Last read	Zuletzt gelesen
+Compared with the reading of the night before; a change stays listed for 7 days. Absolute values: hs disk list	Verglichen mit der Messung der Nacht davor; eine Änderung bleibt 7 Tage stehen. Absolute Werte: hs disk list
+The daily SMART check reads the disks and writes the state database: it needs root. Run it as: sudo hs disk baseline run	Die tägliche SMART-Prüfung liest die Platten und schreibt die Zustandsdatenbank: dafür braucht es root. Starte sie so: sudo hs disk baseline run
+Setting the error recovery time needs root. Run it as: sudo hs disk erc	Das Setzen der Fehlerbehebungszeit braucht root. Starte es so: sudo hs disk erc
+No disk is in a ZFS mirror or raidz: nothing to set.	Keine Platte ist in einem ZFS-Mirror oder RAIDZ: nichts zu setzen.
+Error recovery time (ERC) of the mirror and raidz members	Fehlerbehebungszeit (ERC) der Mirror- und RAIDZ-Mitglieder
+%s: error recovery time set to 7 seconds	%s: Fehlerbehebungszeit auf 7 Sekunden gesetzt
+%s: no ERC support (SATA SCT), skipped	%s: keine ERC-Unterstützung (SATA SCT), übersprungen
+%s: skipped tonight (busy with its last test, or no self-test support)	%s: heute Nacht übersprungen (noch mit dem letzten Test beschäftigt, oder ohne Selbsttest)
+No disk could be tested tonight.	Heute Nacht konnte keine Platte getestet werden.

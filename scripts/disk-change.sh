@@ -171,10 +171,8 @@ if [ "$action" = wipe ]; then
     ! command -v sgdisk >/dev/null 2>&1 || sgdisk --zap-all "$dev" >/dev/null 2>&1 || true
     blockdev --rereadpt "$dev" 2>/dev/null || true
     udevadm settle 2>/dev/null || true
-    luks_list=${HS_STATE_DIR:-/var/lib/hs}/luks-uuids
-    for u in "${uuids[@]}"; do
-      [ -z "$u" ] || [ ! -f "$luks_list" ] || sed -i "/^$u\$/d" "$luks_list" 2>/dev/null || true
-    done
+    . "$here/lib/crypt.sh"
+    for u in "${uuids[@]}"; do crypt_forget_uuid "$u"; done
     echo "Done: $disk is empty and can be added to a pool."
     printf 'status\tdone\n'
     exit 0

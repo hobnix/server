@@ -84,6 +84,7 @@ Per-feature history and implementation details moved out of CLAUDE.md so that ev
   separated; `--test short|long` starts a self-test inside the disk, `--results` reads it. Tested
   with fake smartctl output only (no root here).
   Passed self-tests are recorded in /var/lib/hs/disk-tests (serial, hours, type, time, counters 5/187/199/error-log count) whenever `--list`, the detail or `--results` sees one; reallocated (<100), uncorrectable, CRC and error-log findings count only when they grew since the last passed test (age, heat, wear, BAD stay). A failed newest test drops the baseline.
+- Daily SMART baseline (docs/PLAN-disk-health.md Part 1; `hs disk baseline`, `hs disk baseline run`, `hs sys state baseline|baseline-run`): table `baseline` in state.db, key = serial (WWN kept; a different WWN or power-on hours that went down take the baseline again, event `smart-reset`). `disk-health.sh --readings [--wake <names>]` is the only reader of the disks (`-n standby`); `state-db.py baseline-run` (timer hs-smart-baseline, 03:05) compares 5/197/198/199 and the NVMe values with the stored reading and rates healthy / watch / failing by the change since then. A level is held for 7 days, a disk unread for 6 days is woken once. Problem keys `disk:<serial>:smart-failing|smart-watch` and `smart:stale`; for a disk with a baseline row the old `disk:<serial>:worse` is suppressed. Thresholds are constants (env knobs HS_SMART_*), no machine.toml option. Tests: tests/smart-baseline.sh (part A needs jq). Not yet run on the server.
 
 - Disk table (`monitor.sh --disks` = `hs sys monitor disks`, 12 tab separated fields, the last is the free bytes): the SMART values come from the smartctl exporter on
   this host (`metrics = true`, 127.0.0.1:9633, it scrapes every 5 minutes) when it has the disk (a current temperature), else from `smartctl -n standby` directly;
@@ -123,8 +124,10 @@ Per-feature history and implementation details moved out of CLAUDE.md so that ev
   | Job | Schedule | Touches |
   | --- | --- | --- |
   | hs-bulk-sync (snapraid; moves the cache first) | 03:00 daily (`syncEveryHours`) | data + parity |
+  | hs-smart-baseline | 03:05 daily | every disk, -n standby; a disk unread for 6 days is woken |
   | hs-selftest-short | Sat 03:10 | every disk |
-  | hs-selftest-long | 1st of month 03:15 | every disk (hours) |
+  | hs-selftest-long | 03:15 daily | ONE disk per night, ordered by serial (`selftest.sh long --night`; a disk every N nights) |
+  | hs-disk-erc | at boot | ZFS mirror/raidz members only: `smartctl -l scterc,70,70`; others skipped with a note |
   | hs-mac | 03:30 | SSD only (Incus) |
   | hs-sync-shares (+ measure) | 03:35 | /bulk folders |
   | hs-backup (restic) | 04:00 | bulk read, backup disk |

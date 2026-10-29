@@ -1,0 +1,1 @@
+{"smart_status":{"passed":true},"model_name":"WDC WD40EFRX","serial_number":"S1","wwn":{"naa":5,"oui":5358,"id":123456789},"power_on_time":{"hours":1000},"ata_smart_attributes":{"table":[{"id":5,"raw":{"value":0}},{"id":197,"raw":{"value":0}},{"id":198,"raw":{"value":0}},{"id":199,"raw":{"value":3}}]}}

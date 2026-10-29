@@ -214,6 +214,20 @@ self-test inside the disk, and `results` shows the outcome. `hs disk selftest` s
 verdict first; disks of six years and more are the biggest risk. `hs disk events` shows disks that were plugged in or removed lately,
 `hs disk inventory` every disk the server has had, and `hs disk <serial> forget` drops a missing one from that list.
 
+```bash
+hs disk baseline
+```
+
+Every night at 03:05 the server compares each disk with its reading of the night before. A disk where pending or uncorrectable sectors
+appeared, or many reallocated sectors, is `failing`; small changes and cable (CRC) errors are `watch`. A change stays listed for 7 days, and
+the server sends a push message. `sudo hs disk baseline run` does the check now. Not tested on hardware yet.
+
+A `failing` disk also pauses the parity sync, the scrub and the cache mover when `autoMitigate` is on (`hs health resume` lifts the pause);
+`watch` never does. A long self-test runs every night in ONE disk, ordered by serial, so a disk is tested every N nights. A disk that cannot be
+tested that night (still busy with its last test, or no self-test support) is skipped and the next one is tried; a long test that takes more
+than a day can overlap the next night's test of another disk. Disks in a ZFS mirror or raidz get a short error recovery time (7 seconds) at every boot (`hs disk erc list` shows them);
+single disks and SnapRAID disks keep the default. Not tested on hardware yet.
+
 To let spinning disks sleep, set `diskSpindownMinutes` (for example 30) in `machine.toml` and run `hs rebuild`. `hs disk spindown` shows the
 state. SSDs never sleep. The first access after sleep takes 10 to 20 seconds.
 

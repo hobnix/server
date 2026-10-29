@@ -576,19 +576,29 @@ if [ -n "$action" ]; then
     # (/mnt/bulk/pool: the same disks without the upload caches on top, so the files go to
     # the disks and not into a share's cache.) Leaves the disk unmounted when everything moved.
     evacuate_disk() {
-      local target=/bulk left
-      setfattr -n user.mergerfs.branches -v "-$dir" /bulk/.mergerfs
-      if mountpoint -q /mnt/bulk/pool; then
-        setfattr -n user.mergerfs.branches -v "-$dir" /mnt/bulk/pool/.mergerfs
-        target=/mnt/bulk/pool
-      fi
+      local target=/bulk left left_n m
+      # without /bulk the files would land in a folder on the system disk and the disk would be wiped
+      mountpoint -q /bulk || { echo "Not possible: /bulk is not mounted. $member is not changed."; exit 1; }
+      # a retry after a failed convert/remove: the branch may be gone already, that is fine; any other failure is not
+      for m in /bulk /mnt/bulk/pool; do
+        [ "$m" = /bulk ] || mountpoint -q "$m" || continue
+        setfattr -n user.mergerfs.branches -v "-$dir" "$m/.mergerfs" 2>/dev/null && continue
+        case "$(getfattr --only-values -n user.mergerfs.branches "$m/.mergerfs" 2>/dev/null || true)" in
+          *"$dir"*) echo "Could not take $member out of $m. $member is not changed."; exit 1 ;;
+        esac
+      done
+      ! mountpoint -q /mnt/bulk/pool || target=/mnt/bulk/pool
       # progress2 = bytes, percent, speed and time left of the whole job (--no-inc-recursive: the percent is real),
       # name1 = each file as it is moved; spin shows the last lines while it runs
       rsync -aHAX --remove-source-files --no-inc-recursive --info=progress2,name1 \
         --exclude=/snapraid.content --exclude=/lost+found "$dir"/ "$target"/
-      left=$(find "$dir" -type f ! -name snapraid.content | head -n1)
-      [ -z "$left" ] || { echo "Some files could not be moved (e.g. $left). $member stays out of /bulk but is not changed."; exit 1; }
-      umount "$dir" || umount -l "$dir"
+      left=$(find "$dir" -type f ! -name snapraid.content ! -path "$dir/lost+found/*" -print -quit)
+      if [ -n "$left" ]; then
+        left_n=$(find "$dir" -type f ! -name snapraid.content ! -path "$dir/lost+found/*" | wc -l)
+        echo "Some files could not be moved: $left_n left (e.g. $left; hidden files count too). $member stays out of /bulk but is not changed."
+        exit 1
+      fi
+      ! mountpoint -q "$dir" || umount "$dir" || umount -l "$dir"
     }
     # --discard: take the disk out of /bulk and unmount it, its files are not moved (they go with the format)
     discard_disk() {
@@ -762,7 +772,7 @@ if [ -n "$action" ]; then
       confirm_plan
       mountpoint -q "$dir" && { umount "$dir" || umount -l "$dir"; }
       old=$(blkid -L "$label" 2>/dev/null || true); [ -z "$old" ] || wipefs -a -q "$old" || true
-      case "$old" in /dev/mapper/*) cryptsetup close "${old##*/}" 2>/dev/null || true ;; esac
+      case "$old" in /dev/mapper/*) crypt_close_forget "$old" ;; esac   # closed and no longer ours: hs unlock must not call it locked
     udevadm settle 2>/dev/null || true   # let the system notice the label is gone
       sed -i "/^$label\$/d" /var/lib/snapraid/members 2>/dev/null || true
       rmdir "$dir" 2>/dev/null || true
@@ -807,7 +817,7 @@ if [ -n "$action" ]; then
     SPIN_STREAM=1 SPIN_TAIL=15 spin "Moving the files of $member onto the other data disks ($(human "$used"); hours, the lines below show where it is)" evacuate_disk || exit 1
     fi
     old=$(blkid -L "$label" 2>/dev/null || true); [ -z "$old" ] || wipefs -a -q "$old" || true
-    case "$old" in /dev/mapper/*) cryptsetup close "${old##*/}" 2>/dev/null || true ;; esac   # an encrypted disk stays open otherwise
+    case "$old" in /dev/mapper/*) crypt_close_forget "$old" ;; esac   # an encrypted disk stays open otherwise, and would show as locked
     udevadm settle 2>/dev/null || true   # let the system notice the label is gone
     sed -i "/^$label\$/d" /var/lib/snapraid/members 2>/dev/null || true
     rmdir "$dir" 2>/dev/null || true
