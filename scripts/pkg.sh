@@ -53,7 +53,9 @@ case "${1:-list}" in
     next_step "hs pkg install <name>" ;;
   install|remove)
     cmd=$1; shift
-    if res=$(py "$cmd" "$@"); then ok "${res:-$(t 'Done.')}"; else exit 1; fi ;;
+    if res=$(py "$cmd" "$@"); then
+      if [ -z "$res" ]; then ok "$(t 'Done.')"; else while IFS= read -r l; do ok "$l"; done <<<"$res"; fi
+    else exit 1; fi ;;
   update)
     shift; exec python3 -I "$here/pkg.py" update "$@" ;;
   repo)
