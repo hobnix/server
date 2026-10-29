@@ -255,7 +255,10 @@ ask() {   # ask <question> [default]
   local answer q
   q=$(_tr "${1%:}")
   if [ "$ui" = gum ]; then
-    answer=$(gum input --prompt "$q${2:+ ($2)}: " --placeholder "${2:+$(t 'enter keeps %s' "$2")}") || exit 130
+    local p="$q${2:+ ($2)}: " ph="${2:+$(t 'enter keeps %s' "$2")}"
+    # gum panics when the prompt leaves no room for the placeholder: a long question goes on lines of its own
+    if [ $(( ${#p} + ${#ph} + 4 )) -ge "$(_cols)" ]; then _wrap 2 "$c_text" "${p% }" >&2; p='> '; fi
+    answer=$(gum input --prompt "$p" --placeholder "$ph") || exit 130
   else
     read -r -p "$q${2:+ ($2)}: " answer
   fi
