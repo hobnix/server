@@ -28,7 +28,8 @@
   //        used?, size?, free?: column keys         // kind 'usage' -> UsageBar
   //        plan?: [area, ...], planTitle? }         // kind 'switch': toggling opens this plan; {checked} is 'on' | 'off'
   // Templates: "{col}" is the row's value of that column, "{col|u}" URL-encoded. They work in plan args, planTitle, title, href, drawer.title, image.
-  // action: { label, icon?, title?, primary?, danger?, iconOnly?, plan?, planTitle?, form?, props?, href?, download? }
+  // action: { label, icon?, title?, primary?, danger?, iconOnly?, plan?, planTitle?, form?, props?, edit?, href?, download? }
+  //          edit: true (row action with `form`): the form gets the row as prop `row` and changes that object instead of making a new one
   //
   // Reads are polled (data.svelte.js) and wrapped in PageState (loading, error with stale data, empty). Locked / switched off / unreachable are PageFrame's.
   // `data` = { '/api/sys/x': { rows: [[...]] } } shows these answers instead of polling (a mock backend, a test). Nothing else here talks to the server.

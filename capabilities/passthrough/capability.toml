@@ -78,5 +78,6 @@ columns = [
   { key = "https_state", label = "Target", kind = "dot", map = { up = ["ok", "the target answers"], down = ["bad", "no answer from the target"] } },
 ]
 rowActions = [
+  { label = "Edit", icon = "pencil-simple", iconOnly = true, title = "Change the target of {domain}", form = "PassthroughForm", edit = true },
   { label = "Remove", icon = "x", iconOnly = true, danger = true, title = "Stop forwarding {domain}", plan = ["ext/passthrough", "{domain}", "remove"], planTitle = "Remove {domain}" },
 ]

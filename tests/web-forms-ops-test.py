@@ -129,6 +129,14 @@ class Changes(unittest.TestCase):
             self.assertFalse(ok("routes", b), b)
         self.assertFalse(ok("routes", ["add", "wiki", "--port", "80", "--host", "x"], stdin="x"))     # nothing here takes a password
 
+    def test_service_set(self):
+        self.assertTrue(ok("routes", ["set", "wiki", "--local", "yes"]))
+        self.assertTrue(ok("routes", ["set", "wiki", "--public", "yes", "--public-name", "wiki.example.org"]))
+        self.assertTrue(ok("routes", ["set", "wiki", "--public", "no", "--local", "no"]))
+        for b in (["set"], ["set", "Wiki", "--local", "yes"], ["set", "wiki", "--local", "maybe"], ["set", "wiki", "--public-name", "x;y"],
+                  ["set", "wiki", "--port", "80"], ["set", "wiki", "--local"]):
+            self.assertFalse(ok("routes", b), b)
+
     def test_offer(self):
         self.assertTrue(ok("peers", ["offer", "cousin", "media"]))
         self.assertTrue(ok("peers", ["offer", "cousin", "media", "--new-password"]))

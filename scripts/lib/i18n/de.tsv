@@ -2096,6 +2096,8 @@ Services and the reverse proxy	Dienste und der Reverse-Proxy
 No services want a route and the proxy has none.	Kein Dienst will eine Route und der Proxy hat keine.
 %s route(s) exist that the guard forbids: a never-public or private-ok service is on the public proxy.	%s Route(n) bestehen, die die Schranke verbietet: ein Dienst mit never-public oder private-ok liegt am öffentlichen Proxy.
 Service '%s' is described.	Dienst '%s' ist beschrieben.
+Service '%s' is changed (Apply makes the route).	Dienst '%s' ist geändert (Anwenden macht die Route).
+Could not change '%s'.	'%s' ließ sich nicht ändern.
 Could not add '%s'.	'%s' ließ sich nicht hinzufügen.
 Service '%s' is removed (its routes stay).	Dienst '%s' ist entfernt (seine Routen bleiben).
 '%s' is not a service.	'%s' ist kein Dienst.
@@ -2650,4 +2652,3 @@ No leftover names under %s.%s.	Keine übrig gebliebenen Namen unter %s.%s.
 %s of %s removals failed.	%s von %s Entfernungen sind fehlgeschlagen.
 Could not remove %s.%s (%s)	%s.%s (%s) konnte nicht entfernt werden
 Service '%s' is changed.	Dienst '%s' ist geändert.
-Could not change '%s'.	'%s' ließ sich nicht ändern.

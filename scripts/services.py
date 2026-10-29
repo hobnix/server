@@ -661,6 +661,72 @@ def cmd_declare(d, args):
     return 0
 
 
+def is_admin(s):
+    return s.get('exposure') == 'never-public' or (s.get('container'), s.get('port')) in ADMIN_TARGETS
+
+
+def cmd_set(d, args):
+    """Change what a person decided about an existing service: --local yes|no (want.local-proxy), --public yes|no (want.reverse-proxy,
+    fqdn, exposure private-ok <-> public-ok), --public-name FQDN (required with --public yes; alone it renames a public service).
+    Routes are not touched: `hs services apply` makes them."""
+    name = args.pop(0) if args and not args[0].startswith('--') else die('set needs a name')
+    local, public, pname = opt(args, '--local'), opt(args, '--public'), opt(args, '--public-name')
+    if args:
+        die('unknown option %s' % args[0])
+    for v in (local, public):
+        if v not in (None, 'yes', 'no'):
+            die('--local and --public take yes or no')
+    if local is None and public is None and pname is None:
+        die('set needs --local, --public or --public-name')
+    s = load_all(d).get(name)
+    if not s or '_error' in s:
+        print("'%s' is not a service" % name, file=sys.stderr)
+        return 1
+    s = dict(s)
+    want = dict(s.get('want', {}))
+    if local is not None:
+        want['local-proxy'] = local == 'yes'
+    if public == 'yes' or (public is None and pname):
+        if public is None and not want.get('reverse-proxy'):
+            die('%s is not public: use --public yes with --public-name' % name)
+        if is_admin(s) and not s.get('public_paths'):
+            print('%s is an admin page, never public' % name, file=sys.stderr)
+            return 1
+        if not pname:
+            die('--public yes needs --public-name <full name>')
+        if not FQDN.match(pname):
+            die('%r is not a full name' % pname)
+        want['reverse-proxy'] = True
+        s['fqdn'] = [pname]
+        if s.get('exposure', 'private-ok') == 'private-ok':
+            s['exposure'] = 'public-ok'
+    elif public == 'no':
+        want['reverse-proxy'] = False
+        s.pop('fqdn', None)
+        if s.get('exposure') == 'public-ok':
+            s['exposure'] = 'private-ok'
+    s['want'] = want
+    bad = problems(name, s)
+    if bad:
+        print('\n'.join(bad), file=sys.stderr)
+        return 1
+    write(d, s)
+    print('updated')
+    return 0
+
+
+def cmd_apps(d):
+    """One row per service for the Apps page: name, container, title, local, public, fqdn, exposure, admin (no empty field)"""
+    for name, s in load_all(d).items():
+        if '_error' in s:
+            continue
+        w = s.get('want', {})
+        print('\t'.join([name, s.get('container') or '-', s.get('title') or name, 'yes' if w.get('local-proxy') else 'no',
+                         'yes' if w.get('reverse-proxy') else 'no', ','.join(s.get('fqdn', [])) or '-',
+                         s.get('exposure', 'private-ok'), 'yes' if is_admin(s) else 'no']))
+    return 0
+
+
 def cmd_tiles(d, args):
     """The dashboard tiles: group, title, link, description, icon, name for every service that wants a dashboard tile (--containers: only
     the containers they live in). The link: the public host when the service is published on a public proxy, else (--local-domain D given and
@@ -734,6 +800,10 @@ def main(argv):
         return cmd_addrs()
     if cmd == 'declare':
         return cmd_declare(d, args)
+    if cmd == 'set':
+        return cmd_set(d, args)
+    if cmd == 'apps':
+        return cmd_apps(d)
     if cmd == 'tiles':
         return cmd_tiles(d, args)
     if cmd == 'list':

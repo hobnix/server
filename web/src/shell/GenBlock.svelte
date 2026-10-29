@@ -39,7 +39,7 @@
   const lbl = (r) => fmtValue(colOf("title")?.fmt, r.title ?? r[block.key]);
 
   function run(a, r) {
-    if (a.form) openCreate(forms[a.form], a.props ?? {});
+    if (a.form) openCreate(forms[a.form], { ...(a.props ?? {}), ...(a.edit ? { row: r } : {}) });   // `edit`: the form gets the row to change
     else if (a.plan) openPlan(a.plan[0], planArgs(a.plan, r), tpl(a.planTitle ?? a.label, r));
   }
 
