@@ -13,6 +13,7 @@
 set -euo pipefail
 here=$(dirname "$0")
 . "$here/lib/recipe-path.sh"
+. "$here/lib/dc.sh"
 state_dir=${HS_STATE_DIR:-/var/lib/hs}
 
 # the instance(s) a recipe creates: its `ct=${RECIPE_NAME:-X}` line, or a fixed answer where the script does not have one
@@ -20,6 +21,7 @@ containers_of() {
   case "$1" in
     pelican) echo "pelican-panel pelican-wings" ;;
     matrix-hook) echo "synapse" ;;
+    domain) dc_name ;;   # dc1, or dc2 on a second server: the ct= line of the recipe is a command, not a name
     *) sed -n 's/^ct=\${RECIPE_NAME:-\([A-Za-z0-9._-]*\)}.*/\1/p' "$(recipe_script "$1")" | head -n1 || true ;;
   esac
 }

@@ -10,7 +10,7 @@ export HS_STATE_DIR=$WORK/state HS_ETC_DIR=$WORK/etc HS_MACHINE_EXAMPLE=$ROOT/ma
 mkdir -p "$HS_STATE_DIR" "$HS_ETC_DIR"
 
 echo "-- recipes list"
-mkdir -p "$WORK"/recipes/{arr,jellyfin,pelican,sunshine,nodesc}
+mkdir -p "$WORK"/recipes/{arr,jellyfin,pelican,sunshine,nodesc,domain}
 printf '#!/usr/bin/env bash\n# recipe: arr: Radarr and Sonarr\nct=${RECIPE_NAME:-arr}\n' > "$WORK/recipes/arr/run.sh"
 printf '#!/usr/bin/env bash\n# recipe: Jellyfin: watch films\nct=${RECIPE_NAME:-jellyfin}\n' > "$WORK/recipes/jellyfin/run.sh"
 printf '#!/usr/bin/env bash\n# recipe: Pelican: game servers\n' > "$WORK/recipes/pelican/run.sh"
@@ -18,15 +18,19 @@ printf '#!/usr/bin/env bash\n# recipe: Sunshine: games on the TV\nct=${RECIPE_NA
 printf '#!/usr/bin/env bash\nct=${RECIPE_NAME:-nodesc}\n' > "$WORK/recipes/nodesc/run.sh"
 printf '#!/usr/bin/env bash\nprintf "arr\\npelican-panel\\n"\n' > "$WORK/incus"
 printf '#!/usr/bin/env bash\nexit 1\n' > "$WORK/incus-down"
-chmod +x "$WORK/incus" "$WORK/incus-down"
+printf '#!/usr/bin/env bash\n# recipe: Domain: the domain controller\nct=${RECIPE_NAME:-$([ -n "$join_dc" ] && echo dc2 || echo dc1)}\n' > "$WORK/recipes/domain/run.sh"
+printf '#!/usr/bin/env bash\nprintf "dc1\\n"\n' > "$WORK/incus-dc"
+chmod +x "$WORK/incus" "$WORK/incus-down" "$WORK/incus-dc"
 export HS_RECIPES_DIR=$WORK/recipes HS_INCUS=$WORK/incus
 out=$(bash "$SCRIPTS/recipes-list.sh")
-check_eq "one row per recipe" 5 "$(wc -l <<<"$out" | tr -d ' ')"
+check_eq "one row per recipe" 6 "$(wc -l <<<"$out" | tr -d ' ')"
 check_eq "the name prefix is cut from the description" "arr${T}Radarr and Sonarr${T}arr${T}installed" "$(grep '^arr' <<<"$out")"
 check_eq "a recipe whose container is missing" "jellyfin${T}Watch films${T}jellyfin${T}not installed" "$(grep '^jellyfin' <<<"$out")"
 check_eq "a recipe with two instances, one there" "pelican${T}Game servers${T}pelican-panel,pelican-wings${T}partly" "$(grep '^pelican' <<<"$out")"
 check_eq "sunshine is parked" "parked" "$(awk -F'\t' '$1 == "sunshine" { print $4 }' <<<"$out")"
 check_eq "a fixed text without a header line" "App recipe nodesc (hs recipe nodesc)" "$(awk -F'\t' '$1 == "nodesc" { print $2 }' <<<"$out")"
+check_eq "domain: installed when the controller dc1 exists" "domain${T}installed" "$(HS_INCUS=$WORK/incus-dc bash "$SCRIPTS/recipes-list.sh" | awk -F'\t' '$1 == "domain" { print $1 FS $4 }')"
+check_eq "domain: not installed without a controller" "domain${T}not installed" "$(awk -F'\t' '$1 == "domain" { print $1 FS $4 }' <<<"$out")"
 check_eq "incus not answering: unknown" "unknown" "$(HS_INCUS=$WORK/incus-down bash "$SCRIPTS/recipes-list.sh" | awk -F'\t' '$1 == "arr" { print $4 }')"
 unset HS_RECIPES_DIR
 check_eq "the real recipes: no helper rows" 0 "$(HS_INCUS=$WORK/incus-down bash "$SCRIPTS/recipes-list.sh" | grep -c '^_')"
