@@ -321,6 +321,11 @@ check_eq "public: the both-wants service has a public row" "1" "$(grep -cE "^(ad
 $S add dd --container docker --port 7300 --exposure public-ok --names dd --fqdn dd.example.org --want reverse-proxy >/dev/null
 check_eq "public: a fqdn equal to <name>.<domain> makes one add row, not two" "1" "$($S plan --plain | grep -cE "^(add|confirm)${T}dd.example.org")"
 $S remove dd >/dev/null 2>&1
+$S add pn --container docker --port 7310 --exposure public-ok --fqdn files.example.org --want reverse-proxy >/dev/null
+pn=$($S plan --plain | grep -E "${T}pn${T}")
+check_eq "public: a public name replaces the default <name>.<domain> host" "1" "$(grep -c "files.example.org" <<<"$pn")"
+check_eq "public: no pn.<domain> host next to the public name" "0" "$(grep -c "pn.example.org" <<<"$pn")"
+$S remove pn >/dev/null 2>&1
 $S add tilel --container docker --port 7400 --title TileL --want dashboard,local-proxy >/dev/null
 $S add tilep --container docker --port 7500 --title TileP --want dashboard >/dev/null
 tl=$($S tiles)

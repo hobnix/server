@@ -405,6 +405,8 @@ def norm_target(t, keep_https=False):
 def desired_hosts(s, info, slot='public'):
     if slot == 'local':   # fqdn is a public name: the local slot only has <label>.<local domain>
         return list(dict.fromkeys('%s.%s' % (n, dom) for n in s.get('names', [s['name']]) for dom in info['domains']))
+    if s.get('fqdn') and 'names' not in s:   # a public name replaces the default <name>.<domain> label on the public proxy
+        return list(dict.fromkeys(s['fqdn']))
     hosts = ['%s.%s' % (n, dom) for n in s.get('names', [s['name']]) for dom in info['domains']]
     return list(dict.fromkeys(hosts + list(s.get('fqdn', []))))
 
