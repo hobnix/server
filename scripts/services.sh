@@ -12,7 +12,8 @@
 #                                       unresolved, unmanaged (plain: act, host, path, target, service, note; hs sys services plan)
 #   hs services add <name> --port N (--container C | --host H) [--title T] [--names a,b] [--fqdn x.y] [--exposure E]
 #                    [--public-path /p] [--want reverse-proxy,dns] [--icon I] [--health /]
-#   hs services remove <name>           the description only; routes the proxy has stay (plan shows them as unmanaged)
+#   hs services set <name> [--local yes|no] [--public yes|no] [--public-name FQDN]   change an existing service (routes: apply)
+#   hs services remove <name>        the description only; routes the proxy has stay (plan shows them as unmanaged)
 #   hs services import [--dry-run] [--yes]   one service per route the proxy has, public ones marked public-ok (admin pages never-public)
 #   hs services apply [--dry-run] [--confirm <host or service>]...   do what the plan says: add, confirm (publish on the internet),
 #                    change (a route hs made or adopted gets another target) and remove (a route hs made or adopted that no service wants
@@ -279,6 +280,11 @@ case "$cmd" in
   add)
     [ $# -ge 1 ] || usage
     svc add "$@" && ok "$(t "Service '%s' is described." "$1")" || fail "$(t "Could not add '%s'." "$1")" ;;
+  set)
+    [ $# -ge 2 ] || usage
+    svc set "$@" && ok "$(t "Service '%s' is changed (Apply makes the route)." "$1")" || fail "$(t "Could not change '%s'." "$1")" ;;
+  apps)
+    rows=$(svc apps); [ -z "$rows" ] || printf '%s\n' "$rows" ;;   # hs sys services app
   remove)
     [ $# -eq 1 ] || usage
     svc remove "$1" && ok "$(t "Service '%s' is removed (its routes stay)." "$1")" || fail "$(t "'%s' is not a service." "$1")" ;;

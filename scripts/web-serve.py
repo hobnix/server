@@ -700,6 +700,7 @@ READS = {
     ("dc", "state"): {"kind": "tsv", "ttl": 60},
     ("recipes", "asks"): {"kind": "tsv", "ttl": 60, "args": [r"^[a-z0-9][a-z0-9-]{0,40}$"]},
     ("services", "list"): {"kind": "tsv", "ttl": 15},
+    ("services", "app"): {"kind": "tsv", "ttl": 15},
     ("services", "routes"): {"kind": "tsv", "ttl": 15},
     ("services", "local-routes"): {"kind": "tsv", "ttl": 15},
     ("gateway", "status"): {"kind": "tsv", "ttl": 30},
@@ -833,6 +834,9 @@ CHANGES = {
     "net": [{"fixed": [r"^setup$"], "opts": {"--address": (r"^https?://[A-Za-z0-9._:-]{1,100}/?$", False)}, "stdin": True}],
     # add: describe a service (services.py checks the rest); public-ok is red (the typed word is the service name)
     "routes": [[r"^(apply|adopt|import)$"], [r"^apply$", r"^--proxy$", r"^local$"], [r"^import$", r"^--proxy$", r"^local$"], [r"^remove$", r"^[A-Za-z0-9][A-Za-z0-9._-]{0,60}$"],
+               {"fixed": [r"^set$", r"^[a-z0-9][a-z0-9-]{0,40}$"],
+                "opts": {"--local": (r"^(yes|no)$", False), "--public": (r"^(yes|no)$", False),
+                         "--public-name": (r"^[A-Za-z0-9][A-Za-z0-9.-]{0,250}$", False)}},
                {"fixed": [r"^add$", r"^[a-z0-9][a-z0-9-]{0,40}$"],
                 "opts": {"--port": (r"^[0-9]{1,5}$", False), "--container": (r"^[A-Za-z0-9][A-Za-z0-9-]{0,62}$", False),
                          "--host": (r"^[A-Za-z0-9][A-Za-z0-9._:-]{0,100}$", False), "--title": (r"^[^\x00-\x1f]{1,160}$", False),
