@@ -58,6 +58,22 @@ runin 'x' plan vpn run --set KEY=hack;            check_eq "a secret cannot be g
 runin 'u' plan vpn run --set KIND=ovpn --set USER=bob; check_eq "the other protocol asks for its own fields" 0 "$rc"
 run plan vpn run --set KIND=ovpn;                 check_eq "...and needs USER and PASS" 2 "$rc"
 has "^needs${T}PASS" && pass "PASS is missing" || fail "$out"
+
+echo "-- a usb question (vendor:product)"
+mkdir -p "$R/printer"
+cat > "$R/printer/run.sh" <<'RCP'
+# recipe: Printer: a recipe with a usb question
+# kind: generic
+# needs: -
+# input: form
+# ask: PRINTER_USB|Printer|usb|||
+RCP
+run plan printer run;                              check_eq "a usb answer is missing: exit 2" 2 "$rc"
+has "^needs${T}PRINTER_USB" && pass "names PRINTER_USB" || fail "$out"
+run plan printer run --set PRINTER_USB=04f9:0042;  check_eq "a vendor:product is taken" 0 "$rc"
+run plan printer run --set PRINTER_USB=04F9:0042;  check_eq "upper case is refused" 1 "$rc"
+run plan printer run --set PRINTER_USB=04f9;       check_eq "a half id is refused" 1 "$rc"
+check_out "asks prints the usb kind" "^PRINTER_USB${T}Printer${T}usb${T}-${T}-${T}-" env HS_RECIPES_DIR=$R bash "$SCRIPTS/recipe-asks.sh" printer
 has "^needs${T}ADDR" && fail "ADDR belongs to the other protocol" || pass "ADDR does not count for ovpn"
 
 echo "-- start: the answers reach the job, the secret as a file"

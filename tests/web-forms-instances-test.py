@@ -25,6 +25,10 @@ class CtForms(unittest.TestCase):
         self.assertTrue(ok("web1", "add-storage", "--kind", "shares", "--name", "media", "--path", "/media/tv", "--readonly", "--as", "1000:1000"))
         self.assertTrue(ok("web1", "add-storage", "--kind", "fast", "--name", "data-1", "--path", "/srv/data"))
         self.assertTrue(ok("web1", "remove-storage", "--device", "media"))
+        self.assertTrue(ok("web1", "add-device", "--kind", "usb", "--id", "046d:c52b"))
+        self.assertTrue(ok("web1", "add-device", "--kind", "gpu", "--id", "0000:01:00.0", "--name", "gpu-01-00-0"))
+        self.assertTrue(ok("web1", "add-device", "--kind", "pci", "--id", "03:00.1"))
+        self.assertTrue(ok("web1", "remove-device", "--device", "usb-046d-c52b"))
 
     def test_refused_shapes(self):
         bad = [
@@ -52,6 +56,15 @@ class CtForms(unittest.TestCase):
             ("web1", "add-storage", "--kind", "shares", "--name", "m", "--path", "/m", "--readonly", "yes"),
             ("web1", "add-storage", "--kind", "shares", "--name", "m", "--path", "/m", "--confirm", "x"),
             ("web1", "remove-storage", "--device", "a/b"), ("web1", "remove-storage", "--device", ""),
+            ("web1", "add-device", "--kind", "disk", "--id", "046d:c52b"),
+            ("web1", "add-device", "--kind", "usb", "--id", "046D:C52B"),
+            ("web1", "add-device", "--kind", "usb", "--id", "046d:c52b;ls"),
+            ("web1", "add-device", "--kind", "pci", "--id", "01:00.8"),
+            ("web1", "add-device", "--kind", "pci", "--id", "01:00"),
+            ("web1", "add-device", "--kind", "usb", "--id", "046d:c52b", "--name", "Bad Name"),
+            ("web1", "add-device", "--kind", "usb", "--id", "046d:c52b", "--name", "-x"),
+            ("web1", "add-device", "--kind", "usb", "--id", "046d:c52b", "--confirm", "x"),
+            ("web1", "remove-device", "--device", "a/b"), ("web1", "remove-device", "--device", ""),
             ("web1", "frobnicate"),
         ]
         for a in bad:

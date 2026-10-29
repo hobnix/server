@@ -145,6 +145,57 @@ hs ct <name> storage remove <device>
 Creating the shares themselves, and who may open them, is in [Storage and disks](storage-and-disks.md) and
 [Users and shares](users-and-shares.md).
 
+## Pass hardware to an instance
+
+Give an instance a USB device (a Zigbee stick, a UPS) or a graphics card or other PCI card of the server. Not tested on hardware yet.
+
+See what the server has and what each device can go into (a container or a VM):
+
+```bash
+hs ct hardware
+```
+
+The columns VM and Container say `ok` or one reason: `host-disk` (the server's disks hang on it), `host-network` (a network card, also a USB network adapter),
+`boot-display` (the server's screen), `host-system` (a PCI bridge, the ISA/LPC bridge, SMBus or a USB hub; also when it shares a slot with the device), `nvidia-host` (the server's NVIDIA driver uses it), `no-iommu`, `group-shared` (another device in the
+same IOMMU group), `nvidia-recipe` (a container takes the NVIDIA card through a recipe: jellyfin, immich, tdarr), `no-driver`, `vm-only`.
+USB hubs and PCI bridges are not listed. A USB disk or card reader counts as `host-disk`. `add gpu` takes only a display function; give its audio function with `add pci`, or let it go along with the card. Add `--dry-run` to any command below to see the plan first.
+
+Pass a USB device by its `vendor:product` id. It can go to one instance at a time; it may be unplugged now and is used when plugged in:
+
+```bash
+hs ct <name> device add usb <vendor:product>
+```
+
+Pass a graphics card to a container (a PCI address from `hs ct hardware`):
+
+```bash
+hs ct <name> device add gpu <pci-address>
+```
+
+The container can use the card; without a render group inside, only root can. A card that two stopped instances share is allowed with a
+warning, because only one can run at a time. A PCI device other than a GPU goes into a VM only.
+
+Pass a PCI device or card to a VM. **The server loses the device while the VM runs, and a running VM stops and starts again.** You type
+the PCI address to confirm; the VM's whole memory is reserved while it runs:
+
+```bash
+hs ct <name> device add pci <pci-address>
+```
+
+All functions of the same card (for example its audio part) go along as `<device>-f<n>`. A VM needs IOMMU: switch on VT-d (Intel) or
+AMD-Vi/IOMMU (AMD) in the firmware setup; Intel also needs the kernel option `intel_iommu=on`. Without IOMMU the command refuses with
+`no-iommu`. The option is not a `machine.toml` setting yet. Use `--name <device>` to choose the device name.
+
+List and remove (a removed device goes back to the server; devices that come from a profile are changed in the profile):
+
+```bash
+hs ct <name> device list
+```
+
+```bash
+hs ct <name> device remove <device>
+```
+
 ## Snapshots and updates
 
 A snapshot is a frozen state to come back to. It takes a second and costs nothing at first. Every instance also gets one every night,
@@ -317,6 +368,7 @@ printed it) and see `hs doctor` for anything else that needs attention.
 | An install stops with `killed` | Not enough memory | `hs ct <name> set ram=4096` and run it again |
 | No space left in the instance | The disk is too small | `hs ct <name> set disk=<GB>`; keep large data on `bulk` |
 | A file in a share cannot be changed from Windows | The instance wrote it as root | Mount the share with `--as` for the user the app runs as |
+| `device add` says "cannot be passed in" | The device is one of the reasons in `hs ct hardware` | Read the reason; for `no-iommu` see "Pass hardware to an instance" |
 | `hs recipe <name> --check` says the recipe does not report its pieces | That recipe cannot say yet | Use `--dry-run` instead |
 
 ## Next

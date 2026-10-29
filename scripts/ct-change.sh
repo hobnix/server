@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # help: change an instance without asking anything: what would happen (plan), then do it as a background job (start)
 # help.de: eine Instanz ändern, ohne etwas zu fragen: was passieren würde (plan), dann als Hintergrundjob ausführen (start)
-# args: plan|start <instance> <start|stop|restart|snapshot|restore|delete-snapshot|add-storage|remove-storage|set|ip|update|update-all|delete|create> [--ram <MB|none>] [--cpu <N|none>] [--disk <GB>] [--autostart yes|no] [--docker yes|no] [--address <ip>] [--type container|docker|vm] [--profile <network profile>] [--bind <fast|shares|sensitive>:<name>:<path>[:ro] ...] [--snapshot <name>] [--label <name>] [--kind fast|shares|sensitive] [--name <storage>] [--path <inside>] [--readonly] [--as <uid>:<gid>] [--device <name>] [--confirm <word>]
+# args: plan|start <instance> <start|stop|restart|snapshot|restore|delete-snapshot|add-storage|remove-storage|set|ip|update|update-all|delete|create|add-device|remove-device> [--ram <MB|none>] [--cpu <N|none>] [--disk <GB>] [--autostart yes|no] [--docker yes|no] [--address <ip>] [--type container|docker|vm] [--profile <network profile>] [--bind <fast|shares|sensitive>:<name>:<path>[:ro] ...] [--snapshot <name>] [--label <name>] [--kind fast|shares|sensitive] [--name <storage>] [--path <inside>] [--readonly] [--as <uid>:<gid>] [--device <name>] [--id <vendor:product|pci address>] [--confirm <word>]
 # System command (hs sys ct plan|start): for the interface, timers and tests. It never asks and prints plain
 # key<TAB>value lines like pool-change.sh. The questions of the console wizards are
 # ct-guided.sh's; the plan is manage-ct.sh --dry-run sorted into lines.
@@ -18,12 +18,15 @@
 #   instance runs (kind:name:absolute path inside[:ro]); the job is `ct-change.sh apply-create`: manage-ct.sh --create, then --add-storage per bind. Bulk folders
 #   cannot go into a VM.
 # update-all: the instance argument is `all`; the plan is ct-update-all.sh --dry-run (the running containers, no VMs), the job updates exactly that list.
-# Test knobs: HS_MANAGE_CT (stand-in for manage-ct.sh), HS_CT_UPDATE_ALL (stand-in for ct-update-all.sh), HS_CT_BINDINGS (stand-in for ct-bindings.sh), HS_INCUS.
+# add-device|remove-device: pass a USB/GPU/PCI device in (--kind usb|gpu|pci --id <vendor:product|pci address> [--name <device>]) or back (--device <name>); the
+#   runner is ct-device.sh. A VM gpu/pci add has a danger line and confirm_name is the PCI address, not the instance.
+# Test knobs: HS_MANAGE_CT (stand-in for manage-ct.sh), HS_CT_DEVICE (stand-in for ct-device.sh), HS_CT_UPDATE_ALL (stand-in for ct-update-all.sh), HS_CT_BINDINGS (stand-in for ct-bindings.sh), HS_INCUS.
 set -euo pipefail
 here=$(dirname "$0")
 manage=${HS_MANAGE_CT:-$here/manage-ct.sh}
 bindings=${HS_CT_BINDINGS:-$here/ct-bindings.sh}
 updall=${HS_CT_UPDATE_ALL:-$here/ct-update-all.sh}
+device_sh=${HS_CT_DEVICE:-$here/ct-device.sh}
 
 # the job of a create with bindings: create first, then bind the storage one by one, stop at the first failure
 if [ "${1:-}" = apply-create ]; then
@@ -47,12 +50,12 @@ refuse() { printf 'status\trefused\nreason\t%s\n' "$1"; exit 1; }
 verb=${1:-}; ct=${2:-}; action=${3:-}
 case "$verb" in plan|start) ;; *) echo "usage: ct-change.sh plan|start <instance> <action> [options]" >&2; exit 1 ;; esac
 [[ "$ct" =~ ^[a-z][a-z0-9-]*$ ]] || refuse "invalid instance name"
-case "$action" in start|stop|restart|snapshot|restore|delete-snapshot|add-storage|remove-storage|set|ip|update|update-all|delete|create) ;; *) refuse "unknown action" ;; esac
+case "$action" in start|stop|restart|snapshot|restore|delete-snapshot|add-storage|remove-storage|set|ip|update|update-all|delete|create|add-device|remove-device) ;; *) refuse "unknown action" ;; esac
 [ "$action" != update-all ] || [ "$ct" = all ] || refuse "update-all is for all instances: use 'all' as the instance"
 [ "$ct" != all ] || [ "$action" = update-all ] || refuse "'all' is only for update-all"
 shift 3
 
-snap="" label="" kind="" sname="" path="" as="" device="" confirm="" readonly=false
+snap="" label="" kind="" sname="" path="" as="" id="" device="" confirm="" readonly=false
 ram="" cpu="" disk="" autostart="" docker="" address="" type=container profile="" binds=()
 while [ $# -gt 0 ]; do
   case "$1" in
@@ -63,6 +66,7 @@ while [ $# -gt 0 ]; do
     --path)     path=${2:-}; shift 2 ;;
     --as)       as=${2:-}; shift 2 ;;
     --device)   device=${2:-}; shift 2 ;;
+    --id)       id=${2:-}; shift 2 ;;
     --confirm)  confirm=${2:-}; shift 2 ;;
     --readonly) readonly=true; shift ;;
     --ram)       ram=${2:-}; shift 2 ;;
@@ -87,9 +91,12 @@ case "$action" in
   restore|delete-snapshot) [ -n "$snap" ] || needs+=(snapshot) ;;
   add-storage) [ -n "$kind" ] || needs+=(kind); [ -n "$sname" ] || needs+=(name); [ -n "$path" ] || needs+=(path) ;;
   remove-storage) [ -n "$device" ] || needs+=(device) ;;
+  add-device) [ -n "$kind" ] || needs+=(kind); [ -n "$id" ] || needs+=(id) ;;
+  remove-device) [ -n "$device" ] || needs+=(device) ;;
   set) [ -n "$ram$cpu$disk$autostart$docker" ] || needs+=(setting) ;;
   ip) [ -n "$address" ] || needs+=(address) ;;
 esac
+[ -z "$id" ] || [[ "$id" =~ ^[0-9a-fA-F:.]{9,12}$ ]] || refuse "invalid device id '$id'"
 for pair in "ram:$ram" "cpu:$cpu" "disk:$disk"; do
   v=${pair#*:}
   [ -z "$v" ] || [ "$v" = none ] || [[ "$v" =~ ^[0-9]+$ ]] || refuse "${pair%%:*} must be a number (or none), got '$v'"
@@ -133,6 +140,8 @@ case "$action" in
   ip)     margs+=(--set "ip=$address") ;;
   update) margs+=(--update) ;;
   update-all) margs=() ;;
+  add-device) margs+=(--add "$kind" "$id"); [ -z "$sname" ] || margs+=(--name "$sname") ;;
+  remove-device) margs+=(--remove "$device") ;;
   delete) margs+=(--delete) ;;
   create)
     margs=(--create "$ct")
@@ -147,6 +156,7 @@ export HS_PLAIN=1 HS_LANG=en HS_CALLER=${HS_CALLER:-ui}
 unset HS_GUIDED_TTY
 rc=0
 runner=$manage; [ "$action" != update-all ] || runner=$updall
+case "$action" in add-device|remove-device) runner=$device_sh ;; esac
 out=$(bash "$runner" "${margs[@]}" --dry-run </dev/null 2>&1) || rc=$?
 if [ "$rc" -ne 0 ]; then
   echo "status	refused"
@@ -163,6 +173,14 @@ case "$action" in
   delete-snapshot) danger="The snapshot '$snap' of '$ct' is deleted for good." ;;
   delete) danger="'$ct' is deleted with all its snapshots. The attached storage stays." ;;
 esac
+confirm_word=$ct
+case "$action" in
+  add-device|remove-device)
+    # the device script names the word to type (the PCI address of a VM gpu/pci add) and the red line
+    confirm_word=$(awk '/^confirm: /{ sub(/^confirm: /, ""); print; exit }' <<<"$out")
+    [ -n "$confirm_word" ] || confirm_word=$ct
+    danger=$(awk '/^danger: /{ sub(/^danger: /, ""); print; exit }' <<<"$out") ;;
+esac
 long=no
 [ "$action" != update ] && [ "$action" != update-all ] || long=yes
 # update-all: the running containers the dry run names (its notes under the first heading)
@@ -173,10 +191,11 @@ if [ "$action" = update-all ]; then
 fi
 
 if [ "$verb" = start ]; then
-  if [ -n "$danger" ] && [ "$confirm" != "$ct" ]; then refuse "type the name to confirm: $ct"; fi
+  if [ -n "$danger" ] && [ "$confirm" != "$confirm_word" ]; then refuse "type the name to confirm: $confirm_word"; fi
   . "$here/lib/job.sh"
   jargs=("${margs[@]}")
   [ "$action" != update-all ] || jargs=(--yes "${targets[@]}")   # exactly the list of the plan
+  [ "$action" != add-device ] || jargs+=(--yes)
   [ "$action" != delete ] || jargs+=(--yes)   # the name was typed in the interface; a job cannot ask
   if [ "$action" = create ] && [ ${#binds[@]} -gt 0 ]; then
     for b in "${binds[@]}"; do jargs+=(--bind "$b"); done
@@ -213,6 +232,8 @@ case "$action" in
               for c in "${targets[@]}"; do printf 'step\tsnapshot %s, then update the software inside\n' "$c"; done
               printf 'warn\tEvery instance is snapshotted first and its services restart while it updates. Virtual machines are left alone.\nnote\tIf something breaks, restore the snapshot before-update-.... of that instance.\n' ;;
   delete) printf 'heading\tdelete %s\nstep\tdelete the instance and its snapshots\nstep\tgive its address back in UniFi\nnote\tAttached storage stays where it is. Remove a Zoraxy rule that pointed to it by hand.\n' "$ct" ;;
+  add-device) printf 'heading\tpass %s %s to %s\n' "$kind" "$id" "$ct" ;;
+  remove-device) printf 'heading\tremove device %s from %s\n' "$device" "$ct" ;;
   create) printf 'heading\tcreate %s (%s)\nstep\tcreate the instance and pin its MAC\nstep\tstart it\n' "$ct" "$type"
           [ -z "$profile" ] || printf 'note\tOn the network (profile) %s.\n' "$profile"
           if [ -n "$address" ]; then printf 'step\treserve %s in UniFi and restart\n' "$address"; else printf 'note\tNo fixed address yet: set one afterwards.\n'; fi
@@ -220,6 +241,11 @@ case "$action" in
             r=${b#*:}; bn=${r%%:*}; bp=${r#*:}; bp=${bp%%:*}
             printf 'step\tbind %s %s at %s%s\n' "${b%%:*}" "$bn" "$bp" "$([[ "$b" == *:ro ]] && echo ' (read only)')"
           done ;;
+esac
+
+case "$action" in
+  add-device|remove-device)
+    printf '%s\n' "$out" | awk '/^(step|note|warn): / { k = $1; sub(/:$/, "", k); sub(/^[a-z]+: /, ""); print k "\t" $0 }' ;;
 esac
 
 # which services go down with a stop or restart
@@ -240,7 +266,7 @@ printf '%s\n' "$out" | awk '
   /^[ \t]*\(/ { next }
   /^[ \t]+(incus|bash) / { sub(/^[ \t]+/, ""); sub(/[ \t]+\(.*$/, ""); print "command\t" $0 }'
 if [ -n "$danger" ]; then
-  printf 'danger\t%s\nconfirm_name\t%s\n' "$danger" "$ct"
+  printf 'danger\t%s\nconfirm_name\t%s\n' "$danger" "$confirm_word"
 fi
 printf 'long\t%s\n' "$long"
 exit 0

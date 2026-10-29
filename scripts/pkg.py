@@ -38,10 +38,12 @@ KINDS = ("recipe", "extension")
 AUDIENCES = ("generic", "personal")
 NEEDS = ("docker", "share", "tailscale")
 USES = ("gpu",)
+DEVICE_KINDS = ("usb",)
 INPUTS = ("none", "form", "terminal")
-ASK_TYPES = re.compile(r"^(text|secret|choice)$")
+ASK_TYPES = re.compile(r"^(text|secret|choice|usb)$")
 NAME = re.compile(r"^[a-z][a-z0-9-]{0,40}$")
 SEMVER = re.compile(r"^(0|[1-9]\d*)\.(0|[1-9]\d*)\.(0|[1-9]\d*)$")
+DEVICE_ID = re.compile(r"^[0-9a-f]{4}:[0-9a-f]{4}$")
 REQUIRES = re.compile(r"^>=\s*([1-9]\d*)$")
 
 
@@ -106,7 +108,7 @@ def save_installed(data):
 
 def header(path):
     """The comment header of a recipe script: dict of key -> value, asks as a list."""
-    h, asks = {}, []
+    h, asks, devices = {}, [], []
     with open(path, encoding="utf-8") as f:
         for line in f:
             m = re.match(r"^# ([a-z.]+): ?(.*)$", line.rstrip("\n"))
@@ -115,9 +117,12 @@ def header(path):
             k, v = m.groups()
             if k == "ask":
                 asks.append(v)
+            elif k == "device":
+                devices.append(v)
             else:
                 h.setdefault(k, v)
     h["asks"] = asks
+    h["devices"] = devices
     return h
 
 
@@ -133,6 +138,7 @@ def convert(script):
     title_de = (h.get("recipe.de") or h.get("recipe") or name).split(": ", 1)[-1]
     needs = [w for w in h.get("needs", "-").split() if w != "-"]
     uses = [w for w in h.get("uses", "-").split() if w != "-"]
+    devs = [d.split("|") + [""] * 3 for d in h["devices"]]
     lines = [
         "# Manifest of a package (docs/PLAN-packages.md). Until the packages move out of this repository the header lines of the",
         "# script still say the same (tests/pkg.sh keeps both in step).",
@@ -141,7 +147,7 @@ def convert(script):
         'kind = "recipe"',
         f"title = {q(title)}",
         f"title_de = {q(title_de)}",
-        "requires_core = \">=1\"",
+        f"requires_core = \">={2 if devs else 1}\"",
         f"audience = {q(h.get('kind', 'generic'))}",
         f"needs = {json.dumps(needs)}",
         f"uses = {json.dumps(uses)}",
@@ -162,7 +168,15 @@ def convert(script):
             lines.append(f"pattern = {q(pattern)}")
         if when:
             lines.append(f"when = {q(when)}")
+    for d in devs:
+        lines += ["", "[[device]]", f"kind = {q(d[0])}", f"name = {q(d[1])}"]
+        lines.append(f"ask = {q(d[2][4:])}" if d[2].startswith("ask:") else f"id = {q(d[2])}")
     return "\n".join(lines) + "\n"
+
+
+def device_key(kind, name, id_, ask):
+    """The '# device:' header form of a [[device]] table: kind|name|id or kind|name|ask:KEY."""
+    return f"{kind}|{name}|" + (f"ask:{ask}" if ask else str(id_))
 
 
 def problems():
@@ -223,11 +237,37 @@ def problems():
                 keys = [a.split("|")[0] for a in h["asks"]]
                 if keys != [a.get("key") for a in m.get("ask", [])]:
                     bad("questions differ from the script's '# ask:' headers")
+            devs = m.get("device", [])
+            if devs and int(rq.group(1) if rq else 0) < 2:
+                bad("a [[device]] needs requires_core >=2")
+            if s and os.path.isfile(sp):
+                want = [device_key(d.get("kind"), d.get("name"), d.get("id"), d.get("ask")) for d in devs]
+                if want != h["devices"]:
+                    bad("devices differ from the script's '# device:' headers")
+            ask_keys = [a.get("key") for a in m.get("ask", [])]
+            seen_dev = set()
+            for d in devs:
+                dn = d.get("name")
+                if d.get("kind") not in DEVICE_KINDS:
+                    bad(f"unknown device kind {d.get('kind')} (v1: usb)")
+                if not NAME.match(str(dn)):
+                    bad(f"device {dn}: name is not a lowercase word")
+                if dn in seen_dev:
+                    bad(f"device {dn}: name used twice")
+                seen_dev.add(dn)
+                if ("id" in d) == ("ask" in d):
+                    bad(f"device {dn}: give exactly one of id or ask")
+                elif "id" in d and not DEVICE_ID.match(str(d["id"])):
+                    bad(f"device {dn}: id must look like 04f9:0042")
+                elif "ask" in d and d["ask"] not in ask_keys:
+                    bad(f"device {dn}: ask {d['ask']} is not an [[ask]] key")
+                elif "ask" in d and {a.get("key"): a.get("type") for a in m.get("ask", [])}.get(d["ask"]) != "usb":
+                    bad(f"device {dn}: ask {d['ask']} must have type usb")
             if m.get("input", "none") == "form" and not m.get("ask"):
                 bad("a form recipe declares questions")
             for a in m.get("ask", []):
                 if not ASK_TYPES.match(str(a.get("type", ""))):
-                    bad(f"question {a.get('key')}: type is not text, secret or choice")
+                    bad(f"question {a.get('key')}: type is not text, secret, choice or usb")
                 if a.get("type") == "choice" and not a.get("choices"):
                     bad(f"question {a.get('key')}: a choice needs choices")
                 if not a.get("label"):

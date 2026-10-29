@@ -51,6 +51,8 @@ Brought up to date with main at #346 on 2026-10-27 (merged: #323 to #340, #346).
 15. [~] (merged #324: Recycling Bin and Remove Completed through the API, jq code never run; Jellyfin Connect is a note only) arr: Recycling Bin in Radarr and Sonarr (set by hand now), Remove Completed on the SABnzbd client, the Jellyfin Connect entry;
     later the other server's library as a read-only, unmonitored root folder (waits for the remote-pool branch).
 16. [ ] Investigate the sudo stall of 3 to 5 s (winbind group lookup suspected; sampler log /tmp/slowsudo.log). Has not shown up in a while.
+17. [ ] IOMMU option for VM passthrough: a `machine.toml` option (schema.toml) that sets `intel_iommu=on` (and `iommu=pt`) and loads vfio-pci,
+    so `hs ct <ct> device add pci` stops refusing with `no-iommu`. Touches the boot options: reboot, ask first.
 
 ## C. Recipes (when one is needed, we do it)
 

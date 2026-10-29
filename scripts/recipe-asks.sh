@@ -4,8 +4,9 @@
 # args: <recipe>
 # System command (hs sys recipes asks <recipe>): one tab separated row per `# ask:` line in the header of scripts/recipes/<recipe>.sh, no header row.
 #   # ask: KEY|label|kind|default|pattern|when
-#   kind     text | secret | choice:a,b,c   (a secret travels on standard input and is never shown again)
+#   kind     text | secret | usb | choice:a,b,c   (a secret travels on standard input and is never shown again)
 #   default  what the field starts with ("-" in the output when empty)
+#           usb = a plugged-in USB device (vendor:product, ^[0-9a-f]{4}:[0-9a-f]{4}$), the web form offers `sys ct hardware`
 #   pattern  a regular expression the whole value must match (text only; "-" when empty)
 #   when     KEY=value: the question only counts while the answer to KEY is that value ("-" when empty)
 # A row with an empty first row means the recipe asks nothing. The last row `input<TAB>form|terminal|none` says how the recipe takes its answers:

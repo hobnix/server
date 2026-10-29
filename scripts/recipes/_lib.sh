@@ -314,6 +314,19 @@ UNIT
 }
 
 # Docker from its own package source, inside the container.
+# A host USB device (vendor:product, hot-plug, not required at start) for the container: usb_device <ct> <name> <vvvv:pppp>
+# Same ids -> nothing to do; a device of that name with other ids is changed in place. Needs requires_core >=2 and a '# device:' header.
+usb_device() {
+  local have_v have_p
+  if have_v=$(incus config device get "$1" "$2" vendorid 2>/dev/null </dev/null); then
+    have_p=$(incus config device get "$1" "$2" productid 2>/dev/null </dev/null || true)
+    [ "$have_v:$have_p" != "$3" ] || return 0
+    incus config device set "$1" "$2" vendorid="${3%%:*}" productid="${3##*:}"
+    return
+  fi
+  spin "$(t "Passing the USB device %s to '%s'" "$3" "$1")" bash "$scripts/ct-device.sh" "$1" --add usb "$3" --name "$2" --yes
+}
+
 install_docker() {
   step "Install Docker"
   if incus exec "$ct" -- sh -c 'docker compose version' >/dev/null 2>&1 </dev/null; then

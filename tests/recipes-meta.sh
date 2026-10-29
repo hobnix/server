@@ -20,6 +20,9 @@ for f in "$R"/*/run.sh; do
     check "$n: the recipe reads the answer to $qk" grep -qE "answer $qk|RECIPE_$qk|setting $qk" "$f"
   done < <(sed -n 's/^# ask: //p' "$f")
   has() { grep -qE "$1" "$f"; }
+  if has '^ *usb_device "'; then d=yes; else d=no; fi
+  if grep -q '^# device: ' "$f"; then w=yes; else w=no; fi
+  check_eq "$n: '# device:' lines match the script (usb_device)" "$d" "$w"
   if has '^ *(install_docker|nvidia_docker)\b'; then d=yes; else d=no; fi
   case " $needs " in *" docker "*) w=yes ;; *) w=no ;; esac
   [ "$n" = docker ] && continue   # it installs Docker: nobody needs it first

@@ -5,7 +5,7 @@
 # System command (hs sys recipes plan|start): for the interface and tests. It never asks and prints plain key<TAB>value lines like
 # dns-change.sh. The work is recipe.sh's. A recipe run this way has no terminal, so every preference takes the answer stored last time or
 # its default, and every question the recipe declares (`# ask:` lines in its header, `hs sys recipes asks <recipe>`) must be answered:
-#   --set KEY=value   an answer to a text or choice question (it reaches the recipe as RECIPE_<KEY> in the job's environment)
+#   --set KEY=value   an answer to a text, choice or usb (vendor:product) question (it reaches the recipe as RECIPE_<KEY> in the job's environment)
 #   standard input    ONE line: the answer to the secret question that counts (never in an argument, a log or the environment: the job runner
 #                     writes it as a root-only file in a folder that is removed when the job ends; the recipe reads it with `answer KEY`)
 #   run   set the app up, or bring it up to date (recipes are safe to run again)
@@ -86,6 +86,7 @@ for i in "${!ak[@]}"; do
   fi
   case "$t" in
     choice:*) [[ ",${t#choice:}," == *",$v,"* ]] || refuse "'$v' is not one of: ${t#choice:} ($k)" ;;
+    usb) [[ "$v" =~ ^[0-9a-f]{4}:[0-9a-f]{4}$ ]] || refuse "the answer to $k is not a vendor:product like 04f9:0042" ;;
     *) [[ "$v" =~ ^(${ap[$i]:-.*})$ ]] || refuse "the answer to $k does not fit ($(sed 's/ (.*//' <<<"${al[$i]}"))" ;;
   esac
   [[ "$v" != *[[:cntrl:]]* ]] || refuse "the answer to $k has a control character"

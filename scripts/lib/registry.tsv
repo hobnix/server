@@ -92,11 +92,15 @@ user	ct <ct> update	manage-ct.sh	{1} --update	snapshot, then update the software
 user	ct <ct> storage	ct-guided.sh	storage {1} {rest}	attach storage (guided): a share folder, a sensitive folder or a fast volume	Speicher einhängen (geführt): Freigaben-Ordner, sensibler Ordner oder fast-Volume	guided,topic:instances,changes,capability:incus
 user	ct <ct> storage add	manage-ct.sh	{1} --add-storage {rest}	mount fast|shares|sensitive storage: hs ct <ct> storage add <kind> <name> <path> [--readonly] [--as uid:gid]	Speicher einhängen (fast|shares|sensitive): hs ct <ct> storage add <Art> <Name> <Pfad> [--readonly] [--as uid:gid]	topic:instances,changes,capability:incus
 user	ct <ct> storage remove	manage-ct.sh	{1} --remove-storage {rest}	unmount a storage device: hs ct <ct> storage remove <device>	Speicher aushängen: hs ct <ct> storage remove <Gerät>	topic:instances,changes,capability:incus
+user	ct <ct> device list	ct-device.sh	{1} --list --table	devices passed into an instance	in eine Instanz durchgereichte Geräte	topic:instances,reads,capability:incus
+user	ct <ct> device add	ct-device.sh	{1} --add {rest}	pass a device in: hs ct <ct> device add usb <vendor:product> | gpu|pci <pci address> [--name <device>]	ein Gerät durchreichen: hs ct <ct> device add usb <Hersteller:Produkt> | gpu|pci <PCI-Adresse> [--name <Gerät>]	topic:instances,changes,capability:incus
+user	ct <ct> device remove	ct-device.sh	{1} --remove {rest}	give a device back to the server: hs ct <ct> device remove <device>	ein Gerät an den Server zurückgeben: hs ct <ct> device remove <Gerät>	topic:instances,changes,capability:incus
 user	ct <ct> shell	ct-access.sh	{1} shell	a shell inside the instance	eine Shell in der Instanz	topic:instances,changes,capability:incus
 user	ct <ct> exec	ct-access.sh	{1} exec {rest}	run one command inside: hs ct <ct> exec <command>	einen Befehl darin ausführen: hs ct <ct> exec <Befehl>	topic:instances,changes,capability:incus
 user	ct <ct> logs	ct-access.sh	{1} logs {rest}	the last lines of the journal inside: hs ct <ct> logs [lines]	die letzten Zeilen des Journals darin: hs ct <ct> logs [Zeilen]	guided,topic:instances,reads,cheat:trouble,capability:incus
 user	ct <ct> console	ct-access.sh	{1} console	the console of the instance (leave with Ctrl+a q)	die Konsole der Instanz (Beenden mit Strg+a q)	guided,topic:instances,changes,capability:incus
 user	ct update-all	ct-update-all.sh	{rest}	snapshot and update every running container, with a report and the way back: hs ct update-all [--dry-run] [--yes]	jeden laufenden Container per Schnappschuss sichern und aktualisieren, mit Bericht und Rückweg: hs ct update-all [--dry-run] [--yes]	topic:instances,changes,capability:incus
+user	ct hardware	ct-device.sh	--hardware --table	host devices an instance can be given (USB, GPU, PCI) and why some cannot	Geräte des Servers, die eine Instanz bekommen kann (USB, GPU, PCI), und warum manche nicht	topic:instances,reads,capability:incus
 user	user list	users-show.sh	users	users of the domain with state and groups	Benutzer der Domäne mit Zustand und Gruppen	topic:users,reads,cheat:users,capability:ad
 user	user <user> show	users-show.sh	users {1}	one user with state and groups	ein Benutzer mit Zustand und Gruppen	topic:users,reads,capability:ad
 user	user add	user-guided.sh	add {rest}	create a user (guided; the password is asked next): hs user add [name] [--full "Full Name"]	Benutzer anlegen (geführt; danach das Passwort): hs user add [Name] [--full "Voller Name"]	guided,topic:users,changes,cheat:users,capability:ad
@@ -313,6 +317,8 @@ sys	sys ct users	manage-ct.sh	--users	users inside an instance	-
 sys	sys ct snapshots	manage-ct.sh	--snapshots	snapshots of an instance	-
 sys	sys ct storage <ct>	manage-ct.sh	{1} --storage	storage of one instance	-
 sys	sys ct users <ct>	manage-ct.sh	{1} --users	users inside one instance	-
+sys	sys ct hardware	ct-device.sh	--hardware	host devices for passthrough: kind, id, vendor:product, vendor, product, driver, iommu group, vm, ct, used by, count	-
+sys	sys ct devices <ct>	ct-device.sh	{1} --list	devices of one instance: name, kind, id, present, product, from, with	-
 sys	sys ct snapshots <ct>	manage-ct.sh	{1} --snapshots	snapshots of one instance	-
 sys	sys ct profiles	manage-ct.sh	--profiles	network profiles an instance can be created on: name, network, description	-
 sys	sys ct bindings <ct>	ct-bindings.sh	{1}	the storage of an instance with pool, disks, size, backup, cache and who else mounts it	-

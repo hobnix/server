@@ -1,6 +1,6 @@
 <script>
   import { tip } from '../ui/tooltip.svelte.js';
-  // Instances: containers and VMs. Table, then a drawer (Storage, Snapshots, Logs, Route); every action opens a plan.
+  // Instances: containers and VMs. Table, then a drawer (Storage, Devices, Snapshots, Logs, Route); every action opens a plan.
   // Snapshots of an instance live HERE (the Snapshots page is gone); the "in the backup" switch lives on Backup, this page only shows the badge.
   import { poll, rows, refresh } from '../data.svelte.js';
   import { takeSelection } from '../select.svelte.js';
@@ -10,6 +10,7 @@
   import CreateInstance from '../forms/instances/CreateInstance.svelte';
   import InstanceSettings from '../forms/instances/InstanceSettings.svelte';
   import BindStorage from '../forms/instances/BindStorage.svelte';
+  import PassDevice from '../forms/instances/PassDevice.svelte';
   import Table from '../shell/Table.svelte';
   import PageHeader from '../shell/PageHeader.svelte';
   import PageState from '../shell/PageState.svelte';
@@ -20,7 +21,8 @@
   import StatusDot from '../ui/StatusDot.svelte';
   import LogsTab from './instances/LogsTab.svelte';
   import { sizeToBytes } from '../format.js';
-  import { ctOf, ctIcon, isVm, isRunning, link, servicesOf } from './instances/ct.js';
+  import { devOf } from './instances/devices.js';
+  import { ctOf,ctIcon, isVm, isRunning, link, servicesOf } from './instances/ct.js';
 
   const ctl = poll('/api/sys/ct/list', 5000);
   const bk = poll('/api/sys/backup/overview', 60000);
@@ -47,6 +49,10 @@
 
   const bind = poll(() => (sel ? `/api/sys/ct/bindings/${encodeURIComponent(sel.name)}` : ''), 15000);
   // binding, kind, pool, source, inside, mode, cache, backup, share, used_bytes, disks, also_used_by
+  // devices passed in: name, kind, id, plugged in, product, from, with (see pages/instances/devices.js)
+  const dev = poll(() => (sel ? `/api/sys/ct/devices/${encodeURIComponent(sel.name)}` : ''), 15000);
+  const devices = $derived(rows(dev).map(devOf));
+  const siblings = (d) => devices.filter((x) => x.with === d.name).length;
   const bindings = $derived(rows(bind).map((r) => ({ device: r[0], kind: r[1], pool: r[2], source: r[3], inside: r[4], mode: r[5], backup: r[7], share: r[8], also: r[11] })));
   const snap = poll(() => (sel ? `/api/sys/ct/snapshots/${encodeURIComponent(sel.name)}` : ''), 15000);
   // name, created; newest first ("YYYY-MM-DD HH:MM" sorts as text)
@@ -69,7 +75,7 @@
     { key: 'lastSnap', label: 'Last snapshot', optional: true }, { key: 'route', label: 'Route', optional: true, value: (c) => servicesOf(c, services).length },
     { key: 'actions', label: '', sort: false, align: 'right' },
   ];
-  const tabs = [{ id: 'storage', label: 'Storage' }, { id: 'snap', label: 'Snapshots' }, { id: 'logs', label: 'Logs' }, { id: 'route', label: 'Route' }];
+  const tabs = [{ id: 'storage', label: 'Storage' }, { id: 'devices', label: 'Devices' }, { id: 'snap', label: 'Snapshots' }, { id: 'logs', label: 'Logs' }, { id: 'route', label: 'Route' }];
 </script>
 
 <PageHeader title="Instances" crumb={ui.host} sub={cts.length ? `${running} of ${cts.length} running` : 'Containers and virtual machines.'}>
@@ -143,6 +149,28 @@
                   {/each}
                 </div>
                 <button use:tip={'Give this instance a folder of a pool or a share'} class="btn sm" onclick={() => openCreate(BindStorage, { ct: sel.name })}><i class="ph ph-plus"></i>Bind a share</button>
+              </div>
+            {:else if t === 'devices'}
+              <div class="sec">
+                <div class="sh"><b>Devices</b><span class="kd">USB, graphics and PCI devices passed in</span></div>
+                <div class="rows">
+                  {#each devices.filter((d) => d.with === '') as d (d.name)}
+                    <div class="r">
+                      <div class="rt">
+                        <Chip>{d.kind}</Chip>
+                        <span>{d.product || d.id}</span>
+                        <span class="mono">{d.id}</span>
+                        <StatusDot state={d.present ? 'ok' : 'off'} label={d.present ? 'plugged in' : 'not plugged in'} />
+                        {#if siblings(d)}<span class="kd">+{siblings(d)} {siblings(d) === 1 ? 'function' : 'functions'}</span>{/if}
+                        {#if d.from === 'profile'}<span class="kd">from profile</span>
+                        {:else}<button class="btn btn-ghost btn-icon ib" style="margin-left:auto" use:tip={'Remove this device'} aria-label="Remove {d.name}" onclick={() => openPlan('ct', [sel.name, 'remove-device', '--device', d.name], `Remove ${d.name} from ${sel.name}`)}><i class="ph ph-x"></i></button>{/if}
+                      </div>
+                    </div>
+                  {:else}
+                    <div class="kd pad">{dev.loaded ? 'No devices passed in.' : 'Loading…'}</div>
+                  {/each}
+                </div>
+                <button use:tip={'Give this instance a USB, graphics or PCI device of the server'} class="btn sm" onclick={() => openCreate(PassDevice, { ct: sel })}><i class="ph ph-plus"></i>Pass a device</button>
               </div>
             {:else if t === 'snap'}
               <div class="sec">

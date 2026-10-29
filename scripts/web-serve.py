@@ -676,6 +676,8 @@ READS = {
     ("state", "history"): {"kind": "json", "ttl": 30},
     ("temp-disk", "raw"): {"kind": "tsv", "ttl": 30},
     ("ct", "storage"): {"kind": "tsv", "ttl": 15, "args": [NAME]},
+    ("ct", "hardware"): {"kind": "tsv", "ttl": 30},
+    ("ct", "devices"): {"kind": "tsv", "ttl": 15, "args": [NAME]},
     ("ct", "users"): {"kind": "tsv", "ttl": 30, "args": [NAME]},
     ("ct", "logs"): {"kind": "text", "ttl": 3, "args": [NAME], "query": {"lines": (r"^[0-9]{1,4}$", "")}},
     ("users", "access"): {"kind": "tsv", "ttl": 30, "args": [NAME]},
@@ -734,6 +736,8 @@ CT_CPU = r"^(none|[1-9][0-9]?|1[0-9]{2}|2[0-4][0-9]|25[0-6])$"
 CT_DISK = r"^[1-9][0-9]{0,4}$"
 IPV4 = r"^(25[0-5]|2[0-4][0-9]|1[0-9]{2}|[1-9]?[0-9])(\.(25[0-5]|2[0-4][0-9]|1[0-9]{2}|[1-9]?[0-9])){3}$"
 CT_STORE = r"^[A-Za-z0-9][A-Za-z0-9._-]{0,60}$"
+CT_DEV = r"^[a-z][a-z0-9-]{0,40}$"
+DEV_ID = r"^([0-9a-f]{4}:[0-9a-f]{4}|([0-9a-f]{4}:)?[0-9a-f]{2}:[0-9a-f]{2}\.[0-7])$"
 CT_PATH = r"^/(?!.*\.\.)[A-Za-z0-9._/-]{1,120}$"
 CT_PROFILE = r"^[A-Za-z0-9][A-Za-z0-9._-]{0,40}$"                                   # a network (VLAN) profile of Incus
 CT_BIND = r"^(fast|shares|sensitive):[A-Za-z0-9][A-Za-z0-9._-]{0,60}:(?!.*\.\.)/[A-Za-z0-9._/-]{0,200}(:ro)?$"     # <kind>:<name>:<path inside>[:ro]
@@ -868,7 +872,9 @@ CHANGES = {
            {"fixed": [CT, r"^ip$"], "opts": {"--address": (IPV4, False)}},
            {"fixed": [CT, r"^add-storage$"], "opts": {"--kind": (r"^(fast|shares|sensitive)$", False), "--name": (CT_STORE, False),
                                                       "--path": (CT_PATH, False), "--readonly": (None, False), "--as": (r"^[0-9]{1,6}:[0-9]{1,6}$", False)}},
-           {"fixed": [CT, r"^remove-storage$"], "opts": {"--device": (CT_STORE, False)}}],
+           {"fixed": [CT, r"^remove-storage$"], "opts": {"--device": (CT_STORE, False)}},
+           {"fixed": [CT, r"^add-device$"], "opts": {"--kind": (r"^(usb|gpu|pci)$", False), "--id": (DEV_ID, False), "--name": (CT_DEV, False)}},
+           {"fixed": [CT, r"^remove-device$"], "opts": {"--device": (CT_STORE, False)}}],
     "backup": [[r"^(now|verify|prune|drill)$"],
                {"fixed": [r"^init$"], "opts": {"--disk": (DISKID, False)}},     # make a free disk the backup disk (red: the kernel name of the disk is typed)
                [r"^drill$", r"^--count$", r"^[0-9]{1,2}$"],
@@ -917,7 +923,7 @@ CHANGES = {
                [r"^(remove|test)$", NOTIFY_CHANNEL],
                [r"^migrate$"]],
 }
-CONFIRM_RE = re.compile(r"^[A-Za-z0-9._ -]{1,64}$")
+CONFIRM_RE = re.compile(r"^[A-Za-z0-9._: -]{1,64}$")
 
 
 # ─────────────────────── extension packages: reads and changes from their manifests ───────────────────────

@@ -74,7 +74,7 @@ buttons **Update**, **Reboot** and **Shut down**.
 | --- | --- |
 | Summary | CPU, memory, disks per pool, UPS, important states; **Run health check** |
 | Storage | pools `bulk` and `fast`, disks (SMART, self-tests, unassigned and foreign disks), shares, encryption, vault (values are never shown) |
-| Instances | containers and VMs (start, stop, snapshot, update, settings, fixed address, mounts, create, delete), **Apps** (the recipes), **Services** (what the reverse proxy publishes) |
+| Instances | containers and VMs (start, stop, snapshot, update, settings, fixed address, mounts, devices (pass USB, GPU or PCI hardware; a PCI card for a VM makes you type its address), create, delete), **Apps** (the recipes), **Services** (what the reverse proxy publishes) |
 | Network | addresses of the instances, router networks, DNS names, open ports |
 | Identity | users, groups, certificates (only with a domain) |
 | Monitoring | hardware (temperatures, fans), diagnostics |

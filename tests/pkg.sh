@@ -17,6 +17,7 @@ check_out "list shows arr with a version" "^arr${tab}recipe${tab}1[.]1[.]0" $PKG
 check_eq "a personal recipe is hidden without --all" "0" "$($PKG list | grep -c "^zoraxy${tab}")"
 check_eq "and shown with it" "1" "$($PKG list --all | grep -c "^zoraxy${tab}")"
 check_eq "the API level is a number" "1" "$($PKG api | grep -cE '^[1-9][0-9]*$')"
+check "the API level is at least 2 (devices)" test "$($PKG api)" -ge 2
 
 echo "-- the converter (header lines to manifest)"
 check_out "convert reads kind, needs and an ask" 'key = "' bash -c "$PKG convert $ROOT/packages/catalyst-node/run.sh"
@@ -38,6 +39,58 @@ printf "${good/docker/share}" > "$BAD/packages/demo/package.toml"
 check_out "needs that differ from the header are named" "differ from the script" bash -c "HS_PACKAGES_ROOT=$BAD $PKG validate; true"
 printf "${good/demo/Demo}" > "$BAD/packages/demo/package.toml"
 check_out "a name that differs from the folder is named" "differs from the folder" bash -c "HS_PACKAGES_ROOT=$BAD $PKG validate; true"
+
+echo "-- devices (header lines and [[device]] tables)"
+printf '#!/usr/bin/env bash
+# recipe: demo: a demo
+# kind: generic
+# needs: docker
+# uses: -
+# input: form
+# ask: PRINTER_USB|Printer|usb
+# device: usb|printer|ask:PRINTER_USB
+# device: usb|scanner|04f9:0042
+' > "$BAD/scripts/recipes/demo.sh"
+dgood='name = "demo"
+version = "1.0.0"
+kind = "recipe"
+title = "d"
+requires_core = ">=2"
+needs = ["docker"]
+input = "form"
+script = "scripts/recipes/demo.sh"
+[[ask]]
+key = "PRINTER_USB"
+label = "Printer"
+type = "usb"
+[[device]]
+kind = "usb"
+name = "printer"
+ask = "PRINTER_USB"
+[[device]]
+kind = "usb"
+name = "scanner"
+id = "04f9:0042"
+'
+printf "$dgood" > "$BAD/packages/demo/package.toml"
+check "a manifest with devices passes" run
+check_out "convert writes the devices and level 2" 'requires_core = ">=2"' bash -c "$PKG convert $BAD/scripts/recipes/demo.sh"
+check_out "convert writes a [[device]] table" 'ask = "PRINTER_USB"' bash -c "$PKG convert $BAD/scripts/recipes/demo.sh"
+printf "${dgood/>=2/>=1}" > "$BAD/packages/demo/package.toml"
+check_out "a device needs core level 2" "needs requires_core >=2" bash -c "HS_PACKAGES_ROOT=$BAD $PKG validate; true"
+printf "${dgood/scanner/other}" > "$BAD/packages/demo/package.toml"
+check_out "devices that differ from the header are named" "devices differ from the script" bash -c "HS_PACKAGES_ROOT=$BAD $PKG validate; true"
+dvar() { printf "$dgood" | sed "$1" > "$BAD/packages/demo/package.toml"; }
+dvar 's/kind = "usb"/kind = "pci"/'
+check_out "an unknown device kind is named" "unknown device kind" bash -c "HS_PACKAGES_ROOT=$BAD $PKG validate; true"
+dvar 's/^ask = "PRINTER_USB"$/ask = "NOPE"/'
+check_out "a device ask that is no question is named" "is not an ..ask.. key" bash -c "HS_PACKAGES_ROOT=$BAD $PKG validate; true"
+check_out "a device ask that is no question is named" "is not an \[\[ask\]\] key" bash -c "HS_PACKAGES_ROOT=$BAD $PKG validate; true"
+dvar '0,/type = "usb"/s//type = "text"/'
+check_out "a device ask must be a usb question" "must have type usb" bash -c "HS_PACKAGES_ROOT=$BAD $PKG validate; true"
+printf "${dgood/id = \"04f9:0042\"/id = \"xyz\"}" > "$BAD/packages/demo/package.toml"
+check_out "a device id that is no vendor:product is named" "id must look like" bash -c "HS_PACKAGES_ROOT=$BAD $PKG validate; true"
+rm -rf "$BAD/packages/demo"
 
 echo "-- applied versions and updates"
 check_eq "nothing is applied yet, no update" "" "$($PKG updates)"

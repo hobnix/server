@@ -666,6 +666,17 @@ Per-feature history and implementation details moved out of CLAUDE.md so that ev
 
 - Prometheus runs on the HOST (2026-10-09, not yet run on the server; supersedes "Prometheus ... in the container" above): with `metrics = true` configuration.nix runs `services.prometheus` on 127.0.0.1:9090 (jobs server, disks, incus; instance label = hostName; data on the system disk; `metricsDays` 30 and `metricsMaxGB` 5 in machine.toml, both limits apply), no dependency on incus/zfs/bulk/samba and no lock-marker condition, so host numbers have no gap while the storage is locked (the incus job is just down). Grafana in `monitoring` reaches it through the Incus proxy device `prometheus` (`bind=instance`, listen and connect 127.0.0.1:9090; no firewall change). `hs recipe monitoring` no longer installs Prometheus; an older container's own Prometheus is stopped and disabled BEFORE the device is added (same port; its data is left). The recipe's days answer is written to `metricsDays` (+ rebuild) and also sets Loki's retention. The status document values are not exported to Prometheus (skipped on purpose). tests/monitoring-host.sh (static + dry run; not in ci.yml yet: add by hand).
 
+## Hardware passthrough
+
+- scripts/ct-device.sh (not run on hardware yet; tests with HS_SYSFS and fake incus). `--hardware` is the contract with the web interface:
+  11 tab-separated fields (kind, id, vvvv:pppp, vendor, product, driver, iommu group, vm, ct, used by, count), `-` for empty. VM/container
+  reason words: host-disk host-network boot-display host-system nvidia-host no-iommu group-shared nvidia-recipe no-driver vm-only. `--dry-run` prints
+  `  incus ...`, `step:`, `note:`, `warn:`, `danger:` lines and, for a VM gpu/pci add, `confirm: <pci address>`; ct-change.sh reads them.
+  `--yes` skips the typed address (the interface checked it). USB: `required=false`, one instance per id. Container GPU: `gputype=physical`
+  plus `gid` of the render group when the container runs. VM PCI: stop if running, add the device and its same-slot functions as
+  `<name>-f<n>`, start; any failure rolls the added devices back and restarts the VM. Remove takes the `-f` siblings along.
+- Open: IOMMU is not switched on by Hobnix (TODO: machine.toml option for `intel_iommu=on` and vfio-pci).
+
 ## Graphics
 
 - Graphics: NVIDIA RTX 4060 (driver on the host) and the Intel chip of the CPU (i915).

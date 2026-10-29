@@ -38,4 +38,8 @@ Loaded when you touch the files above (path-scoped rule). The root CLAUDE.md has
   then start. The NIC of a running VM can't be overridden either: pin the MAC before the
   first start (manage-ct.sh --create does both).
 
+- Passing hardware (USB, GPU, PCI) goes only through `scripts/ct-device.sh` (`hs ct hardware`, `hs ct <ct> device ...`). Its `--hardware`
+  and `--list` lines are a contract with the web interface; PCI into a VM needs a typed address; read docs/Entwicklungsnotizen.md
+  "Hardware passthrough" before changing it.
+
 - New container: `hs ct add <name> [--docker]`, then UniFi reservation, then restart.

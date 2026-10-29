@@ -56,7 +56,7 @@ input       = "form"                  # form | terminal | none; the questions ar
 [[ask]]
 key = "SOMETHING"
 label = "..."
-type = "text"                         # text | secret | choice
+type = "text"                         # text | secret | choice | usb
 default = ""
 
 [web.page]                            # unchanged from docs/PLAN-extensions.md; a recipe may use it now
@@ -64,6 +64,13 @@ default = ""
 ```
 
 `kind` (what it is) and `audience` (who it is for) are two fields: the old `# kind: generic|personal` becomes `audience`.
+
+The `usb` ask type (header `# ask: KEY|label|usb|||`) takes a lower-case `vendor:product` id (`^[0-9a-f]{4}:[0-9a-f]{4}$`, required). It is
+passed as `--set KEY=value` like a text answer and read with `answer KEY`. The web form offers the plugged-in USB devices from the hardware
+list plus a field to type the id (typed wins); a terminal run asks with the recipe's own prompt. A device a recipe needs is declared as a
+`[[device]]` table (`name`, `kind = "usb"`, and either `id = "04f9:0042"` or `ask = "KEY"`, which must point to an ask of type `usb`) with the
+matching `# device: usb|<name>|<id or ask:KEY>` header line, and the script calls `usb_device <ct> <name> <id>`. A package that declares a
+device needs `requires_core >= 2`. Not tested on hardware yet.
 
 A recipe keeps working as one idempotent bash script built from `_lib.sh`; nothing about how recipes are written changes except where the
 metadata lives. A mechanical converter (`hs pkg convert`) turns an old header into `package.toml`; the headers go away after the move.
@@ -247,6 +254,9 @@ Each step is shippable on its own and keeps the server working.
   the default repositories may ship one; packages from added repositories are scripts only.
 - **Rollback**: `hs pkg update` keeps the previous `@<commit>` folder until the next successful update so `hs pkg rollback <name>` is a
   symlink switch; whether that is worth the disk space (it is small) and the web button.
+- **Hardware for recipes**: `hs ct <ct> device add` (scripts/ct-device.sh) is the one way to pass USB, GPU or PCI hardware. A manifest
+  can declare the USB device a recipe needs (a Zigbee stick for Home Assistant): `[[device]]` with a `# device:` header line and an ask of
+  type `usb`, API level 2; GPU and PCI stay manual, and the NVIDIA card stays with `nvidia_gpu`.
 - **Uninstall of a recipe's payload**: stays `hs ct remove`; `hs pkg remove` never deletes data.
 
 ## Risks

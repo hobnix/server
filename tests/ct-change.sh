@@ -193,6 +193,59 @@ mc newone --add-storage shares media /media --readonly" "$(cat "$WORK/mccalls")"
 : > "$WORK/jobcalls"
 run start newone create --type docker
 grep -q -- 'manage-ct --create newone --docker' "$WORK/jobcalls" && pass "without bindings the job is manage-ct.sh as before" || fail "job: $(cat "$WORK/jobcalls")"
+echo "-- device actions (stand-in for ct-device.sh)"
+cat > "$WORK/ct-device" <<'FAKE'
+#!/usr/bin/env bash
+echo "$*" >> "$(dirname "$0")/devcalls"
+case " $* " in
+  *" nope "*) echo "  ✗ 0000:09:00.0 cannot be passed in: it is the server's screen" >&2; exit 1 ;;
+  *" --remove "*) echo "step: give usb-04f9-0042 back to the server"; echo "  incus config device remove $1 usb-04f9-0042" ;;
+  *" gpu "*) echo "step: pass 0000:03:00.0"; echo "warn: the VM stops and starts again"
+             echo "  incus config device add $1 gpu-03-00-0 gpu gputype=physical pci=0000:03:00.0"
+             echo "danger: 0000:03:00.0 (amd) is taken from the server while $1 runs."; echo "confirm: 0000:03:00.0" ;;
+  *) echo "note: not plugged in now"; echo "  incus config device add $1 usb-x usb vendorid=04f9 productid=0042 required=false" ;;
+esac
+FAKE
+chmod +x "$WORK/ct-device"
+export HS_CT_DEVICE=$WORK/ct-device
+run plan vm1 add-device --kind usb
+check_eq "add-device without --id: exit 2" 2 "$rc"
+has "needs	id" && pass "needs id" || fail "needs id: $out"
+run plan vm1 add-device --kind usb --id '../x'
+check_eq "a bad device id is refused" 1 "$rc"
+run plan vm1 add-device --kind usb --id 04f9:0042
+check_eq "plan add usb: exit 0" 0 "$rc"
+has "heading	pass usb 04f9:0042 to vm1" && has "note	not plugged in now" && has "command	incus config device add vm1 usb-x" && pass "usb plan: heading, note, command" || fail "usb plan: $out"
+has "confirm_name" && fail "a usb add asks no word" || pass "a usb add asks no word"
+run plan vm1 add-device --kind gpu --id 0000:03:00.0
+has "danger	0000:03:00.0 (amd)" && has "confirm_name	0000:03:00.0" && has "warn	the VM stops" && has "step	pass 0000:03:00.0" && pass "gpu plan: danger, warn, step, the PCI address is the word" || fail "gpu plan: $out"
+run plan vm1 add-device --kind gpu --id 0000:09:00.0 --name nope
+check_eq "a refusal of the device script: exit 1" 1 "$rc"
+has "status	refused" && has "cannot be passed in" && pass "refusal text reaches the plan" || fail "refusal: $out"
+: > "$WORK/jobcalls"
+run start vm1 add-device --kind gpu --id 0000:03:00.0
+check_eq "start gpu without the word: refused" 1 "$rc"
+has "type the name to confirm: 0000:03:00.0" && pass "the refusal names the PCI address" || fail "confirm text: $out"
+run start vm1 add-device --kind gpu --id 0000:03:00.0 --confirm vm1
+check_eq "the instance name is not the word" 1 "$rc"
+run start vm1 add-device --kind gpu --id 0000:03:00.0 --confirm 0000:03:00.0
+check_eq "start gpu with the address: exit 0" 0 "$rc"
+grep -q -- 'ct-device vm1 --add gpu 0000:03:00.0 --yes' "$WORK/jobcalls" && pass "the job is ct-device.sh --add ... --yes" || fail "job: $(cat "$WORK/jobcalls")"
+: > "$WORK/jobcalls"
+run start vm1 add-device --kind usb --id 04f9:0042 --name printer
+check_eq "start usb: exit 0, no word" 0 "$rc"
+grep -q -- 'ct-device vm1 --add usb 04f9:0042 --name printer --yes' "$WORK/jobcalls" && pass "usb job with --name and --yes" || fail "job: $(cat "$WORK/jobcalls")"
+run plan vm1 remove-device
+has "needs	device" && pass "remove-device needs a device" || fail "remove needs: $out"
+run plan vm1 remove-device --device usb-04f9-0042
+has "heading	remove device usb-04f9-0042 from vm1" && has "step	give usb-04f9-0042 back" && has "command	incus config device remove vm1 usb-04f9-0042" && pass "remove plan: heading, step mapped, command" || fail "remove plan: $out"
+has "confirm_name" && fail "a remove asks no word" || pass "a remove asks no word"
+: > "$WORK/jobcalls"
+run start vm1 remove-device --device usb-04f9-0042
+grep -q -- 'ct-device vm1 --remove usb-04f9-0042' "$WORK/jobcalls" && ! grep -q -- '--yes' "$WORK/jobcalls" && pass "remove job has no --yes" || fail "job: $(cat "$WORK/jobcalls")"
+run plan immich stop
+has "confirm_name" && fail "stop asks no word (unchanged)" || pass "stop has no confirm_name"
+unset HS_CT_DEVICE
 echo "-- the registry rows"
 check_out "hs sys ct plan runs it" "status	ok" env HS_CALLER=test bash "$SCRIPTS/lib/hs.sh" sys ct plan immich start
 finish

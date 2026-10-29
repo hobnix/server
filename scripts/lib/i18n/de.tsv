@@ -2647,3 +2647,58 @@ or in Windows DNS Manager: zone %s > %s > New Host, name *, address %s	oder im W
 usage: hs gateway status | routes | check	Aufruf: hs gateway status | routes | check
 usage: hs services list | check | plan | add <name> ... | remove <name> | import [--dry-run] [--yes] | apply [--dry-run] [--confirm <host or service>] | adopt [--yes] | proxy login   (plan, apply, import, adopt: [--proxy public|local])	Aufruf: hs services list | check | plan | add <Name> ... | remove <Name> | import [--dry-run] [--yes] | apply [--dry-run] [--confirm <Host oder Dienst>] | adopt [--yes] | proxy login   (plan, apply, import, adopt: [--proxy public|local])
 Removing the old start page	Die alte Startseite wird entfernt
+       hs ct <ct> device list | add usb <vendor:product> | add gpu|pci <pci address> | remove <device>	       hs ct <ct> device list | add usb <Hersteller:Produkt> | add gpu|pci <PCI-Adresse> | remove <Gerät>
+%s (%s) is taken from the server while %s runs.	%s (%s) wird dem Server weggenommen, solange %s läuft.
+%s cannot be passed in: %s	%s kann nicht durchgereicht werden: %s
+%s has it too; only one of them can run at a time	%s hat es auch; nur eine von beiden kann gleichzeitig laufen
+%s is already passed to %s. Remove it there first: hs ct %s device remove <device>	%s ist schon an %s durchgereicht. Dort zuerst entfernen: hs ct %s device remove <Gerät>
+%s is already passed to '%s'.	%s ist schon an '%s' durchgereicht.
+%s is in use by the running instance %s.	%s wird von der laufenden Instanz %s benutzt.
+'%s' comes from the profile; change the profile instead.	'%s' kommt aus dem Profil; ändere stattdessen das Profil.
+'%s' has no device called '%s'.	'%s' hat kein Gerät namens '%s'.
+'%s' is not a passed-through device; storage goes with hs ct %s storage remove.	'%s' ist kein durchgereichtes Gerät; Speicher entfernt man mit hs ct %s storage remove.
+Could not read the hardware from Incus.	Die Hardware konnte nicht von Incus gelesen werden.
+Could not read the instances from Incus.	Die Instanzen konnten nicht von Incus gelesen werden.
+Incus could not remove the device '%s'.	Incus konnte das Gerät '%s' nicht entfernen.
+%s is not a graphics function (class %s).	%s ist keine Grafikfunktion (Klasse %s).
+it is a part of the server itself (a bridge, a hub or a board controller)	es ist ein Teil des Servers selbst (eine Bridge, ein Hub oder ein Controller des Mainboards)
+Driver	Treiber
+ID	ID
+IOMMU is off, so no PCI device can go into a VM. Switch on VT-d (Intel) or AMD-Vi/IOMMU (AMD) in the firmware setup; Intel also needs the kernel option intel_iommu=on	IOMMU ist aus, daher kann kein PCI-Gerät in eine VM. VT-d (Intel) oder AMD-Vi/IOMMU (AMD) im Firmware-Setup einschalten; bei Intel braucht es außerdem die Kernel-Option intel_iommu=on
+Incus could not add the device '%s'.	Incus konnte das Gerät '%s' nicht hinzufügen.
+Incus unbinds the driver %s at the start of the VM and gives the card back when it stops	Incus löst den Treiber %s beim Start der VM und gibt die Karte zurück, wenn sie stoppt
+Passed %s to '%s'.	%s an '%s' durchgereicht.
+Plugged in	Eingesteckt
+Product	Produkt
+Removed. The server has the device again.	Entfernt. Der Server hat das Gerät wieder.
+The VM did not start after the device was removed.	Die VM ist nach dem Entfernen des Geräts nicht gestartet.
+The VM did not start with %s; it runs again without it.	Die VM ist mit %s nicht gestartet; sie läuft wieder ohne.
+There is no PCI device %s on this server.	Auf diesem Server gibt es kein PCI-Gerät %s.
+There is no instance called '%s'.	Es gibt keine Instanz namens '%s'.
+Used by	Benutzt von
+Vendor	Hersteller
+also pass %s (%s), the same card	auch %s (%s) durchreichen, dieselbe Karte
+give %s back to the server	%s an den Server zurückgeben
+invalid PCI address '%s' (for example 0000:01:00.0)	ungültige PCI-Adresse '%s' (zum Beispiel 0000:01:00.0)
+invalid USB id '%s' (vendor:product, for example 04f9:0042)	ungültige USB-ID '%s' (Hersteller:Produkt, zum Beispiel 04f9:0042)
+invalid device name '%s' (lowercase letters, digits, -)	ungültiger Gerätename '%s' (Kleinbuchstaben, Ziffern, -)
+it is a network card of the server	es ist eine Netzwerkkarte des Servers
+it is the server's screen (the console would go dark)	es ist der Bildschirm des Servers (die Konsole würde dunkel)
+its IOMMU group also holds %s; the board does not separate them	seine IOMMU-Gruppe enthält auch %s; das Mainboard trennt sie nicht
+no render group inside yet: only root can use the card	noch keine render-Gruppe drin: nur root kann die Karte benutzen
+not plugged in now; it goes in when it is plugged in	gerade nicht eingesteckt; es wird durchgereicht, sobald es eingesteckt wird
+only a VM can take a PCI device	nur eine VM kann ein PCI-Gerät aufnehmen
+pass %s (%s) to %s	%s (%s) an %s durchreichen
+see the guide: Pass hardware to an instance	siehe die Anleitung: Hardware an eine Instanz durchreichen
+take nvidia out of gpu in machine.toml, hs rebuild, reboot	nvidia aus gpu in machine.toml nehmen, hs rebuild, neu starten
+the NVIDIA card goes into a container through a recipe that sets up its libraries (jellyfin, immich, tdarr)	die NVIDIA-Karte kommt über ein Rezept in einen Container, das ihre Bibliotheken einrichtet (jellyfin, immich, tdarr)
+the VM stops and starts again	die VM wird gestoppt und wieder gestartet
+the VM's whole memory is reserved while it runs (VFIO)	der gesamte Speicher der VM ist reserviert, solange sie läuft (VFIO)
+the server has no driver for it, so a container cannot use it	der Server hat keinen Treiber dafür, ein Container kann es also nicht benutzen
+the server has no other graphics chip; fine for a server without a screen	der Server hat keinen anderen Grafikchip; für einen Server ohne Bildschirm in Ordnung
+the server lets go of it while the VM runs (a keyboard, a UPS)	der Server lässt es los, solange die VM läuft (eine Tastatur, eine USV)
+the server's NVIDIA driver and the containers use this card	der NVIDIA-Treiber des Servers und die Container benutzen diese Karte
+the server's disks hang on it (the system disk, a pool or the backup disk)	die Platten des Servers hängen daran (die Systemplatte, ein Pool oder die Backup-Platte)
+unknown kind '%s' (usb, gpu or pci)	unbekannte Art '%s' (usb, gpu oder pci)
+usage: hs ct hardware	Aufruf: hs ct hardware
+Passing the USB device %s to '%s'	Das USB-Gerät %s wird an '%s' durchgereicht
