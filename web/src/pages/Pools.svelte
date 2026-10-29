@@ -28,7 +28,7 @@
   // ── shared by list and detail
   const disks = poll('/api/sys/monitor/disks', 30000);
   // monitor disks: name, bytes, SSD/HDD, role, temp, health, hours, reallocated, pending, crc, model+serial, free
-  const monitor = $derived(rows(disks).map((r) => ({ name: r[0], role: r[3], model: r[10] })));
+  const monitor = $derived(rows(disks).map((r) => ({ name: r[0], role: r[3], model: r[10], free: r[11] })));
   const freeDisks = $derived(monitor.filter((d) => d.role === 'free' || d.role === 'mounted'));
 
   const infoBulk = poll('/api/sys/pool/info?pool=bulk', 15000);
@@ -89,7 +89,7 @@
   // pool members: name, bytes, state, group (mirror | data | parity), filesystem, encryption, closed (SnapRAID: no new files)
   const members = $derived(rows(memb).map((r) => {
     const mon = monitor.find((m) => (snap ? m.role === `bulk ${r[0]}` : diskPool(m.role) === pool && serialIn(m.model, r[0])));
-    return { name: r[0], dev: mon?.name ?? r[0], size: Number(r[1]), state: r[2], group: r[3], fs: r[4], enc: r[5], closed: r[6] === 'closed' };
+    return { name: r[0], dev: mon?.name ?? r[0], size: Number(r[1]), free: mon?.free, state: r[2], group: r[3], fs: r[4], enc: r[5], closed: r[6] === 'closed' };
   }));
   const memberDot = (m) => (m.state === 'ONLINE' ? 'ok' : /DEGRADED|FAULT|UNAVAIL|REMOVED/i.test(m.state) ? 'bad' : 'warn');
   const convertible = $derived(snap ? members.filter((m) => m.group === 'data' && m.state === 'ONLINE').map((m) => m.name) : []);
@@ -193,7 +193,7 @@
               {#if col.key === 'dev'}<button class="link-btn" use:tip={'Open this disk'} onclick={() => openDisk(m)}><code>{m.dev}</code></button>
               {:else if col.key === 'role'}<Chip>{snap ? m.name : m.group}</Chip>{#if m.closed} <Chip>closed</Chip>{/if}
               {:else if col.key === 'state'}<StatusDot state={memberDot(m)} label={(m.state ?? '').toLowerCase()} />
-              {:else if col.key === 'size'}<span class="nw">{sizeTxt(m.size)}</span>
+              {:else if col.key === 'size'}<span class="nw"><UsageBar free={m.free} size={m.size} width={96} /></span>
               {:else if col.key === 'fs'}<span class="nw mute">{fsText(m)}</span>
               {:else}
                 <span class="acts">
