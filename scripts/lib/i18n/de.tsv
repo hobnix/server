@@ -2640,7 +2640,7 @@ Web interface	Weboberfläche
 Wildcard DNS	Wildcard-DNS
 or in Windows DNS Manager: zone %s > %s > New Host, name *, address %s	oder im Windows-DNS-Manager: Zone %s > %s > Neuer Host, Name *, Adresse %s
 usage: hs gateway status | routes | check	Aufruf: hs gateway status | routes | check
-usage: hs services list | check | plan | add <name> ... | remove <name> | import [--dry-run] [--yes] | apply [--dry-run] [--confirm <host or service>] | adopt [--yes] | proxy login   (plan, apply, import, adopt: [--proxy public|local])	Aufruf: hs services list | check | plan | add <Name> ... | remove <Name> | import [--dry-run] [--yes] | apply [--dry-run] [--confirm <Host oder Dienst>] | adopt [--yes] | proxy login   (plan, apply, import, adopt: [--proxy public|local])
+usage: hs services list | check | plan | add <name> ... | edit <name> ... | remove <name> | import [--dry-run] [--yes] | apply [--dry-run] [--confirm <host or service>] | adopt [--yes] | proxy login   (plan, apply, import, adopt: [--proxy public|local])	Aufruf: hs services list | check | plan | add <Name> ... | remove <Name> | import [--dry-run] [--yes] | apply [--dry-run] [--confirm <Host oder Dienst>] | adopt [--yes] | proxy login   (plan, apply, import, adopt: [--proxy public|local])
 Removing the old start page	Die alte Startseite wird entfernt
        hs dns clean [--yes] [--dry-run]	       hs dns clean [--yes] [--dry-run]
 Check that the domain controller is running (hs ct list), then run again: hs dns clean	Prüfe, ob der Domänencontroller läuft (hs ct list), und starte dann noch einmal: hs dns clean
@@ -2649,3 +2649,5 @@ Remove these %s names from the DNS?	Diese %s Namen aus dem DNS entfernen?
 No leftover names under %s.%s.	Keine übrig gebliebenen Namen unter %s.%s.
 %s of %s removals failed.	%s von %s Entfernungen sind fehlgeschlagen.
 Could not remove %s.%s (%s)	%s.%s (%s) konnte nicht entfernt werden
+Service '%s' is changed.	Dienst '%s' ist geändert.
+Could not change '%s'.	'%s' ließ sich nicht ändern.
