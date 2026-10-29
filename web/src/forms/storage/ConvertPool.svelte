@@ -10,11 +10,12 @@
   let member = $state(member0 || members[0] || '');
   let fs = $state('ext4');
   let encrypt = $state(false);
+  let discard = $state(false);
   let pass = $state('');
 
   const args = () => {
     if (!member || (encrypt && !pass)) return null;
-    return [pool, 'convert', '--member', member, '--fs', fs, ...(encrypt ? ['--encrypt'] : [])];
+    return [pool, 'convert', '--member', member, '--fs', fs, ...(encrypt ? ['--encrypt'] : []), ...(discard ? ['--discard'] : [])];
   };
   const stdin = () => (encrypt && pass ? pass : undefined);
 </script>
@@ -38,6 +39,10 @@
         {#each FS as [v, t]}<option value={v}>{t}</option>{/each}
       </select>
     </div>
+    <label class="check"><input type="checkbox" bind:checked={discard} />Don't move the files, erase them with the disk</label>
+    {#if discard}
+      <div class="hint">Everything on the disk is lost for good, including files the file manager does not show. Use it only when the data is not needed any more.</div>
+    {/if}
     <label class="check"><input type="checkbox" bind:checked={encrypt} />Encrypt with LUKS</label>
     {#if encrypt}
       <div class="field">

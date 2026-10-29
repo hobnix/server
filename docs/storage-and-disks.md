@@ -150,6 +150,15 @@ sudo hs pool bulk open data-04
 `close` stops new files going to the disk (it stays in `/bulk`); `--drain` also moves its files to the other disks. `convert` empties
 the disk onto the others, formats it again (`--fs`, `--encrypt`) and fills it back. `open` lifts a close.
 
+If the data on the disk is not needed any more, `--discard` skips the moving and erases the files with the disk, including files that
+`/bulk` does not show:
+
+```bash
+sudo hs pool bulk convert data-06 --fs xfs --discard
+```
+
+You type the name of the disk first, and the files cannot be brought back. Not tested on hardware yet.
+
 ## Keep the data protected
 **ZFS pools** are scrubbed every week by the system (every block is read and checked against its checksum). Look at the result with
 `zpool status`. `ONLINE` is healthy; `DEGRADED` means a disk failed: the data is still there, replace the disk soon.

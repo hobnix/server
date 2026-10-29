@@ -445,7 +445,10 @@ Per-feature history and implementation details moved out of CLAUDE.md so that ev
   `--remove`, `--convert <member>`, `--fs`, `--encrypt`, `--mode detach|vdev`, `--yes`). ZFS remove: a mirror of 3+ disks
   = `zpool detach`; of 2 = asked (detach leaves the other disk alone, with a warning; or `zpool remove` of the whole
   mirror after a free-space check with 10 % margin); the only vdev is refused. `--convert` (snapraid data disk) moves
-  the files to the other disks, formats again and records the disk in /var/lib/hs/removals like remove. tests/zfs-plan.sh
+  the files to the other disks, formats again and records the disk in /var/lib/hs/removals like remove. `--convert --discard`
+  (web: checkbox in Convert a disk) skips the move and the free-space check: the disk leaves /bulk (`discard_disk`), is unmounted
+  and formatted, its files are erased; added because convert moved hidden files (data-06/07: 0.08 TB the file manager did not
+  show) into the pool. Not run on hardware yet. tests/zfs-plan.sh
   checks the ZFS decisions against a fake `zpool` (CI); tests/zfs-vm.sh runs the real commands in a throwaway Incus VM
   (`bash tests/zfs-vm.sh` on the server as adminuser; not in CI, needs KVM + internet).
 
