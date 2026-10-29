@@ -12,6 +12,10 @@
   import { link } from './instances/ct.js';
 
   const list = poll('/api/sys/recipes/list', 30000);
+  // services app: name, container, ... the containers that have a described service
+  const svc = poll('/api/sys/services/app', 30000);
+  const withService = $derived(new Set(rows(svc).map((r) => r[1])));
+  const hasService = (a) => !!a.cts && a.cts.split(',').some((c) => withService.has(c));
 
   // name, description, containers (comma separated, - for none), state: installed | partly | not installed | parked | unknown
   const apps = $derived(rows(list).map((r) => ({ name: r[0], desc: r[1], cts: r[2] === '-' ? '' : r[2], state: r[3] })));
@@ -81,7 +85,7 @@
         {:else if col.key === 'state'}
           <StatusDot state={on ? 'ok' : a.state === 'partly' ? 'warn' : 'off'} label={a.state} />
         {:else}
-          <button class="btn btn-ghost btn-icon" disabled={!a.cts} use:tip={a.cts ? 'Services: local and public access' : 'Install the app first'} aria-label="Services of {a.name}" onclick={() => services(a)}><i class="ph ph-globe-hemisphere-west"></i></button>
+          <button class="btn btn-ghost btn-icon" disabled={!hasService(a)} use:tip={hasService(a) ? 'Services: local and public access' : a.cts ? 'No service is described yet: Update the app to describe it' : 'Install the app first'} aria-label="Services of {a.name}" onclick={() => services(a)}><i class="ph ph-globe-hemisphere-west"></i></button>
           <button class="btn btn-ghost btn-icon" use:tip={copied === a.name ? 'Copied' : 'Copy the terminal command: hs recipe ' + a.name} aria-label="Copy hs recipe {a.name}" onclick={() => copy(a.name)}><i class="ph ph-{copied === a.name ? 'check' : 'terminal-window'}"></i></button>
         {/if}
       {/snippet}
