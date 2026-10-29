@@ -28,6 +28,7 @@ const d4 = r.locs.find((l) => l.id === 'disk:data-04');
 eq('a disk row', [d4.kind, d4.label, d4.writable, d4.reason, d4.pool, d4.disk, d4.size > 0, d4.free > 0], ['disk', 'data-04', true, '', 'bulk', 'data-04', true, true]);
 const closed = r.locs.find((l) => l.id === 'disk:data-06');
 eq('a closed disk is read only with a reason', [closed.writable, /closed/.test(closed.reason)], [false, true]);
+eq('a closed disk can still be emptied', [closed.modifiable, r.locs.find((l) => l.id === 'disk:data-08').modifiable], [true, false]);
 eq('detached', r.locs.find((l) => l.id === 'disk:data-08').writable, false);
 eq('a temp disk has a reason', /source only/.test(r.locs.find((l) => l.id === 'temp:usb').reason), true);
 eq('a pool has no disk member', [r.locs.find((l) => l.id === 'pool:bulk').disk, r.locs.find((l) => l.id === 'pool:bulk').pool], ['', 'bulk']);
