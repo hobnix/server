@@ -18,8 +18,14 @@ Commands (machine readable output; scripts/state.sh makes the pretty version for
   usage <key> [days]         the readings of the last N days (default 60): time TAB used TAB size, oldest first (scripts/forecast.py reads them)
   read-get <key>             the kept output (nothing and exit 1 when there is none)
   reads                      key TAB age in seconds TAB milliseconds the read took TAB exit code TAB bytes, oldest first
+  baseline-run               the daily SMART check: read every disk through disk-health.sh --readings, compare with the stored reading,
+                             update the table baseline (docs/PLAN-disk-health.md)
+  baseline                   machine line per disk: serial dev kind level since last_read first_read wwn realloc pending uncorr crc
+                             nv_crit nv_media nv_used nv_spare present note
 Environment (tests): HS_STATE_DB, HS_STATE_DIR, HS_MONITOR (command), HS_LSBLK, HS_LOCKED_MARKER, HS_NOW,
-HS_STATE_SMART_EVERY (seconds, default 900), HS_STATE_WORSE_DAYS (default 14).
+HS_STATE_SMART_EVERY (seconds, default 900), HS_STATE_WORSE_DAYS (default 14), HS_DISK_HEALTH (the reading command),
+HS_SMART_FAIL_REALLOC (10), HS_SMART_FAIL_MEDIA (10), HS_SMART_WEAR_JUMP (3), HS_SMART_HOLD_DAYS (7), HS_SMART_WAKE_DAYS (6),
+HS_SMART_STALE (seconds, default 2*86400+3600).
 """
 import json
 import os
@@ -38,6 +44,13 @@ STALE_S = int(os.environ.get("HS_STATE_STALE", "1800"))
 KEEP_EVENTS = 2000
 SMART_KEEP_DAYS = 400
 SMART_THIN_DAYS = 30
+# the daily SMART check (baseline): thresholds in one place
+FAIL_REALLOC = int(os.environ.get("HS_SMART_FAIL_REALLOC", "10"))
+FAIL_MEDIA = int(os.environ.get("HS_SMART_FAIL_MEDIA", "10"))
+WEAR_JUMP = int(os.environ.get("HS_SMART_WEAR_JUMP", "3"))
+HOLD_DAYS = int(os.environ.get("HS_SMART_HOLD_DAYS", "7"))
+WAKE_DAYS = int(os.environ.get("HS_SMART_WAKE_DAYS", "6"))
+BASELINE_STALE_S = int(os.environ.get("HS_SMART_STALE", str(2 * 86400 + 3600)))
 
 
 def now():
@@ -56,6 +69,8 @@ CREATE TABLE IF NOT EXISTS events (
 CREATE TABLE IF NOT EXISTS smart (
   time INTEGER NOT NULL, serial TEXT NOT NULL, realloc INTEGER, pending INTEGER, crc INTEGER, temp INTEGER, hours INTEGER);
 CREATE INDEX IF NOT EXISTS smart_serial ON smart (serial, time);
+-- the daily SMART check: the last reading per disk (key: serial) and the level it earned from what changed since the reading before
+CREATE TABLE IF NOT EXISTS baseline (serial TEXT PRIMARY KEY, wwn TEXT, dev TEXT, kind TEXT, first_read INTEGER, last_read INTEGER, last_try INTEGER, hours INTEGER, realloc INTEGER, pending INTEGER, uncorr INTEGER, crc INTEGER, nv_crit INTEGER, nv_media INTEGER, nv_used INTEGER, nv_spare INTEGER, nv_spare_thr INTEGER, level TEXT NOT NULL DEFAULT 'healthy', level_time INTEGER, note TEXT);
 CREATE TABLE IF NOT EXISTS samples (
   time INTEGER NOT NULL, cpu INTEGER, mem INTEGER, gpu INTEGER, rx INTEGER, tx INTEGER, boot INTEGER NOT NULL DEFAULT 0);
 -- the output of the slow `hs sys ...` reads, written by the collector (scripts/reads-collect.sh) and served by the web interface instead of running the script
@@ -246,6 +261,194 @@ def clean(s):
     return str(s if s is not None else "-").replace("\t", " ").replace("\n", " ")
 
 
+# ---------------------------------------------------------------- the daily SMART check (docs/PLAN-disk-health.md)
+COLS = ("hours", "realloc", "pending", "uncorr", "crc", "nv_crit", "nv_media", "nv_used", "nv_spare", "nv_spare_thr")
+MONOTONIC = ("realloc", "crc", "nv_media", "nv_used")
+RANK = {"healthy": 0, "watch": 1, "failing": 2}
+NAMES = {"realloc": "reallocated", "pending": "pending", "uncorr": "offline uncorrectable", "crc": "CRC",
+         "nv_crit": "NVMe critical warning", "nv_media": "NVMe media errors", "nv_used": "NVMe wear %", "nv_spare": "NVMe spare %"}
+
+
+def read_readings(wake=None):
+    """name -> row from disk-health.sh --readings (the only script that asks the disks); wake = names to read without -n standby."""
+    cmd = [BASH, os.environ.get("HS_DISK_HEALTH") or os.path.join(HERE, "disk-health.sh"), "--readings"]
+    if wake:
+        cmd += ["--wake", ",".join(wake)]
+    rows = {}
+    for line in run(cmd, 900).splitlines():
+        f = line.split("\t")
+        if len(f) < 16 or not f[0]:
+            continue
+        r = {"name": f[0], "state": f[1], "kind": f[2], "serial": "" if f[3] == "-" else f[3], "wwn": "" if f[4] == "-" else f[4],
+             "model": "" if f[15] == "-" else f[15]}
+        for k, v in zip(COLS, f[5:15]):
+            r[k] = num(v)
+        rows[f[0]] = r
+    return rows
+
+
+def cmd_baseline_run(args):
+    if os.environ.get("HS_STATE_NO_COLLECT"):
+        return 0
+    t = now()
+    rows = read_readings()
+    c = open_rw()
+    if not rows:
+        with c:
+            c.execute("INSERT OR REPLACE INTO meta VALUES ('baseline_try',?)", (str(t),))
+        return 0
+    by_serial, by_dev = {}, {}
+    for serial, dev, last_read in c.execute("SELECT serial, dev, last_read FROM baseline"):
+        by_serial[serial] = last_read
+        by_dev[dev] = last_read
+    meta = dict(c.execute("SELECT key, value FROM meta"))
+    due, wake_keys = [], []
+    for name, r in rows.items():
+        if r["state"] != "asleep":
+            continue
+        if r["serial"] and r["serial"] in by_serial:
+            last = by_serial[r["serial"]]
+        elif name in by_dev:
+            last = by_dev[name]
+        else:
+            last = None
+        # the last wake ATTEMPT counts too: a disk that gives no usable reading (bridge, HBA) is not woken every night
+        wkey = "baseline_wake:" + (r["serial"] or name)
+        tried = num(meta.get(wkey))
+        if tried is not None and t - tried < WAKE_DAYS * 86400:
+            continue
+        if last is None or t - last >= WAKE_DAYS * 86400:
+            due.append(name)
+            wake_keys.append(wkey)
+    if due:
+        for name, r in read_readings(due).items():
+            if r["state"] == "read" and name in rows:
+                rows[name] = r
+    with c:
+        for wkey in wake_keys:
+            c.execute("INSERT OR REPLACE INTO meta VALUES (?,?)", (wkey, str(t)))
+        seed = c.execute("SELECT COUNT(*) FROM baseline").fetchone()[0] == 0
+        for name, r in rows.items():
+            if r["state"] == "read" and r["serial"]:
+                process(c, t, r, seed)
+            elif r["state"] == "asleep":
+                if r["serial"]:
+                    c.execute("UPDATE baseline SET last_try=? WHERE serial=?", (t, r["serial"]))
+                else:
+                    c.execute("UPDATE baseline SET last_try=? WHERE dev=?", (t, name))
+        c.execute("DELETE FROM baseline WHERE last_read < ?", (t - SMART_KEEP_DAYS * 86400,))
+        c.execute("INSERT OR REPLACE INTO meta VALUES ('baseline_time',?)", (str(t),))
+        c.execute("INSERT OR REPLACE INTO meta VALUES ('baseline_try',?)", (str(t),))
+    return 0
+
+
+def process(c, t, r, seed):
+    """Compare one reading with the stored one and keep the level (decisions 3 to 7 of the plan)."""
+    serial, name = r["serial"], r["name"]
+    lab = label(r["model"], serial)
+    row = c.execute("SELECT wwn, hours, level, level_time, note, " + ", ".join(COLS[1:]) + " FROM baseline WHERE serial=?", (serial,)).fetchone()
+    if row is None:
+        c.execute("INSERT INTO baseline (serial, wwn, dev, kind, first_read, last_read, last_try, " + ", ".join(COLS) +
+                  ", level, level_time, note) VALUES (?,?,?,?,?,?,?," + ",".join("?" * len(COLS)) + ",'healthy',?,?)",
+                  (serial, r["wwn"], name, r["kind"], t, t, t) + tuple(r[k] for k in COLS) + (t, "first reading"))
+        if not seed:
+            event(c, t, "baseline", serial, "first SMART reading of %s as %s" % (lab, name))
+        return
+    st = dict(zip(("wwn", "hours", "level", "level_time", "note") + COLS[1:], row))
+    reason = None
+    if st["wwn"] and r["wwn"] and st["wwn"] != r["wwn"]:
+        reason = "a different disk with the same serial (WWN %s -> %s)" % (st["wwn"], r["wwn"])
+    elif st["hours"] is not None and r["hours"] is not None and r["hours"] + 1 < st["hours"]:
+        reason = "power-on hours went down (%d -> %d)" % (st["hours"], r["hours"])
+    if reason:
+        c.execute("UPDATE baseline SET " + ", ".join("%s=?" % k for k in COLS) +
+                  ", wwn=?, dev=?, kind=?, first_read=?, last_read=?, last_try=?, level='healthy', level_time=?, note=? WHERE serial=?",
+                  tuple(r[k] for k in COLS) + (r["wwn"], name, r["kind"], t, t, t, t, "baseline taken again: " + reason, serial))
+        event(c, t, "smart-reset", serial, "%s: baseline taken again, %s" % (lab, reason))
+        return
+
+    def known(k):
+        return r[k] is not None and st[k] is not None
+
+    delta = {}
+    for k in COLS:
+        delta[k] = r[k] - st[k] if known(k) else 0
+    for k in MONOTONIC:
+        if known(k) and r[k] < st[k]:
+            event(c, t, "smart-reset", serial, "%s: %s went down %d -> %d (firmware or controller reset); new baseline" % (lab, NAMES[k], st[k], r[k]))
+            delta[k] = 0
+
+    def text(k):
+        return "%s %d -> %d" % (NAMES[k], st[k], r[k])
+
+    failing, watch = [], []
+    if delta["pending"] > 0:
+        failing.append(text("pending"))
+    if delta["uncorr"] > 0:
+        failing.append(text("uncorr"))
+    if delta["realloc"] >= FAIL_REALLOC:
+        failing.append(text("realloc"))
+    if (r["nv_crit"] or 0) & ~(st["nv_crit"] or 0):
+        failing.append("%s %d -> %d" % (NAMES["nv_crit"], st["nv_crit"] or 0, r["nv_crit"]))
+    if delta["nv_media"] >= FAIL_MEDIA:
+        failing.append(text("nv_media"))
+    spare_fell = known("nv_spare") and r["nv_spare"] < st["nv_spare"]
+    if spare_fell:
+        thr = r["nv_spare_thr"] if r["nv_spare_thr"] is not None else st["nv_spare_thr"]
+        if thr is not None and r["nv_spare"] <= thr < st["nv_spare"]:
+            failing.append(text("nv_spare"))
+        else:
+            watch.append(text("nv_spare"))
+    if 0 < delta["realloc"] < FAIL_REALLOC:
+        watch.append(text("realloc"))
+    if delta["crc"] > 0:
+        watch.append(text("crc"))
+    if 0 < delta["nv_media"] < FAIL_MEDIA:
+        watch.append(text("nv_media"))
+    if delta["nv_used"] >= WEAR_JUMP:
+        watch.append(text("nv_used"))
+    now_level = "failing" if failing else ("watch" if watch else "healthy")
+    now_note = ", ".join(failing + watch)
+    stored = st["level"]
+    held_out = stored != "healthy" and t - (st["level_time"] or 0) >= HOLD_DAYS * 86400
+    fresh = False
+    if now_level != "healthy" and (RANK[now_level] >= RANK[stored] or held_out):
+        # a finding at least as bad as the held level, or any finding once the hold has run out, is the level now
+        level, level_time, note = now_level, t, now_note
+        fresh = stored == "healthy" or RANK[now_level] > RANK[stored] or held_out
+    elif held_out:
+        level, level_time, note = "healthy", t, ""
+    elif now_level != "healthy":
+        # a lower finding during the hold: the held level stays, the finding is added to its note (never lost)
+        old = st["note"] or ""
+        level, level_time, note = stored, st["level_time"], (old + "; " if old else "") + now_note
+    else:
+        level, level_time, note = stored, st["level_time"], (st["note"] or "") if stored != "healthy" else ""
+    if fresh:
+        event(c, t, "smart-" + level, serial, "%s: %s since the last daily SMART check: %s"
+              % (lab, "got worse" if level == "failing" else "changed", note))
+    vals = [r[k] if r[k] is not None else st.get(k) for k in COLS[1:]]
+    hours = r["hours"] if r["hours"] is not None else st["hours"]
+    c.execute("UPDATE baseline SET hours=?, " + ", ".join("%s=?" % k for k in COLS[1:]) +
+              ", wwn=?, dev=?, kind=?, last_read=?, last_try=?, level=?, level_time=?, note=? WHERE serial=?",
+              [hours] + vals + [r["wwn"] or st["wwn"], name, r["kind"], t, t, level, level_time, note, serial])
+
+
+def cmd_baseline():
+    c = open_ro()
+    if c is None:
+        return 0
+    try:
+        for r in c.execute("SELECT b.serial, b.dev, b.kind, b.level, b.level_time, b.last_read, b.first_read, b.wwn, b.realloc, b.pending, "
+                           "b.uncorr, b.crc, b.nv_crit, b.nv_media, b.nv_used, b.nv_spare, d.state, b.note "
+                           "FROM baseline b LEFT JOIN disks d ON d.serial = b.serial "
+                           "ORDER BY CASE b.level WHEN 'failing' THEN 0 WHEN 'watch' THEN 1 ELSE 2 END, b.dev, b.serial"):
+            print("\t".join(clean(x) if x not in (None, "") else "-" for x in r))
+    except sqlite3.Error:
+        return 0
+    return 0
+
+
 def cmd_disks():
     c = open_ro()
     if c is None:
@@ -291,19 +494,40 @@ def cmd_problems():
     if c is None:
         return 0
     t = now()
+    try:
+        based = {r[0] for r in c.execute("SELECT serial FROM baseline")}
+    except sqlite3.Error:
+        based = set()
     for r in c.execute("SELECT serial, model, dev, last_seen, state, worse, note FROM disks"):
         serial, model, dev, last, state, worse, note = r
         if state == "missing":
             when = time.strftime("%Y-%m-%d", time.localtime(last))
             print("disk:%s:missing\tdisk %s is missing since %s (it was %s). Gone for good? Run: hs disk %s forget"
                   % (serial, label(model, serial), when, dev, serial))
-        elif worse:
+        elif worse and serial not in based:
             print("disk:%s:worse\tdisk %s is getting worse: %s. Details: hs disk %s health" % (serial, label(model, serial), note, dev))
+    try:
+        rated = c.execute("SELECT b.serial, b.dev, b.level, b.note, d.model, d.state FROM baseline b LEFT JOIN disks d ON d.serial = b.serial "
+                          "WHERE b.level IN ('watch', 'failing') ORDER BY b.serial").fetchall()
+    except sqlite3.Error:
+        rated = []
+    for serial, dev, level, note, model, state in rated:
+        if state == "missing":
+            continue
+        if level == "failing":
+            print("disk:%s:smart-failing\tdisk %s got worse since the last daily SMART check: %s. Replace it soon. Details: hs disk %s health"
+                  % (serial, label(model, serial), note, dev))
+        else:
+            print("disk:%s:smart-watch\tdisk %s changed since the last daily SMART check: %s. Details: hs disk baseline"
+                  % (serial, label(model, serial), note))
     m = dict(c.execute("SELECT key, value FROM meta"))
     ok_t = num(m.get("collect_time"))
     if ok_t is not None and t - ok_t > STALE_S:
         print("state:stale\tthe disk inventory was not updated for %d minutes. Check: systemctl status hs-state-collect hs-deck-status"
               % ((t - ok_t) // 60))
+    bt = num(m.get("baseline_time"))
+    if bt is not None and t - bt > BASELINE_STALE_S:
+        print("smart:stale\tthe daily SMART check has not run for %d days. Check: systemctl status hs-smart-baseline" % ((t - bt) // 86400))
     return 0
 
 
@@ -377,6 +601,7 @@ def cmd_forget(args):
     with c:
         c.execute("DELETE FROM disks WHERE serial=?", (r[0],))
         c.execute("DELETE FROM smart WHERE serial=?", (r[0],))
+        c.execute("DELETE FROM baseline WHERE serial=?", (r[0],))
         event(c, now(), "forgotten", r[0], "%s was removed from the list on purpose" % label(r[2], r[0]))
     print(r[0])
     return 0
@@ -608,6 +833,10 @@ def main(argv):
         pass
     if cmd == "collect":
         return collect(args)
+    if cmd == "baseline-run":
+        return cmd_baseline_run(args)
+    if cmd == "baseline":
+        return cmd_baseline()
     if cmd == "disks":
         return cmd_disks()
     if cmd == "events":

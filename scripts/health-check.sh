@@ -365,7 +365,7 @@ triggers=()
 for k in "${keys[@]}"; do
   [ -z "${acked[$k]:-}" ] || continue
   case "$k" in
-    disk:*:smart|disk:*:bad) triggers+=("$k") ;;
+    disk:*:smart|disk:*:bad|disk:*:smart-failing) triggers+=("$k") ;;
     zfs:*:scrub-*) ;;
     zfs:*:*) triggers+=("$k") ;;
     bulk:*:*) triggers+=("$k") ;;

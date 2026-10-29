@@ -73,6 +73,7 @@ default_probes() {
     $'hs disk list\tdisk list\t0 1' \
     $'hs disk events\tdisk events\t0 1' \
     $'hs disk inventory\tdisk inventory\t0 1' \
+    $'hs disk baseline\tdisk baseline\t0 1' \
     $'hs pool bulk\tpool bulk\t0 1' \
     $'hs sys pool state\tsys pool state\t0' \
     $'hs sys fm locations\tsys fm locations\t0 1' \

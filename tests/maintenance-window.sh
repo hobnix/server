@@ -16,7 +16,7 @@ bad=$(cd "$SCRIPTS" && grep -nE '\b(du|find|ls) +[^|;]*/bulk' health-check.sh mo
 check_eq "no health/monitor/deck script walks /bulk" "" "$bad"
 
 # HDD jobs: start times between 03:00 and 06:59 (no job at an odd hour)
-for pat in 'startAt = "Sat 03:10"' 'startAt = "\*-\*-01 03:15"' 'interval = "Sun \*-\*-\* 05:00:00"' 'randomizedDelaySec = "0"' 'startAt = "04:00"'; do
+for pat in 'startAt = "Sat 03:10"' 'startAt = "\*-\*-\* 03:15"' 'interval = "Sun \*-\*-\* 05:00:00"' 'randomizedDelaySec = "0"' 'startAt = "04:00"' 'startAt = "\*-\*-\* 03:05:00"'; do
   check "the Nix config (configuration.nix or a capability module) has $pat" grep -qE "$pat" "$ROOT/configuration.nix" "$ROOT"/capabilities/*/module.nix
 done
 finish

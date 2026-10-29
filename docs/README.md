@@ -33,5 +33,6 @@ Docs page shows them under *Apps* and *Extensions*.
 | [PLAN-extensions](PLAN-extensions.md) | Extension packages: commands and web pages |
 | [PLAN-packages](PLAN-packages.md) | Recipes and extensions as packages, repositories, signed releases |
 | [PLAN-web-backend](PLAN-web-backend.md) | The web interface backend |
+| [PLAN-disk-health](PLAN-disk-health.md) | Daily SMART baseline, and a disk and pool checklist |
 | [CLI-DESIGN](CLI-DESIGN.md) | The look of every `hs` command |
 | [Entwicklungsnotizen](Entwicklungsnotizen.md) | Per-feature design notes (grouped by topic) |
