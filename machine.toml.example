@@ -30,7 +30,7 @@ hostId = "CHANGEME"
 # Time zone of the server, e.g. "Europe/Vienna" (list: `timedatectl list-timezones`). It sets the clock the
 # logs, the timers (backup at 04:00, ...) and the time on the Matrix cards use, and the TZ of the film apps.
 # Default: UTC, which is why a card can be hours off. After changing it run `hs recipe matrix-hook` and
-# `hs recipe arr` again, so the containers pick it up.
+# the recipes of the film apps (radarr, sonarr, ...) again, so the containers pick it up.
 # timeZone = "Europe/Vienna"
 
 # SSH public keys that may log in as adminuser, one per PC

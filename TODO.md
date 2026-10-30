@@ -14,9 +14,9 @@ Brought up to date with main at #346 on 2026-10-27 (merged: #323 to #340, #346).
    every web page, vault, backup, `hs ports`, `hs update --preview`, `hs sys health next`, a full boot cycle, `homeserver reboot`).
    Phase 7 (added 2026-10-27) covers the redesigned web interface, roles and parts, notification channels, `hs ext` and `hs node`.
    Also anything outside the repo that names `/mnt/bulk/data-NN` (own scripts, Prometheus rules, restic include lists).
-3. [?] Run the recipes never run on the server, in this order: `sabnzbd`, `arr`, `seerr`, `qbittorrent` (gluetun in an unprivileged
+3. [?] Run the recipes never run on the server, in this order: `sabnzbd`, `prowlarr`, `radarr`, `sonarr`, `seerr`, `qbittorrent` (gluetun in an unprivileged
    container is the open question), then Immich on the GPU (`hs recipe immich --ask`) and Grafana logs (`hs recipe monitoring --ask`).
-   Check: hard-link test line, `hs backup ct arr on`, /opt/arr/_dump after `hs backup now`, Recyclarr's German templates.
+   Check: hard-link test line, `hs backup ct radarr on`, /var/backups/hs/radarr after `hs backup now`, Recyclarr's German templates.
 4. [x] The cousin's recovery: data-04 (about 6 TB) was recovered with `hs disk <member> recover`, it took longer than 2 days:
    32876 files, 4.6 T (5113 videos, 22771 photos, 3725 music, 1039 documents, 228 other) in share `recovered` on data-03.
    [ ] data-04 is still out of the pool, read-only: when he has gone through the files, `hs sys disk start data-04 recover-finish`
