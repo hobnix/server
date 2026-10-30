@@ -49,6 +49,8 @@
   dashboardOpen = false;
   gatewayPublicHttps = 0;
   gatewayPublicHttp = 0;
+  gatewayUnknownHostLocal = "404";
+  gatewayUnknownHostPublic = "drop";
   gatewayTunnelPort = 0;
   gatewayTunnelFrom = [ ];
   gatewayAcmeEmail = "";

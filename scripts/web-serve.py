@@ -915,7 +915,8 @@ CHANGE = r"^[A-Za-z0-9][A-Za-z0-9._-]{0,63}:[A-Za-z0-9][A-Za-z0-9._ -]{0,63}=(ad
 CONFIG_KEYS = ("timeZone|language|keyMap|icons|loginMessage|webAccent|incusUi|syncEveryHours|shareSnapshots|"
                "diskSpindownMinutes|fileManagerWrite|setupDone|backupNewShares|notifySecondMinPriority|notifications|"
                "quietHours|autoMitigate|metrics|metricsDays|metricsMaxGB|deckApi|gatewayPublicHttps|"
-               "gatewayPublicHttp|gatewayTunnelPort|gatewayAcmeEmail|gatewayAcmeStaging")
+               "gatewayPublicHttp|gatewayUnknownHostLocal|gatewayUnknownHostPublic|gatewayTunnelPort|"
+               "gatewayAcmeEmail|gatewayAcmeStaging")
 # schema:end CONFIG_KEYS
 # share forms: a folder name inside the instance (absolute) and inside a share (relative or absolute, both without ..), a SID with its level, a kept folder
 CT_PATH = r"^(?!.*\.\.)/[A-Za-z0-9._/-]{0,200}$"

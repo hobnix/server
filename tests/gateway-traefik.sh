@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # Live test of the gateway proxy with a real Traefik (exit 77 = skipped when `traefik` is not installed). Traefik listens on 127.0.0.1:18080 with a
 # test static file; the base file of the module (same rules as capabilities/gateway/module.nix) and a local route file go to python http.server
-# stand-ins. Checks the route, the catch-all, that X-Forwarded-For does not matter, the allowlist (403) and a websocket upgrade.
+# stand-ins. Checks the route, that an unknown name gets 404, that X-Forwarded-For does not matter, the allowlist (403) and a websocket upgrade.
 # shellcheck source=tests/lib.sh
 . "$(dirname "$0")/lib.sh"
 command -v traefik >/dev/null 2>&1 || { echo "traefik is not installed: skipped"; exit 77; }
@@ -27,8 +27,7 @@ client = '(' + ' || '.join('ClientIP(`%s`)' % r for r in rng) + ')'   # as lanCl
 doc = {'http': {'middlewares': {'hs-lan-only': {'ipAllowList': {'sourceRange': rng}}},
     'services': {'hs-webui': {'loadBalancer': {'servers': [{'url': 'http://127.0.0.1:' + webui}]}}},
     'routers': {
-      'hs-webui': {'entryPoints': ['lan-http'], 'rule': 'Host(`home.example.org`) && ' + client, 'middlewares': ['hs-lan-only'], 'service': 'hs-webui'},
-      'hs-fallback': {'entryPoints': ['lan-http'], 'rule': 'HostRegexp(`.+`) && ' + client, 'priority': 1, 'middlewares': ['hs-lan-only'], 'service': 'hs-webui'}}}}
+      'hs-webui': {'entryPoints': ['lan-http'], 'rule': 'Host(`home.example.org`) && ' + client, 'middlewares': ['hs-lan-only'], 'service': 'hs-webui'}}}}
 open(d + '/00-hs-base.yml', 'w').write(json.dumps(doc))
 PY
 }
@@ -49,7 +48,7 @@ get() { curl -s -m 5 -H "Host: $1" "${@:2}" "http://127.0.0.1:$PORT/"; }
 echo "-- routes"
 check_eq "a local name reaches its target" "the app" "$(get app.home.example.org)"
 check_eq "the host's own name reaches the web interface" "the web interface" "$(get home.example.org)"
-check_eq "an unknown name reaches the web interface (catch-all)" "the web interface" "$(get nobody.home.example.org)"
+check_eq "an unknown name gets Traefik's 404, not the web interface" "404" "$(curl -s -m 5 -o /dev/null -w '%{http_code}' -H 'Host: nobody.home.example.org' "http://127.0.0.1:$PORT/")"
 check_eq "X-Forwarded-For from the peer does not matter" "the app" "$(get app.home.example.org -H 'X-Forwarded-For: 8.8.8.8')"
 
 echo "-- allowlist"
