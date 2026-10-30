@@ -49,6 +49,10 @@
   dashboardOpen = false;
   gatewayPublicHttps = 0;
   gatewayPublicHttp = 0;
+  gatewayTunnelPort = 0;
+  gatewayTunnelFrom = [ ];
+  gatewayAcmeEmail = "";
+  gatewayAcmeStaging = true;
   gpu = null;
   nvidiaDriver = "stable";
   pciBind = [ ];

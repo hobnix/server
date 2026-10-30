@@ -399,8 +399,47 @@ if [[ " $* " != *" --dry-run "* && " $* " != *" --refresh "* ]]; then step "$(t 
 # "show it on the dashboard?" (default yes), "make it public?" (default no) and, on yes, "public name?" (default <name>.<first proxyDomains>;
 # RECIPE_PUBLIC_<KEY>, RECIPE_PUBLIC_NAME_<KEY> preset them). The answers go into the service's `want`;
 # a service that exists keeps what a person set (exposure, names, wants); the facts the recipe knows (port, title, icon) are refreshed.
+# What the service needs on a PUBLIC proxy is said BEFORE declare_service with these helpers (api level 2; a recipe that uses them sets
+# requires_core = ">=2"); declare_service passes them on and forgets them, so a recipe with two services does not leak one into the other:
+#   service_path public  /api/webhooks/trigger    may be public while the root stays private (a never-public service asks once,
+#                                                 "make the public paths reachable from the internet?", default no)
+#   service_path blocked /if/admin/               never reachable from the internet, even when the root is public
+#   service_path open    /api                     skips the forward auth
+#   service_auth authentik                        offers forward auth (a person switches it off: hs services edit <name> --auth none)
+#   service_header request  X-Forwarded-Proto https         set on the request to the service
+#   service_header response Access-Control-Expose-Headers User-Agent   set on the answer (headers are NOT secrets: the descriptor is 0644)
+# Public paths, auth and exposure are offers (a person's choice stays); blocked paths, skips and headers are the recipe's facts, replaced each run.
+_svc_public=(); _svc_blocked=(); _svc_open=(); _svc_auth=""; _svc_reqh=(); _svc_resh=()
+service_path() {
+  local kind=${1:-} p=${2:-}
+  case "$kind" in public|blocked|open) ;; *) fail "$(t "service_path: '%s' is not public, blocked or open" "$kind")" ;; esac
+  [[ "$p" =~ ^/[A-Za-z0-9._/-]*$ ]] && [[ "$p" != *..* ]] || fail "$(t "service_path: '%s' is not a path (it starts with / and has no ..)" "$p")"
+  case "$kind" in
+    public) _svc_public+=("$p") ;;
+    blocked) _svc_blocked+=("$p") ;;
+    open) _svc_open+=("$p") ;;
+  esac
+}
+service_auth() {
+  [ "${1:-}" = authentik ] || fail "$(t "service_auth: '%s' is not a known login (authentik)" "${1:-}")"
+  _svc_auth=authentik
+}
+service_header() {
+  local kind=${1:-} hname=${2:-} hval
+  hval="${*:3}"
+  case "$kind" in request|response) ;; *) fail "$(t "service_header: '%s' is not request or response" "$kind")" ;; esac
+  [[ "$hname" =~ ^[A-Za-z0-9-]{1,64}$ ]] || fail "$(t "service_header: '%s' is not a header name" "$hname")"
+  case "${hname,,}" in host|content-length|transfer-encoding|connection) fail "$(t "service_header: %s may not be set" "$hname")" ;; esac
+  # printable ASCII only, 1 to 200 characters, no line break
+  { local LC_ALL=C; [ -n "$hval" ] && [ "${#hval}" -le 200 ] && [[ "$hval" != *[!\ -~]* ]]; } || fail "$(t "service_header: the value of %s must be printable ASCII, 1 to 200 characters" "$hname")"
+  if [ "$kind" = request ]; then _svc_reqh+=("$hname: $hval"); else _svc_resh+=("$hname: $hval"); fi
+}
 declare_service() {
   local name=$1 title=$2 icon=$3 exposure=${4:-private-ok} group=${5:-Apps} desc=${6:-} port=${7:-${PORT:-}} key var want="" out
+  # take what the helpers collected and forget it at once, whichever way this function ends
+  local s_public=("${_svc_public[@]+"${_svc_public[@]}"}") s_blocked=("${_svc_blocked[@]+"${_svc_blocked[@]}"}") s_open=("${_svc_open[@]+"${_svc_open[@]}"}")
+  local s_reqh=("${_svc_reqh[@]+"${_svc_reqh[@]}"}") s_resh=("${_svc_resh[@]+"${_svc_resh[@]}"}") s_auth=$_svc_auth
+  _svc_public=(); _svc_blocked=(); _svc_open=(); _svc_auth=""; _svc_reqh=(); _svc_resh=()
   [ -f "$scripts/services.sh" ] && [ -n "$port" ] || return 0
   # a container with a name of its own (hs recipe <name> --name <ct>) is a service of its own: the descriptor must not replace the first one's
   if [ -n "${RECIPE_NAME:-}" ] && [ "$ct" != "$name" ]; then name=$ct; title="$title ($ct)"; fi
@@ -413,8 +452,12 @@ declare_service() {
   local pub="" dom pvar nvar
   if [ -n "${SERVICE_PUBLIC_NAME:-}" ]; then
     pub=$SERVICE_PUBLIC_NAME
-  elif [ "$exposure" != never-public ] && [ -n "$(setting_get reverseProxy 2>/dev/null || true)" ]; then
-    setting "PUBLIC_$key" "$(t "Make '%s' public?" "$title")" no no 'yes|no'
+  elif { [ "$exposure" != never-public ] || [ "${#s_public[@]}" -gt 0 ]; } && [ -n "$(setting_get reverseProxy 2>/dev/null || true)" ]; then
+    if [ "$exposure" = never-public ]; then   # an admin page: only its public paths would go on the internet
+      setting "PUBLIC_$key" "$(t "Make the public paths of '%s' reachable from the internet (%s)?" "$title" "$(IFS=,; echo "${s_public[*]}")")" no no 'yes|no'
+    else
+      setting "PUBLIC_$key" "$(t "Make '%s' public?" "$title")" no no 'yes|no'
+    fi
     pvar=PUBLIC_$key
     if [ "${!pvar}" = yes ]; then
       dom=$(setting_get proxyDomains 2>/dev/null | tr -d ' ' | cut -d, -f1 || true)
@@ -432,10 +475,19 @@ declare_service() {
   while IFS= read -r sline; do
     [ -z "$sline" ] || stat_args+=(--stat "$sline")
   done <<<"${SERVICE_STATS:-}"
+  # what the helpers collected, as declare options
+  local px=() x
+  for x in ${s_public[@]+"${s_public[@]}"}; do px+=(--public-path "$x"); done
+  for x in ${s_blocked[@]+"${s_blocked[@]}"}; do px+=(--blocked-path "$x"); done
+  for x in ${s_open[@]+"${s_open[@]}"}; do px+=(--auth-skip "$x"); done
+  for x in ${s_reqh[@]+"${s_reqh[@]}"}; do px+=(--request-header "$x"); done
+  for x in ${s_resh[@]+"${s_resh[@]}"}; do px+=(--response-header "$x"); done
+  [ -z "$s_auth" ] || px+=(--auth "$s_auth")
+  [ "$exposure" != never-public ] || px+=(--admin)
   # shellcheck disable=SC2086
   if out=$(bash "$scripts/services.sh" declare "$name" --container "$ct" --port "$port" --title "$title" --icon "$icon" --exposure "$exposure" \
         --group "$group" ${desc:+--description "$desc"} ${want:+--want "${want%,}"} ${pub:+--public-name "$pub"} \
-        ${stat_args[@]+"${stat_args[@]}"} 2>&1); then
+        ${px[@]+"${px[@]}"} ${stat_args[@]+"${stat_args[@]}"} 2>&1); then
     ok "$(t "Service '%s' is %s (hs services list)" "$name" "$out")"
     note "$(t 'Next: hs services apply (a public name is decided there: exposure public-ok)')"
     if capability_on gateway; then

@@ -43,7 +43,7 @@
   const localRoutes = $derived(rows(local).filter((r) => r[0] !== 'status' && r[0] !== 'warn').map((r) => ({ act: r[0], host: r[1], path: r[2], target: r[3], service: r[4], note: r[5] ?? '' })));
   const localTodo = $derived(localRoutes.filter((r) => ['add', 'change', 'remove'].includes(r.act)).length);
   const gwv = $derived(Object.fromEntries(rows(gw).map((r) => [r[0], r[1]])));
-  const tone = (a) => (['violation', 'blocked', 'conflict', 'invalid'].includes(a) ? 'bad' : ['confirm', 'change', 'remove', 'unresolved'].includes(a) ? 'warn' : a === 'add' ? 'info' : a === 'ok' ? 'ok' : 'off');
+  const tone = (a) => (['violation', 'blocked', 'conflict', 'invalid'].includes(a) ? 'bad' : ['confirm', 'change', 'remove', 'unresolved', 'manual'].includes(a) ? 'warn' : a === 'add' ? 'info' : a === 'ok' ? 'ok' : 'off');
   const dash = (v) => (v === '-' || v === undefined ? '' : v);
 
   const columns = [

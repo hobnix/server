@@ -34,8 +34,26 @@ capability on; `proxyDomains` lists the domains it serves (a service "jellyfin" 
   a real root target is one service; a root to an admin page (container+port pairs `ADMIN_TARGETS` in services.py: Arcane docker:80,
   Zoraxy :8000, Grafana, Kuma's dashboard :3001) is never-public, any other app is public-ok (docker runs many apps);
   paths to ANOTHER real target are a service of their own with those `public_paths` (Matrix and the Kuma status page share the apex
-  host, JMAP sits next to the webmail); a path to the dead end 127.0.0.1:1 only BLOCKS that path and is left out; the default site
-  (Zoraxy writes it as host `/`, shown as `*`) is no service. A route that belongs to no service stays `unmanaged` and is never removed.
+  host, JMAP sits next to the webmail); a path to the dead end 127.0.0.1:1 under a real root becomes `blocked_paths` of the root's
+  service; the path `/outpost.goauthentik.io` to the container `authentik` becomes `auth = "authentik"` of the root's service (no
+  service of its own); the default site (Zoraxy writes it as host `/`, shown as `*`) is no service. A route that belongs to no service
+  stays `unmanaged` and is never removed. Zoraxy headers are not imported (not read from the rule files).
+- **Paths, auth and headers** (phase 1 of .work/services-paths; public proxy only, the local slot ignores them): descriptor keys
+  `blocked_paths` (go to the dead end, strong: they beat a real target of another service, which gets a `conflict` row), `auth`
+  (`authentik`, the outpost is the service named `authentik`; missing = `blocked` row and the service gets no route), `auth_skip`,
+  `request_headers`, `response_headers` (`"Name: value"`, at most 8, NOT secrets: the file is 0644), `admin` (set by `declare` for
+  never-public recipes; public-ok then needs `public_paths`). Recipes say them with `service_path|service_auth|service_header` before
+  `declare_service` (api level 2). The provider's `info` may print `features` (comma list of `paths,headers,auth`; missing = `paths`).
+  For every header or auth the provider cannot render, the plan has a `manual` row (same columns, target `-`; apply leaves it alone, it
+  is not counted as work). Zoraxy says `features paths`: blocked paths are vdirs to 127.0.0.1:1, headers and forward auth are set by hand.
+  `cleared = ["auth", "public_paths"]` remembers an offer a person switched off (`edit --auth none`, `--clear public-path`): declare
+  does not set it again; giving `--auth authentik` / `--public-path` again removes the mark. `--public-name` raises a never-public service with
+  public paths only when the recipe says `--admin`; a never-public a person set stays so.
+  A nested path of another service on one host gets the note `inside /p of X: the longer path wins`. Not tested on hardware yet.
+
+- **traefik-public** (phase 2 of .work/services-paths; `reverseProxy = traefik-public`, needs the capability `gateway`; services.sh fails with a fix line otherwise). `info`: `public yes`, `features paths,headers,auth`; a note when Traefik is not running or `tunnel=` in `/etc/hs/gateway-public` is 0 (set `gatewayTunnelPort`, rebuild). It writes a WHOLE host at once: `ensure-host <host> <specfile>` renders `pub-<host>.yml` (0640, atomic mv; empty spec = file deleted) in the routes dir of the gateway, on the entrypoint `public-tunnel` only (never the LAN one). Spec lines (`route|auth|skip|reqh|resh <svc> ...`) carry the owning service, so login and headers apply per service; `provider specs` prints the stored lines and the plan shows `change ... login or headers differ` when they differ. Per-route `ensure`/`remove` refuse (exit 1), since one route written without its service's auth would skip the login. A blocked path is a route to 127.0.0.1:1: at `/` no router (404), elsewhere router `hs-deny` (middleware answers 403, service `hs-null`). Per-service login: forwardAuth to the authentik outpost, callback `/outpost.goauthentik.io` unprotected, `auth_skip` paths without login. Conflict rule: a host with a `conflict`/`violation` row is not rewritten (note); a never-public service with a pub route only warns, apply never removes it. Only plain http backends. Authentik header list and the deny order are unverified. Not tested on hardware yet.
+
+- **traefik-public, direct mode** (phase 3): with `gatewayAcmeEmail` set, hosts of the domains in `gatewayDirectDomains` are also served on the internet's 443 with Let's Encrypt certificates (routers `d-`); other domains stay on the tunnel. Same guard and descriptors; details capabilities/gateway/NOTES.md. Not tested on hardware yet.
 
 ## Rules for working on it
 

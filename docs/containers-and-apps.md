@@ -255,6 +255,19 @@ Two rules hold for every recipe. An admin page (Incus, the reverse proxy, a Dock
 public route. And nothing becomes public by itself: reaching a service from the internet is a separate, deliberate step with
 `hs services`, which asks you to type the host name.
 
+### Paths, login and headers of a public service
+A service descriptor (`/var/lib/hs/services.d/<name>.toml`) can say more than "public". Not tested on hardware yet.
+- `public_paths`: the only paths a public route may reach; the root of the host is a dead end.
+- `blocked_paths`: paths that answer with an error page (Zoraxy, probably 502) or 403 (`traefik-public`), even when another service would serve them. Not tested on hardware yet (Zoraxy).
+- `auth = "authentik"`: visitors log in first. The service named `authentik` must exist, else the plan shows `blocked` and the service gets no route. `auth_skip` lists paths that stay open (for example an API).
+- `request_headers`, `response_headers`: `"Name: value"`, at most 8. They are not secrets: the file is readable by everyone.
+
+```bash
+hs services plan
+```
+
+The plan shows what the proxy will do. A proxy that cannot render a key (Zoraxy: headers and login) gets a `manual` row; set those by hand. With `reverseProxy = traefik-public` all keys are rendered (see the guide of the gateway proxy).
+
 ## Install packages from a repository
 
 Recipes and extensions are both packages. They come from repositories, from signed release tags only. The project's two repositories

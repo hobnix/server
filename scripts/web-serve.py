@@ -911,7 +911,7 @@ CHANGE = r"^[A-Za-z0-9][A-Za-z0-9._-]{0,63}:[A-Za-z0-9][A-Za-z0-9._ -]{0,63}=(ad
 CONFIG_KEYS = ("timeZone|language|keyMap|icons|loginMessage|webAccent|incusUi|syncEveryHours|shareSnapshots|"
                "diskSpindownMinutes|fileManagerWrite|setupDone|backupNewShares|notifySecondMinPriority|notifications|"
                "quietHours|autoMitigate|metrics|metricsDays|metricsMaxGB|deckApi|gatewayPublicHttps|"
-               "gatewayPublicHttp")
+               "gatewayPublicHttp|gatewayTunnelPort|gatewayAcmeEmail|gatewayAcmeStaging")
 # schema:end CONFIG_KEYS
 # share forms: a folder name inside the instance (absolute) and inside a share (relative or absolute, both without ..), a SID with its level, a kept folder
 CT_PATH = r"^(?!.*\.\.)/[A-Za-z0-9._/-]{0,200}$"
@@ -1005,7 +1005,11 @@ CHANGES = {
                 "opts": {"--port": (r"^[0-9]{1,5}$", False), "--container": (r"^[A-Za-z0-9][A-Za-z0-9-]{0,62}$", False),
                          "--host": (r"^[A-Za-z0-9][A-Za-z0-9._:-]{0,100}$", False), "--title": (r"^[^\x00-\x1f]{1,160}$", False),
                          "--names": (r"^[a-z0-9][a-z0-9,-]{0,100}$", False), "--exposure": (r"^(never-public|private-ok|public-ok)$", False),
-                         "--public-path": (r"^/[A-Za-z0-9._/-]{0,100}$", True), "--want": (r"^[a-z,-]{1,80}$", False),
+                         "--public-path": (r"^/[A-Za-z0-9._/-]{0,100}$", True), "--blocked-path": (r"^/[A-Za-z0-9._/-]{0,100}$", True),
+                         "--auth-skip": (r"^/[A-Za-z0-9._/-]{0,100}$", True), "--auth": (r"^(authentik|none)$", False),
+                         "--request-header": (r"^[A-Za-z0-9-]{1,64}: [ -~]{1,200}$", True), "--response-header": (r"^[A-Za-z0-9-]{1,64}: [ -~]{1,200}$", True),
+                         "--want": (r"^[a-z,-]{1,80}$", False),
+                         "--clear": (r"^(title|icon|group|description|names|public-path|blocked-path|auth|auth-skip|request-header|response-header)$", True),
                          "--group": (r"^[^\x00-\x1f]{1,160}$", False), "--icon": (r"^[^\x00-\x1f]{1,160}$", False),
                          "--description": (r"^[^\x00-\x1f]{1,160}$", False)}}],
     # the Marketplace (pkg-change.sh): install / update / remove a package, fetch the repositories, add a repository (its public key is ONE line on stdin) or
