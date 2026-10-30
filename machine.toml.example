@@ -199,6 +199,13 @@ vlans = { home = { id = 95, default = true } }
 # internet. Needs hs rebuild.
 # gatewayPublicHttp = 80
 
+# The port cloudflared sends the public traffic to (reverseProxy = traefik-public). 0 = off. Open only to gatewayTunnelFrom.
+# Needs hs rebuild.
+# gatewayTunnelPort = 8081
+
+# The addresses that may use gatewayTunnelPort: the cloudflared container (fixed address). Needs hs rebuild.
+# gatewayTunnelFrom = [ "10.10.95.19/32" ]
+
 # ═══ Hardware ═════════════════════════════════════════════════════════════
 
 # Graphics chip(s), for GPU use in containers (Jellyfin transcoding, Immich, ...): "nvidia",

@@ -16,6 +16,7 @@ here=$(cd "$(dirname "$0")" && pwd)
 . "$here/lib/ui.sh"
 . "$here/lib/machine.sh"
 . "$here/lib/localdomain.sh"
+. "$here/lib/setting.sh"
 gdir=${HS_GATEWAY_DIR:-/var/lib/hs-gateway}
 routes_dir=$gdir/routes
 etc=${HS_ETC_DIR:-/etc/hs}
@@ -44,7 +45,7 @@ port_owner() {
   name=$(sed -n 's/.*users:(("\([^"]*\)".*/\1/p' <<<"$out")
   printf '%s' "${name:-unknown}"
 }
-# the public ports from /etc/hs/gateway-public (https=<n>, http=<n>)
+# the public ports from /etc/hs/gateway-public (https=<n>, http=<n>, tunnel=<n>)
 public_port() { local v; v=$(sed -n "s/^$1=//p" "$etc/gateway-public" 2>/dev/null | head -n 1 || true); printf '%s' "${v:-0}"; }
 count_lines() { local n; n=$(grep -c . <<<"$1" || true); printf '%s' "${n:-0}"; }
 
@@ -70,18 +71,22 @@ direct_url() { local ip port; ip=$(host_ip); port=$(machine_get webPort 2>/dev/n
 pt_files() { ls "$routes_dir" 2>/dev/null | grep '^pt-.*\.yml$' || true; }
 
 status_rows() {   # key<TAB>value
-  local ps pp s
-  ps=$(public_port https); pp=$(public_port http)
+  local ps pp pt s
+  ps=$(public_port https); pp=$(public_port http); pt=$(public_port tunnel)
   printf 'service\t%s\n' "$(unit_state)"
   printf 'port80\t%s\n' "$(port_owner 80)"
   if [ "$ps" != 0 ]; then printf 'public_https\t%s\n' "$ps"; else printf 'public_https\toff\n'; fi
   if [ "$pp" != 0 ]; then printf 'public_http\t%s\n' "$pp"; else printf 'public_http\toff\n'; fi
   if [ "$ps" != 0 ]; then printf 'port_public_https\t%s\n' "$(port_owner "$ps")"; else printf 'port_public_https\t-\n'; fi
   if [ "$pp" != 0 ]; then printf 'port_public_http\t%s\n' "$(port_owner "$pp")"; else printf 'port_public_http\t-\n'; fi
+  if [ "$pt" != 0 ]; then printf 'public_tunnel\t%s\n' "$pt"; else printf 'public_tunnel\toff\n'; fi
+  if [ "$pt" != 0 ]; then printf 'port_public_tunnel\t%s\n' "$(port_owner "$pt")"; else printf 'port_public_tunnel\t-\n'; fi
   printf 'domain\t%s\n' "${domain:--}"
   printf 'wildcard\t%s\n' "$(wildcard_state)"
   printf 'local_routes\t%s\n' "$(count_lines "$(render read "$routes_dir")")"
   printf 'passthrough\t%s\n' "$(count_lines "$(pt_files)")"
+  printf 'public_routes\t%s\n' "$(count_lines "$(render read "$routes_dir" --prefix pub-)")"
+  if [ "$pt" != 0 ] && [ "$(setting_get reverseProxy 2>/dev/null || true)" = traefik-public ]; then printf 'public_proxy\ttunnel\n'; else printf 'public_proxy\toff\n'; fi
   printf 'unmanaged\t%s\n' "$(count_lines "$(render unmanaged "$routes_dir")")"
   printf 'webui\t%s\n' "$(webui_url)"
   printf 'direct\t%s\n' "$(direct_url)"
@@ -91,6 +96,7 @@ route_rows() {   # kind host path target file
   local port f d a h
   port=$(machine_get webPort 2>/dev/null || true); port=${port:-8480}
   render read "$routes_dir" | while IFS=$'\t' read -r h p t f; do printf 'local\t%s\t%s\t%s\t%s\n' "$h" "$p" "$t" "$f"; done
+  render read "$routes_dir" --prefix pub- | while IFS=$'\t' read -r h p t f; do printf 'public\t%s\t%s\t%s\t%s\n' "$h" "$p" "$t" "$f"; done
   while IFS= read -r f; do
     [ -n "$f" ] || continue
     d=$(head -n 1 "$routes_dir/$f" 2>/dev/null | sed -n 's/.* domain=\([^ ]*\).*/\1/p')
@@ -121,6 +127,9 @@ case "$sub" in
     kv "Port 80" "${v[port80]}"
     kv "Public HTTPS" "${v[public_https]}$([ "${v[port_public_https]}" = - ] || printf ' (%s)' "${v[port_public_https]}")"
     kv "Public HTTP" "${v[public_http]}$([ "${v[port_public_http]}" = - ] || printf ' (%s)' "${v[port_public_http]}")"
+    kv "Public tunnel" "${v[public_tunnel]}$([ "${v[port_public_tunnel]}" = - ] || printf ' (%s)' "${v[port_public_tunnel]}")"
+    kv "Public routes" "${v[public_routes]}"
+    kv "Public proxy" "${v[public_proxy]}"
     kv "Local domain" "${v[domain]}"
     kv "Wildcard DNS" "${v[wildcard]}"
     kv "Local routes" "${v[local_routes]}"
@@ -130,7 +139,7 @@ case "$sub" in
     kv "Direct address" "${v[direct]}"
     bad=false
     if [ "${v[service]}" != active ]; then warn "$(t 'Traefik is not running (%s).' "${v[service]}")"; next_step "hs rebuild"; bad=true; fi
-    for k in port80 port_public_https port_public_http; do
+    for k in port80 port_public_https port_public_http port_public_tunnel; do
       case "${v[$k]}" in free|traefik|-) ;; *) warn "$(t 'A port is held by %s, not by Traefik (%s).' "${v[$k]}" "$k")"; bad=true ;; esac
     done
     if [ "${v[domain]}" = - ]; then warn "$(t 'No local domain: the gateway proxy needs adDomain in machine.toml.')"; bad=true

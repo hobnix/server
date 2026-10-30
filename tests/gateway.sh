@@ -51,6 +51,78 @@ check "a target without a port" bash -c "! $R local app.example.org /=1.2.3.4"
 check "a target with a scheme other than https" bash -c "! $R local app.example.org /=http://1.2.3.4:80"
 check "a target with a quote" bash -c "! $R local app.example.org \"/=1.2.3.4:80'x\""
 
+echo "-- public: golden files (traefik-public, entrypoint public-tunnel)"
+SP=$WORK/spec
+spec() { local l; : > "$SP"; for l in "$@"; do printf '%s\n' "${l//@/$'\t'}" >> "$SP"; done; }
+P() { $R public "$1" "$SP"; }
+spec 'route@app@/@127.0.0.1:1' 'route@app@/hook@10.0.0.5:8080'
+out=$(P app.example.org)
+check_out "paths only: the header has the spec lines" '^# spec route app /hook 10.0.0.5:8080$' echo "$out"
+check_eq "a private root has no router" "" "$(grep -E 'p-app-example-org-root' <<<"$out" || true)"
+check_out "the path router is on public-tunnel with priority 1005" "priority: 1005" echo "$out"
+check_out "only on public-tunnel" "entryPoints: \[public-tunnel\]" echo "$out"
+check_eq "a path without auth has no middleware line" "0" "$(grep -c middlewares: <<<"$out" || true)"
+spec 'route@app@/@10.0.0.5:80' 'route@app@/if/admin/@127.0.0.1:1'
+out=$(P app.example.org)
+check_out "a blocked path denies" "middlewares: \[hs-deny\]" echo "$out"
+check_out "and goes to hs-null with priority 30010" "priority: 30010" echo "$out"
+check_out "hs-null is the deny service" "service: hs-null" echo "$out"
+check_out "the root real router has priority 100" "priority: 100$" echo "$out"
+spec 'route@app@/@10.0.0.5:80' 'route@app@/outpost.goauthentik.io@10.0.0.9:9000' 'auth@app@10.0.0.9:9000' 'skip@app@/api'
+out=$(P app.example.org)
+check_out "the auth middleware address" "address: 'http://10.0.0.9:9000/outpost.goauthentik.io/auth/traefik'" echo "$out"
+check_out "the root has the auth middleware" "middlewares: \[pa-app-example-org-app-auth\]" echo "$out"
+check_out "the callback has priority 20000" "priority: 20000" echo "$out"
+check_out "the skip router has priority 1004 (below any longer path of another service)" "priority: 1004" echo "$out"
+check_eq "the skip router goes to the root service and has no auth" "1" "$(awk '/^    p-app-example-org-s-/ {f=1} f && /middlewares/ {n++} f && /service:/ {print $2; f=0}' <<<"$out" | grep -c '^p-app-example-org-root$')"
+check_eq "only the root router has the auth middleware" "1" "$(grep -c 'middlewares: \[pa-' <<<"$out" || true)"
+spec 'route@app@/@10.0.0.5:80' 'route@app@/outpost.goauthentik.io@10.0.0.9:9000' 'route@b@/api/v2@10.0.0.6:80' 'auth@app@10.0.0.9:9000' 'skip@app@/api'
+out=$(P app.example.org)
+check_eq "a longer path of another service beats the skip router" "1" "$(awk '/^    p-app-example-org-s-/ {f=1} f && /priority/ {print $2; f=0}' <<<"$out" | awk '$1 < 1007' | wc -l | tr -d ' ')"
+spec 'route@app@/@10.0.0.5:80' 'reqh@app@X-Tag@it'"'"'s a value' 'reqh@app@x-tag@last wins' 'resh@app@X-Frame-Options@DENY'
+out=$(P app.example.org)
+check_out "a duplicate header name: the last wins" "'x-tag': 'last wins'" echo "$out"
+check_eq "and the first is gone" "0" "$(grep -c "'X-Tag'" <<<"$out" || true)"
+check_out "response headers" "customResponseHeaders:" echo "$out"
+spec 'route@app@/@10.0.0.5:80' 'reqh@app@X-Tag@it'"'"'s'
+check_out "a quote in a value is doubled" "'X-Tag': 'it''s'" P app.example.org
+spec 'route@a@/@10.0.0.5:80' 'route@b@/hook@10.0.0.6:80' 'auth@a@10.0.0.9:9000'
+out=$(P app.example.org)
+check_out "service a has auth on its root" "p-app-example-org-root:.*" echo "$out"
+check_eq "service b has no middleware" "1" "$(grep -c 'middlewares: \[pa-' <<<"$out" || true)"
+spec 'route@a@/@10.0.0.5:80' 'route@a@/x@127.0.0.1:1' 'auth@a@10.0.0.9:9000' 'reqh@a@X-A@1'
+check_eq "no lan entrypoint in any public file" "0" "$(P app.example.org | grep -c 'lan-http\|hs-lan-only' || true)"
+P app.example.org > "$WORK/pubgold.yml"
+check_eq "auth before headers in the middleware line" "1" "$(grep -c 'middlewares: \[pa-app-example-org-a-auth, pa-app-example-org-a-hdr\]' "$WORK/pubgold.yml")"
+
+echo "-- public: bad input is refused"
+spec 'route@a@/@10.0.0.5:80' 'reqh@a@Bad Name@x'
+check "a bad header name" bash -c "! $R public app.example.org $SP"
+spec 'route@a@/@10.0.0.5:80' 'reqh@a@Host@x'
+check "a refused header name" bash -c "! $R public app.example.org $SP"
+spec 'route@a@/@10.0.0.5:80' 'reqh@a@X-A@a@b'
+check "a value with a tab" bash -c "! $R public app.example.org $SP"
+spec 'route@a@/@10.0.0.5:80' 'bogus@a@/x'
+check "an unknown kind" bash -c "! $R public app.example.org $SP"
+spec 'route@a@/@10.0.0.5:80' 'auth@b@10.0.0.9:9000'
+check "auth of a service without a route" bash -c "! $R public app.example.org $SP"
+spec 'route@a@/@10.0.0.5:80' 'auth@a@10.0.0.9:9000' 'auth@a@10.0.0.9:9001'
+check "auth twice" bash -c "! $R public app.example.org $SP"
+spec 'route@a@/@https://10.0.0.5:80'
+check "an https target" bash -c "! $R public app.example.org $SP"
+: > "$SP"
+check "an empty spec file" bash -c "! $R public app.example.org $SP"
+
+echo "-- public: read and specs on a directory with local-, pt- and pub- files"
+PD=$WORK/pubdir; mkdir -p "$PD"
+spec 'route@a@/@10.0.0.5:80' 'route@a@/hook@10.0.0.5:81' 'auth@a@10.0.0.9:9000' 'reqh@a@X-A@two words'
+P app.example.org > "$PD/pub-app.example.org.yml"
+$R local l.example.org /=1.2.3.4:80 > "$PD/local-l.example.org.yml"; : > "$PD/pt-x.example.org.yml"; : > "$PD/mine.yml"
+check_eq "read --prefix pub- lists the route rows" "$(printf 'app.example.org\t/\t10.0.0.5:80\tpub-app.example.org.yml\napp.example.org\t/hook\t10.0.0.5:81\tpub-app.example.org.yml')" "$($R read "$PD" --prefix pub-)"
+check_eq "read without a prefix still lists local- files" "l.example.org	/	1.2.3.4:80	local-l.example.org.yml" "$($R read "$PD")"
+check_eq "specs gives host and the spec line" "$(printf 'app.example.org\troute\ta\t/\t10.0.0.5:80\napp.example.org\troute\ta\t/hook\t10.0.0.5:81\napp.example.org\tauth\ta\t10.0.0.9:9000\napp.example.org\treqh\ta\tX-A\ttwo words')" "$($R specs "$PD")"
+check_eq "unmanaged does not list pub- files" "mine.yml" "$($R unmanaged "$PD")"
+
 echo "-- read: the round trip"
 $R local app.home.example.org /=192.168.1.50:8080 /api=https://192.168.1.50:8443 > "$HS_GATEWAY_DIR/routes/local-app.home.example.org.yml"
 $R local b.home.example.org /=192.168.1.51:80 > "$HS_GATEWAY_DIR/routes/local-b.home.example.org.yml"
@@ -66,7 +138,7 @@ printf 'active' > "$HS_GATEWAY_UNIT_STATE"
 printf 'LISTEN 0 4096 *:80 *:* users:(("traefik",pid=1,fd=7))\n' > "$HS_GATEWAY_LISTENERS"
 printf '#!/bin/sh\necho "192.168.1.10 STREAM x"\n' > "$HS_GATEWAY_RESOLVE"; chmod +x "$HS_GATEWAY_RESOLVE"
 val() { $G --status | awk -F'\t' -v k="$1" '$1 == k { print $2 }'; }
-check_eq "keys come in order" "service port80 public_https public_http port_public_https port_public_http domain wildcard local_routes passthrough unmanaged webui direct" "$($G --status | cut -f1 | tr '\n' ' ' | sed 's/ $//')"
+check_eq "keys come in order" "service port80 public_https public_http port_public_https port_public_http public_tunnel port_public_tunnel domain wildcard local_routes passthrough public_routes public_proxy unmanaged webui direct" "$($G --status | cut -f1 | tr '\n' ' ' | sed 's/ $//')"
 check_eq "service" active "$(val service)"
 check_eq "traefik holds port 80" traefik "$(val port80)"
 check_eq "no public ports by default" "off off - -" "$(val public_https) $(val public_http) $(val port_public_https) $(val port_public_http)"
@@ -86,6 +158,10 @@ check_eq "a failed unit" failed "$(val service)"
 printf 'https=4443\nhttp=0\n' > "$HS_ETC_DIR/gateway-public"
 printf 'LISTEN 0 4096 *:4443 *:* users:(("traefik",pid=1,fd=8))\n' > "$HS_GATEWAY_LISTENERS"
 check_eq "public https port shown" "4443 off traefik -" "$(val public_https) $(val public_http) $(val port_public_https) $(val port_public_http)"
+check_eq "no tunnel by default" "off - 0 off" "$(val public_tunnel) $(val port_public_tunnel) $(val public_routes) $(val public_proxy)"
+printf 'https=0\nhttp=0\ntunnel=8081\n' > "$HS_ETC_DIR/gateway-public"
+printf 'LISTEN 0 4096 *:8081 *:* users:(("traefik",pid=1,fd=8))\n' > "$HS_GATEWAY_LISTENERS"
+check_eq "tunnel port shown" "8081 traefik" "$(val public_tunnel) $(val port_public_tunnel)"
 rm -f "$HS_ETC_DIR/gateway-public"
 
 echo "-- hs gateway status (people)"

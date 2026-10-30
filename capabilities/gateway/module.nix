@@ -9,6 +9,11 @@ let
   m = hs.machine;
   pubS = m.gatewayPublicHttps;
   pubH = m.gatewayPublicHttp;
+  # The tunnel entrypoint (reverseProxy = traefik-public): only the cloudflared container may reach it (firewall below).
+  tun = m.gatewayTunnelPort;
+  tunFrom = m.gatewayTunnelFrom;
+  tunV4 = lib.filter (x: !lib.hasInfix ":" x) tunFrom;
+  tunV6 = lib.filter (lib.hasInfix ":") tunFrom;
   grp = config.services.traefik.group;
   site = lib.toLower (hs.siteName or m.siteName or m.hostName);
   realm = if (m.adDomain or null) != null then lib.toLower m.adDomain.realm else "";
@@ -26,24 +31,29 @@ let
     log.level = "INFO";
     entryPoints = { lan-http.address = ":80"; }
       // lib.optionalAttrs (pubS != 0) { public-https.address = ":${toString pubS}"; }
-      // lib.optionalAttrs (pubH != 0 && pubH != 80) { public-http.address = ":${toString pubH}"; };   # 80 is lan-http itself
+      // lib.optionalAttrs (pubH != 0 && pubH != 80) { public-http.address = ":${toString pubH}"; }   # 80 is lan-http itself
+      // lib.optionalAttrs (tun != 0) { public-tunnel = { address = ":${toString tun}"; forwardedHeaders.trustedIPs = tunFrom; }; };
     # No api, dashboard, ping, metrics or ACME: the dashboard would be an admin page.
     providers.file = { directory = "/var/lib/hs-gateway/routes"; watch = true; };
   };
 
   base = pkgs.writeText "00-hs-base.yml" (builtins.toJSON ({
-    http = {
+    http = lib.recursiveUpdate {
       middlewares.hs-lan-only.ipAllowList.sourceRange = lanRanges;
       # for targets with scheme https and a self-signed certificate (LAN only)
       serversTransports.hs-insecure.insecureSkipVerify = true;
-    } // lib.optionalAttrs m.webUi {
+      # blocked paths of the public routes: no ipStrategy, so it matches the TCP peer (never 127.0.0.2) and always answers 403;
+      # hs-null is the service behind it that is never reached
+      middlewares.hs-deny.ipAllowList.sourceRange = [ "127.0.0.2/32" ];
+      services.hs-null.loadBalancer.servers = [ { url = "http://127.0.0.1:1"; } ];
+    } (lib.optionalAttrs m.webUi {
       services.hs-webui.loadBalancer.servers = [ { url = "http://127.0.0.1:${toString m.webPort}"; } ];
       routers = {
         hs-fallback = { entryPoints = [ "lan-http" ]; rule = "HostRegexp(`.+`) && ${lanClient}"; priority = 1; middlewares = [ "hs-lan-only" ]; service = "hs-webui"; };
       } // lib.optionalAttrs (realm != "") {
         hs-webui = { entryPoints = [ "lan-http" ]; rule = "Host(`${site}.${realm}`) && ${lanClient}"; middlewares = [ "hs-lan-only" ]; service = "hs-webui"; };
       };
-    };
+    });
   } // lib.optionalAttrs (pubS != 0) {
     # unknown SNI from the internet: closed
     tcp.routers.hs-deadend = { entryPoints = [ "public-https" ]; rule = "HostSNI(`*`)"; priority = 1; tls.passthrough = true; service = "hs-deadend"; };
@@ -69,12 +79,18 @@ in
     ip saddr { 10.0.0.0/8, 172.16.0.0/12, 192.168.0.0/16 } tcp dport 80 accept
   '' + lib.concatMapStrings (i: ''
     iifname "${i}" tcp dport 80 accept
-  '') config.hs.privateInterfaces;
+  '') config.hs.privateInterfaces
+  # The tunnel port: only the addresses in gatewayTunnelFrom (the cloudflared container); never in allowedTCPPorts.
+  + lib.optionalString (tun != 0 && tunV4 != [ ]) ''
+    ip saddr { ${lib.concatStringsSep ", " tunV4} } tcp dport ${toString tun} accept
+  '' + lib.optionalString (tun != 0 && tunV6 != [ ]) ''
+    ip6 saddr { ${lib.concatStringsSep ", " tunV6} } tcp dport ${toString tun} accept
+  '';
   networking.firewall.allowedTCPPorts = lib.optional (pubS != 0) pubS ++ lib.optional (pubH != 0) pubH;
 
   environment.etc."hs/gateway-lan-ranges".text = lib.concatStringsSep " " lanRanges + "
 ";   # for hs and the tests: who may use the local routes
-  environment.etc."hs/gateway-public".text = "https=${toString pubS}\nhttp=${toString pubH}\n";
+  environment.etc."hs/gateway-public".text = "https=${toString pubS}\nhttp=${toString pubH}\ntunnel=${toString tun}\n";
 
   assertions = [
     { assertion = lib.versionAtLeast config.services.traefik.package.version "3.0";
@@ -91,6 +107,14 @@ in
       message = "machine.toml: gatewayPublicHttps = 443 clashes with webTailscale (tailscale serve holds 443): set webTailscale = false, or use another port behind a router that translates ports.";  }
     { assertion = pubS != pubH || pubS == 0;
       message = "machine.toml: gatewayPublicHttps and gatewayPublicHttp must be different ports."; }
+    { assertion = tun == 0 || tunFrom != [ ];
+      message = "machine.toml: gatewayTunnelFrom: the address of the cloudflared container, e.g. [ \"10.10.95.19/32\" ] (gatewayTunnelPort is set)."; }
+    { assertion = tun == 0 || !(builtins.elem tun ([ 80 443 22 139 445 8443 9740 m.webPort pubS pubH ] ++ config.services.openssh.ports));
+      message = "machine.toml: gatewayTunnelPort = ${toString tun} is a port the server already uses; suggested 8081."; }
+    # no 0.0.0.0/0 and no ::/0: the tunnel port must stay closed to everyone but the cloudflared container
+    { assertion = lib.all (a: builtins.match "[0-9]{1,3}(\\.[0-9]{1,3}){3}(/(3[0-2]|[12][0-9]|[89]))?" a != null
+                              || builtins.match "[0-9a-fA-F:]+(/(12[0-8]|1[01][0-9]|[2-9][0-9]|1[6-9]))?" a != null) tunFrom;
+      message = "machine.toml: gatewayTunnelFrom holds an address that is not valid or too wide (no 0.0.0.0/0, no ::/0): use the address of the cloudflared container, e.g. \"10.10.95.19/32\".";  }
     { assertion = m.role != "edge";
       message = "machine.toml: the gateway proxy is for a home server (role = \"homeserver\"), not an edge node."; }
     { assertion = !((config.services.nginx.enable or false) || (config.services.caddy.enable or false) || (config.services.httpd.enable or false));

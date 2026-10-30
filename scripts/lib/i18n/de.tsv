@@ -1828,3 +1828,11 @@ Error recovery time (ERC) of the mirror and raidz members	Fehlerbehebungszeit (E
 %s: no ERC support (SATA SCT), skipped	%s: keine ERC-Unterstützung (SATA SCT), übersprungen
 %s: skipped tonight (busy with its last test, or no self-test support)	%s: heute Nacht übersprungen (noch mit dem letzten Test beschäftigt, oder ohne Selbsttest)
 No disk could be tested tonight.	Heute Nacht konnte keine Platte getestet werden.
+traefik-public needs the gateway proxy.	traefik-public braucht den Gateway-Proxy.
+%s is not rewritten: it has rows that are left alone (hs services plan).	%s wird nicht neu geschrieben: Es hat Zeilen, die unangetastet bleiben (hs services plan).
+%s -> %s	%s -> %s
+%s could not be made: %s	%s ließ sich nicht anlegen: %s
+its host spec could not be worked out.	seine Host-Angaben ließen sich nicht ermitteln.
+Public tunnel	Öffentlicher Tunnel
+Public routes	Öffentliche Routen
+Public proxy	Öffentlicher Proxy

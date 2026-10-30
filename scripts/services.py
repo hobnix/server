@@ -41,7 +41,8 @@ A descriptor is /var/lib/hs/services.d/<name>.toml (--dir DIR):
   only NAMED here (the key lives in the state dir), never held
   services.py tiles  [--dir D] [--addrs F] [--plan F] [--info F] [--containers] [--local-domain D] group, title, link, description, icon, name of the dashboard tiles
   services.py remove NAME [--dir D]
-  services.py plan   --info F --routes F --addrs F [--owned F] [--dir D]   act<TAB>host<TAB>path<TAB>target<TAB>service<TAB>note
+  services.py plan   --info F --routes F --addrs F [--owned F] [--specs F] [--dir D]   act<TAB>host<TAB>path<TAB>target<TAB>service<TAB>note
+  services.py hostspecs --info F --routes F --addrs F --host H [--owned F] [--specs F] [--dir D]   the host spec of H (route/auth/skip/reqh/resh lines, TSV; nothing = delete)
   services.py import --info F --routes F --addrs F [--dir D] [--write]   create|skip<TAB>name<TAB>target<TAB>exposure<TAB>names<TAB>note
 
 Files: --info = key<TAB>value (public yes|no, domains a,b, mode, name, features paths,headers,auth; missing = paths); --routes = host path target id; --addrs = container ip.
@@ -612,11 +613,39 @@ def address_of(s, addrs):
 
 # ── the plan ───────────────────────────────────────────────────────────────
 
-def make_plan(d, info, routes, addrs, owned=frozenset(), slot='public', explicit=None):
+SPEC_KINDS = ('route', 'auth', 'skip', 'reqh', 'resh')
+
+
+def read_specs(path):
+    """host -> set of host spec lines (TSV, without the host) from `provider specs` (host<TAB>line)"""
+    out = {}
+    if path and os.path.exists(path):
+        with open(path, encoding='utf-8') as f:
+            for line in f:
+                h, _, rest = line.rstrip('\n').partition('\t')
+                if h and rest:
+                    out.setdefault(h.lower(), set()).add(rest)
+    return out
+
+
+def host_spec_lines(extra, wants, h):
+    """the sorted host spec lines of host h (TSV): every winning route, then auth/skip/headers of the services (a duplicate header name: the last wins)"""
+    lines = [('route', name, p, t) for (hh, p), (t, name, _) in wants.items() if hh == h]
+    heads = {}
+    for f in extra.get(h, []):
+        if f[0] in ('reqh', 'resh'):
+            heads[(f[0], f[1], f[2].lower())] = f
+        else:
+            lines.append(f)
+    lines += heads.values()
+    return sorted(('\t'.join(f) for f in lines), key=lambda x: (SPEC_KINDS.index(x.split('\t')[0]), x.split('\t')[1:]))
+
+
+def make_plan(d, info, routes, addrs, owned=frozenset(), slot='public', explicit=None, specs_have=None, specs_out=None):
     want_key = 'reverse-proxy' if slot == 'public' else 'local-proxy'
     explicit = explicit or {}
     have = {(h, p): (t, i) for h, p, t, i in routes}
-    claimed, out, wants = set(), [], {}
+    claimed, out, wants, extra = set(), [], {}, {}
     features = info.get('features') or {'paths'}
     pname = (info.get('name') or 'the proxy').capitalize()
     services = load_all(d)
@@ -627,6 +656,9 @@ def make_plan(d, info, routes, addrs, owned=frozenset(), slot='public', explicit
         cur = wants.get((h, p))
         if cur is None:
             wants[(h, p)] = (t, name, strong)
+        elif cur[0] == t and t != DEAD_END and cur[1] != name and bool(services[cur[1]].get('auth')) != bool(services[name].get('auth')):
+            # same target, but only one of the two asks for a login: whichever wins, the other's rule would be wrong or open
+            out.append(('conflict', h, p, t, name, 'also wanted by %s with %s, but only one of them has auth' % (cur[1], cur[0])))
         elif cur[0] == t:
             wants[(h, p)] = (t, cur[1], cur[2] or strong)
         elif cur[0] == DEAD_END and not cur[2]:
@@ -692,6 +724,16 @@ def make_plan(d, info, routes, addrs, owned=frozenset(), slot='public', explicit
                 want(h, p, t, name, strong)
             if not pub:
                 continue
+            if specs_have is not None or specs_out is not None:
+                ex = extra.setdefault(h, [])
+                if auth_target and 'auth' in features:
+                    ex.append(('auth', name, auth_target))
+                    ex += [('skip', name, x) for x in s.get('auth_skip', [])]
+                if 'headers' in features:
+                    for kind, key in (('reqh', 'request_headers'), ('resh', 'response_headers')):
+                        for x in s.get(key, []):
+                            n, _, v = x.partition(':')
+                            ex.append((kind, name, n.strip(), v.strip()))
             for kind, key in (('request', 'request_headers'), ('response', 'response_headers')):
                 if 'headers' not in features:
                     for x in s.get(key, []):
@@ -732,6 +774,17 @@ def make_plan(d, info, routes, addrs, owned=frozenset(), slot='public', explicit
                 out.append(('remove', h, p, t, '-', 'made by hs and no service wants it any more'))
             else:
                 out.append(('unmanaged', h, p, t, '-', 'the default site of the proxy' if h == '*' else 'no service owns this route'))
+    if specs_have is not None or specs_out is not None:
+        mine = {h: host_spec_lines(extra, wants, h) for h in {h for h, _ in wants}}
+        if specs_out is not None:
+            specs_out.update(mine)
+        for h in sorted(set(mine) | set(specs_have or {})):
+            rows = [r for r in out if h in r[1].split(',')]
+            if specs_have is None or not rows or any(r[0] != 'ok' for r in rows) or set(mine.get(h, [])) == specs_have.get(h, set()):
+                continue
+            root = wants.get((h, '/'))
+            first = next((n for (hh, _), (_, n, _) in wants.items() if hh == h), '-')
+            out.append(('change', h, '/', root[0] if root else '-', root[1] if root else first, 'login or headers differ (hs services plan shows the rule)'))
     return out
 
 
@@ -1196,6 +1249,20 @@ def cmd_addrs():
     return 0
 
 
+def cmd_hostspecs(d, args):
+    """the host spec lines of one host (what the provider writes whole); nothing = the host has no route any more"""
+    info_f, routes_f, addrs_f, host = opt(args, '--info'), opt(args, '--routes'), opt(args, '--addrs'), opt(args, '--host')
+    if not (info_f and routes_f and addrs_f and host):
+        die('hostspecs needs --info, --routes, --addrs and --host')
+    owned_f, specs_f = opt(args, '--owned'), opt(args, '--specs')
+    info, routes, addrs = read_info(info_f), read_routes(routes_f), read_addrs(addrs_f)
+    got = {}
+    make_plan(d, info, routes, addrs, read_owned(owned_f), 'public', None, read_specs(specs_f), got)
+    for line in got.get(host.lower(), []):
+        print(line)
+    return 0
+
+
 def main(argv):
     if hasattr(sys.stdout, 'reconfigure'):
         sys.stdout.reconfigure(newline='\n', encoding='utf-8')
@@ -1232,6 +1299,8 @@ def main(argv):
         return cmd_show(d, args)
     if cmd == 'remove':
         return cmd_remove(d, args)
+    if cmd == 'hostspecs':
+        return cmd_hostspecs(d, args)
     if cmd in ('plan', 'import'):
         info_f, routes_f, addrs_f = opt(args, '--info'), opt(args, '--routes'), opt(args, '--addrs')
         do_write = flag(args, '--write')
@@ -1246,13 +1315,15 @@ def main(argv):
         if not (info_f and routes_f and addrs_f):
             die('%s needs --info, --routes and --addrs' % cmd)
         owned_f = opt(args, '--owned')
+        specs_f = opt(args, '--specs')
         slot = opt(args, '--slot', 'public')
         explicit_f = opt(args, '--explicit')
         if slot not in ('public', 'local'):
             die('--slot must be public or local')
         info, routes, addrs = read_info(info_f), read_routes(routes_f, slot == 'local'), read_addrs(addrs_f)
         if cmd == 'plan':
-            for row in make_plan(d, info, routes, addrs, read_owned(owned_f), slot, read_explicit(explicit_f)):
+            specs_have = read_specs(specs_f) if specs_f else None
+            for row in make_plan(d, info, routes, addrs, read_owned(owned_f), slot, read_explicit(explicit_f), specs_have):
                 print('\t'.join(row))
             return 0
         for row in make_import(d, info, routes, addrs):

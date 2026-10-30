@@ -67,6 +67,10 @@ gather() {
     return 1
   fi
   [ -f "$provider_dir/$variant.sh" ] || { $plain || warn "$(t "The reverse proxy '%s' has no provider here." "$variant")"; return 1; }
+  if [ "$variant" = traefik-public ] && [ "$proxy" = public ] && ! capability_on gateway; then
+    $plain && return 1
+    fail_fix "$(t 'traefik-public needs the gateway proxy.')" 'put capabilities = ["gateway"] in machine.toml, then hs rebuild'
+  fi
   provider info > "$work/info.tsv" || { $plain || warn "$(t 'The reverse proxy did not answer.')"; return 1; }
   if [ "$proxy" = local ] && grep -q '^public.yes$' "$work/info.tsv"; then
     fail "$(t 'The local proxy must never be public: its provider says it is.')"
@@ -74,6 +78,13 @@ gather() {
   provider owned-list > "$work/owned.tsv" 2>/dev/null || : > "$work/owned.tsv"   # the routes hs made or adopted (a variant without the verb: none)
   provider list > "$work/routes.tsv" || { $plain || warn "$(t 'The routes of the reverse proxy could not be read.')"; return 1; }
   "$inc" list --format json 2>/dev/null | svc addrs > "$work/addrs.tsv" || : > "$work/addrs.tsv"
+  # host mode: the provider writes whole hosts (login and headers belong to the host file); it tells hs what it wrote
+  hostmode=false
+  if [ "$proxy" = public ] && awk -F'	' '$1 == "features" && $2 ~ /(^|,)(auth|headers)(,|$)/ { f = 1 } END { exit !f }' "$work/info.tsv"; then
+    hostmode=true
+    provider specs > "$work/specs.tsv" 2>/dev/null || : > "$work/specs.tsv"
+    slot_args+=(--specs "$work/specs.tsv")
+  fi
   # the local slot: names that have an explicit DNS record beat the wildcard (best effort, nothing on failure)
   if [ "$proxy" = local ]; then
     : > "$work/explicit.tsv"
@@ -211,7 +222,7 @@ case "$cmd" in
       case "$(provider check 2>/dev/null || true)" in
         differ*) fail "$(t 'The API and the rule files of the proxy list different routes: nothing is made until that is understood.')" ;;
       esac
-      done_n=0; failed=0; skipped=0
+      done_n=0; failed=0; skipped=0; hosts_ok=(); hosts_skip=()
       while IFS=$'\t' read -r act host path target service _; do
         [ -n "$act" ] || continue
         # a route that goes on the internet, is changed or is removed needs the host name typed (or --confirm <host or service>)
@@ -230,7 +241,7 @@ case "$cmd" in
           fi
           if ! $ok_host && ! $dry; then
             note "$(t "%s%s: needs the typed confirmation (--confirm %s)" "$host" "$path" "$host")"
-            skipped=$((skipped + 1)); continue
+            skipped=$((skipped + 1)); hosts_skip+=("$host"); continue
           fi
           # one confirmation covers the host: its other routes
           confirmed+=("$host")
@@ -243,6 +254,7 @@ case "$cmd" in
           esac
           continue
         fi
+        if $hostmode; then hosts_ok+=("$host"); continue; fi   # the host file is written once, after the loop
         rc=0
         if [ "$act" = remove ]; then cmd_out=$(provider remove "$host" "$path" 2>&1) || rc=$?; else cmd_out=$(provider ensure "$host" "$path" "$target" 2>&1) || rc=$?; fi
         if [ "$rc" -eq 0 ]; then
@@ -251,6 +263,25 @@ case "$cmd" in
           warn "$(t '%s%s could not be made: %s' "$host" "$path" "$cmd_out")"; failed=$((failed + 1))
         fi
       done <<<"$todo"
+      if $hostmode && ! $dry; then
+        hosts_left=$(awk -F'	' '{ n = split($2, a, ","); for (i = 1; i <= n; i++) print a[i] }' <<<"$rest")
+        while IFS= read -r host; do
+          [ -n "$host" ] || continue
+          if printf '%s
+' ${hosts_skip[@]+"${hosts_skip[@]}"} | grep -qxF -- "$host"; then continue; fi
+          if grep -qxF -- "$host" <<<"$hosts_left"; then
+            note "$(t '%s is not rewritten: it has rows that are left alone (hs services plan).' "$host")"; continue
+          fi
+          svc hostspecs --info "$work/info.tsv" --routes "$work/routes.tsv" --addrs "$work/addrs.tsv" --owned "$work/owned.tsv" --specs "$work/specs.tsv" --host "$host" > "$work/spec-host" || { warn "$(t '%s could not be made: %s' "$host" "$(t 'its host spec could not be worked out.')")"; failed=$((failed + 1)); continue; }
+          rc=0; cmd_out=$(provider ensure-host "$host" "$work/spec-host" 2>&1) || rc=$?
+          if [ "$rc" -eq 0 ]; then
+            ok "$(t '%s -> %s' "$host" "$cmd_out")"; done_n=$((done_n + 1))
+          else
+            warn "$(t '%s could not be made: %s' "$host" "$cmd_out")"; failed=$((failed + 1))
+          fi
+        done < <(printf '%s
+' ${hosts_ok[@]+"${hosts_ok[@]}"} | sort -u)
+      fi
       $dry || status_line "Routes" "$(t '%s done, %s failed, %s waiting for a confirmation' "$done_n" "$failed" "$skipped")" "$([ "$failed" -eq 0 ] && echo ok || echo bad)"
     fi
     # blocked services and violations are not touched here: say so, whether or not something was done

@@ -895,10 +895,11 @@ settable = false
 secret = false
 capability = "reverse-proxy"
 store = "settings"
-choices = ["zoraxy"]
+choices = ["zoraxy", "traefik-public"]
 doc = '''
 # Which reverse proxy publishes the services of this server (hs services plan): the name of a provider in
-# scripts/providers/reverse-proxy/. Setting it switches the capability reverse-proxy on. No rebuild.'''
+# scripts/providers/reverse-proxy/. Setting it switches the capability reverse-proxy on. No rebuild.
+# traefik-public = the gateway proxy also serves the public routes through the tunnel (needs the capability gateway).'''
 value = '''
 reverseProxy = "zoraxy"'''
 
@@ -982,6 +983,35 @@ doc = '''
 # internet. Needs hs rebuild.'''
 value = '''
 gatewayPublicHttp = 80'''
+
+[[item]]
+kind = "option"
+key = "gatewayTunnelPort"
+type = "int"
+required = false
+settable = true
+secret = false
+capability = "gateway"
+default = '0'
+doc = '''
+# The port cloudflared sends the public traffic to (reverseProxy = traefik-public). 0 = off. Open only to gatewayTunnelFrom.
+# Needs hs rebuild.'''
+value = '''
+gatewayTunnelPort = 8081'''
+
+[[item]]
+kind = "option"
+key = "gatewayTunnelFrom"
+type = "list"
+required = false
+settable = false
+secret = false
+capability = "gateway"
+default = '[ ]'
+doc = '''
+# The addresses that may use gatewayTunnelPort: the cloudflared container (fixed address). Needs hs rebuild.'''
+value = '''
+gatewayTunnelFrom = [ "10.10.95.19/32" ]'''
 
 [[item]]
 kind = "section"

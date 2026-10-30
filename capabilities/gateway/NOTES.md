@@ -51,3 +51,6 @@ provider (`tls.certificates` in a `00-hs-tls.yml`) or ACME DNS-01. The route fil
 ## Web interface behind Traefik
 `HS_WEB_TRUST_PROXY` is set while the capability is on: Traefik sends X-Forwarded-For from 127.0.0.1 and web-serve.py trusts it only from loopback.
 Risk: if web-serve ever trusts X-Forwarded-For from more than loopback the login throttle can be fooled.
+
+## Tunnel entrypoint (reverseProxy = traefik-public)
+`gatewayTunnelPort` (default 0 = off) adds the entrypoint `public-tunnel`; its trustedIPs and the firewall rule (`ip saddr { gatewayTunnelFrom } tcp dport <port> accept`, extraInputRules only, never allowedTCPPorts) are limited to `gatewayTunnelFrom`. The base file also holds `hs-deny` (ipAllowList 127.0.0.2/32, always 403) and `hs-null`. Full docs: step D.

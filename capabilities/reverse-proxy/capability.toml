@@ -6,7 +6,7 @@ kind = "provider"
 requires = []
 # the interface this capability fulfils; a variant is a script scripts/providers/reverse-proxy/<variant>.sh
 provides = ["reverse-proxy"]
-variants = ["zoraxy"]
+variants = ["zoraxy", "traefik-public"]
 needs = []
 # No NixOS module: the proxy runs in a container (its recipe). It counts as on once the runtime setting reverseProxy names a variant.
 implied_by = ["reverseProxy"]

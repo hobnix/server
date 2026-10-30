@@ -92,6 +92,11 @@ variant gateway-ranges-public "$LR="'"10.0.0.0/8 172.16.0.0/12 192.168.0.0/16 12
 refused gateway-public-443-tailscale 'capabilities = ["gateway"]' 'gatewayPublicHttps = 443' 'webUi = true' 'webTailscale = true'
 refused gateway-public-https-80 'capabilities = ["gateway"]' 'gatewayPublicHttps = 80'
 refused gateway-public-http-443 'capabilities = ["gateway"]' 'gatewayPublicHttp = 443'
+variant gateway-tunnel "services.traefik.enable=true" 'capabilities = ["gateway"]' 'gatewayTunnelPort = 8081' 'gatewayTunnelFrom = [ "10.10.95.19/32" ]'
+refused gateway-tunnel-no-from 'capabilities = ["gateway"]' 'gatewayTunnelPort = 8081'
+refused gateway-tunnel-80 'capabilities = ["gateway"]' 'gatewayTunnelPort = 80' 'gatewayTunnelFrom = [ "10.10.95.19/32" ]'
+refused gateway-tunnel-public-port 'capabilities = ["gateway"]' 'gatewayPublicHttps = 4443' 'gatewayTunnelPort = 4443' 'gatewayTunnelFrom = [ "10.10.95.19/32" ]'
+refused gateway-tunnel-open 'capabilities = ["gateway"]' 'gatewayTunnelPort = 8081' 'gatewayTunnelFrom = [ "0.0.0.0/0" ]'
 variant gateway-ad "services.traefik.enable=true" 'capabilities = ["gateway"]' 'adDomain = { realm = "AD.HOME.LAN", workgroup = "HOME" }'   # the hs-webui Host router
 variant legacy-switches "$PROM=true|$TS=true" 'metrics = true' 'tailscaleRouter = true'
 variant ad-domain 'environment.etc."hs/capabilities".text="ad\nstorage\nincus\nsamba\nbackup\n"' 'adDomain = { realm = "AD.HOME.LAN", workgroup = "HOME" }'   # the capability ad is computed from adDomain
