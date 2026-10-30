@@ -1004,6 +1004,40 @@ gatewayPublicHttp = 80'''
 
 [[item]]
 kind = "option"
+key = "gatewayUnknownHostLocal"
+type = "string"
+required = false
+settable = true
+secret = false
+capability = "gateway"
+default = '"404"'
+choices = ["404", "drop"]
+doc = '''
+# What the gateway proxy does with a name it has no route for (asda.<site>.<realm>) when the request comes from a home network:
+# "404" = Traefik's own 404 page, "drop" = close the connection where that is possible (the HTTPS entrypoints; plain HTTP
+# answers 404 instead). The web interface answers only to <site>.<realm>. Needs hs rebuild.'''
+value = '''
+gatewayUnknownHostLocal = "404"'''
+
+[[item]]
+kind = "option"
+key = "gatewayUnknownHostPublic"
+type = "string"
+required = false
+settable = true
+secret = false
+capability = "gateway"
+default = '"drop"'
+choices = ["404", "drop"]
+doc = '''
+# What the gateway proxy does with a name it has no route for when the request comes from the internet (public ports):
+# "drop" = close the connection on the public HTTPS port (plain HTTP answers 404), "404" = a 404 page; on the public HTTPS port
+# "404" needs a certificate and is not accepted yet. Needs hs rebuild.'''
+value = '''
+gatewayUnknownHostPublic = "drop"'''
+
+[[item]]
+kind = "option"
 key = "gatewayTunnelPort"
 type = "int"
 required = false

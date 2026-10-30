@@ -24,11 +24,16 @@ scripts/gateway_render.py (stdlib, golden tests in tests/gateway.sh), domain by 
   server, so the values to set are `gatewayPublicHttps = 443` and `gatewayPublicHttp = 80`; 4443 and 8008 only behind a router that
   translates ports. With `gatewayPublicHttp = 80` there is NO separate `public-http` entrypoint: port 80 is `lan-http`, so the same entrypoint
   serves local names and passthrough domains and port 80 is in allowedTCPPorts (open to everyone). This is safe because (a) a local route
-  answers a public source with 403 (`hs-lan-only`), (b) the two catch-all routers (`hs-webui`, `hs-fallback`) also have
-  `ClientIP(<home ranges>)` in their RULE, so a public source on an unknown or the host's own name matches nothing: 404, never the web
+  answers a public source with 403 (`hs-lan-only`), (b) the web interface router (`hs-webui`) also has
+  `ClientIP(<home ranges>)` in its RULE, so a public source on an unknown or the host's own name matches nothing: 404, never the web
   interface, (c) passthrough routers have long rules and win over the catch-all (priority 1), and match only their own domain.
-- The web interface (`webPort = 8480`) stays reachable on its direct port and is the break-glass address. Through Traefik: router `hs-webui` for `<site>.<realm>` and the
-  catch-all `hs-fallback` (priority 1) for any other Host. The bare AD apex `<realm>` is the domain's, there is no router for it.
+- The web interface (`webPort = 8480`) stays reachable on its direct port and is the break-glass address. Through Traefik: router `hs-webui` for `<site>.<realm>` ONLY. There is no catch-all
+  (the old `hs-fallback` showed the web interface for every unknown name and is gone). Without an AD realm there is no gateway name for the web
+  interface: use the direct port. The bare AD apex `<realm>` is the domain's, there is no router for it.
+- Unknown names: `gatewayUnknownHostLocal` (default `404`) and `gatewayUnknownHostPublic` (default `drop`). `404` = no router matches, Traefik answers
+  its own 404. `drop` = TCP dead end `hs-deadend` on `public-https` (only without ACME; with ACME an unknown name gets the default certificate and a 404).
+  Plain HTTP cannot be reset by Traefik (a dead service answers 502), so `drop` on port 80 behaves as `404`; `lan-https` does not exist yet.
+  `gatewayUnknownHostPublic = "404"` on `public-https` is refused by an assertion unless ACME is on (a 404 over TLS needs a terminating router and a certificate).
 
 ## Paths and owners
 `/var/lib/hs-gateway/routes/` (2750 root:traefik, setgid; Traefik's one watched directory, flat) and `/var/lib/hs-gateway/tmp/`

@@ -204,6 +204,16 @@ vlans = { home = { id = 95, default = true } }
 # internet. Needs hs rebuild.
 # gatewayPublicHttp = 80
 
+# What the gateway proxy does with a name it has no route for (asda.<site>.<realm>) when the request comes from a home network:
+# "404" = Traefik's own 404 page, "drop" = close the connection where that is possible (the HTTPS entrypoints; plain HTTP
+# answers 404 instead). The web interface answers only to <site>.<realm>. Needs hs rebuild.
+# gatewayUnknownHostLocal = "404"
+
+# What the gateway proxy does with a name it has no route for when the request comes from the internet (public ports):
+# "drop" = close the connection on the public HTTPS port (plain HTTP answers 404), "404" = a 404 page; on the public HTTPS port
+# "404" needs a certificate and is not accepted yet. Needs hs rebuild.
+# gatewayUnknownHostPublic = "drop"
+
 # The port cloudflared sends the public traffic to (reverseProxy = traefik-public). 0 = off. Open only to gatewayTunnelFrom.
 # Needs hs rebuild.
 # gatewayTunnelPort = 8081
