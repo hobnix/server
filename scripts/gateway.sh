@@ -141,7 +141,6 @@ route_rows() {   # kind host path target file
   # the web interface routers exist only while webUi is on (capabilities/gateway/module.nix)
   if [ "$(machine_get webUi 2>/dev/null || true)" = true ]; then
     [ -z "$domain" ] || printf 'base\t%s\t/\thttp://127.0.0.1:%s\t00-hs-base.yml\n' "$domain" "$port"
-    printf 'base\t*\t/\thttp://127.0.0.1:%s\t00-hs-base.yml\n' "$port"
   fi
   if [ "$(public_port https)" != 0 ]; then printf 'base\t*\t-\t127.0.0.1:1\t00-hs-base.yml\n'; fi
   render unmanaged "$routes_dir" | while IFS= read -r f; do [ -z "$f" ] || printf 'unmanaged\t-\t-\t-\t%s\n' "$f"; done

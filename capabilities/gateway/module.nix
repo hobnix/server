@@ -9,6 +9,9 @@ let
   m = hs.machine;
   pubS = m.gatewayPublicHttps;
   pubH = m.gatewayPublicHttp;
+  # What happens to a name without a route: "404" (Traefik's own page) or "drop" (close the connection; only possible on the HTTPS entrypoints)
+  unkPublic = m.gatewayUnknownHostPublic;
+  unkLocal = m.gatewayUnknownHostLocal;
   # The tunnel entrypoint (reverseProxy = traefik-public): only the cloudflared container may reach it (firewall below).
   tun = m.gatewayTunnelPort;
   tunFrom = m.gatewayTunnelFrom;
@@ -27,8 +30,8 @@ let
   realm = if (m.adDomain or null) != null then lib.toLower m.adDomain.realm else "";
 
   # The sources that may use the local routes. Port 80 can be public too (gatewayPublicHttp = 80: the same entrypoint then also carries the
-  # passthrough domains), so every local router has this list as a middleware AND the two catch-all routers have it in their rule:
-  # a public source gets 403 on a local name and 404 on any other name, never the web interface.
+  # passthrough domains), so every local router has this list as a middleware AND the web interface router has it in its rule:
+  # a public source gets 403 on a local name and 404 on any other name (also the host's own), never the web interface.
   # 100.64.0.0/10 (Tailscale, but also the carrier-grade NAT of providers) is a LAN range only while port 80 is NOT public: with a public
   # port 80 an outside client behind CGNAT would pass. Tailscale clients then use the web interface's direct port or LAN names.
   lanRanges = [ "10.0.0.0/8" "172.16.0.0/12" "192.168.0.0/16" ] ++ lib.optional (pubH == 0) "100.64.0.0/10" ++ [ "127.0.0.1/32" "fc00::/7" "::1/128" ];
@@ -66,15 +69,16 @@ let
       middlewares.hs-to-https.redirectScheme = { scheme = "https"; permanent = true; };
     })) (lib.optionalAttrs m.webUi {
       services.hs-webui.loadBalancer.servers = [ { url = "http://127.0.0.1:${toString m.webPort}"; } ];
-      routers = {
-        hs-fallback = { entryPoints = [ "lan-http" ]; rule = "HostRegexp(`.+`) && ${lanClient}"; priority = 1; middlewares = [ "hs-lan-only" ]; service = "hs-webui"; };
-      } // lib.optionalAttrs (realm != "") {
+      # Only <site>.<realm> shows the web interface; an unknown name has no router and gets Traefik's own 404 (gatewayUnknownHostLocal;
+      # "drop" is the same on plain HTTP, which cannot be reset, and lan-https does not exist yet). Without an AD realm there is no
+      # gateway name for it: the direct port (webPort) is the way in.
+      routers = lib.optionalAttrs (realm != "") {
         hs-webui = { entryPoints = [ "lan-http" ]; rule = "Host(`${site}.${realm}`) && ${lanClient}"; middlewares = [ "hs-lan-only" ]; service = "hs-webui"; };
       };
     });
-  } // lib.optionalAttrs (pubS != 0 && !acmeOn) {
-    # unknown SNI from the internet: closed (not with ACME: this tcp router would swallow every TLS connection before the HTTP routers
-    # of the direct hosts; an unknown name then gets Traefik's default certificate and a 404)
+  } // lib.optionalAttrs (pubS != 0 && !acmeOn && unkPublic == "drop") {
+    # unknown SNI from the internet (gatewayUnknownHostPublic = drop): closed (not with ACME: this tcp router would swallow every TLS
+    # connection before the HTTP routers of the direct hosts; an unknown name then gets Traefik's default certificate and a 404)
     tcp.routers.hs-deadend = { entryPoints = [ "public-https" ]; rule = "HostSNI(`*`)"; priority = 1; tls.passthrough = true; service = "hs-deadend"; };
     tcp.services.hs-deadend.loadBalancer.servers = [ { address = "127.0.0.1:1"; } ];
   }));
@@ -143,6 +147,11 @@ in
       message = "machine.toml: gatewayAcmeEmail needs gatewayPublicHttps = 443 (the router forwards 443 to this server)."; }
     { assertion = email == "" || builtins.match "[^@ ]+@[^@ ]+\\.[^@ ]+" email != null;
       message = "machine.toml: gatewayAcmeEmail is not an e-mail address."; }
+    { assertion = builtins.elem unkLocal [ "404" "drop" ] && builtins.elem unkPublic [ "404" "drop" ];
+      message = "machine.toml: gatewayUnknownHostLocal and gatewayUnknownHostPublic are \"404\" or \"drop\"."; }
+    # a 404 over TLS needs a TLS-terminating router, which answers with a certificate: only the direct mode (ACME) has one
+    { assertion = unkPublic == "drop" || pubS == 0 || acmeOn;
+      message = "machine.toml: gatewayUnknownHostPublic = \"404\" on the public HTTPS port needs a certificate (gatewayAcmeEmail); use \"drop\" for now."; }
     { assertion = m.role != "edge";
       message = "machine.toml: the gateway proxy is for a home server (role = \"homeserver\"), not an edge node."; }
     { assertion = !((config.services.nginx.enable or false) || (config.services.caddy.enable or false) || (config.services.httpd.enable or false));

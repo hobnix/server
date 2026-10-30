@@ -294,6 +294,7 @@ check_out "a local route" "^local${T}app.home.example.org${T}/api${T}https://192
 check_out "a passthrough route" "^passthrough${T}vpn.example.org${T}-${T}192.168.1.60:443${T}pt-vpn" echo "$rows"
 check_out "an unmanaged file has dashes" "^unmanaged${T}-${T}-${T}-${T}mine.yml" echo "$rows"
 check_out "the web interface name" "^base${T}homeserver.ad.example.org${T}/" echo "$rows"
+check_eq "no wildcard row for the web interface (unknown names get 404)" "0" "$(grep -c "^base${T}\*${T}/" <<<"$rows" || true)"
 printf '# hs-gateway passthrough v1 domain=old.example.org https=443\n' > "$HS_GATEWAY_DIR/routes/pt-old.example.org.yml"
 check_out "a passthrough file without address has a dash" "^passthrough${T}old.example.org${T}-${T}-${T}pt-old" $G --routes
 printf 'hostName = "homeserver"\nadDomain = { realm = "AD.EXAMPLE.ORG", workgroup = "EX" }\n' > "$HS_MACHINE_FILE"
