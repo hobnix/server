@@ -873,6 +873,7 @@ READS = {
     ("services", "stats"): {"kind": "tsv", "ttl": 30},
     ("gateway", "status"): {"kind": "tsv", "ttl": 30},
     ("gateway", "routes"): {"kind": "tsv", "ttl": 30},
+    ("gateway", "health"): {"kind": "tsv", "ttl": 300},
     ("setup", "list"): {"kind": "tsv", "ttl": 5},
     ("config", "list"): {"kind": "tsv", "ttl": 5},
     ("config", "check"): {"kind": "text", "ttl": 0},

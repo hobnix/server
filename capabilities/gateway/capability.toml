@@ -10,3 +10,7 @@ variants = ["traefik"]
 needs = []
 nix = "module.nix"
 notes = "NOTES.md"
+# the page /settings/capabilities/gateway: an icon and a status panel (rows of `hs sys gateway health`)
+[settings]
+icon = "globe"
+status = "gateway health"

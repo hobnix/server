@@ -300,4 +300,59 @@ check_out "a passthrough file without address has a dash" "^passthrough${T}old.e
 printf 'hostName = "homeserver"\nadDomain = { realm = "AD.EXAMPLE.ORG", workgroup = "EX" }\n' > "$HS_MACHINE_FILE"
 check_eq "no base rows while webUi is off" "0" "$($G --routes | grep -c '^base' || true)"
 check_out "hs gateway routes draws a table" "Kind +Host +Path +Target" $G routes
+
+echo "-- hs sys gateway health"
+mkdir -p "$HS_SETTINGS_DIR"
+printf 'hostName = "homeserver"\nadDomain = { realm = "AD.EXAMPLE.ORG", workgroup = "EX" }\n' > "$HS_MACHINE_FILE"
+rm -f "$HS_GATEWAY_DIR/routes/"*.yml
+printf 'active' > "$HS_GATEWAY_UNIT_STATE"
+printf 'LISTEN 0 4096 *:80 *:* users:(("traefik",pid=1,fd=7))\nLISTEN 0 4096 *:8081 *:* users:(("traefik",pid=1,fd=8))\n' > "$HS_GATEWAY_LISTENERS"
+printf '#!/bin/sh\necho "192.168.1.10 STREAM x"\n' > "$HS_GATEWAY_RESOLVE"
+printf '#!/bin/sh\nh=${1#https://}; h=${h%%/*}\ncat "%s/code.$h" 2>/dev/null || echo 000\n' "$WORK" > "$WORK/curl"; chmod +x "$WORK/curl"
+export HS_GATEWAY_CURL=$WORK/curl HS_GATEWAY_JOURNAL=$WORK/journal
+: > "$HS_GATEWAY_JOURNAL"
+H() { $G --health; }
+hv() { H | awk -F'\t' -v i="$1" -v c="$2" '$1 == i { print $c }'; }
+printf 'zoraxy' > "$HS_SETTINGS_DIR/reverseProxy"
+check_eq "health: always six lines in order" "setup running reach cert dns auth" "$(H | cut -f1 | tr '\n' ' ' | sed 's/ $//')"
+check_eq "zoraxy: setup is off" off "$(hv setup 2)"
+check_eq "zoraxy: reach, cert and auth are off" "off off off" "$(hv reach 2) $(hv cert 2) $(hv auth 2)"
+printf 'traefik-public' > "$HS_SETTINGS_DIR/reverseProxy"
+printf 'https=0\nhttp=0\ntunnel=8081\nacme=off\n' > "$HS_ETC_DIR/gateway-public"
+spec 'route@app@/@10.0.0.5:80' 'auth@app@10.0.0.9:9000'
+P app.example.org > "$HS_GATEWAY_DIR/routes/pub-app.example.org.yml"
+check_eq "traefik-public: setup ok" ok "$(hv setup 2)"
+check_eq "running ok" ok "$(hv running 2)"
+printf '530' > "$WORK/code.app.example.org"
+check_eq "tunnel 530: reach fails with fix connect" "fail connect 530" "$(hv reach 2) $(hv reach 3) $(hv reach 4)"
+printf '200' > "$WORK/code.app.example.org"
+check_eq "tunnel 200: reach ok" ok "$(hv reach 2)"
+check_eq "200 on an auth host: auth fails" "fail auth" "$(hv auth 2) $(hv auth 3)"
+printf '302' > "$WORK/code.app.example.org"
+check_eq "302 on an auth host: auth ok" ok "$(hv auth 2)"
+check_eq "no acme: cert off" off "$(hv cert 2)"
+printf '#!/bin/sh\necho "x"\n' > /dev/null
+printf 'inactive' > "$HS_GATEWAY_UNIT_STATE"
+check_eq "a stopped service fails running" fail "$(hv running 2)"
+printf 'active' > "$HS_GATEWAY_UNIT_STATE"
+printf 'LISTEN 0 4096 0.0.0.0:80 0.0.0.0:* users:(("nginx",pid=9,fd=6))\n' > "$HS_GATEWAY_LISTENERS"
+check_out "a foreign port holder is named" "held by nginx" echo "$(hv running 5)"
+printf 'LISTEN 0 4096 *:80 *:* users:(("traefik",pid=1,fd=7))\n' > "$HS_GATEWAY_LISTENERS"
+printf 'https=443\nhttp=0\ntunnel=0\nacme=staging\n' > "$HS_ETC_DIR/gateway-public"
+spec 'route@app@/@10.0.0.5:80'
+$R public app.example.org "$SP" --mode direct > "$HS_GATEWAY_DIR/routes/pub-app.example.org.yml"
+printf '#!/bin/sh\ncase "$1" in\n  s_client) echo "issuer=O=(STAGING) Let'"'"'s Encrypt"; echo "notAfter=Jan  1 00:00:00 2099 GMT" ;;\n  x509) cat ;;\nesac\n' > "$FAKEBIN/openssl"
+check_eq "staging certificate: cert warns with fix certs" "warn certs staging" "$(PATH="$FAKEBIN:$PATH" hv cert 2) $(PATH="$FAKEBIN:$PATH" hv cert 3) $(PATH="$FAKEBIN:$PATH" hv cert 4)"
+printf '#!/bin/sh\ncase "$1" in\n  s_client) echo "issuer=O=Let'"'"'s Encrypt"; echo "notAfter=Jan  1 00:00:00 2099 GMT" ;;\n  x509) cat ;;\nesac\n' > "$FAKEBIN/openssl"
+check_eq "a good certificate: cert ok, detail is the date" "ok 2099-01-01" "$(PATH="$FAKEBIN:$PATH" hv cert 2) $(PATH="$FAKEBIN:$PATH" hv cert 4)"
+printf '#!/bin/sh\nexit 1\n' > "$FAKEBIN/openssl"
+printf 'time=1 level=error msg="Unable to obtain ACME certificate for domains app.example.org: rate limited"\n' > "$HS_GATEWAY_JOURNAL"
+check_eq "no certificate: cert fails" "fail certs none" "$(PATH="$FAKEBIN:$PATH" hv cert 2) $(PATH="$FAKEBIN:$PATH" hv cert 3) $(PATH="$FAKEBIN:$PATH" hv cert 4)"
+check_out "and gives the ACME error as the reason" "Unable to obtain ACME" echo "$(PATH="$FAKEBIN:$PATH" hv cert 5)"
+printf '#!/bin/sh\nexit 0\n' > "$HS_GATEWAY_RESOLVE"
+check_eq "a direct host that does not resolve: dns fails with fix domain" "fail domain" "$(PATH="$FAKEBIN:$PATH" hv dns 2) $(PATH="$FAKEBIN:$PATH" hv dns 3)"
+check_eq "every line has five non-empty fields" "" "$(PATH="$FAKEBIN:$PATH" H | awk -F'\t' 'NF != 5 || $1 == "" || $2 == "" || $3 == "" || $4 == "" || $5 == ""')"
+check_out "hs gateway health draws a table" "Check +State +Reason" $G health
+unset HS_GATEWAY_CURL HS_GATEWAY_JOURNAL
+rm -f "$HS_GATEWAY_DIR/routes/pub-"*.yml "$HS_ETC_DIR/gateway-public" "$HS_SETTINGS_DIR/reverseProxy"
 finish

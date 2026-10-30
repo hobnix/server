@@ -18,6 +18,7 @@ users groups	60
 unifi clients	30
 unifi networks	120
 ports list	120
+gateway health	300
 hardware	15
 ups status	30
 services routes	30

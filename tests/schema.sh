@@ -61,7 +61,8 @@ check_eq "pages lists every key once" "$SCHEMA_KEYS" "$($GEN pages | cut -f1 | s
 # schema-gen.py runs from a copy so that a changed schema or manifest can be tried (ROOT is the folder above scripts/)
 trial() {   # trial <python edit of the copy's files, as sed on config/schema.toml | manifest> -> exit code of `check`
   local d; d=$(mktemp -d)
-  mkdir -p "$d/scripts" "$d/config" "$d/web/src/settings"
+  mkdir -p "$d/scripts/lib" "$d/config" "$d/web/src/settings"
+  cp "$SCRIPTS/lib/registry.tsv" "$d/scripts/lib/"
   cp "$SCRIPTS/schema-gen.py" "$SCRIPTS/web-serve.py" "$d/scripts/"
   cp "$SCRIPTS/../config/schema.toml" "$d/config/"
   cp -r "$SCRIPTS/../capabilities" "$d/capabilities"
@@ -78,10 +79,16 @@ bad_settings_key() { printf '
 [settings]
 flavour = "x"
 ' >> "$1/capabilities/metrics/capability.toml"; }
+bad_status() { printf '
+[settings]
+status = "gateway nothing"
+' >> "$1/capabilities/metrics/capability.toml"; }
 trial sec_no_page; rc=$?; check_eq "a section without page (and options without one) dies" 2 "$rc"
 trial adv_settable; rc=$?; check_eq "advanced on a settable option dies" 2 "$rc"
 trial bad_cap; rc=$?; check_eq "an unknown cap:<name> dies" 2 "$rc"
 trial bad_settings_key; rc=$?; check_eq "an unknown [settings] key dies" 2 "$rc"
+trial bad_status; rc=$?; check_eq "a [settings] status naming no sys row dies" 2 "$rc"
+check_eq "the gateway page declares its status read" "gateway health" "$(python3 -c "import json;print(json.load(open('$SCRIPTS/../web/src/settings/layout.gen.json'))['caps']['gateway']['status'])")"
 check_eq "advanced is only on options that are not settable" "" "$($GEN pages | awk -F"$T" '$2 == "advanced" {print $1}' | grep -Fxf <($GEN list | awk -F"$T" '$3 == "yes" {print $1}') | tr '
 ' ' ')"
 
