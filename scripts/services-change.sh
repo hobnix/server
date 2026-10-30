@@ -57,7 +57,7 @@ while [ $# -gt 0 ]; do
       esac
       case "$1" in --local) set_local=$2 ;; --public) set_public=$2 ;; --public-name) set_pname=$2 ;; esac
       setargs+=("$1" "$2"); shift 2 ;;
-    --port|--container|--host|--title|--names|--exposure|--public-path|--want|--group|--icon|--description|--clear)
+    --port|--container|--host|--title|--names|--exposure|--public-path|--blocked-path|--auth|--auth-skip|--request-header|--response-header|--want|--group|--icon|--description|--clear)
       case "$action" in add|edit) ;; *) refuse "unknown option $1" ;; esac
       [ "$1" != --clear ] || [ "$action" = edit ] || refuse "unknown option $1"
       [ $# -ge 2 ] || refuse "$1 needs a value"
@@ -228,8 +228,8 @@ case "$action" in
         remove)  printf 'step\tremove the route %s%s\nwarn\t%s%s is removed from the proxy.\n' "$host" "$path" "$host" "$path" ;;
       esac
     done <<<"$todo"
-    left=$(awk -F'\t' '$1 == "blocked" || $1 == "violation" || $1 == "conflict" || $1 == "invalid" || $1 == "unresolved"' <<<"$rows" | grep -c . || true)
-    if [ "$left" -gt 0 ]; then printf 'note\t%s more row(s) are left alone (blocked, violations, conflicts): see the list.\n' "$left"; fi
+    left=$(awk -F'\t' '$1 == "blocked" || $1 == "violation" || $1 == "conflict" || $1 == "invalid" || $1 == "unresolved" || $1 == "manual"' <<<"$rows" | grep -c . || true)
+    if [ "$left" -gt 0 ]; then printf 'note\t%s more row(s) are left alone (blocked, violations, conflicts, headers or logins to set by hand): see the list.\n' "$left"; fi
     printf 'command\ths services apply --yes%s\n' "${pargs[*]:+ ${pargs[*]}}"
     if [ -n "$red" ]; then printf 'confirm_name\tapply\n'; fi
     printf 'long\tyes\n'

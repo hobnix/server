@@ -4,7 +4,7 @@
 # shellcheck source=tests/lib.sh
 . "$(dirname "$0")/lib.sh"
 export HS_LANG=en HS_PLAIN=1 HS_CALLER=test
-export MSYS2_ARG_CONV_EXCL='/api;path=;domain=;vdir='   # Git Bash on Windows would turn arguments like /api/... into a Windows path (no effect elsewhere)
+export MSYS2_ARG_CONV_EXCL='/api;path=;domain=;vdir=;/x;/y;/z;/hook;/adm;/if'   # Git Bash on Windows would turn arguments like /api/... into a Windows path (no effect elsewhere)
 export HS_STATE_DIR=$WORK/state HS_SETTINGS_DIR=$WORK/state/settings HS_SERVICES_DIR=$WORK/services.d HS_ETC_DIR=$WORK/etc
 export HS_PYTHON=python3
 BIN=$WORK/bin; mkdir -p "$BIN" "$HS_SETTINGS_DIR" "$HS_ETC_DIR"
@@ -57,7 +57,7 @@ echo "-- the zoraxy variant reads the rule files"
 printf 'zoraxy' > "$HS_SETTINGS_DIR/reverseProxy"; printf 'example.org' > "$HS_SETTINGS_DIR/proxyDomains"
 check "reverse-proxy is on once the setting names a variant" bash -c '. "$1/lib/capability.sh"; capability_on reverse-proxy' _ "$SCRIPTS"
 Z="bash $SCRIPTS/providers/reverse-proxy/zoraxy.sh"
-check_eq "info: public, domains, read-only" "name${T}zoraxy|public${T}yes|domains${T}example.org|mode${T}read-only" "$($Z info | grep -v "^note\|^container" | tr '\n' '|' | sed 's/|$//')"
+check_eq "info: public, domains, read-only" "name${T}zoraxy|public${T}yes|domains${T}example.org|mode${T}read-only|features${T}paths" "$($Z info | grep -v "^note\|^container" | tr '\n' '|' | sed 's/|$//')"
 check_eq "info: the container" "container${T}zoraxy" "$($Z info | grep '^container')"
 check_eq "info: the container follows HS_ZORAXY" "container${T}proxy2" "$(HS_ZORAXY=proxy2 $Z info | grep '^container')"
 routes=$($Z list)
@@ -276,18 +276,181 @@ imp=$($S import --dry-run 2>&1)
 check_eq "the default site is no service" "0" "$(grep -c '^ *create.*  \*' <<<"$imp" || true)"
 $S import --yes >/dev/null 2>&1
 list=$($S list --plain)
-check_eq "eight services" "8" "$(printf '%s\n' "$list" | grep -c .)"
+check_eq "seven services (the outpost path is the login of distillery, not a service)" "7" "$(printf '%s\n' "$list" | grep -c .)"
 check_eq "an app in the docker container is not an admin page" "public-ok" "$(awk -F"$T" '$3 == "docker:8055" { print $4 }' <<<"$list")"
 check_eq "the Matrix paths are a service of their own" "1" "$(grep -l '"/_matrix"' "$HS_SERVICES_DIR"/*.toml | wc -l | tr -d ' ')"
 check "and the status page paths are another one" bash -c 'grep -l "\"/status\"" '"$HS_SERVICES_DIR"'/*.toml | xargs grep -L "_matrix" | grep -q toml'
 check "JMAP next to the webmail is its own service" grep -q 'container = "stalwart"' "$HS_SERVICES_DIR/stalwart.toml"
-check_eq "a blocked path is not a published path" "0" "$(grep -rc 'if/admin' "$HS_SERVICES_DIR" | awk -F: '{ s += $2 } END { print s + 0 }')"
+check "a dead-end path under a real root is blocked_paths of that service" grep -q 'blocked_paths = \["/if/admin/"\]' "$HS_SERVICES_DIR/authentik.toml"
+check "and not one of its public paths" bash -c '! grep -q "public_paths" "$1"' _ "$HS_SERVICES_DIR/authentik.toml"
+check "the outpost path is forward auth of the root's service" grep -q 'auth = "authentik"' "$HS_SERVICES_DIR/distillery.toml"
+check "and has no service of its own" bash -c '! grep -rq "outpost.goauthentik.io" "$1"' _ "$HS_SERVICES_DIR"
 plan=$($S plan --plain)
 check_eq "no violation and no conflict after the import" "0" "$(grep -cE '^(violation|conflict)' <<<"$plan")"
-check_eq "only the default site and the blocked path are unmanaged" "2" "$(grep -c '^unmanaged' <<<"$plan")"
+check_eq "only the default site is unmanaged" "1" "$(grep -c '^unmanaged' <<<"$plan")"
+check_eq "the blocked path is an ok row to the dead end" "1" "$(grep -c "^ok${T}auth.example.org${T}/if/admin/${T}127.0.0.1:1${T}authentik" <<<"$plan")"
+check_eq "forward auth on a Zoraxy that cannot do it is a manual row" "1" "$(grep -c "^manual${T}distillery.example.org${T}/${T}-${T}distillery${T}forward auth to 10.10.95.23:80/outpost.goauthentik.io/auth/traefik" <<<"$plan")"
 check_eq "the default site is called by its name" "1" "$(grep -c "^unmanaged${T}\*${T}/${T}127.0.0.1:5487.*default site" <<<"$plan")"
 check_eq "a dead-end root wanted by two services is one row" "1" "$(grep -c "^ok${T}example.org${T}/${T}127.0.0.1:1" <<<"$plan")"
 check_eq "a real root beats the dead end of the paths-only service" "1" "$(grep -c "^ok${T}webmail.example.org${T}/${T}10.10.95.48:80" <<<"$plan")"
+
+echo "-- paths, auth and headers of a service: descriptor, plan, show, edit"
+PY="python3 $SCRIPTS/services.py"
+D=$WORK/pa.d; rm -rf "$D"; mkdir -p "$D"
+W() { printf '%s\n' "$2" > "$D/$1.toml"; }
+printf 'name\tfake\npublic\tyes\ndomains\texample.org\nmode\tapi\n' > "$WORK/pa-info"
+printf 'name\tfake\npublic\tyes\ndomains\texample.org\nmode\tapi\nfeatures\tpaths,headers,auth\n' > "$WORK/pa-info-full"
+: > "$WORK/pa-routes"
+printf 'docker\t10.10.95.20\nauthentik\t10.10.95.23\nsynapse\t10.10.95.46\n' > "$WORK/pa-addrs"
+pplan() { $PY plan --dir "$D" --info "$WORK/$1" --routes "$WORK/pa-routes" --addrs "$WORK/pa-addrs"; }
+bad() { local f=$1; shift; W t "$@"; { $PY check --dir "$D" | grep -c "$f"; } || true; }   # bad <text> <descriptor>: how many problems say <text>
+BASE='name = "t"
+container = "docker"
+port = 8080
+exposure = "private-ok"'
+W t "$BASE
+blocked_paths = [\"/if/admin/\"]
+auth = \"authentik\"
+auth_skip = [\"/api\"]
+request_headers = [\"X-Forwarded-Proto: https\"]
+response_headers = [\"A-B: c d\"]"
+check_eq "a descriptor with every new key passes" "0" "$($PY check --dir "$D" | wc -l | tr -d ' ')"
+check_eq "a bad blocked path is refused" "1" "$(bad 'blocked path' "$BASE
+blocked_paths = [\"if/admin\"]")"
+check_eq "a path in public_paths and blocked_paths is refused" "1" "$(bad 'is in both' "$BASE
+public_paths = [\"/x\"]
+blocked_paths = [\"/x\"]")"
+check_eq "auth_skip without auth is refused" "1" "$(bad 'auth_skip needs auth' "$BASE
+auth_skip = [\"/api\"]")"
+check_eq "an unknown auth is refused" "1" "$(bad 'auth must be' "$BASE
+auth = \"keycloak\"")"
+check_eq "a header with a line break is refused" "1" "$(bad 'bad value' "$BASE
+request_headers = [\"X-A: b\\r\\nSet-Cookie: x\"]")"
+check_eq "a header named Host is refused" "1" "$(bad 'may not set Host' "$BASE
+request_headers = [\"Host: evil\"]")"
+check_eq "a header without a colon is refused" "1" "$(bad 'is not Name' "$BASE
+response_headers = [\"nonsense\"]")"
+check_eq "nine headers are refused" "1" "$(bad 'at most 8' "$BASE
+request_headers = [\"A: 1\", \"B: 1\", \"C: 1\", \"D: 1\", \"E: 1\", \"F: 1\", \"G: 1\", \"H: 1\", \"I: 1\"]")"
+check_eq "admin must be a bool" "1" "$(bad 'admin must be' "$BASE
+admin = \"yes\"")"
+check_eq "admin + public-ok without public_paths is refused (blocked_paths do not help)" "1" "$(bad 'admin page' 'name = "t"
+container = "synapse"
+port = 8008
+exposure = "public-ok"
+admin = true
+blocked_paths = ["/x"]')"
+check_eq "admin + public-ok with public_paths is fine" "0" "$(bad 'admin page' 'name = "t"
+container = "synapse"
+port = 8008
+exposure = "public-ok"
+admin = true
+public_paths = ["/_matrix"]')"
+rm -f "$D/t.toml"
+
+echo "-- plan: blocked paths, strong against real, nested, manual, auth"
+W web 'name = "web"
+container = "docker"
+port = 8080
+exposure = "public-ok"
+fqdn = ["a.example.org"]
+blocked_paths = ["/if/admin/"]
+request_headers = ["X-Forwarded-Proto: https"]
+[want]
+reverse-proxy = true'
+pl=$(pplan pa-info)
+check_eq "a blocked path is a row to the dead end" "1" "$(grep -c "^confirm${T}a.example.org${T}/if/admin/${T}127.0.0.1:1${T}web" <<<"$pl")"
+check_eq "a header the provider cannot make is a manual row" "1" "$(grep -c "^manual${T}a.example.org${T}/${T}-${T}web${T}request header X-Forwarded-Proto: https (Fake: set it by hand on this rule)" <<<"$pl")"
+pl=$(pplan pa-info-full)
+check_eq "a provider with the headers feature gets no manual row" "0" "$(grep -c '^manual' <<<"$pl")"
+W other 'name = "other"
+container = "synapse"
+port = 8008
+exposure = "public-ok"
+fqdn = ["a.example.org"]
+public_paths = ["/if/admin/"]
+[want]
+reverse-proxy = true'
+pl=$(pplan pa-info)
+check_eq "a blocked path against a real target of another service is a conflict" "1" "$(grep -c "^conflict" <<<"$pl")"
+check_eq "and the block stays" "1" "$(grep -c "^confirm${T}a.example.org${T}/if/admin/${T}127.0.0.1:1" <<<"$pl")"
+W other 'name = "other"
+container = "synapse"
+port = 8008
+exposure = "public-ok"
+fqdn = ["a.example.org"]
+public_paths = ["/if/admin/webhooks"]
+[want]
+reverse-proxy = true'
+pl=$(pplan pa-info)
+check_eq "nested paths of two services are no conflict" "0" "$(grep -c '^conflict' <<<"$pl")"
+check_eq "the inner row says the longer path wins" "1" "$(grep -c "/if/admin/webhooks.*inside /if/admin/ of web: the longer path wins" <<<"$pl")"
+rm -f "$D/other.toml"
+W web 'name = "web"
+container = "docker"
+port = 8080
+exposure = "public-ok"
+fqdn = ["a.example.org"]
+auth = "authentik"
+auth_skip = ["/api"]
+[want]
+reverse-proxy = true'
+pl=$(pplan pa-info)
+check_eq "auth without the authentik service is blocked" "1" "$(grep -c "^blocked.*web.*auth needs the authentik service" <<<"$pl")"
+check_eq "and the service gets no route" "0" "$(grep -c '^confirm' <<<"$pl")"
+W authentik 'name = "authentik"
+container = "authentik"
+port = 9000
+exposure = "never-public"'
+pl=$(pplan pa-info)
+check_eq "auth with authentik: a manual row where the provider lacks auth" "1" "$(grep -c "^manual.*forward auth to 10.10.95.23:9000/outpost.goauthentik.io/auth/traefik, skip /api" <<<"$pl")"
+pl=$(pplan pa-info-full)
+check_eq "a provider with auth gets the outpost route to authentik" "1" "$(grep -c "^confirm${T}a.example.org${T}/outpost.goauthentik.io${T}10.10.95.23:9000${T}web" <<<"$pl")"
+
+echo "-- show, add and edit take the new options"
+$PY edit web --dir "$D" --blocked-path /x --blocked-path /y --response-header 'A-B: c | d' --request-header 'X-One: 1' >/dev/null
+sh_=$($PY show web --dir "$D")
+check_eq "show: blocked paths" "blocked_paths${T}/x,/y" "$(grep '^blocked_paths' <<<"$sh_")"
+check_eq "show: auth and skips" "auth${T}authentik|auth_skip${T}/api" "$(grep -E '^auth(_skip)?'"$T" <<<"$sh_" | tr '\n' '|' | sed 's/|$//')"
+check_eq "show: headers joined by |" "response_headers${T}A-B: c | d" "$(grep '^response_headers' <<<"$sh_")"
+check_eq "show: an empty list is -" "request_headers${T}-" "$($PY show authentik --dir "$D" | grep '^request_headers')"
+$PY edit web --dir "$D" --auth none >/dev/null
+check "edit --auth none drops auth and auth_skip" bash -c '! grep -q "^auth" "$1"' _ "$D/web.toml"
+$PY edit web --dir "$D" --auth authentik --auth-skip /api >/dev/null
+$PY edit web --dir "$D" --clear auth --clear blocked-path --clear request-header --clear response-header >/dev/null
+check "edit --clear: auth takes auth_skip with it, and the headers and blocked paths go" bash -c '! grep -qE "^(auth|blocked_paths|request_headers|response_headers)" "$1"' _ "$D/web.toml"
+check_eq "edit refuses an auth that is unknown" "1" "$($PY edit web --dir "$D" --auth keycloak >/dev/null 2>&1; echo $?)"
+$PY add added --dir "$D" --container docker --port 81 --blocked-path /z --auth authentik --auth-skip /api --request-header 'X-A: b' >/dev/null
+check "add takes them too" bash -c 'grep -q "^blocked_paths = \[\"/z\"\]" "$1" && grep -q "^auth = \"authentik\"" "$1" && grep -q "^request_headers" "$1"' _ "$D/added.toml"
+
+echo "-- declare: the recipe's facts are replaced, its offers are set once"
+$PY declare dec --dir "$D" --container docker --port 80 --public-path /hook --blocked-path /adm --auth authentik --auth-skip /hook2 --request-header 'X-A: 1' --admin --exposure never-public >/dev/null
+check "a new service holds what the recipe says" bash -c 'grep -q "public_paths = \[\"/hook\"\]" "$1" && grep -q "blocked_paths = \[\"/adm\"\]" "$1" && grep -q "^admin = true" "$1"' _ "$D/dec.toml"
+sed -i 's|^public_paths.*|public_paths = ["/mine"]|' "$D/dec.toml"
+$PY declare dec --dir "$D" --container docker --port 80 --public-path /hook --blocked-path /adm2 --request-header 'X-B: 2' >/dev/null
+check "public_paths are an offer: a person's value stays" grep -q 'public_paths = \["/mine"\]' "$D/dec.toml"
+check "blocked paths are a fact: replaced" grep -q 'blocked_paths = \["/adm2"\]' "$D/dec.toml"
+check "headers are a fact: replaced" bash -c 'grep -q "X-B: 2" "$1" && ! grep -q "X-A" "$1"' _ "$D/dec.toml"
+check "a fact the recipe stopped saying is dropped (admin, auth_skip)" bash -c '! grep -qE "^(admin|auth_skip)" "$1"' _ "$D/dec.toml"
+$PY declare dec2 --dir "$D" --container docker --port 80 --exposure never-public --public-path /hook --admin --public-name hook.example.org >/dev/null
+check "never-public + public paths + public name: public-ok and admin" bash -c 'grep -q "exposure = \"public-ok\"" "$1" && grep -q "^admin = true" "$1"' _ "$D/dec2.toml"
+$PY declare dec3 --dir "$D" --container docker --port 80 --exposure never-public --public-name x.example.org >/dev/null
+check "never-public without public paths stays never-public" grep -q 'exposure = "never-public"' "$D/dec3.toml"
+$PY declare off --dir "$D" --container docker --port 80 --auth authentik --public-path /hook >/dev/null
+$PY edit off --dir "$D" --auth none --clear public-path >/dev/null
+$PY declare off --dir "$D" --container docker --port 80 --auth authentik --public-path /hook >/dev/null
+$PY declare offs --dir "$D" --container docker --port 80 --auth authentik --auth-skip /api >/dev/null
+$PY edit offs --dir "$D" --auth none >/dev/null
+check_eq "declare after edit --auth none: no auth_skip without auth, the port is refreshed" "ok" "$($PY declare offs --dir "$D" --container docker --port 81 --auth authentik --auth-skip /api >/dev/null 2>&1 && ! grep -q '^auth' "$D/offs.toml" && grep -q '^port = 81' "$D/offs.toml" && echo ok)"
+check "edit --auth none stays off after the recipe runs again" bash -c '! grep -q "^auth = " "$1"' _ "$D/off.toml"
+check "--clear public-path stays cleared too" bash -c '! grep -q "^public_paths" "$1"' _ "$D/off.toml"
+check "and the descriptor remembers it" grep -q 'cleared = \["auth", "public_paths"\]' "$D/off.toml"
+$PY edit off --dir "$D" --auth authentik >/dev/null
+check "an explicit --auth authentik switches it on again" grep -q '^auth = "authentik"' "$D/off.toml"
+$PY declare keep --dir "$D" --container docker --port 80 --exposure never-public --public-path /hook >/dev/null
+sed -i 's/^exposure = .*/exposure = "never-public"/' "$D/keep.toml"
+$PY declare keep --dir "$D" --container docker --port 80 --public-path /hook --public-name k.example.org >/dev/null
+check "a never-public a person set stays never-public on a rerun (no --admin from the recipe)" grep -q 'exposure = "never-public"' "$D/keep.toml"
 
 echo "-- the local slot (gateway proxy, --proxy local): independent of the public one"
 SAVE_SVC=$HS_SERVICES_DIR

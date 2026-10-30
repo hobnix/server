@@ -5,6 +5,7 @@
 # shellcheck source=tests/lib.sh
 . "$(dirname "$0")/lib.sh"
 export HS_LANG=en HS_PLAIN=1 HS_CALLER=test HS_PYTHON=python3
+export MSYS2_ARG_CONV_EXCL='/hook;/adm;/api;/other;/x'   # Git Bash on Windows would turn arguments like /hook into a Windows path (no effect elsewhere)
 export HS_STATE_DIR=$WORK/state HS_SETTINGS_DIR=$WORK/state/settings HS_SERVICES_DIR=$WORK/services.d HS_ETC_DIR=$WORK/etc
 mkdir -p "$WORK/bin" "$HS_SETTINGS_DIR" "$HS_ETC_DIR" "$HS_STATE_DIR"
 printf '#!/usr/bin/env bash\nexit 1\n' > "$WORK/bin/incus"; chmod +x "$WORK/bin/incus"   # incus info <ct>: no such instance
@@ -114,6 +115,37 @@ check "the service may be public (a route still needs hs services apply)" grep -
 check "it wants the reverse proxy without being asked" grep -q 'reverse-proxy = true' "$HS_SERVICES_DIR/pub.toml"
 SERVICE_PUBLIC_NAME=files.example.com DEMO_CT=adm run adm Adm mdi-test never-public >/dev/null
 check "never-public stays never-public" grep -q 'exposure = "never-public"' "$HS_SERVICES_DIR/adm.toml"
+
+echo "-- service_path / service_auth / service_header: said before declare_service, passed on, forgotten after it"
+sed 's|^declare_service .*$|eval "$BODY"|' "$WORK/stub.sh" > "$WORK/stub2.sh"
+run2() { BODY=$1 bash "$WORK/stub2.sh" 2>&1; }   # run2 '<recipe lines>'
+printf 'zoraxy' > "$HS_SETTINGS_DIR/reverseProxy"; printf 'example.org' > "$HS_SETTINGS_DIR/proxyDomains"
+DEMO_CT=h1 run2 'service_path public /hook; service_path blocked /adm; service_path open /api; service_auth authentik
+service_header request X-A 1; service_header response Access-Control-Expose-Headers User-Agent
+declare_service one One mdi-test; declare_service two Two mdi-test' >/dev/null
+check "the helpers' values reach the descriptor" bash -c 'grep -q "public_paths = \[\"/hook\"\]" "$1" && grep -q "blocked_paths = \[\"/adm\"\]" "$1" && grep -q "auth_skip = \[\"/api\"\]" "$1" && grep -q "^auth = \"authentik\"" "$1"' _ "$HS_SERVICES_DIR/one.toml"
+check "headers: a value with spaces stays whole" bash -c 'grep -q "request_headers = \[\"X-A: 1\"\]" "$1" && grep -q "response_headers = \[\"Access-Control-Expose-Headers: User-Agent\"\]" "$1"' _ "$HS_SERVICES_DIR/one.toml"
+check "the second service of the recipe does not inherit them" bash -c '! grep -qE "^(public_paths|blocked_paths|auth|auth_skip|request_headers|response_headers)" "$1"' _ "$HS_SERVICES_DIR/two.toml"
+DEMO_CT=h1 run2 'service_path public /other; service_path blocked /adm2; declare_service one One mdi-test' >/dev/null
+check "running again: the blocked paths are the recipe's fact (replaced)" grep -q 'blocked_paths = \["/adm2"\]' "$HS_SERVICES_DIR/one.toml"
+check "the public paths are an offer (set once, a person's stays)" grep -q 'public_paths = \["/hook"\]' "$HS_SERVICES_DIR/one.toml"
+check "headers the recipe stopped saying are dropped" bash -c '! grep -q "request_headers" "$1"' _ "$HS_SERVICES_DIR/one.toml"
+check_out "a kind that is none of public|blocked|open is refused" "is not public, blocked or open" run2 'service_path secret /x'
+check_out "a path must start with /" "is not a path" run2 'service_path public x'
+check_out "a path may not hold .." "is not a path" run2 'service_path public /a/../b'
+check_out "an unknown login is refused" "is not a known login" run2 'service_auth keycloak'
+check_out "a header kind is request or response" "is not request or response" run2 'service_header both A b'
+check_out "a header name is checked" "is not a header name" run2 'service_header request "bad name" b'
+check_out "Host may not be set" "may not be set" run2 'service_header request Host evil'
+check_out "a header value must be printable ASCII" "must be printable ASCII" run2 'service_header request X-A ""'
+RECIPE_PUBLIC_NP=yes RECIPE_PUBLIC_NAME_NP=np.example.org DEMO_CT=np run2 'service_path public /hook; declare_service np Np mdi-test never-public' >/dev/null
+check "never-public with a public path asks, and yes puts only the paths public (public-ok + admin)" bash -c 'grep -q "exposure = \"public-ok\"" "$1" && grep -q "^admin = true" "$1" && grep -q "fqdn = \[\"np.example.org\"\]" "$1" && grep -q "public_paths = \[\"/hook\"\]" "$1"' _ "$HS_SERVICES_DIR/np.toml"
+check "and the answer is remembered" grep -q '^PUBLIC_NP=yes' "$HS_STATE_DIR/recipe-np.conf"
+DEMO_CT=np2 run2 'service_path public /hook; declare_service np2 Np2 mdi-test never-public' >/dev/null
+check "the default is no: never-public stays" grep -q 'exposure = "never-public"' "$HS_SERVICES_DIR/np2.toml"
+check "the question was asked and remembered as no" grep -q '^PUBLIC_NP2=no' "$HS_STATE_DIR/recipe-np2.conf"
+check "never-public keeps the admin mark" grep -q '^admin = true' "$HS_SERVICES_DIR/np2.toml"
+rm -f "$HS_SETTINGS_DIR/proxyDomains"
 
 echo "-- the gateway proxy is off: nothing local"
 printf 'cloud

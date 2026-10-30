@@ -9,9 +9,9 @@
 #   hs services list [--plain]          the services (plain: name, title, target, exposure, names, wants; hs sys services list)
 #   hs services check                   problems in the files, exit 1 when there are some
 #   hs services plan [--plain]          the proxy's routes against the services: ok, add, change, confirm, blocked, violation,
-#                                       unresolved, unmanaged (plain: act, host, path, target, service, note; hs sys services plan)
+#                                       unresolved, unmanaged, manual (a header or login the proxy cannot make: set by hand) (plain: act, host, path, target, service, note; hs sys services plan)
 #   hs services add <name> --port N (--container C | --host H) [--title T] [--names a,b] [--fqdn x.y] [--exposure E]
-#                    [--public-path /p] [--want reverse-proxy,dns] [--icon I] [--health /]
+#                    [--public-path /p] [--blocked-path /p] [--auth authentik|none] [--auth-skip /p] [--request-header "N: v"] [--response-header "N: v"] [--want reverse-proxy,dns] [--icon I] [--health /]
 #   hs services set <name> [--local yes|no] [--public yes|no] [--public-name FQDN]   change an existing service (routes: apply)
 #   hs services remove <name>        the description only; routes the proxy has stay (plan shows them as unmanaged)
 #   hs services import [--dry-run] [--yes]   one service per route the proxy has, public ones marked public-ok (admin pages never-public)
@@ -200,7 +200,7 @@ case "$cmd" in
       todo=$({ awk -F'\t' '$1 == "add" || $1 == "confirm" || ($1 == "change" && $6 !~ /adopt it first/)' "$work/plan.tsv" | sort -t"$tabc" -k2,2 -k3,3
                awk -F'\t' '$1 == "remove"' "$work/plan.tsv" | sort -t"$tabc" -k2,2 -k3,3r; })
     fi
-    rest=$(awk -F'\t' '$1 == "blocked" || $1 == "violation" || $1 == "unresolved" || $1 == "conflict" || $1 == "invalid" || ($1 == "change" && $6 ~ /adopt it first/)' "$work/plan.tsv")
+    rest=$(awk -F'\t' '$1 == "blocked" || $1 == "violation" || $1 == "unresolved" || $1 == "conflict" || $1 == "manual" || $1 == "invalid" || ($1 == "change" && $6 ~ /adopt it first/)' "$work/plan.tsv")
     if [ "$proxy" = local ]; then step "$(t 'Making the local names of the services')"; else step "$(t 'Making the routes of the services')"; fi
     if [ -z "$todo" ]; then
       note "$(t 'Nothing to do.')"

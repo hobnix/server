@@ -20,6 +20,12 @@
   let names = $state('');
   let exposure = $state('private-ok');
   let paths = $state('');
+  let blocked = $state('');
+  let auth = $state(false);     // forward auth (authentik) in front of the service
+  let wasAuth = false;
+  let skip = $state('');        // paths that stay open without login
+  let reqHeaders = $state('');  // one header per line, "Name: value"
+  let resHeaders = $state('');
   let dashboard = $state(true);
   let proxied = $state(true);   // want reverse-proxy of the file, kept as it is
 
@@ -35,6 +41,11 @@
     if (where === 'container') ct = v.machine; else host = v.machine;
     port = v.port; title = v.title; names = v.names === v.name ? '' : v.names;
     exposure = v.exposure || 'private-ok'; paths = v.public_paths.split(',').join(' ');
+    blocked = v.blocked_paths.split(',').join(' '); skip = v.auth_skip.split(',').join(' ');
+    auth = wasAuth = v.auth === 'authentik';
+    reqHeaders = v.request_headers.split(' | ').join('
+'); resHeaders = v.response_headers.split(' | ').join('
+');
     const want = v.want.split(',');
     dashboard = want.includes('dashboard'); proxied = want.includes('reverse-proxy');
   });
@@ -58,6 +69,21 @@
       a.push('--public-path', p);
     }
     if (!ps.length && edit) a.push('--clear', 'public-path');
+    const list = (text, opt, clear, re, sep) => {
+      const items = text.split(sep).map((x) => x.trim()).filter(Boolean);
+      for (const x of items) { if (!re.test(x)) return false; a.push(opt, x); }
+      if (!items.length && clear) a.push('--clear', clear);
+      return true;
+    };
+    const pathRe = /^\/[A-Za-z0-9._/-]{0,100}$/, headRe = /^[A-Za-z0-9-]{1,64}: [ -~]{1,200}$/;
+    if (!list(blocked, '--blocked-path', edit && 'blocked-path', pathRe, /[\s,]+/)) return null;
+    if (auth) a.push('--auth', 'authentik');
+    else if (edit && wasAuth) a.push('--auth', 'none');
+    if (!list(skip, '--auth-skip', null, pathRe, /[\s,]+/)) return null;
+    if (!list(reqHeaders, '--request-header', edit && 'request-header', headRe, '
+')) return null;
+    if (!list(resHeaders, '--response-header', edit && 'response-header', headRe, '
+')) return null;
     if (edit) a.push('--want', [proxied && 'reverse-proxy', dashboard && 'dashboard'].filter(Boolean).join(',') || 'none');
     else a.push('--want', dashboard ? 'reverse-proxy,dashboard' : 'reverse-proxy');
     return a;
@@ -114,6 +140,25 @@
     <div class="field">
       <label for="sv-paths">Public paths (optional)</label>
       <input id="sv-paths" class="input" bind:value={paths} placeholder="/hook /api/public" autocomplete="off" />
+    </div>
+    <div class="field">
+      <label for="sv-blocked">Blocked paths (optional)</label>
+      <input id="sv-blocked" class="input" bind:value={blocked} placeholder="/admin /metrics" autocomplete="off" />
+    </div>
+    <label class="check"><input type="checkbox" bind:checked={auth} /> Login first (forward auth with authentik)</label>
+    {#if auth}
+      <div class="field">
+        <label for="sv-skip">Paths without login (optional)</label>
+        <input id="sv-skip" class="input" bind:value={skip} placeholder="/hook /api/public" autocomplete="off" />
+      </div>
+    {/if}
+    <div class="field">
+      <label for="sv-reqh">Request headers (optional, one per line)</label>
+      <textarea id="sv-reqh" class="input" rows="2" bind:value={reqHeaders} placeholder="X-Forwarded-Prefix: /wiki"></textarea>
+    </div>
+    <div class="field">
+      <label for="sv-resh">Response headers (optional, one per line)</label>
+      <textarea id="sv-resh" class="input" rows="2" bind:value={resHeaders} placeholder="X-Frame-Options: SAMEORIGIN"></textarea>
     </div>
     <label class="check"><input type="checkbox" bind:checked={dashboard} /> Show a tile on the dashboard</label>
   {/snippet}

@@ -6,7 +6,7 @@
 . "$(dirname "$0")/lib.sh"
 have curl || { echo "curl is needed"; exit 77; }
 export HS_LANG=en HS_PLAIN=1 HS_CALLER=test HS_PYTHON=python3
-export MSYS2_ARG_CONV_EXCL='/api;path=;domain=;vdir='   # Git Bash on Windows would turn arguments like /api/... into a Windows path (no effect elsewhere)
+export MSYS2_ARG_CONV_EXCL='/api;path=;domain=;vdir=;/if'   # Git Bash on Windows would turn arguments like /api/... into a Windows path (no effect elsewhere)
 export HS_STATE_DIR=$WORK/state HS_SETTINGS_DIR=$WORK/state/settings HS_SERVICES_DIR=$WORK/services.d HS_ETC_DIR=$WORK/etc
 BIN=$WORK/bin RULES=$WORK/rules
 mkdir -p "$BIN" "$HS_SETTINGS_DIR" "$HS_ETC_DIR" "$RULES"
@@ -105,6 +105,19 @@ check_eq "the path leads to the service, carrying the path" "1" "$(grep -c "^hoo
 check_eq "plan: both rows are ok" "2" "$($S plan --plain | grep -c "^ok${T}hook.example.org")"
 check_eq "ensure of a route that is there is a no-op (exit 0)" "0" "$($Z ensure newapp.example.org / 10.10.95.50:9001 >/dev/null 2>&1; echo $?)"
 check_eq "a path whose root is missing is refused (exit 5)" "5" "$($Z ensure nohost.example.org /x 10.0.0.1:80 >/dev/null 2>&1; echo $?)"
+
+echo "-- a blocked path is a vdir to the dead end (no provider code), and goes with its service"
+$S add blk --container docker --port 8081 --names blk --exposure public-ok --blocked-path /if/admin/ --want reverse-proxy >/dev/null 2>&1
+check_eq "info: Zoraxy renders paths only" "paths" "$($Z info | awk -F"$T" '$1 == "features" { print $2 }')"
+check_eq "plan: the root and the blocked path are two rows to add" "2" "$($S plan --plain | grep -c "^confirm${T}blk.example.org")"
+$S apply --confirm blk.example.org >/dev/null 2>&1
+r=$(routes | grep '^blk')
+check_eq "the root leads to the service" "1" "$(grep -c "^blk.example.org${T}/${T}10.10.95.20:8081$" <<<"$r")"
+check_eq "the blocked path is a vdir to 127.0.0.1:1" "1" "$(grep -c "^blk.example.org${T}/if/admin/${T}127.0.0.1:1" <<<"$r")"
+check_eq "plan: both rows are ok" "2" "$($S plan --plain | grep -c "^ok${T}blk.example.org")"
+$S remove blk >/dev/null 2>&1
+$S apply --confirm blk.example.org >/dev/null 2>&1
+check_eq "removed with its service" "0" "$(routes | grep -c '^blk')"
 
 echo "-- what apply leaves alone"
 $S add media --container jellyfin --port 8097 --exposure public-ok --want reverse-proxy >/dev/null 2>&1

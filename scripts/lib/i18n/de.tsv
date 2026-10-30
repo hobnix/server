@@ -1455,6 +1455,14 @@ Dashboard: %s	Startseite: %s
 The dashboard could not be refreshed: %s	Die Startseite ließ sich nicht auffrischen: %s
 Show '%s' on the dashboard?	'%s' auf der Startseite zeigen?
 Make '%s' public?	'%s' öffentlich machen?
+Make the public paths of '%s' reachable from the internet (%s)?	Die öffentlichen Pfade von '%s' aus dem Internet erreichbar machen (%s)?
+service_auth: '%s' is not a known login (authentik)	service_auth: '%s' ist keine bekannte Anmeldung (authentik)
+service_header: %s may not be set	service_header: %s darf nicht gesetzt werden
+service_header: '%s' is not a header name	service_header: '%s' ist kein Header-Name
+service_header: '%s' is not request or response	service_header: '%s' ist weder request noch response
+service_header: the value of %s must be printable ASCII, 1 to 200 characters	service_header: der Wert von %s muss druckbares ASCII sein, 1 bis 200 Zeichen
+service_path: '%s' is not a path (it starts with / and has no ..)	service_path: '%s' ist kein Pfad (er beginnt mit / und enthält kein ..)
+service_path: '%s' is not public, blocked or open	service_path: '%s' ist weder public, blocked noch open
 Public name?	Öffentlicher Name?
 '%s' stays private: there is no public name (hs config set proxyDomains, or RECIPE_PUBLIC_NAME_%s)	'%s' bleibt privat: es gibt keinen öffentlichen Namen (hs config set proxyDomains, oder RECIPE_PUBLIC_NAME_%s)
 Service '%s' is %s (hs services list)	Dienst '%s' ist %s (hs services list)
