@@ -83,6 +83,13 @@ def die(msg):
     sys.exit(2)
 
 
+def has_capability(name):
+    """capabilities/<name>/ exists. The scripts also run from a copy in /nix/store that has no capabilities/ folder (see find_schema):
+    there nothing can be checked, and the checkout has been checked when the schema was generated."""
+    cdir = os.path.join(ROOT, 'capabilities')
+    return not os.path.isdir(cdir) or os.path.isdir(os.path.join(cdir, name))
+
+
 def check_page(it, what):
     """`page` of a section or an option: a page id, or cap:<name> where capabilities/<name>/ exists (the settable rule is checked later)"""
     if 'page' not in it:
@@ -90,7 +97,7 @@ def check_page(it, what):
     pg = it['page']
     if pg in PAGES:
         return
-    if isinstance(pg, str) and pg.startswith('cap:') and re.fullmatch(r'[a-z][a-z0-9-]*', pg[4:]) and os.path.isdir(os.path.join(ROOT, 'capabilities', pg[4:])):
+    if isinstance(pg, str) and pg.startswith('cap:') and re.fullmatch(r'[a-z][a-z0-9-]*', pg[4:]) and has_capability(pg[4:]):
         return
     die('%s: page must be one of %s or cap:<name> of a folder in capabilities/ (got %r)' % (what, ' '.join(PAGES), pg))
 
@@ -259,7 +266,7 @@ def page_rows(items):
                 die('%s: no settings page (set `page` on the option or on its section, or give it a `capability`)' % it['key'])
             if pg == 'advanced' and it['settable']:
                 die('%s: page advanced is only for options that are not settable' % it['key'])
-            if pg.startswith('cap:') and not os.path.isdir(os.path.join(ROOT, 'capabilities', pg[4:])):
+            if pg.startswith('cap:') and not has_capability(pg[4:]):
                 die('%s: page %s names no folder in capabilities/' % (it['key'], pg))
             rows.append((it['key'], pg))
     return rows

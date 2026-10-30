@@ -96,4 +96,10 @@ EOF
 )
 check_eq "web-serve.py CONFIG_KEYS" "$settable" "$web"
 
+echo "-- the scripts run from a copy without capabilities/ (as /nix/store on a server): hs sys config list still works"
+copy=$(mktemp -d)
+cp -r "$SCRIPTS" "$copy/scripts"
+check "schema-gen loads the schema when there is no capabilities/ next to scripts/" env HS_SCHEMA="$ROOT/config/schema.toml" python3 "$copy/scripts/schema-gen.py" list
+rm -rf "$copy"
+
 finish
