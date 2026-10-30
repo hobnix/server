@@ -271,10 +271,21 @@ class Repos:
             fn(p)
         shutil.rmtree(path, onerror=onerr)
 
+    def recorded(self, name):
+        """installed.toml's entry for a package that sits in current/; an entry without repo (written by the old `hs recipe` record, which
+        dropped repo, commit and tag) gets the repository that lists the package when exactly one does"""
+        have = dict(self.pkg.installed().get(name, {}))
+        if "repo" not in have and os.path.isdir(os.path.join(self.state, "current", name)):
+            repos = [c[0] for c in self.catalog().get(name, [])]
+            if len(repos) == 1:
+                have["repo"] = repos[0]
+        if "repo" not in have:
+            raise Refused("%s was not installed from a repository" % name)
+        return have
+
     def remove_package(self, name):
         data = self.pkg.installed()
-        if "repo" not in data.get(name, {}):
-            raise Refused("%s was not installed from a repository" % name)
+        self.recorded(name)
         self.rm(os.path.join(self.state, "current", name))
         del data[name]
         self.pkg.save_installed(data)
@@ -282,16 +293,16 @@ class Repos:
     # ── update ──
     def diff(self, name):
         """-> (old commit, new tag, new commit, diff text) or None when the installed package is current"""
-        have = self.pkg.installed().get(name, {})
-        if "repo" not in have:
-            raise Refused("%s was not installed from a repository" % name)
+        have = self.recorded(name)
         r_name, entry, tag, commit = self.choose_installed(name, have["repo"])
         self.check_entry(name, entry, r_name)
         if commit == have.get("commit") or not self.pkg.semver_key(entry["version"]) > self.pkg.semver_key(have["version"]):
             return None
         d = self.clone_dir(r_name)
-        text = git("diff", "--stat", "-p", have["commit"], commit, "--", entry["path"], cwd=d).decode("utf-8", "replace")
-        return have["commit"], tag, commit, text
+        # no recorded commit (see recorded): show the whole new package against the empty tree
+        old = have.get("commit") or "4b825dc642cb6eb9a060e54bf8d69288fbee4904"
+        text = git("diff", "--stat", "-p", old, commit, "--", entry["path"], cwd=d).decode("utf-8", "replace")
+        return old, tag, commit, text
 
     def choose_installed(self, name, repo):
         cat = [c for c in self.catalog().get(name, []) if c[0] == repo]
@@ -395,7 +406,7 @@ def run(pkg, cmd, rest):
                     raise Refused("an update changes code that runs as root: read the diff above and run again with --yes")
                 if input("Install %s? [y/N] " % tag).strip().lower() not in ("y", "yes"):
                     raise Refused("not installed")
-            v, r_name, tag = R.install(rest[0], pkg.installed()[rest[0]]["repo"])
+            v, r_name, tag = R.install(rest[0], R.recorded(rest[0])["repo"])
             print("%s %s from %s (%s)" % (rest[0], v, r_name, tag))
         elif cmd == "remove":
             R.remove_package(rest[0])

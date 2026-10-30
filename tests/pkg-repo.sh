@@ -72,6 +72,10 @@ check_out "the new release is found" "^test${tab}v1[.]3[.]0" $PKG fetch test
 check_out "updates names it" "^demo${tab}1[.]0[.]0${tab}1[.]3[.]0" $PKG updates
 check_out "update without --yes and without a terminal shows the diff and refuses" "demo 1.3.0" bash -c "$PKG update demo </dev/null 2>&1; true"
 check_out "the installed version is still 1.0.0" '"1[.]0[.]0"' cat "$HS_STATE_DIR/packages/installed.toml"
+# installed.toml as the old `hs recipe` record left it: the version only
+cp "$HS_STATE_DIR/packages/installed.toml" "$WORK/installed.kept"
+sed -i '/^repo = /d;/^commit = /d;/^tag = /d' "$HS_STATE_DIR/packages/installed.toml"
+check_out "an entry that lost its repo still shows the update diff" "demo 1.3.0" bash -c "$PKG update demo </dev/null 2>&1; true"
 check_out "update --yes installs" "demo 1[.]3[.]0 from test" $PKG update demo --yes
 check "the one before is kept" bash -c "ls '$HS_STATE_DIR/packages/previous' | grep -q '^demo@'"
 check_out "a current package says so" "current" $PKG update demo --yes

@@ -1,0 +1,4 @@
+date  = "2026-10-30"
+type  = "fix"
+title = "Updating or removing an app no longer fails with: not installed from a repository"
+body  = """Apps whose record lost its repository (an older bug in hs recipe) can be updated and removed again: the repository is found from the package lists. An update of such an app shows the whole new package as the diff."""
