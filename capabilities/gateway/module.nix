@@ -14,6 +14,14 @@ let
   tunFrom = m.gatewayTunnelFrom;
   tunV4 = lib.filter (x: !lib.hasInfix ":" x) tunFrom;
   tunV6 = lib.filter (lib.hasInfix ":") tunFrom;
+  # Direct mode (reverseProxy = traefik-public, a router that forwards 443): Traefik gets its own Let's Encrypt certificates by TLS-ALPN-01
+  # (port 443 only; no HTTP-01, no DNS challenge, no wildcard). Off unless gatewayAcmeEmail AND gatewayPublicHttps are set: a tunnel-only
+  # setup has no resolver and keeps hs-deadend. Which hosts ask for a certificate is decided at run time (hs services apply, d- routers).
+  email = m.gatewayAcmeEmail;
+  acmeOn = pubS != 0 && email != "";
+  acmeFile = if m.gatewayAcmeStaging then "staging.json" else "letsencrypt.json";   # separate stores: staging certificates never reach production
+  acmeDir = "/var/lib/hs-gateway/acme";
+  usr = "traefik";   # the nixpkgs service user (it has no option for it)
   grp = config.services.traefik.group;
   site = lib.toLower (hs.siteName or m.siteName or m.hostName);
   realm = if (m.adDomain or null) != null then lib.toLower m.adDomain.realm else "";
@@ -33,12 +41,19 @@ let
       // lib.optionalAttrs (pubS != 0) { public-https.address = ":${toString pubS}"; }
       // lib.optionalAttrs (pubH != 0 && pubH != 80) { public-http.address = ":${toString pubH}"; }   # 80 is lan-http itself
       // lib.optionalAttrs (tun != 0) { public-tunnel = { address = ":${toString tun}"; forwardedHeaders.trustedIPs = tunFrom; }; };
-    # No api, dashboard, ping, metrics or ACME: the dashboard would be an admin page.
+    # No api, dashboard, ping or metrics (the dashboard would be an admin page); ACME only in direct mode (acmeOn), TLS-ALPN-01 only.
     providers.file = { directory = "/var/lib/hs-gateway/routes"; watch = true; };
+  } // lib.optionalAttrs acmeOn {
+    certificatesResolvers.hs-le.acme = {
+      inherit email;
+      storage = "${acmeDir}/${acmeFile}";
+      keyType = "EC256";
+      tlsChallenge = { };
+    } // lib.optionalAttrs m.gatewayAcmeStaging { caServer = "https://acme-staging-v02.api.letsencrypt.org/directory"; };
   };
 
   base = pkgs.writeText "00-hs-base.yml" (builtins.toJSON ({
-    http = lib.recursiveUpdate {
+    http = lib.recursiveUpdate (lib.recursiveUpdate {
       middlewares.hs-lan-only.ipAllowList.sourceRange = lanRanges;
       # for targets with scheme https and a self-signed certificate (LAN only)
       serversTransports.hs-insecure.insecureSkipVerify = true;
@@ -46,7 +61,10 @@ let
       # hs-null is the service behind it that is never reached
       middlewares.hs-deny.ipAllowList.sourceRange = [ "127.0.0.2/32" ];
       services.hs-null.loadBalancer.servers = [ { url = "http://127.0.0.1:1"; } ];
-    } (lib.optionalAttrs m.webUi {
+    } (lib.optionalAttrs acmeOn {
+      # http -> https for the direct hosts (d-<hid>-http routers); no port: the outside port is 443
+      middlewares.hs-to-https.redirectScheme = { scheme = "https"; permanent = true; };
+    })) (lib.optionalAttrs m.webUi {
       services.hs-webui.loadBalancer.servers = [ { url = "http://127.0.0.1:${toString m.webPort}"; } ];
       routers = {
         hs-fallback = { entryPoints = [ "lan-http" ]; rule = "HostRegexp(`.+`) && ${lanClient}"; priority = 1; middlewares = [ "hs-lan-only" ]; service = "hs-webui"; };
@@ -54,8 +72,9 @@ let
         hs-webui = { entryPoints = [ "lan-http" ]; rule = "Host(`${site}.${realm}`) && ${lanClient}"; middlewares = [ "hs-lan-only" ]; service = "hs-webui"; };
       };
     });
-  } // lib.optionalAttrs (pubS != 0) {
-    # unknown SNI from the internet: closed
+  } // lib.optionalAttrs (pubS != 0 && !acmeOn) {
+    # unknown SNI from the internet: closed (not with ACME: this tcp router would swallow every TLS connection before the HTTP routers
+    # of the direct hosts; an unknown name then gets Traefik's default certificate and a 404)
     tcp.routers.hs-deadend = { entryPoints = [ "public-https" ]; rule = "HostSNI(`*`)"; priority = 1; tls.passthrough = true; service = "hs-deadend"; };
     tcp.services.hs-deadend.loadBalancer.servers = [ { address = "127.0.0.1:1"; } ];
   }));
@@ -71,6 +90,10 @@ in
     "d /var/lib/hs-gateway/routes 2750 root ${grp} -"
     "d /var/lib/hs-gateway/tmp 2750 root ${grp} -"
     "L+ /var/lib/hs-gateway/routes/00-hs-base.yml - - - - ${base}"
+  ] ++ lib.optionals acmeOn [
+    # the certificate store: private keys, so traefik only; z fixes the owner after a restore from the backup
+    "d ${acmeDir} 0700 ${usr} ${grp} -"
+    "z ${acmeDir}/*.json 0600 ${usr} ${grp} -"
   ];
 
   # Port 80 only for the home networks and the private interfaces, unless gatewayPublicHttp = 80 (then it is in allowedTCPPorts below and
@@ -90,7 +113,8 @@ in
 
   environment.etc."hs/gateway-lan-ranges".text = lib.concatStringsSep " " lanRanges + "
 ";   # for hs and the tests: who may use the local routes
-  environment.etc."hs/gateway-public".text = "https=${toString pubS}\nhttp=${toString pubH}\ntunnel=${toString tun}\n";
+  environment.etc."hs/gateway-public".text = "https=${toString pubS}\nhttp=${toString pubH}\ntunnel=${toString tun}\n"
+    + "acme=${if !acmeOn then "off" else if m.gatewayAcmeStaging then "staging" else "production"}\n";
 
   assertions = [
     { assertion = lib.versionAtLeast config.services.traefik.package.version "3.0";
@@ -115,6 +139,10 @@ in
     { assertion = lib.all (a: builtins.match "[0-9]{1,3}(\\.[0-9]{1,3}){3}(/32)?" a != null
                               || builtins.match "[0-9a-fA-F:]+(/128)?" a != null) tunFrom;
       message = "machine.toml: gatewayTunnelFrom holds an address that is not valid or not a single host (only /32 or /128): use the address of the cloudflared container, e.g. \"10.10.95.19/32\".";  }
+    { assertion = email == "" || pubS != 0;
+      message = "machine.toml: gatewayAcmeEmail needs gatewayPublicHttps = 443 (the router forwards 443 to this server)."; }
+    { assertion = email == "" || builtins.match "[^@ ]+@[^@ ]+\\.[^@ ]+" email != null;
+      message = "machine.toml: gatewayAcmeEmail is not an e-mail address."; }
     { assertion = m.role != "edge";
       message = "machine.toml: the gateway proxy is for a home server (role = \"homeserver\"), not an edge node."; }
     { assertion = !((config.services.nginx.enable or false) || (config.services.caddy.enable or false) || (config.services.httpd.enable or false));
@@ -124,7 +152,8 @@ in
   # Hardening. No IPAddressAllow/Deny: they filter both directions of the unit's sockets and would block the clients.
   systemd.services.traefik.serviceConfig = {
     ProtectSystem = lib.mkForce "strict";   # nixpkgs sets "full"
-    ReadWritePaths = [ config.services.traefik.dataDir ];
+    # the acme folder lies inside ReadOnlyPaths /var/lib/hs-gateway; systemd applies the more specific path last (unverified on hardware)
+    ReadWritePaths = [ config.services.traefik.dataDir ] ++ lib.optional acmeOn acmeDir;
     ReadOnlyPaths = [ "/var/lib/hs-gateway" ];
     ProtectHome = true;
     PrivateTmp = true;

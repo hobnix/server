@@ -269,6 +269,7 @@ sys	sys services tiles	services.sh	tiles	the dashboard tiles as data: group, tit
 sys	sys services stats	services.sh	stats	the live values of the dashboard tiles as data: service, index, label, state, value, unit	-
 sys	sys gateway status	gateway.sh	--status	the gateway proxy as key<TAB>value: service, port80, public ports, domain, wildcard, counts, webui, direct	-
 sys	sys gateway routes	gateway.sh	--routes	the routes as kind, host, path, target, file (- when empty)	-
+sys	sys gateway certs	gateway.sh	--certs	the certificate of each directly served host as host, state (staging|default|none|ok), valid until (- when empty)	-
 sys	sys services local-routes	services.sh	plan --plain --proxy local	the local proxy's routes against the services, as data (same columns as sys services routes)	-
 sys	sys vps plan <action>	vps-change.sh	plan {1} {rest}	what `vps update` or `vps watch` on the proxyserver would do, as data: status and plan lines (never asks; exit 0 ok, 1 refused: vpsHost not set, no key, vault closed)	-	capability:vps
 sys	sys vps start <action>	vps-change.sh	start {1} {rest}	do it as a background job over SSH with the key of hs vps key (hs sys vps start update|watch), answers status started and the unit	-	capability:vps

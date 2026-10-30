@@ -86,6 +86,15 @@ variant all          "$PROM=true|$TS=true|$PRIV=[ \"tailscale0\" ]" "capabilitie
 refused gateway-webport-80 'capabilities = ["gateway"]' 'webUi = true' 'webPort = 80'
 variant gateway-public "services.traefik.enable=true" 'capabilities = ["gateway"]' 'gatewayPublicHttps = 4443' 'gatewayPublicHttp = 8008'
 variant gateway-public-direct "services.traefik.enable=true" 'capabilities = ["gateway"]' 'gatewayPublicHttps = 443' 'gatewayPublicHttp = 80'   # the router forwards 443 and 80 as they are
+# direct mode (own Let's Encrypt certificates): the resolver and hs-deadend are exclusive; tunnel-only and public-only setups have no resolver
+GP='environment.etc."hs/gateway-public".text'
+RW='systemd.services.traefik.serviceConfig.ReadWritePaths'
+variant gateway-direct "$GP="'"https=443\nhttp=80\ntunnel=0\nacme=staging\n"'"|$RW="'[ "/var/lib/traefik" "/var/lib/traefik" "/var/lib/hs-gateway/acme" ]' 'capabilities = ["gateway"]' 'gatewayPublicHttps = 443' 'gatewayPublicHttp = 80' 'gatewayAcmeEmail = "a@example.org"'
+variant gateway-direct-prod "$GP="'"https=443\nhttp=80\ntunnel=0\nacme=production\n"' 'capabilities = ["gateway"]' 'gatewayPublicHttps = 443' 'gatewayPublicHttp = 80' 'gatewayAcmeEmail = "a@example.org"' 'gatewayAcmeStaging = false'
+variant gateway-tunnel-only-acme-off "$GP="'"https=0\nhttp=0\ntunnel=8081\nacme=off\n"'"|$RW="'[ "/var/lib/traefik" "/var/lib/traefik" ]' 'capabilities = ["gateway"]' 'gatewayTunnelPort = 8081' 'gatewayTunnelFrom = [ "10.10.95.19/32" ]'
+variant gateway-public-no-acme "$GP="'"https=443\nhttp=80\ntunnel=0\nacme=off\n"' 'capabilities = ["gateway"]' 'gatewayPublicHttps = 443' 'gatewayPublicHttp = 80'
+refused gateway-acme-no-https 'capabilities = ["gateway"]' 'gatewayAcmeEmail = "a@example.org"'
+refused gateway-acme-bad-email 'capabilities = ["gateway"]' 'gatewayPublicHttps = 443' 'gatewayAcmeEmail = "nope"'
 LR='environment.etc."hs/gateway-lan-ranges".text'
 variant gateway-ranges-local "$LR="'"10.0.0.0/8 172.16.0.0/12 192.168.0.0/16 100.64.0.0/10 127.0.0.1/32 fc00::/7 ::1/128\n"' 'capabilities = ["gateway"]'
 variant gateway-ranges-public "$LR="'"10.0.0.0/8 172.16.0.0/12 192.168.0.0/16 127.0.0.1/32 fc00::/7 ::1/128\n"' 'capabilities = ["gateway"]' 'gatewayPublicHttp = 80'

@@ -208,7 +208,7 @@ host_files() {
     return 0
   fi
   for f in /etc/nixos/machine.toml /etc/nixos/machine.nix /etc/nixos/hardware-configuration.nix "$STATE" \
-           /var/lib/samba/private /etc/ssh/ssh_host_*; do
+           /var/lib/samba/private /etc/ssh/ssh_host_* /var/lib/hs-gateway/acme; do   # acme: the gateway's certificate keys (secret, never printed)
     [ -e "$f" ] && echo "$f"
   done
   # The links in $STATE only point into the vault: with the vault open its secrets go along (the restic

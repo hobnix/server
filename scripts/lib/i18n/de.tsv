@@ -1836,3 +1836,8 @@ its host spec could not be worked out.	seine Host-Angaben ließen sich nicht erm
 Public tunnel	Öffentlicher Tunnel
 Public routes	Öffentliche Routen
 Public proxy	Öffentlicher Proxy
+%s: public entrypoints now %s	%s: öffentliche Eingänge jetzt %s
+%s: public entrypoints would change to %s	%s: öffentliche Eingänge würden sich ändern auf %s
+%s: no certificate yet: is port 443 forwarded and does the DNS name point here (no Cloudflare proxy)?	%s: noch kein Zertifikat: ist Port 443 weitergeleitet und zeigt der DNS-Name hierher (kein Cloudflare-Proxy)?
+Certificate	Zertifikat
+Own certificates	Eigene Zertifikate

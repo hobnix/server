@@ -213,6 +213,13 @@ case "$cmd" in
     fi
     rest=$(awk -F'\t' '$1 == "blocked" || $1 == "violation" || $1 == "unresolved" || $1 == "conflict" || $1 == "manual" || $1 == "invalid" || ($1 == "change" && $6 ~ /adopt it first/)' "$work/plan.tsv")
     if [ "$proxy" = local ]; then step "$(t 'Making the local names of the services')"; else step "$(t 'Making the routes of the services')"; fi
+    if $hostmode; then   # files rendered for other entrypoints than the settings say now (tunnel/direct): moved over first
+      rf=--check; $dry || rf=
+      while IFS="$tabc" read -r h m; do
+        [ -n "$h" ] && [ "$m" != - ] || continue
+        if $dry; then note "$(t '%s: public entrypoints would change to %s' "$h" "$m")"; else note "$(t '%s: public entrypoints now %s' "$h" "$m")"; fi
+      done < <(provider refresh $rf 2>/dev/null || true)
+    fi
     if [ -z "$todo" ]; then
       note "$(t 'Nothing to do.')"
     else

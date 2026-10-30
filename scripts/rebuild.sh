@@ -15,6 +15,7 @@ set -euo pipefail
 . "$(dirname "$0")/lib/stamp.sh"
 . "$(dirname "$0")/lib/machine.sh"
 . "$(dirname "$0")/lib/capability.sh"
+. "$(dirname "$0")/lib/setting.sh"
 
 refuse_if_locked   # before any build (also with --verbose / nixos-rebuild options)
 
@@ -210,6 +211,14 @@ if rollback_enabled; then
   [ -z "$new_failed" ] || warn "$(t 'Units that failed since the switch: %s' "$new_failed")"
 fi
 write_stamp
+
+# public route files follow the entrypoints (tunnel/direct) the new configuration has (best effort, only moves existing routes)
+if capability_on gateway && [ "$(setting_get reverseProxy 2>/dev/null || true)" = traefik-public ]; then
+  while IFS=$'	' read -r h m; do
+    [ -n "$h" ] && [ "$m" != - ] || continue
+    note "$(t '%s: public entrypoints now %s' "$h" "$m")"
+  done < <(bash "$(dirname "$0")/providers/reverse-proxy/traefik-public.sh" refresh 2>/dev/null || true)
+fi
 
 if [ "$before" = "$after" ]; then
   ok "Nothing to change: the system already matches the configuration"

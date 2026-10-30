@@ -54,3 +54,6 @@ Risk: if web-serve ever trusts X-Forwarded-For from more than loopback the login
 
 ## Tunnel entrypoint (reverseProxy = traefik-public)
 `gatewayTunnelPort` (default 0 = off) adds the entrypoint `public-tunnel`; its trustedIPs and the firewall rule (`ip saddr { gatewayTunnelFrom } tcp dport <port> accept`, extraInputRules only, never allowedTCPPorts) are limited to `gatewayTunnelFrom`. The base file also holds `hs-deny` (ipAllowList 127.0.0.2/32, always 403) and `hs-null`. Full docs: step D.
+
+## Direct mode with Let's Encrypt (phase 3)
+`gatewayAcmeEmail` (empty = off) turns on the resolver `hs-le`: TLS-ALPN-01 only (needs the router to forward 443 to `gatewayPublicHttps`). `gatewayAcmeStaging` (default true) picks the test CA; staging and production keep separate storage under `/var/lib/hs-gateway/acme`, which is in the backup. `gatewayDirectDomains` (runtime setting, `hs services apply`, no rebuild) lists the domains served directly by `d-` routers; others stay on the tunnel. The catch-all `hs-deadend` is dropped only while ACME is on. Passthrough domains keep their own certificates. `hs sys gateway certs` prints host, state (staging|default|none|ok), until; `hs gateway status` has the rows `acme` (off|staging|production) and `public_proxy`. Not tested on hardware yet.

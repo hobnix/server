@@ -98,5 +98,49 @@ sudo hs services apply
 
 To go back: `hs config set reverseProxy zoraxy` and set the old origin again.
 
+## Public services with their own certificates (no tunnel)
+Optional: Traefik can also take the internet's traffic itself and get its own certificates from Let's Encrypt, so no tunnel is needed. Tunnel-only setups stay as they are: a domain that is not listed below stays on the tunnel. Not tested on hardware yet.
+
+**The router must forward the internet's ports 80 and 443 to this server, and port 443 must be reachable from outside.** Let's Encrypt checks each host on port 443 (TLS-ALPN-01); if it cannot connect, no certificate is issued.
+
+1. Open the public HTTPS port, set the account address and keep staging on (the default). Not tested on hardware yet.
+
+```bash
+sudo hs config set gatewayAcmeEmail admin@example.org
+```
+
+Also set `gatewayPublicHttps = 443` in `machine.toml` (see "Entrypoints" in the gateway notes), keep `gatewayAcmeStaging` at `true`, and rebuild:
+
+```bash
+sudo hs rebuild
+```
+
+2. Name the domains served directly (a comma list; a runtime setting, no rebuild) and apply the routes. Not tested on hardware yet.
+
+```bash
+sudo hs config set gatewayDirectDomains example.org
+sudo hs services apply
+```
+
+3. Test with staging first. Staging certificates are not trusted by browsers; the browser warning is expected. Not tested on hardware yet.
+
+```bash
+hs gateway status
+```
+
+`Own certificates` shows `staging`. The hosts and their state are listed with `hs sys gateway certs` (`staging`, `default`, `none` or `ok`).
+
+4. When every host shows a staging certificate, switch to production and rebuild. Staging and production certificates are stored apart, and `/var/lib/hs-gateway/acme` is part of the backup. Not tested on hardware yet.
+
+```bash
+sudo hs config set gatewayAcmeStaging false
+```
+
+```bash
+sudo hs rebuild
+```
+
+Domains published by the extension `passthrough` keep their own certificates. To go back to the tunnel, empty `gatewayDirectDomains` and run `sudo hs services apply`.
+
 ## Next
 The extension `passthrough` publishes a domain by TLS passthrough through this gateway (see its guide).

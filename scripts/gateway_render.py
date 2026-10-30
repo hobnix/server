@@ -2,9 +2,12 @@
 """Render and read the route files of the gateway proxy (Traefik), standard library only (capabilities/gateway/NOTES.md).
 
   gateway_render.py local <host> <path>=<target>...   print the file local-<host>.yml
-  gateway_render.py public <host> <specfile>          print the file pub-<host>.yml (host spec, TSV: route/auth/skip/reqh/resh lines)
+  gateway_render.py public <host> <specfile> [--mode M]  print the file pub-<host>.yml (host spec, TSV: route/auth/skip/reqh/resh lines);
+                                                      M = comma list of tunnel,direct,http (default tunnel; http needs direct)
   gateway_render.py read <dir> [--prefix local-|pub-] host<TAB>path<TAB>target<TAB>file for every local-*.yml (or pub-*.yml) with a valid header
   gateway_render.py specs <dir>                       host<TAB>spec line for every valid pub-*.yml
+  gateway_render.py modes <dir>                       host<TAB>mode for every valid pub-*.yml (no mode in the header = tunnel)
+  gateway_render.py ptdomains <dir>                   the domain= of every pt-*.yml (passthrough, SNI forwarded without certificates)
   gateway_render.py unmanaged <dir>                   the file names that are neither 00-hs-*, local-*, pt-* nor pub-*
 
 One YAML error in ANY file makes Traefik ignore the whole directory update, so a file is always rendered here (golden tests,
@@ -21,6 +24,8 @@ PATH = re.compile(r'^/[A-Za-z0-9._/-]{0,100}$')
 TARGET = re.compile(r'^(https://)?[0-9a-fA-F.:\[\]]+:[0-9]{1,5}$')
 MAGIC = '# hs-gateway local v1 host='
 PUB_MAGIC = '# hs-gateway public v1 host='
+MODES = ('tunnel', 'direct', 'http')
+PT_DOMAIN = re.compile(r'^# hs-gateway passthrough v1 domain=(\S+)')
 SVC = re.compile(r'^[a-z0-9][a-z0-9-]{0,40}$')
 HNAME = re.compile(r'^[A-Za-z0-9-]{1,64}$')
 HVALUE = re.compile(r'^[\x20-\x7e]{1,200}$')
@@ -33,8 +38,8 @@ FOOT = '# written by hs services apply (gateway proxy); do not edit'
 AUTH_HEADERS = ['X-authentik-username', 'X-authentik-groups', 'X-authentik-entitlements', 'X-authentik-email', 'X-authentik-name',
                 'X-authentik-uid', 'X-authentik-jwt', 'X-authentik-meta-jwks', 'X-authentik-meta-outpost', 'X-authentik-meta-provider',
                 'X-authentik-meta-app', 'X-authentik-meta-version']
-USAGE = ('usage: gateway_render.py local <host> <path>=<target>... | public <host> <specfile> | read <dir> [--prefix local-|pub-]'
-         ' | specs <dir> | unmanaged <dir>')
+USAGE = ('usage: gateway_render.py local <host> <path>=<target>... | public <host> <specfile> [--mode M] | read <dir> [--prefix local-|pub-]'
+         ' | specs <dir> | modes <dir> | ptdomains <dir> | unmanaged <dir>')
 
 
 def die(msg):
@@ -101,8 +106,19 @@ def yq(v):
     return "'" + v.replace("'", "''") + "'"
 
 
-def render_public(host, lines):
+def parse_mode(mode):
+    """The mode string as a list (tunnel, direct, http in that order); exit 1 when it is empty, unknown, doubled or http without direct."""
+    parts = mode.split(',')
+    if any(x not in MODES for x in parts) or len(set(parts)) != len(parts) or parts != [x for x in MODES if x in parts]:
+        die('bad mode: %s' % mode)
+    if 'http' in parts and 'direct' not in parts:
+        die('mode http needs direct')
+    return parts
+
+
+def render_public(host, lines, mode='tunnel'):
     """pub-<host>.yml from the spec lines (lists of fields); exit 1 on anything that does not match."""
+    modes = parse_mode(mode)
     if not HOST.match(host):
         die('bad host: %s' % host)
     if not lines:
@@ -132,13 +148,13 @@ def render_public(host, lines):
         return route_id(host, path)[len('l-' + hid + '-'):]
 
     def nm(path):
-        return 'p-%s-%s' % (hid, pid(path))
+        return 'p-%s-%s' % (hid, pid(path))   # service name; the tunnel router of a route has the same name
 
     hdr = {}
     for f in lines:
         if f[0] in ('reqh', 'resh'):
             hdr.setdefault(f[1], {'reqh': [], 'resh': []})[f[0]].append((f[2], f[3]))
-    out = [PUB_MAGIC + host] + ['# spec ' + ' '.join(f) for f in lines] + [FOOT]
+    out = [PUB_MAGIC + host + ('' if modes == ['tunnel'] else ' mode=' + ','.join(modes))] + ['# spec ' + ' '.join(f) for f in lines] + [FOOT]
 
     def mids(svc):
         m = []
@@ -148,20 +164,20 @@ def render_public(host, lines):
             m.append('pa-%s-%s-hdr' % (hid, svc))
         return m
 
-    def router(name, rule, prio, m, svc):
-        r = ['    %s:' % name, '      entryPoints: [public-tunnel]', "      rule: '%s'" % rule, '      priority: %d' % prio]
-        if m:
-            r.append('      middlewares: [%s]' % ', '.join(m))
-        return r + ['      service: %s' % svc]
+    rlist = []   # (suffix, rule, priority, middlewares, service); emitted once per mode below
+
+    def router(suffix, rule, prio, m, svc):
+        rlist.append((suffix, rule, prio, m, svc))
+        return []
 
     routers, services = [], []
     real = []   # (path, svc) of the real routes a skip path can fall under
     for _, svc, path, target in routes:
         if path == OUTPOST:
-            routers += router(nm(path), 'Host(`%s`) && PathPrefix(`%s/`)' % (host, path), 20000, [], nm(path))
+            routers += router(pid(path), 'Host(`%s`) && PathPrefix(`%s/`)' % (host, path), 20000, [], nm(path))
         elif target == DEAD:
             if path != '/':
-                routers += router(nm(path), 'Host(`%s`) && PathPrefix(`%s`)' % (host, path), 30000 + len(path), ['hs-deny'], 'hs-null')
+                routers += router(pid(path), 'Host(`%s`) && PathPrefix(`%s`)' % (host, path), 30000 + len(path), ['hs-deny'], 'hs-null')
             continue
         else:
             rule = 'Host(`%s`)' % host
@@ -170,7 +186,7 @@ def render_public(host, lines):
             m = mids(svc)
             if any(f[0] == 'skip' and f[1] == svc and path.startswith(f[2]) for f in lines):
                 m = [x for x in m if not x.endswith('-auth')]   # the route lies inside a skip path: no login
-            routers += router(nm(path), rule, 100 if path == '/' else 1000 + len(path), m, nm(path))
+            router(pid(path), rule, 100 if path == '/' else 1000 + len(path), m, nm(path))
             real.append((path, svc))
         services += ['    %s:' % nm(path), '      loadBalancer:', '        passHostHeader: true', '        servers:',
                      "          - url: 'http://%s'" % target]
@@ -179,8 +195,24 @@ def render_public(host, lines):
         if not cover or (path, svc) in real:   # a real route at the skip path itself has no login already
             continue
         m = ['pa-%s-%s-hdr' % (hid, svc)] if svc in hdr else []
-        routers += router('p-%s-s-%s' % (hid, pid(path)), 'Host(`%s`) && PathPrefix(`%s`)' % (host, path), 1000 + len(path), m,
+        routers += router('s-' + pid(path), 'Host(`%s`) && PathPrefix(`%s`)' % (host, path), 1000 + len(path), m,
                           nm(max(cover, key=len)))
+    for kind in ('tunnel', 'direct'):
+        if kind not in modes:
+            continue
+        for suffix, rule, prio, m, svc in rlist:
+            r = ['    %s-%s-%s:' % ('p' if kind == 'tunnel' else 'd', hid, suffix),
+                 '      entryPoints: [%s]' % ('public-tunnel' if kind == 'tunnel' else 'public-https'),
+                 "      rule: '%s'" % rule, '      priority: %d' % prio]
+            if m:
+                r.append('      middlewares: [%s]' % ', '.join(m))
+            r.append('      service: %s' % svc)
+            if kind == 'direct':
+                r += ['      tls:', '        certResolver: hs-le', '        domains:', "          - main: '%s'" % host]
+            routers += r
+    if 'http' in modes:
+        routers += ['    d-%s-http:' % hid, '      entryPoints: [public-http]', "      rule: 'Host(`%s`)'" % host, '      priority: 50000',
+                    '      middlewares: [hs-to-https]', '      service: hs-null']
     mw = []
     for svc in sorted(set(auths) | set(hdr)):
         if svc in auths:
@@ -203,7 +235,7 @@ def render_public(host, lines):
 
 
 def read_pub(path):
-    """(host, [spec line as list of fields]) from the header, or None when it is not valid."""
+    """(host, [spec line as list of fields], mode string) from the header, or None when it is not valid."""
     try:
         with open(path, encoding='utf-8') as f:
             lines = f.read().split('\n')
@@ -211,8 +243,10 @@ def read_pub(path):
         return None
     if not lines or not lines[0].startswith(PUB_MAGIC):
         return None
-    host = lines[0][len(PUB_MAGIC):].strip()
-    if not HOST.match(host):
+    host, _, mode = lines[0][len(PUB_MAGIC):].strip().partition(' mode=')
+    mode = mode or 'tunnel'
+    parts = mode.split(',')
+    if not HOST.match(host) or any(x not in MODES for x in parts) or parts != [x for x in MODES if x in parts]             or len(set(parts)) != len(parts) or ('http' in parts and 'direct' not in parts):
         return None
     specs = []
     for ln in lines[1:]:
@@ -226,7 +260,7 @@ def read_pub(path):
         if not pub_line_ok(fields):
             return None
         specs.append(fields)
-    return (host, specs) if specs else None
+    return (host, specs, mode) if specs else None
 
 
 def read_file(path):
@@ -264,13 +298,13 @@ def main(argv):
                 die('bad route: %s' % a)
             routes.append((p, t))
         sys.stdout.write(render(argv[2], routes))
-    elif cmd == 'public' and len(argv) == 4:
+    elif cmd == 'public' and len(argv) in (4, 6) and (len(argv) == 4 or argv[4] == '--mode'):
         try:
             with open(argv[3], encoding='utf-8') as f:
                 lines = [ln.split('\t') for ln in f.read().split('\n') if ln]
         except OSError:
             die('cannot read %s' % argv[3])
-        sys.stdout.write(render_public(argv[2], lines))
+        sys.stdout.write(render_public(argv[2], lines, argv[5] if len(argv) == 6 else 'tunnel'))
     elif cmd == 'read' and (len(argv) == 3 or (len(argv) == 5 and argv[3] == '--prefix' and argv[4] in ('local-', 'pub-'))):
         d = argv[2]
         prefix = argv[4] if len(argv) == 5 else 'local-'
@@ -294,6 +328,24 @@ def main(argv):
                 got = read_pub(os.path.join(d, name))
                 for f in (got[1] if got else []):
                     sys.stdout.write('%s\t%s\n' % (got[0], '\t'.join(f)))
+    elif cmd == 'modes' and len(argv) == 3:
+        d = argv[2]
+        for name in sorted(os.listdir(d) if os.path.isdir(d) else []):
+            if name.startswith('pub-') and name.endswith('.yml'):
+                got = read_pub(os.path.join(d, name))
+                if got:
+                    sys.stdout.write('%s\t%s\n' % (got[0], got[2]))
+    elif cmd == 'ptdomains' and len(argv) == 3:
+        d = argv[2]
+        for name in sorted(os.listdir(d) if os.path.isdir(d) else []):
+            if name.startswith('pt-') and name.endswith('.yml'):
+                try:
+                    with open(os.path.join(d, name), encoding='utf-8') as f:
+                        m = PT_DOMAIN.match(f.readline())
+                except OSError:
+                    continue
+                if m and HOST.match(m.group(1)):
+                    sys.stdout.write(m.group(1) + '\n')
     elif cmd == 'unmanaged' and len(argv) == 3:
         d = argv[2]
         for name in sorted(os.listdir(d) if os.path.isdir(d) else []):

@@ -51,6 +51,8 @@
   gatewayPublicHttp = 0;
   gatewayTunnelPort = 0;
   gatewayTunnelFrom = [ ];
+  gatewayAcmeEmail = "";
+  gatewayAcmeStaging = true;
   gpu = null;
   nvidiaDriver = "stable";
   pciBind = [ ];

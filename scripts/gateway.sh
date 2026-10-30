@@ -1,12 +1,14 @@
 #!/usr/bin/env bash
 # help: the gateway proxy (Traefik): running, who holds the ports, local domain, wildcard DNS, routes
 # help.de: der Gateway-Proxy (Traefik): läuft er, wer hält die Ports, lokale Domain, Wildcard-DNS, Routen
-# args: status | routes | check | --status | --routes | --check-wildcard
+# args: status | routes | check | --status | --routes | --certs | --check-wildcard
 # Traefik on the host gives every local service a name <label>.<site>.<realm> by Host header (capabilities/gateway/NOTES.md).
 #   hs gateway status      key/value lines for people, warnings for a port held by another process, a stopped service, a wrong wildcard
 #   hs gateway routes      every route: local names, passthrough domains, the web interface
 #   hs gateway check       does *.<site>.<realm> point at this server; else the one DNS record a person adds on the DNS server
 #   --status, --routes     the same as data (hs sys gateway status|routes): key<TAB>value / kind host path target file, `-` for empty
+#   --certs                host<TAB>state<TAB>until for every host served directly: staging | default | none | ok (asked of Traefik with
+#                          openssl s_client on the public https port, never read from the key store); no row without a public https port
 #   --check-wildcard       no output, exit 0 = the wildcard works (the first-run checklist, scripts/setup-list.sh)
 # hs never asks for the DNS administrator's password: the person types it into samba-tool. This script only CHECKS the record.
 # Test knobs: HS_GATEWAY_DIR, HS_GATEWAY_UNIT_STATE, HS_GATEWAY_LISTENERS (a file in `ss -Hltnp` format), HS_GATEWAY_RESOLVE (a command that
@@ -70,6 +72,36 @@ direct_url() { local ip port; ip=$(host_ip); port=$(machine_get webPort 2>/dev/n
 
 pt_files() { ls "$routes_dir" 2>/dev/null | grep '^pt-.*\.yml$' || true; }
 
+# /etc/hs/gateway-public acme=: off | staging | production
+acme_mode() { local v; v=$(sed -n 's/^acme=//p' "$etc/gateway-public" 2>/dev/null | head -n 1 || true); case "$v" in staging|production) printf '%s' "$v" ;; *) printf 'off' ;; esac; }
+# off | tunnel | direct | tunnel,direct (direct = Traefik's own certificates; both need reverseProxy = traefik-public)
+public_proxy() {
+  local m=""
+  [ "$(setting_get reverseProxy 2>/dev/null || true)" = traefik-public ] || { printf 'off'; return; }
+  [ "$1" = 0 ] || m=tunnel
+  [ "$(acme_mode)" = off ] || m="${m:+$m,}direct"
+  printf '%s' "${m:-off}"
+}
+# host<TAB>mode of every public route file whose mode includes direct
+direct_hosts() { render modes "$routes_dir" 2>/dev/null | awk -F'\t' '$2 ~ /(^|,)direct(,|$)/ { print $1 }' || true; }
+# host<TAB>state<TAB>until: what Traefik SERVES for the host (openssl s_client), never the key store: staging | default | none | ok
+cert_rows() {
+  local h out issuer until st port
+  port=$(public_port https)
+  [ "$port" != 0 ] || return 0
+  while IFS= read -r h; do
+    [ -n "$h" ] || continue
+    out=$(timeout 5 openssl s_client -connect "127.0.0.1:$port" -servername "$h" </dev/null 2>/dev/null | openssl x509 -noout -issuer -enddate 2>/dev/null || true)
+    issuer=$(sed -n 's/^issuer=//p' <<<"$out")
+    until=$(sed -n 's/^notAfter=//p' <<<"$out")
+    if [ -z "$issuer" ]; then st=none
+    elif grep -q 'TRAEFIK DEFAULT CERT' <<<"$issuer"; then st=default
+    elif grep -q 'STAGING' <<<"$issuer"; then st=staging
+    else st=ok; fi
+    printf '%s\t%s\t%s\n' "$h" "$st" "${until:--}"
+  done < <(direct_hosts)
+}
+
 status_rows() {   # key<TAB>value
   local ps pp pt s
   ps=$(public_port https); pp=$(public_port http); pt=$(public_port tunnel)
@@ -86,7 +118,8 @@ status_rows() {   # key<TAB>value
   printf 'local_routes\t%s\n' "$(count_lines "$(render read "$routes_dir")")"
   printf 'passthrough\t%s\n' "$(count_lines "$(pt_files)")"
   printf 'public_routes\t%s\n' "$(count_lines "$(render read "$routes_dir" --prefix pub-)")"
-  if [ "$pt" != 0 ] && [ "$(setting_get reverseProxy 2>/dev/null || true)" = traefik-public ]; then printf 'public_proxy\ttunnel\n'; else printf 'public_proxy\toff\n'; fi
+  printf 'public_proxy\t%s\n' "$(public_proxy "$pt")"
+  printf 'acme\t%s\n' "$(acme_mode)"
   printf 'unmanaged\t%s\n' "$(count_lines "$(render unmanaged "$routes_dir")")"
   printf 'webui\t%s\n' "$(webui_url)"
   printf 'direct\t%s\n' "$(direct_url)"
@@ -118,6 +151,7 @@ sub=${1:-}
 case "$sub" in
   --status) status_rows ;;
   --routes) route_rows ;;
+  --certs) cert_rows ;;
   --check-wildcard) [ "$(wildcard_state)" = ok ] ;;
   status)
     declare -A v=()
@@ -130,6 +164,7 @@ case "$sub" in
     kv "Public tunnel" "${v[public_tunnel]}$([ "${v[port_public_tunnel]}" = - ] || printf ' (%s)' "${v[port_public_tunnel]}")"
     kv "Public routes" "${v[public_routes]}"
     kv "Public proxy" "${v[public_proxy]}"
+    kv "Own certificates" "${v[acme]}"
     kv "Local domain" "${v[domain]}"
     kv "Wildcard DNS" "${v[wildcard]}"
     kv "Local routes" "${v[local_routes]}"
@@ -144,6 +179,15 @@ case "$sub" in
     done
     if [ "${v[domain]}" = - ]; then warn "$(t 'No local domain: the gateway proxy needs adDomain in machine.toml.')"; bad=true
     elif [ "${v[wildcard]}" != ok ]; then warn "$(t 'The wildcard DNS record is %s.' "${v[wildcard]}")"; next_step "hs gateway check"; bad=true; fi
+    if [ "${v[acme]}" != off ]; then
+      certs=$(cert_rows)
+      if [ -n "$certs" ]; then
+        { thead 'Host' 'Certificate' 'Valid until'; printf '%s\n' "$certs"; } | table
+        while IFS=$'\t' read -r ch cs _; do
+          case "$cs" in default|none) warn "$(t '%s: no certificate yet: is port 443 forwarded and does the DNS name point here (no Cloudflare proxy)?' "$ch")"; bad=true ;; esac
+        done <<<"$certs"
+      fi
+    fi
     $bad || ok "$(t 'The gateway proxy is running and the wildcard record works.')" ;;
   routes)
     { thead 'Kind' 'Host' 'Path' 'Target'; route_rows | cut -f1-4; } | table ;;

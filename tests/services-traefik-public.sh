@@ -101,6 +101,56 @@ printf 'route\tx\t/\t10.0.0.5:80\n' > "$WORK/spec1"
 check "tunnel 0: ensure-host is refused" bash -c "! $P ensure-host x.example.org $WORK/spec1 2>/dev/null"
 check_out "and info says why" "no public entrypoint" $P info
 printf 'https=0\nhttp=0\ntunnel=8081\n' > "$HS_ETC_DIR/gateway-public"
+echo "-- direct mode: acme set and the host under gatewayDirectDomains"
+GP=$HS_ETC_DIR/gateway-public
+check_out "tunnel only: mode-public tunnel" "^mode-public${T}tunnel$" $P info
+check_eq "tunnel only: the file has no d- router and no resolver" "0" "$(grep -c 'd-authentik\|hs-le' "$PUB/pub-authentik.example.org.yml" || true)"
+printf 'https=443\nhttp=80\ntunnel=0\nacme=staging\n' > "$GP"
+printf 'https=443\nhttp=80\ntunnel=0\nacme=staging\n' > "$GP"
+check_eq "acme set, no domains, no tunnel: no mode-public direct" "0" "$($P info | grep -c "^mode-public${T}direct" || true)"
+check_out "and info says why" "no public entrypoint.*gatewayDirectDomains" $P info
+check "no gatewayDirectDomains: no host is direct, ensure-host refused" bash -c "! $P ensure-host x.example.org $WORK/spec1 2>/dev/null"
+check_out "and the refusal names gatewayDirectDomains" "gatewayDirectDomains" bash -c "$P ensure-host x.example.org $WORK/spec1 2>&1; true"
+printf 'example.org' > "$HS_SETTINGS_DIR/gatewayDirectDomains"
+check_out "ensure-host writes" "^written" $P ensure-host x.example.org "$WORK/spec1"
+check_out "d- routers on public-https" "entryPoints: \[public-https\]" cat "$PUB/pub-x.example.org.yml"
+check_eq "and no tunnel router" "0" "$(grep -c 'public-tunnel' "$PUB/pub-x.example.org.yml" || true)"
+check_out "its header says direct" "mode=direct$" head -1 "$PUB/pub-x.example.org.yml"
+check_out "the old tunnel file is reported" "^authentik.example.org${T}direct$" $P refresh --check
+check_out "info counts it" "^note${T}1 route files use old entrypoints" $P info
+check_eq "refresh --check wrote nothing" "0" "$(grep -c 'mode=' "$PUB/pub-authentik.example.org.yml" || true)"
+check_out "refresh rewrites it" "^authentik.example.org${T}direct$" $P refresh
+check_out "now direct" "certResolver: hs-le" cat "$PUB/pub-authentik.example.org.yml"
+check_eq "and refresh is quiet" "" "$($P refresh)"
+check_eq "the plan stays ok (specs unchanged)" "0" "$($S plan --plain | grep -cE '^(add|confirm|change)' || true)"
+printf 'other.org' > "$HS_SETTINGS_DIR/gatewayDirectDomains"; printf 'https=443\nhttp=80\ntunnel=8081\nacme=staging\n' > "$GP"
+$P ensure-host y.example.org "$WORK/spec1" >/dev/null
+check_eq "a host outside the direct domains stays tunnel-only" "0" "$(grep -c 'hs-le\|public-https' "$PUB/pub-y.example.org.yml" || true)"
+printf 'example.org' > "$HS_SETTINGS_DIR/gatewayDirectDomains"
+printf '# hs-gateway passthrough v1 domain=example.org target=1.2.3.4:443\n' > "$PUB/pt-example.org.yml"
+printf 'https=443\nhttp=80\ntunnel=8081\nacme=staging\n' > "$GP"
+check_out "a tunnel host under a passthrough domain is written" "^written" $P ensure-host z.example.org "$WORK/spec1"
+check_eq "without a direct router or resolver" "0" "$(grep -c 'hs-le\|public-https' "$PUB/pub-z.example.org.yml" || true)"
+check_out "refresh puts a direct file under a passthrough domain back on the tunnel" "^authentik.example.org${T}tunnel$" $P refresh
+check_eq "no d- router left there" "0" "$(grep -c 'hs-le\|public-https' "$PUB/pub-authentik.example.org.yml" || true)"
+rm -f "$PUB/pub-z.example.org.yml"
+printf 'https=443\nhttp=80\ntunnel=0\nacme=staging\n' > "$GP"
+check "direct only under a passthrough domain is refused" bash -c "! $P ensure-host z.example.org $WORK/spec1 2>/dev/null"
+check_out "with the reason" "forwarded by passthrough" bash -c "$P ensure-host z.example.org $WORK/spec1 2>&1; true"
+rm -f "$PUB/pt-example.org.yml"
+printf 'https=443\nhttp=80\ntunnel=8081\nacme=staging\n' > "$GP"; $P refresh >/dev/null   # authentik direct again for the next checks
+printf 'https=0\nhttp=0\ntunnel=0\nacme=off\n' > "$GP"
+check "no tunnel, acme off: ensure-host exit 1" bash -c "! $P ensure-host z.example.org $WORK/spec1 2>/dev/null"
+printf 'https=0\nhttp=0\ntunnel=8081\nacme=off\n' > "$GP"
+check_out "direct switched off: refresh --check lists the direct host" "^authentik.example.org${T}tunnel$" $P refresh --check
+$P refresh >/dev/null
+check_eq "refresh put it back on the tunnel" "0" "$(grep -c 'hs-le\|public-https' "$PUB/pub-authentik.example.org.yml" || true)"
+check_eq "and the plan stays ok" "0" "$($S plan --plain | grep -cE '^(add|confirm|change)' || true)"
+printf 'https=0\nhttp=0\ntunnel=0\nacme=off\n' > "$GP"
+check_eq "no entrypoint at all: apply does not say 'now -'" "0" "$($S apply 2>&1 | grep -c 'entrypoints now -' || true)"
+printf 'https=0\nhttp=0\ntunnel=8081\n' > "$GP"
+rm -f "$PUB/pub-x.example.org.yml" "$PUB/pub-y.example.org.yml" "$HS_SETTINGS_DIR/gatewayDirectDomains"
+
 : > "$HS_CAPABILITIES_FILE"
 check_out "gateway off: plan fails with the fix" "traefik-public needs the gateway proxy" $S plan
 check_out "gateway off: plan --plain stays soft (status none)" "^status${T}none" $S plan --plain

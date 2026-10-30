@@ -899,7 +899,7 @@ choices = ["zoraxy", "traefik-public"]
 doc = '''
 # Which reverse proxy publishes the services of this server (hs services plan): the name of a provider in
 # scripts/providers/reverse-proxy/. Setting it switches the capability reverse-proxy on. No rebuild.
-# traefik-public = the gateway proxy also serves the public routes through the tunnel (needs the capability gateway).'''
+# traefik-public = the gateway proxy also serves the public routes, through the tunnel and/or directly (direct mode; needs the capability gateway).'''
 value = '''
 reverseProxy = "zoraxy"'''
 
@@ -1012,6 +1012,55 @@ doc = '''
 # The addresses that may use gatewayTunnelPort: the cloudflared container (fixed address). Needs hs rebuild.'''
 value = '''
 gatewayTunnelFrom = [ "10.10.95.19/32" ]'''
+
+[[item]]
+kind = "option"
+key = "gatewayAcmeEmail"
+type = "string"
+required = false
+settable = true
+secret = false
+capability = "gateway"
+default = '""'
+pattern = '^$|^[^@ ]+@[^@ ]+\.[^@ ]+$'
+hint = "an e-mail address, or empty for off"
+doc = '''
+# Let's Encrypt account address for the gateway's own certificates (direct mode: the router forwards 443 to this server,
+# reverseProxy = traefik-public). Empty = off. Needs gatewayPublicHttps. Needs hs rebuild.'''
+value = '''
+gatewayAcmeEmail = "admin@example.org"'''
+
+[[item]]
+kind = "option"
+key = "gatewayAcmeStaging"
+type = "bool"
+required = false
+settable = true
+secret = false
+capability = "gateway"
+default = 'true'
+doc = '''
+# Use Let's Encrypt's test service first (certificates browsers do not trust, generous limits). Set false once hs gateway status
+# shows a staging certificate for every host. Needs hs rebuild.'''
+value = '''
+gatewayAcmeStaging = false'''
+
+[[item]]
+kind = "option"
+key = "gatewayDirectDomains"
+type = "string"
+required = false
+settable = false
+secret = false
+capability = "gateway"
+store = "settings"
+pattern = '^[a-z0-9.-]+(,[a-z0-9.-]+)*$'
+hint = "domain names separated by commas"
+doc = '''
+# The domains served directly with own certificates (direct mode, needs gatewayAcmeEmail). Empty = none: every domain stays on the
+# tunnel. Domains left out stay on the tunnel. No rebuild: hs services apply.'''
+value = '''
+gatewayDirectDomains = "example.org"'''
 
 [[item]]
 kind = "section"

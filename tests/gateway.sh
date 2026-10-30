@@ -54,7 +54,7 @@ check "a target with a quote" bash -c "! $R local app.example.org \"/=1.2.3.4:80
 echo "-- public: golden files (traefik-public, entrypoint public-tunnel)"
 SP=$WORK/spec
 spec() { local l; : > "$SP"; for l in "$@"; do printf '%s\n' "${l//@/$'\t'}" >> "$SP"; done; }
-P() { $R public "$1" "$SP"; }
+P() { $R public "$1" "$SP" "${@:2}"; }
 spec 'route@app@/@127.0.0.1:1' 'route@app@/hook@10.0.0.5:8080'
 out=$(P app.example.org)
 check_out "paths only: the header has the spec lines" '^# spec route app /hook 10.0.0.5:8080$' echo "$out"
@@ -113,6 +113,34 @@ check "an https target" bash -c "! $R public app.example.org $SP"
 : > "$SP"
 check "an empty spec file" bash -c "! $R public app.example.org $SP"
 
+echo "-- public: direct mode (d- routers on public-https, certResolver hs-le)"
+spec 'route@app@/@127.0.0.1:1' 'route@app@/hook@10.0.0.5:8080' 'route@app@/if/admin/@127.0.0.1:1'
+out=$(P app.example.org --mode direct)
+check_out "the header records the mode" '^# hs-gateway public v1 host=app.example.org mode=direct$' echo "$out"
+check_eq "tunnel mode header has no mode" "# hs-gateway public v1 host=app.example.org" "$(P app.example.org | head -1)"
+check_eq "direct: no tunnel router" "0" "$(grep -c 'public-tunnel' <<<"$out" || true)"
+check_eq "direct: every router is on public-https" "2" "$(grep -c 'entryPoints: \[public-https\]' <<<"$out" || true)"
+check_out "direct: the cert resolver" "certResolver: hs-le" echo "$out"
+check_out "direct: the host is the certificate domain" "main: 'app.example.org'" echo "$out"
+check_out "direct: the deny twin exists" "middlewares: \[hs-deny\]" echo "$out"
+check_eq "direct: a private root has no router" "" "$(grep -E 'd-app-example-org-root' <<<"$out" || true)"
+mixed=$(P app.example.org --mode tunnel,direct,http)
+check_out "mixed: the header" '^# hs-gateway public v1 host=app.example.org mode=tunnel,direct,http$' echo "$mixed"
+check_out "mixed: the redirect router is on public-http only" "entryPoints: \[public-http\]" echo "$mixed"
+check_out "mixed: the redirect uses hs-to-https" "middlewares: \[hs-to-https\]" echo "$mixed"
+check_eq "lan-http is never used" "0" "$(grep -c 'lan-http' <<<"$mixed" || true)"
+ok=1
+for n in $(grep -oE '^    p-app-example-org-[^:]+' <<<"$mixed" | sed 's/^    p-//'); do grep -q "^    d-$n:" <<<"$mixed" || ok=0; done
+check_eq "mixed: every p- router has a d- twin" "1" "$ok"
+check_eq "mixed: services are rendered once" "$(grep -c '^    p-app-example-org-.*:$' <<<"$(P app.example.org)")" "$(( $(grep -c '^    p-app-example-org-.*:$' <<<"$mixed") ))"
+spec 'route@app@/@10.0.0.5:80'
+check "http without direct" bash -c "! $R public app.example.org $SP --mode http"
+check "http alone" bash -c "! $R public app.example.org $SP --mode tunnel,http"
+check "an unknown mode" bash -c "! $R public app.example.org $SP --mode bogus"
+check "an empty mode" bash -c "! $R public app.example.org $SP --mode ''"
+check "a doubled mode" bash -c "! $R public app.example.org $SP --mode direct,direct"
+check "a wrong order" bash -c "! $R public app.example.org $SP --mode direct,tunnel"
+
 echo "-- public: read and specs on a directory with local-, pt- and pub- files"
 PD=$WORK/pubdir; mkdir -p "$PD"
 spec 'route@a@/@10.0.0.5:80' 'route@a@/hook@10.0.0.5:81' 'auth@a@10.0.0.9:9000' 'reqh@a@X-A@two words'
@@ -122,6 +150,19 @@ check_eq "read --prefix pub- lists the route rows" "$(printf 'app.example.org\t/
 check_eq "read without a prefix still lists local- files" "l.example.org	/	1.2.3.4:80	local-l.example.org.yml" "$($R read "$PD")"
 check_eq "specs gives host and the spec line" "$(printf 'app.example.org\troute\ta\t/\t10.0.0.5:80\napp.example.org\troute\ta\t/hook\t10.0.0.5:81\napp.example.org\tauth\ta\t10.0.0.9:9000\napp.example.org\treqh\ta\tX-A\ttwo words')" "$($R specs "$PD")"
 check_eq "unmanaged does not list pub- files" "mine.yml" "$($R unmanaged "$PD")"
+spec 'route@a@/@10.0.0.5:80'
+P d.example.org > "$PD/pub-d.example.org.yml"
+$R public e.example.org "$SP" --mode tunnel,direct > "$PD/pub-e.example.org.yml"
+printf '# hs-gateway public v1 host=f.example.org mode=bogus
+# spec route a / 10.0.0.5:80
+' > "$PD/pub-f.example.org.yml"
+printf '# hs-gateway passthrough v1 domain=pt.example.org target=1.2.3.4:443
+' > "$PD/pt-pt.example.org.yml"
+check_eq "modes: old header = tunnel, a mode is read, an invalid one is skipped" "$(printf 'app.example.org	tunnel
+d.example.org	tunnel
+e.example.org	tunnel,direct')" "$($R modes "$PD")"
+check_eq "ptdomains reads the domain of pt- files" "pt.example.org" "$($R ptdomains "$PD")"
+rm -f "$PD"/pub-[def]* "$PD/pt-pt.example.org.yml"
 
 echo "-- read: the round trip"
 $R local app.home.example.org /=192.168.1.50:8080 /api=https://192.168.1.50:8443 > "$HS_GATEWAY_DIR/routes/local-app.home.example.org.yml"
@@ -138,7 +179,7 @@ printf 'active' > "$HS_GATEWAY_UNIT_STATE"
 printf 'LISTEN 0 4096 *:80 *:* users:(("traefik",pid=1,fd=7))\n' > "$HS_GATEWAY_LISTENERS"
 printf '#!/bin/sh\necho "192.168.1.10 STREAM x"\n' > "$HS_GATEWAY_RESOLVE"; chmod +x "$HS_GATEWAY_RESOLVE"
 val() { $G --status | awk -F'\t' -v k="$1" '$1 == k { print $2 }'; }
-check_eq "keys come in order" "service port80 public_https public_http port_public_https port_public_http public_tunnel port_public_tunnel domain wildcard local_routes passthrough public_routes public_proxy unmanaged webui direct" "$($G --status | cut -f1 | tr '\n' ' ' | sed 's/ $//')"
+check_eq "keys come in order" "service port80 public_https public_http port_public_https port_public_http public_tunnel port_public_tunnel domain wildcard local_routes passthrough public_routes public_proxy acme unmanaged webui direct" "$($G --status | cut -f1 | tr '\n' ' ' | sed 's/ $//')"
 check_eq "service" active "$(val service)"
 check_eq "traefik holds port 80" traefik "$(val port80)"
 check_eq "no public ports by default" "off off - -" "$(val public_https) $(val public_http) $(val port_public_https) $(val port_public_http)"
@@ -162,7 +203,45 @@ check_eq "no tunnel by default" "off - 0 off" "$(val public_tunnel) $(val port_p
 printf 'https=0\nhttp=0\ntunnel=8081\n' > "$HS_ETC_DIR/gateway-public"
 printf 'LISTEN 0 4096 *:8081 *:* users:(("traefik",pid=1,fd=8))\n' > "$HS_GATEWAY_LISTENERS"
 check_eq "tunnel port shown" "8081 traefik" "$(val public_tunnel) $(val port_public_tunnel)"
+check_eq "acme off without the file entry" off "$(val acme)"
 rm -f "$HS_ETC_DIR/gateway-public"
+
+echo "-- own certificates (direct mode)"
+export HS_SETTINGS_DIR=$WORK/settings; mkdir -p "$HS_SETTINGS_DIR"
+printf 'https=443\nhttp=80\ntunnel=0\nacme=staging\n' > "$HS_ETC_DIR/gateway-public"
+check_eq "acme row" staging "$(val acme)"
+check_eq "traefik-public not chosen: proxy off" off "$(val public_proxy)"
+printf 'traefik-public' > "$HS_SETTINGS_DIR/reverseProxy"
+check_eq "direct with traefik-public" direct "$(val public_proxy)"
+printf 'https=443\nhttp=80\ntunnel=8081\nacme=production\n' > "$HS_ETC_DIR/gateway-public"
+check_eq "tunnel and direct" tunnel,direct "$(val public_proxy)"
+check_eq "acme production" production "$(val acme)"
+printf 'https=0\nhttp=0\ntunnel=8081\nacme=off\n' > "$HS_ETC_DIR/gateway-public"
+check_eq "tunnel only is unchanged" "tunnel off" "$(val public_proxy) $(val acme)"
+printf 'https=443\nhttp=80\ntunnel=0\nacme=staging\n' > "$HS_ETC_DIR/gateway-public"
+pubfile() { printf '# hs-gateway public v1 host=%s%s\n# spec route a / 10.0.0.5:80\n' "$1" "$2" > "$HS_GATEWAY_DIR/routes/pub-$1.yml"; }
+pubfile a.example.org ' mode=direct'
+pubfile b.example.org ' mode=direct,http'
+pubfile c.example.org ''
+pubfile d.example.org ' mode=direct'
+FAKEBIN=$WORK/fakebin; mkdir -p "$FAKEBIN"
+cat > "$FAKEBIN/openssl" <<'EOF'
+#!/bin/sh
+# stand-in: s_client answers per -servername, x509 passes the text on
+case "$1" in
+  s_client) while [ $# -gt 0 ]; do [ "$1" = -servername ] && n=$2; shift; done
+            case "$n" in a.example.org) echo "issuer=C=US, O=(STAGING) Let's Encrypt, CN=(STAGING) Ersatz E5"; echo "notAfter=Jan  1 00:00:00 2027 GMT" ;;
+                         b.example.org) echo "issuer=CN=TRAEFIK DEFAULT CERT"; echo "notAfter=Jan  1 00:00:00 2027 GMT" ;; esac ;;
+  x509) cat ;;
+esac
+EOF
+chmod +x "$FAKEBIN/openssl"
+certs=$(PATH="$FAKEBIN:$PATH" $G --certs)
+check_eq "certs: staging" "a.example.org${T}staging${T}Jan  1 00:00:00 2027 GMT" "$(grep '^a\.' <<<"$certs")"
+check_eq "certs: default certificate" "b.example.org${T}default${T}Jan  1 00:00:00 2027 GMT" "$(grep '^b\.' <<<"$certs")"
+check_eq "certs: nothing served is none" "d.example.org${T}none${T}-" "$(grep '^d\.' <<<"$certs")"
+check_eq "certs: tunnel-only host has no row" 3 "$(grep -c . <<<"$certs")"
+rm -f "$HS_GATEWAY_DIR/routes/pub-"*.yml "$HS_ETC_DIR/gateway-public" "$HS_SETTINGS_DIR/reverseProxy"
 
 echo "-- hs gateway status (people)"
 check_out "warns about a stopped service" "not running" $G status

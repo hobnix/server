@@ -206,6 +206,14 @@ vlans = { home = { id = 95, default = true } }
 # The addresses that may use gatewayTunnelPort: the cloudflared container (fixed address). Needs hs rebuild.
 # gatewayTunnelFrom = [ "10.10.95.19/32" ]
 
+# Let's Encrypt account address for the gateway's own certificates (direct mode: the router forwards 443 to this server,
+# reverseProxy = traefik-public). Empty = off. Needs gatewayPublicHttps. Needs hs rebuild.
+# gatewayAcmeEmail = "admin@example.org"
+
+# Use Let's Encrypt's test service first (certificates browsers do not trust, generous limits). Set false once hs gateway status
+# shows a staging certificate for every host. Needs hs rebuild.
+# gatewayAcmeStaging = false
+
 # ═══ Hardware ═════════════════════════════════════════════════════════════
 
 # Graphics chip(s), for GPU use in containers (Jellyfin transcoding, Immich, ...): "nvidia",
