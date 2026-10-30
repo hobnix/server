@@ -97,6 +97,13 @@ $S edit app --clear blocked-path >/dev/null
 echo "-- the provider"
 check_eq "list gives the routes of the pub files" "2" "$($P list | grep -c "^app.example.org")"
 check_eq "specs gives the spec lines" "1" "$($P specs | grep -c "^app.example.org${T}auth${T}app${T}10.10.95.23:9000")"
+echo "-- import keeps login, skip paths and headers of the live host"
+mv "$HS_SERVICES_DIR" "$WORK/services.bak"; mkdir -p "$HS_SERVICES_DIR"
+$S import --yes >/dev/null 2>&1
+check_eq "the imported descriptor has the skip path" "1" "$(grep -rc 'auth_skip.*/api' "$HS_SERVICES_DIR" | awk -F: '{n += $2} END {print n}')"
+check_eq "and the header" "1" "$(grep -rc 'X-Frame-Options: DENY' "$HS_SERVICES_DIR" | awk -F: '{n += $2} END {print n}')"
+check_eq "and the login" "1" "$(grep -rhc '^auth = .authentik' "$HS_SERVICES_DIR" | awk '{n += $1} END {print n}')"
+rm -rf "$HS_SERVICES_DIR"; mv "$WORK/services.bak" "$HS_SERVICES_DIR"
 $S remove app >/dev/null 2>&1
 $S apply --confirm app.example.org >/dev/null 2>&1
 check "removing the service removes its file" bash -c "[ ! -e '$f' ]"

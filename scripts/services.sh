@@ -474,7 +474,7 @@ ntfy|80|ntfy|ntfy|Apps|Push messages|private-ok'
       exit 0
     fi
     gather || exit 1
-    svc import --info "$work/info.tsv" --routes "$work/routes.tsv" --addrs "$work/addrs.tsv" > "$work/import.tsv"
+    svc import --info "$work/info.tsv" --routes "$work/routes.tsv" --addrs "$work/addrs.tsv" ${slot_args[@]+"${slot_args[@]}"} > "$work/import.tsv"
     if [ ! -s "$work/import.tsv" ]; then note "$(t 'The proxy has no routes to make services of.')"; exit 0; fi
     step "$(t 'Services found in the routes of the proxy')"
     { thead 'Action' 'Service' 'Target' 'Exposure' 'Hosts' 'Note'; cat "$work/import.tsv"; } | table
@@ -485,7 +485,7 @@ ntfy|80|ntfy|ntfy|Apps|Push messages|private-ok'
       interactive || fail "$(t 'Importing writes service files: run it on a terminal, or add --yes.')"
       confirm "$(t 'Describe these %s service(s)?' "$creates")" || { note "$(t 'Nothing written.')"; exit 0; }
     fi
-    svc import --info "$work/info.tsv" --routes "$work/routes.tsv" --addrs "$work/addrs.tsv" --write > /dev/null
+    svc import --info "$work/info.tsv" --routes "$work/routes.tsv" --addrs "$work/addrs.tsv" ${slot_args[@]+"${slot_args[@]}"} --write > /dev/null
     ok "$(t '%s service(s) described in %s' "$creates" "${HS_SERVICES_DIR:-${HS_STATE_DIR:-/var/lib/hs}/services.d}")"
     note "$(t 'Check the exposure of each: public-ok means it is reachable from the internet today.')" ;;
   *) usage ;;

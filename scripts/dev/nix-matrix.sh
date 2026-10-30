@@ -105,6 +105,7 @@ variant gateway-tunnel "services.traefik.enable=true" 'capabilities = ["gateway"
 refused gateway-tunnel-no-from 'capabilities = ["gateway"]' 'gatewayTunnelPort = 8081'
 refused gateway-tunnel-80 'capabilities = ["gateway"]' 'gatewayTunnelPort = 80' 'gatewayTunnelFrom = [ "10.10.95.19/32" ]'
 refused gateway-tunnel-public-port 'capabilities = ["gateway"]' 'gatewayPublicHttps = 4443' 'gatewayTunnelPort = 4443' 'gatewayTunnelFrom = [ "10.10.95.19/32" ]'
+refused gateway-tunnel-not-an-address 'capabilities = ["gateway"]' 'gatewayTunnelPort = 8081' 'gatewayTunnelFrom = [ "8081" ]'
 refused gateway-tunnel-open 'capabilities = ["gateway"]' 'gatewayTunnelPort = 8081' 'gatewayTunnelFrom = [ "0.0.0.0/0" ]'
 variant gateway-ad "services.traefik.enable=true" 'capabilities = ["gateway"]' 'adDomain = { realm = "AD.HOME.LAN", workgroup = "HOME" }'   # the hs-webui Host router
 variant legacy-switches "$PROM=true|$TS=true" 'metrics = true' 'tailscaleRouter = true'

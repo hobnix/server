@@ -790,7 +790,7 @@ def make_plan(d, info, routes, addrs, owned=frozenset(), slot='public', explicit
 
 # ── import ─────────────────────────────────────────────────────────────────
 
-def make_import(d, info, routes, addrs):
+def make_import(d, info, routes, addrs, specs=None):
     """Services out of the routes. A host has a root route and maybe more routes by path:
        - a real root target is one service (an admin page on a public proxy: never-public, else public-ok);
        - paths to ANOTHER real target are a service of their own with those public_paths (Matrix and the Kuma status page on one apex host,
@@ -800,6 +800,7 @@ def make_import(d, info, routes, addrs):
        - the path /outpost.goauthentik.io to the address of the container authentik is `auth = "authentik"` of the root's service;
        - the default site (host *) is no service."""
     by_ip = {v: k for k, v in addrs.items()}
+    specs = specs or {}
     existing = load_all(d)
     hosts = {}
     for h, p, t, _ in routes:
@@ -818,7 +819,8 @@ def make_import(d, info, routes, addrs):
         kind, val = ('names', label) if dom in info['domains'] else ('fqdn', h)
         key = (ct or host_, int(port), exposure, tuple(paths))
         e = found.setdefault(key, {'container': ct, 'host': None if ct else host_, 'port': int(port), 'exposure': exposure,
-                                   'paths': list(paths), 'names': [], 'fqdn': [], 'hosts': [], 'blocked': [], 'auth': False})
+                                   'paths': list(paths), 'names': [], 'fqdn': [], 'hosts': [], 'blocked': [], 'auth': False,
+                                   'skip': [], 'reqh': [], 'resh': []})
         if val not in e[kind]:
             e[kind].append(val)
         e['hosts'].append(h)
@@ -837,6 +839,18 @@ def make_import(d, info, routes, addrs):
             re_ = add(h, root, exposure, [])
         else:
             re_ = None
+        if re_ is not None and info['public']:
+            # login and headers of the live host (provider specs: kind TAB service TAB ...); the route list alone cannot show them
+            for line in sorted(specs.get(h, ())):
+                c = line.split('\t')
+                if c[0] == 'auth' and len(c) > 2 and by_ip.get(c[2].rpartition(':')[0]) == AUTH_SERVICE:
+                    re_['auth'] = True
+                elif c[0] == 'skip' and len(c) > 2 and path_ok(c[2]) and c[2] not in re_['skip']:
+                    re_['skip'].append(c[2])
+                elif c[0] in ('reqh', 'resh') and len(c) > 3:
+                    hd = '%s: %s' % (c[2], c[3])
+                    if hd not in re_[c[0]]:
+                        re_[c[0]].append(hd)
         for t, ps in sorted(g['paths'].items()):
             if not info['public']:
                 continue
@@ -879,6 +893,12 @@ def make_import(d, info, routes, addrs):
             s['blocked_paths'] = e['blocked']
         if e['auth']:
             s['auth'] = 'authentik'
+            if e['skip']:
+                s['auth_skip'] = sorted(e['skip'])
+        if e['reqh']:
+            s['request_headers'] = e['reqh']
+        if e['resh']:
+            s['response_headers'] = e['resh']
         s['want'] = {'reverse-proxy': True}
         if e['paths']:
             note = 'only its public paths are routed'
@@ -1326,7 +1346,7 @@ def main(argv):
             for row in make_plan(d, info, routes, addrs, read_owned(owned_f), slot, read_explicit(explicit_f), specs_have):
                 print('\t'.join(row))
             return 0
-        for row in make_import(d, info, routes, addrs):
+        for row in make_import(d, info, routes, addrs, read_specs(specs_f) if specs_f else None):
             *shown, s = row
             print('\t'.join(shown))
             if do_write and row[0] == 'create':

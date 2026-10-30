@@ -156,8 +156,10 @@ def render_public(host, lines, mode='tunnel'):
             hdr.setdefault(f[1], {'reqh': [], 'resh': []})[f[0]].append((f[2], f[3]))
     out = [PUB_MAGIC + host + ('' if modes == ['tunnel'] else ' mode=' + ','.join(modes))] + ['# spec ' + ' '.join(f) for f in lines] + [FOOT]
 
+    strip = 'pa-%s-strip' % hid   # first on every public router: cloudflared is a trusted source, so Traefik keeps what a client sent
+
     def mids(svc):
-        m = []
+        m = [strip]
         if svc in auths:
             m.append('pa-%s-%s-auth' % (hid, svc))
         if svc in hdr:
@@ -174,7 +176,7 @@ def render_public(host, lines, mode='tunnel'):
     real = []   # (path, svc) of the real routes a skip path can fall under
     for _, svc, path, target in routes:
         if path == OUTPOST:
-            routers += router(pid(path), 'Host(`%s`) && PathPrefix(`%s/`)' % (host, path), 20000, [], nm(path))
+            routers += router(pid(path), 'Host(`%s`) && PathPrefix(`%s/`)' % (host, path), 20000, [strip], nm(path))
         elif target == DEAD:
             if path != '/':
                 routers += router(pid(path), 'Host(`%s`) && PathPrefix(`%s`)' % (host, path), 30000 + len(path), ['hs-deny'], 'hs-null')
@@ -194,7 +196,7 @@ def render_public(host, lines, mode='tunnel'):
         cover = [p for p, s in real if s == svc and (p == '/' or path.startswith(p))]
         if not cover or (path, svc) in real:   # a real route at the skip path itself has no login already
             continue
-        m = ['pa-%s-%s-hdr' % (hid, svc)] if svc in hdr else []
+        m = [strip] + (['pa-%s-%s-hdr' % (hid, svc)] if svc in hdr else [])
         sp = path.rstrip('/')   # a path boundary: /api opens /api and /api/..., never /api-docs
         rule = 'Host(`%s`) && (Path(`%s`) || PathPrefix(`%s/`))' % (host, sp, sp) if sp else 'Host(`%s`)' % host
         # one below a real route of the same path (1000 + len), so a route of another service at this path always wins
@@ -216,6 +218,11 @@ def render_public(host, lines, mode='tunnel'):
         routers += ['    d-%s-http:' % hid, '      entryPoints: [public-http]', "      rule: 'Host(`%s`)'" % host, '      priority: 50000',
                     '      middlewares: [hs-to-https]', '      service: hs-null']
     mw = []
+    if any(strip in r[3] for r in rlist):
+        # an empty value removes the request header (Traefik headers middleware); the login (forwardAuth) sets the X-authentik-* ones after this
+        mw += ['    %s:' % strip, '      headers:', '        customRequestHeaders:', "          'X-Forwarded-Host': %s" % yq(host),
+               "          'X-Forwarded-Proto': 'https'", "          'X-Forwarded-Uri': ''", "          'X-Forwarded-Method': ''"]
+        mw += ["          %s: ''" % yq(n) for n in AUTH_HEADERS]
     for svc in sorted(set(auths) | set(hdr)):
         if svc in auths:
             mw += ['    pa-%s-%s-auth:' % (hid, svc), '      forwardAuth:',

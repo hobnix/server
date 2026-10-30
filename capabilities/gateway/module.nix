@@ -137,7 +137,7 @@ in
       message = "machine.toml: gatewayTunnelPort = ${toString tun} is a port the server already uses; suggested 8081."; }
     # single addresses only (/32 or /128): the tunnel port must stay closed to everyone but the cloudflared container
     { assertion = lib.all (a: builtins.match "[0-9]{1,3}(\\.[0-9]{1,3}){3}(/32)?" a != null
-                              || builtins.match "[0-9a-fA-F:]+(/128)?" a != null) tunFrom;
+                              || builtins.match "[0-9a-fA-F]*:[0-9a-fA-F]*:[0-9a-fA-F:]*(/128)?" a != null) tunFrom;
       message = "machine.toml: gatewayTunnelFrom holds an address that is not valid or not a single host (only /32 or /128): use the address of the cloudflared container, e.g. \"10.10.95.19/32\".";  }
     { assertion = email == "" || pubS != 0;
       message = "machine.toml: gatewayAcmeEmail needs gatewayPublicHttps = 443 (the router forwards 443 to this server)."; }

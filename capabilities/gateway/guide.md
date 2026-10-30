@@ -74,13 +74,12 @@ hs gateway routes
 ## Public services through the tunnel
 Optional: Traefik can also serve the public routes (paths, blocked paths, login, headers) instead of Zoraxy. Cloudflare's tunnel program (`cloudflared`) then sends the traffic to a port that only its container may reach. Not tested on hardware yet.
 
-1. Set the port and the single address of the cloudflared container (a /32, or /128 for IPv6; never a whole network, that would let LAN machines forge forwarded headers). Not tested on hardware yet.
+1. Set the port and the single address of the cloudflared container (a /32, or /128 for IPv6; never a whole network, that would let LAN machines forge forwarded headers). `hs config set` does not handle these options: add the two lines to `/etc/nixos/machine.toml` and rebuild. Not tested on hardware yet.
 
-```bash
-sudo hs config set gatewayTunnelPort 8081
+```toml
+gatewayTunnelPort = 8081
+gatewayTunnelFrom = [ "10.10.95.19/32" ]
 ```
-
-Then add the line `gatewayTunnelFrom = [ "10.10.95.19/32" ]` to `machine.toml` (it is not settable with `hs config set`) and rebuild:
 
 ```bash
 sudo hs rebuild
@@ -103,13 +102,12 @@ Optional: Traefik can also take the internet's traffic itself and get its own ce
 
 **The router must forward the internet's ports 80 and 443 to this server, and port 443 must be reachable from outside.** Let's Encrypt checks each host on port 443 (TLS-ALPN-01); if it cannot connect, no certificate is issued.
 
-1. Open the public HTTPS port, set the account address and keep staging on (the default). Not tested on hardware yet.
+1. Open the public HTTPS port, set the account address and keep staging on (the default). `hs config set` does not handle these options: add the lines to `/etc/nixos/machine.toml` (see "Entrypoints" in the gateway notes), keep `gatewayAcmeStaging` at `true`, and rebuild. Not tested on hardware yet.
 
-```bash
-sudo hs config set gatewayAcmeEmail admin@example.org
+```toml
+gatewayPublicHttps = 443
+gatewayAcmeEmail = "admin@example.org"
 ```
-
-Also set `gatewayPublicHttps = 443` in `machine.toml` (see "Entrypoints" in the gateway notes), keep `gatewayAcmeStaging` at `true`, and rebuild:
 
 ```bash
 sudo hs rebuild
@@ -130,11 +128,7 @@ hs gateway status
 
 `Own certificates` shows `staging`. The hosts and their state are listed with `hs sys gateway certs` (`staging`, `default`, `none` or `ok`).
 
-4. When every host shows a staging certificate, switch to production and rebuild. Staging and production certificates are stored apart, and `/var/lib/hs-gateway/acme` is part of the backup. Not tested on hardware yet.
-
-```bash
-sudo hs config set gatewayAcmeStaging false
-```
+4. When every host shows a staging certificate, switch to production: change the line `gatewayAcmeStaging = false` in `/etc/nixos/machine.toml` and rebuild. Staging and production certificates are stored apart, and `/var/lib/hs-gateway/acme` is part of the backup. Not tested on hardware yet.
 
 ```bash
 sudo hs rebuild

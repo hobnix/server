@@ -61,7 +61,7 @@ check_out "paths only: the header has the spec lines" '^# spec route app /hook 1
 check_eq "a private root has no router" "" "$(grep -E 'p-app-example-org-root' <<<"$out" || true)"
 check_out "the path router is on public-tunnel with priority 1005" "priority: 1005" echo "$out"
 check_out "only on public-tunnel" "entryPoints: \[public-tunnel\]" echo "$out"
-check_eq "a path without auth has no middleware line" "0" "$(grep -c middlewares: <<<"$out" || true)"
+check_eq "a path without auth has only the strip middleware" "1" "$(grep -c 'middlewares: \[pa-app-example-org-strip\]$' <<<"$out" || true)"
 spec 'route@app@/@10.0.0.5:80' 'route@app@/if/admin/@127.0.0.1:1'
 out=$(P app.example.org)
 check_out "a blocked path denies" "middlewares: \[hs-deny\]" echo "$out"
@@ -71,15 +71,15 @@ check_out "the root real router has priority 100" "priority: 100$" echo "$out"
 spec 'route@app@/@10.0.0.5:80' 'route@app@/outpost.goauthentik.io@10.0.0.9:9000' 'auth@app@10.0.0.9:9000' 'skip@app@/api'
 out=$(P app.example.org)
 check_out "the auth middleware address" "address: 'http://10.0.0.9:9000/outpost.goauthentik.io/auth/traefik'" echo "$out"
-check_out "the root has the auth middleware" "middlewares: \[pa-app-example-org-app-auth\]" echo "$out"
+check_out "the root has the auth middleware" "middlewares: \[pa-app-example-org-strip, pa-app-example-org-app-auth\]" echo "$out"
 check_out "the callback has priority 20000" "priority: 20000" echo "$out"
 check_out "the skip router has priority 1003 (one below a real route of its own path)" "priority: 1003" echo "$out"
 check_out "the skip router matches the path or below it, not /api-docs" "(Path(\`/api\`) || PathPrefix(\`/api/\`))" echo "$out"
 check_eq "the skip router goes to the root service and has no auth" "1" "$(awk '/^    p-app-example-org-s-/ {f=1} f && /middlewares/ {n++} f && /service:/ {print $2; f=0}' <<<"$out" | grep -c '^p-app-example-org-root$')"
-check_eq "only the root router has the auth middleware" "1" "$(grep -c 'middlewares: \[pa-' <<<"$out" || true)"
+check_eq "only the root router has the auth middleware" "1" "$(grep -c 'middlewares: .*-auth\]' <<<"$out" || true)"
 spec 'route@app@/@10.0.0.5:80' 'route@app@/outpost.goauthentik.io@10.0.0.9:9000' 'route@app@/apix@10.0.0.5:80' 'auth@app@10.0.0.9:9000' 'skip@app@/api'
 out=$(P app.example.org)
-check_eq "a route /apix is no part of the skip path /api (keeps its login)" "2" "$(grep -c 'middlewares: \[pa-' <<<"$out" || true)"
+check_eq "a route /apix is no part of the skip path /api (keeps its login)" "2" "$(grep -c 'middlewares: .*-auth\]' <<<"$out" || true)"
 spec 'route@app@/@10.0.0.5:80' 'route@app@/outpost.goauthentik.io@10.0.0.9:9000' 'route@b@/api/v2@10.0.0.6:80' 'auth@app@10.0.0.9:9000' 'skip@app@/api'
 out=$(P app.example.org)
 check_eq "a longer path of another service beats the skip router" "1" "$(awk '/^    p-app-example-org-s-/ {f=1} f && /priority/ {print $2; f=0}' <<<"$out" | awk '$1 < 1007' | wc -l | tr -d ' ')"
@@ -93,11 +93,18 @@ check_out "a quote in a value is doubled" "'X-Tag': 'it''s'" P app.example.org
 spec 'route@a@/@10.0.0.5:80' 'route@b@/hook@10.0.0.6:80' 'auth@a@10.0.0.9:9000'
 out=$(P app.example.org)
 check_out "service a has auth on its root" "p-app-example-org-root:.*" echo "$out"
-check_eq "service b has no middleware" "1" "$(grep -c 'middlewares: \[pa-' <<<"$out" || true)"
+check_eq "service b has only the strip middleware" "1" "$(grep -c 'middlewares: \[pa-app-example-org-strip\]$' <<<"$out" || true)"
 spec 'route@a@/@10.0.0.5:80' 'route@a@/x@127.0.0.1:1' 'auth@a@10.0.0.9:9000' 'reqh@a@X-A@1'
 check_eq "no lan entrypoint in any public file" "0" "$(P app.example.org | grep -c 'lan-http\|hs-lan-only' || true)"
 P app.example.org > "$WORK/pubgold.yml"
-check_eq "auth before headers in the middleware line" "1" "$(grep -c 'middlewares: \[pa-app-example-org-a-auth, pa-app-example-org-a-hdr\]' "$WORK/pubgold.yml")"
+check_eq "strip first, then auth, then headers in the middleware line" "1" "$(grep -c 'middlewares: \[pa-app-example-org-strip, pa-app-example-org-a-auth, pa-app-example-org-a-hdr\]' "$WORK/pubgold.yml")"
+check_out "the strip middleware sets the forwarded host" "'X-Forwarded-Host': 'app.example.org'" cat "$WORK/pubgold.yml"
+check_out "and the proto" "'X-Forwarded-Proto': 'https'" cat "$WORK/pubgold.yml"
+check_out "and removes the forwarded uri" "'X-Forwarded-Uri': ''" cat "$WORK/pubgold.yml"
+check_out "and the forwarded method" "'X-Forwarded-Method': ''" cat "$WORK/pubgold.yml"
+check_out "and the login headers a client may send" "'X-authentik-username': ''" cat "$WORK/pubgold.yml"
+check_eq "the deny router has no strip" "0" "$(grep -c 'middlewares: \[pa-app-example-org-strip, hs-deny' "$WORK/pubgold.yml" || true)"
+check_eq "the strip middleware is defined once" "1" "$(grep -c '^    pa-app-example-org-strip:' "$WORK/pubgold.yml")"
 
 echo "-- public: bad input is refused"
 spec 'route@a@/@10.0.0.5:80' 'reqh@a@Bad Name@x'
