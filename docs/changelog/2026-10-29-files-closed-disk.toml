@@ -1,0 +1,3 @@
+date  = "2026-10-29"
+type  = "fix"
+title = "Files: a closed disk can be emptied (Move, Rename, Delete)"

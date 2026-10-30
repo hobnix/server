@@ -50,6 +50,11 @@ else
   # the whole update right here (it did, with more than 12 new changes)
   as_owner log --format='%s' -n 12 "$old..$new" | while IFS= read -r line; do note "$line"; done
   [ "$count" -le 12 ] || note "$(t '... and %s more' "$((count - 12))")"
+  if [ -f "$repo/scripts/changes.sh" ]; then
+    n=$(bash "$repo/scripts/changes.sh" --count --from "$old" 2>/dev/null) || n=0
+    [[ $n =~ ^[0-9]+$ ]] || n=0
+    [ "$n" -eq 0 ] || note "$(t '%s new entries in the changelog: hs changes' "$n")"
+  fi
 fi
 
 # machine.nix -> machine.toml once (the old file is kept as machine.nix.migrated), then the options that are new in
@@ -94,6 +99,7 @@ if ( . "$(dirname "$0")/lib/capability.sh"; capability_on notifications ) 2>/dev
 fi
 
 bash "$(dirname "$0")/notify.sh" --category start "$(hostname): update started" "\`hs update\` is running." low || true
+[ "$old" = "$rev_now" ] || export HS_UPDATE_FROM=$old   # rebuild.sh counts the new changelog entries since then
 export HS_UPDATE_NOTIFY=1   # rebuild.sh sends "update finished" / "update failed"
 
 # this script itself may have changed: run the rebuild from the new copy

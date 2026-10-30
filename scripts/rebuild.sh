@@ -32,7 +32,11 @@ if [ -n "${HS_UPDATE_NOTIFY:-}" ]; then
   update_done() {
     local rc=$?
     if [ "$rc" -eq 0 ]; then
-      bash "$(dirname "$0")/notify.sh" --category ok "$(hostname): update finished" "\`hs update\` is done." low || true
+      local n=0 msg="\`hs update\` is done."
+      if [ -n "${HS_UPDATE_FROM:-}" ]; then n=$(bash "$(dirname "$0")/changes.sh" --count --from "$HS_UPDATE_FROM" 2>/dev/null) || n=0; fi
+      [[ $n =~ ^[0-9]+$ ]] || n=0
+      [ "$n" -eq 0 ] || msg="$msg $n new change(s) in the changelog: \`hs changes\` or What's new in the web interface."
+      bash "$(dirname "$0")/notify.sh" --category ok "$(hostname): update finished" "$msg" low || true
     else
       bash "$(dirname "$0")/notify.sh" --category problem "$(hostname): update failed" "\`hs update\` stopped with an error (exit $rc). Look at the console." high || true
     fi
@@ -100,12 +104,15 @@ gpu_check() {
 
 # What the rebuild switched to: the Git revision of the checkout, for the health check ("running system = checkout?").
 write_stamp() {
-  local repo=${HS_REPO:-/etc/nixos} dir=${HS_STATE_DIR:-/var/lib/hs} rev dirty=0
+  local repo=${HS_REPO:-/etc/nixos} dir=${HS_STATE_DIR:-/var/lib/hs} rev dirty=0 old_rev prev
   [ -e "$repo/.git" ] || return 0
   rev=$(git -c safe.directory="$repo" -C "$repo" rev-parse HEAD 2>/dev/null) || return 0
   [ -z "$(git -c safe.directory="$repo" -C "$repo" status --porcelain --untracked-files=no 2>/dev/null)" ] || dirty=1
   mkdir -p "$dir" 2>/dev/null || return 0
-  { printf 'rev=%s\ndirty=%s\nmachine=%s\ntime=%s\n' "$rev" "$dirty" "$(config_fingerprint "$repo")" "$(date +%s)" > "$dir/last-rebuild-rev.tmp" \
+  # prev = the revision before the last change of rev (what `hs changes` measures "new" from)
+  old_rev=$(stamp_get rev); prev=$(stamp_get prev)
+  { [ -z "$old_rev" ] || [ "$old_rev" = "$rev" ]; } || prev=$old_rev
+  { printf 'rev=%s\nprev=%s\ndirty=%s\nmachine=%s\ntime=%s\n' "$rev" "$prev" "$dirty" "$(config_fingerprint "$repo")" "$(date +%s)" > "$dir/last-rebuild-rev.tmp" \
     && mv "$dir/last-rebuild-rev.tmp" "$dir/last-rebuild-rev"; } 2>/dev/null || true
 }
 

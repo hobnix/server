@@ -10,6 +10,7 @@
   import Skeleton from '../ui/Skeleton.svelte';
   import { readsFor } from '../readsfor.js';
   import { ui } from '../ui.svelte.js';
+  import { changes, startChanges } from '../changes.svelte.js';
   import { treeMeta } from '../pages/proxy/status.js';
   import { VPS_NODE } from '../redirects.js';
 
@@ -25,6 +26,9 @@
   // this node's name: the session answer says it (features.host), the status document too once it arrived
   const host = $derived(ui.features.host ?? deck.data?.host ?? '');
   $effect(() => { if (host) { ui.host = host; setLocalNode(host); } });
+
+  // entries of the changelog this user has not seen (the badge of What's new; the Summary shows a banner); looked at again every five minutes
+  startChanges();
 
   // the session already names a domain account as HOMEnna
   const who = $derived(user.user);
@@ -105,6 +109,7 @@
       }
       m['/storage/disks'] = watchAll ? { text: `${watchAll} watch`, warn: true } : { text: String(dl.length) };
     }
+    if (changes.count) m['/operations/whats-new'] = { text: `${changes.count} new` };
     const sl = rows(shares).filter((r) => r[1] !== 'other');
     if (sl.length) m['/storage/shares'] = { text: String(sl.length) };
     const cl = rows(cts);

@@ -23,6 +23,7 @@ import Services from './pages/Services.svelte';
 import Docs from './pages/Docs.svelte';
 import Certificates from './pages/Certificates.svelte';
 import Notifications from './pages/Notifications.svelte';
+import WhatsNew from './pages/WhatsNew.svelte';
 import Data from './pages/Data.svelte';
 import Section from './pages/Section.svelte';
 import Proxy from './pages/Proxy.svelte';
@@ -62,6 +63,7 @@ export const routes = {
   '/marketplace': Marketplace,
   '/instances/services': Services,
   '/operations/notifications': Notifications,
+  '/operations/whats-new': WhatsNew,
   '/monitoring/diagnostics': Data,
   '/docs': Docs,
   '/setup': Setup,

@@ -1,0 +1,4 @@
+date  = "2026-10-29"
+type  = "feature"
+title = "Dashboard: a tile page in the web interface replaces the Homepage app"
+docs  = "web-interface#the-dashboard"

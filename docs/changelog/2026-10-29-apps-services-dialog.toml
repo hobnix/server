@@ -1,0 +1,7 @@
+date  = "2026-10-29"
+type  = "feature"
+title = "Apps: install, update and publish services from the Apps page"
+docs  = "containers-and-apps#install-an-app-with-a-recipe"
+body  = """
+The Services button opens a dialog for the local and public name of each service of an app. It stays disabled while an app has no described service.
+"""

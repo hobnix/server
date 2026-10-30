@@ -1,0 +1,6 @@
+date  = "2026-10-28"
+type  = "fix"
+title = "Deleting a share whose folder is gone now removes its Samba share"
+body  = """
+Before, a share whose folder had been deleted by hand stayed in the Samba configuration and could not be removed.
+"""

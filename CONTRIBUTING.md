@@ -29,6 +29,10 @@ the loaders, `scripts/lib/api-level`) belongs here, and its pull request says wh
   - **A new script** gets a row in `scripts/lib/registry.tsv`; a new `reads` command gets a probe in `scripts/smoke.sh`.
   - **Secrets** are read only through `scripts/lib/secret.sh` and never go through argv or the environment.
   - **Documentation** is English and follows `docs/GUIDE-TEMPLATE.md`.
+- **Changelog entries.** A change that users see (a new option, a fixed bug, a changed behaviour) adds one file
+  `docs/changelog/<YYYY-MM-DD>-<slug>.toml` with `date`, `type` (feature, fix, change, security), `title` (one line, plain English) and
+  optionally `docs` (a guide and anchor) and `body`. One file per change. Check it with `python3 -I scripts/lib/changelog.py validate .`;
+  the format is in `docs/changelog/README.md`. CI only warns when a pull request touches the core without an entry.
 - Commit messages say what changed and why in a line or two. Stage files by name.
 
 ## Reporting a problem

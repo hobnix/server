@@ -127,6 +127,7 @@ default_probes() {
     $'hs remote list\tremote list\t0 1' \
     $'hs cheatsheet\tcheatsheet\t0' \
     $'hs expiry\texpiry\t0' \
+    $'hs changes\tchanges\t0' \
     $'hs ups\tups\t0 1' \
     $'hs pkg list\tpkg list\t0' \
     $'hs pkg updates\tpkg updates\t0 1'

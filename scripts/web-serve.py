@@ -7,6 +7,8 @@ This file is the whole HTTP side of the entry page:
   POST /api/login     {realm: "domain"|"local", user, password}; a session cookie comes back
   POST /api/unlock    {passphrase}: opens the encrypted storage (`hs sys unlock stdin`, passphrase on stdin only), only while locked; {status: ok|failed|busy, reason}
   POST /api/logout
+  GET  /api/changes/seen   the revision this user has seen in What's new ({rev}, "" = never); session needed
+  POST /api/changes/seen   {rev: 40 hex}: remember it for the signed-in user (web-changes-seen.json in the state folder); session + CSRF
   GET  /api/sys/...   a read-only `hs sys` call from the allowlist READS below (session needed), e.g. /api/sys/ct/list
   GET  /api/sys/jobs/stream/<unit>  the same job journal as `sys jobs tail`, as server-sent events (one JSON {rows} per look, `event: end` when the unit ended), session needed
   GET  /api/events    server-sent events `changed` ({topic, gen}) while live state is on (HS_WEB_LIVE=redis, else 404), `down`/`up` when Redis goes; session, same Origin
@@ -320,6 +322,7 @@ class Config:
         self.max_age = int(env("HS_WEB_MAX_HOURS", "12")) * 3600
         self.fail_delay = float(env("HS_WEB_FAIL_DELAY", "1.0"))     # seconds every failed login waits (tests set 0)
         self.facts_ttl = int(env("HS_WEB_FACTS_TTL", "20"))
+        self.changes_seen_file = env("HS_WEB_CHANGES_SEEN_FILE", os.path.join(env("HS_STATE_DIR", "/var/lib/hs"), "web-changes-seen.json"))   # {user: last revision seen in What's new}; "" = memory only
         self.session_file = env("HS_WEB_SESSION_FILE", "/run/hs-web/sessions.json")   # hashes only; "" = sessions stay in memory; the directory is made by systemd (RuntimeDirectory), never here
         self.stale_factor = float(env("HS_WEB_STALE_FACTOR", "40"))   # a cached read may be served up to ttl*factor (and stale_max s) old while it is refreshed in the background
         self.stale_max = float(env("HS_WEB_STALE_MAX", "1800"))      # up to half an hour old is shown at once (X-HS-Age says how old) while a fresh answer is read
@@ -793,6 +796,7 @@ READS = {
     ("ssh-key", "list"): {"kind": "tsv", "ttl": 30},
     ("node", "list"): {"kind": "tsv", "ttl": 15},
     ("node", "show"): {"kind": "tsv", "ttl": 15, "args": [NAME]},
+    ("changes", "list"): {"kind": "tsv", "ttl": 60, "query": {"from": (r"^[0-9a-f]{7,40}$", "--from"), "since": (r"^[0-9]{4}-[0-9]{2}-[0-9]{2}$", "--since")}},   # What's new
     ("parts", "list"): {"kind": "tsv", "ttl": 15},                          # the optional parts and whether each is on (Settings)
     ("node", "keyline"): {"kind": "tsv", "ttl": 5, "args": [NAME]},       # the public key line a node's owner has to allow (never the private key)
     ("node", "status"): {"kind": "json", "ttl": 10, "args": [NAME]},    # a remote node over ssh, the word status only
@@ -1995,12 +1999,44 @@ class Events:
             return 0
 
 
+class ChangesSeen:
+    """The last revision of the changelog each web user has seen (What's new): {user: 40 hex}. Kept in a file of the state folder, 0600."""
+    def __init__(self, cfg):
+        self.path, self.lock, self.data = cfg.changes_seen_file, threading.Lock(), {}
+        try:
+            with open(self.path, encoding="utf-8") as f:
+                d = json.load(f)
+            if isinstance(d, dict):
+                self.data = {str(k): v for k, v in d.items() if isinstance(v, str) and re.fullmatch(r"[0-9a-f]{40}", v)}
+        except (OSError, ValueError):
+            pass
+
+    def get(self, user):
+        with self.lock:
+            return self.data.get(str(user), "")
+
+    def set(self, user, rev):
+        with self.lock:
+            self.data[str(user)] = rev
+            if not self.path:
+                return
+            tmp = self.path + ".tmp"
+            try:
+                fd = os.open(tmp, os.O_WRONLY | os.O_CREAT | os.O_TRUNC, 0o600)
+                with os.fdopen(fd, "w", encoding="utf-8") as f:
+                    json.dump(self.data, f)
+                os.replace(tmp, self.path)
+            except OSError:
+                pass
+
+
 class App:
     def __init__(self, cfg=None, auth=None):
         self.cfg = cfg or Config()
         self.auth = auth or Auth(self.cfg)
         self.sessions, self.throttle, self.facts, self.reads = Sessions(self.cfg), Throttle(), Facts(self.cfg), Reads(self.cfg)
         self.plans = Plans(self.cfg.plan_ttl)
+        self.changes_seen = ChangesSeen(self.cfg)
         self.reads.on_clear = self.plans.clear
         self.store = RedisStore(self.cfg, self.reads) if self.cfg.live == "redis" else OffStore(self.reads)
         self.events = Events(self.cfg)       # started by main() in mode redis
@@ -2134,6 +2170,11 @@ def make_handler(app):
                 return self._poster(urllib.parse.unquote(path[len("/api/poster/"):]))
             if path.startswith("/api/docs/"):
                 return self._docs(path[len("/api/docs/"):], urllib.parse.parse_qs(urllib.parse.urlsplit(self.path).query))
+            if path == "/api/changes/seen":
+                s = self._session()
+                if not s:
+                    return self._json(401, {"error": "not signed in"})
+                return self._json(200, {"rev": app.changes_seen.get(s["user"])})
             if path == "/api/board":
                 return self._board()
             if path == "/api/events":
@@ -2380,7 +2421,7 @@ def make_handler(app):
         def do_POST(self):
             path = urllib.parse.urlsplit(self.path).path
             raw = self._read(FM_SELECTION_BYTES + 8192 if path in ("/api/plan", "/api/start") else 4096)      # a file manager selection can be long
-            if path not in ("/api/login", "/api/logout", "/api/plan", "/api/start", "/api/unlock", "/api/terminal"):
+            if path not in ("/api/login", "/api/logout", "/api/plan", "/api/start", "/api/unlock", "/api/terminal", "/api/changes/seen"):
                 return self._json(404, {"error": "unknown"})
             if not self._same_origin():
                 return self._json(403, {"error": "origin"})
@@ -2391,6 +2432,8 @@ def make_handler(app):
                 return self._unlock(body)
             if path == "/api/terminal":
                 return self._terminal_ticket(body)
+            if path == "/api/changes/seen":
+                return self._changes_seen(body)
             if path in ("/api/plan", "/api/start"):
                 return self._change(path[len("/api/"):], body)
             if path == "/api/logout":
@@ -2400,6 +2443,19 @@ def make_handler(app):
                 app.sessions.drop(self._token())
                 return self._json(200, {"ok": True}, (self._cookie("", 0),))
             return self._login(body)
+
+        def _changes_seen(self, body):
+            s = self._session()
+            if not s:
+                return self._json(401, {"error": "not signed in"})
+            if not secrets.compare_digest(self.headers.get("X-CSRF-Token", ""), s["csrf"]):
+                return self._json(403, {"error": "csrf"})
+            rev = body.get("rev")
+            if not isinstance(rev, str) or not re.fullmatch(r"[0-9a-f]{40}", rev):
+                return self._json(400, {"error": "That revision is not allowed."})
+            app.changes_seen.set(s["user"], rev)
+            print("web changes seen: %s" % s["user"], flush=True)
+            return self._json(200, {"ok": True})
 
         def _change(self, verb, body):
             s = self._session()

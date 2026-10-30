@@ -1,0 +1,7 @@
+date  = "2026-10-29"
+type  = "feature"
+title = "Optional live state through Redis for the web interface"
+docs  = "web-interface#live-state"
+body  = """
+Off by default.
+"""

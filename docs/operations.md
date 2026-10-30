@@ -230,6 +230,32 @@ sudo nixos-rebuild switch --rollback
 
 `hs update` and `hs rebuild` refuse while encrypted storage is locked.
 
+## See what changed after an update
+
+Every user-visible change ships with a short entry, so you can read what an update brought without reading commits.
+
+```bash
+hs changes
+```
+
+Lists the entries that the last update added (date, type, title, and the guide to read). Not tested on hardware yet.
+
+```bash
+hs changes --since 2026-10-01
+```
+
+Lists the entries from that date on. Not tested on hardware yet.
+
+```bash
+hs changes --all
+```
+
+Lists every entry. Not tested on hardware yet.
+
+When an update finishes, the push message says how many new entries there are. In the web interface, open Operations > What's new: the
+tree row and the Summary page show how many entries you have not seen yet, and the list links to the guide of each change. Not tested on
+hardware yet.
+
 ## Survive a power cut: UPS
 
 A UPS bridges short outages and shuts the server down **cleanly** before the battery runs out. Without one, ZFS, SnapRAID and the databases
@@ -448,6 +474,7 @@ delivery from the internet, outgoing mail, long game sessions through the forwar
 | Too many repeated messages | a problem that stays | fix it, or `hs health ack <id>` |
 | `hs update` stops | the checkout is dirty or diverged | see [Know that the configuration is in sync](#know-that-the-configuration-is-in-sync) |
 | An update rolled back | a new problem appeared after the switch | read the message, fix the cause in the checkout, `hs rebuild` (`config:unbuilt` stays until then) |
+| `hs changes` shows the newest ten | no update recorded yet (no stamp, e.g. a fresh install) | normal; the next update records it. The first update after this feature lists the backfilled entries as new |
 | `hs ups` says "not reachable" | cable or wrong driver | `lsusb`, `nut-scanner -U`, `journalctl -u upsdrv -u upsd` |
 | The server does not start after a power cut | BIOS setting | "Restore on AC power loss: Power On" |
 | Storage is locked after a start | encrypted disks | `hs unlock` ([Encryption and vault](encryption-and-vault.md)) |
