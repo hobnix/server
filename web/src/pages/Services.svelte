@@ -1,6 +1,6 @@
 <script>
   import { tip } from '../ui/tooltip.svelte.js';
-  import { poll, rows } from '../data.svelte.js';
+  import { poll, rows, refresh } from '../data.svelte.js';
   import { openPlan, openCreate, ui } from '../ui.svelte.js';
   import PageHeader from '../shell/PageHeader.svelte';
   import PageState from '../shell/PageState.svelte';
@@ -46,6 +46,12 @@
   const tone = (a) => (['violation', 'blocked', 'conflict', 'invalid'].includes(a) ? 'bad' : ['confirm', 'change', 'remove', 'unresolved', 'manual'].includes(a) ? 'warn' : a === 'add' ? 'info' : a === 'ok' ? 'ok' : 'off');
   const dash = (v) => (v === '-' || v === undefined ? '' : v);
 
+  // the form only writes the description: read the list and the plans again now, so Apply knows what is new without waiting for the next poll
+  const describe = (props = {}) => openCreate(ServiceForm, {
+    ...props,
+    ondone: () => refresh(['/api/sys/services/list', '/api/sys/services/routes', ...(gateway ? ['/api/sys/services/local-routes'] : [])]),
+  });
+
   const columns = [
     { key: 'name', label: 'Name' }, { key: 'title', label: 'Title' }, { key: 'target', label: 'Target' }, { key: 'exposure', label: 'Exposure' },
     { key: 'names', label: 'Names' }, { key: 'wants', label: 'Wants' }, { key: 'rm', label: '', sort: false, align: 'right' },
@@ -57,7 +63,7 @@
 
 <PageHeader title="Services" crumb="{ui.host} › Instances" sub="What the reverse proxy publishes, and what each service wants. Public means reachable from the internet; admin pages never are.">
   {#snippet actions()}
-    <button use:tip={'Describe a service so the proxy can route it'} class="btn btn-primary" onclick={() => openCreate(ServiceForm)}><i class="ph ph-plus"></i>Describe a service…</button>
+    <button use:tip={'Describe a service so the proxy can route it'} class="btn btn-primary" onclick={() => describe()}><i class="ph ph-plus"></i>Describe a service…</button>
     <button class="btn" disabled={noProxy || !todo} use:tip={todo ? 'Make the routes the services want' : 'The proxy already matches the services'} onclick={() => openPlan('routes', ['apply'], 'Apply the routes')}><i class="ph ph-check-circle"></i>Apply{todo ? ` (${todo})` : ''}…</button>
     <button class="btn btn-ghost" disabled={noProxy || !handmade} use:tip={'Let hs manage routes that were made by hand'} onclick={() => openPlan('routes', ['adopt'], 'Adopt routes')}><i class="ph ph-hand-grabbing"></i>Adopt…</button>
     <button class="btn btn-ghost" disabled={noProxy} use:tip={'Describe the routes of the proxy as services'} onclick={() => openPlan('routes', ['import'], 'Import services')}><i class="ph ph-download-simple"></i>Import…</button>
@@ -84,7 +90,7 @@
 
 <PageState loading={!svc.loaded} error={svc.error?.message} hasData={svc.data != null} empty={svc.loaded && !svc.error && !services.length}
            emptyIcon="arrows-split" emptyTitle="No services yet" emptyText="Import the routes of the proxy, or run a recipe: it describes its own service.">
-  {#snippet emptyAction()}<button use:tip={'Describe a service so the proxy can route it'} class="btn btn-primary" onclick={() => openCreate(ServiceForm)}><i class="ph ph-plus"></i>Describe a service…</button>{/snippet}
+  {#snippet emptyAction()}<button use:tip={'Describe a service so the proxy can route it'} class="btn btn-primary" onclick={() => describe()}><i class="ph ph-plus"></i>Describe a service…</button>{/snippet}
   <div class="card tc">
     <div class="sh">Services</div>
     <Table id="services" {columns} rows={services} key="name" loading={!svc.loaded} empty="No services.">
@@ -97,7 +103,7 @@
         {:else if col.key === 'exposure'}<span class="tag {s.exposure === 'public-ok' ? 'tag-accent' : 'tag-neutral'}">{s.exposure}</span>
         {:else if col.key === 'names'}<span class="c">{dash(s.names)}</span>
         {:else if col.key === 'wants'}<span class="c">{dash(s.wants)}</span>
-        {:else}<button class="btn btn-ghost btn-icon rm" use:tip={`Change ${s.name}`} aria-label="Change {s.name}" onclick={() => openCreate(ServiceForm, { edit: s.name })}><i class="ph ph-pencil-simple"></i></button><button class="btn btn-ghost btn-icon rm" use:tip={`Forget the description of ${s.name} (its routes stay)`} aria-label="Forget {s.name}" onclick={() => openPlan('routes', ['remove', s.name], 'Forget ' + s.name)}><i class="ph ph-x"></i></button>{/if}
+        {:else}<button class="btn btn-ghost btn-icon rm" use:tip={`Change ${s.name}`} aria-label="Change {s.name}" onclick={() => describe({ edit: s.name })}><i class="ph ph-pencil-simple"></i></button><button class="btn btn-ghost btn-icon rm" use:tip={`Forget the description of ${s.name} (its routes stay)`} aria-label="Forget {s.name}" onclick={() => openPlan('routes', ['remove', s.name], 'Forget ' + s.name)}><i class="ph ph-x"></i></button>{/if}
       {/snippet}
     </Table>
   </div>

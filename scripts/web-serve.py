@@ -1464,9 +1464,11 @@ class Reads:
         self.seen = {}        # key -> (spec, argv, when it was last asked for): what the warm-up keeps fresh, also reads with arguments (an instance, a pool)
         self.dirty = False    # something new in the cache since it was last saved
         self.on_clear = None   # App sets it: the plan cache is cleared together with the reads
+        self.cleared_at = 0.0  # when clear() last ran: what the collector read before that is from before the change and is not used
 
     def clear(self):
         with self.lock:
+            self.cleared_at = time.time()
             self.cache.clear()
             self.gen += 1          # a refresh that started before this must not put its (older) answer back
         if self.on_clear:
@@ -1537,6 +1539,8 @@ class Reads:
             stamp = time.time()
             kept = None if force else self.collected(argv)
             # a kept output older than the one in the cache (a refresh button read a newer one) is not put back
+            if kept is not None and kept[0] <= self.cleared_at:
+                kept = None   # read before the last change: run the script, the collector has not seen the change yet
             if kept is not None and (not hit or kept[0] > hit[0]) and stamp - kept[0] < self.cfg.collected_max_age and (kept[1] == 0 or kept[2].strip()):
                 # the collector has it: no script is started; the answer is as old as the collector's reading
                 stamp, rc, out = kept[0], kept[1], kept[2]
