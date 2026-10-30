@@ -617,6 +617,8 @@ Per-feature history and implementation details moved out of CLAUDE.md so that ev
 
 - Services describe their paths, auth and headers (phase 1 of .work/services-paths, 2026-10-29, not tested on hardware yet): descriptor keys `blocked_paths`, `auth` (authentik), `auth_skip`, `request_headers`, `response_headers`, `admin`, `cleared` (offers a person switched off); recipes say them with `service_path|service_auth|service_header` (api level 2); plan rows `manual` for what the provider lacks (`features` in `info`); import turns dead-end paths into `blocked_paths` and the outpost path into `auth`. Details: capabilities/reverse-proxy/NOTES.md. ServiceForm has the fields. Still open: Zoraxy headers, phases 2 and 3 (Traefik public).
 
+- Variant `traefik-public` (phase 2, 2026-10-30, not tested on hardware yet): host files `pub-<host>.yml` written whole by `ensure-host` on the entrypoint `public-tunnel` (`gatewayTunnelPort`, firewall only from `gatewayTunnelFrom`), `hs-deny` (403) and `hs-null` in the base file, per-service login and headers, `provider specs` for change detection; per-route ensure/remove refuse. A never-public service with a pub route only warns. Open: passthrough overlap (extensions repo), https-only backends. Details: capabilities/reverse-proxy/NOTES.md, capabilities/gateway/guide.md.
+
 ## Monitoring and status
 
 - Outside view and hardware health (2026-10-08, not yet run on the server): `heartbeatUrl` in machine.toml (-> /etc/hs/heartbeat-url, `HS_HEARTBEAT_URL`) makes health-check.sh POST a

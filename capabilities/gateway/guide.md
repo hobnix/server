@@ -71,5 +71,32 @@ hs gateway routes
 | `wildcard` is `wrong` or `missing` | the record is absent or points elsewhere | `hs gateway check` prints the command |
 | Routes stop updating | a hand-made file in `/var/lib/hs-gateway/routes` is broken YAML | fix or remove it |
 
+## Public services through the tunnel
+Optional: Traefik can also serve the public routes (paths, blocked paths, login, headers) instead of Zoraxy. Cloudflare's tunnel program (`cloudflared`) then sends the traffic to a port that only its container may reach. Not tested on hardware yet.
+
+1. Set the port and the single address of the cloudflared container (a /32, or /128 for IPv6; never a whole network, that would let LAN machines forge forwarded headers). Not tested on hardware yet.
+
+```bash
+sudo hs config set gatewayTunnelPort 8081
+```
+
+Then add the line `gatewayTunnelFrom = [ "10.10.95.19/32" ]` to `machine.toml` (it is not settable with `hs config set`) and rebuild:
+
+```bash
+sudo hs rebuild
+```
+
+2. Choose the variant and apply the routes. Not tested on hardware yet.
+
+```bash
+sudo hs config set reverseProxy traefik-public
+hs services plan
+sudo hs services apply
+```
+
+3. In Cloudflare, set the tunnel's public hostname origin to `http://<server bridge address>:8081` (the host address on the bridge the container uses, plus `gatewayTunnelPort`). Not tested on hardware yet.
+
+To go back: `hs config set reverseProxy zoraxy` and set the old origin again.
+
 ## Next
 The extension `passthrough` publishes a domain by TLS passthrough through this gateway (see its guide).

@@ -111,10 +111,10 @@ in
       message = "machine.toml: gatewayTunnelFrom: the address of the cloudflared container, e.g. [ \"10.10.95.19/32\" ] (gatewayTunnelPort is set)."; }
     { assertion = tun == 0 || !(builtins.elem tun ([ 80 443 22 139 445 8443 9740 m.webPort pubS pubH ] ++ config.services.openssh.ports));
       message = "machine.toml: gatewayTunnelPort = ${toString tun} is a port the server already uses; suggested 8081."; }
-    # no 0.0.0.0/0 and no ::/0: the tunnel port must stay closed to everyone but the cloudflared container
-    { assertion = lib.all (a: builtins.match "[0-9]{1,3}(\\.[0-9]{1,3}){3}(/(3[0-2]|[12][0-9]|[89]))?" a != null
-                              || builtins.match "[0-9a-fA-F:]+(/(12[0-8]|1[01][0-9]|[2-9][0-9]|1[6-9]))?" a != null) tunFrom;
-      message = "machine.toml: gatewayTunnelFrom holds an address that is not valid or too wide (no 0.0.0.0/0, no ::/0): use the address of the cloudflared container, e.g. \"10.10.95.19/32\".";  }
+    # single addresses only (/32 or /128): the tunnel port must stay closed to everyone but the cloudflared container
+    { assertion = lib.all (a: builtins.match "[0-9]{1,3}(\\.[0-9]{1,3}){3}(/32)?" a != null
+                              || builtins.match "[0-9a-fA-F:]+(/128)?" a != null) tunFrom;
+      message = "machine.toml: gatewayTunnelFrom holds an address that is not valid or not a single host (only /32 or /128): use the address of the cloudflared container, e.g. \"10.10.95.19/32\".";  }
     { assertion = m.role != "edge";
       message = "machine.toml: the gateway proxy is for a home server (role = \"homeserver\"), not an edge node."; }
     { assertion = !((config.services.nginx.enable or false) || (config.services.caddy.enable or false) || (config.services.httpd.enable or false));
