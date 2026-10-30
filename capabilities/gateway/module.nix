@@ -12,11 +12,20 @@ let
   # What happens to a name without a route: "404" (Traefik's own page) or "drop" (close the connection; only possible on the HTTPS entrypoints)
   unkPublic = m.gatewayUnknownHostPublic;
   unkLocal = m.gatewayUnknownHostLocal;
-  # The tunnel entrypoint (reverseProxy = traefik-public): only the cloudflared container may reach it (firewall below).
+  # The tunnel entrypoint (reverseProxy = traefik-public): only the cloudflared container may reach it (firewall below). Default
+  # (gatewayTunnelFrom empty): the container on the internal link of Incus, see tunFrom.
   tun = m.gatewayTunnelPort;
-  tunFrom = m.gatewayTunnelFrom;
+  link = import ../incus/internal-link.nix { inherit lib; machine = m; };
+  incusOn = hs.enabled "incus";
+  # empty = the cloudflared container on the internal link (incus capability), capabilities/incus/NOTES.md
+  tunFrom = if m.gatewayTunnelFrom == [ ] && incusOn then [ "${link.peer}/32" ] else m.gatewayTunnelFrom;
   tunV4 = lib.filter (x: !lib.hasInfix ":" x) tunFrom;
   tunV6 = lib.filter (lib.hasInfix ":") tunFrom;
+  onLink = a: incusOn && (a == "${link.peer}/32" || a == link.peer);
+  tunV4Link = lib.filter onLink tunV4;
+  tunV4Lan = lib.filter (a: !onLink a) tunV4;
+  # the example peer in messages: the real one with Incus, the default without
+  peerEx = if incusOn then link.peer else "10.99.0.2";
   # Direct mode (reverseProxy = traefik-public, a router that forwards 443): Traefik gets its own Let's Encrypt certificates by TLS-ALPN-01
   # (port 443 only; no HTTP-01, no DNS challenge, no wildcard). Off unless gatewayAcmeEmail AND gatewayPublicHttps are set: a tunnel-only
   # setup has no resolver and keeps hs-deadend. Which hosts ask for a certificate is decided at run time (hs services apply, d- routers).
@@ -108,12 +117,17 @@ in
     iifname "${i}" tcp dport 80 accept
   '') config.hs.privateInterfaces
   # The tunnel port: only the addresses in gatewayTunnelFrom (the cloudflared container); never in allowedTCPPorts.
-  + lib.optionalString (tun != 0 && tunV4 != [ ]) ''
-    ip saddr { ${lib.concatStringsSep ", " tunV4} } tcp dport ${toString tun} accept
+  + lib.optionalString (tun != 0 && tunV4Link != [ ]) ''
+    iifname "${link.name}" ip saddr { ${lib.concatStringsSep ", " tunV4Link} } tcp dport ${toString tun} accept
+  '' + lib.optionalString (tun != 0 && tunV4Lan != [ ]) ''
+    ip saddr { ${lib.concatStringsSep ", " tunV4Lan} } tcp dport ${toString tun} accept
   '' + lib.optionalString (tun != 0 && tunV6 != [ ]) ''
     ip6 saddr { ${lib.concatStringsSep ", " tunV6} } tcp dport ${toString tun} accept
   '';
+  # the same rule for the table of the internal link (capabilities/incus/module.nix), which drops everything else on it
+  hs.internalLinkAccept = lib.optional (tun != 0 && tunV4Link != [ ]) "ip saddr { ${lib.concatStringsSep ", " tunV4Link} } tcp dport ${toString tun}";
   networking.firewall.allowedTCPPorts = lib.optional (pubS != 0) pubS ++ lib.optional (pubH != 0) pubH;
+  environment.etc."hs/gateway-tunnel-from".text = lib.concatStringsSep " " tunFrom + "\n";   # the effective list, for hs and the tests
 
   environment.etc."hs/gateway-lan-ranges".text = lib.concatStringsSep " " lanRanges + "
 ";   # for hs and the tests: who may use the local routes
@@ -136,13 +150,13 @@ in
     { assertion = pubS != pubH || pubS == 0;
       message = "machine.toml: gatewayPublicHttps and gatewayPublicHttp must be different ports."; }
     { assertion = tun == 0 || tunFrom != [ ];
-      message = "machine.toml: gatewayTunnelFrom: the address of the cloudflared container, e.g. [ \"10.10.95.19/32\" ] (gatewayTunnelPort is set)."; }
+      message = "machine.toml: gatewayTunnelFrom: the address of the cloudflared container, e.g. [ \"10.99.0.2/32\" ] (gatewayTunnelPort is set; with the incus capability on, an empty list means the container on the internal link)."; }
     { assertion = tun == 0 || !(builtins.elem tun ([ 80 443 22 139 445 8443 9740 m.webPort pubS pubH ] ++ config.services.openssh.ports));
       message = "machine.toml: gatewayTunnelPort = ${toString tun} is a port the server already uses; suggested 8081."; }
     # single addresses only (/32 or /128): the tunnel port must stay closed to everyone but the cloudflared container
     { assertion = lib.all (a: builtins.match "[0-9]{1,3}(\\.[0-9]{1,3}){3}(/32)?" a != null
                               || builtins.match "[0-9a-fA-F]*:[0-9a-fA-F]*:[0-9a-fA-F:]*(/128)?" a != null) tunFrom;
-      message = "machine.toml: gatewayTunnelFrom holds an address that is not valid or not a single host (only /32 or /128): use the address of the cloudflared container, e.g. \"10.10.95.19/32\".";  }
+      message = "machine.toml: gatewayTunnelFrom holds an address that is not valid or not a single host (only /32 or /128): use the address of the cloudflared container on the internal link, e.g. \"${peerEx}/32\".";  }
     { assertion = email == "" || pubS != 0;
       message = "machine.toml: gatewayAcmeEmail needs gatewayPublicHttps = 443 (the router forwards 443 to this server)."; }
     { assertion = email == "" || builtins.match "[^@ ]+@[^@ ]+\\.[^@ ]+" email != null;

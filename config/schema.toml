@@ -439,6 +439,24 @@ incusUi = true'''
 
 [[item]]
 kind = "option"
+key = "incusInternalSubnet"
+type = "string"
+required = false
+settable = false
+secret = false
+capability = "incus"
+default = '"10.99.0.0/29"'
+pattern = '^(10|172|192)\.[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}/29$'
+hint = "a private /29 network, e.g. 10.99.0.0/29"
+doc = '''
+# The internal link of Incus: a host-only network between the server (first address) and the cloudflared container (second
+# address), no router involved. Change it only when the default overlaps a network you use; then run the cloudflared recipe again
+# and change the tunnel's service address in Cloudflare. Needs hs rebuild.'''
+value = '''
+incusInternalSubnet = "10.99.0.0/29"'''
+
+[[item]]
+kind = "option"
 key = "sshOverIp"
 type = "bool"
 required = false
@@ -1043,9 +1061,9 @@ secret = false
 capability = "gateway"
 default = '[ ]'
 doc = '''
-# The addresses that may use gatewayTunnelPort: the cloudflared container (fixed address). Needs hs rebuild.'''
+# The addresses that may use gatewayTunnelPort. Empty (the default) = the cloudflared container on the internal link of Incus (10.99.0.2/32). Needs hs rebuild.'''
 value = '''
-gatewayTunnelFrom = [ "10.10.95.19/32" ]'''
+gatewayTunnelFrom = [ "10.99.0.2/32" ]'''
 
 [[item]]
 kind = "option"

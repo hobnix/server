@@ -1852,3 +1852,19 @@ More: hs changes --all, or the What is new page in the web interface.	Mehr: hs c
 Date	Datum
 Change	Änderung
 '%s' is not a date. Use YYYY-MM-DD.	'%s' ist kein Datum. Bitte JJJJ-MM-TT.
+Internal link	Interner Link
+This server has no internal link yet: run sudo hs rebuild, then this recipe again.	Dieser Server hat noch keinen internen Link: führe sudo hs rebuild aus, dann dieses Rezept noch einmal.
+The Incus network %s is missing: run sudo hs rebuild, then this recipe again.	Das Incus-Netz %s fehlt: führe sudo hs rebuild aus, dann dieses Rezept noch einmal.
+The internal link (%s) overlaps a network of this server; set incusInternalSubnet in machine.toml and rebuild.	Der interne Link (%s) überschneidet sich mit einem Netz dieses Servers; setze incusInternalSubnet in machine.toml und baue neu.
+Adding a network card on the internal link	Netzwerkkarte am internen Link wird hinzugefügt
+The internal link of Incus (%s) overlaps a network this server uses:	Der interne Link von Incus (%s) überschneidet sich mit einem Netz, das dieser Server nutzt:
+Set incusInternalSubnet in /etc/nixos/machine.toml to a free private /29 (for example 10.250.0.0/29), then rebuild.	Setze incusInternalSubnet in /etc/nixos/machine.toml auf ein freies privates /29 (zum Beispiel 10.250.0.0/29) und baue dann neu.
+Applying the address	Adresse wird übernommen
+'%s' uses neither systemd-networkd nor ifupdown: give %s the address %s/29 by hand, without a gateway.	'%s' nutzt weder systemd-networkd noch ifupdown: gib %s die Adresse %s/29 von Hand, ohne Gateway.
+Waiting for the address on the link	Warten auf die Adresse am Link
+'%s' did not take %s on %s. Look at: incus exec %s -- ip addr show %s	'%s' hat %s auf %s nicht übernommen. Sieh nach mit: incus exec %s -- ip addr show %s
+'%s' has a default route on the internal link; remove it (a network file inside that matches %s).	'%s' hat eine Standardroute über den internen Link; entferne sie (eine Netzwerkdatei im Container, die auf %s passt).
+'%s' has %s on the internal link (the server is %s)	'%s' hat %s am internen Link (der Server ist %s)
+Checking the tunnel port over the link	Tunnel-Port über den Link wird geprüft
+The gateway does not answer on %s yet (is Traefik running? hs gateway status).	Das Gateway antwortet auf %s noch nicht (läuft Traefik? hs gateway status).
+gatewayTunnelFrom does not name %s/32, so the server refuses the link. Remove the gatewayTunnelFrom line in /etc/nixos/machine.toml (or add the address), then sudo hs rebuild.	gatewayTunnelFrom nennt %s/32 nicht, darum weist der Server den Link ab. Entferne die Zeile gatewayTunnelFrom in /etc/nixos/machine.toml (oder füge die Adresse hinzu), dann sudo hs rebuild.

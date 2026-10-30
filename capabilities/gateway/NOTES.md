@@ -58,7 +58,19 @@ provider (`tls.certificates` in a `00-hs-tls.yml`) or ACME DNS-01. The route fil
 Risk: if web-serve ever trusts X-Forwarded-For from more than loopback the login throttle can be fooled.
 
 ## Tunnel entrypoint (reverseProxy = traefik-public)
-`gatewayTunnelPort` (default 0 = off) adds the entrypoint `public-tunnel`; its trustedIPs and the firewall rule (`ip saddr { gatewayTunnelFrom } tcp dport <port> accept`, extraInputRules only, never allowedTCPPorts) are limited to `gatewayTunnelFrom`. The base file also holds `hs-deny` (ipAllowList 127.0.0.2/32, always 403) and `hs-null`. Full docs: step D.
+`gatewayTunnelPort` (default 0 = off) adds the entrypoint `public-tunnel`; its trustedIPs and the firewall rule (`tcp dport <port> accept`, extraInputRules only, never allowedTCPPorts) are limited to the effective `gatewayTunnelFrom`. The base file also holds `hs-deny` (ipAllowList 127.0.0.2/32, always 403) and `hs-null`. Full docs: step D.
+
+- Default: `gatewayTunnelFrom = []` with the `incus` capability on means `[ "<peer>/32" ]`, the cloudflared container on the internal link
+  (`10.99.0.2/32` by default, `capabilities/incus/NOTES.md`). An explicit list wins (needed during the move to the link and without Incus).
+  An empty list without Incus is refused at evaluation.
+- The entries equal to the peer get a rule with `iifname "hs-internal"`; other IPv4 entries keep the plain `ip saddr` rule, IPv6 entries the
+  `ip6 saddr` rule. The link entries are also given to `hs.internalLinkAccept`, the only accept in the table `inet hs-internal`.
+- The effective list is written to `/etc/hs/gateway-tunnel-from` (space separated); the recipe helper reads it. `/etc/hs/gateway-public`
+  is unchanged.
+- Traefik listens on `:<port>` (all addresses), not on the host address of the link: it then starts while the bridge is missing (storage
+  locked, Incus not started yet). Only the firewall limits who connects, as before.
+- The service address for Cloudflare is `http://<host address of the link>:<gatewayTunnelPort>`, `http://10.99.0.1:8081` by default; the
+  recipe prints it. Move of an existing tunnel: the guide. Not tested on hardware yet.
 
 ## Direct mode with Let's Encrypt (phase 3)
 `gatewayAcmeEmail` (empty = off) turns on the resolver `hs-le`: TLS-ALPN-01 only (needs the router to forward 443 to `gatewayPublicHttps`). `gatewayAcmeStaging` (default true) picks the test CA; staging and production keep separate storage under `/var/lib/hs-gateway/acme`, which is in the backup. `gatewayDirectDomains` (runtime setting, `hs services apply`, no rebuild) lists the domains served directly by `d-` routers; others stay on the tunnel. The catch-all `hs-deadend` is dropped only while ACME is on. Passthrough domains keep their own certificates. `hs sys gateway certs` prints host, state (staging|default|none|ok), until; `hs gateway status` has the rows `acme` (off|staging|production) and `public_proxy`. Not tested on hardware yet.

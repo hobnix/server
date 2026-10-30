@@ -70,22 +70,30 @@ hs gateway routes
 | A name bypasses the gateway | an explicit DNS record exists | see "Names with their own DNS record" |
 | `wildcard` is `wrong` or `missing` | the record is absent or points elsewhere | `hs gateway check` prints the command |
 | Routes stop updating | a hand-made file in `/var/lib/hs-gateway/routes` is broken YAML | fix or remove it |
+| 502 after 30 s, IPS alert 2101201 in the router | the tunnel still goes through the router | move it to the internal link ("Move an existing tunnel to the internal link") |
 
 ## Public services through the tunnel
 Optional: Traefik can also serve the public routes (paths, blocked paths, login, headers) instead of Zoraxy. Cloudflare's tunnel program (`cloudflared`) then sends the traffic to a port that only its container may reach. Not tested on hardware yet.
 
-1. Set the port and the single address of the cloudflared container (a /32, or /128 for IPv6; never a whole network, that would let LAN machines forge forwarded headers). `hs config set` does not handle these options: add the two lines to `/etc/nixos/machine.toml` and rebuild. Not tested on hardware yet.
+1. Set the port. `hs config set` does not handle this option: add the line to `/etc/nixos/machine.toml` and rebuild. Not tested on hardware yet.
 
 ```toml
 gatewayTunnelPort = 8081
-gatewayTunnelFrom = [ "10.10.95.19/32" ]
 ```
 
 ```bash
 sudo hs rebuild
 ```
 
-2. Choose the variant and apply the routes. Not tested on hardware yet.
+With the `incus` capability on, the cloudflared container reaches Traefik over the internal link (a host-only Incus network, no router in between) and `gatewayTunnelFrom` stays empty: an empty list means the container on the link (`10.99.0.2/32`). Without Incus, set `gatewayTunnelFrom = [ "10.99.0.2/32" ]` to the single address of the cloudflared container (a /32, or /128 for IPv6; never a whole network, that would let LAN machines forge forwarded headers).
+
+2. Set up the cloudflared container. The recipe gives it a second network card on the internal link and prints the service address. It needs the current recipe: run `sudo hs pkg update cloudflared` first if the recipe is already installed. Not tested on hardware yet.
+
+```bash
+sudo hs recipe cloudflared
+```
+
+3. Choose the variant and apply the routes. Not tested on hardware yet.
 
 ```bash
 sudo hs config set reverseProxy traefik-public
@@ -93,9 +101,86 @@ hs services plan
 sudo hs services apply
 ```
 
-3. In Cloudflare, set the tunnel's public hostname origin to `http://<server bridge address>:8081` (the host address on the bridge the container uses, plus `gatewayTunnelPort`). Not tested on hardware yet.
+4. In Cloudflare, set the service of every public hostname of the tunnel to `HTTP` and `10.99.0.1:8081` (the server on the internal link plus `gatewayTunnelPort`; the recipe prints the exact address, which differs when `incusInternalSubnet` is set). Not tested on hardware yet.
 
 To go back: `hs config set reverseProxy zoraxy` and set the old origin again.
+
+## Move an existing tunnel to the internal link
+For a tunnel that works today through the router: the cloudflared recipe is installed at `10.10.95.10`, the Cloudflare service is `http://10.10.10.95:8081` and `machine.toml` has `gatewayTunnelFrom = [ "10.10.95.10/32" ]`. The old path keeps working until step 6; no step needs a reboot. None of these steps has been run on real hardware.
+
+**The cloudflared recipe must be the version that knows the internal link (core API level 3).** Step 3 fetches it.
+
+1. Update the server. This creates the network `hs-internal` and the firewall table; the tunnel is not changed. Not tested on hardware yet.
+
+```bash
+sudo hs update
+```
+
+Check the network and the table (there is no `hs` command for them, so the long form). Not tested on hardware yet.
+
+```bash
+incus network show hs-internal
+```
+
+```bash
+sudo nft list table inet hs-internal
+```
+
+2. Allow both sources. Edit `/etc/nixos/machine.toml` by hand, then rebuild. Not tested on hardware yet.
+
+```toml
+gatewayTunnelFrom = [ "10.10.95.10/32", "10.99.0.2/32" ]
+```
+
+```bash
+sudo hs rebuild
+```
+
+3. Get the new recipe version (the update shows what changed first), then run it. Not tested on hardware yet.
+
+```bash
+sudo hs pkg update cloudflared
+```
+
+```bash
+sudo hs recipe cloudflared
+```
+
+The recipe keeps the token, adds a second network card (`eth1`, `10.99.0.2`), restarts the cloudflared service and prints the new service address. The tunnel may be down for a few seconds.
+
+4. Check inside the container (`incus` is the only way in). Not tested on hardware yet.
+
+```bash
+incus exec cloudflared -- ip -4 addr show eth1
+```
+
+`10.99.0.2/29` is listed. The default route must be only via `eth0`:
+
+```bash
+incus exec cloudflared -- ip route
+```
+
+The server answers on the link when this prints `open`:
+
+```bash
+incus exec cloudflared -- timeout 5 bash -c 'exec 3<>/dev/tcp/10.99.0.1/8081' && echo open
+```
+
+5. In the Cloudflare dashboard open the tunnel, Public Hostname, and edit EVERY hostname (the wildcard and the apex) to the service `HTTP` `10.99.0.1:8081`. Load the sites many times and watch for 502 errors over a day: the old failure came and went. Not tested on hardware yet.
+
+6. Close the old path: remove the `gatewayTunnelFrom` line from `/etc/nixos/machine.toml` (or set it to `[ "10.99.0.2/32" ]`), then rebuild. Not tested on hardware yet.
+
+```bash
+sudo hs rebuild
+```
+
+From another machine in the LAN, this must time out:
+
+```bash
+curl -m 5 http://10.10.10.95:8081/
+```
+
+To roll back before step 6, set the Cloudflare service to `HTTP` `10.10.10.95:8081` again. After step 6, put the old address back in `gatewayTunnelFrom` and rebuild.
 
 ## Public services with their own certificates (no tunnel)
 Optional: Traefik can also take the internet's traffic itself and get its own certificates from Let's Encrypt, so no tunnel is needed. Tunnel-only setups stay as they are: a domain that is not listed below stays on the tunnel. Not tested on hardware yet.
