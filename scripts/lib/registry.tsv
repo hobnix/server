@@ -357,6 +357,8 @@ sys	sys backup scheduled	backup.sh	now --scheduled	nightly backup (systemd)	-
 sys	sys registry	-	-	the command registry (kind, path, script)	-
 sys	sys complete	-	-	completion candidates for the shell	-
 user	update --preview	update-preview.sh	-	-	-	topic:system,reads,cheat:update
+user	changes	changes.sh	{rest}	what changed in Hobnix since the last update (--since <YYYY-MM-DD>, --all)	was sich an Hobnix seit dem letzten Update geändert hat (--since <JJJJ-MM-TT>, --all)	topic:system,reads
+sys	sys changes list	changes.sh	--list {rest}	the changelog as data: one range line (range, base, head, mode update|from|since|all|newest), then entry lines (entry, id, date, type, title, docs, body; empty = -); options --from <rev> | --since <date> | --all	-
 user	ssh-key list	ssh-key.sh	list	the SSH keys that may log in (comment, type, fingerprint)	die SSH-Schlüssel, die sich anmelden dürfen (Kommentar, Typ, Fingerabdruck)	topic:security,reads
 user	ssh-key add	ssh-key.sh	add	allow one more SSH key: hs ssh-key add "ssh-ed25519 AAAA... name@pc"	einen weiteren SSH-Schlüssel erlauben: hs ssh-key add "ssh-ed25519 AAAA... name@pc"	guided,topic:security,changes
 user	ext list	ext.sh	list	list the extension packages (optional parts such as Games and Posters) and whether each is on	die Erweiterungspakete (optionale Teile wie Spiele und Poster) auflisten und zeigen, ob sie an sind	topic:system,reads

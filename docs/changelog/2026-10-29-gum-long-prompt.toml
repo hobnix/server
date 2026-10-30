@@ -1,0 +1,3 @@
+date  = "2026-10-29"
+type  = "fix"
+title = "A long question no longer crashes the input prompt in the terminal"

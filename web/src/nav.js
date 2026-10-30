@@ -40,6 +40,7 @@ export const tree = [
       { label: 'Operations', icon: 'gear-six', path: '/operations', children: [
         { label: 'Health', icon: 'heartbeat', path: '/operations/health' },
         { label: 'Notifications', icon: 'bell', path: '/operations/notifications', capability: 'notifications' },
+        { label: "What's new", icon: 'sparkle', path: '/operations/whats-new' },
       ] },
       { label: 'Docs', icon: 'book-open', path: '/docs', prefix: true, capability: 'docs' },
       { label: 'Nodes', icon: 'hard-drives', path: '/nodes' },

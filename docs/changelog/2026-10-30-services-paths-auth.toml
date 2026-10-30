@@ -1,0 +1,4 @@
+date  = "2026-10-30"
+type  = "feature"
+title = "Services: paths, forward auth, headers and a public Traefik variant"
+docs  = "containers-and-apps#paths-login-and-headers-of-a-public-service"

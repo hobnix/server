@@ -15,8 +15,15 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v5
+        with:
+          fetch-depth: 0
       - name: Syntax of every script
         run: for f in scripts/*.sh scripts/lib/*.sh scripts/recipes/*.sh vps/*.sh tests/*.sh; do bash -n "$f" || exit 1; done
+      - name: Changelog entry for a user-visible change (warning only)
+        if: github.event_name == 'pull_request'
+        env:
+          BASE: ${{ github.event.pull_request.base.sha }}
+        run: bash scripts/dev/changelog-check.sh "$BASE" || echo "::warning::No docs/changelog entry: add one if users see this change (CONTRIBUTING.md)."
       - name: shellcheck (errors only)
         run: |
           sudo apt-get install -y -qq shellcheck

@@ -1,0 +1,6 @@
+date  = "2026-10-28"
+type  = "feature"
+title = "Gateway: forward a domain to another server (passthrough)"
+body  = """
+A passthrough domain can target a container of this server, after a confirmation, or the public proxy itself.
+"""

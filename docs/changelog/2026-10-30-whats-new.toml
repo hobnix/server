@@ -1,0 +1,7 @@
+date  = "2026-10-30"
+type  = "feature"
+title = "hs changes lists what an update brought"
+docs  = "operations#see-what-changed-after-an-update"
+body  = """
+After an update, hs changes shows the entries that the update added. The push message "update finished" says how many there are.
+"""

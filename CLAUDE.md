@@ -16,7 +16,7 @@ hobnix/extensions (docs/PLAN-packages.md); the core fetches them with `hs pkg`.
 - **Generated files are never edited by hand:** config/defaults.nix, scripts/lib/config-keys.sh, scripts/lib/capabilities.tsv,
   machine.toml.example. Edit config/schema.toml, then `python3 scripts/schema-gen.py write`.
 - **A new script needs a row** in scripts/lib/registry.tsv (tests/commands.sh); a new `reads` command needs a probe in scripts/smoke.sh; a new
-  recipe needs packages/<name>/package.toml and ends with `docs_hint`.
+  recipe needs packages/<name>/package.toml and ends with `docs_hint`; a user-visible change adds a docs/changelog entry.
 - **Secrets** are read only through scripts/lib/secret.sh and never go through argv or the environment.
 - **Docs are English** and follow docs/GUIDE-TEMPLATE.md; a step that was not run on real hardware says "Not tested on hardware yet."
 - **Git:** stage files by name after `git status`; no `Co-Authored-By` or "generated with" lines about any AI tool in commits or PRs.

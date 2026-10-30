@@ -1,0 +1,7 @@
+date  = "2026-10-29"
+type  = "feature"
+title = "Disks: daily SMART baseline, ERC and staggered self-tests"
+docs  = "storage-and-disks#disk-health"
+body  = """
+Removing a pool member no longer leaves a stale encryption entry.
+"""

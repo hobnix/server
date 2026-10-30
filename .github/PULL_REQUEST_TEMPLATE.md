@@ -7,3 +7,7 @@
 ## Touches packages?
 
 <!-- A change to scripts/recipes/_lib.sh, the loaders or scripts/lib/api-level: name the recipes and extensions it affects. -->
+
+## Changelog
+
+<!-- User-visible? Add docs/changelog/<date>-<slug>.toml (CONTRIBUTING.md). -->

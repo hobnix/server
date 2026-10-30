@@ -1,0 +1,7 @@
+date  = "2026-10-29"
+type  = "feature"
+title = "Apps and extensions come from their own repositories"
+docs  = "containers-and-apps#install-packages-from-a-repository"
+body  = """
+hs pkg install fetches recipes and extensions, and the default repositories are trusted through a release key.
+"""

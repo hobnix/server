@@ -1,0 +1,6 @@
+date  = "2026-10-29"
+type  = "feature"
+title = "Convert a data disk and erase its files instead of moving them (--discard)"
+body  = """
+--discard erases the files on the disk, they are gone for good. Useful when they are already copied elsewhere or no longer needed.
+"""

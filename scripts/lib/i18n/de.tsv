@@ -137,6 +137,7 @@ When you are done: hs backup browse --off	Wenn du fertig bist: hs backup browse 
 Which disk becomes the backup disk? (it is erased in the next step)	Welche Platte wird die Backup-Platte? (sie wird im nächsten Schritt gelöscht)
 ZFS copies the data onto the new disk in the background (resilver); the pool stays usable.	ZFS kopiert die Daten im Hintergrund auf die neue Platte (Resilver); der Pool bleibt benutzbar.
 smartctl is not installed (package smartmontools).	smartctl ist nicht installiert (Paket smartmontools).
+usage: hs changes [--since <YYYY-MM-DD> | --all]	Aufruf: hs changes [--since <JJJJ-MM-TT> | --all]
 usage: hs disk list                    every disk with its verdict	Aufruf: hs disk list                    jede Platte mit ihrem Befund
 usage: hs pool <pool> [add|replace|remove|convert] [--dry-run] [--disks <id,id,...>]	Aufruf: hs pool <pool> [add|replace|remove|convert] [--dry-run] [--disks <id,id,...>]
 usage: hs migrate check [--parity <disk>]	Aufruf: hs migrate check [--parity <Platte>]
@@ -1841,3 +1842,13 @@ Public proxy	Öffentlicher Proxy
 %s: no certificate yet: is port 443 forwarded and does the DNS name point here (no Cloudflare proxy)?	%s: noch kein Zertifikat: ist Port 443 weitergeleitet und zeigt der DNS-Name hierher (kein Cloudflare-Proxy)?
 Certificate	Zertifikat
 Own certificates	Eigene Zertifikate
+'%s' is not a revision.	'%s' ist keine Revision.
+Nothing new since the last update.	Seit dem letzten Update ist nichts Neues dazugekommen.
+No changes in that range.	In diesem Zeitraum gibt es keine Änderungen.
+No earlier update recorded: the %s newest changes.	Kein früheres Update aufgezeichnet: die %s neuesten Änderungen.
+Changes since the last update (%s):	Änderungen seit dem letzten Update (%s):
+More: hs changes --all, or the What is new page in the web interface.	Mehr: hs changes --all, oder die Seite „Neuigkeiten“ in der Weboberfläche.
+%s new entries in the changelog: hs changes	%s neue Einträge im Änderungsprotokoll: hs changes
+Date	Datum
+Change	Änderung
+'%s' is not a date. Use YYYY-MM-DD.	'%s' ist kein Datum. Bitte JJJJ-MM-TT.
