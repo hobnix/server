@@ -19,7 +19,7 @@ check('the allowlist was read', known.size > 50 && known.has('ct/list') && known
 
 const routes = ['/', '/instances', '/network', '/identity/users', '/identity/groups', '/identity/certificates', '/monitoring/hardware', '/protection/backup', '/storage/pools', '/storage/pools/bulk', '/storage/pools/fast', '/storage/disks', '/storage/shares', '/storage/files',
   '/protection/expiry', '/operations/health', '/operations/apps', '/operations/services', '/instances/apps', '/marketplace', '/instances/services', '/storage/encryption', '/storage/vault', '/storage/unassigned',
-  '/settings', '/setup', '/nodes', '/storage/bulk', '/storage/fast', '/storage/bulk/disks', '/storage/fast/disks', '/storage/bulk/shares'];
+  '/settings', '/settings/general', '/settings/capabilities', '/settings/capabilities/gateway', '/setup', '/nodes', '/storage/bulk', '/storage/fast', '/storage/bulk/disks', '/storage/fast/disks', '/storage/bulk/shares'];
 const missing = [];
 let total = 0;
 for (const r of routes) {

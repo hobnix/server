@@ -15,6 +15,8 @@ const de = {
   'Last snapshot': 'Letzter Wiederherstellungspunkt', 'Last sync': 'Letzte Synchronisierung', 'Last answer': 'Letzte Antwort', Read: 'Abfrage', Every: 'Alle', Kept: 'Gehalten', Takes: 'Dauer',
   Create: 'Erstellen', Delete: 'Löschen', Restart: 'Neu starten', Start: 'Starten', Stop: 'Stoppen', Close: 'Schließen', Password: 'Passwort',
   "What's new": 'Neuigkeiten',
+  General: 'Allgemein', 'Network and DNS': 'Netzwerk und DNS', 'Users and access': 'Benutzer und Zugang', Updates: 'Aktualisierungen',
+  Capabilities: 'Funktionen', Advanced: 'Erweitert', Backups: 'Datensicherungen',
   'Sort by': 'Sortieren nach', 'Update all': 'Alle aktualisieren',
 };
 

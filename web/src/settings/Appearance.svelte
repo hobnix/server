@@ -1,7 +1,7 @@
 <script>
   import { tip } from '../ui/tooltip.svelte.js';
   // The Appearance block of the Settings page: the halftone effect, live. The preview is a real <Halftone /> with no look props, so it shows what
-  // every slot gets (web/src/halftone.svelte.js holds the choices in this browser only). Mounted by pages/Settings.svelte: <Appearance />.
+  // every slot gets (web/src/halftone.svelte.js holds the choices in this browser only). Mounted by settings/SettingsPage.svelte (General): <Appearance />.
   import Halftone from '../shell/Halftone.svelte';
   import Combobox from '../ui/Combobox.svelte';
   import Switch from '../ui/Switch.svelte';

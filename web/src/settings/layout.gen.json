@@ -1,0 +1,202 @@
+{
+ "pages": [
+  "general",
+  "network",
+  "storage",
+  "backups",
+  "access",
+  "updates",
+  "capabilities",
+  "advanced"
+ ],
+ "keys": {
+  "hostName": "general",
+  "role": "general",
+  "hostId": "general",
+  "timeZone": "general",
+  "sshKeys": "access",
+  "capabilities": "capabilities",
+  "language": "general",
+  "keyMap": "general",
+  "icons": "general",
+  "loginMessage": "general",
+  "webUi": "general",
+  "webPort": "general",
+  "webAccent": "general",
+  "webTailscale": "cap:tailscale",
+  "webLan": "access",
+  "webDocs": "general",
+  "liveState": "cap:live-state",
+  "webTerminal": "access",
+  "webTerminalIdleMinutes": "access",
+  "webTerminalMaxHours": "access",
+  "nic": "network",
+  "smbAllow": "network",
+  "vlans": "network",
+  "dhcpRange": "network",
+  "siteName": "network",
+  "incusUi": "network",
+  "incusInternalSubnet": "cap:incus",
+  "sshOverIp": "access",
+  "tailscaleRouter": "cap:tailscale",
+  "bulkType": "storage",
+  "syncEveryHours": "storage",
+  "shareSnapshots": "storage",
+  "zfsArcMaxGB": "storage",
+  "diskSpindownMinutes": "storage",
+  "fileManagerWrite": "storage",
+  "setupDone": "general",
+  "backupNewShares": "backups",
+  "adDomain": "access",
+  "notifyUrl": "cap:notifications",
+  "heartbeatUrl": "cap:notifications",
+  "notifyUrlSecond": "cap:notifications",
+  "notifySecondMinPriority": "cap:notifications",
+  "notifications": "cap:notifications",
+  "quietHours": "cap:notifications",
+  "autoMitigate": "cap:notifications",
+  "metrics": "cap:metrics",
+  "metricsDays": "cap:metrics",
+  "metricsMaxGB": "cap:metrics",
+  "deckApi": "general",
+  "proxyStatusUrl": "cap:vps",
+  "vpsHost": "cap:vps",
+  "networkProvider": "cap:network",
+  "reverseProxy": "cap:reverse-proxy",
+  "dashboard": "cap:dashboard",
+  "dashboardOpen": "cap:dashboard",
+  "proxyDomains": "cap:reverse-proxy",
+  "gatewayPublicHttps": "cap:gateway",
+  "gatewayPublicHttp": "cap:gateway",
+  "gatewayUnknownHostLocal": "cap:gateway",
+  "gatewayUnknownHostPublic": "cap:gateway",
+  "gatewayTunnelPort": "cap:gateway",
+  "gatewayTunnelFrom": "cap:gateway",
+  "gatewayAcmeEmail": "cap:gateway",
+  "gatewayAcmeStaging": "cap:gateway",
+  "gatewayDirectDomains": "cap:gateway",
+  "gpu": "advanced",
+  "nvidiaDriver": "advanced",
+  "pciBind": "advanced",
+  "dcName": "advanced",
+  "ups": "advanced",
+  "bootDevice": "advanced",
+  "nodeKeys": "advanced",
+  "edgeDomain": "cap:edge-mail",
+  "edgeMxHost": "cap:edge-mail",
+  "edgeAcmeEmail": "cap:edge-mail",
+  "edgeStalwartIp": "cap:edge-mail",
+  "edgeWingsIp": "cap:edge-ports",
+  "edgeGamePorts": "cap:edge-ports",
+  "edgeGameTcp": "cap:edge-ports",
+  "edgeGameUdp": "cap:edge-ports",
+  "edgeRtcIp": "cap:edge-ports",
+  "edgeRtcTcp": "cap:edge-ports",
+  "edgeRtcUdp": "cap:edge-ports",
+  "edgeWatchSites": "cap:edge-watcher",
+  "tailscaleAuthKeyFile": "cap:tailscale",
+  "tailscaleTags": "cap:tailscale"
+ },
+ "caps": {
+  "ad": {
+   "title": "Active Directory (domain users, Domain Admins sign in)",
+   "icon": "puzzle-piece",
+   "entry": false
+  },
+  "backup": {
+   "title": "Backup (restic to the backup disk, restore drills)",
+   "icon": "puzzle-piece",
+   "entry": false
+  },
+  "dashboard": {
+   "title": "Dashboard (tiles for the services)",
+   "icon": "puzzle-piece",
+   "entry": true
+  },
+  "docker": {
+   "title": "Docker host with a web page to manage it",
+   "icon": "puzzle-piece",
+   "entry": false
+  },
+  "docs": {
+   "title": "Documentation in the web interface (guides and command reference)",
+   "icon": "puzzle-piece",
+   "entry": false
+  },
+  "edge-mail": {
+   "title": "Edge node: public mail entry (MX)",
+   "icon": "puzzle-piece",
+   "entry": true
+  },
+  "edge-ports": {
+   "title": "Edge node: public game and call ports",
+   "icon": "puzzle-piece",
+   "entry": true
+  },
+  "edge-status": {
+   "title": "Edge node: status document",
+   "icon": "puzzle-piece",
+   "entry": false
+  },
+  "edge-watcher": {
+   "title": "Edge node: outside watcher of the home server",
+   "icon": "puzzle-piece",
+   "entry": true
+  },
+  "gateway": {
+   "title": "Gateway proxy (Traefik: local names for the services)",
+   "icon": "puzzle-piece",
+   "entry": true
+  },
+  "incus": {
+   "title": "Incus (containers and VMs, VLAN profiles)",
+   "icon": "puzzle-piece",
+   "entry": true
+  },
+  "live-state": {
+   "title": "Live state (Redis cache for the web interface)",
+   "icon": "puzzle-piece",
+   "entry": true
+  },
+  "metrics": {
+   "title": "Metrics (Prometheus on this server)",
+   "icon": "puzzle-piece",
+   "entry": true
+  },
+  "network": {
+   "title": "Router connection (fixed addresses for instances)",
+   "icon": "puzzle-piece",
+   "entry": true
+  },
+  "notifications": {
+   "title": "Notification channels (ntfy and other providers)",
+   "icon": "puzzle-piece",
+   "entry": true
+  },
+  "reverse-proxy": {
+   "title": "Reverse proxy (publishes the services)",
+   "icon": "puzzle-piece",
+   "entry": true
+  },
+  "samba": {
+   "title": "Samba shares and network discovery",
+   "icon": "puzzle-piece",
+   "entry": false
+  },
+  "storage": {
+   "title": "Storage (ZFS or SnapRAID pools, shares, encrypted disks)",
+   "icon": "puzzle-piece",
+   "entry": false
+  },
+  "tailscale": {
+   "title": "Tailscale (private access to this server)",
+   "icon": "puzzle-piece",
+   "entry": true
+  },
+  "vps": {
+   "title": "Proxyserver (VPS) as the front door",
+   "icon": "puzzle-piece",
+   "entry": true
+  }
+ }
+}

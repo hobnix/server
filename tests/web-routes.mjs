@@ -22,6 +22,7 @@ eq('every other proxy page', ['mail', 'watcher', 'certificate', 'tailscale', 'se
 eq('an address that already carries the node is moved too', redirect('/node/proxyserver/proxy/mail', L), '/node/proxyserver/mail');
 eq('a moved address is left alone afterwards', redirect('/node/proxyserver/mail', L), null);
 eq('the settings page of another node is its own', redirect('/node/edge1/settings', L), null);
+eq('the settings subpages of this server only get the node', [redirect('/settings', L), redirect('/settings/general', L)], ['/node/homeserver/settings', '/node/homeserver/settings/general']);
 eq('the query survives a move', redirect('/proxy/ports?x=1', L), '/node/proxyserver/ports?x=1');
 eq('a guide address', redirect('/docs/en/setup', L), '/node/homeserver/docs/en/setup');
 eq('a node address is left alone', redirect('/node/homeserver/instances', L), null);
