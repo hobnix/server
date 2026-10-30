@@ -301,6 +301,22 @@ class Collected(unittest.TestCase):
         self.assertLess(time.time() - r.cache[("ct", "list")][0], 3)           # the cache is not set back to the collector's older reading
         self.assertEqual(len(self.fake.calls), 2)                              # the script ran again instead
 
+    def test_after_a_change_what_the_collector_read_before_it_is_not_used(self):
+        self.put("ct list", "before\n", age=5)
+        r = ws.Reads(self.cfg)
+        self.ask(r, "ct/list")
+        self.assertEqual(self.fake.calls, [])
+        r.clear()                                    # a change was started
+        self.ask(r, "ct/list")
+        self.assertEqual(self.fake.calls, [("ct", "list")])          # the script runs instead of serving the pre-change reading
+        self.put("ct list", "after\n", age=0)        # a collector run after the change is used again
+        r.clear()
+        time.sleep(1.1)
+        self.put("ct list", "later\n", age=0)
+        code, obj, _ = self.ask(r, "ct/list")
+        self.assertEqual(obj["rows"], [["later"]])
+        self.assertEqual(len(self.fake.calls), 1)
+
     def test_the_status_read_is_allowlisted(self):
         self.assertEqual(ws.READS[("reads", "status")]["kind"], "tsv")
 
