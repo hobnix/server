@@ -417,6 +417,9 @@ check_eq "show: an empty list is -" "request_headers${T}-" "$($PY show authentik
 $PY edit web --dir "$D" --auth none >/dev/null
 check "edit --auth none drops auth and auth_skip" bash -c '! grep -q "^auth" "$1"' _ "$D/web.toml"
 $PY edit web --dir "$D" --auth authentik --auth-skip /api >/dev/null
+$PY edit web --dir "$D" --clear auth-skip >/dev/null
+check_eq "edit --clear auth-skip drops the skips and keeps the auth" "ok" "$(grep -q '^auth = ' "$D/web.toml" && ! grep -q '^auth_skip' "$D/web.toml" && echo ok)"
+$PY edit web --dir "$D" --auth authentik --auth-skip /api >/dev/null
 $PY edit web --dir "$D" --clear auth --clear blocked-path --clear request-header --clear response-header >/dev/null
 check "edit --clear: auth takes auth_skip with it, and the headers and blocked paths go" bash -c '! grep -qE "^(auth|blocked_paths|request_headers|response_headers)" "$1"' _ "$D/web.toml"
 check_eq "edit refuses an auth that is unknown" "1" "$($PY edit web --dir "$D" --auth keycloak >/dev/null 2>&1; echo $?)"

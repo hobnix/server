@@ -51,7 +51,7 @@ f=$PUB/pub-app.example.org.yml
 check "the host file is there" test -f "$f"
 check_out "its login goes to the authentik service" "address: 'http://10.10.95.23:9000/outpost.goauthentik.io/auth/traefik'" cat "$f"
 check_out "its header" "'X-Frame-Options': 'DENY'" cat "$f"
-check_out "its skip path is routed" "PathPrefix\(.\/api.\)" cat "$f"
+check_out "its skip path is routed" "Path\(.\/api.\) \|\| PathPrefix\(.\/api\/.\)" cat "$f"
 check_eq "only on public-tunnel" "0" "$(grep -c 'lan-http\|hs-lan-only' "$f" || true)"
 check_out "the blocked path is denied" "hs-deny" cat "$PUB/pub-authentik.example.org.yml"
 check "never-public: no file" bash -c "[ ! -e '$PUB/pub-secret.example.org.yml' ]"
@@ -70,6 +70,19 @@ check "without the confirmation the file stays" bash -c "$S apply >/dev/null 2>&
 $S apply --confirm app.example.org >/dev/null 2>&1
 check_out "the file has the new header" "SAMEORIGIN" cat "$f"
 check_eq "the plan is quiet again" "0" "$($S plan --plain | grep -cE '^(add|confirm|change)' || true)"
+
+echo "-- hostspecs fails: the host is reported, its file stays"
+printf '#!/usr/bin/env bash
+case " $* " in *" hostspecs "*) exit 1 ;; esac
+exec python3 "$@"
+' > "$BIN/py-fail"; chmod +x "$BIN/py-fail"
+$S edit app --response-header 'X-Frame-Options: DENY' >/dev/null
+before=$(cat "$f")
+out=$(HS_PYTHON=$BIN/py-fail $S apply --confirm app.example.org 2>&1 || true)
+check_out "a warning says the host could not be made" "app.example.org could not be made" echo "$out"
+check_eq "and the file is as before" "$before" "$(cat "$f")"
+$S apply --confirm app.example.org >/dev/null 2>&1
+check_out "a later apply with the real script writes it" "DENY" cat "$f"
 
 echo "-- a host with a row that is left alone is not rewritten"
 $S add other --container docker --port 7000 --exposure public-ok --want reverse-proxy --fqdn app.example.org >/dev/null

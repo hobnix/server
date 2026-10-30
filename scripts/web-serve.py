@@ -1009,7 +1009,7 @@ CHANGES = {
                          "--auth-skip": (r"^/[A-Za-z0-9._/-]{0,100}$", True), "--auth": (r"^(authentik|none)$", False),
                          "--request-header": (r"^[A-Za-z0-9-]{1,64}: [ -~]{1,200}$", True), "--response-header": (r"^[A-Za-z0-9-]{1,64}: [ -~]{1,200}$", True),
                          "--want": (r"^[a-z,-]{1,80}$", False),
-                         "--clear": (r"^(title|icon|group|description|names|public-path|blocked-path|auth|request-header|response-header)$", True),
+                         "--clear": (r"^(title|icon|group|description|names|public-path|blocked-path|auth|auth-skip|request-header|response-header)$", True),
                          "--group": (r"^[^\x00-\x1f]{1,160}$", False), "--icon": (r"^[^\x00-\x1f]{1,160}$", False),
                          "--description": (r"^[^\x00-\x1f]{1,160}$", False)}}],
     # the Marketplace (pkg-change.sh): install / update / remove a package, fetch the repositories, add a repository (its public key is ONE line on stdin) or

@@ -43,9 +43,7 @@
     exposure = v.exposure || 'private-ok'; paths = v.public_paths.split(',').join(' ');
     blocked = v.blocked_paths.split(',').join(' '); skip = v.auth_skip.split(',').join(' ');
     auth = wasAuth = v.auth === 'authentik';
-    reqHeaders = v.request_headers.split(' | ').join('
-'); resHeaders = v.response_headers.split(' | ').join('
-');
+    reqHeaders = v.request_headers.split(' | ').join('\n'); resHeaders = v.response_headers.split(' | ').join('\n');
     const want = v.want.split(',');
     dashboard = want.includes('dashboard'); proxied = want.includes('reverse-proxy');
   });
@@ -79,11 +77,10 @@
     if (!list(blocked, '--blocked-path', edit && 'blocked-path', pathRe, /[\s,]+/)) return null;
     if (auth) a.push('--auth', 'authentik');
     else if (edit && wasAuth) a.push('--auth', 'none');
-    if (!list(skip, '--auth-skip', null, pathRe, /[\s,]+/)) return null;
-    if (!list(reqHeaders, '--request-header', edit && 'request-header', headRe, '
-')) return null;
-    if (!list(resHeaders, '--response-header', edit && 'response-header', headRe, '
-')) return null;
+    if (auth) { if (!list(skip, '--auth-skip', edit && 'auth-skip', pathRe, /[\s,]+/)) return null; }
+    else if (edit) a.push('--clear', 'auth-skip');
+    if (!list(reqHeaders, '--request-header', edit && 'request-header', headRe, '\n')) return null;
+    if (!list(resHeaders, '--response-header', edit && 'response-header', headRe, '\n')) return null;
     if (edit) a.push('--want', [proxied && 'reverse-proxy', dashboard && 'dashboard'].filter(Boolean).join(',') || 'none');
     else a.push('--want', dashboard ? 'reverse-proxy,dashboard' : 'reverse-proxy');
     return a;

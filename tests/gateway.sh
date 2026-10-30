@@ -73,9 +73,13 @@ out=$(P app.example.org)
 check_out "the auth middleware address" "address: 'http://10.0.0.9:9000/outpost.goauthentik.io/auth/traefik'" echo "$out"
 check_out "the root has the auth middleware" "middlewares: \[pa-app-example-org-app-auth\]" echo "$out"
 check_out "the callback has priority 20000" "priority: 20000" echo "$out"
-check_out "the skip router has priority 1004 (below any longer path of another service)" "priority: 1004" echo "$out"
+check_out "the skip router has priority 1003 (one below a real route of its own path)" "priority: 1003" echo "$out"
+check_out "the skip router matches the path or below it, not /api-docs" "(Path(\`/api\`) || PathPrefix(\`/api/\`))" echo "$out"
 check_eq "the skip router goes to the root service and has no auth" "1" "$(awk '/^    p-app-example-org-s-/ {f=1} f && /middlewares/ {n++} f && /service:/ {print $2; f=0}' <<<"$out" | grep -c '^p-app-example-org-root$')"
 check_eq "only the root router has the auth middleware" "1" "$(grep -c 'middlewares: \[pa-' <<<"$out" || true)"
+spec 'route@app@/@10.0.0.5:80' 'route@app@/outpost.goauthentik.io@10.0.0.9:9000' 'route@app@/apix@10.0.0.5:80' 'auth@app@10.0.0.9:9000' 'skip@app@/api'
+out=$(P app.example.org)
+check_eq "a route /apix is no part of the skip path /api (keeps its login)" "2" "$(grep -c 'middlewares: \[pa-' <<<"$out" || true)"
 spec 'route@app@/@10.0.0.5:80' 'route@app@/outpost.goauthentik.io@10.0.0.9:9000' 'route@b@/api/v2@10.0.0.6:80' 'auth@app@10.0.0.9:9000' 'skip@app@/api'
 out=$(P app.example.org)
 check_eq "a longer path of another service beats the skip router" "1" "$(awk '/^    p-app-example-org-s-/ {f=1} f && /priority/ {print $2; f=0}' <<<"$out" | awk '$1 < 1007' | wc -l | tr -d ' ')"

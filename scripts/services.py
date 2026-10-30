@@ -427,12 +427,12 @@ def cmd_add(d, args):
 
 EDIT_WANTS = ('reverse-proxy', 'dashboard')   # the wants the edit form owns; every other want of the file stays as it is
 EDIT_CLEAR = {'title': 'title', 'icon': 'icon', 'group': 'group', 'description': 'description', 'names': 'names', 'public-path': 'public_paths',
-              'blocked-path': 'blocked_paths', 'auth': 'auth', 'request-header': 'request_headers', 'response-header': 'response_headers'}
+              'blocked-path': 'blocked_paths', 'auth': 'auth', 'auth-skip': 'auth_skip', 'request-header': 'request_headers', 'response-header': 'response_headers'}
 
 
 def cmd_edit(d, args):
     """Change a described service: only the options given change, everything else in the file stays (fqdn, scheme, health, wants the form
-    does not own). --clear <title|icon|group|description|names|public-path|blocked-path|auth|request-header|response-header> drops that key
+    does not own). --clear <title|icon|group|description|names|public-path|blocked-path|auth|auth-skip|request-header|response-header> drops that key
     (auth also drops auth_skip). --want names the wants of EDIT_WANTS that are
     on; one of them that was in the file and is not named becomes false. Nothing is sent to the proxy: `apply` does that."""
     name = args.pop(0) if args and not args[0].startswith('--') else die('edit needs a name')
@@ -656,7 +656,7 @@ def make_plan(d, info, routes, addrs, owned=frozenset(), slot='public', explicit
         cur = wants.get((h, p))
         if cur is None:
             wants[(h, p)] = (t, name, strong)
-        elif cur[0] == t and t != DEAD_END and cur[1] != name and bool(services[cur[1]].get('auth')) != bool(services[name].get('auth')):
+        elif slot != 'local' and cur[0] == t and t != DEAD_END and cur[1] != name and bool(services[cur[1]].get('auth')) != bool(services[name].get('auth')):
             # same target, but only one of the two asks for a login: whichever wins, the other's rule would be wrong or open
             out.append(('conflict', h, p, t, name, 'also wanted by %s with %s, but only one of them has auth' % (cur[1], cur[0])))
         elif cur[0] == t:

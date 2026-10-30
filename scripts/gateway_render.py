@@ -184,7 +184,7 @@ def render_public(host, lines, mode='tunnel'):
             if path != '/':
                 rule += ' && PathPrefix(`%s`)' % path
             m = mids(svc)
-            if any(f[0] == 'skip' and f[1] == svc and path.startswith(f[2]) for f in lines):
+            if any(f[0] == 'skip' and f[1] == svc and (f[2].rstrip('/') == '' or path == f[2].rstrip('/') or path.startswith(f[2].rstrip('/') + '/')) for f in lines):
                 m = [x for x in m if not x.endswith('-auth')]   # the route lies inside a skip path: no login
             router(pid(path), rule, 100 if path == '/' else 1000 + len(path), m, nm(path))
             real.append((path, svc))
@@ -195,8 +195,10 @@ def render_public(host, lines, mode='tunnel'):
         if not cover or (path, svc) in real:   # a real route at the skip path itself has no login already
             continue
         m = ['pa-%s-%s-hdr' % (hid, svc)] if svc in hdr else []
-        routers += router('s-' + pid(path), 'Host(`%s`) && PathPrefix(`%s`)' % (host, path), 1000 + len(path), m,
-                          nm(max(cover, key=len)))
+        sp = path.rstrip('/')   # a path boundary: /api opens /api and /api/..., never /api-docs
+        rule = 'Host(`%s`) && (Path(`%s`) || PathPrefix(`%s/`))' % (host, sp, sp) if sp else 'Host(`%s`)' % host
+        # one below a real route of the same path (1000 + len), so a route of another service at this path always wins
+        routers += router('s-' + pid(path), rule, 999 + len(path), m, nm(max(cover, key=len)))
     for kind in ('tunnel', 'direct'):
         if kind not in modes:
             continue
