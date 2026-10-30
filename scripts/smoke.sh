@@ -115,6 +115,7 @@ default_probes() {
     $'hs gateway status\tgateway status\t0 1' \
     $'hs gateway routes\tgateway routes\t0 1' \
     $'hs gateway check\tgateway check\t0 1' \
+    $'hs gateway health\tgateway health\t0 1\t30' \
     $'hs dc cert show\tdc cert show\t0 1' \
     $'hs update --preview\tupdate --preview\t0 1\t120' \
     $'hs ssh-key list\tssh-key list\t0 1' \

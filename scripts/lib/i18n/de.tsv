@@ -1788,7 +1788,7 @@ Unmanaged files	Nicht verwaltete Dateien
 Web interface	Weboberfläche
 Wildcard DNS	Wildcard-DNS
 or in Windows DNS Manager: zone %s > %s > New Host, name *, address %s	oder im Windows-DNS-Manager: Zone %s > %s > Neuer Host, Name *, Adresse %s
-usage: hs gateway status | routes | check	Aufruf: hs gateway status | routes | check
+usage: hs gateway status | routes | check | health	Aufruf: hs gateway status | routes | check | health
 usage: hs services list | check | plan | add <name> ... | edit <name> ... | remove <name> | import [--dry-run] [--yes] | apply [--dry-run] [--confirm <host or service>] | adopt [--yes] | proxy login | stats | key <service>   (plan, apply, import, adopt: [--proxy public|local])	Aufruf: hs services list | check | plan | add <Name> ... | edit <Name> ... | remove <Name> | import [--dry-run] [--yes] | apply [--dry-run] [--confirm <Host oder Dienst>] | adopt [--yes] | proxy login | stats | key <Dienst>   (plan, apply, import, adopt: [--proxy public|local])
 dashboard = web would be set (the Homepage recipe is gone; the dashboard is part of the web interface)	dashboard = web würde gesetzt (das Homepage-Rezept gibt es nicht mehr; das Dashboard ist Teil der Weboberfläche)
 dashboard is now web (the Homepage recipe is gone)	dashboard ist jetzt web (das Homepage-Rezept gibt es nicht mehr)
@@ -1868,3 +1868,5 @@ Waiting for the address on the link	Warten auf die Adresse am Link
 Checking the tunnel port over the link	Tunnel-Port über den Link wird geprüft
 The gateway does not answer on %s yet (is Traefik running? hs gateway status).	Das Gateway antwortet auf %s noch nicht (läuft Traefik? hs gateway status).
 gatewayTunnelFrom does not name %s/32, so the server refuses the link. Remove the gatewayTunnelFrom line in /etc/nixos/machine.toml (or add the address), then sudo hs rebuild.	gatewayTunnelFrom nennt %s/32 nicht, darum weist der Server den Link ab. Entferne die Zeile gatewayTunnelFrom in /etc/nixos/machine.toml (oder füge die Adresse hinzu), dann sudo hs rebuild.
+Check	Prüfung
+Reason	Grund

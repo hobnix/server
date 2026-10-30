@@ -145,8 +145,9 @@
   },
   "gateway": {
    "title": "Gateway proxy (Traefik: local names for the services)",
-   "icon": "puzzle-piece",
-   "entry": true
+   "icon": "globe",
+   "entry": true,
+   "status": "gateway health"
   },
   "incus": {
    "title": "Incus (containers and VMs, VLAN profiles)",

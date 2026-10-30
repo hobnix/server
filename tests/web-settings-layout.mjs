@@ -27,6 +27,8 @@ assert.deepEqual(capEntries(layout, null), []);
 assert.deepEqual(capEntries(layout, ['gateway', 'docs']).map((e) => e.path), ['/settings/capabilities/gateway']);
 const all = capEntries(layout, Object.keys(layout.caps));
 assert.deepEqual(all.map((e) => e.label), all.map((e) => e.label).sort((a, b) => a.localeCompare(b)));
+assert.equal(layout.caps.gateway.status, 'gateway health');
+assert.ok(Object.values(layout.caps).every((c) => c.status === undefined || typeof c.status === 'string'));
 // (5) every page id has a tree child under /settings; the capability children land under Capabilities
 const settings = mainTree.find((i) => i.path === '/settings');
 for (const p of layout.pages) assert.ok(settings.children.some((c) => c.path === `/settings/${p}`), p);

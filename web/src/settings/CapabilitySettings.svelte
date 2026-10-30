@@ -1,6 +1,6 @@
 <script>
   // /settings/capabilities/<name>: the settings page of one capability, the same for all (no per-capability component). From top to bottom:
-  // the header (title, on/off, the switch), a status block and a setup block (both empty in step 1, see the comments), then the fields of the
+  // the header (title, on/off, the switch), a status block ([settings] status: StatusPanel) and a setup block (empty yet, see the comment), then the fields of the
   // keys that belong to this capability (layout.gen.json, page cap:<name>). A capability that is off still has its page: it is how it gets switched on.
   import { tip } from '../ui/tooltip.svelte.js';
   import { route } from '../route.svelte.js';
@@ -9,6 +9,7 @@
   import Chip from '../ui/Chip.svelte';
   import EmptyState from '../ui/EmptyState.svelte';
   import Fields from './Fields.svelte';
+  import StatusPanel from './StatusPanel.svelte';
   import layout from './layout.gen.json';
   import { fieldsFor } from './layout.js';
   import { useConfig } from './config.svelte.js';
@@ -41,7 +42,7 @@
   {#if !meta}
     <div class="card"><EmptyState icon="puzzle-piece" title="Unknown part" text="This server has no part with this name." /></div>
   {:else}
-    <!-- step 2: the status block (a few words of a sys read, declared by [settings] status in the manifest) goes here -->
+    {#if meta.status}<StatusPanel read={meta.status} />{/if}
     <!-- step 2: the setup block (guided steps declared by [[settings.steps]] in the manifest) goes here -->
     {#if fields.length}
       <Fields opts={fields} />
