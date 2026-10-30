@@ -359,13 +359,10 @@ def main(argv):
             print("unknown package", file=sys.stderr)
             return 1
         data = installed()
-        data[rest[0]] = {"version": known[rest[0]]}
-        f = installed_file()
-        os.makedirs(os.path.dirname(f), exist_ok=True)
-        with open(f + ".new", "w", encoding="utf-8") as o:
-            for n in sorted(data):
-                o.write(f"[package.{n}]\nversion = {q(data[n]['version'])}\n\n")
-        os.replace(f + ".new", f)
+        have = data.get(rest[0], {})
+        # keep repo/commit/tag of a package installed from a repository, else `hs pkg remove|update` refuse it
+        data[rest[0]] = dict(have, version=known[rest[0]]) if have.get("version") == known[rest[0]] else {"version": known[rest[0]]}
+        save_installed(data)
     else:
         print(__doc__)
         return 1
