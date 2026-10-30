@@ -1,0 +1,4 @@
+date  = "2026-10-30"
+type  = "feature"
+title = "cloudflared reaches the gateway over an internal Incus link, not through the router"
+body  = """The server now has a host-only Incus network (hs-internal, 10.99.0.0/29). The cloudflared recipe gives its container a second network card on it, so the tunnel traffic to Traefik no longer crosses the router. Only the tunnel port is open on the link. Needs the updated cloudflared recipe (core API level 3). See the gateway guide, "Move an existing tunnel to the internal link". Not tested on hardware yet."""

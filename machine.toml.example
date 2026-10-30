@@ -111,6 +111,11 @@ vlans = { home = { id = 95, default = true } }
 #   false           no UI, port 8443 closed, Incus listens on this machine only
 # incusUi = true
 
+# The internal link of Incus: a host-only network between the server (first address) and the cloudflared container (second
+# address), no router involved. Change it only when the default overlaps a network you use; then run the cloudflared recipe again
+# and change the tunnel's service address in Cloudflare. Needs hs rebuild.
+# incusInternalSubnet = "10.99.0.0/29"
+
 # SSH (port 22) over the server's IP address from the home networks.
 #   true (default)  `ssh adminuser@<ip or name>` works from any machine on the LAN
 #   false           port 22 is closed on the network cards; SSH only through Tailscale (needs tailscaleRouter or webTailscale)
@@ -203,8 +208,8 @@ vlans = { home = { id = 95, default = true } }
 # Needs hs rebuild.
 # gatewayTunnelPort = 8081
 
-# The addresses that may use gatewayTunnelPort: the cloudflared container (fixed address). Needs hs rebuild.
-# gatewayTunnelFrom = [ "10.10.95.19/32" ]
+# The addresses that may use gatewayTunnelPort. Empty (the default) = the cloudflared container on the internal link of Incus (10.99.0.2/32). Needs hs rebuild.
+# gatewayTunnelFrom = [ "10.99.0.2/32" ]
 
 # Let's Encrypt account address for the gateway's own certificates (direct mode: the router forwards 443 to this server,
 # reverseProxy = traefik-public). Empty = off. Needs gatewayPublicHttps. Needs hs rebuild.

@@ -12,4 +12,14 @@
       outside the home networks, so none of them has to know which provider it is.
     '';
   };
+
+  options.hs.internalLinkAccept = lib.mkOption {
+    type = lib.types.listOf lib.types.str;
+    default = [ ];
+    example = [ "ip saddr { 10.99.0.2/32 } tcp dport 8081" ];
+    description = ''
+      nftables matches (without the verdict) that may pass on the internal link (interface hs-internal, capabilities/incus/module.nix);
+      everything else that arrives on it is dropped. Set by the gateway: the tunnel port from gatewayTunnelFrom.
+    '';
+  };
 }

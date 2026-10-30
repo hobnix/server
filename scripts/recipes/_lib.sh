@@ -10,6 +10,7 @@
 . "$(dirname "${BASH_SOURCE[0]}")/../lib/capability.sh"   # capability_on: is the Docs page there (docs_hint)
 . "$(dirname "${BASH_SOURCE[0]}")/../lib/setting.sh"   # setting_get: which providers are set up (reverseProxy, dashboard)
 . "$(dirname "${BASH_SOURCE[0]}")/../lib/network.sh"   # network_provider / network_run: the router connection
+. "$(dirname "${BASH_SOURCE[0]}")/../lib/internal-link.sh"   # link_get, link_overlaps: the internal link of Incus (internal_link)
 # the recipe's own German texts: <package folder>/i18n/<lang>.tsv (the run.sh that sourced this file is BASH_SOURCE[1]); the texts of this file and of
 # the shared helpers are in the core catalog
 if [ "${hs_lang:-en}" != en ] && [ -n "${BASH_SOURCE[1]:-}" ]; then _i18n_read "$(dirname "${BASH_SOURCE[1]}")/i18n/$hs_lang.tsv"; fi
@@ -527,6 +528,65 @@ ct_tailscale() {
     note "$(t 'Sign it in with: incus exec %s -- tailscale up --hostname=%s --accept-dns=false' "$ct" "$ct")"
   fi
   ts_ip=$(incus exec "$ct" -- tailscale ip -4 </dev/null 2>/dev/null | head -n1 || true)
+}
+
+# internal_link: a second network card (device $HS_LINK_DEVICE, $HS_LINK_NIC) on the Incus network of the internal link (capabilities/incus/NOTES.md)
+# with the fixed address $link_peer and no default route. Sets $link_url (http://<host address>:<gatewayTunnelPort>, empty while the tunnel port is
+# off) and $link_host/$link_peer. Returns 1 (and says why) when the server has no internal link (incus off, or hs rebuild not run yet).
+internal_link() {
+  local name subnet tun from etc=${HS_ETC_DIR:-/etc/hs} hits line
+  link_url=""; link_host=$(link_get host); link_peer=$(link_get peer); name=$(link_get name); subnet=$(link_get subnet)
+  step "Internal link"
+  if [ -z "$name" ] || [ -z "$link_peer" ]; then warn "This server has no internal link yet: run sudo hs rebuild, then this recipe again."; return 1; fi
+  incus network show "$name" >/dev/null 2>&1 </dev/null || { warn "$(t 'The Incus network %s is missing: run sudo hs rebuild, then this recipe again.' "$name")"; return 1; }
+  if hits=$(link_overlaps "$subnet"); then
+    while IFS= read -r line; do note "$line"; done <<<"$hits"
+    fail "$(t 'The internal link (%s) overlaps a network of this server; set incusInternalSubnet in machine.toml and rebuild.' "$subnet")"
+  fi
+  if [ "$(incus config device get "$ct" "$HS_LINK_DEVICE" network 2>/dev/null </dev/null || true)" != "$name" ]; then
+    spin "Adding a network card on the internal link" incus config device add "$ct" "$HS_LINK_DEVICE" nic network="$name" name="$HS_LINK_NIC"
+  fi
+  if incus exec "$ct" -- systemctl is-enabled -q systemd-networkd </dev/null 2>/dev/null; then
+    ensure_file /etc/systemd/network/10-$HS_LINK_DEVICE.network "the network file of the internal link" <<NET
+[Match]
+Name=$HS_LINK_NIC
+
+[Link]
+RequiredForOnline=no
+
+[Network]
+Address=$link_peer/29
+LinkLocalAddressing=no
+IPv6AcceptRA=no
+ConfigureWithoutCarrier=yes
+NET
+    in_ct "Applying the address" 'networkctl reload && networkctl reconfigure "$1"' "$HS_LINK_NIC"
+  elif incus exec "$ct" -- grep -qs '^source /etc/network/interfaces.d' /etc/network/interfaces </dev/null; then
+    ensure_file /etc/network/interfaces.d/$HS_LINK_DEVICE "the network file of the internal link" <<NET
+auto $HS_LINK_NIC
+iface $HS_LINK_NIC inet static
+    address $link_peer/29
+NET
+    in_ct "Applying the address" 'ifdown "$1" 2>/dev/null || true; ifup "$1"' "$HS_LINK_NIC"
+  else
+    fail "$(t "'%s' uses neither systemd-networkd nor ifupdown: give %s the address %s/29 by hand, without a gateway." "$ct" "$HS_LINK_NIC" "$link_peer")"
+  fi
+  spin "Waiting for the address on the link" bash -c 'for _ in $(seq 1 10); do incus exec "$1" -- ip -4 -o addr show dev "$3" </dev/null | grep -q " $2/" && exit 0; sleep 1; done; exit 1' _ "$ct" "$link_peer" "$HS_LINK_NIC" ||
+    fail "$(t "'%s' did not take %s on %s. Look at: incus exec %s -- ip addr show %s" "$ct" "$link_peer" "$HS_LINK_NIC" "$ct" "$HS_LINK_NIC")"
+  if incus exec "$ct" -- ip -4 route show default </dev/null | grep -q "dev $HS_LINK_NIC"; then
+    fail "$(t "'%s' has a default route on the internal link; remove it (a network file inside that matches %s)." "$ct" "$HS_LINK_NIC")"
+  fi
+  ok "$(t "'%s' has %s on the internal link (the server is %s)" "$ct" "$link_peer" "$link_host")"
+  tun=$(sed -n 's/^tunnel=//p' "$etc/gateway-public" 2>/dev/null | head -n 1 || true)
+  [ -n "$tun" ] && [ "$tun" != 0 ] || return 0
+  link_url="http://$link_host:$tun"
+  from=" $(cat "$etc/gateway-tunnel-from" 2>/dev/null || true) "; from=${from//$'\n'/ }
+  if [[ "$from" == *" $link_peer/32 "* || "$from" == *" $link_peer "* ]]; then
+    SPIN_SOFT=1 spin "Checking the tunnel port over the link" incus exec "$ct" -- timeout 5 bash -c "exec 3<>/dev/tcp/$link_host/$tun" ||
+      warn "$(t 'The gateway does not answer on %s yet (is Traefik running? hs gateway status).' "$link_url")"
+  else
+    warn "$(t 'gatewayTunnelFrom does not name %s/32, so the server refuses the link. Remove the gatewayTunnelFrom line in /etc/nixos/machine.toml (or add the address), then sudo hs rebuild.' "$link_peer")"
+  fi
 }
 
 # wait_page <title> <what to look at when it does not answer, run as: incus exec <ct> -- ...> [options]

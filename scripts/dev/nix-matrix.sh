@@ -102,7 +102,11 @@ refused gateway-public-443-tailscale 'capabilities = ["gateway"]' 'gatewayPublic
 refused gateway-public-https-80 'capabilities = ["gateway"]' 'gatewayPublicHttps = 80'
 refused gateway-public-http-443 'capabilities = ["gateway"]' 'gatewayPublicHttp = 443'
 variant gateway-tunnel "services.traefik.enable=true" 'capabilities = ["gateway"]' 'gatewayTunnelPort = 8081' 'gatewayTunnelFrom = [ "10.10.95.19/32" ]'
-refused gateway-tunnel-no-from 'capabilities = ["gateway"]' 'gatewayTunnelPort = 8081'
+refused gateway-tunnel-no-from 'role = "minimal"' 'capabilities = ["gateway"]' 'gatewayTunnelPort = 8081'   # no incus: the empty list has no default
+TF='environment.etc."hs/gateway-tunnel-from".text'
+# the empty list on a server with Incus = the container on the internal link; an explicit list wins and gets no link-scoped rule
+variant gateway-tunnel-link-default "$TF="'"10.99.0.2/32\n"'"|hs.internalLinkAccept="'[ "ip saddr { 10.99.0.2/32 } tcp dport 8081" ]' 'capabilities = ["gateway", "incus"]' 'gatewayTunnelPort = 8081'
+variant gateway-tunnel-explicit "$TF="'"10.10.95.19/32\n"'"|hs.internalLinkAccept=[ ]" 'capabilities = ["gateway", "incus"]' 'gatewayTunnelPort = 8081' 'gatewayTunnelFrom = [ "10.10.95.19/32" ]'
 refused gateway-tunnel-80 'capabilities = ["gateway"]' 'gatewayTunnelPort = 80' 'gatewayTunnelFrom = [ "10.10.95.19/32" ]'
 refused gateway-tunnel-public-port 'capabilities = ["gateway"]' 'gatewayPublicHttps = 4443' 'gatewayTunnelPort = 4443' 'gatewayTunnelFrom = [ "10.10.95.19/32" ]'
 refused gateway-tunnel-not-an-address 'capabilities = ["gateway"]' 'gatewayTunnelPort = 8081' 'gatewayTunnelFrom = [ "8081" ]'
@@ -123,6 +127,12 @@ variant role-edge-configured "$INCUS=false|$SMB=false|$TS=true|services.postfix.
 refused edge-forwards-ssh "${edge[@]}" 'edgeWingsIp = "100.64.0.11"' 'edgeGamePorts = ["20-30"]'   # a pool that covers 22 and 25 is never forwarded
 refused ssh-closed-without-provider 'sshOverIp = false'
 variant ssh-closed-with-tailscale "$TS=true" 'sshOverIp = false' 'capabilities = ["tailscale"]'
+# the internal link of Incus (capabilities/incus/internal-link.nix): facts file, nft table, subnet checks
+IL='environment.etc."hs/internal-link".text'
+variant incus-link "$IL="'"name=hs-internal\nsubnet=10.99.0.0/29\nhost=10.99.0.1\npeer=10.99.0.2\n"'"|networking.nftables.tables.hs-internal.family=\"inet\""
+variant incus-link-custom "$IL="'"name=hs-internal\nsubnet=10.250.0.8/29\nhost=10.250.0.9\npeer=10.250.0.10\n"' 'incusInternalSubnet = "10.250.0.8/29"'
+refused incus-link-unaligned 'incusInternalSubnet = "10.99.0.3/29"'
+refused incus-link-public 'incusInternalSubnet = "8.8.8.0/29"'
 
 echo "-> $pass ok, $fail failed"
 [ "$fail" -eq 0 ]

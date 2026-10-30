@@ -15,6 +15,7 @@ set -euo pipefail
 . "$(dirname "$0")/lib/stamp.sh"
 . "$(dirname "$0")/lib/machine.sh"
 . "$(dirname "$0")/lib/capability.sh"
+. "$(dirname "$0")/lib/internal-link.sh"
 . "$(dirname "$0")/lib/setting.sh"
 
 refuse_if_locked   # before any build (also with --verbose / nixos-rebuild options)
@@ -175,10 +176,25 @@ rollback_now() {   # rollback_now <what went wrong>
   return 0
 }
 
+# The internal link of Incus must not take addresses this server already reaches (capabilities/incus/NOTES.md); nothing is built then.
+link_check() {
+  local role subnet hits line
+  [ "${HS_LINK_CHECK:-1}" = 1 ] || return 0
+  role=$(machine_get role 2>/dev/null || true)
+  capability_on incus || [ "${role:-homeserver}" = homeserver ] || return 0
+  subnet=$(link_subnet_wanted); [ -n "$subnet" ] || return 0
+  if hits=$(link_overlaps "$subnet"); then
+    warn "$(t 'The internal link of Incus (%s) overlaps a network this server uses:' "$subnet")"
+    while IFS= read -r line; do note "$line"; done <<< "$hits"
+    fail "$(t 'Set incusInternalSubnet in /etc/nixos/machine.toml to a free private /29 (for example 10.250.0.0/29), then rebuild.')"
+  fi
+}
+
 generation() { { readlink /nix/var/nix/profiles/system 2>/dev/null || true; } | sed -n 's/^system-\([0-9]*\)-link$/\1/p'; }
 
 config_check
 gpu_check
+link_check
 
 step "Rebuild"
 before=$(readlink -f "$cur_system")

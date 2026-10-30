@@ -22,6 +22,7 @@
   webTerminalMaxHours = 8;
   dhcpRange = [ 100 199 ];
   incusUi = true;
+  incusInternalSubnet = "10.99.0.0/29";
   sshOverIp = true;
   tailscaleRouter = false;
   bulkType = "zfs";
