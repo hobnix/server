@@ -23,6 +23,14 @@ assert.ok(paths('main', null).includes('/settings'));
 // nothing of a remote tree is a local page by accident: a peer never gets Settings, Network or Identity
 for (const p of ['/settings', '/network', '/identity', '/nodes', '/setup']) assert.ok(!paths('peer', ['storage', 'incus', 'backup']).includes(p), p);
 
+// the capability pages go under Settings > Capabilities (a copy: without the 4th argument nothing changes)
+const gw = [{ label: 'Gateway proxy', icon: 'puzzle-piece', path: '/settings/capabilities/gateway' }];
+const capKids = (items) => items.find((i) => i.path === '/settings').children.find((c) => c.path === '/settings/capabilities').children;
+assert.deepEqual(capKids(nodeItems('main', null, [], gw)), gw);
+assert.equal(capKids(nodeItems('main', null, [])), undefined);
+assert.equal(capKids(nodeItems('main', null, [], gw)) === gw, true);
+assert.equal(capKids(nodeItems('main', null)), undefined);
+
 // helpers
 const now = 1_000_000;
 assert.equal(since(null, now), 'never');

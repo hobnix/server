@@ -20,6 +20,7 @@ text = '''
 [[item]]
 kind = "section"
 title = "Server"
+page = "general"
 
 [[item]]
 kind = "option"
@@ -87,6 +88,7 @@ timeZone = "Europe/Vienna"'''
 [[item]]
 kind = "option"
 key = "sshKeys"
+page = "access"
 type = "list"
 required = true
 settable = false
@@ -102,6 +104,7 @@ sshKeys = [
 [[item]]
 kind = "option"
 key = "capabilities"
+page = "capabilities"
 type = "list"
 required = false
 settable = false
@@ -119,6 +122,7 @@ capabilities = ["metrics"]'''
 [[item]]
 kind = "section"
 title = "Interface"
+page = "general"
 
 [[item]]
 kind = "option"
@@ -255,6 +259,7 @@ webTailscale = true'''
 [[item]]
 kind = "option"
 key = "webLan"
+page = "access"
 type = "bool"
 required = false
 settable = false
@@ -302,6 +307,7 @@ liveState = "off"'''
 [[item]]
 kind = "option"
 key = "webTerminal"
+page = "access"
 type = "bool"
 required = false
 settable = false
@@ -320,6 +326,7 @@ webTerminal = true'''
 [[item]]
 kind = "option"
 key = "webTerminalIdleMinutes"
+page = "access"
 type = "int"
 required = false
 settable = false
@@ -337,6 +344,7 @@ webTerminalIdleMinutes = 30'''
 [[item]]
 kind = "option"
 key = "webTerminalMaxHours"
+page = "access"
 type = "int"
 required = false
 settable = false
@@ -353,6 +361,7 @@ webTerminalMaxHours = 8'''
 [[item]]
 kind = "section"
 title = "Network"
+page = "network"
 
 [[item]]
 kind = "option"
@@ -458,6 +467,7 @@ incusInternalSubnet = "10.99.0.0/29"'''
 [[item]]
 kind = "option"
 key = "sshOverIp"
+page = "access"
 type = "bool"
 required = false
 settable = false
@@ -490,6 +500,7 @@ tailscaleRouter = true'''
 [[item]]
 kind = "section"
 title = "Storage"
+page = "storage"
 
 [[item]]
 kind = "option"
@@ -600,10 +611,12 @@ fileManagerWrite = true'''
 [[item]]
 kind = "section"
 title = "Backup"
+page = "backups"
 
 [[item]]
 kind = "option"
 key = "setupDone"
+page = "general"
 type = "bool"
 required = false
 settable = true
@@ -638,6 +651,7 @@ backupNewShares = true'''
 [[item]]
 kind = "section"
 title = "Accounts"
+page = "access"
 
 [[item]]
 kind = "option"
@@ -658,6 +672,7 @@ adDomain = { realm = "AD.HOME.LAN", workgroup = "HOME" }'''
 [[item]]
 kind = "section"
 title = "Messages"
+page = "cap:notifications"
 
 [[item]]
 kind = "option"
@@ -784,6 +799,7 @@ autoMitigate = true'''
 [[item]]
 kind = "section"
 title = "History and status"
+page = "general"
 
 [[item]]
 kind = "option"
@@ -940,6 +956,7 @@ dashboard = "web"'''
 [[item]]
 kind = "option"
 key = "dashboardOpen"
+page = "cap:dashboard"
 type = "bool"
 required = false
 settable = false
@@ -1117,6 +1134,7 @@ gatewayDirectDomains = "example.org"'''
 [[item]]
 kind = "section"
 title = "Hardware"
+page = "advanced"
 
 [[item]]
 kind = "option"
@@ -1231,6 +1249,7 @@ nodeKeys = ["ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIexample... hs-node"]'''
 [[item]]
 kind = "section"
 title = "Edge node (a public VPS, role = edge)"
+page = "advanced"
 
 [[item]]
 kind = "option"

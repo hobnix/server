@@ -82,7 +82,15 @@ buttons **Update**, **Reboot** and **Shut down**.
 | Protection | backup (back up now, verify, restore test, browse, restore files), expiry dates |
 | Operations | health (each problem with the command that helps, and a button where a safe fix exists), notifications |
 | Docs | the guides and the command reference, rendered in the page, with search |
-| Nodes, Setup, Settings | other servers, the first-run checklist, the common `machine.toml` settings |
+| Nodes, Setup, Settings | other servers, the first-run checklist, the `machine.toml` settings on subpages (see below) |
+
+**Settings** has subpages in the left tree: **General** (name, language, look, the Nodes link), **Network and DNS**, **Storage**, **Backups**,
+**Users and access** (SSH keys, web access, the terminal, Active Directory), **Updates** (installed revision, how many changes are
+waiting upstream, **Update**, a link to What's new, and **Sync new options** for new keys in `machine.toml`), **Capabilities** (every optional
+part and extension with its switch) and **Advanced** (every key, read-only ones too, and **Check** for typos in `machine.toml`). Each
+capability that is switched on and has settings of its own (the gateway, metrics, Tailscale ...) also gets a page under **Capabilities**:
+the switch, then its keys. A capability that is off keeps its page, so you can switch it on there. The address `/settings` shows an overview of
+all subpages. Not tested on hardware yet.
 
 Installed extensions add pages under **Extensions**. The first start shows the **Setup** checklist until you mark it done.
 

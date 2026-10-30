@@ -55,6 +55,36 @@ bad_rules=$($GEN list | tr -d $'\r' | awk -F"$T" '$3 == "yes" && $2 == "string" 
   rule "$k" | awk -F"$T" -v k="$k" '$2 == "" && $4 == "" {print k}'; done | tr '\n' ' ')
 check_eq "no settable text option without a rule" "" "${bad_rules// /}"
 
+echo "-- the settings pages (page, [settings]) are checked"
+# every key has a page
+check_eq "pages lists every key once" "$SCHEMA_KEYS" "$($GEN pages | cut -f1 | sort)"
+# schema-gen.py runs from a copy so that a changed schema or manifest can be tried (ROOT is the folder above scripts/)
+trial() {   # trial <python edit of the copy's files, as sed on config/schema.toml | manifest> -> exit code of `check`
+  local d; d=$(mktemp -d)
+  mkdir -p "$d/scripts" "$d/config" "$d/web/src/settings"
+  cp "$SCRIPTS/schema-gen.py" "$SCRIPTS/web-serve.py" "$d/scripts/"
+  cp "$SCRIPTS/../config/schema.toml" "$d/config/"
+  cp -r "$SCRIPTS/../capabilities" "$d/capabilities"
+  "$@" "$d"
+  python3 "$d/scripts/schema-gen.py" check >/dev/null 2>&1; local rc=$?
+  rm -rf "$d"
+  return $rc
+}
+edit_schema() { sed -i "$1" "$2/config/schema.toml"; }
+sec_no_page() { edit_schema '/^title = "Storage"$/{n;d}' "$1"; }
+adv_settable() { edit_schema '/^key = "syncEveryHours"$/a page = "advanced"' "$1"; }
+bad_cap() { edit_schema '/^key = "syncEveryHours"$/a page = "cap:nothing-here"' "$1"; }
+bad_settings_key() { printf '
+[settings]
+flavour = "x"
+' >> "$1/capabilities/metrics/capability.toml"; }
+trial sec_no_page; rc=$?; check_eq "a section without page (and options without one) dies" 2 "$rc"
+trial adv_settable; rc=$?; check_eq "advanced on a settable option dies" 2 "$rc"
+trial bad_cap; rc=$?; check_eq "an unknown cap:<name> dies" 2 "$rc"
+trial bad_settings_key; rc=$?; check_eq "an unknown [settings] key dies" 2 "$rc"
+check_eq "advanced is only on options that are not settable" "" "$($GEN pages | awk -F"$T" '$2 == "advanced" {print $1}' | grep -Fxf <($GEN list | awk -F"$T" '$3 == "yes" {print $1}') | tr '
+' ' ')"
+
 echo "-- the web allowlist is exactly the settable options"
 settable=$($GEN list | awk -F"$T" '$3 == "yes" {print $1}' | sort | tr '\n' ' ')
 web=$(python3 - "$SCRIPTS/web-serve.py" <<'EOF'

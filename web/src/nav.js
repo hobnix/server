@@ -45,7 +45,17 @@ export const tree = [
       { label: 'Docs', icon: 'book-open', path: '/docs', prefix: true, capability: 'docs' },
       { label: 'Nodes', icon: 'hard-drives', path: '/nodes' },
       { label: 'Setup', icon: 'list-checks', path: '/setup' },
-      { label: 'Settings', icon: 'sliders', path: '/settings' },
+      { label: 'Settings', icon: 'sliders', path: '/settings', children: [
+        { label: 'General', icon: 'sliders-horizontal', path: '/settings/general' },
+        { label: 'Network and DNS', icon: 'network', path: '/settings/network' },
+        { label: 'Storage', icon: 'database', path: '/settings/storage', capability: 'storage' },
+        { label: 'Backups', icon: 'cloud-arrow-up', path: '/settings/backups', capability: 'backup' },
+        { label: 'Users and access', icon: 'users-three', path: '/settings/access' },
+        { label: 'Updates', icon: 'arrow-circle-up', path: '/settings/updates' },
+        // one child per capability that is on and has a settings page of its own is added at render time (nodeItems capItems)
+        { label: 'Capabilities', icon: 'puzzle-piece', path: '/settings/capabilities', prefix: true },
+        { label: 'Advanced', icon: 'wrench', path: '/settings/advanced' },
+      ] },
     ],
   },
   {
@@ -89,13 +99,22 @@ export const remoteTree = [HEALTH];
 export const vpsTree = [HEALTH, ...edgeItems];
 
 // kind: 'main' | 'vps' | 'edge' | 'peer' (hs sys node list); caps: the capability names of the node (main: the session answer, remote: its status document)
-export function nodeItems(kind, caps, exts) {
-  if (kind === 'main') return [...visible(mainTree, caps), ...extensionItems(exts)];
+// capItems: tree items for the capabilities that have a settings page (settings/layout.js capEntries); they go under Settings > Capabilities.
+// The tree is copied, never changed. (nav.js stays free of the generated JSON: tests import it in plain node.)
+export function nodeItems(kind, caps, exts, capItems = []) {
+  if (kind === 'main') return [...withCapItems(visible(mainTree, caps), capItems), ...extensionItems(exts)];
   if (kind === 'vps' || kind === 'edge') {
     const have = Array.isArray(caps) ? caps : null;
     return [HEALTH, ...edgeItems.filter((i) => kind === 'vps' && !have ? true : !EDGE_NEEDS[i.path] || (have ?? []).includes(EDGE_NEEDS[i.path]))];
   }
   return [HEALTH, ...(Array.isArray(caps) ? peerItems.filter((i) => caps.includes(i.capability)) : [])];
+}
+
+function withCapItems(items, capItems) {
+  if (!capItems.length) return items;
+  return items.map((it) => it.path === '/settings' && it.children
+    ? { ...it, children: it.children.map((c) => (c.path === '/settings/capabilities' ? { ...c, children: capItems } : c)) }
+    : it);
 }
 
 // The Extensions group: one page per extension package that is on AND declares a web page (ui.features.extensions, the manifests' [web.page]).

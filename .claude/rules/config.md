@@ -88,3 +88,4 @@ Loaded when you touch the files above (path-scoped rule). The root CLAUDE.md has
 
 - New servers are installed with install.nix (minimal, no pools needed), then switched to
   configuration.nix once the pools exist. No config editing in between.
+- `page` in config/schema.toml (section or option) picks the Settings subpage of a key (`general network storage backups access updates capabilities advanced` or `cap:<name>`); an option with `capability` goes to that capability's page; `advanced` alone is only for options that are not settable. A capability manifest may have `[settings]` with `icon` and `entry` (a tree page even without options). Both feed web/src/settings/layout.gen.json (generated).

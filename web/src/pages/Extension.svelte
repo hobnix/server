@@ -34,6 +34,6 @@
   {#key name}<GenericPage {spec} {forms} />{/key}
 {:else}
   <div class="card"><EmptyState tone="info" icon="power" title="This extension is switched off" text="It is not part of this server's configuration, so there is nothing to show. Switch it on with hs ext enable, or in Settings.">
-    {#snippet action()}<button use:tip={'Open the settings page'} class="btn" onclick={() => go('/settings')}><i class="ph ph-sliders"></i>Open Settings</button>{/snippet}
+    {#snippet action()}<button use:tip={'Open the settings page'} class="btn" onclick={() => go('/settings/capabilities')}><i class="ph ph-sliders"></i>Open Settings</button>{/snippet}
   </EmptyState></div>
 {/if}

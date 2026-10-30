@@ -13,7 +13,9 @@ import Groups from './pages/Groups.svelte';
 import Users from './pages/Users.svelte';
 import Hardware from './pages/Hardware.svelte';
 import Backup from './pages/Backup.svelte';
-import Settings from './pages/Settings.svelte';
+import SettingsPage from './settings/SettingsPage.svelte';
+import CapsOverview from './settings/CapsOverview.svelte';
+import CapabilitySettings from './settings/CapabilitySettings.svelte';
 import Setup from './pages/Setup.svelte';
 import Expiry from './pages/Expiry.svelte';
 import Extension from './pages/Extension.svelte';
@@ -67,7 +69,15 @@ export const routes = {
   '/monitoring/diagnostics': Data,
   '/docs': Docs,
   '/setup': Setup,
-  '/settings': Settings,
+  '/settings': Section,
+  '/settings/general': SettingsPage,
+  '/settings/network': SettingsPage,
+  '/settings/storage': SettingsPage,
+  '/settings/backups': SettingsPage,
+  '/settings/access': SettingsPage,
+  '/settings/updates': SettingsPage,
+  '/settings/capabilities': CapsOverview,
+  '/settings/advanced': SettingsPage,
   '/nodes': Nodes,
 };
 
@@ -87,5 +97,5 @@ export { redirect, innerMoves, VPS_NODE } from './redirects.js';
 // The page for an INNER path (route.path: the address without /node/<name>): the exact path, or a guide (/docs/<lang>/<slug>).
 export function pageFor(path, kind = 'main') {
   if (kind !== 'main') return (nodeRoutes[kind] ?? peerRoutes)[path];
-  return routes[path] ?? (path.startsWith('/docs/') ? Docs : path.startsWith('/extensions/') ? Extension : path.startsWith('/storage/pools/') ? Pools : undefined);
+  return routes[path] ?? (path.startsWith('/docs/') ? Docs : path.startsWith('/extensions/') ? Extension : path.startsWith('/settings/capabilities/') ? CapabilitySettings : path.startsWith('/storage/pools/') ? Pools : undefined);
 }
