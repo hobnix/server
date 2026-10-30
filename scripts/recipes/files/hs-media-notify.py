@@ -5,7 +5,7 @@
   hs-media-notify.py <type> <title> <message>        SABnzbd's notification script (it calls a script like this)
 
 Config (JSON, written by the recipes): {"ntfy": "https://server/topic", "hook": "http://synapse:8090/hook/<secret>/<room>",
-"radarr": {"url": "http://arr:7878", "key": "..."}, "sonarr": {...}}. Each may be missing; radarr/sonarr only serve the lookup
+"radarr": {"url": "http://radarr:7878", "key": "..."}, "sonarr": {...}}. Each may be missing; radarr/sonarr only serve the lookup
 that turns a release name into a title, year and poster for the Downloadarr cards. It is looked for in $HS_MEDIA_NOTIFY_CONF, next to this file, one folder up, /etc/hs-media-notify.json.
 Never fails its caller: a message that cannot be sent is a line on stderr, exit 0.
 Test knob: HS_MEDIA_NOTIFY_LOG=<file> appends the message as a JSON line and sends nothing.

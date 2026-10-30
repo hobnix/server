@@ -47,7 +47,7 @@ sudo hs backup init /dev/sdX
 
 ```bash
 sudo hs backup photos on
-sudo hs backup ct arr on
+sudo hs backup ct radarr on
 ```
 
 `hs backup <share> on|off` switches a share, `hs backup ct <name> on|off` a container (it has to be running) or a VM. Run the first
@@ -136,7 +136,7 @@ A backup counts only if you can restore from it. These three checks exist; run t
 ```bash
 sudo hs backup drill
 sudo hs backup drill ct
-sudo hs backup drill ct arr
+sudo hs backup drill ct radarr
 ```
 
 - `drill` restores 5 random files from the newest backup into a temporary folder and compares them with the originals (run it every
