@@ -1,0 +1,6 @@
+date  = "2026-10-30"
+type  = "feature"
+title = "hs sys gateway plan|start setup changes the gateway setup in one go"
+body  = """
+The gateway setup (ports, domains, certificates, unknown names) is changed as one plan: the plan shows every change, a port that is opened asks you to type the port, and the rebuild runs as a background job. If the rebuild fails, machine.toml and the settings are put back. Not tested on hardware yet.
+"""

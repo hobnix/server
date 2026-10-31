@@ -14,3 +14,45 @@ notes = "NOTES.md"
 [settings]
 icon = "globe"
 status = "gateway health"
+# the guided setup: the page walks these steps, each edits the keys named here; "apply" is the plan/start of the change (hs gateway setup)
+apply = "gateway setup"
+
+[[settings.steps]]
+id = "connect"
+title = "How connections arrive"
+text = "A Cloudflare tunnel needs no open port. A router port forward opens 443 and 80 of this server to the internet."
+keys = ["reverseProxy", "gatewayTunnelPort", "gatewayPublicHttps", "gatewayPublicHttp"]
+
+[[settings.steps.presets]]
+id = "tunnel"
+label = "Cloudflare tunnel"
+set = { reverseProxy = "traefik-public", gatewayTunnelPort = "8081", gatewayPublicHttps = "0", gatewayPublicHttp = "0" }
+
+[[settings.steps.presets]]
+id = "router"
+label = "Router port forward"
+set = { reverseProxy = "traefik-public", gatewayTunnelPort = "0", gatewayPublicHttps = "443", gatewayPublicHttp = "80" }
+
+[[settings.steps]]
+id = "domain"
+title = "Public domains"
+text = "The names the internet uses to reach this server. The local domain and its wildcard record come from the Active Directory and are shown in the status above."
+keys = ["proxyDomains", "gatewayDirectDomains"]
+
+[[settings.steps]]
+id = "certs"
+title = "Certificates"
+text = "Let's Encrypt certificates are requested over HTTPS (TLS-ALPN-01), so port 443 must reach this server. Use the staging service while you test."
+keys = ["gatewayAcmeEmail", "gatewayAcmeStaging"]
+
+[[settings.steps]]
+id = "auth"
+title = "Login"
+text = "The login is set per service, not for the whole gateway: open a service under Instances, Services and choose its login there."
+keys = []
+
+[[settings.steps]]
+id = "unknown"
+title = "Unknown names"
+text = "What a request for a name this server does not know gets as an answer, for the local and for the public side."
+keys = ["gatewayUnknownHostLocal", "gatewayUnknownHostPublic"]

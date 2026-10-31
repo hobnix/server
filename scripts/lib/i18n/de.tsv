@@ -1870,3 +1870,6 @@ The gateway does not answer on %s yet (is Traefik running? hs gateway status).	D
 gatewayTunnelFrom does not name %s/32, so the server refuses the link. Remove the gatewayTunnelFrom line in /etc/nixos/machine.toml (or add the address), then sudo hs rebuild.	gatewayTunnelFrom nennt %s/32 nicht, darum weist der Server den Link ab. Entferne die Zeile gatewayTunnelFrom in /etc/nixos/machine.toml (oder füge die Adresse hinzu), dann sudo hs rebuild.
 Check	Prüfung
 Reason	Grund
+Apply the gateway setup	Das Gateway-Setup anwenden
+The gateway setup is applied.	Das Gateway-Setup ist angewendet.
+The rebuild failed: machine.toml and the gateway settings were put back as they were before. Nothing was rebuilt again; run hs rebuild when you are ready.	Der Rebuild ist fehlgeschlagen: machine.toml und die Gateway-Einstellungen wurden wie vorher zurückgesetzt. Es wurde nichts erneut gebaut; führe hs rebuild aus, wenn du bereit bist.

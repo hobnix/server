@@ -272,6 +272,8 @@ sys	sys gateway status	gateway.sh	--status	the gateway proxy as key<TAB>value: s
 sys	sys gateway routes	gateway.sh	--routes	the routes as kind, host, path, target, file (- when empty)	-
 sys	sys gateway health	gateway.sh	--health	the gateway checks as id, state (ok|warn|fail|off), fix step, detail, reason (- when empty)	-
 sys	sys gateway certs	gateway.sh	--certs	the certificate of each directly served host as host, state (staging|default|none|ok), valid until (- when empty)	-
+sys	sys gateway plan <action>	gateway-setup.sh	plan {1} {rest}	what changing the gateway setup (hs sys gateway plan setup --set key=value ...) would do, as data: status, plan lines, confirm_name for an opened port (never asks; exit 0 ok, 1 refused)	-
+sys	sys gateway start <action>	gateway-setup.sh	start {1} {rest}	do it (hs sys gateway start setup --set key=value ... [--confirm <port>]): the files are checked and put back when the check fails, then hs rebuild runs as a job (status started, unit)	-
 sys	sys services local-routes	services.sh	plan --plain --proxy local	the local proxy's routes against the services, as data (same columns as sys services routes)	-
 sys	sys vps plan <action>	vps-change.sh	plan {1} {rest}	what `vps update` or `vps watch` on the proxyserver would do, as data: status and plan lines (never asks; exit 0 ok, 1 refused: vpsHost not set, no key, vault closed)	-	capability:vps
 sys	sys vps start <action>	vps-change.sh	start {1} {rest}	do it as a background job over SSH with the key of hs vps key (hs sys vps start update|watch), answers status started and the unit	-	capability:vps
