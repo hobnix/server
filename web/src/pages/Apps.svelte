@@ -2,7 +2,7 @@
   import { tip } from '../ui/tooltip.svelte.js';
   import { poll, rows, refresh } from '../data.svelte.js';
   import { takeSelection } from '../select.svelte.js';
-  import { openCreate, ui } from '../ui.svelte.js';
+  import { openCreate, ui, track, showTab } from '../ui.svelte.js';
   import { start, get } from '../api.js';
   import RunRecipe from '../forms/ops/RunRecipe.svelte';
   import AppServices from '../forms/ops/AppServices.svelte';
@@ -65,13 +65,13 @@
 
   // ═══ bulk selection ═══
   let selected = $state(new Set());
-  const toggle = (name, checked) => { if (checked) selected.add(name); else selected.delete(name); };
+  const toggle = (name, checked) => { const s = new Set(selected); if (checked) s.add(name); else s.delete(name); selected = s; };
   const selectedApps = $derived(apps.filter((a) => selected.has(a.name)));
   const canInstall = $derived(selectedApps.some((a) => a.state !== 'installed'));
   const canUpdate = $derived(selectedApps.some((a) => a.state === 'installed'));
   let bulkBusy = $state(false);
-  let bulkOpen = null;           // { action, items } while the confirmation dialog is open
-  let bulkSummary = [];          // { name, ok, state, reason }
+  let bulkOpen = $state(null);           // { action, items } while the confirmation dialog is open
+  let bulkSummary = $state([]);          // { name, ok, state, reason }
   let showSummary = $state(false);
 
   // wait until a job unit reaches a terminal state, then return it ('ok' | 'failed' | 'unknown' | 'running' on timeout)
@@ -96,7 +96,7 @@
   const startOne = async (name) => {
     try {
       const r = await start('recipes', [name, 'run']);
-      if (r.status === 'started' && r.unit) return { unit: r.unit };
+      if (r.status === 'started' && r.unit) { track(r.unit, name); showTab('tasks'); return { unit: r.unit }; }
       return { ok: false, reason: r.reason || `could not start (${r.status})`, status: r.status };
     } catch (e) {
       return { ok: false, reason: e.message, status: 'error' };
