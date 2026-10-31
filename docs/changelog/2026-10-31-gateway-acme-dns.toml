@@ -1,0 +1,6 @@
+date  = "2026-10-31"
+type  = "feature"
+title = "Gateway: ACME via Cloudflare DNS-01 (optional)"
+body  = """
+The gateway can now ask Let's Encrypt for its own certificates through Cloudflare DNS-01 instead of TLS-ALPN-01 on port 443: the challenge and the provider become settings of the gateway setup, and the Cloudflare API token is stored as a credential (`hs gateway acme-token`, read from stdin) and handed to Traefik through systemd LoadCredential, never through the environment. TLS-ALPN-01 stays the default. Not tested on hardware yet.
+"""
