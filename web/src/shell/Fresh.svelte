@@ -15,7 +15,7 @@
     return () => clearInterval(t);
   });
 
-  const paths = $derived(route.node && route.node !== ui.host ? [] : readsFor(route.path, ui.features.extensions));
+  const paths = $derived(route.node && route.node !== ui.host ? [] : readsFor(route.path, ui.features.extensions, ui.features.live));
   // the oldest answer on screen; null until the first one arrived
   const age = $derived.by(() => {
     now;

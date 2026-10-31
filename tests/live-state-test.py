@@ -134,22 +134,30 @@ class Cli(unittest.TestCase):
         return st
 
     def test_topics_skip_comments(self):
-        rows = ls.topics()
-        self.assertEqual(rows[0], ("status", ["status"], 15, "run"))
+        self.assertEqual(ls.topics(), [
+            ("status", ["status"], 15, "run"),
+            ("live", ["live", "status"], 5, "run"),
+        ])
 
     def test_status_shape(self):
         import time
         out = io.StringIO()
         self.assertEqual(ls.cli_status(self.fake(time.time() - 7), out), 0)
-        f = out.getvalue().rstrip("\n").split("\t")
-        self.assertEqual(len(f), 7)
-        self.assertEqual((f[0], f[1], f[3], f[4], f[5], f[6]), ("status", "15", "4", "0", "-", "-"))
-        self.assertIn(int(f[2]), (7, 8))
+        lines = out.getvalue().rstrip("\n").split("\n")
+        self.assertEqual(len(lines), 2)
+        status = [l for l in lines if l.startswith("status\t")][0].split("\t")
+        live = [l for l in lines if l.startswith("live\t")][0].split("\t")
+        self.assertEqual(len(status), 7)
+        self.assertEqual((status[0], status[1], status[3], status[4], status[5], status[6]), ("status", "15", "4", "0", "-", "-"))
+        self.assertIn(int(status[2]), (7, 8))
+        self.assertEqual((live[0], live[1], live[3], live[4], live[5], live[6]), ("live", "5", "0", "-", "-", "-"))
+        self.assertEqual(live[2], "-1")
 
     def test_status_without_data(self):
         out = io.StringIO()
         ls.cli_status(FakeResp(), out)
-        self.assertEqual(out.getvalue(), "status\t15\t-1\t0\t-\t-\t-\n")
+        lines = sorted(out.getvalue().rstrip("\n").split("\n"))
+        self.assertEqual(lines, ["live\t5\t-1\t0\t-\t-\t-", "status\t15\t-1\t0\t-\t-\t-"])
 
     def test_check_fresh_stale_down(self):
         import time
@@ -166,18 +174,39 @@ class Cli(unittest.TestCase):
             del os.environ["HS_LIVE_SOCKET"]
         self.assertTrue(out.getvalue().startswith("live:down\t"))
 
+    def test_check_includes_stale_live_topic(self):
+        import time
+        st = FakeResp()
+        st.data["hs:v1:status"] = json.dumps({"ts": time.time() - 5, "gen": 1, "rc": 0, "out": "x", "err": None, "ts_err": None})
+        st.data["hs:v1:live"] = json.dumps({"ts": time.time() - 20, "gen": 1, "rc": 0, "out": "x", "err": None, "ts_err": None})
+        out = io.StringIO()
+        self.assertEqual(ls.cli_check(st, out), 1)
+        self.assertIn("live:stale:live\t", out.getvalue())
+
     def test_refresh_publishes_and_never_fails(self):
         st = FakeResp()
         self.assertEqual(ls.cli_refresh(["a", "b"], st), 0)
         self.assertEqual(st.published, [("hs:v1:refresh", "a"), ("hs:v1:refresh", "b")])
         st = FakeResp()
         ls.cli_refresh(["--all"], st)
-        self.assertEqual(st.published, [("hs:v1:refresh", "status")])
+        self.assertEqual(sorted(st.published), sorted([("hs:v1:refresh", "status"), ("hs:v1:refresh", "live")]))
         os.environ["HS_LIVE_SOCKET"] = "/nonexistent/none.sock"
         try:
             self.assertEqual(ls.cli_refresh(["--all"]), 0)
         finally:
             del os.environ["HS_LIVE_SOCKET"]
+
+    def test_self_read_sees_previous_generation(self):
+        """The collector runs the command before its own Redis lock, so cli_status sees the previous live document."""
+        import time
+        st = FakeResp()
+        st.data["hs:v1:status"] = json.dumps({"ts": time.time() - 5, "gen": 1, "rc": 0, "out": "x", "err": None, "ts_err": None})
+        st.data["hs:v1:live"] = json.dumps({"ts": time.time() - 2, "gen": 3, "rc": 0, "out": "x", "err": None, "ts_err": None})
+        out = io.StringIO()
+        ls.cli_status(st, out)
+        live = [l for l in out.getvalue().rstrip("\n").split("\n") if l.startswith("live\t")][0].split("\t")
+        self.assertEqual(live[3], "3")      # the generation that existed before this collection
+        self.assertEqual(st.published, [])  # status does not publish refreshes
 
 
 @unittest.skipUnless(hasattr(socket, "AF_UNIX"), "no AF_UNIX")
@@ -194,7 +223,7 @@ class Wire(unittest.TestCase):
         def serve():
             c, _ = srv.accept()
             got.append(c.recv(4096))
-            c.sendall(b"+OK\r\n:42\r\n$5\r\nh\xc3\xa4llo\r\n$-1\r\n*2\r\n$1\r\na\r\n:7\r\n-ERR no\r\n")
+            c.sendall(b"+OK\r\n:42\r\n$6\r\nh\xc3\xa4llo\r\n$-1\r\n*2\r\n$1\r\na\r\n:7\r\n-ERR no\r\n")
             c.close()
         t = threading.Thread(target=serve, daemon=True)
         t.start()

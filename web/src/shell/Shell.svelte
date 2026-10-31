@@ -50,7 +50,8 @@
     // what the pages read first, one after the other while the browser is idle: the first click on any of them finds its data
     const pages = ['/instances', '/storage/shares', '/storage/pools/bulk', '/storage/disks', '/operations/health', '/protection/backup', '/network', '/identity/users',
       '/instances/apps', '/instances/services', '/storage/vault', '/storage/encryption', '/monitoring/hardware', '/protection/expiry'];
-    prefetch([...new Set([...pages.flatMap(readsFor), '/api/sys/jobs/running', '/api/sys/unifi/used', '/api/sys/unifi/reserved'])]);
+    prefetch([...new Set([...pages.flatMap((p) => readsFor(p, ui.features.extensions, ui.features.live)),
+      '/api/sys/jobs/running', '/api/sys/unifi/used', '/api/sys/unifi/reserved'])]);
   });
 
   // the proxyserver node: the VPS status document (404 = proxyStatusUrl not set, 502 = not reachable); it drives the dots of its tree rows

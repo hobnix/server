@@ -122,6 +122,15 @@ class OffMode(Base):
     def test_the_status_read_has_a_topic(self):
         self.assertEqual(ws.READS[("status",)]["topic"], "status")
 
+    def test_the_live_status_read_has_a_topic(self):
+        self.assertEqual(ws.READS[("live", "status")]["topic"], "live")
+
+    def test_live_status_runs_directly_in_off_mode(self):
+        s, d, r = self.req("GET", "/api/sys/live/status", headers=self.ck)
+        self.assertEqual(s, 200)
+        self.assertEqual(self.fake.calls, [("live", "status")])
+        self.assertEqual(r.getheader("X-HS-Age"), "0")
+
 
 class FakeStoreUsed(Base):
     def test_sys_goes_through_app_store(self):
@@ -246,7 +255,35 @@ class RedisMode(RedisBase):
         self.assertEqual(self.fake.calls, [("ct", "list")])
 
     def test_warm_up_skips_topics(self):
-        self.assertNotIn(("status",), [tuple(a[2]) for a in self.app.reads.warm_targets()])
+        targets = [tuple(a[2]) for a in self.app.reads.warm_targets()]
+        self.assertNotIn(("status",), targets)
+        self.assertNotIn(("live", "status"), targets)
+
+    def test_live_status_comes_from_the_key(self):
+        self.redis.keys["hs:v1:live"] = doc("live\t5\t2\t1\t0\t-\t-\n", age=4)
+        s, d, r = self.req("GET", "/api/sys/live/status", headers=self.ck)
+        self.assertEqual((s, json.loads(d)["rows"]), (200, [["live", "5", "2", "1", "0", "-", "-"]]))
+        self.assertIn(r.getheader("X-HS-Age"), ("4", "5"))
+        self.assertEqual(self.fake.calls, [])
+
+    def test_live_status_redis_down_is_503(self):
+        self.redis.down = True
+        s, d, r = self.req("GET", "/api/sys/live/status", headers=self.ck)
+        self.assertEqual((s, json.loads(d)["error"]), (503, "state service down"))
+        self.assertEqual(self.fake.calls, [])
+
+    def test_live_status_missing_key_asks_for_a_refresh(self):
+        s, d, r = self.req("GET", "/api/sys/live/status", headers=self.ck)
+        self.assertEqual((s, json.loads(d)), (503, {"error": "refreshing", "retry_after": 2}))
+        self.assertEqual(r.getheader("Retry-After"), "2")
+        self.assertEqual(self.redis.published, [("hs:v1:refresh", "live")])
+
+    def test_live_status_fresh_waits_for_a_new_gen(self):
+        self.redis.keys["hs:v1:live"] = doc("old\n", gen=1)
+        self.redis.on_publish = lambda t: self.redis.keys.__setitem__("hs:v1:live", doc("new\n", gen=2, age=0))
+        s, d, r = self.req("GET", "/api/sys/live/status?fresh=1", headers=self.ck)
+        self.assertEqual((s, json.loads(d)["rows"]), (200, [["new"]]))
+        self.assertEqual(self.redis.published, [("hs:v1:refresh", "live")])
 
     def test_a_started_change_asks_for_everything(self):
         ch = dict(self.ck, **{"X-CSRF-Token": self.csrf()})
@@ -319,6 +356,7 @@ class Hub(RedisBase):
         self.assertEqual(seen.count(("up",)), 2)
         self.assertEqual(seen.count(("down",)), 2)
         self.assertIn(("changed", "status", 7), seen)
+        self.assertIn(("changed", "live", 0), seen)
         self.assertEqual(len([m for m in seen if m[0] == "changed" and m[2] in (7, 0)]), 2 * len(topics))
 
 

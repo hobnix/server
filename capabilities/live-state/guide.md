@@ -36,6 +36,11 @@ hs sys live status
 
 Every topic shows an age of a few seconds (the age is `-1` when nothing has been collected yet) and an empty error (`-`).
 
+When live state is on, the Diagnostics page shows the live topics instead of the old collected-reads table. It follows the live stream
+(`/api/events`) and falls back to polling every 5 seconds when the stream is lost. If Redis or the collector is down, the page shows a
+"state service down" banner and keeps the last table data; it never runs the read directly. With live state off, Diagnostics keeps the
+collected-reads view it had before. Not tested on hardware yet.
+
 ## If something goes wrong
 | Symptom | Cause | Fix |
 | --- | --- | --- |

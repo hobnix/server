@@ -12,5 +12,8 @@ Rules:
 - **503, not a fallback:** with Redis down a topic read answers 503 "state service down"; the web never runs the read itself in this mode.
 - **Names:** key `hs:v1:<topic>` (JSON: ts, gen, rc, out, err, ts_err; `out` is the raw text), channel `hs:v1:changed` (`<topic> <gen>`),
   channel `hs:v1:refresh` (`<topic>` or `*`). Topics: scripts/lib/live-topics.tsv.
+- **The `live` topic:** `hs sys live status` is collected every 5 seconds as topic `live`. The command runs before the collector takes its
+  own Redis lock or issues its own GET/SET, so the `live` row in the Diagnostics table reports the previous collection; this is expected,
+  not staleness. The old database collector (`scripts/reads-collect.sh`) remains for the reads that still use it.
 - The `group` option of `services.redis.servers.<n>` is unverified in the pinned nixpkgs; module.nix does not use it. The socket group is
   `redis-hobnix`; hs-web and hs-live get it through SupplementaryGroups.

@@ -784,6 +784,7 @@ READS = {
     ("disk-health", "list"): {"kind": "tsv", "ttl": 30},
     ("state", "disks"): {"kind": "tsv", "ttl": 15},
     ("reads", "status"): {"kind": "tsv", "ttl": 5},      # the Data page: what the collector keeps, how old, how long each read takes
+    ("live", "status"): {"kind": "tsv", "ttl": 5, "topic": "live"},      # the Data page in live mode: the live topics themselves
     ("state", "events"): {"kind": "tsv", "ttl": 10, "query": {"n": (r"^[0-9]{1,4}$", "")}},
     ("ct", "list"): {"kind": "tsv", "ttl": 5},
     ("ct", "profiles"): {"kind": "tsv", "ttl": 30},
