@@ -69,14 +69,14 @@
 
   // ═══ bulk selection ═══
   let selected = $state(new Set());
-  const toggle = (name, checked) => { if (checked) selected.add(name); else selected.delete(name); };
+  const toggle = (name, checked) => { const s = new Set(selected); if (checked) s.add(name); else s.delete(name); selected = s; };
   const selectedPkgs = $derived(pkgs.filter((p) => selected.has(p.name)));
   const canInstall = $derived(selectedPkgs.some((p) => p.state === 'new' && !red(p)));
   const canUpdate = $derived(selectedPkgs.some((p) => p.state === 'update'));
   const canRemove = $derived(selectedPkgs.some((p) => p.state !== 'new' && !p.core));
   let bulkBusy = $state(false);
-  let bulkOpen = null;           // { action, items } while the confirmation dialog is open
-  let bulkSummary = [];
+  let bulkOpen = $state(null);           // { action, items } while the confirmation dialog is open
+  let bulkSummary = $state([]);
   let showSummary = $state(false);
 
   // start one package (synchronous: status done / refused); each call blocks until the package change is finished
