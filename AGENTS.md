@@ -21,4 +21,6 @@
   (guides from the code). `/work <id>` runs the full loop for one TODO.md task.
 - **Worktrees** are created under `.opencode/worktrees/` (git-ignored, like `.claude/worktrees/`). The rules,
   agents and plugin apply there too (tracked files, config from the canonical checkout); the session context
-  reflects the worktree's own branch and status.
+  reflects the worktree's own branch and status. Caveat: `bash` on this machine is WSL, and its Linux git cannot
+  follow a worktree's `.git` pointer — `session-context.sh` falls back to `git.exe` there; call git through the
+  shell tool (PowerShell) inside worktrees.
