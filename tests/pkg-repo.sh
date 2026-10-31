@@ -78,6 +78,8 @@ sed -i '/^repo = /d;/^commit = /d;/^tag = /d' "$HS_STATE_DIR/packages/installed.
 check_out "an entry that lost its repo still shows the update diff" "demo 1.3.0" bash -c "$PKG update demo </dev/null 2>&1; true"
 check_out "update --yes installs" "demo 1[.]3[.]0 from test" $PKG update demo --yes
 check "the one before is kept" bash -c "ls '$HS_STATE_DIR/packages/previous' | grep -q '^demo@'"
+sed -i 's/^version = "1[.]3[.]0"$/version = "1.2.0"/' "$HS_STATE_DIR/packages/installed.toml"
+check "record refreshes the version and keeps repository provenance" bash -c "$PKG record demo && grep -q '^version = \"1[.]3[.]0\"$' '$HS_STATE_DIR/packages/installed.toml' && grep -q '^repo = \"test\"$' '$HS_STATE_DIR/packages/installed.toml' && grep -q '^commit = \"' '$HS_STATE_DIR/packages/installed.toml' && grep -q '^tag = \"v1[.]3[.]0\"$' '$HS_STATE_DIR/packages/installed.toml'"
 check_out "a current package says so" "current" $PKG update demo --yes
 
 echo "-- refusals"
