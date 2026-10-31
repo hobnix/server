@@ -9,6 +9,7 @@ result-*
 
 # Scratch checkouts of coding agents
 .claude/worktrees/
+.opencode/worktrees/
 
 # Rust build output (was tracked by mistake until 2026-10-05)
 pkgs/hs-pool/target/

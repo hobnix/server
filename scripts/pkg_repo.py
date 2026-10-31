@@ -285,9 +285,11 @@ class Repos:
 
     def remove_package(self, name):
         data = self.pkg.installed()
-        self.recorded(name)
-        self.rm(os.path.join(self.state, "current", name))
-        del data[name]
+        cur = os.path.join(self.state, "current", name)
+        if not os.path.isdir(cur):
+            raise Refused("%s was not installed from a repository" % name)
+        self.rm(cur)
+        data.pop(name, None)
         self.pkg.save_installed(data)
 
     # ── update ──

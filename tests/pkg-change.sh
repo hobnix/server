@@ -81,4 +81,9 @@ check_out "without the name it is refused" "type the name" bash -c "$C start rep
 check_out "with it the repository goes" "^status${tab}done" $C start repo-remove test --confirm test
 check_eq "and is off the list" "0" "$($PKGSH --repos | grep -c "^test${tab}")"
 check_out "corer stays as an orphan" "^corer${tab}[?]${tab}test${tab}-${tab}1[.]0[.]0${tab}orphan" $PKGSH --market
+sed -i '/^repo = /d;/^commit = /d;/^tag = /d' "$HS_STATE_DIR/packages/installed.toml"
+check_out "an orphan without recorded provenance has a remove plan" "^step${tab}forget" $C plan remove corer
+check_out "an orphan without recorded provenance can be removed" "^status${tab}done" $C start remove corer
+check "the orphan's files are gone" test ! -e "$HS_STATE_DIR/packages/current/corer"
+check "the orphan's record is gone" bash -c "! grep -q '^\\[package.corer\\]' '$HS_STATE_DIR/packages/installed.toml'"
 finish

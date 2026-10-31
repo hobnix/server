@@ -1,0 +1,4 @@
+date  = "2026-10-31"
+type  = "fix"
+title = "Orphaned packages can be removed and recipe records keep their repository"
+body  = """Packages whose repository no longer lists them can now be removed from Marketplace even when older records contain only a version. Running a recipe also keeps the repository, commit and release tag when its recorded version is refreshed."""

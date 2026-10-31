@@ -361,7 +361,7 @@ def main(argv):
         data = installed()
         have = data.get(rest[0], {})
         # keep repo/commit/tag of a package installed from a repository, else `hs pkg remove|update` refuse it
-        data[rest[0]] = dict(have, version=known[rest[0]]) if have.get("version") == known[rest[0]] else {"version": known[rest[0]]}
+        data[rest[0]] = dict(have, version=known[rest[0]])
         save_installed(data)
     else:
         print(__doc__)
