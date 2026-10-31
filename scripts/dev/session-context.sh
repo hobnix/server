@@ -13,9 +13,19 @@ while [ $# -gt 0 ]; do
   esac
   shift || break
 done
-branch=$(git branch --show-current 2>/dev/null)
-dirty=$(git status --short 2>/dev/null | wc -l | tr -d ' ')
-ahead=$(git rev-list --count main..HEAD 2>/dev/null)
+# `bash` on Windows is WSL; its Linux git cannot follow the Windows-style gitdir pointer of a linked
+# worktree (the .git file), so fall back to Windows git.exe there (WSL translates the cwd for it).
+gitcmd=git
+if ! git rev-parse --short HEAD >/dev/null 2>&1 && command -v git.exe >/dev/null 2>&1; then
+  gitcmd=git.exe
+fi
+branch=$($gitcmd branch --show-current 2>/dev/null)
+if [ -z "$branch" ]; then
+  short=$($gitcmd rev-parse --short HEAD 2>/dev/null)
+  branch=${short:+"detached $short"}
+fi
+dirty=$($gitcmd status --short 2>/dev/null | wc -l | tr -d ' ')
+ahead=$($gitcmd rev-list --count main..HEAD 2>/dev/null)
 text="Branch ${branch:-?}: ${ahead:-?} commits ahead of main, ${dirty:-?} changed files."
 if [ -n "$task" ]; then
   item=$(awk -v target="$task" '
