@@ -1,0 +1,4 @@
+date  = "2026-10-31"
+type  = "feature"
+title = "Install, update and remove multiple apps and packages at once"
+body  = """On the Apps page and in Marketplace you can now select several entries and run Install, Update (and Remove in Marketplace) on all of them at once. Every selected item gets its own change, and the changes run one after another so they do not conflict. Removing an app (deleting its container) is not part of this release."""
