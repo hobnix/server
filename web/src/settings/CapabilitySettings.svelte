@@ -1,6 +1,6 @@
 <script>
   // /settings/capabilities/<name>: the settings page of one capability, the same for all (no per-capability component). From top to bottom:
-  // the header (title, on/off, the switch), a status block ([settings] status: StatusPanel) and a setup block (empty yet, see the comment), then the fields of the
+  // the header (title, on/off, the switch), a status block ([settings] status: StatusPanel) and a setup block ([[settings.steps]]: Steps), then the fields of the
   // keys that belong to this capability (layout.gen.json, page cap:<name>). A capability that is off still has its page: it is how it gets switched on.
   import { tip } from '../ui/tooltip.svelte.js';
   import { route } from '../route.svelte.js';
@@ -10,6 +10,7 @@
   import EmptyState from '../ui/EmptyState.svelte';
   import Fields from './Fields.svelte';
   import StatusPanel from './StatusPanel.svelte';
+  import Steps from './Steps.svelte';
   import layout from './layout.gen.json';
   import { fieldsFor } from './layout.js';
   import { useConfig } from './config.svelte.js';
@@ -19,6 +20,7 @@
   let { name = '' } = $props();
   const cap = $derived(name || route.path.split('/')[3] || '');
   const meta = $derived(layout.caps[cap]);
+  let setupOff = $state('');
 
   const { list, opts: getOpts } = useConfig();
   const { partList, parts: getParts } = useParts();
@@ -42,8 +44,8 @@
   {#if !meta}
     <div class="card"><EmptyState icon="puzzle-piece" title="Unknown part" text="This server has no part with this name." /></div>
   {:else}
-    {#if meta.status}<StatusPanel read={meta.status} />{/if}
-    <!-- step 2: the setup block (guided steps declared by [[settings.steps]] in the manifest) goes here -->
+    {#if meta.status}<StatusPanel read={meta.status} bind:off={setupOff} />{/if}
+    {#if meta.steps?.length && meta.apply}<Steps steps={meta.steps} apply={meta.apply} opts={getOpts()} off={setupOff} />{/if}
     {#if fields.length}
       <Fields opts={fields} />
     {:else}

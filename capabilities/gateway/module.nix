@@ -31,6 +31,11 @@ let
   # setup has no resolver and keeps hs-deadend. Which hosts ask for a certificate is decided at run time (hs services apply, d- routers).
   email = m.gatewayAcmeEmail;
   acmeOn = pubS != 0 && email != "";
+  challenge = m.gatewayAcmeChallenge;
+  provider = m.gatewayAcmeDnsProvider;
+  # Cloudflare DNS-01: Traefik solves the challenge through the Cloudflare API instead of TLS-ALPN-01 on port 443.
+  dnsOn = challenge == "dns" && provider == "cloudflare";
+  tokenFile = "/var/lib/hs-gateway/credentials/cf-dns-api-token";
   acmeFile = if m.gatewayAcmeStaging then "staging.json" else "letsencrypt.json";   # separate stores: staging certificates never reach production
   acmeDir = "/var/lib/hs-gateway/acme";
   usr = "traefik";   # the nixpkgs service user (it has no option for it)
@@ -60,7 +65,12 @@ let
       inherit email;
       storage = "${acmeDir}/${acmeFile}";
       keyType = "EC256";
-      tlsChallenge = { };
+    } // lib.optionalAttrs (!dnsOn) { tlsChallenge = { }; }
+    // lib.optionalAttrs dnsOn {
+      dnsChallenge = {
+        provider = "cloudflare";
+        delayBeforeCheck = 0;
+      };
     } // lib.optionalAttrs m.gatewayAcmeStaging { caServer = "https://acme-staging-v02.api.letsencrypt.org/directory"; };
   };
 
@@ -107,6 +117,9 @@ in
     # the certificate store: private keys, so traefik only; z fixes the owner after a restore from the backup
     "d ${acmeDir} 0700 ${usr} ${grp} -"
     "z ${acmeDir}/*.json 0600 ${usr} ${grp} -"
+  ] ++ lib.optionals dnsOn [
+    # the Cloudflare DNS API token credential, mode 0600, read by Traefik via LoadCredential
+    "d /var/lib/hs-gateway/credentials 0700 ${usr} ${grp} -"
   ];
 
   # Port 80 only for the home networks and the private interfaces, unless gatewayPublicHttp = 80 (then it is in allowedTCPPorts below and
@@ -161,6 +174,16 @@ in
       message = "machine.toml: gatewayAcmeEmail needs gatewayPublicHttps = 443 (the router forwards 443 to this server)."; }
     { assertion = email == "" || builtins.match "[^@ ]+@[^@ ]+\\.[^@ ]+" email != null;
       message = "machine.toml: gatewayAcmeEmail is not an e-mail address."; }
+    { assertion = builtins.elem challenge [ "tls-alpn" "dns" ];
+      message = "machine.toml: gatewayAcmeChallenge must be \"tls-alpn\" or \"dns\"."; }
+    { assertion = challenge != "dns" || provider == "cloudflare";
+      message = "machine.toml: gatewayAcmeChallenge = \"dns\" needs gatewayAcmeDnsProvider = \"cloudflare\"."; }
+    { assertion = challenge != "dns" || email != "";
+      message = "machine.toml: gatewayAcmeChallenge = \"dns\" needs gatewayAcmeEmail (a Let's Encrypt account)."; }
+    { assertion = challenge != "dns" || pubS != 0;
+      message = "machine.toml: gatewayAcmeChallenge = \"dns\" needs gatewayPublicHttps (a public port for the certificate)."; }
+    { assertion = provider == "cloudflare" || challenge != "dns";
+      message = "machine.toml: gatewayAcmeDnsProvider = \"${provider}\" is not supported; use \"cloudflare\"."; }
     { assertion = builtins.elem unkLocal [ "404" "drop" ] && builtins.elem unkPublic [ "404" "drop" ];
       message = "machine.toml: gatewayUnknownHostLocal and gatewayUnknownHostPublic are \"404\" or \"drop\"."; }
     # a 404 over TLS needs a TLS-terminating router, which answers with a certificate: only the direct mode (ACME) has one
@@ -176,7 +199,7 @@ in
   systemd.services.traefik.serviceConfig = {
     ProtectSystem = lib.mkForce "strict";   # nixpkgs sets "full"
     # the acme folder lies inside ReadOnlyPaths /var/lib/hs-gateway; systemd applies the more specific path last (unverified on hardware)
-    ReadWritePaths = [ config.services.traefik.dataDir ] ++ lib.optional acmeOn acmeDir;
+    ReadWritePaths = [ config.services.traefik.dataDir ] ++ lib.optional acmeOn acmeDir ++ lib.optional dnsOn "/run/credentials/traefik.service";
     ReadOnlyPaths = [ "/var/lib/hs-gateway" ];
     ProtectHome = true;
     PrivateTmp = true;
@@ -199,5 +222,9 @@ in
     SystemCallArchitectures = "native";
     SystemCallFilter = [ "@system-service" "~@privileged" ];
     UMask = "0077";
+  } // lib.optionalAttrs dnsOn {
+    # the Cloudflare DNS API token, delivered as a systemd credential (a file, never the token in the environment)
+    LoadCredential = [ "cf-dns-api-token:${tokenFile}" ];
+    Environment = [ "CF_DNS_API_TOKEN_FILE=/run/credentials/traefik.service/cf-dns-api-token" ];
   };
 }

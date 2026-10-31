@@ -917,7 +917,7 @@ CONFIG_KEYS = ("timeZone|language|keyMap|icons|loginMessage|webAccent|incusUi|sy
                "diskSpindownMinutes|fileManagerWrite|setupDone|backupNewShares|notifySecondMinPriority|notifications|"
                "quietHours|autoMitigate|metrics|metricsDays|metricsMaxGB|deckApi|gatewayPublicHttps|"
                "gatewayPublicHttp|gatewayUnknownHostLocal|gatewayUnknownHostPublic|gatewayTunnelPort|"
-               "gatewayAcmeEmail|gatewayAcmeStaging")
+               "gatewayAcmeEmail|gatewayAcmeStaging|gatewayAcmeChallenge|gatewayAcmeDnsProvider")
 # schema:end CONFIG_KEYS
 # share forms: a folder name inside the instance (absolute) and inside a share (relative or absolute, both without ..), a SID with its level, a kept folder
 CT_PATH = r"^(?!.*\.\.)/[A-Za-z0-9._/-]{0,200}$"
@@ -938,6 +938,9 @@ MAC = r"^([0-9A-Fa-f]{2}[:-]){5}[0-9A-Fa-f]{2}$"
 
 TEMP_PART = r"^[a-z][a-z0-9]{1,20}$"                                          # a partition the temp-disk list offers: sdg1, nvme1n1p1
 TEMP_NAME = r"^[a-z0-9][a-z0-9-]{0,31}$"                                      # the name of a mounted temp disk (/mnt/temp/<name>)
+# the keys of the gateway steps (capabilities/gateway/capability.toml; scripts/gateway-setup.sh GW_KEYS); tests/gateway-setup.sh compares both
+GW_SET = (r"^(reverseProxy|gatewayTunnelPort|gatewayPublicHttps|gatewayPublicHttp|proxyDomains|gatewayDirectDomains|gatewayAcmeEmail|"
+          r"gatewayAcmeStaging|gatewayAcmeChallenge|gatewayAcmeDnsProvider|gatewayUnknownHostLocal|gatewayUnknownHostPublic)=[A-Za-z0-9.,@_+-]{0,200}$")
 CHANGES = {
     "jobs": [[r"^(run|stop)$", UNIT]],
     # the file manager (fm.sh): copy, move, delete, rename, mkdir. The selection (names below --path) is NOT an argument: the body field `selection` (a list of names,
@@ -1093,6 +1096,8 @@ CHANGES = {
     "health": [[r"^(ack|unack)$", r"^[A-Za-z0-9][A-Za-z0-9:._ ()-]{0,100}$"], [r"^resume$"]],
     "system": [[r"^(sync|scrub|update|gc|rollback|reboot|shutdown)$"],
                [r"^(sync|scrub)$", r"^--pool$", POOL]],
+    # the gateway setup (gateway-setup.sh): all changed keys as --set key=value (may repeat); the typed port comes as --confirm
+    "gateway": [{"fixed": [r"^setup$"], "opts": {"--set": (GW_SET, True)}}],
     "config": [[r"^set$", r"^(" + CONFIG_KEYS + r")$", r"^[A-Za-z0-9._#:/ -]{0,80}$"], [r"^(sync|migrate)$"]],
     # notification channels: a secret (the topic address, the SMTP password) goes in on stdin, never as an argument; a text setting as --set key=value
     "notify": [{"fixed": [r"^add$", NOTIFY_CHANNEL],

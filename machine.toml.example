@@ -229,6 +229,18 @@ vlans = { home = { id = 95, default = true } }
 # shows a staging certificate for every host. Needs hs rebuild.
 # gatewayAcmeStaging = false
 
+# How the gateway asks Let's Encrypt for its own certificates (direct mode: gatewayAcmeEmail and gatewayPublicHttps set).
+# "tls-alpn" (default) = TLS-ALPN-01 on port 443. "dns" = DNS-01 through the configured provider (Cloudflare only here).
+# No HTTP-01. The value itself needs no rebuild; certificates are (re)requested at the next hs services apply / rebuild.
+# Not tested on hardware yet.
+# gatewayAcmeChallenge = "tls-alpn"
+
+# The DNS provider for the ACME DNS-01 challenge (gatewayAcmeChallenge = "dns"). "cloudflare" reads the API token from a
+# credential file (`hs gateway acme-token`, from stdin) and passes it to Traefik through systemd LoadCredential +
+# CF_DNS_API_TOKEN_FILE (a path, never the token in the environment). Meaningless unless challenge = "dns".
+# Not tested on hardware yet.
+# gatewayAcmeDnsProvider = "cloudflare"
+
 # ═══ Hardware ═════════════════════════════════════════════════════════════
 
 # Graphics chip(s), for GPU use in containers (Jellyfin transcoding, Immich, ...): "nvidia",

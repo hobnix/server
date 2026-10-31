@@ -28,6 +28,8 @@ assert.deepEqual(capEntries(layout, ['gateway', 'docs']).map((e) => e.path), ['/
 const all = capEntries(layout, Object.keys(layout.caps));
 assert.deepEqual(all.map((e) => e.label), all.map((e) => e.label).sort((a, b) => a.localeCompare(b)));
 assert.equal(layout.caps.gateway.status, 'gateway health');
+assert.equal(layout.caps.gateway.apply, 'gateway setup');
+assert.ok(layout.caps.gateway.steps.length >= 5 && layout.caps.gateway.steps.every((s) => s.keys.every((k) => keys.includes(k))));
 assert.ok(Object.values(layout.caps).every((c) => c.status === undefined || typeof c.status === 'string'));
 // (5) every page id has a tree child under /settings; the capability children land under Capabilities
 const settings = mainTree.find((i) => i.path === '/settings');

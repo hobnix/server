@@ -1,0 +1,4 @@
+date  = "2026-10-30"
+type  = "feature"
+title = "Gateway page: guided setup in steps"
+body  = """The Gateway page in Settings now walks through the setup in steps: how connections arrive (Cloudflare tunnel or router port forward), public domains, certificates and unknown names. An Advanced switch shows the same values as plain fields. Review shows what changes and opens the plan; a port opened to the internet needs the typed port number. Not tested on hardware yet."""

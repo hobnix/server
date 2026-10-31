@@ -88,6 +88,33 @@ trial adv_settable; rc=$?; check_eq "advanced on a settable option dies" 2 "$rc"
 trial bad_cap; rc=$?; check_eq "an unknown cap:<name> dies" 2 "$rc"
 trial bad_settings_key; rc=$?; check_eq "an unknown [settings] key dies" 2 "$rc"
 trial bad_status; rc=$?; check_eq "a [settings] status naming no sys row dies" 2 "$rc"
+# step data: a manifest [settings] with one step; the first line of each variant is the mistake
+step_manifest() {   # step_manifest <dir> <apply line> <step body lines...>
+  local d=$1 ap=$2; shift 2
+  { printf '
+[settings]
+%s
+[[settings.steps]]
+' "$ap"; printf '%s
+' "$@"; } >> "$d/capabilities/metrics/capability.toml"
+}
+step_dup_id() { step_manifest "$1" 'apply = "gateway setup"' 'id = "one"' 'title = "T"' 'text = "x"' 'keys = []' '[[settings.steps]]' 'id = "one"' 'title = "T"' 'text = "x"' 'keys = []'; }
+step_bad_id() { step_manifest "$1" 'apply = "gateway setup"' 'id = "One"' 'title = "T"' 'text = "x"' 'keys = []'; }
+step_bad_key() { step_manifest "$1" 'apply = "gateway setup"' 'id = "one"' 'title = "T"' 'text = "x"' 'keys = ["noSuchOption"]'; }
+step_preset_key() { step_manifest "$1" 'apply = "gateway setup"' 'id = "one"' 'title = "T"' 'text = "x"' 'keys = ["syncEveryHours"]' '[[settings.steps.presets]]' 'id = "p"' 'label = "P"' 'set = { language = "de" }'; }
+step_preset_val() { step_manifest "$1" 'apply = "gateway setup"' 'id = "one"' 'title = "T"' 'text = "x"' 'keys = ["syncEveryHours"]' '[[settings.steps.presets]]' 'id = "p"' 'label = "P"' 'set = { syncEveryHours = 6 }'; }
+step_no_apply() { step_manifest "$1" '' 'id = "one"' 'title = "T"' 'text = "x"' 'keys = []'; }
+apply_no_steps() { printf '
+[settings]
+apply = "gateway setup"
+' >> "$1/capabilities/metrics/capability.toml"; }
+trial step_dup_id; rc=$?; check_eq "a step id twice dies" 2 "$rc"
+trial step_bad_id; rc=$?; check_eq "a malformed step id dies" 2 "$rc"
+trial step_bad_key; rc=$?; check_eq "a step key that is no option dies" 2 "$rc"
+trial step_preset_key; rc=$?; check_eq "a preset key outside the step keys dies" 2 "$rc"
+trial step_preset_val; rc=$?; check_eq "a preset value that is no string dies" 2 "$rc"
+trial step_no_apply; rc=$?; check_eq "steps without apply die" 2 "$rc"
+trial apply_no_steps; rc=$?; check_eq "apply without steps dies" 2 "$rc"
 check_eq "the gateway page declares its status read" "gateway health" "$(python3 -c "import json;print(json.load(open('$SCRIPTS/../web/src/settings/layout.gen.json'))['caps']['gateway']['status'])")"
 check_eq "advanced is only on options that are not settable" "" "$($GEN pages | awk -F"$T" '$2 == "advanced" {print $1}' | grep -Fxf <($GEN list | awk -F"$T" '$3 == "yes" {print $1}') | tr '
 ' ' ')"
