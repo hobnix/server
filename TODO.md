@@ -98,7 +98,7 @@ New pages are frozen except Notifications (built to the new navigation).
 
 1. [x] Inventory and navigation plan (merged #333).
 2. [x] Brief for Claude Design (merged #338; the design prototype and handoff are in web/design/).
-3. [~] (merged #340 shell: tokens, shared components, node-rooted routing, halftone; #346 phase 1 and the phase 2 pages: Pools, Disks, Shares, Backup, Instances, Apps, Services, Network, Notifications, Summary, Health, Nodes, Settings part switches; not run in a browser against the real server) Redesign, then retire the duplicated routes. Decided: every node, the local one too, lives under `/node/<name>/...`.
+3. [~] (merged #340 shell ...; #346 phase 1 and the phase 2 pages ...; #62 gateway capability status panel merged; guided `hs gateway setup` phase 2 committed as 9695e1e; gateway ACME DNS-01 phase 3 implemented (Cloudflare DNS-only, tls-alpn default, `hs gateway acme-token` from stdin); not run in a browser against the real server) Redesign, then retire the duplicated routes. Decided: every node, the local one too, lives under `/node/<name>/...`.
    [ ] Open: look through every page on the server (Pruefliste phase 7.1), then remove the old routes that still redirect.
 4. [~] (merged #336; not run) Game streaming and Posters are capabilities `games` and `posters`, off by default (nothing in the tree on a fresh server).
    On the existing server add them to `capabilities` in machine.toml (the example-server preset has them) and `hs rebuild`.
