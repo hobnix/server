@@ -68,13 +68,13 @@
   });
 
   // ═══ bulk selection ═══
-  const selected = $state(new Set());
+  let selected = $state(new Set());
   const toggle = (name, checked) => { if (checked) selected.add(name); else selected.delete(name); };
   const selectedPkgs = $derived(pkgs.filter((p) => selected.has(p.name)));
   const canInstall = $derived(selectedPkgs.some((p) => p.state === 'new' && !red(p)));
   const canUpdate = $derived(selectedPkgs.some((p) => p.state === 'update'));
   const canRemove = $derived(selectedPkgs.some((p) => p.state !== 'new' && !p.core));
-  const bulkBusy = $state(false);
+  let bulkBusy = $state(false);
   let bulkOpen = null;           // { action, items } while the confirmation dialog is open
   let bulkSummary = [];
   let showSummary = $state(false);
