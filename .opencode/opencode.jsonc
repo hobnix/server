@@ -1,0 +1,16 @@
+{
+  "$schema": "https://opencode.ai/config.json",
+  // Default model for the main session (orchestrator + ad-hoc work). Switch per session anytime;
+  // the subagents in .opencode/agents/ carry their own models.
+  "model": "opencode-go/glm-5.3",
+  // CLAUDE.md is the shared rulebook (Claude Code reads it natively, OpenCode loads it here).
+  "instructions": ["CLAUDE.md"],
+  // Ported from .claude/settings.json: never read build outputs.
+  "permissions": [
+    { "action": "read", "resource": "pkgs/hs-pool/target/**", "effect": "deny" },
+    { "action": "read", "resource": "result*", "effect": "deny" },
+    { "action": "read", "resource": "result*/**", "effect": "deny" }
+  ],
+  // Scratch worktrees beside the Claude Code ones; .opencode/worktrees/ is git-ignored.
+  "worktree": { "directory": ".opencode/worktrees" }
+}
