@@ -64,12 +64,12 @@
   }
 
   // ═══ bulk selection ═══
-  const selected = $state(new Set());
+  let selected = $state(new Set());
   const toggle = (name, checked) => { if (checked) selected.add(name); else selected.delete(name); };
   const selectedApps = $derived(apps.filter((a) => selected.has(a.name)));
   const canInstall = $derived(selectedApps.some((a) => a.state !== 'installed'));
   const canUpdate = $derived(selectedApps.some((a) => a.state === 'installed'));
-  const bulkBusy = $state(false);
+  let bulkBusy = $state(false);
   let bulkOpen = null;           // { action, items } while the confirmation dialog is open
   let bulkSummary = [];          // { name, ok, state, reason }
   let showSummary = $state(false);
