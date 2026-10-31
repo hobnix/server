@@ -22,12 +22,14 @@ here=$(dirname "$0")
 . "$here/lib/setting.sh"
 
 # the keys of the gateway steps (capability.toml); web-serve.py GW_SET lists the same ones (tests/gateway-setup.sh compares)
-GW_KEYS="reverseProxy gatewayTunnelPort gatewayPublicHttps gatewayPublicHttp proxyDomains gatewayDirectDomains gatewayAcmeEmail gatewayAcmeStaging gatewayUnknownHostLocal gatewayUnknownHostPublic"
+GW_KEYS="reverseProxy gatewayTunnelPort gatewayPublicHttps gatewayPublicHttp proxyDomains gatewayDirectDomains gatewayAcmeEmail gatewayAcmeStaging gatewayAcmeChallenge gatewayAcmeDnsProvider gatewayUnknownHostLocal gatewayUnknownHostPublic"
 # what applies when a key is not set (config/defaults.nix; tests/gateway-setup.sh compares); reverseProxy and the domain lists: empty
 gw_default() {
   case "$1" in
     gatewayTunnelPort|gatewayPublicHttps|gatewayPublicHttp) echo 0 ;;
     gatewayAcmeStaging) echo true ;;
+    gatewayAcmeChallenge) echo tls-alpn ;;
+    gatewayAcmeDnsProvider) echo cloudflare ;;
     gatewayUnknownHostLocal) echo 404 ;;
     gatewayUnknownHostPublic) echo drop ;;
     *) echo "" ;;
@@ -164,6 +166,12 @@ fi
 [ "$tun" = 0 ] || ! in_list "$tun" 80 443 22 139 445 8443 9740 "$webPort" "$pubS" "$pubH" || refuse "gatewayTunnelPort = $tun is a port the server already uses; suggested 8081."
 { [ -z "$email" ] || [ "$pubS" != 0 ]; } || refuse "gatewayAcmeEmail needs gatewayPublicHttps = 443 (the router forwards 443 to this server)."
 { [ -z "$email" ] || [[ "$email" =~ ^[^@\ ]+@[^@\ ]+\.[^@\ ]+$ ]]; } || refuse "gatewayAcmeEmail is not an e-mail address."
+challenge=${val[gatewayAcmeChallenge]}; provider=${val[gatewayAcmeDnsProvider]}
+{ [ "$challenge" = tls-alpn ] || [ "$challenge" = dns ]; } || refuse "gatewayAcmeChallenge must be tls-alpn or dns."
+{ [ "$challenge" != dns ] || [ "$provider" = cloudflare ]; } || refuse "gatewayAcmeChallenge = dns needs gatewayAcmeDnsProvider = cloudflare."
+{ [ "$challenge" != dns ] || [ -n "$email" ]; } || refuse "gatewayAcmeChallenge = dns needs gatewayAcmeEmail (a Let's Encrypt account)."
+{ [ "$challenge" != dns ] || [ "$pubS" != 0 ]; } || refuse "gatewayAcmeChallenge = dns needs gatewayPublicHttps (a public port for the certificate)."
+{ [ "$provider" = cloudflare ] || [ "$challenge" != dns ]; } || refuse "gatewayAcmeDnsProvider = $provider is not supported; use cloudflare."
 acme=false; { [ -n "$email" ] && [ "$pubS" != 0 ]; } && acme=true
 { [ "$unkPublic" = drop ] || [ "$pubS" = 0 ] || $acme; } || refuse "gatewayUnknownHostPublic = \"404\" on the public HTTPS port needs a certificate (gatewayAcmeEmail); use \"drop\" for now."
 

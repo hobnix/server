@@ -74,6 +74,8 @@
   "gatewayTunnelFrom": "cap:gateway",
   "gatewayAcmeEmail": "cap:gateway",
   "gatewayAcmeStaging": "cap:gateway",
+  "gatewayAcmeChallenge": "cap:gateway",
+  "gatewayAcmeDnsProvider": "cap:gateway",
   "gatewayDirectDomains": "cap:gateway",
   "gpu": "advanced",
   "nvidiaDriver": "advanced",
@@ -195,10 +197,22 @@
     {
      "id": "certs",
      "title": "Certificates",
-     "text": "Let's Encrypt certificates are requested over HTTPS (TLS-ALPN-01), so port 443 must reach this server. Use the staging service while you test.",
+     "text": "Let's Encrypt certificates are requested either over HTTPS (TLS-ALPN-01, the default, port 443 must reach this server) or through Cloudflare DNS-01 (the API token is a credential, never a command argument). Use the staging service while you test.",
      "keys": [
       "gatewayAcmeEmail",
-      "gatewayAcmeStaging"
+      "gatewayAcmeStaging",
+      "gatewayAcmeChallenge",
+      "gatewayAcmeDnsProvider"
+     ],
+     "presets": [
+      {
+       "id": "cloudflare",
+       "label": "Cloudflare DNS-01",
+       "set": {
+        "gatewayAcmeChallenge": "dns",
+        "gatewayAcmeDnsProvider": "cloudflare"
+       }
+      }
      ]
     },
     {

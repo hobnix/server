@@ -1788,7 +1788,7 @@ Unmanaged files	Nicht verwaltete Dateien
 Web interface	Weboberfläche
 Wildcard DNS	Wildcard-DNS
 or in Windows DNS Manager: zone %s > %s > New Host, name *, address %s	oder im Windows-DNS-Manager: Zone %s > %s > Neuer Host, Name *, Adresse %s
-usage: hs gateway status | routes | check | health	Aufruf: hs gateway status | routes | check | health
+usage: hs gateway status | routes | check | health | acme-token	Aufruf: hs gateway status | routes | check | health | acme-token
 usage: hs services list | check | plan | add <name> ... | edit <name> ... | remove <name> | import [--dry-run] [--yes] | apply [--dry-run] [--confirm <host or service>] | adopt [--yes] | proxy login | stats | key <service>   (plan, apply, import, adopt: [--proxy public|local])	Aufruf: hs services list | check | plan | add <Name> ... | edit <Name> ... | remove <Name> | import [--dry-run] [--yes] | apply [--dry-run] [--confirm <Host oder Dienst>] | adopt [--yes] | proxy login | stats | key <Dienst>   (plan, apply, import, adopt: [--proxy public|local])
 dashboard = web would be set (the Homepage recipe is gone; the dashboard is part of the web interface)	dashboard = web würde gesetzt (das Homepage-Rezept gibt es nicht mehr; das Dashboard ist Teil der Weboberfläche)
 dashboard is now web (the Homepage recipe is gone)	dashboard ist jetzt web (das Homepage-Rezept gibt es nicht mehr)
@@ -1873,3 +1873,4 @@ Reason	Grund
 Apply the gateway setup	Das Gateway-Setup anwenden
 The gateway setup is applied.	Das Gateway-Setup ist angewendet.
 The rebuild failed: machine.toml and the gateway settings were put back as they were before. Nothing was rebuilt again; run hs rebuild when you are ready.	Der Rebuild ist fehlgeschlagen: machine.toml und die Gateway-Einstellungen wurden wie vorher zurückgesetzt. Es wurde nichts erneut gebaut; führe hs rebuild aus, wenn du bereit bist.
+

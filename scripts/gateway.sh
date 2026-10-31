@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # help: the gateway proxy (Traefik): running, who holds the ports, local domain, wildcard DNS, routes
 # help.de: der Gateway-Proxy (Traefik): läuft er, wer hält die Ports, lokale Domain, Wildcard-DNS, Routen
-# args: status | routes | check | health | --status | --routes | --certs | --health | --check-wildcard
+# args: status | routes | check | health | acme-token | --status | --routes | --certs | --health | --check-wildcard
 # Traefik on the host gives every local service a name <label>.<site>.<realm> by Host header (capabilities/gateway/NOTES.md).
 #   hs gateway status      key/value lines for people, warnings for a port held by another process, a stopped service, a wrong wildcard
 #   hs gateway routes      every route: local names, passthrough domains, the web interface
@@ -30,7 +30,7 @@ py=${HS_PYTHON:-python3}; command -v "$py" >/dev/null 2>&1 || py=python
 tab=$'\t'
 render() { PYTHONUTF8=1 "$py" "$here/gateway_render.py" "$@"; }
 
-usage() { say "usage: hs gateway status | routes | check | health"; exit 1; }
+usage() { say "usage: hs gateway status | routes | check | health | acme-token"; exit 1; }
 
 host_ip() { printf '%s' "${HS_HOST_IP:-$(ip -4 -o addr show br0 2>/dev/null | awk '{ sub(/\/.*/, "", $4); print $4; exit }')}"; }
 unit_state() {
@@ -247,6 +247,25 @@ health_rows() {
   fi
 }
 
+# hs gateway acme-token: read the Cloudflare DNS API token from stdin (a secret: never argv or the
+# environment), store it as a credential (mode 0600) that Traefik receives through systemd
+# LoadCredential + CF_DNS_API_TOKEN_FILE (a path). Test knobs: HS_ACME_TOKEN_DIR (state dir override),
+# HS_ACME_TOKEN_STDIN (a file standing in for stdin). Not tested on hardware.
+acme_token() {
+  local token state=${HS_ACME_TOKEN_DIR:-${HS_STATE_DIR:-/var/lib/hs}}
+  if [ -n "${HS_ACME_TOKEN_STDIN:-}" ]; then
+    token=$(head -n 1 "$HS_ACME_TOKEN_STDIN" 2>/dev/null || true)
+  else
+    read -r token || true
+  fi
+  [ -n "$token" ] || { printf 'status\trefused\nreason\tNo token given: pipe the Cloudflare DNS API token into `hs gateway acme-token`.\n'; exit 1; }
+  . "$here/lib/secret.sh"
+  secret_prepare cf-dns-api-token "$state" || return 1
+  printf '%s' "$token" > "$state/cf-dns-api-token"
+  chmod 600 "$state/cf-dns-api-token" 2>/dev/null || true
+  printf 'status\tok\n'
+}
+
 sub=${1:-}
 case "$sub" in
   --status) status_rows ;;
@@ -254,6 +273,7 @@ case "$sub" in
   --certs) cert_rows ;;
   --health) health_rows ;;
   --check-wildcard) [ "$(wildcard_state)" = ok ] ;;
+  acme-token) acme_token ;;
   status)
     declare -A v=()
     while IFS=$'\t' read -r k val; do v[$k]=$val; done < <(status_rows)

@@ -42,8 +42,13 @@ keys = ["proxyDomains", "gatewayDirectDomains"]
 [[settings.steps]]
 id = "certs"
 title = "Certificates"
-text = "Let's Encrypt certificates are requested over HTTPS (TLS-ALPN-01), so port 443 must reach this server. Use the staging service while you test."
-keys = ["gatewayAcmeEmail", "gatewayAcmeStaging"]
+text = "Let's Encrypt certificates are requested either over HTTPS (TLS-ALPN-01, the default, port 443 must reach this server) or through Cloudflare DNS-01 (the API token is a credential, never a command argument). Use the staging service while you test."
+keys = ["gatewayAcmeEmail", "gatewayAcmeStaging", "gatewayAcmeChallenge", "gatewayAcmeDnsProvider"]
+
+[[settings.steps.presets]]
+id = "cloudflare"
+label = "Cloudflare DNS-01"
+set = { gatewayAcmeChallenge = "dns", gatewayAcmeDnsProvider = "cloudflare" }
 
 [[settings.steps]]
 id = "auth"

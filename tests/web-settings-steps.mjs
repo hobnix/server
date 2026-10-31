@@ -7,7 +7,7 @@ const layout = JSON.parse(readFileSync(new URL('../web/src/settings/layout.gen.j
 const gw = layout.caps.gateway;
 assert.equal(gw.apply, 'gateway setup');
 assert.deepEqual(gw.steps.map((s) => s.id), ['connect', 'domain', 'certs', 'auth', 'unknown']);
-assert.deepEqual(stepKeys(gw.steps), ['reverseProxy', 'gatewayTunnelPort', 'gatewayPublicHttps', 'gatewayPublicHttp', 'proxyDomains', 'gatewayDirectDomains', 'gatewayAcmeEmail', 'gatewayAcmeStaging', 'gatewayUnknownHostLocal', 'gatewayUnknownHostPublic']);
+assert.deepEqual(stepKeys(gw.steps), ['reverseProxy', 'gatewayTunnelPort', 'gatewayPublicHttps', 'gatewayPublicHttp', 'proxyDomains', 'gatewayDirectDomains', 'gatewayAcmeEmail', 'gatewayAcmeStaging', 'gatewayAcmeChallenge', 'gatewayAcmeDnsProvider', 'gatewayUnknownHostLocal', 'gatewayUnknownHostPublic']);
 assert.ok(Object.values(layout.caps).every((c) => c.steps === undefined || (c.apply && c.steps.every((s) => /^[a-z][a-z0-9-]*$/.test(s.id)))));
 
 const steps = [

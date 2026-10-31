@@ -1116,6 +1116,44 @@ gatewayAcmeStaging = false'''
 
 [[item]]
 kind = "option"
+key = "gatewayAcmeChallenge"
+type = "string"
+required = false
+settable = true
+secret = false
+capability = "gateway"
+default = '"tls-alpn"'
+choices = ["tls-alpn", "dns"]
+hint = "tls-alpn or dns"
+doc = '''
+# How the gateway asks Let's Encrypt for its own certificates (direct mode: gatewayAcmeEmail and gatewayPublicHttps set).
+# "tls-alpn" (default) = TLS-ALPN-01 on port 443. "dns" = DNS-01 through the configured provider (Cloudflare only here).
+# No HTTP-01. The value itself needs no rebuild; certificates are (re)requested at the next hs services apply / rebuild.
+# Not tested on hardware yet.'''
+value = '''
+gatewayAcmeChallenge = "tls-alpn"'''
+
+[[item]]
+kind = "option"
+key = "gatewayAcmeDnsProvider"
+type = "string"
+required = false
+settable = true
+secret = false
+capability = "gateway"
+default = '"cloudflare"'
+choices = ["cloudflare"]
+hint = "cloudflare"
+doc = '''
+# The DNS provider for the ACME DNS-01 challenge (gatewayAcmeChallenge = "dns"). "cloudflare" reads the API token from a
+# credential file (`hs gateway acme-token`, from stdin) and passes it to Traefik through systemd LoadCredential +
+# CF_DNS_API_TOKEN_FILE (a path, never the token in the environment). Meaningless unless challenge = "dns".
+# Not tested on hardware yet.'''
+value = '''
+gatewayAcmeDnsProvider = "cloudflare"'''
+
+[[item]]
+kind = "option"
 key = "gatewayDirectDomains"
 type = "string"
 required = false

@@ -56,6 +56,8 @@
   gatewayTunnelFrom = [ ];
   gatewayAcmeEmail = "";
   gatewayAcmeStaging = true;
+  gatewayAcmeChallenge = "tls-alpn";
+  gatewayAcmeDnsProvider = "cloudflare";
   gpu = null;
   nvidiaDriver = "stable";
   pciBind = [ ];
