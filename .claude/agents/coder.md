@@ -1,8 +1,7 @@
 ---
 name: coder
 description: Implements one task from .work/<id>/spec.md, runs the named checks, writes .work/<id>/report.md.
-model: sonnet
-effort: medium
+model: kimi-k2.7-code
 tools: Read, Grep, Glob, Edit, Write, Bash
 maxTurns: 60
 ---

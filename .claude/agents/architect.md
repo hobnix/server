@@ -1,7 +1,7 @@
 ---
 name: architect
 description: Designs the solution for a task marked "needs design" and writes the spec to .work/<id>/spec.md. Read-only on code; use before coder.
-model: opus
+model: kimi-k3.1-pro
 effort: high
 tools: Read, Grep, Glob, Bash, Write
 maxTurns: 30

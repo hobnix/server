@@ -1,7 +1,7 @@
 ---
 name: implementer
 description: Mechanical edits from an exact spec (renames, moves, repeated replacements, translations). No design decisions.
-model: haiku
+model: gpt-6-luna
 effort: low
 tools: Read, Grep, Glob, Edit, Write, Bash
 maxTurns: 40

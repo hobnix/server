@@ -1,8 +1,8 @@
 ---
 name: docs-writer
 description: Writes or updates a guide (docs/*.md or a package's guide.md) from the code, following docs/GUIDE-TEMPLATE.md.
-model: sonnet
-effort: low
+model: gpt-6-luna
+effort: medium
 tools: Read, Grep, Glob, Edit, Write, Bash
 maxTurns: 40
 ---

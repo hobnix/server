@@ -1,7 +1,7 @@
 ---
 name: tester
 description: Runs tests with scripts/dev/t and reports failures only; diagnoses a failing test's cause in two lines. Never edits.
-model: haiku
+model: beam-free
 effort: low
 tools: Read, Grep, Glob, Bash
 disallowedTools: Edit, Write

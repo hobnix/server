@@ -1,7 +1,7 @@
 ---
 name: reviewer
 description: Reviews the diff of a task against its spec and the project rules; reports concrete defects only. Read-only.
-model: opus
+model: gemini-4-argon
 effort: high
 tools: Read, Grep, Glob, Bash
 disallowedTools: Edit, Write

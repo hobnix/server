@@ -1,8 +1,10 @@
 {
   "$schema": "https://opencode.ai/config.json",
   // Default model for the main session (orchestrator + ad-hoc work). Switch per session anytime;
-  // the subagents in .opencode/agents/ carry their own models.
-  "model": "opencode-go/glm-5.3",
+  // the subagents in .claude/agents/ carry their own models. The orchestrator only delegates and reads
+  // short reports, so a free low-effort model is enough; switch to a stronger model per session for
+  // heavier ad-hoc work.
+  "model": "opencode-go/beam-free#low",
   // CLAUDE.md is the shared rulebook (Claude Code reads it natively, OpenCode loads it here).
   "instructions": ["CLAUDE.md"],
   // Ported from .claude/settings.json: never read build outputs.
