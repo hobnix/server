@@ -19,7 +19,7 @@ check('the allowlist was read', known.size > 50 && known.has('ct/list') && known
 
 const routes = ['/', '/instances', '/network', '/identity/users', '/identity/groups', '/identity/certificates', '/monitoring/hardware', '/protection/backup', '/storage/pools', '/storage/pools/bulk', '/storage/pools/fast', '/storage/disks', '/storage/shares', '/storage/files',
   '/protection/expiry', '/operations/health', '/operations/apps', '/operations/services', '/instances/apps', '/marketplace', '/instances/services', '/storage/encryption', '/storage/vault', '/storage/unassigned',
-  '/settings', '/settings/general', '/settings/capabilities', '/settings/capabilities/gateway', '/setup', '/nodes', '/storage/bulk', '/storage/fast', '/storage/bulk/disks', '/storage/fast/disks', '/storage/bulk/shares'];
+  '/settings', '/settings/general', '/settings/capabilities', '/settings/capabilities/gateway', '/setup', '/nodes', '/storage/bulk', '/storage/fast', '/storage/bulk/disks', '/storage/fast/disks', '/storage/bulk/shares', '/monitoring/diagnostics'];
 const missing = [];
 let total = 0;
 for (const r of routes) {
@@ -39,6 +39,8 @@ check('an extension that is off reads nothing', readsFor('/extensions/demo').len
 check('an unknown page prefetches nothing', readsFor('/nowhere').length === 0);
 check('the new pool address names its pool', readsFor('/node/hs/storage/pools/fast').some((p) => p.endsWith('pool=fast')) && readsFor('/storage/pools/bulk').some((p) => p.endsWith('pool=bulk')));
 check('a pool page names its pool', readsFor('/storage/fast').some((p) => p.endsWith('pool=fast')) && readsFor('/storage/bulk').some((p) => p.endsWith('pool=bulk')));
+check('Diagnostics defaults to the collected reads', JSON.stringify(readsFor('/monitoring/diagnostics')) === JSON.stringify(['/api/sys/reads/status']));
+check('Diagnostics with live on uses the live read', JSON.stringify(readsFor('/monitoring/diagnostics', [], true)) === JSON.stringify(['/api/sys/live/status']));
 
 console.log(`  -> ${ok} ok, ${bad} failed`);
 process.exit(bad ? 1 : 0);

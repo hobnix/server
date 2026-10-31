@@ -1,3 +1,6 @@
 # Live-state topics (scripts/live-collect.py). Columns, tab separated: topic, words of the `hs sys` read, interval in seconds,
 # while the storage is locked: run|skip. The key is hs:v1:<topic>.
+# The `live` topic reads `hs sys live status`; it sees its own previous document because the collector runs the command before it takes
+# its own Redis lock or issues its own GET/SET. This means the `live` row is one collection behind, which is expected, not staleness.
 status	status	15	run
+live	live status	5	run

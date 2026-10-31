@@ -1,0 +1,7 @@
+date  = "2026-10-31"
+type  = "feature"
+title = "Diagnostics inspects Redis live topics when live state is enabled"
+docs  = "web-interface#live-state"
+body  = """
+With liveState = "redis" the Diagnostics page lists every live topic and follows the live stream, falling back to polling every 5 seconds. Off mode is unchanged.
+"""

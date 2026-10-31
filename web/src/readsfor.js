@@ -22,7 +22,8 @@ function extReads(name, pages) {
 }
 
 // `extPages` = ui.features.extensions (the pages of the extension packages that are on); without it an extension page reads nothing first.
-export function readsFor(path, extPages = []) {
+// `liveOn` = ui.features.live. Diagnostics switches its read in live mode so the prefetch/refresh button matches the visible table.
+export function readsFor(path, extPages = [], liveOn = false) {
   path = innerPath(path);
   let m;
   if ((m = path.match(/^\/extensions\/([a-z][a-z0-9-]*)$/))) return extReads(m[1], extPages);
@@ -48,7 +49,7 @@ export function readsFor(path, extPages = []) {
     case '/marketplace': return [`${A}pkg/market`, `${A}pkg/repos`];
     case '/instances/services': case '/operations/services': return [`${A}services/list`, `${A}services/routes`, `${A}ct/list`];
     case '/operations/notifications': return [`${A}notify/channels`, `${A}notify/providers`];
-    case '/monitoring/diagnostics': return [`${A}reads/status`];
+    case '/monitoring/diagnostics': return [liveOn ? `${A}live/status` : `${A}reads/status`];
     case '/storage/encryption': return [`${A}encryption/list`, `${A}status`];
     case '/storage/vault': return [`${A}status`, `${A}vault/list`, `${A}vault/usage`, `${A}vault/uses`];
     case '/storage/pools': return [`${A}pool/info?pool=bulk`, `${A}pool/info?pool=fast`, `${A}monitor/disks`];

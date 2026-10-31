@@ -106,4 +106,9 @@ Phase 1, plan dialog, not run on hardware:
 
 Phase 0 is not done: the measurement is `journalctl -u hs-web | grep 'web timing'` on the server while using the pages; the table is still to fill. Unverified: that browsers close the connection on abort, that no plan starts a process outside its group, the frontend build.
 
-Not built: the other pages (they keep their polls and have no topic), the homeserver-deck, retiring the old collector (`reads-collect.sh`, the `reads` table), the Health entries `live:down` and `live:stale:<topic>`.
+Built:
+- Diagnostics is served by the `live` topic in Redis mode and keeps the old collected-reads view in off mode.
+- `live:down`, `live:stale:<topic>` and `live:never:<topic>` are surfaced by Health automatically (`scripts/health-check.sh` calls `live.sh check`).
+
+Not built: the remaining pages (they keep their polls and have no topic), the homeserver-deck, retiring the old collector (`reads-collect.sh`, the `reads` table).
+Retirement stays future work until no served read uses `Reads.collected`.
