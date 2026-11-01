@@ -1,0 +1,4 @@
+date  = "2026-11-02"
+type  = "fix"
+title = "The Reboot and Shutdown buttons in the web interface now really restart or power off the server"
+body  = """The button reported success, but the server stayed up: the delayed reboot counted itself as a running background job and refused to go ahead."""

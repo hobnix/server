@@ -108,7 +108,7 @@ if [ "$verb" = start ]; then
       # not a job that runs now: a timer starts power.sh a few seconds later, the caller still gets this answer
       unit=hs-job-system-$action-$(date +%H%M%S)
       systemd-run --quiet --unit="$unit" --on-active="${HS_REBOOT_DELAY:-5}" --description="hs $action (from the web interface)" \
-        -E HS_CALLER=job -E "PATH=$PATH" "${cmd[@]}" || refuse "the $action could not be scheduled"
+        -E HS_CALLER=job -E "HS_POWER_SELF=$unit.service" -E "PATH=$PATH" "${cmd[@]}" || refuse "the $action could not be scheduled"
       printf 'status\tstarted\nunit\t%s\n' "$unit"
       exit 0 ;;
   esac

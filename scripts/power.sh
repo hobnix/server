@@ -10,6 +10,7 @@
 #   reboot --entry <id> boot the entry <id> (see: bootctl list) once; the next boot is the normal one again
 #   --dry-run           only say what would run
 # The push messages ("rebooting", "shutting down") come from hs-shutdown-notice and stay as they are.
+# HS_POWER_SELF is the unit that runs this script (the web interface's delayed reboot): it is not a job that blocks.
 # Test knobs: HS_SYSTEMCTL, HS_BOOTCTL, HS_LOCK, HS_LOCK_ADMIN (lib/bulklock.sh), HS_EFI_DIR (default /sys/firmware/efi).
 set -euo pipefail
 here=$(dirname "$0")
@@ -59,7 +60,7 @@ busy() {
     ( flock -n 8 ) 8>"$bulk_lock" 2>/dev/null || echo "$(t 'a parity sync, scrub, cache mover or share rename holds the bulk lock')"
   fi
   while read -r unit; do
-    [ -n "$unit" ] && echo "$(t 'background job %s (hs job running)' "$unit")"
+    [ -n "$unit" ] && [ "$unit" != "${HS_POWER_SELF:-}" ] && echo "$(t 'background job %s (hs job running)' "$unit")"
   done < <("$systemctl_bin" list-units 'hs-job-*.service' --state=active,activating --no-legend --no-pager 2>/dev/null | awk '{ print $1 }' || true)
   for unit in hs-backup hs-backup-drill hs-selftest-short hs-selftest-long hs-system-gc hs-bulk-sync hs-bulk-scrub hs-cache-mover; do
     case $("$systemctl_bin" is-active "$unit.service" 2>/dev/null || true) in
