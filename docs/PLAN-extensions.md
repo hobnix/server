@@ -140,6 +140,14 @@ the merged list (`registry_rows` in scripts/lib/registry-load.sh; the knob `HS_R
 the packages, both for tests). A package that is off adds nothing anywhere. On the server the scripts run from a copy in the Nix store without
 `capabilities/`, so the loader reads the packages from the checkout in /etc/nixos.
 
+## At boot
+
+A package that runs a service which must come back after a reboot brings one row: `sys ext <name> boot` in its commands.tsv. One static unit,
+`hs-ext-boot.service` (configuration.nix), runs `hs ext boot` after the network (and Incus) is up; that calls the row of every package that is
+on, with a 60 s limit each, and prints `<name>  ok|failed` to the journal. The row runs as root like every package command, must never ask
+anything (stdin is /dev/null), must finish within 60 s, and must only bring back what a person started (not start something new). A failing or
+hanging package never stops the others. API level 4 (scripts/lib/api-level).
+
 ## Security
 
 - Every command of a package runs **as root** like the core's (`hs` escalates). Installing a package is trusting its author. Today the only

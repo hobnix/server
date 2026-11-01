@@ -11,6 +11,8 @@
 #                     $HS_STATE_DIR/capabilities-on says so until the next rebuild); one with a module needs `hs rebuild`, and is told so
 #   disable <name>    the reverse (capabilities-off wins over everything until the next rebuild; a package that something else keeps on says so)
 #   <name>            the commands of the package (also while it is off, marked as such); a word after it that is no command is named
+#   boot              (run by hs-ext-boot.service at boot) for each package that is on and has a `sys ext <name> boot` row: run it, print
+#                     `<name><TAB>ok|failed` (journal only); one failing or hanging package never stops the others; exits 0 always
 # Test knobs: HS_MACHINE_FILE, HS_STATE_DIR, HS_PACKAGES_DIR, HS_CAPABILITIES_FILE, HS_LANG.
 set -euo pipefail
 here=$(cd "$(dirname "$0")" && pwd)
@@ -177,6 +179,17 @@ cmd_show() {   # cmd_show <name> [<word that is no command>...]
   [ $# -eq 0 ]
 }
 
+# One static unit (hs-ext-boot, configuration.nix) calls this; a package brings its services back with a `sys ext <name> boot` row.
+cmd_boot() {
+  local n tab=$'	'
+  while IFS= read -r n; do
+    ext_package_on "$n" || continue
+    registry_rows_of "$n" | awk -F'	' -v p="sys ext $n boot" '$1 == "sys" && $2 == p { f = 1 } END { exit !f }' || continue
+    if timeout 60 bash "$here/lib/hs.sh" sys ext "$n" boot </dev/null >/dev/null 2>&1; then say "$n${tab}ok"; else say "$n${tab}failed"; fi
+  done < <(ext_package_names)
+  return 0
+}
+
 verb=${1:-}
 [ $# -eq 0 ] || shift
 case "$verb" in
@@ -184,6 +197,7 @@ case "$verb" in
   --list) cmd_data ;;
   enable) cmd_enable "$@" ;;
   disable) cmd_disable "$@" ;;
+  boot) cmd_boot ;;
   show) cmd_show "$@" ;;
   *) usage ;;
 esac

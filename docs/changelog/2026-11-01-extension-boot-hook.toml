@@ -1,0 +1,6 @@
+date  = "2026-11-01"
+type  = "feature"
+title = "Extensions can bring their services back after a reboot"
+body  = """
+A new always-present unit, `hs-ext-boot`, runs `hs ext boot` once the network is up: for every extension that is on and brings a `sys ext <name> boot` row, that row runs (60 seconds at most, one failing extension never stops the others). Nothing changes for extensions without such a row. The package API level is now 4. Not tested on hardware yet.
+"""

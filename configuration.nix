@@ -428,6 +428,16 @@ in
     serviceConfig.Type = "oneshot";
     script = "bash ${./scripts}/power-notice.sh started";
   };
+  # Brings back what a person started with an extension (a `sys ext <name> boot` row, docs/PLAN-extensions.md "At boot"); one static unit, no rebuild per package.
+  systemd.services.hs-ext-boot = {
+    description = "Start the services of the extensions that are on (hs ext boot)";
+    wantedBy = [ "multi-user.target" ];
+    wants = [ "network-online.target" ];
+    after = [ "network-online.target" ] ++ lib.optional hasIncus "incus.service";
+    path = [ "/run/current-system/sw" ];
+    serviceConfig.Type = "oneshot";
+    script = "bash ${./scripts}/ext.sh boot";
+  };
   systemd.services.hs-shutdown-notice = {
     description = "Push message: the server is going down";
     wantedBy = [ "multi-user.target" ];
