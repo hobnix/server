@@ -130,4 +130,46 @@ if have python3; then
   if out=$(python3 -I "$ROOT/tests/web-ext-test.py" 2>&1); then pass "web declarations ($(grep -E '^Ran ' <<<"$out"))"; else fail "web declarations: $(tail -n 25 <<<"$out")"; fi
 else skip "python3 missing"; fi
 
+echo "-- hs ext boot"
+BT=$WORK/boot; mkdir -p "$BT/bootok" "$BT/bootbad" "$BT/bootnone"
+for n in bootok bootbad bootnone; do
+  printf 'name = "%s"
+title = "%s"
+kind = "feature"
+requires = []
+provides = []
+needs = []
+extension = true
+' "$n" "$n" > "$BT/$n/capability.toml"
+done
+printf '#!/usr/bin/env bash
+touch "%s/marker-ok"
+' "$WORK" > "$BT/bootok/boot.sh"
+printf '#!/usr/bin/env bash
+exit 1
+' > "$BT/bootbad/boot.sh"
+printf 'sys%ssys ext bootok boot%s@/boot.sh%s-%sstart at boot%s-
+' "$tab" "$tab" "$tab" "$tab" "$tab" > "$BT/bootok/commands.tsv"
+printf 'sys%ssys ext bootbad boot%s@/boot.sh%s-%sstart at boot%s-
+' "$tab" "$tab" "$tab" "$tab" "$tab" > "$BT/bootbad/commands.tsv"
+printf 'user%sext bootnone hi%s@/boot.sh%s-%shi%shi%stopic:system,reads
+' "$tab" "$tab" "$tab" "$tab" "$tab" "$tab" > "$BT/bootnone/commands.tsv"
+bootrun() { HS_PACKAGES_DIR=$BT bash "$SCRIPTS/ext.sh" boot 2>&1; }
+: > "$HS_CAPABILITIES_FILE"
+rc=0; out=$(bootrun) || rc=$?
+check_eq "all off: nothing runs, exit 0" "0|" "$rc|$out"
+check "all off: no marker" test ! -e "$WORK/marker-ok"
+printf 'bootnone
+bootbad
+bootok
+' > "$HS_CAPABILITIES_FILE"
+rc=0; out=$(bootrun) || rc=$?
+check_eq "exit 0 although one package failed" "0" "$rc"
+check_eq "a failing package does not stop the next; one without the row is not named" "bootbad${tab}failed|bootok${tab}ok" "$(paste -sd'|' <<<"$out")"
+check "the row of the package that is on ran" test -e "$WORK/marker-ok"
+
+echo "-- the boot unit"
+unit=$(grep -h -A9 'systemd.services.hs-ext-boot' "$ROOT/configuration.nix")
+check "hs-ext-boot runs ext.sh boot" grep -q 'ext.sh boot' <<<"$unit"
+
 finish
