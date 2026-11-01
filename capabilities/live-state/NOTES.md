@@ -18,7 +18,7 @@ Rules:
 - The `group` option of `services.redis.servers.<n>` is unverified in the pinned nixpkgs; module.nix does not use it. The socket group is
   `redis-hobnix`; hs-web and hs-live get it through SupplementaryGroups.
 
-Topics (39, including `status` and `live`): see `scripts/lib/live-topics.tsv`. Storage fixed reads now have their own topics, including
+Topics (47, including `status` and `live`): see `scripts/lib/live-topics.tsv`. Storage fixed reads now have their own topics, including
 six fixed-pool topics (`pool-info-bulk`, `pool-info-fast`, `pool-members-bulk`, `pool-members-fast`, `pool-state-bulk`,
 `pool-state-fast`) whose words contain the literal pool name. The web resolves those per request from the validated
 `pool=bulk|fast` query; any other pool argument stays a direct read. Lock mode is `skip` for mounted-pool/Samba reads
@@ -46,3 +46,9 @@ System slice (built, not run on hardware): 17 more topics for the Summary, top b
 `node-list`, `ssh-keys`, `expiry`, `notify-channels`, `notify-providers` (the last two need the `notifications` capability). Explicit refreshes
 outside the dispatcher: `health-check.sh` (real run: `health-next health-list status deck`), `ups.sh event`
 (`ups deck status`), `jobs.sh stop` (`@jobs`), `update.sh` and `update-preview.sh` after the fetch (`system-updates`).
+
+Instances slice (built, not run on hardware): 8 more topics, all `skip` while locked: `ct-list` (10 s), `ct-profiles` (120 s) (both need the
+`incus` capability), `services-list`, `services-app`, `services-routes` (30 s), `services-local-routes` (needs `gateway`), `services-tiles` (60 s)
+and `services-stats` (30 s; both need `dashboard`; stats calls the service APIs, keys go on curl's stdin). A topic whose capability is off is read
+directly by the web (no Redis document). Groups: `@instances` (any `ct`/recipes/mac change) and `@network` (services, routes, net, gateway) wake the lists, `services-app` and the routes; `ct-profiles` and `services-local-routes` also listen to `@system` (`hs rebuild`/`update` change the Incus preseed and the proxy); `services-stats` only to `@network`. No new explicit hooks: every
+change of these areas goes through the dispatcher or a web `start`. `ct <ct> ...` and `services show` stay direct.

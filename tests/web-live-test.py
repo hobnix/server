@@ -260,9 +260,9 @@ class RedisMode(RedisBase):
         self.assertEqual((s, json.loads(d)["rows"]), (200, [["old"]]))
 
     def test_reads_without_a_topic_still_run(self):
-        s, d, r = self.req("GET", "/api/sys/ct/list", headers=self.ck)
+        s, d, r = self.req("GET", "/api/sys/gateway/status", headers=self.ck)
         self.assertEqual(s, 200)
-        self.assertEqual(self.fake.calls, [("ct", "list")])
+        self.assertEqual(self.fake.calls, [("gateway", "status")])
 
     def test_warm_up_skips_topics(self):
         targets = [tuple(a[2]) for a in self.app.reads.warm_targets()]
@@ -362,9 +362,50 @@ SYSTEM = {
     ("parts", "list"): "parts-list", ("node", "list"): "node-list", ("ssh-key", "list"): "ssh-keys", ("expiry", "list"): "expiry",
     ("notify", "channels"): "notify-channels", ("notify", "providers"): "notify-providers",
 }
+INSTANCES = {
+    ("ct", "list"): "ct-list", ("ct", "profiles"): "ct-profiles", ("services", "list"): "services-list", ("services", "app"): "services-app",
+    ("services", "routes"): "services-routes", ("services", "local-routes"): "services-local-routes",
+    ("services", "tiles"): "services-tiles", ("services", "stats"): "services-stats",
+}
 
 
 class StorageTopics(RedisBase):
+    def test_web_areas_of_instances_and_services_ask_for_groups_that_wake_them(self):
+        info = ws.ls.topic_info()
+        for area, group in (("ct", "@instances"), ("recipes", "@instances"), ("routes", "@network"), ("net", "@network"),
+                            ("gateway", "@network")):
+            self.assertEqual(ws.area_refresh(area), group, area)
+            g = group[1:]
+            for n in ("ct-list", "services-list", "services-app", "services-routes", "services-tiles"):
+                self.assertTrue(g in info[n]["groups"], (area, n))
+
+    def test_every_instance_read_has_its_topic(self):
+        self.assertEqual(len(INSTANCES), 8)
+        known = {r[0] for r in ws.ls.topics()}
+        for words, topic in INSTANCES.items():
+            self.assertEqual(ws.READS[words]["topic"], topic, words)
+            self.assertIn(topic, known)
+            self.assertEqual(ws.live_topic_map()["/api/sys/" + "/".join(words)], topic)
+
+    def with_caps(self, on):
+        real = ws.ls.cap_on
+        ws.ls.cap_on = lambda name: True if name is None else on
+        self.addCleanup(setattr, ws.ls, "cap_on", real)
+
+    def test_ct_list_comes_from_its_key(self):
+        self.with_caps(True)
+        self.redis.keys["hs:v1:ct-list"] = doc("web\trunning\n")
+        s, d, r = self.req("GET", "/api/sys/ct/list", headers=self.ck)
+        self.assertEqual((s, json.loads(d)["rows"]), (200, [["web", "running"]]))
+        self.assertEqual(self.fake.calls, [])
+
+    def test_ct_list_without_the_incus_capability_is_read_directly(self):
+        self.with_caps(False)
+        self.redis.keys["hs:v1:ct-list"] = doc("web\trunning\n")
+        s, d, r = self.req("GET", "/api/sys/ct/list", headers=self.ck)
+        self.assertEqual(s, 200)
+        self.assertEqual(self.fake.calls, [("ct", "list")])
+
     def test_every_no_argument_read_has_its_topic(self):
         for words, topic in NO_ARG.items():
             self.assertEqual(ws.READS[words]["topic"], topic, words)

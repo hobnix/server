@@ -129,3 +129,8 @@ session answer. Details: capabilities/live-state/NOTES.md. More topics follow in
 Built, not run on hardware: 17 topics for the dashboard and system shell (deck, jobs, health, hardware, ups, updates, config, setup, parts, nodes, ssh keys,
 expiry, notification channels and providers), explicit refreshes in health-check, ups, power-notice, jobs stop and the update fetch.
 Details: capabilities/live-state/NOTES.md.
+
+## Instances slice (2026-11-01)
+
+8 topics (`ct-list`, `ct-profiles`, `services-list|app|routes|local-routes|tiles|stats`), see capabilities/live-state/NOTES.md. `ct list` is read
+every 10 s (the pages polled 5 s) and refreshed by `@instances`/`@network` after a change. Not tested on hardware yet.

@@ -48,3 +48,11 @@ ssh-keys	ssh-key list	60	run	-	security
 expiry	expiry list	300	run	-	system
 notify-channels	notify channels	60	run	notifications	system
 notify-providers	notify providers	3600	run	notifications	-
+ct-list	ct list	10	skip	incus	instances,shares,network
+ct-profiles	ct profiles	120	skip	incus	instances,network,system
+services-list	services list	30	skip	-	instances,network
+services-app	services app	30	skip	-	instances,network
+services-routes	services routes	30	skip	-	instances,network
+services-local-routes	services local-routes	30	skip	gateway	instances,network,system
+services-tiles	services tiles	60	skip	dashboard	instances,network
+services-stats	services stats	30	skip	dashboard	network

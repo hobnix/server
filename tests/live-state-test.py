@@ -210,8 +210,54 @@ class Groups(unittest.TestCase):
 
 SYSTEM_TOPICS = {'deck': 5, 'jobs-running': 10, 'jobs-list': 30, 'health-next': 30, 'health-list': 60, 'hardware': 15, 'ups': 30, 'system-updates': 60, 'system-config': 300, 'setup-list': 30, 'config-list': 60, 'parts-list': 60, 'node-list': 30, 'ssh-keys': 60, 'expiry': 300, 'notify-channels': 60, 'notify-providers': 3600}
 
+INSTANCE_TOPICS = {
+    'ct-list': (['ct', 'list'], 10, 'skip', 'incus', {'instances', 'shares', 'network'}),
+    'ct-profiles': (['ct', 'profiles'], 120, 'skip', 'incus', {'instances', 'network', 'system'}),
+    'services-list': (['services', 'list'], 30, 'skip', None, {'instances', 'network'}),
+    'services-app': (['services', 'app'], 30, 'skip', None, {'instances', 'network'}),
+    'services-routes': (['services', 'routes'], 30, 'skip', None, {'instances', 'network'}),
+    'services-local-routes': (['services', 'local-routes'], 30, 'skip', 'gateway', {'instances', 'network', 'system'}),
+    'services-tiles': (['services', 'tiles'], 60, 'skip', 'dashboard', {'instances', 'network'}),
+    'services-stats': (['services', 'stats'], 30, 'skip', 'dashboard', {'network'}),
+}
+
 
 class Cli(unittest.TestCase):
+    def test_changes_of_instances_and_services_wake_their_topics(self):
+        # the dispatcher asks for @<topic flag> of a changes row; every such row of these areas must reach every topic that shows its result
+        reg = os.path.join(os.path.dirname(ls.__file__), "lib", "registry.tsv")
+        info = ls.topic_info()
+        areas = ("ct", "recipe", "mac", "net", "gateway", "services")
+        groups = {}
+        with open(reg, encoding="utf-8") as fh:
+            for line in fh:
+                f = line.rstrip("\n").split("\t")
+                if len(f) < 7 or f[0] != "user" or f[1].split()[0] not in areas:
+                    continue
+                flags = f[-1].split(",") if f[-1] else []
+                if "changes" in flags:
+                    topic = [x[6:] for x in flags if x.startswith("topic:")]
+                    groups.setdefault(f[1].split()[0], set()).add(topic[0] if topic else "system")
+        self.assertEqual(groups, {"ct": {"instances"}, "recipe": {"instances"}, "mac": {"instances"}, "net": {"network"},
+                                  "gateway": {"network"}, "services": {"network"}})
+        # a change of instances or of the network wakes the lists of both (an address, a route, a service)
+        for g in ("instances", "network"):
+            woken = {n for n, i in info.items() if g in i["groups"] or "any" in i["groups"]}
+            for n in ("ct-list", "services-list", "services-app", "services-routes", "services-tiles", "services-local-routes"):
+                self.assertIn(n, woken, (g, n))
+        self.assertIn("services-stats", {n for n, i in info.items() if "network" in i["groups"]})
+        # hs rebuild / update (topic system) changes the Incus preseed and the local routes
+        for n in ("ct-profiles", "services-local-routes"):
+            self.assertIn("system", info[n]["groups"])
+
+    def test_instance_topics(self):
+        info = ls.topic_info()
+        rows = {t[0]: t for t in ls.topics()}
+        self.assertEqual(len(INSTANCE_TOPICS), 8)
+        for name, (words, iv, lock, cap, groups) in INSTANCE_TOPICS.items():
+            self.assertEqual(tuple(rows[name][1:]), (words, iv, lock), name)
+            self.assertEqual(info[name], {"cap": cap, "groups": groups}, name)
+
     def test_six_column_parse(self):
         info = ls.topic_info()
         self.assertEqual(info["status"], {"cap": None, "groups": {"any"}})
@@ -301,14 +347,14 @@ class Cli(unittest.TestCase):
             ('expiry', ['expiry', 'list'], 300, 'run'),
             ('notify-channels', ['notify', 'channels'], 60, 'run'),
             ('notify-providers', ['notify', 'providers'], 3600, 'run'),
-        ])
+        ] + [(n, v[0], v[1], v[2]) for n, v in INSTANCE_TOPICS.items()])
 
     def test_status_shape(self):
         import time
         out = io.StringIO()
         self.assertEqual(ls.cli_status(self.fake(time.time() - 7), out), 0)
         lines = out.getvalue().rstrip("\n").split("\n")
-        self.assertEqual(len(lines), 39)
+        self.assertEqual(len(lines), 47)
         status = [l for l in lines if l.startswith("status\t")][0].split("\t")
         live = [l for l in lines if l.startswith("live\t")][0].split("\t")
         self.assertEqual(len(status), 7)
@@ -322,7 +368,7 @@ class Cli(unittest.TestCase):
         ls.cli_status(FakeResp(), out)
         lines = sorted(out.getvalue().rstrip("\n").split("\n"))
         old = ['disk-health	30	-1	0	-	-	-', 'disk-inventory	30	-1	0	-	-	-', 'disk-marks	15	-1	0	-	-	-', 'encryption	30	-1	0	-	-	-', 'fm-locations	15	-1	0	-	-	-', 'live	5	-1	0	-	-	-', 'monitor-disks	15	-1	0	-	-	-', 'pool-info-bulk	15	-1	0	-	-	-', 'pool-info-fast	15	-1	0	-	-	-', 'pool-members-bulk	15	-1	0	-	-	-', 'pool-members-fast	15	-1	0	-	-	-', 'pool-state-bulk	10	-1	0	-	-	-', 'pool-state-fast	10	-1	0	-	-	-', 'shares-deleted	60	-1	0	-	-	-', 'shares-overview	30	-1	0	-	-	-', 'shares-principals	60	-1	0	-	-	-', 'state-history	30	-1	0	-	-	-', 'status	15	-1	0	-	-	-', 'temp-disks	30	-1	0	-	-	-', 'vault-list	60	-1	0	-	-	-', 'vault-usage	30	-1	0	-	-	-', 'vault-uses	60	-1	0	-	-	-']
-        self.assertEqual(lines, sorted(old + ["%s	%s	-1	0	-	-	-" % (t, iv) for t, iv in SYSTEM_TOPICS.items()]))
+        self.assertEqual(lines, sorted(old + ["%s	%s	-1	0	-	-	-" % (t, iv) for t, iv in SYSTEM_TOPICS.items()] + ["%s	%s	-1	0	-	-	-" % (t, v[1]) for t, v in INSTANCE_TOPICS.items()]))
 
     def test_check_fresh_stale_down(self):
         import time
@@ -355,7 +401,7 @@ class Cli(unittest.TestCase):
         st = FakeResp()
         ls.cli_refresh(["--all"], st)
         self.assertEqual(sorted(p[1] for p in st.published), sorted([t[0] for t in ls.topics()]))
-        self.assertEqual(len(st.published), 39)
+        self.assertEqual(len(st.published), 47)
         os.environ["HS_LIVE_SOCKET"] = "/nonexistent/none.sock"
         try:
             self.assertEqual(ls.cli_refresh(["--all"]), 0)

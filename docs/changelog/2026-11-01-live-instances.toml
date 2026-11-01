@@ -1,0 +1,7 @@
+date  = "2026-11-01"
+type  = "feature"
+title = "Instances and Services follow the live state"
+docs  = "web-interface#live-state"
+body  = """
+The instance list, the profiles and the Services pages (list, routes, dashboard tiles and values) are served from Redis topics with SSE updates when live state is on. A change to an instance, a service or the network refreshes only the topics it affects. Off mode is unchanged.
+"""
