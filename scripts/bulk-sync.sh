@@ -116,6 +116,19 @@ for attempt in 1 2 3; do
     # at risk: the guess is switched off and the file gets its own parity.
     note "SnapRAID mistook a file for a copy of another one. Syncing again without that guess (--force-nocopy)."
     flags+=(--force-nocopy)
+  elif grep -q "has unexpected zero size" <<<"$spin_out" && [[ " ${flags[*]-} " != *" --force-zero "* ]]; then
+    # SnapRAID stops when a file that had content is empty now (it could be a crash victim). Log, lock and pid files
+    # are emptied on purpose all the time (seafile.log after a rotation); for any other name the user decides.
+    zero=$(sed -n "s/.*The file '\(.*\)' has unexpected zero size!.*/\1/p" <<<"$spin_out" | sort -u)
+    if $force || ! grep -qvE '\.(log|lock|pid|tmp)$' <<<"$zero"; then
+      note "$(t 'Files that are empty now but had content at the last sync (%s). Syncing again with --force-zero.' "$(tr '\n' ' ' <<<"$zero" | sed 's/ $//')")"
+      flags+=(--force-zero)
+    else
+      note "Empty files that had content at the last sync (a kernel crash can do that):"
+      while read -r z; do [ -z "$z" ] || note "  $z"; done <<<"$zero"
+      note "$(t 'Restore them: snapraid -c %s fix -f <path>. If they are meant to be empty: hs pool bulk sync --force' "$conf")"
+      break
+    fi
   elif grep -q "Too many disks have changed UUIDs" <<<"$spin_out" && [[ " ${flags[*]-} " != *" --force-uuid "* ]] && [ ${#removals[@]} -gt 0 ]; then
     # disks were reformatted (hs pool convert, a new parity disk): their UUIDs changed on purpose. SnapRAID's check is
     # there for wrong mount points; every member was found mounted above and the removals list says why they changed.

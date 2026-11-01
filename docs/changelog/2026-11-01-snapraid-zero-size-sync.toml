@@ -1,0 +1,4 @@
+date  = "2026-11-01"
+type  = "fix"
+title = "Parity sync no longer stops on log files that were emptied"
+body  = """SnapRAID refuses to sync when a file that had content is empty now. For log, lock and pid files (emptied on purpose, for example after a log rotation) the sync now goes on by itself. For any other file it lists the files and tells you how to restore them, or to run hs pool bulk sync --force if they are meant to be empty."""
