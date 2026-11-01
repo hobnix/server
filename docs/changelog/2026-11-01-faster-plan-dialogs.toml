@@ -1,0 +1,6 @@
+date  = "2026-11-01"
+type  = "change"
+title = "Web interface: plan dialogs open faster"
+body  = """
+The plan for an update no longer fetches from Git again when the last fetch is less than two minutes old (the update itself still fetches). A plan is asked for as soon as the pointer reaches the Back up, Verify, Update and Apply buttons, so the dialog usually opens with its answer. Finished plans are now kept 60 seconds instead of 5; every change you start clears them. Not tested on hardware yet.
+"""

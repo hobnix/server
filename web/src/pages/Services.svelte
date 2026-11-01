@@ -2,6 +2,7 @@
   import { tip } from '../ui/tooltip.svelte.js';
   import { poll, rows, refresh } from '../data.svelte.js';
   import { openPlan, openCreate, ui } from '../ui.svelte.js';
+  import { prefetchPlan } from '../api.js';
   import PageHeader from '../shell/PageHeader.svelte';
   import PageState from '../shell/PageState.svelte';
   import Banner from '../ui/Banner.svelte';
@@ -64,7 +65,7 @@
 <PageHeader title="Services" crumb="{ui.host} › Instances" sub="What the reverse proxy publishes, and what each service wants. Public means reachable from the internet; admin pages never are.">
   {#snippet actions()}
     <button use:tip={'Describe a service so the proxy can route it'} class="btn btn-primary" onclick={() => describe()}><i class="ph ph-plus"></i>Describe a service…</button>
-    <button class="btn" disabled={noProxy || !todo} use:tip={todo ? 'Make the routes the services want' : 'The proxy already matches the services'} onclick={() => openPlan('routes', ['apply'], 'Apply the routes')}><i class="ph ph-check-circle"></i>Apply{todo ? ` (${todo})` : ''}…</button>
+    <button class="btn" disabled={noProxy || !todo} use:tip={todo ? 'Make the routes the services want' : 'The proxy already matches the services'} onpointerenter={() => prefetchPlan('routes', ['apply'])} onfocus={() => prefetchPlan('routes', ['apply'])} onclick={() => openPlan('routes', ['apply'], 'Apply the routes')}><i class="ph ph-check-circle"></i>Apply{todo ? ` (${todo})` : ''}…</button>
     <button class="btn btn-ghost" disabled={noProxy || !handmade} use:tip={'Let hs manage routes that were made by hand'} onclick={() => openPlan('routes', ['adopt'], 'Adopt routes')}><i class="ph ph-hand-grabbing"></i>Adopt…</button>
     <button class="btn btn-ghost" disabled={noProxy} use:tip={'Describe the routes of the proxy as services'} onclick={() => openPlan('routes', ['import'], 'Import services')}><i class="ph ph-download-simple"></i>Import…</button>
   {/snippet}

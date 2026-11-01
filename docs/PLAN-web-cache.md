@@ -101,7 +101,7 @@ Phase 1, plan dialog, not run on hardware:
 
 - A create dialog shows its form and a skeleton at once and asks for the plan without the 300 ms wait on open; Start works only for the plan of the current form.
 - A newer question aborts the older request in the browser; the backend kills that plan's process group when the client goes away (plans only, never a start).
-- Finished plans without stdin are kept `HS_WEB_PLAN_TTL` seconds (default 5); every start and every read-cache clear empties the cache.
+- Finished plans without stdin are kept `HS_WEB_PLAN_TTL` seconds (default 60); every start and every read-cache clear empties the cache.
 - Every plan and start writes `web timing: <verb> <shape> <ms> ms <how> rc= status=` (values as `*`).
 
 Phase 0 is not done: the measurement is `journalctl -u hs-web | grep 'web timing'` on the server while using the pages; the table is still to fill. Unverified: that browsers close the connection on abort, that no plan starts a process outside its group, the frontend build.

@@ -287,7 +287,7 @@ class Config:
         self.session_file = env("HS_WEB_SESSION_FILE", "/run/hs-web/sessions.json")   # hashes only; "" = sessions stay in memory; the directory is made by systemd (RuntimeDirectory), never here
         self.stale_factor = float(env("HS_WEB_STALE_FACTOR", "40"))   # a cached read may be served up to ttl*factor (and stale_max s) old while it is refreshed in the background
         self.stale_max = float(env("HS_WEB_STALE_MAX", "1800"))      # up to half an hour old is shown at once (X-HS-Age says how old) while a fresh answer is read
-        self.plan_ttl = float(env("HS_WEB_PLAN_TTL", "5"))   # a finished plan is answered again for this many seconds (same area and args); 0 = off
+        self.plan_ttl = float(env("HS_WEB_PLAN_TTL", "60"))   # a finished plan is answered again for this many seconds (same area and args); 0 = off
         self.cache_file = env("HS_WEB_CACHE_FILE", "/run/hs-web/cache.json")   # the answers survive a restart of this service (tmpfs: not a reboot); "" = memory only
         self.warm_all = env("HS_WEB_WARM_ALL", "1") == "1"            # keep every read without arguments warm (see Warmer), not only the common ones
         self.warm_idle_ttl = float(env("HS_WEB_WARM_IDLE_TTL", "120")) # such a read that nobody has asked for is read again at most this often
