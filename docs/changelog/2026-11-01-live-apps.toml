@@ -1,0 +1,7 @@
+date  = "2026-11-01"
+type  = "feature"
+title = "Marketplace and Apps follow the live state"
+docs  = "web-interface#live-state"
+body  = """
+The Marketplace, the package repositories and the app list are served from Redis topics with SSE updates when live state is on. Fetching, installing, updating or removing a package, changing a repository, running a recipe and `hs update` refresh only the topics they affect. Off mode is unchanged.
+"""

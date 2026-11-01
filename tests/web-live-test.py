@@ -368,8 +368,27 @@ INSTANCES = {
     ("services", "tiles"): "services-tiles", ("services", "stats"): "services-stats",
 }
 
+APPS = {("pkg", "market"): "pkg-market", ("pkg", "repos"): "pkg-repos", ("recipes", "list"): "recipes-list"}
+
 
 class StorageTopics(RedisBase):
+    def test_web_areas_that_change_apps_ask_for_groups_that_wake_the_app_topics(self):
+        info = ws.ls.topic_info()
+        # pkg (install, update, remove, fetch, repo), parts and system (update, rebuild) change the package tree; recipes change instances
+        for area, topics in (("pkg", ("pkg-market", "pkg-repos", "recipes-list")), ("parts", ("pkg-market", "recipes-list")),
+                             ("system", ("pkg-market", "recipes-list")), ("recipes", ("pkg-market", "recipes-list")),
+                             ("ct", ("pkg-market", "recipes-list"))):
+            g = ws.area_refresh(area)[1:]
+            for n in topics:
+                self.assertTrue(g in info[n]["groups"] or "any" in info[n]["groups"], (area, n))
+
+    def test_every_apps_read_has_its_topic(self):
+        known = {r[0] for r in ws.ls.topics()}
+        for words, topic in APPS.items():
+            self.assertEqual(ws.READS[words]["topic"], topic, words)
+            self.assertIn(topic, known)
+            self.assertEqual(ws.live_topic_map()["/api/sys/" + "/".join(words)], topic)
+
     def test_web_areas_of_instances_and_services_ask_for_groups_that_wake_them(self):
         info = ws.ls.topic_info()
         for area, group in (("ct", "@instances"), ("recipes", "@instances"), ("routes", "@network"), ("net", "@network"),

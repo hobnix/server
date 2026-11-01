@@ -53,6 +53,19 @@ hook() { grep -E "^ *(trap .*|[^#]*)live_refresh $2" "$SCRIPTS/$1" >/dev/null 2>
 check_eq "health-check.sh refreshes the health topics" "yes" "$(hook health-check.sh 'health-next health-list status deck')"
 check_eq "update.sh refreshes system-updates after the pull" "yes" "$(hook update.sh 'system-updates')"
 check_eq "update-preview.sh refreshes system-updates after the fetch" "yes" "$(hook update-preview.sh 'system-updates')"
+check_eq "pkg.sh refreshes the package topics after a fetch" "yes" "$(hook pkg.sh 'pkg-market pkg-repos recipes-list parts-list')"
+check_eq "...and after install, remove, update and repo add|remove (pkg_changed)" "4" "$(grep -cE 'pkg_changed(;|$)' "$SCRIPTS/pkg.sh")"
+mkdir -p "$WORK/pkgstate"
+: > "$WORK/live.log"
+HS_STATE_DIR=$(wp "$WORK/pkgstate") bash "$SCRIPTS/pkg.sh" repo remove nope >/dev/null 2>&1
+check_eq "pkg.sh repo remove that fails asks for nothing" "0" "$(grep -c . "$WORK/live.log")"
+: > "$WORK/live.log"
+HS_STATE_DIR=$(wp "$WORK/pkgstate") bash "$SCRIPTS/pkg.sh" fetch nope >/dev/null 2>&1; rc=$?
+check_eq "pkg.sh fetch nope exits 0" "0" "$rc"
+check_eq "...and asks for the four package topics" "pkg-market pkg-repos recipes-list parts-list" "$(cat "$WORK/live.log")"
+: > "$WORK/live.log"
+HS_STATE_DIR=$(wp "$WORK/pkgstate") bash "$SCRIPTS/pkg.sh" --repos >/dev/null 2>&1; HS_STATE_DIR=$(wp "$WORK/pkgstate") bash "$SCRIPTS/pkg.sh" --market >/dev/null 2>&1
+check_eq "the pkg reads ask for nothing" "0" "$(grep -c . "$WORK/live.log")"
 
 echo "-- reads-collect.sh in Redis mode"
 if command -v python3 >/dev/null; then

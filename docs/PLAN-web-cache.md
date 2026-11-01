@@ -134,3 +134,8 @@ Details: capabilities/live-state/NOTES.md.
 
 8 topics (`ct-list`, `ct-profiles`, `services-list|app|routes|local-routes|tiles|stats`), see capabilities/live-state/NOTES.md. `ct list` is read
 every 10 s (the pages polled 5 s) and refreshed by `@instances`/`@network` after a change. Not tested on hardware yet.
+
+## Apps slice (2026-11-01)
+
+3 topics (`pkg-market`, `pkg-repos`, `recipes-list`), see capabilities/live-state/NOTES.md. `pkg.sh` refreshes them (and `parts-list`) after a
+successful fetch, install, update, remove or repository change. Not tested on hardware yet.

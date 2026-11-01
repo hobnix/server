@@ -877,10 +877,10 @@ READS = {
     ("encryption", "list"): {"kind": "tsv", "ttl": 15, "topic": "encryption"},
     ("vault", "usage"): {"kind": "tsv", "ttl": 30, "topic": "vault-usage"},
     ("vault", "uses"): {"kind": "tsv", "ttl": 60, "topic": "vault-uses"},
-    ("recipes", "list"): {"kind": "tsv", "ttl": 60},
+    ("recipes", "list"): {"kind": "tsv", "ttl": 60, "topic": "recipes-list"},
     # the Marketplace: everything installable and the repositories it comes from (pkg-change.sh does the changes)
-    ("pkg", "market"): {"kind": "tsv", "ttl": 30},
-    ("pkg", "repos"): {"kind": "tsv", "ttl": 30},
+    ("pkg", "market"): {"kind": "tsv", "ttl": 30, "topic": "pkg-market"},
+    ("pkg", "repos"): {"kind": "tsv", "ttl": 30, "topic": "pkg-repos"},
     ("dc", "state"): {"kind": "tsv", "ttl": 60},
     ("recipes", "asks"): {"kind": "tsv", "ttl": 60, "args": [r"^[a-z0-9][a-z0-9-]{0,40}$"]},
     ("services", "list"): {"kind": "tsv", "ttl": 15, "topic": "services-list"},

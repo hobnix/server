@@ -42,7 +42,7 @@ system-updates	system updates	60	skip	-	system
 system-config	system config	300	run	-	system,network
 setup-list	setup list	30	run	-	any
 config-list	config list	60	run	-	system,network,security,backup
-parts-list	parts list	60	run	-	system
+parts-list	parts list	60	run	-	system,network
 node-list	node list	30	run	-	network,system
 ssh-keys	ssh-key list	60	run	-	security
 expiry	expiry list	300	run	-	system
@@ -56,3 +56,6 @@ services-routes	services routes	30	skip	-	instances,network
 services-local-routes	services local-routes	30	skip	gateway	instances,network,system
 services-tiles	services tiles	60	skip	dashboard	instances,network
 services-stats	services stats	30	skip	dashboard	network
+pkg-market	pkg market	120	skip	-	system,instances
+pkg-repos	pkg repos	300	run	-	system
+recipes-list	recipes list	60	skip	incus	instances,system

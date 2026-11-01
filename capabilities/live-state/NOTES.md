@@ -18,7 +18,7 @@ Rules:
 - The `group` option of `services.redis.servers.<n>` is unverified in the pinned nixpkgs; module.nix does not use it. The socket group is
   `redis-hobnix`; hs-web and hs-live get it through SupplementaryGroups.
 
-Topics (47, including `status` and `live`): see `scripts/lib/live-topics.tsv`. Storage fixed reads now have their own topics, including
+Topics (50, including `status` and `live`): see `scripts/lib/live-topics.tsv`. Storage fixed reads now have their own topics, including
 six fixed-pool topics (`pool-info-bulk`, `pool-info-fast`, `pool-members-bulk`, `pool-members-fast`, `pool-state-bulk`,
 `pool-state-fast`) whose words contain the literal pool name. The web resolves those per request from the validated
 `pool=bulk|fast` query; any other pool argument stays a direct read. Lock mode is `skip` for mounted-pool/Samba reads
@@ -52,3 +52,12 @@ Instances slice (built, not run on hardware): 8 more topics, all `skip` while lo
 and `services-stats` (30 s; both need `dashboard`; stats calls the service APIs, keys go on curl's stdin). A topic whose capability is off is read
 directly by the web (no Redis document). Groups: `@instances` (any `ct`/recipes/mac change) and `@network` (services, routes, net, gateway) wake the lists, `services-app` and the routes; `ct-profiles` and `services-local-routes` also listen to `@system` (`hs rebuild`/`update` change the Incus preseed and the proxy); `services-stats` only to `@network`. No new explicit hooks: every
 change of these areas goes through the dispatcher or a web `start`. `ct <ct> ...` and `services show` stay direct.
+
+Apps slice (built, not run on hardware): 3 more topics, all local reads (from the last `hs pkg fetch`, no network): `pkg-market` (120 s, `skip`;
+groups `system,instances`), `pkg-repos` (300 s, `run`; `system`) and `recipes-list` (60 s, `skip`, needs `incus`; `instances,system`).
+`pkg fetch|install|update|remove|repo add|remove` change the package tree: the dispatcher asks for `@system`, and `pkg.sh` itself refreshes
+`pkg-market pkg-repos recipes-list parts-list` after success (a fetch always, one repository may have failed while the others moved), so the
+web `pkg` area and a job both reach them. A recipe run (`@instances`) changes the applied version and the installed state, hence `instances` on
+the market and the recipe list; `hs update`/`rebuild` pull a new tree (`@system`). `parts list` and `system updates` are slice 2 topics. No
+timer runs `hs pkg fetch` (checked in `config/*.nix` and `capabilities/*/module.nix`).
+`parts-list` also listens to `@network`: a gateway or vps web start runs a rebuild that can switch a part on.
