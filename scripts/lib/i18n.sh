@@ -16,7 +16,7 @@
 # Machine-readable output (lists the interface reads) is never translated.
 
 hs_lang=${HS_LANG:-}
-. "$(dirname "${BASH_SOURCE[0]}")/setting.sh"
+. "${BASH_SOURCE[0]%/*}/setting.sh"
 [ -n "$hs_lang" ] || hs_lang=$(setting_get language 2>/dev/null || true)
 hs_lang=${hs_lang:-en}
 declare -gA _T=()
@@ -32,7 +32,7 @@ _i18n_read() {   # _i18n_read <file>: the lines of one translation file
 _i18n_load() {
   local d n
   [ "$hs_lang" != en ] || return 0
-  d=$(dirname "${BASH_SOURCE[0]}")
+  d=${BASH_SOURCE[0]%/*}
   _i18n_read "$d/i18n/$hs_lang.tsv"
   # the translations of the extension packages that are on (capabilities/<name>/i18n/<lang>.tsv, docs/PLAN-extensions.md)
   [ -f "$d/registry-load.sh" ] || return 0

@@ -5,7 +5,7 @@
 #   recipe_dirs            the folders that hold recipes, one per line
 #   recipe_script <name>   the path of the recipe's run.sh (exit 1 when there is none)
 #   recipe_names           every recipe name, one per line, sorted, without duplicates
-_recipe_lib=$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)
+_recipe_lib=$(cd "${BASH_SOURCE[0]%/*}" && pwd)
 recipe_dirs() {
   local d
   if [ -n "${HS_RECIPES_DIR:-}" ]; then echo "$HS_RECIPES_DIR"; return 0; fi

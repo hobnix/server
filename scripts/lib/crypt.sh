@@ -13,7 +13,7 @@
 #
 # LUKS disks are opened as /dev/mapper/hs-<first 12 characters of the LUKS uuid>.
 
-. "$(dirname "${BASH_SOURCE[0]}")/ui.sh"
+. "${BASH_SOURCE[0]%/*}/ui.sh"
 
 crypt_state=${HS_STATE_DIR:-/var/lib/hs}
 crypt_run=${HS_RUN_DIR:-/run/hs}

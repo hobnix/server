@@ -10,7 +10,7 @@
 #   secret_locked_exit         prints the note on stderr; exit 0 in a timer/job (skip, logged), else exit 1
 #   secret_prepare <name>      before a script WRITES a new secret at $state/<name>: with a vault it is created
 #                              inside it and linked; returns 1 (note printed) when the vault is closed
-. "$(dirname "${BASH_SOURCE[0]}")/vault.sh"
+. "${BASH_SOURCE[0]%/*}/vault.sh"
 
 secret_state() {
   local p=$1

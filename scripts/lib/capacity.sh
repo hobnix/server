@@ -17,7 +17,7 @@
 # HS_CAP_CACHE_HOURS (48), HS_CAP_CACHE (/mnt/bulk/cache), HS_CAP_DISKS (command: SSD names, one per line),
 # HS_CAP_URGENT_DAYS (7), HS_SMARTCTL, HS_CAP_MIN_DAYS (3), HS_CAP_MIN_SAMPLES (6), HS_BACKUP_STATE, HS_STATE_DIR, HS_NOW.
 
-_cap_here=$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)
+_cap_here=$(cd "${BASH_SOURCE[0]%/*}/.." && pwd)
 _cap_py=${HS_PYTHON:-python3}
 _cap_state() { bash "$_cap_here/state.sh" "$@"; }
 _cap_fc() { "$_cap_py" "$_cap_here/forecast.py" "$@"; }
@@ -83,6 +83,19 @@ capacity_problems() {
   if [ "$(id -u)" -eq 0 ] || [ -n "${HS_SMARTCTL:-}" ]; then
     local smart=${HS_SMARTCTL:-smartctl} d w
     local -a ssds=()
+    # The wear of an SSD moves over weeks, but smartctl asks the disk and the parser is one Python start per disk, so a reading
+    # is kept for an hour (HS_CAP_WEAR_TTL seconds; 0 = always ask) in $HS_STATE_DIR/wear-cache: dev TAB epoch TAB percent or -.
+    # With HS_SMARTCTL set (the tests) nothing is kept unless HS_CAP_WEAR_TTL says so.
+    local wcache=${HS_STATE_DIR:-/var/lib/hs}/wear-cache ttl now cdev cts cval fresh=0
+    local -A kept_t=() kept_w=()
+    if [ -n "${HS_SMARTCTL:-}" ]; then ttl=${HS_CAP_WEAR_TTL:-0}; else ttl=${HS_CAP_WEAR_TTL:-3600}; fi
+    if [ -n "${HS_NOW:-}" ]; then now=$HS_NOW; else printf -v now '%(%s)T' -1; fi
+    if [ "$ttl" -gt 0 ] && [ -r "$wcache" ]; then
+      while IFS=$'\t' read -r cdev cts cval; do
+        [[ "$cts" =~ ^[0-9]+$ ]] || continue
+        kept_t[$cdev]=$cts; kept_w[$cdev]=$cval
+      done < "$wcache"
+    fi
     if [ -n "${HS_CAP_DISKS:-}" ]; then
       mapfile -t ssds < <(eval "$HS_CAP_DISKS" 2>/dev/null || true)
     else
@@ -90,7 +103,13 @@ capacity_problems() {
     fi
     for d in "${ssds[@]}"; do
       [ -n "$d" ] || continue
-      w=$("$smart" -A "/dev/$d" 2>/dev/null | _cap_fc wear || echo -)
+      if [ "$ttl" -gt 0 ] && [ -n "${kept_t[$d]:-}" ] && [ $((now - kept_t[$d])) -lt "$ttl" ]; then
+        w=${kept_w[$d]}
+      else
+        w=$("$smart" -A "/dev/$d" 2>/dev/null | _cap_fc wear || echo -)
+        [[ "$w" =~ ^[0-9]+$ ]] || w=-
+        kept_t[$d]=$now; kept_w[$d]=$w; fresh=1
+      fi
       [[ "$w" =~ ^[0-9]+$ ]] || continue
       if [ "$w" -ge "${HS_CAP_WEAR_HIGH:-95}" ]; then
         printf 'ssd:%s:wear-high\tSSD %s has used %s %% of its rated life: replace it soon. Details: hs disk %s health\n' "$d" "$d" "$w" "$d"
@@ -98,6 +117,11 @@ capacity_problems() {
         printf 'ssd:%s:wear\tSSD %s has used %s %% of its rated life: plan a replacement. Details: hs disk %s health\n' "$d" "$d" "$w" "$d"
       fi
     done
+    if [ "$fresh" -eq 1 ] && [ "$ttl" -gt 0 ]; then
+      { for d in "${ssds[@]}"; do
+          [ -z "$d" ] || [ -z "${kept_t[$d]:-}" ] || printf '%s\t%s\t%s\n' "$d" "${kept_t[$d]}" "${kept_w[$d]}"
+        done; } > "$wcache.new" 2>/dev/null && mv -f "$wcache.new" "$wcache" 2>/dev/null || true
+    fi
   fi
 
   # Upload cache that is not drained: the mover runs when the cache is full or after a sync; a file that has waited

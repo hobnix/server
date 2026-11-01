@@ -25,10 +25,10 @@
 #   chan_run <provider> <sub> [args]   run a provider with CH_<key> from the loaded CH in its environment, timeout HS_NOTIFY_TIMEOUT (20)
 # Test knobs: HS_NOTIFY_CHANNELS_DIR, HS_NOTIFY_PROVIDERS, HS_NOTIFY_URL, HS_NOTIFY_URL_SECOND, HS_NOTIFY_SECOND_MIN, HS_STATE_DIR.
 
-. "$(dirname "${BASH_SOURCE[0]}")/setting.sh"
+. "${BASH_SOURCE[0]%/*}/setting.sh"
 
 chan_dir() { echo "${HS_NOTIFY_CHANNELS_DIR:-${HS_STATE_DIR:-/var/lib/hs}/notify-channels}"; }
-chan_providers_dir() { echo "${HS_NOTIFY_PROVIDERS:-$(dirname "${BASH_SOURCE[0]}")/../notify}"; }
+chan_providers_dir() { echo "${HS_NOTIFY_PROVIDERS:-${BASH_SOURCE[0]%/*}/../notify}"; }
 chan_valid_name() { [[ "$1" =~ ^[a-z][a-z0-9-]{0,30}$ ]]; }
 chan_provider_ok() { [[ "$1" =~ ^[a-z][a-z0-9-]*$ ]] && [ -f "$(chan_providers_dir)/$1.sh" ]; }
 
