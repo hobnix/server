@@ -11,8 +11,8 @@
 #
 # Nothing here ever prints the content of a secret. Functions return 0 on success, 1 on failure; the messages go to stderr.
 
-. "$(dirname "${BASH_SOURCE[0]}")/ui.sh"
-. "$(dirname "${BASH_SOURCE[0]}")/crypt.sh"
+. "${BASH_SOURCE[0]%/*}/ui.sh"
+. "${BASH_SOURCE[0]%/*}/crypt.sh"
 
 vault_dir=${HS_VAULT_DIR:-/var/lib/hs-vault}
 vault_uuid_file=$crypt_state/vault-uuid

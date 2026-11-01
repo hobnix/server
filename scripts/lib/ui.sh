@@ -34,7 +34,7 @@
 #   confirm_name <name> "text"    type the name of what is changed; returns 0 only when it matches
 #   Design rules for all of it: docs/CLI-DESIGN.md
 
-. "$(dirname "${BASH_SOURCE[0]}")/i18n.sh"
+. "${BASH_SOURCE[0]%/*}/i18n.sh"
 
 ui=plain
 if [ -t 1 ] && [ -z "${HS_PLAIN:-}" ] && command -v gum >/dev/null 2>&1; then ui=gum; fi

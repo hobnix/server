@@ -8,7 +8,7 @@ hs_job() {
   local slug=$1 desc=$2 unit here
   shift 3   # slug, description, --
   slug=$(printf '%s' "$slug" | tr -c 'A-Za-z0-9' '-' | sed -E 's/-+/-/g; s/^-//; s/-$//')   # a row path such as pool-<pool>-sync is no unit name
-  here=$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)
+  here=$(cd "${BASH_SOURCE[0]%/*}/.." && pwd)
   unit=hs-job-$slug-$(date +%H%M%S)
   local extra=() kv
   # HS_JOB_ENV: more environment for the job, one KEY=VALUE per line (recipe answers; a secret is never put here, it travels as a file)

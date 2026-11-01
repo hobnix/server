@@ -13,8 +13,8 @@
 #
 # Test knobs: HS_FM_TEST=1 (every folder counts as mounted), HS_FM_POOL_ROOT, HS_FM_ZFS_ROOT, HS_FM_CACHE_ROOT, HS_FM_FAST_ROOT, HS_FM_TEMP_ROOT,
 # HS_BULK_TYPE_FILE, HS_STATE_DIR, HS_BULK_CLOSED, HS_DISKS_ROOT, HS_DETACHED_ROOT, HS_LOCKED_MARKER.
-. "$(dirname "${BASH_SOURCE[0]}")/bulkpath.sh"
-. "$(dirname "${BASH_SOURCE[0]}")/locked.sh"
+. "${BASH_SOURCE[0]%/*}/bulkpath.sh"
+. "${BASH_SOURCE[0]%/*}/locked.sh"
 
 fm_state_dir=${HS_STATE_DIR:-/var/lib/hs}
 fm_dir=${HS_FM_DIR:-$fm_state_dir/fm}

@@ -15,14 +15,14 @@ machine_file() { echo "${HS_MACHINE_FILE:-/etc/nixos/machine.toml}"; }
 # The scripts run from a copy in /nix/store (no machine.toml.example next to it): then the example is the one beside machine.toml (the checkout).
 machine_example() {
   local e=${HS_MACHINE_EXAMPLE:-}
-  [ -n "$e" ] || e=$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)/machine.toml.example
+  [ -n "$e" ] || e=$(cd "${BASH_SOURCE[0]%/*}/../.." && pwd)/machine.toml.example
   [ -f "$e" ] || [ -n "${HS_MACHINE_EXAMPLE:-}" ] || e=$(dirname "$(machine_file)")/machine.toml.example
   echo "$e"
 }
 machine_tool() {   # machine_tool <args>: the python tool
   local py=${HS_PYTHON:-python3}
   command -v "$py" >/dev/null 2>&1 || py=python
-  PYTHONUTF8=1 "$py" "$(dirname "${BASH_SOURCE[0]}")/../machine-toml.py" "$@"
+  PYTHONUTF8=1 "$py" "${BASH_SOURCE[0]%/*}/../machine-toml.py" "$@"
 }
 machine_get() { [ -f "$(machine_file)" ] || return 1; machine_tool get "$(machine_file)" "$1"; }
 machine_get_json() { [ -f "$(machine_file)" ] || return 1; machine_tool get "$(machine_file)" "$1" --json; }
