@@ -221,8 +221,8 @@ vlans = { home = { id = 95, default = true } }
 # The addresses that may use gatewayTunnelPort. Empty (the default) = the cloudflared container on the internal link of Incus (10.99.0.2/32). Needs hs rebuild.
 # gatewayTunnelFrom = [ "10.99.0.2/32" ]
 
-# Let's Encrypt account address for the gateway's own certificates (direct mode: the router forwards 443 to this server,
-# reverseProxy = traefik-public). Empty = off. Needs gatewayPublicHttps. Needs hs rebuild.
+# Let's Encrypt account address for the gateway's own certificates (direct mode: the router forwards 443 to this server
+# with reverseProxy = traefik-public). Empty = off. Needs gatewayPublicHttps. Needs hs rebuild.
 # gatewayAcmeEmail = "admin@example.org"
 
 # Use Let's Encrypt's test service first (certificates browsers do not trust, generous limits). Set false once hs gateway status

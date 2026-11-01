@@ -9,6 +9,7 @@ Brought up to date with main at #346 on 2026-10-27 (merged: #323 to #340, #346).
 1. [~] CI on pull requests only (action minutes ran out when every push ran): `ci.yml` runs on `pull_request`, `v*` tags and by hand,
    with `concurrency` cancelling older runs (2026-10-27). Then find out which tests are red and fix them; run the root/udev tests
    (`tests/pool.sh`, `pool-encrypted.sh`, `adopt.sh`, the share tests that mount pools; `tests/lib.sh` sets `HS_DISKS_ROOT=/mnt/bulk`).
+   2026-11-01: `t quick` in WSL ran 182 tests, 5 were red (i18n, machine-toml, notify-channel, smoke, system) and are fixed, not committed yet; root and VM tests still not run.
    Known WSL-only failures: one check of `tests/monitor.sh` (reads the real `/dev/sde`), two of `tests/update-preview.sh` (`nix-build`).
 2. [?] Work through the guides on the real server (steps marked "Not tested on hardware yet.") in blocks (first `hs rebuild` with `webUi = true`, a click-through of
    every web page, vault, backup, `hs ports`, `hs update --preview`, `hs sys health next`, a full boot cycle, `homeserver reboot`).

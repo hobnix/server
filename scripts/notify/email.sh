@@ -58,7 +58,8 @@ case "${1:-}" in
     trap 'rm -rf "$tmp"' EXIT
     chmod 700 "$tmp"
     subject=$title
-    if [[ "$title" =~ [^[:print:]] || "$title" =~ [^\ -~] ]]; then subject="=?UTF-8?B?$(printf '%s' "$title" | base64 | tr -d '\r\n')?="; fi
+    # not ASCII: encode (tr in the C locale; a bracket range like [^ -~] depends on the locale and matches letters in en_US.UTF-8)
+    if [ -n "$(printf '%s' "$title" | LC_ALL=C tr -d ' -~')" ]; then subject="=?UTF-8?B?$(printf '%s' "$title" | base64 | tr -d '\r\n')?="; fi
     {
       printf 'From: %s\r\nTo: %s\r\nSubject: %s\r\nDate: %s\r\n' "$from" "$to" "$subject" "$(date -R 2>/dev/null || date)"
       printf 'MIME-Version: 1.0\r\nContent-Type: text/plain; charset=utf-8\r\nContent-Transfer-Encoding: 8bit\r\nX-Priority: %s\r\n\r\n' "$2"

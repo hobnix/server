@@ -1,0 +1,6 @@
+date  = "2026-11-01"
+type  = "fix"
+title = "hs rebuild with options and mail subjects work again"
+body  = """hs rebuild with options (for example --verbose) no longer ends with "write_stamp: command not found".
+
+Mail subjects that are plain ASCII are no longer sent base64-encoded on servers with a UTF-8 language setting."""
