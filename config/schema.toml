@@ -1094,8 +1094,8 @@ default = '""'
 pattern = '^$|^[^@ ]+@[^@ ]+\.[^@ ]+$'
 hint = "an e-mail address, or empty for off"
 doc = '''
-# Let's Encrypt account address for the gateway's own certificates (direct mode: the router forwards 443 to this server,
-# reverseProxy = traefik-public). Empty = off. Needs gatewayPublicHttps. Needs hs rebuild.'''
+# Let's Encrypt account address for the gateway's own certificates (direct mode: the router forwards 443 to this server
+# with reverseProxy = traefik-public). Empty = off. Needs gatewayPublicHttps. Needs hs rebuild.'''
 value = '''
 gatewayAcmeEmail = "admin@example.org"'''
 

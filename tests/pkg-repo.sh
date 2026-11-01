@@ -81,6 +81,12 @@ check "the one before is kept" bash -c "ls '$HS_STATE_DIR/packages/previous' | g
 sed -i 's/^version = "1[.]3[.]0"$/version = "1.2.0"/' "$HS_STATE_DIR/packages/installed.toml"
 check "record refreshes the version and keeps repository provenance" bash -c "$PKG record demo && grep -q '^version = \"1[.]3[.]0\"$' '$HS_STATE_DIR/packages/installed.toml' && grep -q '^repo = \"test\"$' '$HS_STATE_DIR/packages/installed.toml' && grep -q '^commit = \"' '$HS_STATE_DIR/packages/installed.toml' && grep -q '^tag = \"v1[.]3[.]0\"$' '$HS_STATE_DIR/packages/installed.toml'"
 check_out "a current package says so" "current" $PKG update demo --yes
+$PKG record demo --applied
+cd "$R"; release v1.3.5 1.3.5 "$WORK/good"; cd "$ROOT"
+$PKG fetch test >/dev/null
+$PKG update demo --yes >/dev/null
+check "a later update keeps the applied line" grep -q '^applied = "1[.]3[.]0"$' "$HS_STATE_DIR/packages/installed.toml"
+check "and moves the version on" grep -q '^version = "1[.]3[.]5"$' "$HS_STATE_DIR/packages/installed.toml"
 
 echo "-- refusals"
 cd "$R"

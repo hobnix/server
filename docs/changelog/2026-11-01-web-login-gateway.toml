@@ -1,0 +1,6 @@
+date  = "2026-11-01"
+type  = "fix"
+title = "Web interface: sign-in through the gateway on port 80"
+body  = """
+With `webTailscale` on, a sign-in through the gateway (`http://<site>.<realm>/`) got a `Secure` session cookie over plain HTTP, which the browser dropped, so the login did not stick (the direct port worked). The web interface now treats a request that the gateway marks `X-Forwarded-Proto: http` as plain HTTP: no `Secure` cookie, no HSTS. `tailscale serve` is unchanged. Not tested on hardware yet.
+"""

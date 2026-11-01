@@ -12,6 +12,8 @@ enter keeps %s	Eingabe behält %s
           BAD = replace it (failed assessment, pending sectors, failed self-test).	          BAD = ersetzen (durchgefallen, wartende Sektoren, Selbsttest fehlgeschlagen).
        --dry-run  with --test: only show the command	       --dry-run  mit --test: nur den Befehl zeigen
        --list     the verdict list as tab separated lines (for the interface)	       --list     die Befunde als Zeilen mit Tabulatoren (für die Oberfläche)
+       --readings  one reading line per disk for the daily SMART check (tab separated)	       --readings  eine Messzeile je Platte für die tägliche SMART-Prüfung (mit Tabulatoren)
+       --wake <names>  with --readings: read only these disks, without the standby flag (wakes them)	       --wake <names>  mit --readings: nur diese Platten lesen, ohne das Standby-Flag (weckt sie auf)
        hs disk <disk> results      the outcome of the last self-tests	        hs disk <disk> results      das Ergebnis der letzten Selbsttests
        hs disk <disk> test long    the same, reading the whole surface (hours; the disk stays usable)	        hs disk <disk> test long    dasselbe, liest die ganze Oberfläche (Stunden; die Platte bleibt nutzbar)
        hs disk <disk> test short   start a self-test inside the disk (about 2 minutes)	        hs disk <disk> test short   startet einen Selbsttest in der Platte (etwa 2 Minuten)
@@ -393,6 +395,8 @@ The system disk is %s %% full. Free space: hs system gc	Die Systemplatte ist zu 
 The trust to the domain is broken: restart samba-winbindd, or re-join (net ads join).	Das Vertrauen zur Domäne ist gestört: samba-winbindd neu starten oder neu beitreten (net ads join).
 Would start a %s self-test in %s	Würde einen %s-Selbsttest in %s starten
 usage: hs disk selftest short|long [--dry-run]	Aufruf: hs disk selftest short|long [--dry-run]
+usage: hs disk erc [apply|list]	Aufruf: hs disk erc [apply|list]
+usage: selftest.sh long --night	Aufruf: selftest.sh long --night
 usage: hs secrets [fix]	Aufruf: hs secrets [fix]
 Documentation built in %s (%s pages)	Dokumentation gebaut in %s (%s Seiten)
 The documentation pages could not be rebuilt: hs docs build	Die Dokumentationsseiten konnten nicht neu gebaut werden: hs docs build
@@ -571,7 +575,6 @@ Measuring %s	Messe %s
 Nothing to measure: on ZFS the sizes are always current.	Nichts zu messen: bei ZFS sind die Größen immer aktuell.
 '%s' is not a folder under %s/shares or %s/sensitive: it can't be renamed here.	'%s' ist kein Ordner unter %s/shares oder %s/sensitive: hier kann er nicht umbenannt werden.
 '%s' is not a usable name (letters, digits, . _ - only; at most one word).	'%s' ist kein brauchbarer Name (nur Buchstaben, Ziffern, . _ -; höchstens ein Wort).
-The name is too long.	Der Name ist zu lang.
 '%s' is a reserved name.	'%s' ist ein reservierter Name.
 That is the name it has already.	Das ist schon der Name.
 A share called '%s' exists already.	Eine Freigabe namens '%s' gibt es schon.
@@ -1874,3 +1877,6 @@ Apply the gateway setup	Das Gateway-Setup anwenden
 The gateway setup is applied.	Das Gateway-Setup ist angewendet.
 The rebuild failed: machine.toml and the gateway settings were put back as they were before. Nothing was rebuilt again; run hs rebuild when you are ready.	Der Rebuild ist fehlgeschlagen: machine.toml und die Gateway-Einstellungen wurden wie vorher zurückgesetzt. Es wurde nichts erneut gebaut; führe hs rebuild aus, wenn du bereit bist.
 
+Files that are empty now but had content at the last sync (%s). Syncing again with --force-zero.	Dateien sind jetzt leer, hatten aber beim letzten Sync Inhalt (%s). Der Sync läuft noch einmal mit --force-zero.
+Empty files that had content at the last sync (a kernel crash can do that):	Leere Dateien, die beim letzten Sync Inhalt hatten (ein Kernel-Absturz kann das auslösen):
+Restore them: snapraid -c %s fix -f <path>. If they are meant to be empty: hs pool bulk sync --force	Wiederherstellen: snapraid -c %s fix -f <Pfad>. Falls sie leer sein sollen: hs pool bulk sync --force

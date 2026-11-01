@@ -824,6 +824,7 @@ READS = {
     ("vault", "usage"): {"kind": "tsv", "ttl": 30, "topic": "vault-usage"},
     ("vault", "uses"): {"kind": "tsv", "ttl": 60, "topic": "vault-uses"},
     ("recipes", "list"): {"kind": "tsv", "ttl": 60, "topic": "recipes-list"},
+    ("recipes", "versions"): {"kind": "tsv", "ttl": 60},
     # the Marketplace: everything installable and the repositories it comes from (pkg-change.sh does the changes)
     ("pkg", "market"): {"kind": "tsv", "ttl": 30, "topic": "pkg-market"},
     ("pkg", "repos"): {"kind": "tsv", "ttl": 30, "topic": "pkg-repos"},
@@ -2003,8 +2004,11 @@ def make_handler(app):
 
         def _https(self):
             """True for a request that came through `tailscale serve` (HTTPS ends there): it connects from this machine itself. A request straight from the home network
-            (webLan) is plain HTTP, and a Secure cookie or HSTS would make the browser drop the login there."""
-            return cfg.secure and self.client_address[0] in ("127.0.0.1", "::1")
+            (webLan) is plain HTTP, and a Secure cookie or HSTS would make the browser drop the login there. The gateway (Traefik, port 80) also connects
+            from this machine but says X-Forwarded-Proto: http for a plain request: that one is not HTTPS either."""
+            if not cfg.secure or self.client_address[0] not in ("127.0.0.1", "::1"):
+                return False
+            return self.headers.get("X-Forwarded-Proto", "").strip().lower() != "http"
 
         def _client(self):
             """The address the throttle counts. Behind the local proxy (tailscale serve) every request comes from 127.0.0.1: then the proxy's X-Forwarded-For names the client."""

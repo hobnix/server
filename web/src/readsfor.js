@@ -45,7 +45,7 @@ export function readsFor(path, extPages = [], liveOn = false) {
     case '/protection/snapshots': return SHARES;
     case '/protection/expiry': return [`${A}expiry/list`];
     case '/operations/health': return [`${A}health/next`, `${A}health/list`, `${A}jobs/list`, `${A}status`];
-    case '/instances/apps': case '/operations/apps': return [`${A}recipes/list`, `${A}ct/list`];
+    case '/instances/apps': case '/operations/apps': return [`${A}recipes/list`, `${A}recipes/versions`, `${A}ct/list`];
     case '/marketplace': return [`${A}pkg/market`, `${A}pkg/repos`];
     case '/instances/services': case '/operations/services': return [`${A}services/list`, `${A}services/routes`, `${A}ct/list`];
     case '/operations/notifications': return [`${A}notify/channels`, `${A}notify/providers`];

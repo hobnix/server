@@ -11,15 +11,22 @@
   import PageState from '../shell/PageState.svelte';
   import StatusDot from '../ui/StatusDot.svelte';
   import { link } from './instances/ct.js';
+  import { appAction } from './apps.js';
 
   const list = poll('/api/sys/recipes/list', 30000);
+  // name, available version, applied version (- = not known), state: current | update | unknown
+  const vers = poll('/api/sys/recipes/versions', 30000);
+  const verOf = $derived(new Map(rows(vers).map((r) => [r[0], { avail: r[1], applied: r[2], vstate: r[3] }])));
   // services app: name, container, ... the containers that have a described service
   const svc = poll('/api/sys/services/app', 30000);
   const withService = $derived(new Set(rows(svc).map((r) => r[1])));
   const hasService = (a) => !!a.cts && a.cts.split(',').some((c) => withService.has(c));
 
   // name, description, containers (comma separated, - for none), state: installed | partly | not installed | parked | unknown
-  const apps = $derived(rows(list).map((r) => ({ name: r[0], desc: r[1], cts: r[2] === '-' ? '' : r[2], state: r[3] })));
+  const apps = $derived(rows(list).map((r) => {
+    const v = verOf.get(r[0]) ?? { avail: '-', applied: '-', vstate: 'unknown' };
+    return { name: r[0], desc: r[1], cts: r[2] === '-' ? '' : r[2], state: r[3], ...v, ver: v.applied !== '-' ? v.applied : v.avail !== '-' ? v.avail : '' };
+  }));
   const installed = $derived(apps.filter((a) => a.state === 'installed').length);
 
   // the icons the design gives the known recipes; anything else is a package
@@ -41,7 +48,7 @@
   const columns = [
     { key: 'sel', label: '', sort: false, width: '44px' },
     { key: 'go', label: '', sort: false }, { key: 'name', label: 'App' }, { key: 'desc', label: 'What it does' },
-    { key: 'state', label: 'State' }, { key: 'tools', label: '', sort: false, align: 'right' },
+    { key: 'ver', label: 'Version' }, { key: 'state', label: 'State' }, { key: 'tools', label: '', sort: false, align: 'right' },
   ];
 
   let copied = $state('');
@@ -126,7 +133,7 @@
         }
       }
       selected = new Set();
-      await refresh(['/api/sys/recipes/list', '/api/sys/services/app']);
+      await refresh(['/api/sys/recipes/list', '/api/sys/recipes/versions', '/api/sys/services/app']);
       showSummary = true;
     } finally {
       bulkBusy = false;
@@ -165,7 +172,18 @@
         {#if col.key === 'sel'}
           <input type="checkbox" checked={selected.has(a.name)} onchange={(e) => toggle(a.name, e.target.checked)} aria-label="Select {a.name}" />
         {:else if col.key === 'go'}
-          <button class="btn sm {on ? '' : 'btn-primary'}" disabled={a.state === 'parked'} use:tip={a.state === 'parked' ? 'This recipe is parked' : on ? 'Run again: repairs or updates the setup' : 'Set this app up'} onclick={() => run(a)}><i class="ph ph-{on ? 'arrows-clockwise' : 'download-simple'}"></i>{on ? 'Update' : 'Install'}</button>
+          {@const act = appAction(a)}
+          <button class="btn sm go {act.primary ? 'btn-primary' : ''}" disabled={a.state === 'parked'} use:tip={act.tip} onclick={() => run(a)}><i class="ph ph-{act.icon}"></i>{act.label}</button>
+        {:else if col.key === 'ver'}
+          {#if a.applied !== '-' && (a.avail === '-' || a.avail === a.applied)}
+            <span class="vr">{a.applied}</span>
+          {:else if a.applied !== '-'}
+            <span class="vr" use:tip={`Applied ${a.applied}, available ${a.avail}`}>{a.applied} <span class="vnew">→ {a.avail}</span></span>
+          {:else if a.avail !== '-'}
+            <span class="vr dim" use:tip={a.state === 'installed' ? 'Available version. The applied one is not known yet: it is recorded at the next successful run' : 'Available version'}>{a.avail}</span>
+          {:else}
+            <span class="vr dim">-</span>
+          {/if}
         {:else if col.key === 'name'}
           <span id="app-{a.name}" class="nm" class:hl={hl === a.name}><i class="ph ph-{icons[a.name] ?? 'package'}" style="color:{on ? 'var(--accent-ink)' : 'var(--fg-3)'}"></i>{a.name}</span>
         {:else if col.key === 'desc'}
@@ -221,6 +239,10 @@
   .nm.hl { outline: 2px solid var(--accent); outline-offset: 3px; }
   .ds { font-size: 12.5px; color: var(--fg-3); }
   .in { font-size: 12px; color: var(--fg-2); }
+  .go { min-width: 96px; }
+  .vr { font: 500 12.5px var(--mono); }
+  .vr.dim { color: var(--fg-3); }
+  .vnew { color: var(--accent-ink); }
   .bulk { display: flex; gap: 6px; align-items: center; flex-wrap: wrap; margin: 10px 0 6px; }
   .bulk-count { font: 500 12.5px var(--mono); color: var(--fg-2); }
   .bulk-dialog { background: var(--panel); border: 1px solid var(--line-2); border-radius: var(--r); box-shadow: 0 24px 64px oklch(0 0 0 / 0.5); width: min(460px, 92vw); max-height: 82vh; overflow: auto; margin: 2vh auto; padding: 22px; display: flex; flex-direction: column; gap: 12px; }

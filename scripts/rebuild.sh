@@ -67,15 +67,6 @@ move_bulk_disks() {
   done
 }
 
-# --verbose (or any other option of nixos-rebuild): show everything it prints
-if [ $# -gt 0 ]; then
-  [ "$1" != --verbose ] || shift
-  nixos-rebuild switch "$@"   # no exec: the EXIT trap above must still run
-  move_bulk_disks
-  write_stamp
-  exit
-fi
-
 # A typo or a wrong type in machine.toml: one readable line instead of a Nix trace
 config_check() {
   [ -f "$(machine_file)" ] || return 0
@@ -116,6 +107,15 @@ write_stamp() {
   { printf 'rev=%s\nprev=%s\ndirty=%s\nmachine=%s\ntime=%s\n' "$rev" "$prev" "$dirty" "$(config_fingerprint "$repo")" "$(date +%s)" > "$dir/last-rebuild-rev.tmp" \
     && mv "$dir/last-rebuild-rev.tmp" "$dir/last-rebuild-rev"; } 2>/dev/null || true
 }
+
+# --verbose (or any other option of nixos-rebuild): show everything it prints
+if [ $# -gt 0 ]; then
+  [ "$1" != --verbose ] || shift
+  nixos-rebuild switch "$@"   # no exec: the EXIT trap above must still run
+  move_bulk_disks
+  write_stamp
+  exit
+fi
 
 # ── Safety net of `hs update` ──
 cur_system=${HS_CURRENT_SYSTEM:-/run/current-system}

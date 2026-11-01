@@ -215,6 +215,7 @@ sys	sys ssh-key list	ssh-key.sh	--list	the SSH keys of adminuser, one per line: 
 sys	sys ssh-key plan <action>	ssh-key-change.sh	plan {1} {rest}	what adding or removing an SSH key would do, as data: status and plan lines (never asks; exit 0 ok, 1 refused)	-
 sys	sys ssh-key start <action>	ssh-key-change.sh	start {1} {rest}	do it (hs sys ssh-key start add <public key line> | remove <id> --confirm remove); takes effect with hs rebuild	-
 sys	sys recipes list	recipes-list.sh	--list	the app recipes: name, description, instances, state (installed|partly|not installed|parked|unknown)	-
+sys	sys recipes versions	recipes-versions.sh	--list	the app recipes with versions: name, available version, applied version (- = not known), state (current|update|unknown)	-
 sys	sys setup list	setup-list.sh	--list	the first-run checklist: id, state (done|open), label, command, web page; the last line (finished) is done once setupDone is true	-
 sys	sys config list	config-read.sh	list	every option of machine.toml.example: section, key, current value, default, type, help, settable (secrets only as (set))	-
 sys	sys config check	config-read.sh	check	the result of hs config check as plain text	-

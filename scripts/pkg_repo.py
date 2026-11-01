@@ -261,6 +261,8 @@ class Repos:
         os.rename(tmp, cur)
         data = self.pkg.installed()
         data[name] = {"version": entry["version"], "repo": r_name, "commit": commit, "tag": tag}
+        if "applied" in old:
+            data[name]["applied"] = old["applied"]
         self.pkg.save_installed(data)
         return entry["version"], r_name, tag
 
