@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # help: look at what hs update would do (changes from Git, new machine.toml options, what the rebuild would restart) without applying anything
 # help.de: zeigt, was hs update tun würde (Änderungen aus Git, neue Optionen für machine.toml, was der Neubau neu starten würde), ohne etwas anzuwenden
-# args: [--no-build]
+# args: [--no-build] [--max-age <seconds>]
 # Only `git fetch` runs (it changes no file of the config). Three parts: (1) the commits and the diffstat
 # between your checkout and its upstream, (2) the options of the upstream machine.toml.example that your
 # machine.toml does not have yet (machine-sync --list), (3) the upstream version built as a dry run:
@@ -16,10 +16,12 @@ here=$(dirname "$0")
 repo=${HS_REPO:-/etc/nixos}
 machine=${HS_MACHINE_FILE:-$repo/machine.toml}
 build=true
-for a in "$@"; do
-  case "$a" in
-    --no-build) build=false ;;
-    *) say "usage: hs update --preview [--no-build]"; exit 1 ;;
+max_age=0
+while [ $# -gt 0 ]; do
+  case "$1" in
+    --no-build) build=false; shift ;;
+    --max-age) max_age=${2:-}; [[ "$max_age" =~ ^[0-9]+$ ]] || { say "usage: hs update --preview [--no-build] [--max-age <seconds>]"; exit 1; }; shift 2 ;;
+    *) say "usage: hs update --preview [--no-build] [--max-age <seconds>]"; exit 1 ;;
   esac
 done
 
@@ -34,7 +36,13 @@ else
 fi
 
 step "Preview of the update"
-if spin "Fetching what is new (nothing is applied)" g fetch --quiet; then
+# --max-age: a fetch that finished that many seconds ago is not repeated (the web interface plan; `hs update` itself always fetches)
+fetched=$(g rev-parse --absolute-git-dir 2>/dev/null || true)/FETCH_HEAD
+age=-1
+[ "$max_age" -eq 0 ] || [ ! -f "$fetched" ] || age=$(( $(date +%s) - $(stat -c %Y "$fetched" 2>/dev/null || echo 0) ))
+if [ "$age" -ge 0 ] && [ "$age" -le "$max_age" ]; then
+  :
+elif spin "Fetching what is new (nothing is applied)" g fetch --quiet; then
   live_refresh system-updates   # the count of new changes is as old as the last fetch
 else
   note "Is there a network connection to the Git server?"

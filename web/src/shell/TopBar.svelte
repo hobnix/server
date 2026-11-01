@@ -5,6 +5,7 @@
   let { host = 'homeserver', node = 'homeserver', nodes = [], pending = 0, locked = false, user = '', onsignout, onmenu = () => {}, menuOpen = false } = $props();
 
   import { openPlan, openCreate, ui } from '../ui.svelte.js';
+  import { prefetchPlan } from '../api.js';
   import { go } from '../route.svelte.js';
   import { theme, toggleTheme } from '../theme.svelte.js';
   import StatusDot from '../ui/StatusDot.svelte';
@@ -65,7 +66,7 @@
     <i class="ph ph-{theme.dark ? 'sun' : 'moon'}" style="font-size:16px"></i>
   </button>
   <button class="ib hide-s" disabled={!here || !ui.features.terminal} use:tip={{ text: ui.features.terminal ? 'A shell on this server, like an SSH login as adminuser' : 'Switch on webTerminal in machine.toml', side: 'bottom' }} aria-label="Terminal" onclick={() => openCreate(Terminal, { target: 'host', title: host })}><i class="ph ph-terminal-window" style="font-size:16px"></i></button>
-  <button class="ib upd" disabled={!here || locked} use:tip={{ text: updTitle, side: 'bottom' }} aria-label={pending > 0 ? `Update, ${pending} new` : 'Update'} onclick={() => openPlan('system', ['update'], 'Update')}>
+  <button class="ib upd" disabled={!here || locked} use:tip={{ text: updTitle, side: 'bottom' }} aria-label={pending > 0 ? `Update, ${pending} new` : 'Update'} onpointerenter={() => prefetchPlan('system', ['update'])} onfocus={() => prefetchPlan('system', ['update'])} onclick={() => openPlan('system', ['update'], 'Update')}>
     <i class="ph ph-arrow-circle-up" style="font-size:16px"></i>{#if here && pending > 0}<span class="count" use:tip={{ text: `${pending} new change${pending === 1 ? '' : 's'} upstream (as of the last fetch)`, side: 'bottom' }}>{pending}</span>{/if}
   </button>
   <span class="powwrap">

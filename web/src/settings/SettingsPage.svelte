@@ -4,7 +4,7 @@
   // Appearance and the Nodes card, Updates the version and the update actions, Advanced the Check button.
   import { tip } from '../ui/tooltip.svelte.js';
   import { poll, rows } from '../data.svelte.js';
-  import { get } from '../api.js';
+  import { get, prefetchPlan } from '../api.js';
   import { route, go } from '../route.svelte.js';
   import { openPlan } from '../ui.svelte.js';
   import { changes, load } from '../changes.svelte.js';
@@ -98,7 +98,7 @@
         <div class="kv"><span>Last looked</span><span>{fetched}</span></div>
         <p class="hp2">{updates.loaded ? (behind > 0 ? `${behind} new change${behind === 1 ? '' : 's'} upstream.` : 'Up to date as of the last look.') : 'Loading…'}</p>
         <div class="acts">
-          <button use:tip={'Update the server (snapshots first; shows the plan)'} class="btn btn-primary b13" disabled={!!deck?.data?.locked} onclick={() => openPlan('system', ['update'], 'Update')}><i class="ph ph-arrow-circle-up"></i>Update…</button>
+          <button use:tip={'Update the server (snapshots first; shows the plan)'} class="btn btn-primary b13" disabled={!!deck?.data?.locked} onpointerenter={() => prefetchPlan('system', ['update'])} onfocus={() => prefetchPlan('system', ['update'])} onclick={() => openPlan('system', ['update'], 'Update')}><i class="ph ph-arrow-circle-up"></i>Update…</button>
           <button use:tip={'Read what is new, change by change'} class="btn b13" onclick={() => go('/operations/whats-new')}><i class="ph ph-sparkle"></i>What's new</button>
         </div>
       </div>

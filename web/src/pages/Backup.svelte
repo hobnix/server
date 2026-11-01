@@ -5,7 +5,7 @@
   import { openPlan, openCreate, ui } from '../ui.svelte.js';
   import RestoreFiles from '../forms/backup/RestoreFiles.svelte';
   import SetupDisk from '../forms/backup/SetupDisk.svelte';
-  import { get } from '../api.js';
+  import { get, prefetchPlan } from '../api.js';
   import Table from '../shell/Table.svelte';
   import PageHeader from '../shell/PageHeader.svelte';
   import PageState from '../shell/PageState.svelte';
@@ -98,11 +98,11 @@
 
 <PageHeader title="Backup" crumb="{ui.host} › Protection" sub="restic on the backup disk · 7 daily / 4 weekly / 6 monthly · the one place that decides what is in the backup">
   {#snippet actions()}
-    <button class="btn" disabled={!!why} use:tip={tipWhy('Read part of the stored data and check it')} onclick={() => openPlan('backup', ['verify'], 'Verify the backup')}><i class="ph ph-seal-check"></i>Verify</button>
-    <button class="btn" disabled={!!why} use:tip={tipWhy('Give space back: delete leftovers of a failed run, apply the retention, prune')} onclick={() => openPlan('backup', ['prune'], 'Free space on the backup disk')}><i class="ph ph-broom"></i>Free space</button>
-    <button class="btn" disabled={!!why} use:tip={tipWhy('Restore a few random files and compare them with the originals')} onclick={() => openPlan('backup', ['drill'], 'Restore drill')}><i class="ph ph-first-aid-kit"></i>Restore drill</button>
+    <button class="btn" disabled={!!why} use:tip={tipWhy('Read part of the stored data and check it')} onpointerenter={() => prefetchPlan('backup', ['verify'])} onfocus={() => prefetchPlan('backup', ['verify'])} onclick={() => openPlan('backup', ['verify'], 'Verify the backup')}><i class="ph ph-seal-check"></i>Verify</button>
+    <button class="btn" disabled={!!why} use:tip={tipWhy('Give space back: delete leftovers of a failed run, apply the retention, prune')} onpointerenter={() => prefetchPlan('backup', ['prune'])} onfocus={() => prefetchPlan('backup', ['prune'])} onclick={() => openPlan('backup', ['prune'], 'Free space on the backup disk')}><i class="ph ph-broom"></i>Free space</button>
+    <button class="btn" disabled={!!why} use:tip={tipWhy('Restore a few random files and compare them with the originals')} onpointerenter={() => prefetchPlan('backup', ['drill'])} onfocus={() => prefetchPlan('backup', ['drill'])} onclick={() => openPlan('backup', ['drill'], 'Restore drill')}><i class="ph ph-first-aid-kit"></i>Restore drill</button>
     <button class="btn" disabled={!!why && !browsing} use:tip={browsing ? 'Stop showing the backup as a read-only share' : tipWhy('Show the whole backup as a read-only share')} onclick={() => openPlan('backup', ['browse', '--to', browsing ? 'off' : 'on'], browsing ? 'Stop browsing the backup' : 'Browse the backup')}><i class="ph ph-folder-open"></i>{browsing ? 'Stop browsing' : 'Browse'}</button>
-    <button class="btn btn-primary" disabled={!!why} use:tip={tipWhy('Back up right now')} onclick={() => openPlan('backup', ['now'], 'Back up now')}><i class="ph ph-cloud-arrow-up"></i>Back up now</button>
+    <button class="btn btn-primary" disabled={!!why} use:tip={tipWhy('Back up right now')} onpointerenter={() => prefetchPlan('backup', ['now'])} onfocus={() => prefetchPlan('backup', ['now'])} onclick={() => openPlan('backup', ['now'], 'Back up now')}><i class="ph ph-cloud-arrow-up"></i>Back up now</button>
   {/snippet}
 </PageHeader>
 

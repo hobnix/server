@@ -22,10 +22,10 @@
   const kicker = $derived(p && !allowed ? 'Plan · refused' : danger ? 'Plan · danger' : 'Plan');
 
   onMount(() => {
-    const ctl = new AbortController();
-    askPlan(dialog.area, dialog.args, undefined, undefined, ctl.signal)
-      .then((r) => { p = r; }, (e) => { if (e.name !== 'AbortError') loadError = e.message; });
-    return () => ctl.abort();
+    let open = true;       // the answer may be one a button already asked for (prefetchPlan): it is not cancelled with the dialog
+    askPlan(dialog.area, dialog.args)
+      .then((r) => { if (open) p = r; }, (e) => { if (open) loadError = e.message; });
+    return () => { open = false; };
   });
 
   function close() { ui.dialog = null; }
