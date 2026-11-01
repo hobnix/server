@@ -168,8 +168,9 @@ case "$cmd" in
     [ $# -eq 0 ] || usage
     users=$(api GET rest/user) || exit 1
     sta=$(api GET stat/sta) || exit 1
-    U=$users S=$sta python3 -c '
-import json, os
+    # the two answers go in as files: an environment variable is capped at 128 KB ("Argument list too long")
+    python3 -c '
+import json, sys
 rows = {}
 def add(items, how):
     for c in items:
@@ -181,13 +182,13 @@ def add(items, how):
         e = rows.setdefault(ip, {"mac": c.get("mac", ""), "name": "", "how": set()})
         e["how"].add(how)
         e["name"] = e["name"] or c.get("name") or c.get("hostname") or ""
-add(json.loads(os.environ["U"]).get("data", []), "reserved")
-add(json.loads(os.environ["S"]).get("data", []), "online")
+add(json.load(open(sys.argv[1])).get("data", []), "reserved")
+add(json.load(open(sys.argv[2])).get("data", []), "online")
 for ip in sorted(rows, key=lambda a: [int(x) if x.isdigit() else 0 for x in a.split(".")]):
     e = rows[ip]
     T = chr(9)
     print(T.join([ip, e["mac"], e["name"].replace(T, " ") or "-", "+".join(h for h in ("reserved", "online") if h in e["how"])]))
-'
+' <(printf '%s' "$users") <(printf '%s' "$sta")
     ;;
 
   used)
