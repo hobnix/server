@@ -78,8 +78,10 @@ case " $* " in *" --check "*)
     exit 0
   fi ;;
 esac
-# a finished run remembers the package version it applied (hs pkg updates compares it with the tree); a look (--dry-run, --refresh) does not count
+# a finished run remembers the package version (hs pkg updates compares it with the tree); a look (--dry-run, --refresh) does not count.
+# "applied" (what the Apps page compares) is set by the default container only; a --name run records the version but not applied
+applied=(--applied); [ -z "${RECIPE_NAME:-}" ] || applied=()
 rc=0
 bash "$script" "$@" || rc=$?
-case " $* " in *" --dry-run "*|*" --refresh "*|*" --list "*|*" --check "*) ;; *) [ "$rc" -ne 0 ] || python3 -I "$here/pkg.py" record "$name" 2>/dev/null || true ;; esac
+case " $* " in *" --dry-run "*|*" --refresh "*|*" --list "*|*" --check "*) ;; *) [ "$rc" -ne 0 ] || python3 -I "$here/pkg.py" record "$name" "${applied[@]+"${applied[@]}"}" 2>/dev/null || true ;; esac
 exit "$rc"
