@@ -15,6 +15,8 @@ if ! [[ "$name" =~ ^[A-Za-z0-9][A-Za-z0-9._-]*\.deleted-[0-9]{8}$ ]]; then
   exit 1
 fi
 . "$(dirname "$0")/lib/bulkpath.sh"
+. "$(dirname "$0")/lib/live.sh"
+live_refresh_shares() { live_refresh status shares-overview shares-deleted fm-locations pool-info-bulk; }
 mnt=${HS_MNT_BULK:-$(disks_root)}
 net=${HS_NET:-net}
 zfs=${HS_ZFS:-zfs}
@@ -58,3 +60,4 @@ for t in "${targets[@]}"; do
   echo "removed $t"
 done
 echo "'$name' is gone for good."
+live_refresh_shares

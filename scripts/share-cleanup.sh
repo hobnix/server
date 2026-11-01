@@ -9,6 +9,8 @@
 # Test knobs: HS_NET, HS_BULK, HS_LOCK, HS_LOCKED_FLAG.
 set -euo pipefail
 . "$(dirname "$0")/lib/ui.sh"
+. "$(dirname "$0")/lib/live.sh"
+live_refresh_shares() { live_refresh status shares-overview shares-deleted fm-locations pool-info-bulk; }
 
 net=${HS_NET:-net}
 BULK=${HS_BULK:-/bulk}
@@ -71,5 +73,6 @@ removed=0
 for name in "${gone[@]}"; do
   if "$net" conf delshare "$name"; then removed=$((removed + 1)); else warn "$(t "Could not remove the share '%s'." "$name")"; fi
 done
+[ "$removed" -eq 0 ] || live_refresh_shares
 ok "$(t "%s Samba share(s) removed." "$removed")"
 [ "$removed" -eq ${#gone[@]} ] || exit 1

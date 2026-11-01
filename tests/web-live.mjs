@@ -1,6 +1,7 @@
 // The poll timing of the live stream (web/src/polldelay.js): no timer while a topic read follows the stream, the plain interval otherwise.
 import { nextDelay } from '../web/src/polldelay.js';
 import { parseLiveRows } from '../web/src/livestatus.js';
+import { poolTopic } from '../web/src/pages/storage/pool.js';
 
 let ok = 0, bad = 0;
 const check = (name, cond) => { if (cond) { ok++; console.log(`  ok    ${name}`); } else { bad++; console.log(`  FAIL  ${name}`); } };
@@ -33,5 +34,12 @@ check('live state nonzero rc is failing', parsed[4].state === 'failing');
 check('live state newer ts_err is failing', parsed[5].state === 'failing');
 check('live state older ts_err is fresh', parsed[6].state === 'fresh');
 check('live rows: malformed rows are dropped', parseLiveRows([['only', 'five', 'fields', 'here', 'x']], now).length === 0);
+check('poolTopic kinds', poolTopic('info', 'bulk') === 'pool-info-bulk' && poolTopic('members', 'fast') === 'pool-members-fast' && poolTopic('state', 'bulk') === 'pool-state-bulk');
+check('poolTopic rejects bad args', poolTopic('info', 'other') === undefined && poolTopic('disks', 'bulk') === undefined && poolTopic('info', 'fast') === 'pool-info-fast');
+check('storage topic, live open: no timer', nextDelay('shares-overview', true, 30000) === null);
+check('storage topic, live closed: the interval', nextDelay('shares-overview', false, 30000) === 30000);
+check('fixed-pool topic, live open: no timer', nextDelay(poolTopic('info', 'bulk'), true, 15000) === null);
+check('fixed-pool topic, live closed: the interval', nextDelay(poolTopic('state', 'fast'), false, 10000) === 10000);
+check('direct pool read (no topic), live open: the interval', nextDelay(poolTopic('info', 'archive'), true, 15000) === 15000);
 console.log(`  -> ${ok} ok, ${bad} failed`);
 process.exit(bad ? 1 : 0);

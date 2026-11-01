@@ -125,6 +125,15 @@ class OffMode(Base):
     def test_the_live_status_read_has_a_topic(self):
         self.assertEqual(ws.READS[("live", "status")]["topic"], "live")
 
+    def test_mapped_storage_reads_run_directly_in_off_mode(self):
+        for path, argv in (("monitor/disks", ("monitor", "disks")), ("shares/overview", ("shares", "overview")),
+                           ("pool/info?pool=bulk", ("pool", "info", "--pool", "bulk"))):
+            self.fake.calls.clear()
+            s, d, r = self.req("GET", "/api/sys/" + path, headers=self.ck)
+            self.assertEqual(s, 200, path)
+            self.assertEqual(len(self.fake.calls), 1, path)
+            self.assertEqual(self.fake.calls[0][:len(argv[:2])], argv[:2])
+
     def test_live_status_runs_directly_in_off_mode(self):
         s, d, r = self.req("GET", "/api/sys/live/status", headers=self.ck)
         self.assertEqual(s, 200)
@@ -304,6 +313,89 @@ class RedisMode(RedisBase):
 
     def csrf(self):
         return json.loads(self.req("GET", "/api/session", headers=self.ck)[1])["csrf"]
+
+
+NO_ARG = {
+    ("monitor", "disks"): "monitor-disks", ("disk-health", "list"): "disk-health", ("state", "disks"): "disk-inventory",
+    ("disk", "marks"): "disk-marks", ("shares", "overview"): "shares-overview", ("shares", "deleted"): "shares-deleted",
+    ("shares", "principals"): "shares-principals", ("encryption", "list"): "encryption", ("vault", "list"): "vault-list",
+    ("vault", "usage"): "vault-usage", ("vault", "uses"): "vault-uses", ("state", "history"): "state-history",
+    ("fm", "locations"): "fm-locations", ("temp-disk", "raw"): "temp-disks",
+}
+
+
+class StorageTopics(RedisBase):
+    def test_every_no_argument_read_has_its_topic(self):
+        for words, topic in NO_ARG.items():
+            self.assertEqual(ws.READS[words]["topic"], topic, words)
+
+    def test_the_pool_reads_map_exactly_bulk_and_fast(self):
+        for kind in ("info", "members", "state"):
+            self.assertEqual(ws.READS[("pool", kind)]["topic"],
+                             {"bulk": "pool-%s-bulk" % kind, "fast": "pool-%s-fast" % kind})
+        self.assertNotIn("topic", ws.READS[("pool", "disks")])
+
+    def test_resolution_picks_the_topic_per_pool(self):
+        for kind in ("info", "members", "state"):
+            for pool in ("bulk", "fast"):
+                spec, argv, key = self.app.reads.resolve(["pool", kind], {"pool": [pool]})
+                self.assertEqual(spec["topic"], "pool-%s-%s" % (kind, pool))
+            self.assertNotIn("topic", self.app.reads.resolve(["pool", kind], {})[0])
+            self.assertNotIn("topic", self.app.reads.resolve(["pool", kind], {"pool": ["archive"]})[0])
+            self.assertIsInstance(ws.READS[("pool", kind)]["topic"], dict)      # the global entry is never changed
+
+    def test_fixed_pool_read_uses_its_own_key_and_no_process(self):
+        self.redis.keys["hs:v1:pool-info-fast"] = doc("fast\t1\n")
+        self.redis.keys["hs:v1:pool-info-bulk"] = doc("bulk\t2\n")
+        s, d, r = self.req("GET", "/api/sys/pool/info?pool=fast", headers=self.ck)
+        self.assertEqual((s, json.loads(d)["rows"]), (200, [["fast", "1"]]))
+        self.assertEqual(self.fake.calls, [])
+
+    def test_no_argument_storage_read_comes_from_its_key(self):
+        self.redis.keys["hs:v1:shares-overview"] = doc("s\tx\n")
+        s, d, r = self.req("GET", "/api/sys/shares/overview", headers=self.ck)
+        self.assertEqual((s, json.loads(d)["rows"]), (200, [["s", "x"]]))
+        self.assertEqual(self.fake.calls, [])
+
+    def test_fresh_publishes_the_fixed_pool_topic(self):
+        self.redis.keys["hs:v1:pool-state-bulk"] = doc("old\n", gen=1)
+        self.redis.on_publish = lambda t: self.redis.keys.__setitem__("hs:v1:pool-state-bulk", doc("new\n", gen=2, age=0))
+        s, d, r = self.req("GET", "/api/sys/pool/state?pool=bulk&fresh=1", headers=self.ck)
+        self.assertEqual((s, json.loads(d)["rows"]), (200, [["new"]]))
+        self.assertEqual(self.redis.published, [("hs:v1:refresh", "pool-state-bulk")])
+
+    def test_redis_down_is_503_for_a_fixed_pool(self):
+        self.redis.down = True
+        s, d, r = self.req("GET", "/api/sys/pool/members?pool=bulk", headers=self.ck)
+        self.assertEqual((s, json.loads(d)["error"]), (503, "state service down"))
+        self.assertEqual(self.fake.calls, [])
+
+    def test_arbitrary_and_no_pool_reads_still_run_directly(self):
+        for q in ("", "?pool=archive"):
+            self.fake.calls.clear()
+            s, d, r = self.req("GET", "/api/sys/pool/info" + q, headers=self.ck)
+            self.assertEqual(s, 200, q)
+            self.assertEqual(len(self.fake.calls), 1, q)
+            self.assertEqual(self.fake.calls[0][:2], ("pool", "info"))
+            if q:
+                self.assertIn("archive", self.fake.calls[0])
+        self.assertEqual(self.redis.published, [])
+
+    def test_warm_targets_keep_direct_pool_reads_only(self):
+        for kind in ("info", "members", "state"):
+            for pool in ("bulk", "fast"):
+                hit = self.app.reads.resolve(["pool", kind], {"pool": [pool]})
+                self.assertTrue(isinstance(hit[0].get("topic"), str))
+        targets = [tuple(a[1]) for a in self.app.reads.warm_targets()]
+        for words in NO_ARG:
+            self.assertNotIn(words, targets)
+        for t in targets:
+            self.assertFalse(len(t) >= 4 and t[:2] == ("pool", "info") and t[-1] in ("bulk", "fast"), t)
+
+    def test_reconnect_announces_a_new_storage_topic(self):
+        topics = [r[0] for r in ws.ls.topics()]
+        self.assertIn("pool-info-bulk", topics)
+        self.assertIn("fm-locations", topics)
 
 
 class Hub(RedisBase):

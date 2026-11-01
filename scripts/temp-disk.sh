@@ -5,6 +5,11 @@
 # Used by the web interface (Disks): `raw` prints device|fs|label|bytes|mountpoints per line.
 set -euo pipefail
 . "$(dirname "$0")/lib/ui.sh"
+. "$(dirname "$0")/lib/live.sh"
+
+live_refresh_temp() {
+  live_refresh status monitor-disks temp-disks shares-overview fm-locations
+}
 
 usage() {
   while IFS= read -r _l; do say "$_l"; done <<'EOF'
@@ -165,6 +170,7 @@ cmd_mount() {
   ok "$(t 'Mounted and shared as %s' "$share")"
   note "$(t 'Browse it from Windows, or copy on the server: hs disk temp copy %s <share>' "$name")"
   note "$(t 'Done with it? hs disk temp eject %s' "$name")"
+  live_refresh_temp
 }
 
 cmd_copy() {
@@ -221,6 +227,7 @@ cmd_eject() {
       die "$(t '%s is not mounted. Mounted: %s' "$1" "$(findmnt -rn -o TARGET | grep "^$TEMP_ROOT/" | sed "s|^$TEMP_ROOT/||" | paste -sd' ' - || true)")"
     fi
     for m in "${mounted[@]}"; do eject_one "$m" || rc=1; done
+    if [ "$rc" = 0 ]; then live_refresh_temp; fi
     return $rc
   fi
   while read -r mp; do
@@ -228,6 +235,7 @@ cmd_eject() {
     eject_one "$mp" || rc=1
   done < <(findmnt -rn -o TARGET | grep "^$TEMP_ROOT/" || true)
   [ "$any" = 1 ] || line "$(t 'Nothing is mounted under %s.' "$TEMP_ROOT")"
+  [ "$any" = 1 ] && [ "$rc" = 0 ] && live_refresh_temp
   return $rc
 }
 

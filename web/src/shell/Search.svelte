@@ -17,10 +17,10 @@
   let input = $state();
 
   const cts = poll(() => (focused ? '/api/sys/ct/list' : ''), 30000);
-  const shares = poll(() => (focused ? '/api/sys/shares/overview' : ''), 30000);
+  const shares = poll(() => (focused ? '/api/sys/shares/overview' : ''), 30000, 'shares-overview');
   const users = poll(() => (focused ? '/api/sys/users/list' : ''), 60000);
   const groups = poll(() => (focused ? '/api/sys/users/groups' : ''), 60000);
-  const disks = poll(() => (focused ? '/api/sys/monitor/disks' : ''), 30000);
+  const disks = poll(() => (focused ? '/api/sys/monitor/disks' : ''), 30000, 'monitor-disks');
   const recipes = poll(() => (focused ? '/api/sys/recipes/list' : ''), 60000);
 
   const GROUPS = [

@@ -7,7 +7,7 @@
 
   let { deck } = $props();
   const ups = poll('/api/sys/ups/status', 20000);
-  const disks = poll('/api/sys/monitor/disks', 30000);
+  const disks = poll('/api/sys/monitor/disks', 30000, 'monitor-disks');
   const config = poll('/api/sys/system/config', 60000);
   const hw = poll('/api/sys/hardware', 20000);
 

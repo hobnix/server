@@ -9,6 +9,12 @@ set -euo pipefail
 . "$(dirname "$0")/lib/diskpath.sh"
 . "$(dirname "$0")/lib/diskused.sh"
 . "$(dirname "$0")/lib/bulkpath.sh"
+. "$(dirname "$0")/lib/live.sh"
+
+live_refresh_pool() {
+  live_refresh status monitor-disks disk-inventory disk-marks pool-info-bulk pool-info-fast pool-members-bulk pool-members-fast pool-state-bulk pool-state-fast shares-overview fm-locations encryption
+}
+done_refresh() { live_refresh_pool; exit 0; }
 
 usage() {
   say "usage: hs pool <pool> [add|replace|remove|convert] [--dry-run] [--disks <id,id,...>]"
@@ -629,7 +635,7 @@ if [ -n "$action" ]; then
         sed -i "/^$member\$/d" "$closed_file"
         bash "$here/bulk-mount.sh"
         pdone "$member takes new files again."
-        exit 0
+        done_refresh
       fi
       [ "$mstate" = ONLINE ] || { echo "Not possible: $member is $mstate."; exit 1; }
       if [ "$mclosed" = closed ] && ! $drain; then echo "Not possible: $member takes no new files already (add --drain to move its files away)."; exit 1; fi
@@ -651,7 +657,7 @@ if [ -n "$action" ]; then
       mkdir -p "$(dirname "$closed_file")"
       grep -qx "$member" "$closed_file" 2>/dev/null || echo "$member" >> "$closed_file"
       bash "$here/bulk-mount.sh"
-      if ! $drain; then pdone "$member takes no new files any more. Undo: hs pool $pool open $member. To empty it: hs pool $pool close $member --drain (not by hand)"; exit 0; fi
+      if ! $drain; then pdone "$member takes no new files any more. Undo: hs pool $pool open $member. To empty it: hs pool $pool close $member --drain (not by hand)"; done_refresh; fi
       # drain: leave the branch, move everything onto the others, join again (closed)
       drain_disk() {
         local target=/bulk rc=0 left
@@ -666,7 +672,7 @@ if [ -n "$action" ]; then
       SPIN_STREAM=1 SPIN_TAIL=15 spin "Moving the files of $member onto the other data disks ($(human "$used"); hours, the lines below show where it is)" drain_disk || exit 1
       pdone "$member is empty and takes no new files. Undo: hs pool $pool open $member"
       plt "The parity is brought in line by the next scheduled sync."
-      exit 0
+      done_refresh
     fi
 
     if $discard && [ "$action" != convert ]; then echo "--discard only goes with --convert."; exit 1; fi
@@ -719,7 +725,7 @@ if [ -n "$action" ]; then
       bash "$here/bulk-mount.sh"
       pdone "$member is converted."
       plt "The parity is brought in line by the next scheduled sync."
-      exit 0
+      done_refresh
     fi
 
     if [ "$action" = replace ]; then
@@ -762,7 +768,7 @@ if [ -n "$action" ]; then
       [ "$mgroup" = parity ] || SPIN_STREAM=1 SPIN_TAIL=15 spin "Updating the parity (hours)" snapraid -c "$conf" sync || exit 1
       pblank
       pdone "$member is replaced. Log: /var/lib/snapraid/fix-$member.log"
-      exit 0
+      done_refresh
     fi
 
     # remove
@@ -778,7 +784,7 @@ if [ -n "$action" ]; then
       rmdir "$dir" 2>/dev/null || true
       bash "$here/bulk-mount.sh"
       pdone "$member removed."
-      exit 0
+      done_refresh
     fi
     [ "$mstate" = ONLINE ] || { echo "Not possible: $member is $mstate. Replace it instead, that restores its files from parity."; exit 1; }
     if [ -z "$zfs_how" ] && person && ! $assume_yes; then
@@ -839,7 +845,7 @@ if [ -n "$action" ]; then
       ok "$(t 'Started as job %s. Follow it: hs job follow %s' "$unit" "$unit")"
     fi
     pdone "$member removed."
-    exit 0
+    done_refresh
   fi
 
   # ZFS
@@ -858,7 +864,7 @@ if [ -n "$action" ]; then
     zpool replace "$pool" "$full" "/dev/disk/by-id/$new"
     zpool status "$pool" | sed 's/^/      /'
     if fancy; then ok "$(t 'Resilvering %s: the pool stays usable; watch it with zpool status' "$new")"; fi
-    exit 0
+    done_refresh
   fi
   [ "$mgroup" != single ] || { echo "Not possible: $member is not part of a single-disk vdev; remove needs a mirror."; exit 1; }
   # How many disks does this mirror have, and how many mirrors does the pool have?
@@ -888,7 +894,7 @@ if [ -n "$action" ]; then
       zpool detach "$pool" "$full"
       zpool status "$pool" | sed 's/^/      /'
       if fancy; then ok "$(t '%s is out of %s' "$member" "$mgroup")"; fi
-      exit 0 ;;
+      done_refresh ;;
     vdev|whole) ;;
     *) echo "--mode: detach or vdev." >&2; exit 1 ;;
   esac
@@ -909,7 +915,7 @@ if [ -n "$action" ]; then
   zpool remove "$pool" "$mgroup"
   zpool status "$pool" | sed 's/^/      /'
   if fancy; then ok "$(t 'The mirror %s is being removed; the pool stays usable' "$mgroup")"; fi
-  exit 0
+  done_refresh
 fi
 
 # ── SnapRAID layout: /bulk is made of single labelled disks, not a ZFS pool ──
@@ -1066,7 +1072,7 @@ if [ "$pool" = bulk ] && [ "$bulk_type" = snapraid ]; then
     say "Publish them over Samba: hs share repair (new shares start closed to Domain Admins; open them in hs share <share> perm)."
     $chown_files || echo "Files still belong to their old owner (Unraid: nobody:users). To make them adminuser's: sudo chown -R adminuser:users /bulk/shares (slow on big disks), or use --chown next time."
     say "Parity is only written by the next sync: hs pool bulk sync."
-    exit 0
+    done_refresh
   fi
 
   # sizes of what exists, to keep the rule "parity >= every data disk"
@@ -1129,7 +1135,7 @@ if [ "$pool" = bulk ] && [ "$bulk_type" = snapraid ]; then
   df -h /bulk "$(disks_root)"/data-* "$(disks_root)"/parity-* 2>/dev/null | sed 's/^/      /'
   if fancy; then ok "$(t '%s disk(s) added to the array' "${#todo[@]}")"; fi
   say "New data is protected after the next sync (three times a day, or now: hs pool bulk sync)."
-  exit 0
+  done_refresh
 fi
 
 if [ ${#disks[@]} -eq 0 ]; then
@@ -1255,3 +1261,4 @@ fi
 
 zpool status "$pool" | sed 's/^/      /'
 if fancy; then ok "$(t "The pool '%s' is ready" "$pool")"; fi
+live_refresh_pool

@@ -9,8 +9,8 @@
 
   let { onclose, ondone = () => {} } = $props();
 
-  const raw = poll('/api/sys/temp-disk/raw', 10000);
-  const sharesRead = poll('/api/sys/shares/overview', 60000);
+  const raw = poll('/api/sys/temp-disk/raw', 10000, 'temp-disks');
+  const sharesRead = poll('/api/sys/shares/overview', 60000, 'shares-overview');
   const shares = $derived(rows(sharesRead).map((r) => r[0]).filter((n) => /^[a-z0-9][a-z0-9-]{0,40}$/.test(n ?? '')));
 
   const TEMP = /^\/mnt\/temp\/([a-z0-9][a-z0-9-]{0,31})$/;

@@ -5,13 +5,14 @@
   import CreateDialog from '../../shell/CreateDialog.svelte';
   import ReplaceMember from './ReplaceMember.svelte';
   import { poll, rows } from '../../data.svelte.js';
+  import { poolTopic } from '../../pages/storage/pool.js';
   import { openCreate } from '../../ui.svelte.js';
 
   let { pool, member, snap = false } = $props();
 
   // Remove only works on a disk the server can read now (it moves its files, or leaves them on the disk). A disk that is MISSING or not mounted
   // cannot be removed: replacing it restores its files from the parity. Say so here instead of letting the plan refuse after a choice.
-  const mem = poll(() => `/api/sys/pool/members?pool=${pool}`, 30000);
+  const mem = poll(() => `/api/sys/pool/members?pool=${pool}`, 30000, () => poolTopic('members', pool));
   // members: name, bytes, state (ONLINE|UNMOUNTED|MISSING ...), group, ...
   const state = $derived(rows(mem).find((r) => r[0] === member)?.[2] ?? '');
   const gone = $derived(snap && mem.loaded && state !== '' && state !== 'ONLINE');

@@ -17,3 +17,11 @@ Rules:
   not staleness. The old database collector (`scripts/reads-collect.sh`) remains for the reads that still use it.
 - The `group` option of `services.redis.servers.<n>` is unverified in the pinned nixpkgs; module.nix does not use it. The socket group is
   `redis-hobnix`; hs-web and hs-live get it through SupplementaryGroups.
+
+Topics (22, including `status` and `live`): see `scripts/lib/live-topics.tsv`. Storage fixed reads now have their own topics, including
+six fixed-pool topics (`pool-info-bulk`, `pool-info-fast`, `pool-members-bulk`, `pool-members-fast`, `pool-state-bulk`,
+`pool-state-fast`) whose words contain the literal pool name. The web resolves those per request from the validated
+`pool=bulk|fast` query; any other pool argument stays a direct read. Lock mode is `skip` for mounted-pool/Samba reads
+(`pool-info-*`, `pool-members-*`, `shares-overview`, `shares-deleted`, `shares-principals`) and `run` for the rest, so
+lock-aware pages keep their defined locked state. The old database collector and `reads` table remain for off mode and
+unmapped reads.

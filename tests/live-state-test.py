@@ -135,8 +135,28 @@ class Cli(unittest.TestCase):
 
     def test_topics_skip_comments(self):
         self.assertEqual(ls.topics(), [
-            ("status", ["status"], 15, "run"),
-            ("live", ["live", "status"], 5, "run"),
+            ('status', ['status'], 15, 'run'),
+            ('live', ['live', 'status'], 5, 'run'),
+            ('monitor-disks', ['monitor', 'disks'], 15, 'run'),
+            ('disk-health', ['disk-health', 'list'], 30, 'run'),
+            ('disk-inventory', ['state', 'disks'], 30, 'run'),
+            ('disk-marks', ['disk', 'marks'], 15, 'run'),
+            ('pool-info-bulk', ['pool', 'info', 'bulk'], 15, 'skip'),
+            ('pool-info-fast', ['pool', 'info', 'fast'], 15, 'skip'),
+            ('pool-members-bulk', ['pool', 'members', 'bulk'], 15, 'skip'),
+            ('pool-members-fast', ['pool', 'members', 'fast'], 15, 'skip'),
+            ('pool-state-bulk', ['pool', 'state', 'bulk'], 10, 'run'),
+            ('pool-state-fast', ['pool', 'state', 'fast'], 10, 'run'),
+            ('shares-overview', ['shares', 'overview'], 30, 'skip'),
+            ('shares-deleted', ['shares', 'deleted'], 60, 'skip'),
+            ('shares-principals', ['shares', 'principals'], 60, 'skip'),
+            ('encryption', ['encryption', 'list'], 30, 'run'),
+            ('vault-list', ['vault', 'list'], 60, 'run'),
+            ('vault-usage', ['vault', 'usage'], 30, 'run'),
+            ('vault-uses', ['vault', 'uses'], 60, 'run'),
+            ('state-history', ['state', 'history'], 30, 'run'),
+            ('fm-locations', ['fm', 'locations'], 15, 'run'),
+            ('temp-disks', ['temp-disk', 'raw'], 30, 'run'),
         ])
 
     def test_status_shape(self):
@@ -144,7 +164,7 @@ class Cli(unittest.TestCase):
         out = io.StringIO()
         self.assertEqual(ls.cli_status(self.fake(time.time() - 7), out), 0)
         lines = out.getvalue().rstrip("\n").split("\n")
-        self.assertEqual(len(lines), 2)
+        self.assertEqual(len(lines), 22)
         status = [l for l in lines if l.startswith("status\t")][0].split("\t")
         live = [l for l in lines if l.startswith("live\t")][0].split("\t")
         self.assertEqual(len(status), 7)
@@ -157,7 +177,7 @@ class Cli(unittest.TestCase):
         out = io.StringIO()
         ls.cli_status(FakeResp(), out)
         lines = sorted(out.getvalue().rstrip("\n").split("\n"))
-        self.assertEqual(lines, ["live\t5\t-1\t0\t-\t-\t-", "status\t15\t-1\t0\t-\t-\t-"])
+        self.assertEqual(lines, ['disk-health\t30\t-1\t0\t-\t-\t-', 'disk-inventory\t30\t-1\t0\t-\t-\t-', 'disk-marks\t15\t-1\t0\t-\t-\t-', 'encryption\t30\t-1\t0\t-\t-\t-', 'fm-locations\t15\t-1\t0\t-\t-\t-', 'live\t5\t-1\t0\t-\t-\t-', 'monitor-disks\t15\t-1\t0\t-\t-\t-', 'pool-info-bulk\t15\t-1\t0\t-\t-\t-', 'pool-info-fast\t15\t-1\t0\t-\t-\t-', 'pool-members-bulk\t15\t-1\t0\t-\t-\t-', 'pool-members-fast\t15\t-1\t0\t-\t-\t-', 'pool-state-bulk\t10\t-1\t0\t-\t-\t-', 'pool-state-fast\t10\t-1\t0\t-\t-\t-', 'shares-deleted\t60\t-1\t0\t-\t-\t-', 'shares-overview\t30\t-1\t0\t-\t-\t-', 'shares-principals\t60\t-1\t0\t-\t-\t-', 'state-history\t30\t-1\t0\t-\t-\t-', 'status\t15\t-1\t0\t-\t-\t-', 'temp-disks\t30\t-1\t0\t-\t-\t-', 'vault-list\t60\t-1\t0\t-\t-\t-', 'vault-usage\t30\t-1\t0\t-\t-\t-', 'vault-uses\t60\t-1\t0\t-\t-\t-'])
 
     def test_check_fresh_stale_down(self):
         import time
@@ -189,7 +209,7 @@ class Cli(unittest.TestCase):
         self.assertEqual(st.published, [("hs:v1:refresh", "a"), ("hs:v1:refresh", "b")])
         st = FakeResp()
         ls.cli_refresh(["--all"], st)
-        self.assertEqual(sorted(st.published), sorted([("hs:v1:refresh", "status"), ("hs:v1:refresh", "live")]))
+        self.assertEqual(sorted(st.published), [('hs:v1:refresh', 'disk-health'), ('hs:v1:refresh', 'disk-inventory'), ('hs:v1:refresh', 'disk-marks'), ('hs:v1:refresh', 'encryption'), ('hs:v1:refresh', 'fm-locations'), ('hs:v1:refresh', 'live'), ('hs:v1:refresh', 'monitor-disks'), ('hs:v1:refresh', 'pool-info-bulk'), ('hs:v1:refresh', 'pool-info-fast'), ('hs:v1:refresh', 'pool-members-bulk'), ('hs:v1:refresh', 'pool-members-fast'), ('hs:v1:refresh', 'pool-state-bulk'), ('hs:v1:refresh', 'pool-state-fast'), ('hs:v1:refresh', 'shares-deleted'), ('hs:v1:refresh', 'shares-overview'), ('hs:v1:refresh', 'shares-principals'), ('hs:v1:refresh', 'state-history'), ('hs:v1:refresh', 'status'), ('hs:v1:refresh', 'temp-disks'), ('hs:v1:refresh', 'vault-list'), ('hs:v1:refresh', 'vault-usage'), ('hs:v1:refresh', 'vault-uses')])
         os.environ["HS_LIVE_SOCKET"] = "/nonexistent/none.sock"
         try:
             self.assertEqual(ls.cli_refresh(["--all"]), 0)

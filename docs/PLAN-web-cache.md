@@ -110,5 +110,10 @@ Built:
 - Diagnostics is served by the `live` topic in Redis mode and keeps the old collected-reads view in off mode.
 - `live:down`, `live:stale:<topic>` and `live:never:<topic>` are surfaced by Health automatically (`scripts/health-check.sh` calls `live.sh check`).
 
-Not built: the remaining pages (they keep their polls and have no topic), the homeserver-deck, retiring the old collector (`reads-collect.sh`, the `reads` table).
+Storage slice (built, not run on hardware): 20 more topics (disks, pools, shares, encryption, vault, history, file locations, temp disks),
+see capabilities/live-state/NOTES.md. A `READS` entry may carry a topic mapping `{bulk, fast}`; `Reads.resolve` picks the concrete topic from
+the validated `pool` query per request (no match: no topic, so the read stays direct, also in Redis mode) and the warm-up skips only resolved
+string topics. `poll` accepts a topic function; shell scripts call `live_refresh` after successful quick changes; unlock refreshes all topics.
+
+Not built: the instances and services pages (they keep their polls and have no topic), the homeserver-deck, retiring the old collector (`reads-collect.sh`, the `reads` table).
 Retirement stays future work until no served read uses `Reads.collected`.

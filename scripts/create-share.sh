@@ -4,6 +4,8 @@
 # args: <name> [--sensitive] [--ct <container> <path>] [--as <uid>:<gid>]
 set -euo pipefail
 . "$(dirname "$0")/lib/ui.sh"
+. "$(dirname "$0")/lib/live.sh"
+live_refresh_shares() { live_refresh status shares-overview shares-deleted fm-locations pool-info-bulk; }
 
 usage() {
   say "usage: hs share add <name> [--sensitive] [--ct <container> <path>]"
@@ -137,3 +139,4 @@ ok "$(t "%s created" "$dir")${ct:+$(t ", mounted in %s at %s" "$ct" "$ctpath")}"
 
 # Publish it as its own Samba share, so access can be set per user
 bash "$(dirname "$0")/sync-shares.sh"
+live_refresh_shares

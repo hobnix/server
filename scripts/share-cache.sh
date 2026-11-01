@@ -13,6 +13,8 @@ set -euo pipefail
 #   --state <share>      on | off | emptying | unsupported, then the bytes waiting (tab separated)
 here=$(dirname "$0")
 . "$here/lib/ui.sh"
+. "$(dirname "$0")/lib/live.sh"
+live_refresh_shares() { live_refresh status shares-overview shares-deleted fm-locations pool-info-bulk; }
 cache=/mnt/bulk/cache      # ZFS dataset fast/hs-cache; its quota is the size of the cache
 dataset=fast/hs-cache
 default_size=200G
@@ -151,6 +153,7 @@ if [ "$want" = on ]; then
   smbcontrol smbd close-share "${rel##*/}" 2>/dev/null || true
   if $restart; then restart_users; fi
   ok "Done."
+  live_refresh_shares
   $restart || [ -z "$users" ] || warn "$(t 'Now restart: %s (hs ct <ct> restart)' "$users")"
   exit 0
 fi
@@ -167,6 +170,7 @@ touch "$cache/$rel.off"                  # survives a reboot: stays "emptying" u
 bash "$here/bulk-mount.sh" >/dev/null    # the cache layer takes no new files from here on
 bash "$here/cache-mover.sh" "${rel##*/}" --now --no-sync || true
 if $restart; then restart_users; fi
+live_refresh_shares
 if [ "$(state_of "$rel")" = off ]; then
   ok "Done. The moved files get parity with the next sync (three times a day, or now: hs pool bulk sync)."
 else

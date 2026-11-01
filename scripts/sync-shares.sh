@@ -4,6 +4,8 @@
 # args: [--check] [--fix-owner]
 set -euo pipefail
 . "$(dirname "$0")/lib/ui.sh"
+. "$(dirname "$0")/lib/live.sh"
+live_refresh_shares() { live_refresh status shares-overview shares-deleted fm-locations pool-info-bulk; }
 
 check=false
 fix_all=false
@@ -139,6 +141,7 @@ for name in "${existing[@]}"; do
 done
 
 if [ ${#rows[@]} -gt 0 ]; then { thead SHARE STATE; printf '%s\n' "${rows[@]}"; } | table; fi
+if ! $check && { [ "$missing" -gt 0 ] || $fix_all; }; then live_refresh_shares; fi
 if $check && [ "$missing" -gt 0 ]; then
   warn "$(t '%s share(s) missing. Add them with: hs share repair' "$missing")"
 elif [ "$missing" -gt 0 ]; then

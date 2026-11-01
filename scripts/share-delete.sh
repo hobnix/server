@@ -9,6 +9,8 @@
 # of the new name is removed. --dry-run prints these steps as indented commands. If the folder is already gone (deleted by hand), only the instance mounts and the Samba share are removed. Test knobs: HS_MANAGE_SHARES, HS_INCUS, HS_NET, HS_DELETE_STAMP, HS_BULK, HS_LOCK, HS_LOCKED_FLAG.
 set -euo pipefail
 here=$(dirname "$0")
+. "$here/lib/live.sh"
+live_refresh_shares() { live_refresh status shares-overview shares-deleted fm-locations pool-info-bulk; }
 manage=${HS_MANAGE_SHARES:-$here/manage-shares.sh}
 incus=${HS_INCUS:-incus}
 net=${HS_NET:-net}
@@ -72,6 +74,7 @@ done
 if $gone; then
   "$net" conf delshare "$share"
   echo "'$share' is removed from Samba. Its folder was already gone."
+  live_refresh_shares
   exit 0
 fi
 if ! bash "$manage" "$share" --rename "$new"; then
@@ -81,3 +84,4 @@ if ! bash "$manage" "$share" --rename "$new"; then
 fi
 "$net" conf delshare "$new"
 echo "'$share' is deleted. Its files are in $(dirname "$path")/$new until you remove that folder by hand."
+live_refresh_shares

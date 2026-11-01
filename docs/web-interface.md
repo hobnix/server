@@ -198,6 +198,12 @@ When live state is on, the Diagnostics page lists every live topic (topic, inter
 follows the same stream, falling back to polling every 5 seconds. The `live` topic row describes the previous collection by design. With
 live state off, Diagnostics keeps its old collected-reads view. Not tested on hardware yet.
 
+The fixed reads of the Storage pages (Pools, Disks, Shares, Encryption, Vault, file locations, Other disk) use live state too: they come
+from Redis, have no polling timer while the stream is open, and the refresh button in the top bar refreshes them. Selected disk, share and
+file details (SMART history, access lists, snapshots, directory contents) stay direct. The pools `bulk` and `fast` have their own topics;
+other pool names are read directly. While storage is locked the pool and share panels keep their last value (or show "refreshing") until
+unlock refreshes them. With live state off everything works as before. Not tested on hardware yet.
+
 ## Check that it worked
 
 - Open the page and sign in; the summary shows your server and its disks.

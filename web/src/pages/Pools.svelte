@@ -17,7 +17,7 @@
   import RemoveMember from '../forms/storage/RemoveMember.svelte';
   import ConvertPool from '../forms/storage/ConvertPool.svelte';
   import CloseDisk from '../forms/storage/CloseDisk.svelte';
-  import { parseInfo, percentOf, diskPool, serialIn, sizeTxt, parseSize } from './storage/pool.js';
+  import { parseInfo, percentOf, diskPool, serialIn, sizeTxt, parseSize, poolTopic } from './storage/pool.js';
 
   let { deck } = $props();
 
@@ -26,13 +26,13 @@
   const locked = $derived(!!deck?.data?.locked);
 
   // ── shared by list and detail
-  const disks = poll('/api/sys/monitor/disks', 30000);
+  const disks = poll('/api/sys/monitor/disks', 30000, 'monitor-disks');
   // monitor disks: name, bytes, SSD/HDD, role, temp, health, hours, reallocated, pending, crc, model+serial, free
   const monitor = $derived(rows(disks).map((r) => ({ name: r[0], role: r[3], model: r[10], free: r[11] })));
   const freeDisks = $derived(monitor.filter((d) => d.role === 'free' || d.role === 'mounted'));
 
-  const infoBulk = poll('/api/sys/pool/info?pool=bulk', 15000);
-  const infoFast = poll('/api/sys/pool/info?pool=fast', 15000);
+  const infoBulk = poll('/api/sys/pool/info?pool=bulk', 15000, 'pool-info-bulk');
+  const infoFast = poll('/api/sys/pool/info?pool=fast', 15000, 'pool-info-fast');
   const infos = $derived({ bulk: infoBulk, fast: infoFast });
   const factsOf = (name) => parseInfo(rows(infos[name])).facts;
   const isSnap = (f) => /SnapRAID/i.test(f.layout ?? '');
@@ -60,14 +60,14 @@
   ];
 
   // ── the detail
-  const info = poll(() => (pool ? `/api/sys/pool/info?pool=${pool}` : ''), 15000);
-  const memb = poll(() => (pool ? `/api/sys/pool/members?pool=${pool}` : ''), 15000);
-  const shares = poll(() => (pool === 'bulk' ? '/api/sys/shares/overview' : ''), 30000);
+  const info = poll(() => (pool ? `/api/sys/pool/info?pool=${pool}` : ''), 15000, () => poolTopic('info', pool));
+  const memb = poll(() => (pool ? `/api/sys/pool/members?pool=${pool}` : ''), 15000, () => poolTopic('members', pool));
+  const shares = poll(() => (pool === 'bulk' ? '/api/sys/shares/overview' : ''), 30000, 'shares-overview');
   const cts = poll(() => (pool === 'fast' ? '/api/sys/ct/list' : ''), 30000);
 
   // what the pool is doing (`hs sys pool state`): lock <free|busy|pool-change|unknown> text / paused <yes|no> text / scrub <pool> <running|ok|errors|never|unknown> text / sync bulk <running|ok|never|unknown> text.
   // `pool info` has no scrub field on either layout (SnapRAID: "last sync" only), so the scrub and sync lines come from here.
-  const st = poll(() => (pool ? `/api/sys/pool/state?pool=${pool}` : ''), 10000);
+  const st = poll(() => (pool ? `/api/sys/pool/state?pool=${pool}` : ''), 10000, () => poolTopic('state', pool));
   const stRows = $derived(rows(st));
   const lockRow = $derived(stRows.find((r) => r[0] === 'lock'));
   const lockState = $derived(lockRow?.[1] ?? '');

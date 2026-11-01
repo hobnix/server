@@ -776,13 +776,16 @@ READS = {
     ("status",):{"kind": "tsv", "ttl": 10, "topic": "status"},      # topic: the live-state key (read only in mode redis)
     ("deck",): {"kind": "json", "ttl": 8},
     ("ups", "status"): {"kind": "tsv", "ttl": 15},
-    ("monitor", "disks"): {"kind": "tsv", "ttl": 15},
-    ("pool", "info"): {"kind": "tsv", "ttl": 15, "query": {"pool": (NAME, "")}},
-    ("pool", "members"): {"kind": "tsv", "ttl": 15, "query": {"pool": (NAME, "")}},
-    ("pool", "state"): {"kind": "tsv", "ttl": 10, "query": {"pool": (NAME, "")}},     # bulk lock, health-check pause, last scrub / parity sync (lock, paused, scrub <pool>, sync bulk)
+    ("monitor", "disks"): {"kind": "tsv", "ttl": 15, "topic": "monitor-disks"},
+    ("pool", "info"): {"kind": "tsv", "ttl": 15, "query": {"pool": (NAME, "")},
+                       "topic": {"bulk": "pool-info-bulk", "fast": "pool-info-fast"}},
+    ("pool", "members"): {"kind": "tsv", "ttl": 15, "query": {"pool": (NAME, "")},
+                          "topic": {"bulk": "pool-members-bulk", "fast": "pool-members-fast"}},
+    ("pool", "state"): {"kind": "tsv", "ttl": 10, "query": {"pool": (NAME, "")},
+                        "topic": {"bulk": "pool-state-bulk", "fast": "pool-state-fast"}},     # bulk lock, health-check pause, last scrub / parity sync (lock, paused, scrub <pool>, sync bulk)
     ("pool", "disks"): {"kind": "tsv", "ttl": 15, "query": {"role": (r"^adopt$", "--role")}},
-    ("disk-health", "list"): {"kind": "tsv", "ttl": 30},
-    ("state", "disks"): {"kind": "tsv", "ttl": 15},
+    ("disk-health", "list"): {"kind": "tsv", "ttl": 30, "topic": "disk-health"},
+    ("state", "disks"): {"kind": "tsv", "ttl": 15, "topic": "disk-inventory"},
     ("reads", "status"): {"kind": "tsv", "ttl": 5},      # the Data page: what the collector keeps, how old, how long each read takes
     ("live", "status"): {"kind": "tsv", "ttl": 5, "topic": "live"},      # the Data page in live mode: the live topics themselves
     ("state", "events"): {"kind": "tsv", "ttl": 10, "query": {"n": (r"^[0-9]{1,4}$", "")}},
@@ -810,7 +813,7 @@ READS = {
     ("backup", "state"): {"kind": "tsv", "ttl": 15},
     ("backup", "overview"): {"kind": "tsv", "ttl": 30},
     ("backup", "shares"): {"kind": "tsv", "ttl": 30},
-    ("shares", "overview"): {"kind": "tsv", "ttl": 30},
+    ("shares", "overview"): {"kind": "tsv", "ttl": 30, "topic": "shares-overview"},
     ("shares", "list"): {"kind": "tsv", "ttl": 30},
     ("shares", "acl"): {"kind": "tsv", "ttl": 30, "args": [NAME]},
     ("shares", "visible"): {"kind": "tsv", "ttl": 30, "args": [NAME]},
@@ -818,7 +821,7 @@ READS = {
     ("shares", "history"): {"kind": "tsv", "ttl": 30, "args": [NAME]},
     ("users", "list"): {"kind": "tsv", "ttl": 30},
     ("users", "groups"): {"kind": "tsv", "ttl": 30},
-    ("vault", "list"): {"kind": "tsv", "ttl": 60},
+    ("vault", "list"): {"kind": "tsv", "ttl": 60, "topic": "vault-list"},
     ("remote", "list"): {"kind": "tsv", "ttl": 30},
     ("unifi", "networks"): {"kind": "tsv", "ttl": 60},
     ("unifi", "clients"): {"kind": "tsv", "ttl": 30},
@@ -827,17 +830,17 @@ READS = {
     ("cache", "state"): {"kind": "tsv", "ttl": 15},
     ("system", "config"): {"kind": "text", "ttl": 60},
     ("disk", "results"): {"kind": "tsv", "ttl": 30, "args": [NAME]},
-    ("disk", "marks"): {"kind": "tsv", "ttl": 10},
+    ("disk", "marks"): {"kind": "tsv", "ttl": 10, "topic": "disk-marks"},
     # the file manager (fm.sh, docs/PLAN-file-manager.md): the places, the same-files rule, one page of a folder (a cursor, never the whole tree), a job's state
-    ("fm", "locations"): {"kind": "tsv", "ttl": 5},
+    ("fm", "locations"): {"kind": "tsv", "ttl": 5, "topic": "fm-locations"},
     ("fm", "pair"): {"kind": "tsv", "ttl": 5, "args": [FM_LOC, FM_LOC]},
     ("fm", "ls"): {"kind": "tsv", "ttl": 0, "args": [FM_LOC], "query": {"path": (r"^[^\x00-\x1f]{0,1024}$", "--path"), "cursor": (r"^[0-9]{1,9}$", "--cursor"),
                                                                         "limit": (r"^[0-9]{1,4}$", "--limit")}},
     ("fm", "progress"): {"kind": "tsv", "ttl": 0, "args": [UNIT]},
     ("disk", "ls"): {"kind": "tsv", "ttl": 5,"args": [r"^data-[0-9]{1,3}$"], "query": {"path": (r"^(?!.*(^|/)\.\.(/|$))(shares|sensitive)(/[^/\x00-\x1f]{1,255}){0,20}$", "--path")}},
     ("state", "smart"): {"kind": "tsv", "ttl": 30, "args": [NAME]},
-    ("state", "history"): {"kind": "json", "ttl": 30},
-    ("temp-disk", "raw"): {"kind": "tsv", "ttl": 30},
+    ("state", "history"): {"kind": "json", "ttl": 30, "topic": "state-history"},
+    ("temp-disk", "raw"): {"kind": "tsv", "ttl": 30, "topic": "temp-disks"},
     ("ct", "storage"): {"kind": "tsv", "ttl": 15, "args": [NAME]},
     ("ct", "users"): {"kind": "tsv", "ttl": 30, "args": [NAME]},
     ("ct", "logs"): {"kind": "text", "ttl": 3, "args": [NAME], "query": {"lines": (r"^[0-9]{1,4}$", "")}},
@@ -845,8 +848,8 @@ READS = {
     ("users", "group-access"): {"kind": "tsv", "ttl": 30, "args": [GROUP]},
     ("users", "details"): {"kind": "tsv", "ttl": 30, "args": [NAME]},
     ("users", "group-details"): {"kind": "tsv", "ttl": 30, "args": [GROUP]},
-    ("shares", "deleted"): {"kind": "tsv", "ttl": 60},
-    ("shares", "principals"): {"kind": "tsv", "ttl": 60},
+    ("shares", "deleted"): {"kind": "tsv", "ttl": 60, "topic": "shares-deleted"},
+    ("shares", "principals"): {"kind": "tsv", "ttl": 60, "topic": "shares-principals"},
     ("backup", "find"): {"kind": "tsv", "ttl": 30, "args": [r"^[^\x00-\x1f/\\*?\[\]]{2,80}$"]},
     ("backup", "snapshots"): {"kind": "tsv", "ttl": 30, "query": {"tag": (r"^(shares|host|ct:[a-z][a-z0-9-]{0,40})$", "")}},
     ("system", "doctor"): {"kind": "text", "ttl": 60},
@@ -856,9 +859,9 @@ READS = {
     ("expiry", "list"): {"kind": "tsv", "ttl": 60},
     # Games and Posters are extension packages: their reads are declared in capabilities/<name>/capability.toml ([[web.reads]]), see ext_load_web
     ("hardware",): {"kind": "tsv", "ttl": 10},
-    ("encryption", "list"): {"kind": "tsv", "ttl": 15},
-    ("vault", "usage"): {"kind": "tsv", "ttl": 30},
-    ("vault", "uses"): {"kind": "tsv", "ttl": 60},
+    ("encryption", "list"): {"kind": "tsv", "ttl": 15, "topic": "encryption"},
+    ("vault", "usage"): {"kind": "tsv", "ttl": 30, "topic": "vault-usage"},
+    ("vault", "uses"): {"kind": "tsv", "ttl": 60, "topic": "vault-uses"},
     ("recipes", "list"): {"kind": "tsv", "ttl": 60},
     # the Marketplace: everything installable and the repositories it comes from (pkg-change.sh does the changes)
     ("pkg", "market"): {"kind": "tsv", "ttl": 30},
@@ -1482,7 +1485,8 @@ class Reads:
             self.on_clear()
 
     def resolve(self, segments, query):
-        """-> (spec, argv words, cache key) or None when this is not an allowlisted read."""
+        """-> (spec, argv words, cache key) or None when this is not an allowlisted read.
+        A fixed-pool topic mapping is resolved per request: only pool=bulk|fast gets the Redis topic, other pool values stay direct."""
         ext_refresh()
         for n in range(len(segments), 0, -1):
             words = tuple(segments[:n])
@@ -1501,8 +1505,23 @@ class Reads:
                 if not re.fullmatch(pat, vals[0]):
                     return None
                 argv += [flag, vals[0]] if flag else [vals[0]]
+            spec = self._resolve_topic(spec, query)
             return spec, argv, tuple(argv)
         return None
+
+    @staticmethod
+    def _resolve_topic(spec, query):
+        """Copy the spec and resolve a fixed-pool topic mapping to a concrete string topic."""
+        topic = spec.get("topic")
+        if not isinstance(topic, dict):
+            return spec
+        spec = dict(spec)
+        pool = (query.get("pool") or [""])[0]
+        if pool in topic:
+            spec["topic"] = topic[pool]
+        else:
+            spec.pop("topic", None)
+        return spec
 
     def get(self, spec, argv, key):
         code, obj, _ = self.get_aged(spec, argv, key)
@@ -1669,12 +1688,16 @@ class Reads:
 
     def warm_targets(self):
         """(spec, argv, key, how often) of every read the warm-up should keep fresh: the common ones, those somebody asked for lately (with their
-        arguments), and, unless switched off, every other read without arguments (at most every warm_idle_ttl seconds)"""
+        arguments), and, unless switched off, every other read without arguments (at most every warm_idle_ttl seconds). Topic reads are skipped
+        in Redis mode; a fixed-pool mapping is resolved first so only its concrete fixed-pool form is skipped, while the no-pool/all-pool form
+        stays warmable."""
         out, done = [], set()
 
         def add(spec, argv, every):
             key = tuple(argv)
-            if key not in done and spec["ttl"] > 0 and not (self.cfg.live == "redis" and spec.get("topic")):      # a topic is the collector's, not the warm-up's
+            # a resolved string topic belongs to the live collector, not the warm-up; a mapping without a match has no topic and can be warmed
+            is_topic = self.cfg.live == "redis" and isinstance(spec.get("topic"), str)
+            if key not in done and spec["ttl"] > 0 and not is_topic:
                 done.add(key)
                 out.append((spec, argv, key, every))
         for words in WARM:
@@ -1691,7 +1714,9 @@ class Reads:
             ext_refresh()
             for words, spec in list(READS.items()):
                 if not spec.get("args"):
-                    add(spec, list(words), max(spec["ttl"], self.cfg.warm_idle_ttl))
+                    hit = self.resolve(list(words), {})
+                    if hit:
+                        add(hit[0], hit[1], max(hit[0]["ttl"], self.cfg.warm_idle_ttl))
         return out
 
     @staticmethod

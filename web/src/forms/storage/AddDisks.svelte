@@ -6,7 +6,7 @@
   import CreateDialog from '../../shell/CreateDialog.svelte';
   import DiskPicker from './DiskPicker.svelte';
   import { poll, rows } from '../../data.svelte.js';
-  import { parseInfo } from '../../pages/storage/pool.js';
+  import { parseInfo, poolTopic } from '../../pages/storage/pool.js';
   import { freeDisks, FS } from './disks.js';
 
   let { pool: pool0 = 'bulk', variant: variant0 = 'empty', snap: snap0 = undefined } = $props();
@@ -21,7 +21,7 @@
   let merge = $state(false);
   let chown = $state(false);
 
-  const info = poll(() => `/api/sys/pool/info?pool=${pool}`, 60000);
+  const info = poll(() => `/api/sys/pool/info?pool=${pool}`, 60000, () => poolTopic('info', pool));
   // the adopt listing also names encrypted disks (hs sys pool disks --role adopt), the plain one does not
   const free = poll(() => (variant === 'adopt' ? '/api/sys/pool/disks?role=adopt' : '/api/sys/pool/disks'), 15000);
 

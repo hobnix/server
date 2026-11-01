@@ -6,6 +6,11 @@ set -euo pipefail
 here=$(dirname "$0")
 . "$here/lib/ui.sh"
 . "$here/lib/diskpath.sh"
+. "$here/lib/live.sh"
+
+live_refresh_health() {
+  live_refresh monitor-disks disk-health
+}
 
 usage() {
   say "usage: hs disk list                    every disk with its verdict"
@@ -300,6 +305,7 @@ case "$action" in
       if [ -n "$mins" ]; then ok "$(t 'Started the %s self-test on %s (about %s minutes).' "$kind" "$dev" "$mins")"
       else ok "$(t 'Started the %s self-test on %s.' "$kind" "$dev")"; fi
       note "$(t 'The disk does it by itself; nothing else to do. Check later: hs disk %s results' "$(basename "$dev")")"
+      live_refresh_health
     else
       printf '%s\n' "$out" | sed -n '/^===/,$p' | head -n 8 | trail
       fail "$(t 'The self-test did not start (one may be running already: hs disk %s results).' "$(basename "$dev")")"

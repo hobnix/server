@@ -45,7 +45,8 @@ case "$cmd" in
     fi
     rc=0; serial=$(db forget "$who") || rc=$?
     case "$rc" in
-      0) ok "$(t 'Forgot %s' "$serial")" ;;
+      0) ok "$(t 'Forgot %s' "$serial")"
+         if [ -f "$here/lib/live.sh" ]; then . "$here/lib/live.sh"; live_refresh status disk-inventory || true; fi ;;
       2) fail "$(t '%s is in the machine: only a missing disk can be forgotten' "$who")" ;;
       *) fail "$(t '%s is not in the inventory. See: hs disk inventory' "$who")" ;;
     esac ;;
@@ -70,8 +71,11 @@ case "$cmd" in
       fail "$(t 'The daily SMART check reads the disks and writes the state database: it needs root. Run it as: sudo hs disk baseline run')"
     fi
     db baseline-run "$@"; rc=$?
+    if [ "$rc" -eq 0 ] && [ -f "$here/lib/live.sh" ]; then . "$here/lib/live.sh"; live_refresh monitor-disks disk-health disk-inventory state-history || true; fi
     [ "$rc" -ne 0 ] || ! people || exec bash "$0" baseline
     exit "$rc" ;;
-  collect|disks|smart|problems|deck-disks|inventory-json|disks-json|events-json|history|history-record|usage-record|usage|read-put|read-get|reads) db "$cmd" "$@" ;;
+  collect) db collect "$@"; rc=$?; if [ "$rc" -eq 0 ] && [ -f "$here/lib/live.sh" ]; then . "$here/lib/live.sh"; live_refresh disk-inventory || true; fi; exit "$rc" ;;
+  history-record) db history-record "$@"; rc=$?; if [ "$rc" -eq 0 ] && [ -f "$here/lib/live.sh" ]; then . "$here/lib/live.sh"; live_refresh state-history || true; fi; exit "$rc" ;;
+  disks|smart|problems|deck-disks|inventory-json|disks-json|events-json|history|usage-record|usage|read-put|read-get|reads) db "$cmd" "$@" ;;
   *) echo "usage: hs disk inventory | hs disk events | hs disk <serial> forget" >&2; exit 1 ;;
 esac

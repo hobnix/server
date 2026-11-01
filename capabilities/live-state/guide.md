@@ -41,6 +41,13 @@ When live state is on, the Diagnostics page shows the live topics instead of the
 "state service down" banner and keeps the last table data; it never runs the read directly. With live state off, Diagnostics keeps the
 collected-reads view it had before. Not tested on hardware yet.
 
+### Storage pages
+With live state on, the fixed reads of the Storage pages (Pools, Disks, Shares, Encryption, Vault and the file locations) come from Redis and
+update when the data changes. A quick change from the terminal (`hs share`, `hs disk`, `hs pool`, `hs vault`, `hs unlock`) asks for a focused
+refresh, and a finished background job refreshes everything. What you select for a single disk, share or file (SMART history, access lists,
+snapshots, folder contents) is still read directly. The two pools `bulk` and `fast` have their own topics; any other pool name is read
+directly. With live state off nothing changes. Not tested on hardware yet.
+
 ## If something goes wrong
 | Symptom | Cause | Fix |
 | --- | --- | --- |

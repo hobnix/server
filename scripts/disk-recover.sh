@@ -17,6 +17,11 @@
 set -euo pipefail
 here=$(cd "$(dirname "$0")" && pwd)   # absolute: the background job runs from another folder
 . "$here/lib/bulkpath.sh"
+. "$here/lib/live.sh"
+
+live_refresh_recover() {
+  live_refresh status monitor-disks disk-inventory disk-marks pool-info-bulk pool-members-bulk pool-state-bulk shares-overview fm-locations
+}
 base=${HS_BULK_BASE:-$(disks_root)}
 rawpool=${HS_RAW_POOL:-/mnt/bulk/pool}   # the cache-free merge of the pool (not a disk)
 state=${HS_STATE_DIR:-/var/lib/hs}
@@ -70,6 +75,7 @@ if [ "$verb" = finish ]; then
   [ "$testmode" = 1 ] || { [ -z "$dev" ] || blockdev --setrw "$dev" 2>/dev/null || true; }
   [ "$testmode" = 1 ] || bash "$bulkmount" >/dev/null 2>&1 || refuse "the disk is free again but could not be mounted (hs sys disk start $member recover-finish again, or look at hs pool bulk)"
   echo "$member is back in the pool."
+  live_refresh_recover
   printf 'status\tdone\n'
   exit 0
 fi
@@ -161,6 +167,7 @@ fi
 bulk_lock_admin 60
 echo "Recovering deleted files from $member (the disk is only read)."
 mkdir -p "$recdir"; printf '%s\n' "$to" > "$recdir/$member"
+live_refresh_recover
 if [ "$testmode" != 1 ] && [ "$mounted" = yes ]; then
   for m in /bulk "$rawpool"; do
     mountpoint -q "$m" 2>/dev/null && setfattr -n user.mergerfs.branches -v "-$dir" "$m/.mergerfs" 2>/dev/null || true
