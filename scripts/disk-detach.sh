@@ -14,6 +14,11 @@
 set -euo pipefail
 here=$(cd "$(dirname "$0")" && pwd)   # absolute
 . "$here/lib/bulkpath.sh"
+. "$here/lib/live.sh"
+
+live_refresh_detach() {
+  live_refresh status monitor-disks disk-inventory disk-marks pool-info-bulk pool-members-bulk pool-state-bulk shares-overview fm-locations
+}
 state=${HS_STATE_DIR:-/var/lib/hs}
 detdir=$state/detached
 recdir=$state/recovering
@@ -118,6 +123,7 @@ if [ "$action" = detach ]; then
   fi
   echo "$member is detached: it is out of /bulk. Its files are at $ddir; give it back with: hs sys disk start attach $member"
   printf 'status\tdone\npath\t%s\n' "$ddir"
+  live_refresh_detach
   exit 0
 fi
 
@@ -129,4 +135,5 @@ fi
 rm -f "$mark"
 [ "$testmode" = 1 ] || bash "$bulkmount" >/dev/null 2>&1 || refuse "the mark is gone, but the disk could not be mounted into /bulk (look at: hs pool bulk)"
 echo "$member is back in /bulk."
+live_refresh_detach
 printf 'status\tdone\n'

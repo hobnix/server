@@ -14,6 +14,7 @@
 # No terminal (a job, a timer) rebuilds as before. Test knobs: HS_STATE_DIR, HS_MACHINE_FILE, HS_MACHINE_EXAMPLE, HS_GUIDED_TTY.
 set -euo pipefail
 . "$(dirname "$0")/lib/ui.sh"
+. "$(dirname "$0")/lib/live.sh"
 . "$(dirname "$0")/lib/locked.sh"
 . "$(dirname "$0")/lib/stamp.sh"
 
@@ -41,6 +42,7 @@ spin "Fetching the latest configuration" sudo -H -u "$owner" git -C "$repo" -c c
 }
 new=$(as_owner rev-parse HEAD)
 rev_now=$new
+live_refresh system-updates   # the pull is a fetch: the count of new changes starts again
 if [ "$old" = "$new" ]; then
   ok "Already the latest configuration"
 else

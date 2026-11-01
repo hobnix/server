@@ -19,7 +19,7 @@
   const pf = poll('/api/sys/ct/profiles', 60000);
   // name, network, description
   const profiles = $derived(rows(pf).map((r) => ({ name: r[0], net: r[1], desc: r[2] })));
-  const sh = poll('/api/sys/shares/overview', 60000);
+  const sh = poll('/api/sys/shares/overview', 60000, 'shares-overview');
   const shareNames = $derived(rows(sh).filter((r) => r[1] !== 'other').map((r) => r[0]));
   const bindKinds = [['shares', 'Share'], ['sensitive', 'Sensitive share'], ['fast', 'Fast volume']];
   const addBind = () => { binds = [...binds, { id: nextId++, kind: 'shares', name: '', path: '', ro: false }]; };

@@ -96,6 +96,19 @@ class Board(unittest.TestCase):
         c.close()
         return r.status, d
 
+    def test_board_reads_through_the_store(self):
+        asked = []
+
+        class Store(ws.StateStore):
+            def get(self, spec, argv, key, fresh=False):
+                asked.append(tuple(key))
+                return (200, {"rows": []}, 1, ()) if key[-1] == "stats" else (503, {"error": "refreshing"}, None, ())
+        self.app.store = Store()
+        s, d = self.get(fwd="192.168.1.5")
+        self.assertEqual(s, 200)
+        self.assertEqual(sorted(asked), [("services", "stats"), ("services", "tiles")])
+        self.assertEqual(d["tiles"], [])      # a non-200 read gives no tiles, not an error
+
     def test_not_web(self):
         self.set("dashboard", "homepage")
         self.assertEqual(self.get(fwd="192.168.1.5")[0], 404)

@@ -1,0 +1,7 @@
+date  = "2026-10-31"
+type  = "feature"
+title = "Storage pages use live state"
+docs  = "web-interface#live-state"
+body  = """
+Fixed Storage reads (disks, shares, pools, encryption, vault, file locations, temp disks) are served from Redis topics with SSE updates when live state is on. Off mode is unchanged.
+"""

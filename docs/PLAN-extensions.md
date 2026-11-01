@@ -67,6 +67,8 @@ words = "list"           # the sys row `sys ext <name> list`
 kind = "tsv"             # tsv | json | text
 ttl = 30                 # seconds the answer is reused
 args = ['^[a-z]{1,8}$']  # optional: one pattern per value the row takes (a <x> in its path)
+live = 30                # optional (10..3600, not with args): keep the answer in the live state, see below
+locked = "skip"          # with live: "skip" (default, not read while the storage is locked) or "run"
 
 [[web.changes]]          # POST /api/plan and /api/start with area "ext/<name>"
 patterns = ['^go$', '^[a-z]{1,8}$']          # an exact shape: one pattern per argument
@@ -82,7 +84,20 @@ package is on, with these checks. If any check fails the whole declaration of th
   `delete` or `purge`;
 - changes need the rows `sys ext <name> plan ...` and `sys ext <name> start ...` (the plan-then-start pattern of the web changes);
 - patterns are compiled and limited in length; kinds and ttl are range-checked; flags look like `--word`;
+- `live` is a whole number of seconds from 10 to 3600, only on a read without `args`; `locked` is `run` or `skip`; every word of such a read is
+  `a-z`, `0-9` or `-` (it becomes part of a topic name, at most 100 characters) and the topic name must not be used by another read or package;
 - reads always land under `ext/<name>/...` and changes under the area `ext/<name>`: a manifest cannot name a core read or another package.
+
+**Live reads (opt-in).** Without `live` a read is run by the web interface as before. With `live = <seconds>` and the live state on (`liveState`,
+capability `live-state`) the read gets the Redis topic `ext-<name>-<words joined by '-'>` (`games` + `list` gives `ext-games-list`): the collector
+`scripts/live-collect.py` runs `hs sys ext <name> <words>` every `<live>` seconds, at most 4 reads at once, and again at once when something
+asks for the group `ext-<name>`, which the web interface does after every change started in the area `ext/<name>` (an extension script that changes
+state outside the web interface can call `live_refresh @ext-<name>`). The page keeps its URL (`/api/sys/ext/<name>/<words>`); the browser
+learns the topic from the session answer and then follows the stream instead of polling. The capability of the topic is the package itself: while it
+is off the read is gone from the web interface (no URL, like any read of a package that is off) and the collector stops the topic at its next look. The collector looks at the packages every 60 s (and when the
+web interface asks for an unknown `ext-` topic), starts the thread of a new topic and stops that of a removed one. The read's output is stored in
+Redis in clear text, so a read must not print a secret (it must not do that for the web interface either). Games and Posters do not opt in yet.
+The code is scripts/hs_ext.py (`ext_read` validates, `ext_live_rows` lists), shared by web-serve.py and the collector.
 
 Core pages stay in `web/src/`; the Games and Posters pages read `/api/sys/ext/games/...` and `/api/sys/ext/posters/...`. The answers are the
 same bytes as before the move (the rows run the same scripts).

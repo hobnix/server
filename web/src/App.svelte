@@ -3,7 +3,7 @@
   import { session, logout, setAuthLostHandler } from './api.js';
   import { initLang } from './lang.svelte.js';
   import { clearPollCache } from './data.svelte.js';
-  import { startLive, stopLive } from './live.svelte.js';
+  import { startLive, stopLive, setTopics } from './live.svelte.js';
   import { ui } from './ui.svelte.js';
   import Shell from './shell/Shell.svelte';
   import Login from './Login.svelte';
@@ -23,7 +23,7 @@
   setAuthLostHandler(() => { stopLive(); clearPollCache(); user = null; });
 
   // the live stream runs while somebody is signed in and the server has it on
-  $effect(() => { if (user && ui.features.live) startLive(); else stopLive(); });
+  $effect(() => { setTopics(ui.features.topics ?? {}); if (user && ui.features.live) startLive(); else stopLive(); });
 
   onMount(async () => {
     if (kiosk) return;

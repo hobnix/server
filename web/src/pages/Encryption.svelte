@@ -9,8 +9,8 @@
   import { StatusDot } from '../ui/index.js';
 
   let { deck } = $props();    // the shared status document
-  const status = poll('/api/sys/status', 15000);
-  const list = poll('/api/sys/encryption/list', 15000);
+  const status = poll('/api/sys/status', 15000, 'status');
+  const list = poll('/api/sys/encryption/list', 15000, 'encryption');
 
   const enc = $derived.by(() => {
     const r = rows(status).find((x) => x[0] === 'encryption');

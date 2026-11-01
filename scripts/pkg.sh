@@ -21,7 +21,11 @@
 set -euo pipefail
 here=$(cd "$(dirname "$0")" && pwd)
 . "$here/lib/ui.sh"
+. "$here/lib/live.sh"
 py() { python3 -I "$here/pkg.py" "$@"; }
+# a change of the packages or the repositories changes what the web interface shows (Marketplace, repositories, recipes, parts): the live
+# state reads those topics again after it succeeded (a fetch always: one repository may have failed while the others moved); never fails it
+pkg_changed() { trap 'rc=$?; [ "$rc" -ne 0 ] || live_refresh pkg-market pkg-repos recipes-list parts-list; exit "$rc"' EXIT; }
 
 case "${1:-list}" in
   --list) py list --all ;;
@@ -45,6 +49,7 @@ case "${1:-list}" in
     fi ;;
   fetch)
     shift
+    trap 'live_refresh pkg-market pkg-repos recipes-list parts-list' EXIT
     out=$(py fetch "$@") || rc=$?
     { thead 'Repository' 'Release' 'Commit' 'Result'; printf '%s\n' "$out"; } | table
     exit "${rc:-0}" ;;
@@ -55,17 +60,20 @@ case "${1:-list}" in
     next_step "hs pkg install <name>" ;;
   install|remove)
     cmd=$1; shift
+    pkg_changed
     if res=$(py "$cmd" "$@"); then
       if [ -z "$res" ]; then ok "$(t 'Done.')"; else while IFS= read -r l; do ok "$l"; done <<<"$res"; fi
     else exit 1; fi ;;
   update)
-    shift; exec python3 -I "$here/pkg.py" update "$@" ;;
+    shift; pkg_changed
+    python3 -I "$here/pkg.py" update "$@" ;;
   repo)
     shift
     case "${1:-list}" in
       list)
         { thead 'Repository' 'Address' 'Signed' 'From'; py repo list; } | table ;;
       add)
+        pkg_changed
         name=${2:-}; url=${3:-}; [ -n "$name" ] && [ -n "$url" ] || { say "usage: hs pkg repo add <name> <url> (--key <allowed_signers file> | --unsigned) [--confirm-name <name>]"; exit 1; }
         shift 3; confirmed=""; extra=()
         while [ $# -gt 0 ]; do
@@ -99,7 +107,7 @@ case "${1:-list}" in
           fail "$(t 'Adding a repository needs a person at a terminal, or --confirm-name <name>.')"; exit 1
         fi
         py repo add "$name" "$url" "${extra[@]}" && ok "$(t 'Repository %s added.' "$name")" && next_step "hs pkg fetch $name" ;;
-      remove) shift; py repo remove "${1:-}" && ok "$(t 'Repository removed.')" ;;
+      remove) shift; pkg_changed; py repo remove "${1:-}" && ok "$(t 'Repository removed.')" ;;
       *) say "usage: hs pkg repo list | add <name> <url> (--key <file> | --unsigned) | remove <name>"; exit 1 ;;
     esac ;;
   *) say "usage: hs pkg list [--all] [--kind recipe|extension] | updates | validate | fetch | available | install | update | remove | repo"; exit 1 ;;

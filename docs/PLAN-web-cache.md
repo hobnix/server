@@ -110,5 +110,47 @@ Built:
 - Diagnostics is served by the `live` topic in Redis mode and keeps the old collected-reads view in off mode.
 - `live:down`, `live:stale:<topic>` and `live:never:<topic>` are surfaced by Health automatically (`scripts/health-check.sh` calls `live.sh check`).
 
-Not built: the remaining pages (they keep their polls and have no topic), the homeserver-deck, retiring the old collector (`reads-collect.sh`, the `reads` table).
+Storage slice (built, not run on hardware): 20 more topics (disks, pools, shares, encryption, vault, history, file locations, temp disks),
+see capabilities/live-state/NOTES.md. A `READS` entry may carry a topic mapping `{bulk, fast}`; `Reads.resolve` picks the concrete topic from
+the validated `pool` query per request (no match: no topic, so the read stays direct, also in Redis mode) and the warm-up skips only resolved
+string topics. `poll` accepts a topic function; shell scripts call `live_refresh` after successful quick changes; unlock refreshes all topics.
+
+Not built: the instances and services pages (they keep their polls and have no topic), the homeserver-deck, retiring the old collector (`reads-collect.sh`, the `reads` table).
 Retirement stays future work until no served read uses `Reads.collected`.
+
+## Refresh base (2026-11-01)
+
+Built, not run on hardware: topic columns `cap` and `groups`, group refresh (`@<group>`, `any`), bounded parallel reads (`HS_LIVE_PARALLEL`),
+a refresh hook in the dispatcher for `changes` rows and at job start, the old collector skipping topic reads in Redis mode, and the topic map in the
+session answer. Details: capabilities/live-state/NOTES.md. More topics follow in later slices.
+
+## System slice (2026-11-01)
+
+Built, not run on hardware: 17 topics for the dashboard and system shell (deck, jobs, health, hardware, ups, updates, config, setup, parts, nodes, ssh keys,
+expiry, notification channels and providers), explicit refreshes in health-check, ups, power-notice, jobs stop and the update fetch.
+Details: capabilities/live-state/NOTES.md.
+
+## Instances slice (2026-11-01)
+
+8 topics (`ct-list`, `ct-profiles`, `services-list|app|routes|local-routes|tiles|stats`), see capabilities/live-state/NOTES.md. `ct list` is read
+every 10 s (the pages polled 5 s) and refreshed by `@instances`/`@network` after a change. Not tested on hardware yet.
+
+## Apps slice (2026-11-01)
+
+3 topics (`pkg-market`, `pkg-repos`, `recipes-list`), see capabilities/live-state/NOTES.md. `pkg.sh` refreshes them (and `parts-list`) after a
+successful fetch, install, update, remove or repository change. Not tested on hardware yet.
+
+## Identity and backup slice (2026-11-01)
+
+6 topics (`users-list`, `users-groups`, `dc-state`, `backup-state`, `backup-overview`, `backup-shares`), see capabilities/live-state/NOTES.md. Users
+topics need capability `ad` (the script fails without a controller). `cache state` stays direct: the READS entry passes no share. Not tested on hardware yet.
+
+## Network slice (2026-11-01)
+
+8 topics (`gateway-*`, `dns-list`, `unifi-*`, `ports-list`, `remote-list`), see capabilities/live-state/NOTES.md. Not tested on hardware yet.
+
+## Extension slice (2026-11-01)
+
+A `[[web.reads]]` entry of an extension package without `args` may set `live = <seconds>` (and `locked = "run"|"skip"`) and gets the topic
+`ext-<name>-<words>` in the group `ext-<name>`; the collector rescans the packages every 60 s. Format and rules: docs/PLAN-extensions.md, code
+scripts/hs_ext.py. No existing read opts in. Not tested on hardware yet.

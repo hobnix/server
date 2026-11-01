@@ -1,6 +1,12 @@
 // helpers shared by the storage pages
 export const poolOf = (path) => (/\/storage\/fast/.test(path) ? 'fast' : 'bulk');
 
+// live-state topic for a fixed pool read, or undefined when the arguments are not a fixed topic
+export const poolTopic = (kind, pool) => {
+  if (!['info', 'members', 'state'].includes(kind) || !['bulk', 'fast'].includes(pool)) return undefined;
+  return `pool-${kind}-${pool}`;
+};
+
 // `pool info` lines: "key: value" facts, then free lines (the mirror tree or the SnapRAID disk lines)
 export function parseInfo(rowList) {
   const facts = {};

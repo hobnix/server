@@ -10,7 +10,7 @@
   const nameOk = $derived(/^[A-Za-z0-9][A-Za-z0-9._ -]{0,63}$/.test(name) && !/ $/.test(name));
   const taken = $derived(existing.some((g) => g.toLowerCase() === name.toLowerCase()));
 
-  const sh = poll('/api/sys/shares/overview', 60000);
+  const sh = poll('/api/sys/shares/overview', 60000, 'shares-overview');
   // name, kind, ... ; "other" rows are not shares of the file server
   const shares = $derived(rows(sh).filter((r) => r[1] !== 'other' && /^[a-z0-9][a-z0-9-]{0,40}$/.test(r[0])).map((r) => r[0]));
   const levelOf = (s) => levels[s] ?? 'none';

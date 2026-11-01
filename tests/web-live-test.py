@@ -7,6 +7,7 @@ import json
 import os
 import tempfile
 import threading
+import time
 import unittest
 
 here = os.path.dirname(os.path.abspath(__file__))
@@ -124,6 +125,15 @@ class OffMode(Base):
 
     def test_the_live_status_read_has_a_topic(self):
         self.assertEqual(ws.READS[("live", "status")]["topic"], "live")
+
+    def test_mapped_storage_reads_run_directly_in_off_mode(self):
+        for path, argv in (("monitor/disks", ("monitor", "disks")), ("shares/overview", ("shares", "overview")),
+                           ("pool/info?pool=bulk", ("pool", "info", "--pool", "bulk"))):
+            self.fake.calls.clear()
+            s, d, r = self.req("GET", "/api/sys/" + path, headers=self.ck)
+            self.assertEqual(s, 200, path)
+            self.assertEqual(len(self.fake.calls), 1, path)
+            self.assertEqual(self.fake.calls[0][:len(argv[:2])], argv[:2])
 
     def test_live_status_runs_directly_in_off_mode(self):
         s, d, r = self.req("GET", "/api/sys/live/status", headers=self.ck)
@@ -250,9 +260,9 @@ class RedisMode(RedisBase):
         self.assertEqual((s, json.loads(d)["rows"]), (200, [["old"]]))
 
     def test_reads_without_a_topic_still_run(self):
-        s, d, r = self.req("GET", "/api/sys/ct/list", headers=self.ck)
+        s, d, r = self.req("GET", "/api/sys/gateway/status", headers=self.ck)
         self.assertEqual(s, 200)
-        self.assertEqual(self.fake.calls, [("ct", "list")])
+        self.assertEqual(self.fake.calls, [("gateway", "status")])
 
     def test_warm_up_skips_topics(self):
         targets = [tuple(a[2]) for a in self.app.reads.warm_targets()]
@@ -285,12 +295,44 @@ class RedisMode(RedisBase):
         self.assertEqual((s, json.loads(d)["rows"]), (200, [["new"]]))
         self.assertEqual(self.redis.published, [("hs:v1:refresh", "live")])
 
-    def test_a_started_change_asks_for_everything(self):
+    def test_the_topic_map(self):
+        m = ws.live_topic_map()
+        self.assertEqual(m["/api/sys/status"], "status")
+        self.assertEqual(m["/api/sys/monitor/disks"], "monitor-disks")
+        self.assertEqual(m["/api/sys/pool/info?pool=bulk"], "pool-info-bulk")
+        self.assertEqual(m["/api/sys/pool/state?pool=fast"], "pool-state-fast")
+        self.assertNotIn("/api/sys/pool/disks", m)
+        self.assertNotIn("/api/sys/pool/info", m)
+        self.assertEqual(ws.features(self.cfg)["topics"], m)
+
+    def test_the_topic_map_is_empty_in_off_mode(self):
+        os.environ.pop("HS_WEB_LIVE")
+        self.assertEqual(ws.features(ws.Config())["topics"], {})
+
+    def test_cap_off_topic_reads_directly(self):
+        calls = []
+        self.app.store.caps["status"] = "nosuchcap"
+        self.app.store.off = type("O", (), {"get": lambda s, spec, argv, key, fresh=False: calls.append(key) or (200, {"d": 1}, 1, ())})()
+        ws.ls._CAP_CACHE["nosuchcap"] = (time.time(), False)
+        try:
+            self.assertEqual(self.app.store.get(ws.READS[("status",)], ["status"], ("status",))[0], 200)
+            self.assertEqual(calls, [("status",)])
+            self.assertEqual(self.redis.published, [])
+        finally:
+            ws.ls._CAP_CACHE.clear()
+
+    def test_area_refresh_messages(self):
+        self.assertEqual(ws.area_refresh("ct"), "@instances")
+        self.assertEqual(ws.area_refresh("pool"), "@disks")
+        self.assertEqual(ws.area_refresh("ext/games"), "@ext-games")
+        self.assertEqual(ws.area_refresh("nonsense"), "*")
+
+    def test_a_started_change_asks_for_its_group(self):
         ch = dict(self.ck, **{"X-CSRF-Token": self.csrf()})
         self.assertEqual(self.req("POST", "/api/plan", {"area": "ct", "args": ["web1", "restart"]}, ch)[0], 200)
         self.assertEqual(self.redis.published, [])
         self.assertEqual(self.req("POST", "/api/start", {"area": "ct", "args": ["web1", "restart"]}, ch)[0], 200)
-        self.assertEqual(self.redis.published, [("hs:v1:refresh", "*")])
+        self.assertEqual(self.redis.published, [("hs:v1:refresh", "@instances")])
 
     def test_login_facts_read_the_stored_status(self):
         self.redis.keys["hs:v1:status"] = doc("instances\t3\t4\n")
@@ -304,6 +346,218 @@ class RedisMode(RedisBase):
 
     def csrf(self):
         return json.loads(self.req("GET", "/api/session", headers=self.ck)[1])["csrf"]
+
+
+NO_ARG = {
+    ("monitor", "disks"): "monitor-disks", ("disk-health", "list"): "disk-health", ("state", "disks"): "disk-inventory",
+    ("disk", "marks"): "disk-marks", ("shares", "overview"): "shares-overview", ("shares", "deleted"): "shares-deleted",
+    ("shares", "principals"): "shares-principals", ("encryption", "list"): "encryption", ("vault", "list"): "vault-list",
+    ("vault", "usage"): "vault-usage", ("vault", "uses"): "vault-uses", ("state", "history"): "state-history",
+    ("fm", "locations"): "fm-locations", ("temp-disk", "raw"): "temp-disks",
+}
+SYSTEM = {
+    ("deck",): "deck", ("jobs", "running"): "jobs-running", ("jobs", "list"): "jobs-list", ("health", "next"): "health-next",
+    ("health", "list"): "health-list", ("hardware",): "hardware", ("ups", "status"): "ups", ("system", "updates"): "system-updates",
+    ("system", "config"): "system-config", ("setup", "list"): "setup-list", ("config", "list"): "config-list",
+    ("parts", "list"): "parts-list", ("node", "list"): "node-list", ("ssh-key", "list"): "ssh-keys", ("expiry", "list"): "expiry",
+    ("notify", "channels"): "notify-channels", ("notify", "providers"): "notify-providers",
+}
+INSTANCES = {
+    ("ct", "list"): "ct-list", ("ct", "profiles"): "ct-profiles", ("services", "list"): "services-list", ("services", "app"): "services-app",
+    ("services", "routes"): "services-routes", ("services", "local-routes"): "services-local-routes",
+    ("services", "tiles"): "services-tiles", ("services", "stats"): "services-stats",
+}
+
+APPS = {("pkg", "market"): "pkg-market", ("pkg", "repos"): "pkg-repos", ("recipes", "list"): "recipes-list"}
+
+
+NETWORK = {
+    ("gateway", "status"): "gateway-status", ("gateway", "routes"): "gateway-routes", ("gateway", "health"): "gateway-health",
+    ("dns", "list"): "dns-list", ("unifi", "networks"): "unifi-networks", ("unifi", "clients"): "unifi-clients",
+    ("ports", "list"): "ports-list", ("remote", "list"): "remote-list",
+}
+
+
+IDENTITY = {
+    ("users", "list"): "users-list", ("users", "groups"): "users-groups", ("dc", "state"): "dc-state",
+    ("backup", "state"): "backup-state", ("backup", "overview"): "backup-overview", ("backup", "shares"): "backup-shares",
+}
+DIRECT_IDENTITY = [("cache", "state"), ("users", "access"), ("users", "group-access"), ("users", "details"), ("users", "group-details"),
+                   ("backup", "find"), ("backup", "snapshots")]
+
+
+class StorageTopics(RedisBase):
+    def test_web_areas_that_change_apps_ask_for_groups_that_wake_the_app_topics(self):
+        info = ws.ls.topic_info()
+        # pkg (install, update, remove, fetch, repo), parts and system (update, rebuild) change the package tree; recipes change instances
+        for area, topics in (("pkg", ("pkg-market", "pkg-repos", "recipes-list")), ("parts", ("pkg-market", "recipes-list")),
+                             ("system", ("pkg-market", "recipes-list")), ("recipes", ("pkg-market", "recipes-list")),
+                             ("ct", ("pkg-market", "recipes-list"))):
+            g = ws.area_refresh(area)[1:]
+            for n in topics:
+                self.assertTrue(g in info[n]["groups"] or "any" in info[n]["groups"], (area, n))
+
+    def test_every_network_read_has_its_topic(self):
+        known = {r[0] for r in ws.ls.topics()}
+        for words, topic in NETWORK.items():
+            self.assertEqual(ws.READS[words]["topic"], topic, words)
+            self.assertIn(topic, known)
+            self.assertEqual(ws.live_topic_map()["/api/sys/" + "/".join(words)], topic)
+
+    def test_web_areas_that_change_the_network_ask_for_groups_that_wake_the_network_topics(self):
+        info = ws.ls.topic_info()
+        net = set(NETWORK) - {("remote", "list")}
+        for area, topics in (("gateway", net), ("routes", net), ("net", net), ("ct", net - {("unifi", "networks")}),
+                             ("system", set(NETWORK)), ("config", set(NETWORK)), ("shares", {("remote", "list")})):
+            g = ws.area_refresh(area)[1:]
+            for w in topics:
+                n = NETWORK[w]
+                self.assertTrue(g in info[n]["groups"] or "any" in info[n]["groups"], (area, n))
+
+    def test_every_identity_and_backup_read_has_its_topic(self):
+        known = {r[0] for r in ws.ls.topics()}
+        for words, topic in IDENTITY.items():
+            self.assertEqual(ws.READS[words]["topic"], topic, words)
+            self.assertIn(topic, known)
+            self.assertEqual(ws.live_topic_map()["/api/sys/" + "/".join(words)], topic)
+        for words in DIRECT_IDENTITY:
+            self.assertNotIn("topic", ws.READS[words], words)
+            self.assertNotIn("/api/sys/" + "/".join(words), ws.live_topic_map())
+
+    def test_web_areas_that_change_identity_or_backup_ask_for_groups_that_wake_the_topics(self):
+        info = ws.ls.topic_info()
+        ids = {("users", "list"), ("users", "groups"), ("dc", "state")}
+        bk = {w for w in IDENTITY if w[0] == "backup"}
+        for area, topics in (("users", ids | {("backup", "state")}), ("dc", ids), ("admin", ids), ("backup", bk), ("ct", set(IDENTITY)),
+                             ("recipes", set(IDENTITY)), ("shares", {w for w in IDENTITY if w != ("dc", "state")}), ("pool", bk),
+                             ("secrets", {("dc", "state"), ("backup", "state")}), ("system", set(IDENTITY)), ("config", set(IDENTITY))):
+            g = ws.area_refresh(area)[1:]
+            for w in topics:
+                n = IDENTITY[w]
+                self.assertTrue(g in info[n]["groups"] or "any" in info[n]["groups"], (area, n))
+
+    def test_every_apps_read_has_its_topic(self):
+        known = {r[0] for r in ws.ls.topics()}
+        for words, topic in APPS.items():
+            self.assertEqual(ws.READS[words]["topic"], topic, words)
+            self.assertIn(topic, known)
+            self.assertEqual(ws.live_topic_map()["/api/sys/" + "/".join(words)], topic)
+
+    def test_web_areas_of_instances_and_services_ask_for_groups_that_wake_them(self):
+        info = ws.ls.topic_info()
+        for area, group in (("ct", "@instances"), ("recipes", "@instances"), ("routes", "@network"), ("net", "@network"),
+                            ("gateway", "@network")):
+            self.assertEqual(ws.area_refresh(area), group, area)
+            g = group[1:]
+            for n in ("ct-list", "services-list", "services-app", "services-routes", "services-tiles"):
+                self.assertTrue(g in info[n]["groups"], (area, n))
+
+    def test_every_instance_read_has_its_topic(self):
+        self.assertEqual(len(INSTANCES), 8)
+        known = {r[0] for r in ws.ls.topics()}
+        for words, topic in INSTANCES.items():
+            self.assertEqual(ws.READS[words]["topic"], topic, words)
+            self.assertIn(topic, known)
+            self.assertEqual(ws.live_topic_map()["/api/sys/" + "/".join(words)], topic)
+
+    def with_caps(self, on):
+        real = ws.ls.cap_on
+        ws.ls.cap_on = lambda name: True if name is None else on
+        self.addCleanup(setattr, ws.ls, "cap_on", real)
+
+    def test_ct_list_comes_from_its_key(self):
+        self.with_caps(True)
+        self.redis.keys["hs:v1:ct-list"] = doc("web\trunning\n")
+        s, d, r = self.req("GET", "/api/sys/ct/list", headers=self.ck)
+        self.assertEqual((s, json.loads(d)["rows"]), (200, [["web", "running"]]))
+        self.assertEqual(self.fake.calls, [])
+
+    def test_ct_list_without_the_incus_capability_is_read_directly(self):
+        self.with_caps(False)
+        self.redis.keys["hs:v1:ct-list"] = doc("web\trunning\n")
+        s, d, r = self.req("GET", "/api/sys/ct/list", headers=self.ck)
+        self.assertEqual(s, 200)
+        self.assertEqual(self.fake.calls, [("ct", "list")])
+
+    def test_every_no_argument_read_has_its_topic(self):
+        for words, topic in NO_ARG.items():
+            self.assertEqual(ws.READS[words]["topic"], topic, words)
+
+    def test_every_system_read_has_its_topic(self):
+        self.assertEqual(len(SYSTEM), 17)
+        known = {r[0] for r in ws.ls.topics()}
+        for words, topic in SYSTEM.items():
+            self.assertEqual(ws.READS[words]["topic"], topic, words)
+            self.assertIn(topic, known)
+            self.assertEqual(ws.live_topic_map()["/api/sys/" + "/".join(words)], topic)
+
+    def test_the_pool_reads_map_exactly_bulk_and_fast(self):
+        for kind in ("info", "members", "state"):
+            self.assertEqual(ws.READS[("pool", kind)]["topic"],
+                             {"bulk": "pool-%s-bulk" % kind, "fast": "pool-%s-fast" % kind})
+        self.assertNotIn("topic", ws.READS[("pool", "disks")])
+
+    def test_resolution_picks_the_topic_per_pool(self):
+        for kind in ("info", "members", "state"):
+            for pool in ("bulk", "fast"):
+                spec, argv, key = self.app.reads.resolve(["pool", kind], {"pool": [pool]})
+                self.assertEqual(spec["topic"], "pool-%s-%s" % (kind, pool))
+            self.assertNotIn("topic", self.app.reads.resolve(["pool", kind], {})[0])
+            self.assertNotIn("topic", self.app.reads.resolve(["pool", kind], {"pool": ["archive"]})[0])
+            self.assertIsInstance(ws.READS[("pool", kind)]["topic"], dict)      # the global entry is never changed
+
+    def test_fixed_pool_read_uses_its_own_key_and_no_process(self):
+        self.redis.keys["hs:v1:pool-info-fast"] = doc("fast\t1\n")
+        self.redis.keys["hs:v1:pool-info-bulk"] = doc("bulk\t2\n")
+        s, d, r = self.req("GET", "/api/sys/pool/info?pool=fast", headers=self.ck)
+        self.assertEqual((s, json.loads(d)["rows"]), (200, [["fast", "1"]]))
+        self.assertEqual(self.fake.calls, [])
+
+    def test_no_argument_storage_read_comes_from_its_key(self):
+        self.redis.keys["hs:v1:shares-overview"] = doc("s\tx\n")
+        s, d, r = self.req("GET", "/api/sys/shares/overview", headers=self.ck)
+        self.assertEqual((s, json.loads(d)["rows"]), (200, [["s", "x"]]))
+        self.assertEqual(self.fake.calls, [])
+
+    def test_fresh_publishes_the_fixed_pool_topic(self):
+        self.redis.keys["hs:v1:pool-state-bulk"] = doc("old\n", gen=1)
+        self.redis.on_publish = lambda t: self.redis.keys.__setitem__("hs:v1:pool-state-bulk", doc("new\n", gen=2, age=0))
+        s, d, r = self.req("GET", "/api/sys/pool/state?pool=bulk&fresh=1", headers=self.ck)
+        self.assertEqual((s, json.loads(d)["rows"]), (200, [["new"]]))
+        self.assertEqual(self.redis.published, [("hs:v1:refresh", "pool-state-bulk")])
+
+    def test_redis_down_is_503_for_a_fixed_pool(self):
+        self.redis.down = True
+        s, d, r = self.req("GET", "/api/sys/pool/members?pool=bulk", headers=self.ck)
+        self.assertEqual((s, json.loads(d)["error"]), (503, "state service down"))
+        self.assertEqual(self.fake.calls, [])
+
+    def test_arbitrary_and_no_pool_reads_still_run_directly(self):
+        for q in ("", "?pool=archive"):
+            self.fake.calls.clear()
+            s, d, r = self.req("GET", "/api/sys/pool/info" + q, headers=self.ck)
+            self.assertEqual(s, 200, q)
+            self.assertEqual(len(self.fake.calls), 1, q)
+            self.assertEqual(self.fake.calls[0][:2], ("pool", "info"))
+            if q:
+                self.assertIn("archive", self.fake.calls[0])
+        self.assertEqual(self.redis.published, [])
+
+    def test_warm_targets_keep_direct_pool_reads_only(self):
+        for kind in ("info", "members", "state"):
+            for pool in ("bulk", "fast"):
+                hit = self.app.reads.resolve(["pool", kind], {"pool": [pool]})
+                self.assertTrue(isinstance(hit[0].get("topic"), str))
+        targets = [tuple(a[1]) for a in self.app.reads.warm_targets()]
+        for words in list(NO_ARG) + list(SYSTEM):
+            self.assertNotIn(words, targets)
+        for t in targets:
+            self.assertFalse(len(t) >= 4 and t[:2] == ("pool", "info") and t[-1] in ("bulk", "fast"), t)
+
+    def test_reconnect_announces_a_new_storage_topic(self):
+        topics = [r[0] for r in ws.ls.topics()]
+        self.assertIn("pool-info-bulk", topics)
+        self.assertIn("fm-locations", topics)
 
 
 class Hub(RedisBase):

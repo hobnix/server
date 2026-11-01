@@ -35,8 +35,8 @@
   $effect(() => { const n = takeSelection('shares'); if (n) { selName = n; tab = 'info'; } });
   const locked = $derived(!!deck?.data?.locked);
 
-  const overview = poll('/api/sys/shares/overview', 30000);
-  const deleted = poll('/api/sys/shares/deleted', 60000);
+  const overview = poll('/api/sys/shares/overview', 30000, 'shares-overview');
+  const deleted = poll('/api/sys/shares/deleted', 60000, 'shares-deleted');
   const cts = poll('/api/sys/ct/list', 30000);
 
   // name, kind, path, cache, size_bytes, measured, backup, disks, mounted_in (name(ro|rw), comma separated)

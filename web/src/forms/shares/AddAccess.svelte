@@ -6,7 +6,7 @@
   // taken: the SIDs that already have an entry
   let { share, taken = [], onclose, ondone = () => {} } = $props();
 
-  const pr = poll('/api/sys/shares/principals', 60000);
+  const pr = poll('/api/sys/shares/principals', 60000, 'shares-principals');
   // sid, name, user|group
   const people = $derived(rows(pr).map((r) => ({ sid: r[0], name: r[1], type: r[2] })).filter((p) => !taken.includes(p.sid)));
 

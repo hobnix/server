@@ -131,6 +131,7 @@ in
     script = ''
       bash ${scripts}/sync-shares.sh
       bash ${scripts}/manage-shares.sh --measure >/dev/null
+      bash ${scripts}/live.sh refresh @shares
     '';
     startAt = "03:35";
     onFailure = notifyFailure;

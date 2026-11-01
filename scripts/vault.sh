@@ -23,6 +23,7 @@ set -euo pipefail
 here=$(dirname "$0")
 . "$here/lib/ui.sh"
 . "$here/lib/vault.sh"
+. "$here/lib/live.sh" 2>/dev/null || true
 
 usage() {
   say "usage: hs vault status            is the vault open, what is in it"
@@ -198,6 +199,7 @@ cmd_init() {
   vault_create "$dev" || fail "The vault could not be made (the passphrase, or the disk)."
   ok "$(t 'Vault made on %s and open at %s' "$dev" "$vault_dir")"
   if vault_header_backup; then ok "$(t 'LUKS header saved in %s' "$vault_header_file")"; else warn "The LUKS header could not be saved: run hs vault header-backup"; fi
+  live_refresh status encryption vault-list vault-usage vault-uses || true
   next_step "hs vault move"
 }
 
@@ -208,6 +210,7 @@ cmd_open() {
   crypt_get_pass || fail "No passphrase."
   vault_open || fail "The vault did not open."
   ok "Vault open."
+  live_refresh status encryption vault-list vault-usage vault-uses || true
 }
 
 cmd_close() {
@@ -223,6 +226,7 @@ cmd_close() {
   ask_yes "$yes" "Close the vault? Everything that needs its secrets waits until hs unlock."
   vault_close || fail "The vault could not be closed."
   ok "Vault closed."
+  live_refresh status encryption vault-list vault-usage vault-uses || true
 }
 
 # ── move and bind ──
@@ -252,6 +256,7 @@ cmd_move() {
     esac
   done
   if [ "$moved" -eq 0 ]; then note "Nothing new to move."; fi
+  if [ "$moved" -gt 0 ]; then live_refresh status encryption vault-list vault-usage vault-uses || true; fi
 }
 
 cmd_header_backup() {
@@ -259,6 +264,7 @@ cmd_header_backup() {
   vault_header_backup || fail "The LUKS header could not be saved."
   ok "$(t 'LUKS header saved in %s' "$vault_header_file")"
   note "It is part of the host backup. Keep a copy elsewhere too: with the header and the passphrase the vault opens even when the partition is damaged."
+  live_refresh status encryption vault-list vault-usage vault-uses || true
 }
 
 cmd_bind() {
@@ -275,6 +281,7 @@ cmd_bind() {
     3) note "$(t '%s is in the vault already' "${pos[0]}")" ;;
     *) fail "$(t 'Could not move %s' "${pos[1]}")" ;;
   esac
+  if [ "$rc" -eq 0 ]; then live_refresh status encryption vault-list vault-usage vault-uses || true; fi
 }
 
 cmd=${1:-status}

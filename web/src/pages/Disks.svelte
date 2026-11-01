@@ -32,16 +32,16 @@
   $effect(() => { const n = takeSelection('disks'); if (n) { selName = n; tab = 'info'; } });
 
   const locked = $derived(!!deck?.data?.locked);
-  const mon = poll('/api/sys/monitor/disks', 30000);
-  const health = poll('/api/sys/disk-health/list', 60000);
-  const inv = poll('/api/sys/state/disks', 30000);
+  const mon = poll('/api/sys/monitor/disks', 30000, 'monitor-disks');
+  const health = poll('/api/sys/disk-health/list', 60000, 'disk-health');
+  const inv = poll('/api/sys/state/disks', 30000, 'disk-inventory');
   // data disks that are out of the pool by hand: member, detached | recovering, since (epoch)
-  const marks = poll('/api/sys/disk/marks', 15000);
+  const marks = poll('/api/sys/disk/marks', 15000, 'disk-marks');
   const markOf = $derived(Object.fromEntries(rows(marks).map((r) => [r[0], r[1]])));
-  const poolInfo = poll('/api/sys/pool/info?pool=bulk', 60000);
+  const poolInfo = poll('/api/sys/pool/info?pool=bulk', 60000, 'pool-info-bulk');
   const bulkSnap = $derived(rows(poolInfo).some((r) => /SnapRAID/i.test(r[0] ?? '')));
-  const membBulk = poll('/api/sys/pool/members?pool=bulk', 30000);
-  const membFast = poll('/api/sys/pool/members?pool=fast', 30000);
+  const membBulk = poll('/api/sys/pool/members?pool=bulk', 30000, 'pool-members-bulk');
+  const membFast = poll('/api/sys/pool/members?pool=fast', 30000, 'pool-members-fast');
 
   // monitor disks: name, bytes, SSD/HDD, role, temp, health, hours, reallocated, pending, crc, model+serial, free, power, filesystem (xfs, ext4, zfs, ... / none / -)
   const all = $derived(rows(mon).map((r) => ({

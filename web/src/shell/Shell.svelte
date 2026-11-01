@@ -35,12 +35,12 @@
 
   // The right-hand notes of the tree rows. Each is read only where the answer exists; storage rows stay quiet while it is locked.
   const status = poll('/api/sys/status', 30000);
-  const disks = poll(() => (locked ? '' : '/api/sys/monitor/disks'), 30000);
-  const shares = poll(() => (locked ? '' : '/api/sys/shares/overview'), 30000);
+  const disks = poll(() => (locked ? '' : '/api/sys/monitor/disks'), 30000, 'monitor-disks');
+  const shares = poll(() => (locked ? '' : '/api/sys/shares/overview'), 30000, 'shares-overview');
   const cts = poll(() => (locked ? '' : '/api/sys/ct/list'), 30000);
   const users = poll(() => (locked ? '' : '/api/sys/users/list'), 60000);
   const groups = poll(() => (locked ? '' : '/api/sys/users/groups'), 60000);
-  const vault = poll(() => (locked ? '' : '/api/sys/vault/list'), 60000);
+  const vault = poll(() => (locked ? '' : '/api/sys/vault/list'), 60000, 'vault-list');
 
   // once the deck says the storage is open: read what the main pages show first, while the browser is idle (the answers land in poll()'s cache)
   let prefetched = false;

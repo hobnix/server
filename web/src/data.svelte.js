@@ -39,15 +39,17 @@ export async function refresh(paths) {
   }
 }
 
-// topic: the name of the server's live state for this read (Summary: 'status'); while the live stream is open the read follows it instead of a timer.
+// topic: the name of the server's live state for this read (Summary: 'status'); it may be a function resolved like path. While the live
+// stream is open the read follows it instead of a timer.
 export function poll(path, ms, topic) {
   const st = $state({ data: null, error: null, loaded: false });
   $effect(() => {
     sync.n;   // a refresh re-runs this effect: the new answer is in the cache
     const p = typeof path === 'function' ? path() : path;
     if (!p) return;
-    const liveOpen = !!topic && live.open;
-    if (topic) live.gen[topic];   // a change of the topic re-runs this effect, which reads again
+    const t = (typeof topic === 'function' ? topic() : topic) ?? live.topics[p];
+    const liveOpen = !!t && live.open;
+    if (t) live.gen[t];   // a change of the topic re-runs this effect, which reads again
     if (cache.has(p)) { st.data = cache.get(p); st.error = null; st.loaded = true; }
     let alive = true;
     let timer;
@@ -63,7 +65,7 @@ export function poll(path, ms, topic) {
       }
       if (alive) {
         st.loaded = true;
-        const wait = nextDelay(topic, liveOpen, ms, err);
+        const wait = nextDelay(t, liveOpen, ms, err);
         if (wait !== null) timer = setTimeout(run, wait);
       }
     };

@@ -7,6 +7,8 @@
 set -euo pipefail
 here=$(dirname "$0")
 . "$here/lib/ui.sh"
+. "$(dirname "$0")/lib/live.sh"
+live_refresh_shares() { live_refresh status shares-overview shares-deleted fm-locations pool-info-bulk; }
 zfs=${HS_ZFS:-zfs}
 pool=${HS_BULK_POOL:-bulk}
 
@@ -48,6 +50,7 @@ case "$action" in
   snapshot)
     [ -n "$name" ] || name="manual-$(date +%Y%m%d-%H%M%S)"
     "$zfs" snapshot "$ds@$name"
+    live_refresh_shares
     ok "$(t 'Snapshot %s taken.' "$ds@$name")"
     note "$(t 'List them: hs share %s snapshots. Go back to one: hs share %s rollback %s' "$share" "$share" "$name")" ;;
   snapshots)
@@ -77,6 +80,7 @@ case "$action" in
     fi
     # shellcheck disable=SC2086
     "$zfs" rollback $extra "$ds@$name"
+    live_refresh_shares
     ok "$(t 'The share is back at %s.' "$name")" ;;
   *) usage ;;
 esac

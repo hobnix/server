@@ -5,6 +5,7 @@
   // Links open it pre-filled: /storage/files?left=disk:data-04&path=/shares/x&right=pool:bulk[&rpath=/y][&select=<name>].
   import { onDestroy, untrack } from 'svelte';
   import { tip } from '../ui/tooltip.svelte.js';
+  import { live } from '../live.svelte.js';
   import PageHeader from '../shell/PageHeader.svelte';
   import PageState from '../shell/PageState.svelte';
   import Banner from '../ui/Banner.svelte';
@@ -25,11 +26,17 @@
   const fm = new Fm();
   let root;
   // nothing is read while the storage is locked (the frame shows the lock banner), and not before the status document has said so
-  let started = false;
+  let started = $state(false);
   $effect(() => {
     if (started || !deck?.loaded || deck.data?.locked) return;
     started = true;
     untrack(() => fm.init(route.query));
+  });
+  // while live state is on, refresh only the location list when the server publishes a change
+  $effect(() => {
+    if (!started || !live.open) return;
+    live.gen['fm-locations'];
+    untrack(() => fm.refreshLocs());
   });
   onDestroy(() => fm.destroy());
 

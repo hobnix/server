@@ -1,0 +1,7 @@
+date  = "2026-11-01"
+type  = "feature"
+title = "Extension reads can follow the live state"
+docs  = "web-interface#live-state"
+body  = """
+An extension package can now mark a web read with `live = <seconds>` in its capability.toml. With live state on, that read is kept in Redis and pushed to the browser, and changes made through the package's web area refresh it at once. Without the key nothing changes, and Games and Posters are not switched over yet.
+"""

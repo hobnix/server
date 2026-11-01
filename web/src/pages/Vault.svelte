@@ -10,10 +10,10 @@
   import { StatusDot, Banner } from '../ui/index.js';
 
   let { deck } = $props();
-  const list = poll('/api/sys/vault/list', 30000);
-  const status = poll('/api/sys/status', 15000);
-  const usage = poll('/api/sys/vault/usage', 30000);
-  const uses = poll('/api/sys/vault/uses', 60000);
+  const list = poll('/api/sys/vault/list', 30000, 'vault-list');
+  const status = poll('/api/sys/status', 15000, 'status');
+  const usage = poll('/api/sys/vault/usage', 30000, 'vault-usage');
+  const uses = poll('/api/sys/vault/uses', 60000, 'vault-uses');
 
   // `sys vault usage`: key/value lines (state, device, size, used, free in bytes, header-backup-days); `sys vault uses`: item name, who uses it
   const u = $derived(Object.fromEntries(rows(usage).map((r) => [r[0], r[1]])));

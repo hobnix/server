@@ -7,6 +7,8 @@
 set -euo pipefail
 here=$(dirname "$0")
 . "$here/lib/ui.sh"
+. "$(dirname "$0")/lib/live.sh"
+live_refresh_shares() { live_refresh status shares-overview shares-deleted fm-locations pool-info-bulk; }
 ms=${HS_MANAGE_SHARES:-$here/manage-shares.sh}
 
 usage() {
@@ -55,6 +57,7 @@ if [ ${#pairs[@]} -gt 0 ]; then
     sets+=("$sid=$level")
   done
   apply "${sets[@]}"
+  $dry || live_refresh_shares
   ok "$(t 'Permissions of %s changed.' "$share")"
   exit 0
 fi
@@ -69,7 +72,7 @@ while true; do
   name=${who% (*}
   sid=$(awk -F'\t' -v n="$name" '$2 == n { print $1; exit }' <<<"$principals")
   level=$(choose "$(t 'Level for %s' "$name")" none read write full) || break
-  apply "$sid=$level" && ok "$(t '%s: %s' "$name" "$level")"
+  apply "$sid=$level" && { $dry || live_refresh_shares; ok "$(t '%s: %s' "$name" "$level")"; }
   confirm "Change another entry?" || break
 done
 note "$(t 'Same again later with: hs share %s perm <name>=<level>' "$share")"

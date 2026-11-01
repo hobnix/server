@@ -22,6 +22,8 @@ set -euo pipefail
 here=$(dirname "$0")
 . "$here/lib/ui.sh"
 . "$here/lib/bulkpath.sh"
+. "$(dirname "$0")/lib/live.sh"
+live_refresh_shares() { live_refresh status shares-overview shares-deleted fm-locations pool-info-bulk; }
 
 usage() { say "usage: hs share <share> perm [--plain]"; exit 1; }
 
@@ -202,7 +204,7 @@ case "${1:-}" in
     principals
     exit 0 ;;
   --measure)
-    if [ "$bulk_type" = snapraid ]; then measure "${2:-}"; else note "Nothing to measure: on ZFS the sizes are always current."; fi
+    if [ "$bulk_type" = snapraid ]; then { measure "${2:-}"; live_refresh_shares; }; else note "Nothing to measure: on ZFS the sizes are always current."; fi
     exit 0 ;;
 esac
 
@@ -305,6 +307,7 @@ rename_share() {   # rename_share <old> <new>
     note "$(t '%s: mount now points at %s' "$ct" "$newpath")"
     spin "$(t 'Restarting %s' "$ct")" incus restart "$ct" || warn "$(t 'could not restart %s, do it by hand' "$ct")"
   done
+  live_refresh_shares
   ok "$(t "Done: '%s' is now '%s'. Share paths and shortcuts that used the old name must be updated on the PCs." "$old" "$new")"
 }
 

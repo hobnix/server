@@ -243,6 +243,8 @@ cmd_unlock() {
   rm -f "$crypt_locked"
   start_units
   ok "Unlocked."
+  # live state: refill the topics that were skipped while locked
+  if [ -f "$here/lib/live.sh" ]; then . "$here/lib/live.sh"; live_refresh --all >/dev/null 2>&1 || true; fi
   # tell the owner (low priority: it also shows when somebody else unlocked); never makes the unlock fail
   bash "$here/notify.sh" --category ok "$(hostname): unlocked" "The vault and the encrypted disks are open, services are starting." low || true
 }
