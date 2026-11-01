@@ -4,6 +4,7 @@
 # args: [--list | --running | --show <unit> | --log <unit> [N] | tail <unit> [N] | stop <unit> | <unit> [--follow]]
 set -euo pipefail
 . "$(dirname "$0")/lib/ui.sh"
+. "$(dirname "$0")/lib/live.sh"
 
 # --list: one line per timer, tab separated:
 #   unit (the service, e.g. hs-backup.service)  description  next run  last run  result (ok | failed | never)
@@ -210,7 +211,7 @@ case "${1:-}" in
   --show) [ $# -ge 2 ] || exit 1; show_unit "$2" ;;
   --log) [ $# -ge 2 ] || exit 1; log_unit "$2" "${3:-200}" ;;
   tail) [ $# -ge 2 ] || exit 1; tail_job "$2" "${3:-0}" ;;
-  stop) [ $# -ge 2 ] || { say "usage: hs job stop <unit>"; exit 1; }; systemctl stop "$2"; ok "$(t 'Stopped %s' "$2")" ;;
+  stop) [ $# -ge 2 ] || { say "usage: hs job stop <unit>"; exit 1; }; systemctl stop "$2"; live_refresh @jobs; ok "$(t 'Stopped %s' "$2")" ;;
   -h|--help) say "usage: hs job list | running | log <unit> | follow <unit> | stop <unit>"; exit 0 ;;
   --follow) follow "$(pick_running)" ;;
   *) if [ "${2:-}" = --follow ]; then follow "$1"; else journalctl -u "$1" -n 40 --no-pager | nosudo | trail; fi ;;

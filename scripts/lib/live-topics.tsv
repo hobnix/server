@@ -31,3 +31,20 @@ vault-uses	vault uses	60	run	-	security
 state-history	state history	30	run	-	disks
 fm-locations	fm locations	15	run	-	shares
 temp-disks	temp-disk raw	30	run	-	disks,shares
+deck	deck	5	run	-	any
+jobs-running	jobs running	10	run	-	any,jobs
+jobs-list	jobs list	30	run	-	jobs,system
+health-next	health next	30	run	-	any
+health-list	health list	60	run	-	system
+hardware	hardware	15	run	-	system
+ups	ups status	30	run	-	system
+system-updates	system updates	60	skip	-	system
+system-config	system config	300	run	-	system,network
+setup-list	setup list	30	run	-	any
+config-list	config list	60	run	-	system,network,security,backup
+parts-list	parts list	60	run	-	system
+node-list	node list	30	run	-	network,system
+ssh-keys	ssh-key list	60	run	-	security
+expiry	expiry list	300	run	-	system
+notify-channels	notify channels	60	run	notifications	system
+notify-providers	notify providers	3600	run	notifications	-

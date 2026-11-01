@@ -18,7 +18,7 @@ Rules:
 - The `group` option of `services.redis.servers.<n>` is unverified in the pinned nixpkgs; module.nix does not use it. The socket group is
   `redis-hobnix`; hs-web and hs-live get it through SupplementaryGroups.
 
-Topics (22, including `status` and `live`): see `scripts/lib/live-topics.tsv`. Storage fixed reads now have their own topics, including
+Topics (39, including `status` and `live`): see `scripts/lib/live-topics.tsv`. Storage fixed reads now have their own topics, including
 six fixed-pool topics (`pool-info-bulk`, `pool-info-fast`, `pool-members-bulk`, `pool-members-fast`, `pool-state-bulk`,
 `pool-state-fast`) whose words contain the literal pool name. The web resolves those per request from the validated
 `pool=bulk|fast` query; any other pool argument stays a direct read. Lock mode is `skip` for mounted-pool/Samba reads
@@ -40,3 +40,9 @@ Refresh base (built, not run on hardware):
 - **Old collector:** in Redis mode (the live socket exists) `reads-collect.sh` skips a read whose words equal the words of a topic.
 - **Topic map:** the session answer carries `features.topics` (read URL -> topic, empty in off mode); `poll(path, ms)` uses it when it has no
   topic argument.
+
+System slice (built, not run on hardware): 17 more topics for the Summary, top bar, Health, Settings and Jobs: `deck`, `jobs-running`, `jobs-list`,
+`health-next`, `health-list`, `hardware`, `ups`, `system-updates` (skip while locked), `system-config`, `setup-list`, `config-list`, `parts-list`,
+`node-list`, `ssh-keys`, `expiry`, `notify-channels`, `notify-providers` (the last two need the `notifications` capability). Explicit refreshes
+outside the dispatcher: `health-check.sh` (real run: `health-next health-list status deck`), `ups.sh event`
+(`ups deck status`), `jobs.sh stop` (`@jobs`), `update.sh` and `update-preview.sh` after the fetch (`system-updates`).

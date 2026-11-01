@@ -149,6 +149,20 @@ class Groups(unittest.TestCase):
         c.refresh("@nothing")
         self.assertEqual(self.set_of(c), ["b"])
 
+    def test_system_groups_wake_the_system_topics(self):
+        rows, info = ls.topics(), ls.topic_info()
+        c = lc.Collector(FakeResp(), run=lambda w: (0, "x", ""), topic_rows=rows, topic_info=info)
+        c.refresh("@jobs")
+        woken = self.set_of(c)
+        for t in ("jobs-running", "jobs-list", "deck", "status", "live", "health-next", "setup-list"):
+            self.assertIn(t, woken)
+        for t in ("ups", "hardware", "ssh-keys", "pool-info-bulk"):
+            self.assertNotIn(t, woken)
+        c = lc.Collector(FakeResp(), run=lambda w: (0, "x", ""), topic_rows=rows, topic_info=info)
+        c.refresh("@security")
+        self.assertIn("ssh-keys", self.set_of(c))
+        self.assertIn("config-list", self.set_of(c))
+
     def test_exact_name_and_all(self):
         c = self.make()
         c.refresh("a")
@@ -194,6 +208,9 @@ class Groups(unittest.TestCase):
         self.assertGreaterEqual(state["max"], 1)
 
 
+SYSTEM_TOPICS = {'deck': 5, 'jobs-running': 10, 'jobs-list': 30, 'health-next': 30, 'health-list': 60, 'hardware': 15, 'ups': 30, 'system-updates': 60, 'system-config': 300, 'setup-list': 30, 'config-list': 60, 'parts-list': 60, 'node-list': 30, 'ssh-keys': 60, 'expiry': 300, 'notify-channels': 60, 'notify-providers': 3600}
+
+
 class Cli(unittest.TestCase):
     def test_six_column_parse(self):
         info = ls.topic_info()
@@ -201,6 +218,18 @@ class Cli(unittest.TestCase):
         self.assertEqual(info["temp-disks"]["groups"], {"disks", "shares"})
         self.assertEqual(info["vault-list"]["groups"], {"security"})
         self.assertEqual(set(info), {t[0] for t in ls.topics()})
+
+    def test_system_topics_info(self):
+        info = ls.topic_info()
+        self.assertEqual(set(SYSTEM_TOPICS) - set(info), set())
+        self.assertEqual(info["deck"], {"cap": None, "groups": {"any"}})
+        self.assertEqual(info["jobs-running"]["groups"], {"any", "jobs"})
+        self.assertEqual(info["config-list"]["groups"], {"system", "network", "security", "backup"})
+        self.assertEqual(info["notify-channels"], {"cap": "notifications", "groups": {"system"}})
+        self.assertEqual(info["notify-providers"], {"cap": "notifications", "groups": set()})
+        rows = {t[0]: t for t in ls.topics()}
+        self.assertEqual(rows["system-updates"][3], "skip")
+        self.assertEqual(rows["ups"][1], ["ups", "status"])
 
     def test_topic_info_cap_and_dash(self):
         p = os.path.join(tempfile.mkdtemp(), "t.tsv")
@@ -255,6 +284,23 @@ class Cli(unittest.TestCase):
             ('state-history', ['state', 'history'], 30, 'run'),
             ('fm-locations', ['fm', 'locations'], 15, 'run'),
             ('temp-disks', ['temp-disk', 'raw'], 30, 'run'),
+            ('deck', ['deck'], 5, 'run'),
+            ('jobs-running', ['jobs', 'running'], 10, 'run'),
+            ('jobs-list', ['jobs', 'list'], 30, 'run'),
+            ('health-next', ['health', 'next'], 30, 'run'),
+            ('health-list', ['health', 'list'], 60, 'run'),
+            ('hardware', ['hardware'], 15, 'run'),
+            ('ups', ['ups', 'status'], 30, 'run'),
+            ('system-updates', ['system', 'updates'], 60, 'skip'),
+            ('system-config', ['system', 'config'], 300, 'run'),
+            ('setup-list', ['setup', 'list'], 30, 'run'),
+            ('config-list', ['config', 'list'], 60, 'run'),
+            ('parts-list', ['parts', 'list'], 60, 'run'),
+            ('node-list', ['node', 'list'], 30, 'run'),
+            ('ssh-keys', ['ssh-key', 'list'], 60, 'run'),
+            ('expiry', ['expiry', 'list'], 300, 'run'),
+            ('notify-channels', ['notify', 'channels'], 60, 'run'),
+            ('notify-providers', ['notify', 'providers'], 3600, 'run'),
         ])
 
     def test_status_shape(self):
@@ -262,7 +308,7 @@ class Cli(unittest.TestCase):
         out = io.StringIO()
         self.assertEqual(ls.cli_status(self.fake(time.time() - 7), out), 0)
         lines = out.getvalue().rstrip("\n").split("\n")
-        self.assertEqual(len(lines), 22)
+        self.assertEqual(len(lines), 39)
         status = [l for l in lines if l.startswith("status\t")][0].split("\t")
         live = [l for l in lines if l.startswith("live\t")][0].split("\t")
         self.assertEqual(len(status), 7)
@@ -275,7 +321,8 @@ class Cli(unittest.TestCase):
         out = io.StringIO()
         ls.cli_status(FakeResp(), out)
         lines = sorted(out.getvalue().rstrip("\n").split("\n"))
-        self.assertEqual(lines, ['disk-health\t30\t-1\t0\t-\t-\t-', 'disk-inventory\t30\t-1\t0\t-\t-\t-', 'disk-marks\t15\t-1\t0\t-\t-\t-', 'encryption\t30\t-1\t0\t-\t-\t-', 'fm-locations\t15\t-1\t0\t-\t-\t-', 'live\t5\t-1\t0\t-\t-\t-', 'monitor-disks\t15\t-1\t0\t-\t-\t-', 'pool-info-bulk\t15\t-1\t0\t-\t-\t-', 'pool-info-fast\t15\t-1\t0\t-\t-\t-', 'pool-members-bulk\t15\t-1\t0\t-\t-\t-', 'pool-members-fast\t15\t-1\t0\t-\t-\t-', 'pool-state-bulk\t10\t-1\t0\t-\t-\t-', 'pool-state-fast\t10\t-1\t0\t-\t-\t-', 'shares-deleted\t60\t-1\t0\t-\t-\t-', 'shares-overview\t30\t-1\t0\t-\t-\t-', 'shares-principals\t60\t-1\t0\t-\t-\t-', 'state-history\t30\t-1\t0\t-\t-\t-', 'status\t15\t-1\t0\t-\t-\t-', 'temp-disks\t30\t-1\t0\t-\t-\t-', 'vault-list\t60\t-1\t0\t-\t-\t-', 'vault-usage\t30\t-1\t0\t-\t-\t-', 'vault-uses\t60\t-1\t0\t-\t-\t-'])
+        old = ['disk-health	30	-1	0	-	-	-', 'disk-inventory	30	-1	0	-	-	-', 'disk-marks	15	-1	0	-	-	-', 'encryption	30	-1	0	-	-	-', 'fm-locations	15	-1	0	-	-	-', 'live	5	-1	0	-	-	-', 'monitor-disks	15	-1	0	-	-	-', 'pool-info-bulk	15	-1	0	-	-	-', 'pool-info-fast	15	-1	0	-	-	-', 'pool-members-bulk	15	-1	0	-	-	-', 'pool-members-fast	15	-1	0	-	-	-', 'pool-state-bulk	10	-1	0	-	-	-', 'pool-state-fast	10	-1	0	-	-	-', 'shares-deleted	60	-1	0	-	-	-', 'shares-overview	30	-1	0	-	-	-', 'shares-principals	60	-1	0	-	-	-', 'state-history	30	-1	0	-	-	-', 'status	15	-1	0	-	-	-', 'temp-disks	30	-1	0	-	-	-', 'vault-list	60	-1	0	-	-	-', 'vault-usage	30	-1	0	-	-	-', 'vault-uses	60	-1	0	-	-	-']
+        self.assertEqual(lines, sorted(old + ["%s	%s	-1	0	-	-	-" % (t, iv) for t, iv in SYSTEM_TOPICS.items()]))
 
     def test_check_fresh_stale_down(self):
         import time
@@ -307,7 +354,8 @@ class Cli(unittest.TestCase):
         self.assertEqual(st.published, [("hs:v1:refresh", "a"), ("hs:v1:refresh", "b")])
         st = FakeResp()
         ls.cli_refresh(["--all"], st)
-        self.assertEqual(sorted(st.published), [('hs:v1:refresh', 'disk-health'), ('hs:v1:refresh', 'disk-inventory'), ('hs:v1:refresh', 'disk-marks'), ('hs:v1:refresh', 'encryption'), ('hs:v1:refresh', 'fm-locations'), ('hs:v1:refresh', 'live'), ('hs:v1:refresh', 'monitor-disks'), ('hs:v1:refresh', 'pool-info-bulk'), ('hs:v1:refresh', 'pool-info-fast'), ('hs:v1:refresh', 'pool-members-bulk'), ('hs:v1:refresh', 'pool-members-fast'), ('hs:v1:refresh', 'pool-state-bulk'), ('hs:v1:refresh', 'pool-state-fast'), ('hs:v1:refresh', 'shares-deleted'), ('hs:v1:refresh', 'shares-overview'), ('hs:v1:refresh', 'shares-principals'), ('hs:v1:refresh', 'state-history'), ('hs:v1:refresh', 'status'), ('hs:v1:refresh', 'temp-disks'), ('hs:v1:refresh', 'vault-list'), ('hs:v1:refresh', 'vault-usage'), ('hs:v1:refresh', 'vault-uses')])
+        self.assertEqual(sorted(p[1] for p in st.published), sorted([t[0] for t in ls.topics()]))
+        self.assertEqual(len(st.published), 39)
         os.environ["HS_LIVE_SOCKET"] = "/nonexistent/none.sock"
         try:
             self.assertEqual(ls.cli_refresh(["--all"]), 0)

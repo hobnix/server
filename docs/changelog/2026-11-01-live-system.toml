@@ -1,0 +1,7 @@
+date  = "2026-11-01"
+type  = "feature"
+title = "Summary, top bar, Health and Settings follow the live state"
+docs  = "web-interface#live-state"
+body  = """
+The Summary, the top bar, Health, Jobs, Hardware, UPS, updates and Settings are served from Redis topics with SSE updates when live state is on. A change or a finished health check refreshes only the topics it affects. Off mode is unchanged.
+"""

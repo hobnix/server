@@ -12,6 +12,7 @@ cert_days=30     # report the domain controller's certificate this many days bef
 remind=86400     # seconds: unchanged problems are sent again once a day
 
 here=$(dirname "$0")
+. "$here/lib/live.sh"
 . "$here/lib/ntfy.sh"
 . "$here/lib/setting.sh"
 . "$here/lib/dc.sh"
@@ -37,6 +38,10 @@ while [ $# -gt 0 ]; do
     *) echo "usage: hs health [test]"; exit 1 ;;
   esac
 done
+# a real run changes what the web interface shows (Health, top bar, Summary): the live state reads again afterwards, never fails the run
+if ! $dry && ! $test_msg; then
+  trap 'rc=$?; [ "$rc" -ne 0 ] || live_refresh health-next health-list status deck' EXIT
+fi
 
 # Every problem has a key and a text. The text is what people read; the key
 # leaves out numbers that change all the time (degrees, percent, days), so a

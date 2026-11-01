@@ -11,6 +11,7 @@
 set -euo pipefail
 here=$(dirname "$0")
 . "$here/lib/ui.sh"
+. "$here/lib/live.sh"
 
 repo=${HS_REPO:-/etc/nixos}
 machine=${HS_MACHINE_FILE:-$repo/machine.toml}
@@ -33,7 +34,9 @@ else
 fi
 
 step "Preview of the update"
-if ! spin "Fetching what is new (nothing is applied)" g fetch --quiet; then
+if spin "Fetching what is new (nothing is applied)" g fetch --quiet; then
+  live_refresh system-updates   # the count of new changes is as old as the last fetch
+else
   note "Is there a network connection to the Git server?"
   exit 1
 fi

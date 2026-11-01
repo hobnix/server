@@ -34,6 +34,26 @@ check_eq "a read asks for nothing" "0" "$(grep -c . "$WORK/live.log")"
 : > "$WORK/live.log"; $HS ext zz go >/dev/null 2>&1
 check_eq "an extension change also asks for @ext-<name>" "@system,@ext-zz" "$(paste -sd, "$WORK/live.log")"
 
+echo "-- hooks outside the dispatcher ask for their topics (the scripts run with HS_LIVE_LOG)"
+mkdir -p "$WORK/fb"
+printf '#!/usr/bin/env bash
+exit 0
+' > "$WORK/fb/systemctl"; cp "$WORK/fb/systemctl" "$WORK/fb/ok"; chmod +x "$WORK/fb/systemctl" "$WORK/fb/ok"
+: > "$WORK/live.log"
+HS_UPS_CONF=$(wp "$WORK/ups.conf") HS_NOTIFY="$WORK/fb/ok" HS_SYSTEMCTL="$WORK/fb/systemctl" NOTIFYTYPE=ONLINE bash "$SCRIPTS/ups.sh" event "UPS online" >/dev/null 2>&1
+check_eq "ups.sh event asks for ups, deck, status" "ups deck status" "$(cat "$WORK/live.log")"
+: > "$WORK/live.log"
+PATH="$WORK/fb:$PATH" bash "$SCRIPTS/jobs.sh" stop hs-job-x.service >/dev/null 2>&1
+check_eq "jobs.sh stop asks for @jobs" "@jobs" "$(cat "$WORK/live.log")"
+: > "$WORK/live.log"
+PATH="$WORK/fb:$PATH" bash "$SCRIPTS/jobs.sh" stop >/dev/null 2>&1
+check_eq "jobs.sh stop without a unit asks for nothing" "0" "$(grep -c . "$WORK/live.log")"
+# these need git, root or a whole health run: the call is checked in the text
+hook() { grep -E "^ *(trap .*|[^#]*)live_refresh $2" "$SCRIPTS/$1" >/dev/null 2>&1 && echo yes || echo no; }
+check_eq "health-check.sh refreshes the health topics" "yes" "$(hook health-check.sh 'health-next health-list status deck')"
+check_eq "update.sh refreshes system-updates after the pull" "yes" "$(hook update.sh 'system-updates')"
+check_eq "update-preview.sh refreshes system-updates after the fetch" "yes" "$(hook update-preview.sh 'system-updates')"
+
 echo "-- reads-collect.sh in Redis mode"
 if command -v python3 >/dev/null; then
   CALLS=$WORK/calls; : > "$CALLS"

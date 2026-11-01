@@ -789,8 +789,8 @@ GROUP = r"^[A-Za-z0-9][A-Za-z0-9._ -]{0,63}$"     # group names may hold spaces 
 FM_LOC = r"^(disk:data-[0-9]{1,3}|pool:(bulk|fast)|cache:bulk|share:[a-z0-9][a-z0-9-]{0,40}|temp:[a-z0-9][a-z0-9-]{0,31})$"     # a place of the file manager
 READS = {
     ("status",):{"kind": "tsv", "ttl": 10, "topic": "status"},      # topic: the live-state key (read only in mode redis)
-    ("deck",): {"kind": "json", "ttl": 8},
-    ("ups", "status"): {"kind": "tsv", "ttl": 15},
+    ("deck",): {"kind": "json", "ttl": 8, "topic": "deck"},
+    ("ups", "status"): {"kind": "tsv", "ttl": 15, "topic": "ups"},
     ("monitor", "disks"): {"kind": "tsv", "ttl": 15, "topic": "monitor-disks"},
     ("pool", "info"): {"kind": "tsv", "ttl": 15, "query": {"pool": (NAME, "")},
                        "topic": {"bulk": "pool-info-bulk", "fast": "pool-info-fast"}},
@@ -808,23 +808,23 @@ READS = {
     ("ct", "profiles"): {"kind": "tsv", "ttl": 30},
     ("ct", "bindings"): {"kind": "tsv", "ttl": 10, "args": [NAME]},
     ("ct", "snapshots"): {"kind": "tsv", "ttl": 10, "args": [NAME]},
-    ("jobs", "list"): {"kind": "tsv", "ttl": 10},
-    ("jobs", "running"): {"kind": "tsv", "ttl": 3},
+    ("jobs", "list"): {"kind": "tsv", "ttl": 10, "topic": "jobs-list"},
+    ("jobs", "running"): {"kind": "tsv", "ttl": 3, "topic": "jobs-running"},
     ("jobs", "tail"): {"kind": "tsv", "ttl": 0, "args": [UNIT], "query": {"from": (r"^[0-9]{1,7}$", "")}},
-    ("system", "updates"): {"kind": "tsv", "ttl": 30},
-    ("ssh-key", "list"): {"kind": "tsv", "ttl": 30},
-    ("node", "list"): {"kind": "tsv", "ttl": 15},
+    ("system", "updates"): {"kind": "tsv", "ttl": 30, "topic": "system-updates"},
+    ("ssh-key", "list"): {"kind": "tsv", "ttl": 30, "topic": "ssh-keys"},
+    ("node", "list"): {"kind": "tsv", "ttl": 15, "topic": "node-list"},
     ("node", "show"): {"kind": "tsv", "ttl": 15, "args": [NAME]},
     ("changes", "list"): {"kind": "tsv", "ttl": 60, "query": {"from": (r"^[0-9a-f]{7,40}$", "--from"), "since": (r"^[0-9]{4}-[0-9]{2}-[0-9]{2}$", "--since")}},   # What's new
-    ("parts", "list"): {"kind": "tsv", "ttl": 15},                          # the optional parts and whether each is on (Settings)
+    ("parts", "list"): {"kind": "tsv", "ttl": 15, "topic": "parts-list"},                          # the optional parts and whether each is on (Settings)
     ("node", "keyline"): {"kind": "tsv", "ttl": 5, "args": [NAME]},       # the public key line a node's owner has to allow (never the private key)
     ("node", "status"): {"kind": "json", "ttl": 10, "args": [NAME]},    # a remote node over ssh, the word status only
     ("logs", "units"): {"kind": "tsv", "ttl": 300},
     ("logs", "show"): {"kind": "text", "ttl": 5, "query": {
         "unit": (r"^[a-z0-9-]{1,32}$", "--unit"), "level": (r"^(err|warning|info)$", "--level"),
         "since": (r"^(1h|today|boot)$", "--since"), "lines": (r"^[0-9]{1,4}$", "--lines")}},
-    ("health", "next"): {"kind": "tsv", "ttl": 15},
-    ("health", "list"): {"kind": "tsv", "ttl": 15},
+    ("health", "next"): {"kind": "tsv", "ttl": 15, "topic": "health-next"},
+    ("health", "list"): {"kind": "tsv", "ttl": 15, "topic": "health-list"},
     ("backup", "state"): {"kind": "tsv", "ttl": 15},
     ("backup", "overview"): {"kind": "tsv", "ttl": 30},
     ("backup", "shares"): {"kind": "tsv", "ttl": 30},
@@ -843,7 +843,7 @@ READS = {
     ("ports", "list"): {"kind": "tsv", "ttl": 60},
     ("dns", "list"): {"kind": "tsv", "ttl": 60},
     ("cache", "state"): {"kind": "tsv", "ttl": 15},
-    ("system", "config"): {"kind": "text", "ttl": 60},
+    ("system", "config"): {"kind": "text", "ttl": 60, "topic": "system-config"},
     ("disk", "results"): {"kind": "tsv", "ttl": 30, "args": [NAME]},
     ("disk", "marks"): {"kind": "tsv", "ttl": 10, "topic": "disk-marks"},
     # the file manager (fm.sh, docs/PLAN-file-manager.md): the places, the same-files rule, one page of a folder (a cursor, never the whole tree), a job's state
@@ -871,9 +871,9 @@ READS = {
     ("system", "cleanup"): {"kind": "text", "ttl": 60},
     ("system", "report"): {"kind": "text", "ttl": 60},
     # new pages (scripts and registry rows are added with the pages; the contract of each is in its script header)
-    ("expiry", "list"): {"kind": "tsv", "ttl": 60},
+    ("expiry", "list"): {"kind": "tsv", "ttl": 60, "topic": "expiry"},
     # Games and Posters are extension packages: their reads are declared in capabilities/<name>/capability.toml ([[web.reads]]), see ext_load_web
-    ("hardware",): {"kind": "tsv", "ttl": 10},
+    ("hardware",): {"kind": "tsv", "ttl": 10, "topic": "hardware"},
     ("encryption", "list"): {"kind": "tsv", "ttl": 15, "topic": "encryption"},
     ("vault", "usage"): {"kind": "tsv", "ttl": 30, "topic": "vault-usage"},
     ("vault", "uses"): {"kind": "tsv", "ttl": 60, "topic": "vault-uses"},
@@ -893,12 +893,12 @@ READS = {
     ("gateway", "status"): {"kind": "tsv", "ttl": 30},
     ("gateway", "routes"): {"kind": "tsv", "ttl": 30},
     ("gateway", "health"): {"kind": "tsv", "ttl": 300},
-    ("setup", "list"): {"kind": "tsv", "ttl": 5},
-    ("config", "list"): {"kind": "tsv", "ttl": 5},
+    ("setup", "list"): {"kind": "tsv", "ttl": 5, "topic": "setup-list"},
+    ("config", "list"): {"kind": "tsv", "ttl": 5, "topic": "config-list"},
     ("config", "check"): {"kind": "text", "ttl": 0},
     # notification channels (capability notifications): name, provider, enabled, minprio, quiet, outside, source, ready, categories, caps
-    ("notify", "channels"): {"kind": "tsv", "ttl": 10},
-    ("notify", "providers"): {"kind": "tsv", "ttl": 60},
+    ("notify", "channels"): {"kind": "tsv", "ttl": 10, "topic": "notify-channels"},
+    ("notify", "providers"): {"kind": "tsv", "ttl": 60, "topic": "notify-providers"},
 }
 
 

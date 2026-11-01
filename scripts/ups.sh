@@ -13,6 +13,7 @@
 set -uo pipefail
 here=$(dirname "$0")
 . "$here/lib/ui.sh"
+. "$here/lib/live.sh"
 conf=${HS_UPS_CONF:-/etc/hs/ups}
 
 cval() { sed -n "s/^$1=//p" "$conf" 2>/dev/null | head -n1; }
@@ -108,6 +109,7 @@ case "$cmd" in
       REPLBATT) notify --category problem "$host: UPS battery" "The UPS reports that its battery should be replaced." default ;;
       *) ;;
     esac
+    live_refresh ups deck status
     ;;
   deadline)
     configured || exit 0

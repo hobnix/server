@@ -123,3 +123,9 @@ Retirement stays future work until no served read uses `Reads.collected`.
 Built, not run on hardware: topic columns `cap` and `groups`, group refresh (`@<group>`, `any`), bounded parallel reads (`HS_LIVE_PARALLEL`),
 a refresh hook in the dispatcher for `changes` rows and at job start, the old collector skipping topic reads in Redis mode, and the topic map in the
 session answer. Details: capabilities/live-state/NOTES.md. More topics follow in later slices.
+
+## System slice (2026-11-01)
+
+Built, not run on hardware: 17 topics for the dashboard and system shell (deck, jobs, health, hardware, ups, updates, config, setup, parts, nodes, ssh keys,
+expiry, notification channels and providers), explicit refreshes in health-check, ups, power-notice, jobs stop and the update fetch.
+Details: capabilities/live-state/NOTES.md.

@@ -355,12 +355,27 @@ NO_ARG = {
     ("vault", "usage"): "vault-usage", ("vault", "uses"): "vault-uses", ("state", "history"): "state-history",
     ("fm", "locations"): "fm-locations", ("temp-disk", "raw"): "temp-disks",
 }
+SYSTEM = {
+    ("deck",): "deck", ("jobs", "running"): "jobs-running", ("jobs", "list"): "jobs-list", ("health", "next"): "health-next",
+    ("health", "list"): "health-list", ("hardware",): "hardware", ("ups", "status"): "ups", ("system", "updates"): "system-updates",
+    ("system", "config"): "system-config", ("setup", "list"): "setup-list", ("config", "list"): "config-list",
+    ("parts", "list"): "parts-list", ("node", "list"): "node-list", ("ssh-key", "list"): "ssh-keys", ("expiry", "list"): "expiry",
+    ("notify", "channels"): "notify-channels", ("notify", "providers"): "notify-providers",
+}
 
 
 class StorageTopics(RedisBase):
     def test_every_no_argument_read_has_its_topic(self):
         for words, topic in NO_ARG.items():
             self.assertEqual(ws.READS[words]["topic"], topic, words)
+
+    def test_every_system_read_has_its_topic(self):
+        self.assertEqual(len(SYSTEM), 17)
+        known = {r[0] for r in ws.ls.topics()}
+        for words, topic in SYSTEM.items():
+            self.assertEqual(ws.READS[words]["topic"], topic, words)
+            self.assertIn(topic, known)
+            self.assertEqual(ws.live_topic_map()["/api/sys/" + "/".join(words)], topic)
 
     def test_the_pool_reads_map_exactly_bulk_and_fast(self):
         for kind in ("info", "members", "state"):
@@ -420,7 +435,7 @@ class StorageTopics(RedisBase):
                 hit = self.app.reads.resolve(["pool", kind], {"pool": [pool]})
                 self.assertTrue(isinstance(hit[0].get("topic"), str))
         targets = [tuple(a[1]) for a in self.app.reads.warm_targets()]
-        for words in NO_ARG:
+        for words in list(NO_ARG) + list(SYSTEM):
             self.assertNotIn(words, targets)
         for t in targets:
             self.assertFalse(len(t) >= 4 and t[:2] == ("pool", "info") and t[-1] in ("bulk", "fast"), t)
