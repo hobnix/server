@@ -41,4 +41,6 @@ The main session orchestrates: it picks a task from TODO.md, delegates, and read
 an agent's final message is at most 150 words: status, files changed, checks run, open questions.
 - Ask before building when a request is unclear, has several designs, or touches storage, network or the firewall.
 - Read less: Grep/Glob, then Read with offset/limit; do not re-read a file you just edited; never dump command output (`| tail`, `--stat`).
+  docs/Entwicklungsnotizen.md is about 120 KB: Grep for the section heading, then Read only that range; never read it whole.
+- Agent models come from each agent's `model:` line (do not set CLAUDE_CODE_SUBAGENT_MODEL: it overrides all of them).
 - One task per session; `/clear` between unrelated tasks. Durable facts go in the area rules, not in chat.
