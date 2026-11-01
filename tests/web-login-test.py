@@ -587,6 +587,15 @@ class Tls(Base):
         self.assertIsNone(r.getheader("Strict-Transport-Security"))
         c.close()
 
+    def test_the_gateway_on_this_machine_keeps_plain_http_plain(self):
+        """The gateway (Traefik, port 80) connects from loopback too, but says X-Forwarded-Proto: http: no Secure cookie, no HSTS."""
+        s, d, r = self.login(headers={"X-Forwarded-Proto": "http"})
+        self.assertEqual(s, 200)
+        self.assertNotIn("Secure", r.getheader("Set-Cookie"))
+        self.assertIsNone(r.getheader("Strict-Transport-Security"))
+        s, d, r = self.login(headers={"X-Forwarded-Proto": "https"})
+        self.assertIn("; Secure", r.getheader("Set-Cookie"))
+
     def test_plain_http_has_neither(self):
         self.cfg.secure = False
         s, d, r = self.login()
