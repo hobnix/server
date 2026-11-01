@@ -32,12 +32,19 @@ def hs_run(words):
 
 
 class Collector:
-    def __init__(self, store, run=hs_run, topic_rows=None, connect=None, topic_info=None):
+    RESCAN = 60.0         # seconds between looks at the extension packages that are on (their live reads)
+    RESCAN_MIN = 3.0      # a refresh of an unknown ext- topic looks sooner, but not more often than this
+
+    def __init__(self, store, run=hs_run, topic_rows=None, connect=None, topic_info=None, ext_rows=None):
         self.store = store                       # Resp (or a fake) for writing
         self.run = run
         self.rows = topic_rows if topic_rows is not None else ls.topics()
         self.connect = connect                   # () -> store; reconnect after an error
         self.events = {t[0]: threading.Event() for t in self.rows}
+        self.stops = {t[0]: threading.Event() for t in self.rows}      # one per topic: set when the topic goes away (a package switched off)
+        self.tlock = threading.Lock()                                  # events / stops / info / rows change on a rescan
+        self.ext_rows = ext_rows or ls.ext_live                        # () -> (rows, info) of the extension reads
+        self.last_scan = 0.0
         self.lock = threading.Lock()
         self.stop = threading.Event()
         self.info = topic_info if topic_info is not None else ls.topic_info()
@@ -52,11 +59,16 @@ class Collector:
 
     def refresh(self, topic):
         """"*" = every topic; "@g" = the topics that list the group g or `any`; else the topic of that name."""
-        for t, ev in self.events.items():
+        if topic.startswith("ext-") and topic not in self.events:
+            self.rescan(self.RESCAN_MIN)      # a package was switched on a moment ago: the web interface asks for its topic
+        with self.tlock:
+            items = list(self.events.items())
+            info = dict(self.info)
+        for t, ev in items:
             if topic == "*" or topic == t:
                 ev.set()
             elif topic.startswith("@"):
-                groups = (self.info.get(t) or {}).get("groups", set())
+                groups = (info.get(t) or {}).get("groups", set())
                 if topic[1:] in groups or "any" in groups:
                     ev.set()
 
@@ -82,14 +94,14 @@ class Collector:
                 self.store.cmd("PUBLISH", ls.CHANGED, "%s %d" % (topic, gen))
                 return True
             doc = {"ts": old.get("ts"), "gen": old.get("gen", 0), "rc": old.get("rc", rc), "out": old.get("out", ""),
-                   "err": (err or "no output")[:200], "ts_err": now}
+                   "err": ls.clean(err or "no output"), "ts_err": now}
             self.store.cmd("SET", ls.KEY % topic, json.dumps(doc))
             log("topic %s failed (rc %s): %s" % (topic, rc, doc["err"]))
             return False
 
     def loop(self, topic, words, interval, mode):
-        ev = self.events[topic]
-        while not self.stop.is_set():
+        ev, mine = self.events[topic], self.stops[topic]
+        while not self.stop.is_set() and not mine.is_set():
             try:
                 self.collect(topic, words, mode)
             except OSError as e:
@@ -108,6 +120,56 @@ class Collector:
             ev.wait(timeout=interval)
             ev.clear()
 
+    def _spawn(self, topic, words, interval, mode):
+        threading.Thread(target=self.loop, args=(topic, words, interval, mode), daemon=True).start()
+
+    def rescan(self, min_gap=0.0):
+        """Look at the extension packages that are on: start a thread for a new live topic, stop one that is gone (or whose words or interval
+        changed, then it starts again). -> True when something was looked at."""
+        now = time.time()
+        with self.tlock:
+            if now - self.last_scan < min_gap:
+                return False
+            self.last_scan = now
+        try:
+            rows, info = self.ext_rows()
+        except Exception as e:      # a broken package must not stop the collector
+            log("extension scan failed (%s)" % e)
+            return False
+        want = {r[0]: r for r in rows if r[0].startswith("ext-")}
+        start, gone = [], []
+        with self.tlock:
+            have = {r[0]: r for r in self.rows if r[0].startswith("ext-")}
+            for t in list(have):
+                if t not in want or want[t] != have[t]:
+                    self.stops[t].set()
+                    self.events[t].set()
+                    del self.events[t], self.stops[t]
+                    self.info.pop(t, None)
+                    self.rows = [r for r in self.rows if r[0] != t]
+                    gone.append(t)
+            for t, r in want.items():
+                if t not in self.events:
+                    self.events[t], self.stops[t] = threading.Event(), threading.Event()
+                    self.info[t] = info.get(t) or {"cap": None, "groups": set()}
+                    self.rows.append(r)
+                    start.append(r)
+        for t in gone:
+            log("topic %s stopped" % t)
+            try:
+                with self.lock:
+                    self.store.cmd("DEL", ls.KEY % t)      # the document of a topic that is gone is not served any more
+            except OSError:
+                pass
+        for r in start:
+            log("topic %s started" % r[0])
+            self._spawn(*r)
+        return True
+
+    def watch(self):
+        while not self.stop.wait(self.RESCAN):
+            self.rescan()
+
     def listen(self):
         """Subscriber thread: REFRESH messages wake the topic threads."""
         while not self.stop.is_set():
@@ -120,9 +182,10 @@ class Collector:
                 self.stop.wait(5)
 
     def start(self):
-        for topic, words, interval, mode in self.rows:
-            threading.Thread(target=self.loop, args=(topic, words, interval, mode), daemon=True).start()
+        for topic, words, interval, mode in list(self.rows):
+            self._spawn(topic, words, interval, mode)
         threading.Thread(target=self.listen, daemon=True).start()
+        threading.Thread(target=self.watch, daemon=True).start()
 
 
 def main():

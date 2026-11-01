@@ -148,3 +148,9 @@ topics need capability `ad` (the script fails without a controller). `cache stat
 ## Network slice (2026-11-01)
 
 8 topics (`gateway-*`, `dns-list`, `unifi-*`, `ports-list`, `remote-list`), see capabilities/live-state/NOTES.md. Not tested on hardware yet.
+
+## Extension slice (2026-11-01)
+
+A `[[web.reads]]` entry of an extension package without `args` may set `live = <seconds>` (and `locked = "run"|"skip"`) and gets the topic
+`ext-<name>-<words>` in the group `ext-<name>`; the collector rescans the packages every 60 s. Format and rules: docs/PLAN-extensions.md, code
+scripts/hs_ext.py. No existing read opts in. Not tested on hardware yet.

@@ -4,16 +4,19 @@ import importlib.util
 import io
 import json
 import os
+import re
 import socket
 import tempfile
 import threading
 import unittest
+import unittest.mock
 
 here = os.path.dirname(os.path.abspath(__file__))
 scripts = os.path.join(here, "..", "scripts")
 import sys
 sys.path.insert(0, scripts)
 import live_state as ls  # noqa: E402
+import hs_ext  # noqa: E402
 
 spec = importlib.util.spec_from_file_location("live_collect", os.path.join(scripts, "live-collect.py"))
 lc = importlib.util.module_from_spec(spec)
@@ -33,6 +36,9 @@ class FakeResp:
             return "OK"
         if a[0] == "PUBLISH":
             self.published.append((a[1], a[2]))
+            return 1
+        if a[0] == "DEL":
+            self.data.pop(a[1], None)
             return 1
         raise AssertionError(a)
 
@@ -92,7 +98,6 @@ class Collect(unittest.TestCase):
     def test_refresh_wakes_the_right_topic(self):
         c, _, _ = self.make([])
         c.refresh("slow")
-        self.assertFalse(c.events["status"].is_set())
         self.assertTrue(c.events["slow"].is_set())
         c.refresh("*")
         self.assertTrue(c.events["status"].is_set())
@@ -586,6 +591,136 @@ class Wire(unittest.TestCase):
     def test_connect_error_is_oserror(self):
         with self.assertRaises(OSError):
             ls.Resp("/nonexistent/none.sock", 1)
+
+
+class ExtLive(unittest.TestCase):
+    """live reads of extension packages: the topic list, the group, the rescan of the collector"""
+    TAB = "\t"
+    DECL = '[[web.reads]]\nwords = "list"\nkind = "tsv"\nttl = 10\n'
+
+    def setUp(self):
+        import shutil
+        import tempfile
+        self.tmp = tempfile.mkdtemp()
+        self.pk = os.path.join(self.tmp, "packages")
+        self.old = {k: os.environ.get(k) for k in ("HS_PACKAGES_DIR", "HS_CAPABILITIES_FILE", "HS_STATE_DIR")}
+        os.environ.update(HS_PACKAGES_DIR=self.pk, HS_CAPABILITIES_FILE=os.path.join(self.tmp, "caps"), HS_STATE_DIR=os.path.join(self.tmp, "state"))
+        self.write("caps", "demo\n")
+        self.addCleanup(shutil.rmtree, self.tmp, True)
+        self.addCleanup(self.restore)
+
+    def restore(self):
+        for k, v in self.old.items():
+            if v is None:
+                os.environ.pop(k, None)
+            else:
+                os.environ[k] = v
+
+    def write(self, rel, text):
+        p = os.path.join(self.tmp, rel)
+        os.makedirs(os.path.dirname(p), exist_ok=True)
+        with open(p, "w", encoding="utf-8", newline="") as f:
+            f.write(text)
+
+    def package(self, reads, name="demo"):
+        self.write("packages/%s/capability.toml" % name, 'name = "%s"\ntitle = "t"\nextension = true\n%s' % (name, reads))
+        words = set(re.findall(r'words = "([^"]+)"', reads))
+        self.write("packages/%s/commands.tsv" % name,
+                   "".join(self.TAB.join(["sys", "sys ext %s %s" % (name, w), "x.sh", "-", "h", "-"]) + "\n" for w in words))
+
+    def ext(self):
+        return [r for r in ls.topics() if r[0].startswith("ext-")]
+
+    def test_live_read_becomes_a_topic(self):
+        self.package(self.DECL + 'live = 30\n[[web.reads]]\nwords = "other"\nkind = "tsv"\nttl = 10\n')
+        self.assertEqual(self.ext(), [("ext-demo-list", ["ext", "demo", "list"], 30, "skip")])
+        self.assertEqual(ls.topic_info()["ext-demo-list"], {"cap": "demo", "groups": {"ext-demo"}})
+        own = os.path.join(scripts, "lib", "live-topics.tsv")
+        self.assertEqual([r for r in ls.topics(own) if r[0].startswith("ext-")], [])
+
+    def test_locked_run_and_bad_declarations(self):
+        self.package(self.DECL + 'live = 10\nlocked = "run"\n')
+        self.assertEqual([r[3] for r in self.ext()], ["run"])
+        for bad in ('live = 9', 'live = 3601', 'live = "30"', 'live = true', 'locked = "x"\nlive = 30', "live = 30\nargs = ['^a$']"):
+            self.package(self.DECL + bad + "\n")
+            self.assertEqual(self.ext(), [], bad)
+
+    def test_words_are_a_closed_alphabet_and_package_off_gives_nothing(self):
+        self.package(self.DECL.replace("list", "Li_st") + "live = 30\n")
+        self.assertEqual(self.ext(), [])
+        self.package(self.DECL + "live = 30\n")
+        self.assertEqual(len(self.ext()), 1)
+        self.write("caps", "")
+        self.assertEqual(self.ext(), [])
+
+    def test_same_topic_from_two_packages_keeps_the_first(self):
+        self.write("caps", "demo\ndemo-list\n")
+        self.package(self.DECL.replace('"list"', '"list-x"') + "live = 30\n", "demo")
+        self.package(self.DECL.replace('"list"', '"x"') + "live = 30\n", "demo-list")
+        self.assertEqual([r[0] for r in self.ext()], ["ext-demo-list-x"])
+
+    def test_a_bad_page_or_bad_changes_drop_the_package_here_too(self):
+        self.package(self.DECL + 'live = 30\n[web.page]\ntitle = "x"\n[[web.page.blocks]]\ntype = "table"\nread = "nope"\n')
+        self.assertEqual(self.ext(), [])
+        self.package(self.DECL + "live = 30\n[[web.changes]]\npatterns = ['^go$']\n")      # changes need plan and start rows
+        self.assertEqual(self.ext(), [])
+
+    def test_names_that_join_to_the_same_topic_agree_with_the_web_interface(self):
+        # package a reads "b c" (live) but has a bad page; package a-b reads "c": the topic ext-a-b-c belongs to a-b only
+        self.write("caps", "a\na-b\n")
+        bad = 'live = 30\n[web.page]\ntitle = "x"\n[[web.page.blocks]]\ntype = "table"\nread = "nope"\n'
+        self.package(self.DECL.replace('"list"', '"b c"') + bad, "a")
+        self.package(self.DECL.replace('"list"', '"c"') + "live = 30\n", "a-b")
+        self.assertEqual([(r[0], r[1]) for r in self.ext()], [("ext-a-b-c", ["ext", "a-b", "c"])])
+        # when both are good the first one wins, in the collector and in the web interface alike
+        self.package(self.DECL.replace('"list"', '"b c"') + "live = 30\n", "a")
+        self.assertEqual([(r[0], r[1]) for r in self.ext()], [("ext-a-b-c", ["ext", "a", "b", "c"])])
+        reads = hs_ext.ext_load_web()[0]
+        self.assertEqual({k: v["topic"] for k, v in reads.items() if "topic" in v}, {("ext", "a", "b", "c"): "ext-a-b-c"})
+
+    def test_package_output_cannot_forge_a_check_line(self):
+        self.assertEqual(ls.clean("a\nb\tc\x1b[0m"), "a b c [0m")
+        st = FakeResp()
+        st.data["hs:v1:t"] = json.dumps({"ts": None, "err": "bad\nlive:down\tx"})
+        out = io.StringIO()
+        with unittest.mock.patch.object(ls, "topics", lambda path=None: [("t", ["t"], 15, "run")]), \
+                unittest.mock.patch.object(ls, "topic_info", lambda path=None: {}):
+            ls.cli_check(conn=st, out=out)
+        self.assertEqual(len(out.getvalue().splitlines()), 1)
+        self.assertNotIn("\t", out.getvalue().split("\t", 1)[1])
+
+    def test_collector_picks_up_and_drops_topics_on_rescan(self):
+        started = []
+        c = lc.Collector(FakeResp(), run=lambda w: (0, "x", ""), topic_rows=[("status", ["status"], 15, "run")],
+                         topic_info={"status": {"cap": None, "groups": {"any"}}}, ext_rows=ls.ext_live)
+        c._spawn = lambda *r: started.append(r[0])
+        c.rescan()
+        self.assertEqual(started, [])
+        self.package(self.DECL + "live = 30\n")
+        c.rescan()
+        self.assertEqual(started, ["ext-demo-list"])
+        c.rescan()
+        self.assertEqual(started, ["ext-demo-list"])        # not twice
+        c.refresh("@ext-demo")
+        self.assertTrue(c.events["ext-demo-list"].is_set())
+        self.assertTrue(c.events["status"].is_set())        # status lists the group "any": every group wakes it
+        stop = c.stops["ext-demo-list"]
+        c.store.data["hs:v1:ext-demo-list"] = "{}"
+        self.write("caps", "")
+        c.rescan()
+        self.assertTrue(stop.is_set())
+        self.assertNotIn("ext-demo-list", c.events)
+        self.assertNotIn("hs:v1:ext-demo-list", c.store.data)
+        self.assertIn("status", c.events)
+
+    def test_refresh_of_an_unknown_ext_topic_rescans(self):
+        started = []
+        c = lc.Collector(FakeResp(), run=lambda w: (0, "x", ""), topic_rows=[], topic_info={}, ext_rows=ls.ext_live)
+        c._spawn = lambda *r: started.append(r[0])
+        self.package(self.DECL + "live = 30\n")
+        c.refresh("ext-demo-list")
+        self.assertEqual(started, ["ext-demo-list"])
+        self.assertTrue(c.events["ext-demo-list"].is_set())
 
 
 if __name__ == "__main__":

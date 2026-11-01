@@ -62,24 +62,11 @@ import urllib.request
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 import web_terminal as wt      # the in-browser terminal (WebSocket, tickets, pty shell)
 import live_state as ls        # live state: the RESP client for Redis (mode redis)
+from hs_ext import (env, runtime_setting, capabilities, applied_recipes, ext_roots, ext_sys_rows, ext_packages, ext_manifest,  # noqa: F401,E402
+                    ext_read, ext_load_web, EXT_NAME, EXT_KINDS, EXT_BLOCKS)
 
 # ─────────────────────────── CONFIG ───────────────────────────
 DEFAULT_ACCENT = "#9184d9"
-
-
-def env(name, default):
-    return os.environ.get(name, default)
-
-
-def runtime_setting(key):
-    """A runtime setting (config/schema.toml store = "settings": one file in /var/lib/hs/settings, scripts/lib/setting.sh), or None.
-    It wins over the environment hs-web was started with, which Nix fills from machine.toml (the old place), so a change needs no restart."""
-    d = env("HS_SETTINGS_DIR", os.path.join(env("HS_STATE_DIR", "/var/lib/hs"), "settings"))
-    try:
-        with open(os.path.join(d, key), encoding="utf-8") as f:
-            return f.readline().strip()
-    except OSError:
-        return None
 
 
 PRIVATE_NETS = [ipaddress.ip_network(n) for n in (
@@ -138,47 +125,6 @@ def local_domain():
     except (OSError, ValueError):
         return ""
     return "%s.%s" % (site, realm) if realm and re.fullmatch(r"[a-z0-9]([a-z0-9-]{0,30}[a-z0-9])?", site) else ""
-
-
-def capabilities():
-    """The capabilities that are on, by the rules of scripts/lib/capability.sh: named in /etc/hs/capabilities (Nix), or implied by a
-    runtime setting (scripts/lib/capabilities.tsv, made from capabilities/*/capability.toml). The environment Nix fills from an old
-    machine.toml still counts for vpsHost and proxyStatusUrl until `hs config migrate-settings` has moved them."""
-    legacy = {"vpsHost": "HS_WEB_VPS_HOST", "proxyStatusUrl": "HS_WEB_PROXY_URL"}
-    on = set()
-    state = env("HS_STATE_DIR", "/var/lib/hs")
-    try:
-        with open(env("HS_CAPABILITIES_FILE", "/etc/hs/capabilities"), encoding="utf-8") as f:
-            on = {line.strip() for line in f if line.strip()}
-    except OSError:
-        pass
-    try:           # `hs ext enable <package>` for a package without a Nix module: on at once (scripts/lib/capability.sh)
-        with open(os.path.join(state, "capabilities-on"), encoding="utf-8") as f:
-            on |= {line.strip() for line in f if line.strip()}
-    except OSError:
-        pass
-    tsv = env("HS_CAPABILITIES_TSV", os.path.join(os.path.dirname(os.path.abspath(__file__)), "lib", "capabilities.tsv"))
-    try:
-        with open(tsv, encoding="utf-8") as f:
-            for line in f:
-                if line.startswith("#") or not line.strip():
-                    continue
-                cols = line.rstrip("\n").split("\t")
-                for key in (cols[1].split(",") if len(cols) > 1 else []):
-                    v = runtime_setting(key)
-                    if v is None and key in legacy:
-                        v = env(legacy[key], "")
-                    if (v or "") not in ("", "false", "0"):
-                        on.add(cols[0])
-    except OSError:
-        pass
-    try:           # `hs ext disable <package>` wins over everything above
-        with open(os.path.join(state, "capabilities-off"), encoding="utf-8") as f:
-            on -= {line.strip() for line in f if line.strip()}
-    except OSError:
-        pass
-    return sorted(on)
-
 
 
 # ── The guides (capability docs): Markdown pages that `hs docs build` writes to <state>/docs-site; the frontend renders them ──
@@ -1150,151 +1096,12 @@ CONFIRM_RE = re.compile(r"^[A-Za-z0-9._ -]{1,64}$")
 # web interface may ask for ([[web.reads]]) and which changes it may start ([[web.changes]]); only while the package is on. Nothing else a
 # package says reaches the browser: no code, no page, only these two lists, and each entry must be a sys row of the package's own commands.tsv.
 #   [[web.reads]]    words = "list"  kind = "tsv"|"json"|"text"  ttl = 30  [args = ['^pattern$', ...]]   -> GET /api/sys/ext/<name>/<words>
+#                    live = 30 (10..3600, not with args) [locked = "run"|"skip"]   -> opt in to the live-state topic ext-<name>-<words joined by '-'
+#                    (scripts/hs_ext.py ext_read; the collector reads it every <live> s and on a refresh of the group ext-<name>)
 #   [[web.changes]]  patterns = ['^a$', '^b$']                                    (an exact shape)   or
 #                    fixed = ['^a$'] opts = [{ flag = "--x", pattern = '^..$', repeats = false }]  stdin = false
 #                    -> POST /api/plan|start with area "ext/<name>"; the plan and start rows `sys ext <name> plan|start ...` must exist
-EXT_NAME = re.compile(r"^[a-z][a-z0-9-]{0,30}$")
-EXT_KINDS = ("tsv", "json", "text")
 _ext = {"at": 0.0, "lock": threading.Lock(), "pages": []}
-EXT_BLOCKS = ("table", "kv", "cards", "text", "empty", "gallery")
-
-
-def applied_recipes():
-    """the packages hs recipe has applied on this server (installed.toml, written by scripts/pkg.py record): a recipe package is on from then on"""
-    import tomllib
-    try:
-        with open(os.path.join(env("HS_STATE_DIR", "/var/lib/hs"), "packages", "installed.toml"), "rb") as f:
-            return set(tomllib.load(f).get("package", {}))
-    except (OSError, tomllib.TOMLDecodeError):
-        return set()
-
-
-def ext_roots():
-    """The folders that hold packages (the same order as scripts/lib/registry-load.sh): HS_PACKAGES_DIR alone, or the checkout beside scripts/ and
-    /etc/nixos (the scripts run from a copy in the Nix store that has no capabilities/). A pinned-commit location is added here later."""
-    if env("HS_PACKAGES_DIR", ""):
-        return [env("HS_PACKAGES_DIR", "")]
-    here = os.path.dirname(os.path.abspath(__file__))
-    base = os.path.dirname(here)
-    cur = os.path.join(env("HS_STATE_DIR", "/var/lib/hs"), "packages", "current")      # installed from a repository (scripts/pkg_repo.py)
-    return [r for r in (os.path.join(base, "capabilities"), "/etc/nixos/capabilities", os.path.join(base, "packages"), "/etc/nixos/packages", cur) if os.path.isdir(r)]
-
-
-def _ext_pattern(p):
-    if not isinstance(p, str) or not 1 <= len(p) <= 400:
-        raise ValueError("bad pattern")
-    re.compile(p)
-    return p
-
-
-def ext_sys_rows(path):
-    """the sys rows of a package's commands.tsv as word tuples with <x> for every value: ('ext', 'games', 'plan', '<x>', '<x>')"""
-    rows = set()
-    with open(path, encoding="utf-8") as f:
-        for line in f:
-            c = line.rstrip("\r\n").split("\t")
-            if line.startswith("#") or len(c) < 2 or c[0] != "sys":
-                continue
-            rows.add(tuple("<x>" if w.startswith("<") else w for w in c[1].split()[1:]))
-    return rows
-
-
-def _ext_page(name, page, words):
-    """The [web.page] declaration of a package for the generic page of the frontend (web/src/shell/GenericPage.svelte): plain data, checked here so
-    that it names only reads the package declared and changes of its own area. Raises ValueError. -> the declaration as it goes out."""
-    if not isinstance(page, dict) or len(json.dumps(page)) > 30000:
-        raise ValueError("bad page")
-    known = {" ".join(w[2:]) for w in words}
-
-    def walk(node):
-        if isinstance(node, dict):
-            r = node.get("read")
-            if r is not None and r not in known:
-                raise ValueError("the page reads %r, which is not a declared read" % r)
-            for j in node.get("joins", []):
-                if j.get("read") not in known:
-                    raise ValueError("a join reads something that is not a declared read")
-            if node.get("type") is not None and node["type"] not in EXT_BLOCKS:
-                raise ValueError("unknown block type")
-            for key in ("actions", "rowActions"):
-                for a in node.get(key, []):
-                    if "plan" in a and (not isinstance(a["plan"], list) or not a["plan"] or a["plan"][0] != "ext/" + name):
-                        raise ValueError("a page action may only plan changes of its own area")
-            for c in node.get("columns", []):
-                pl = c.get("plan")
-                if pl is not None and (not isinstance(pl, list) or not pl or pl[0] != "ext/" + name):
-                    raise ValueError("a switch may only plan changes of its own area")
-            for v in node.values():
-                walk(v)
-        elif isinstance(node, list):
-            for v in node:
-                walk(v)
-    walk(page)
-    return {"name": name, **page}
-
-
-def ext_load_web():
-    """-> (reads, changes, pages) declared by the manifests of the packages that are on. A package whose declaration is wrong adds nothing."""
-    import tomllib
-    reads, changes, pages, on, done = {}, {}, [], set(capabilities()) | applied_recipes(), set()
-    for root in ext_roots():
-        try:
-            names = sorted(os.listdir(root))
-        except OSError:
-            continue
-        for name in names:
-            d = os.path.join(root, name)
-            if name not in on or not EXT_NAME.match(name) or name in done:
-                continue
-            done.add(name)          # the first folder that has the package wins
-            try:
-                manifest = os.path.join(d, "capability.toml")
-                if not os.path.isfile(manifest):
-                    manifest = os.path.join(d, "package.toml")      # a recipe package; its page and reads are declared the same way
-                with open(manifest, "rb") as f:
-                    web = tomllib.load(f).get("web", {})
-                if not web:
-                    continue        # a capability without a [web] declaration (most of them) has nothing to register and no commands.tsv
-                rows = ext_sys_rows(os.path.join(d, "commands.tsv"))
-                r_new, c_new, p_new = {}, [], None
-                for rd in web.get("reads", []):
-                    words = tuple(["ext", name] + str(rd["words"]).split())
-                    args = [_ext_pattern(a) for a in rd.get("args", [])]
-                    if rd["kind"] not in EXT_KINDS or not isinstance(rd["ttl"], int) or not 0 <= rd["ttl"] <= 3600 or len(words) < 3:
-                        raise ValueError("bad read")
-                    if words + tuple("<x>" for _ in args) not in rows or set(words) & {"plan", "start", "stop", "delete", "purge"}:
-                        raise ValueError("a read is not a sys row of the package, or changes something")
-                    spec = {"kind": rd["kind"], "ttl": rd["ttl"]}
-                    if args:
-                        spec["args"] = args
-                    r_new[words] = spec
-                for ch in web.get("changes", []):
-                    if "patterns" in ch:
-                        c_new.append([_ext_pattern(p) for p in ch["patterns"]])
-                    else:
-                        ent = {"fixed": [_ext_pattern(p) for p in ch["fixed"]],
-                               "opts": {o["flag"]: (_ext_pattern(o["pattern"]) if o.get("pattern") is not None else None, bool(o.get("repeats", False)))
-                                        for o in ch.get("opts", [])}}
-                        if ch.get("stdin"):
-                            ent["stdin"] = True
-                        for flag in ent["opts"]:
-                            if not re.fullmatch(r"--[a-z][a-z0-9-]{0,30}", flag):
-                                raise ValueError("bad flag")
-                        c_new.append(ent)
-                if "page" in web:
-                    p_new = _ext_page(name, web["page"], list(r_new))
-                heads = {w[:3] for w in rows}
-                if c_new and not (("ext", name, "plan") in heads and ("ext", name, "start") in heads):
-                    raise ValueError("changes need the plan and start rows of the package")
-            except (OSError, KeyError, TypeError, ValueError, re.error, tomllib.TOMLDecodeError) as e:
-                print("extension %s: web declaration ignored (%s)" % (name, e), flush=True)
-                continue
-            reads.update(r_new)
-            if p_new:
-                pages.append(p_new)
-            if c_new:
-                changes["ext/" + name] = c_new
-    return reads, changes, pages
 
 
 def ext_pages():
@@ -1948,7 +1755,8 @@ class RedisStore(StateStore):
 
     def get(self, spec, argv, key, fresh=False):
         topic = spec.get("topic")
-        if not topic or not ls.cap_on(self.caps.get(topic)):      # no topic, or its capability is off (the collector never writes it): the direct read
+        cap = spec["cap"] if "cap" in spec else self.caps.get(topic)      # an extension read names its own capability (None = a recipe package)
+        if not topic or not ls.cap_on(cap):      # no topic, or its capability is off (the collector never writes it): the direct read
             return self.off.get(spec, argv, key, fresh=fresh)
         try:
             doc = self._doc(topic)

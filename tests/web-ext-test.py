@@ -228,6 +228,60 @@ columns = [ { key = "x", label = "X" } ]
 """
 
 
+class ExtLive(unittest.TestCase):
+    """live = <seconds> on a read without args: the read gets a topic, the topic map and the group; wrong values drop the package"""
+
+    def setUp(self):
+        self.tmp = tempfile.mkdtemp()
+        self.pk = os.path.join(self.tmp, "packages")
+        os.environ["HS_PACKAGES_DIR"] = self.pk
+        os.environ["HS_CAPABILITIES_FILE"] = os.path.join(self.tmp, "caps")
+        os.environ["HS_STATE_DIR"] = os.path.join(self.tmp, "state")
+        write(os.path.join(self.tmp, "caps"), "demo\n")
+
+    def tearDown(self):
+        os.environ.pop("HS_PACKAGES_DIR", None)
+        write(os.path.join(self.tmp, "caps"), "")
+        ws.ext_refresh(force=True)
+        shutil.rmtree(self.tmp, ignore_errors=True)
+
+    def load(self, extra, rows=None):
+        package(self.pk, "demo", rows or [["sys", "sys ext demo list", "x.sh", "list", "h", "-"],
+                                          ["sys", "sys ext demo thing <id>", "x.sh", "thing {1}", "h", "-"]],
+                '[[web.reads]]\nwords = "list"\nkind = "tsv"\nttl = 10\n' + extra)
+        return ws.ext_load_web()[0]
+
+    def test_a_read_without_live_has_no_topic(self):
+        self.assertNotIn("topic", self.load("")[("ext", "demo", "list")])
+
+    def test_live_read_has_topic_cap_and_lock(self):
+        spec = self.load("live = 30\n")[("ext", "demo", "list")]
+        self.assertEqual((spec["topic"], spec["live"], spec["locked"], spec["cap"]), ("ext-demo-list", 30, "skip", "demo"))
+        self.assertEqual(self.load('live = 10\nlocked = "run"\n')[("ext", "demo", "list")]["locked"], "run")
+
+    def test_topic_map_has_the_ext_url(self):
+        package(self.pk, "demo", [["sys", "sys ext demo list", "x.sh", "list", "h", "-"]],
+                '[[web.reads]]\nwords = "list"\nkind = "tsv"\nttl = 10\nlive = 30\n')
+        ws.ext_refresh(force=True)
+        self.assertEqual(ws.live_topic_map().get("/api/sys/ext/demo/list"), "ext-demo-list")
+
+    def test_wrong_live_values_drop_the_package(self):
+        for extra in ("live = 9\n", "live = 3601\n", 'live = "30"\n', "live = true\n", 'live = 30\nlocked = "x"\n', "live = 30\nargs = ['^a$']\n"):
+            self.assertEqual(self.load(extra), {}, extra)
+
+    def test_words_that_cannot_be_a_topic_drop_the_package(self):
+        reads = self.load("live = 30\n", [["sys", "sys ext demo list", "x.sh", "list", "h", "-"]])
+        self.assertIn(("ext", "demo", "list"), reads)
+        package(self.pk, "demo", [["sys", "sys ext demo Li_st", "x.sh", "list", "h", "-"]],
+                '[[web.reads]]\nwords = "Li_st"\nkind = "tsv"\nttl = 10\nlive = 30\n')
+        self.assertEqual(ws.ext_load_web()[0], {})
+
+    def test_package_off_gives_no_read(self):
+        self.load("live = 30\n")
+        write(os.path.join(self.tmp, "caps"), "")
+        self.assertEqual(ws.ext_load_web()[0], {})
+
+
 class RecipePackage(unittest.TestCase):
     """a recipe package (packages/<name>/package.toml + commands.tsv) registers its reads and page only once the recipe has been applied"""
 

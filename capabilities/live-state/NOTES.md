@@ -86,3 +86,13 @@ for `backup-state` because a plugged or removed backup disk flips its `disk` key
 `cache state` is left direct: the registry row `sys cache state` runs `share-cache.sh --state` without a share, but the script needs `--state <share>`
 and exits 1 with its usage text, so the READS entry (no argument) can never answer. No page in web/src calls it (only the WARM list does); it needs a
 design (one row per share) before it can become a topic. Reported, not changed.
+
+## Extension reads (2026-11-01)
+
+A package manifest can opt a `[[web.reads]]` entry without `args` in with `live = 10..3600` (docs/PLAN-extensions.md): topic `ext-<name>-<words joined
+by '-'>`, capability = the package (none for a recipe package, which is on once applied), group `ext-<name>`, lock mode `locked` (default `skip`).
+scripts/hs_ext.py (`ext_declarations` checks the WHOLE declaration of a package, reads, changes and page, for both the web interface and the collector; `ext_read`, `ext_live_rows`; also the home of `capabilities()`, `applied_recipes()`, `ext_roots()`, `ext_sys_rows()`) validates:
+words `a-z0-9-` only, topic at most 100 characters, no duplicate topic across packages (the second package is ignored, as for any wrong
+declaration), no `live` with `args`. `live_state.topics()` and `topic_info()` append these rows (only for the default file, so tests with their own path
+are unaffected). The collector rescans every 60 s, and at once when a refresh names an unknown `ext-` topic; a removed topic stops and its key is
+deleted. The web interface takes the capability from the read itself (the topic is not in `live-topics.tsv`), and a package that is switched off has no read at all in the web interface (it is gone within 3 s, the collector stops the topic within 60 s). A web change in the area `ext/<n>` wakes `@ext-<n>`. Output is stored in Redis as printed: a read must print no secret.

@@ -110,8 +110,19 @@ class Resp:
                 yield m[1], m[2]
 
 
+def ext_live():
+    """(rows, info) of the live reads that extension packages declare (scripts/hs_ext.py); nothing when that cannot be read"""
+    try:
+        import hs_ext
+        return hs_ext.ext_live_rows()
+    except Exception:       # a broken package must never take the core topics down
+        return [], {}
+
+
 def topics(path=None):
-    """[(topic, words list, interval seconds, lock mode run|skip)] from live-topics.tsv."""
+    """[(topic, words list, interval seconds, lock mode run|skip)] from live-topics.tsv, plus the live reads of the extension packages that are on
+    (only for the real file: a test that passes its own path gets just that file)."""
+    own = path is not None
     path = path or os.path.join(HERE, "lib", "live-topics.tsv")
     rows = []
     with open(path, encoding="utf-8") as f:
@@ -123,11 +134,15 @@ def topics(path=None):
             if len(c) < 3:
                 continue
             rows.append((c[0], c[1].split(), int(c[2]), c[3] if len(c) > 3 and c[3] else "run"))
+    if not own:
+        known = {r[0] for r in rows}
+        rows += [r for r in ext_live()[0] if r[0] not in known]
     return rows
 
 
 def topic_info(path=None):
     """{topic: {"cap": capability name or None, "groups": set of change areas}} from columns 5 and 6 of live-topics.tsv."""
+    own = path is not None
     path = path or os.path.join(HERE, "lib", "live-topics.tsv")
     info = {}
     with open(path, encoding="utf-8") as f:
@@ -141,6 +156,9 @@ def topic_info(path=None):
             cap = c[4] if len(c) > 4 and c[4] not in ("", "-") else None
             groups = {g for g in (c[5].split(",") if len(c) > 5 else []) if g and g != "-"}
             info[c[0]] = {"cap": cap, "groups": groups}
+    if not own:
+        for t, i in ext_live()[1].items():
+            info.setdefault(t, i)
     return info
 
 
@@ -167,6 +185,11 @@ def cap_on(name):
     with _CAP_LOCK:
         _CAP_CACHE[name] = (now, on)
     return on
+
+
+def clean(text, limit=200):
+    """one line of printable text: control characters (newline, tab, escape ...) become a space; what a package printed must never shape a check line"""
+    return "".join(c if c.isprintable() else " " for c in str(text))[:limit]
 
 
 def _doc(r, topic):
@@ -199,7 +222,7 @@ def cli_status(conn=None, out=None):
         for topic, _, interval, _ in topics():
             d = _doc(r, topic) or {}
             age = int(now - d["ts"]) if d.get("ts") else -1
-            err = str(d.get("err") or "-").replace("\t", " ").replace("\n", " ")
+            err = clean(d.get("err") or "-")
             ts_err = str(int(d["ts_err"])) if d.get("ts_err") else "-"
             out.write("%s\t%d\t%d\t%s\t%s\t%s\t%s\n" % (
                 topic, interval, age, d.get("gen", 0), d.get("rc", "-"), err, ts_err))
@@ -225,7 +248,7 @@ def cli_check(conn=None, out=None):
             if not d.get("ts"):
                 if d.get("err"):   # tried and never succeeded
                     problems.append(("live:never:" + topic, "live state '%s' has never been read: %s. Details: systemctl status hs-live" % (
-                        topic, d["err"])))
+                        topic, clean(d["err"]))))
                 continue
             age = now - d["ts"]
             if age > 3 * interval:
