@@ -860,6 +860,7 @@ READS = {
     ("vault", "usage"): {"kind": "tsv", "ttl": 30},
     ("vault", "uses"): {"kind": "tsv", "ttl": 60},
     ("recipes", "list"): {"kind": "tsv", "ttl": 60},
+    ("recipes", "versions"): {"kind": "tsv", "ttl": 60},
     # the Marketplace: everything installable and the repositories it comes from (pkg-change.sh does the changes)
     ("pkg", "market"): {"kind": "tsv", "ttl": 30},
     ("pkg", "repos"): {"kind": "tsv", "ttl": 30},

@@ -6,7 +6,8 @@
   pkg.py repo-check [<folder>]                             check a package repository checkout: index.toml against its folders
   pkg.py validate                                          check every manifest (and that a recipe's header agrees); exit 1 on a problem
   pkg.py convert <recipe-script>                           print the package.toml for a recipe written with header lines
-  pkg.py record <name>                                     remember the tree's version as installed (installed.toml)
+  pkg.py record <name> [--applied]                         remember the tree's version as installed (installed.toml); --applied: a run applied it
+  pkg.py applied                                           name, version the last successful run applied
   pkg.py api                                               the API level of the core helpers
 
 Repositories (docs/PLAN-packages.md, "Repositories" and "Trust"); the git work is `git`, signatures are SSH signatures on release tags:
@@ -103,7 +104,7 @@ def save_installed(data):
     with open(f + ".new", "w", encoding="utf-8") as o:
         for n in sorted(data):
             o.write(f"[package.{n}]\n")
-            for k in ("version", "repo", "commit", "tag"):
+            for k in ("version", "applied", "repo", "commit", "tag"):
                 if k in data[n]:
                     o.write(f"{k} = {q(str(data[n][k]))}\n")
             o.write("\n")
@@ -362,7 +363,13 @@ def main(argv):
         have = data.get(rest[0], {})
         # keep repo/commit/tag of a package installed from a repository, else `hs pkg remove|update` refuse it
         data[rest[0]] = dict(have, version=known[rest[0]])
+        if "--applied" in rest[1:]:
+            data[rest[0]]["applied"] = known[rest[0]]
         save_installed(data)
+    elif cmd == "applied":
+        for n, have in sorted(installed().items()):
+            if "applied" in have:
+                print(f"{n}\t{have['applied']}")
     else:
         print(__doc__)
         return 1

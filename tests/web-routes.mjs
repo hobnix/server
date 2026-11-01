@@ -35,6 +35,7 @@ eq('every move is an inner path to an inner path', Object.entries(innerMoves).fi
 eq('Apps moved under Instances', redirect('/operations/apps', L), '/node/homeserver/instances/apps');
 eq('Services moved under Instances', redirect('/node/homeserver/operations/services', L), '/node/homeserver/instances/services');
 eq('the new Apps page prefetches the recipes', readsFor('/node/homeserver/instances/apps').includes('/api/sys/recipes/list'), true);
+eq('the Apps page prefetches the versions', readsFor('/node/homeserver/instances/apps').includes('/api/sys/recipes/versions'), true);
 eq('the old Apps address prefetches the same', readsFor('/operations/apps'), readsFor('/instances/apps'));
 eq('the moves of phase 2D are in the table', ['/proxy', '/proxy/mail', '/proxy/ports', '/proxy/settings'].every((k) => k in innerMoves), true);
 

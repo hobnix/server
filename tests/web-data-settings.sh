@@ -32,6 +32,17 @@ check_eq "a fixed text without a header line" "App recipe nodesc (hs recipe node
 check_eq "domain: installed when the controller dc1 exists" "domain${T}installed" "$(HS_INCUS=$WORK/incus-dc bash "$SCRIPTS/recipes-list.sh" | awk -F'\t' '$1 == "domain" { print $1 FS $4 }')"
 check_eq "domain: not installed without a controller" "domain${T}not installed" "$(awk -F'\t' '$1 == "domain" { print $1 FS $4 }' <<<"$out")"
 check_eq "incus not answering: unknown" "unknown" "$(HS_INCUS=$WORK/incus-down bash "$SCRIPTS/recipes-list.sh" | awk -F'\t' '$1 == "arr" { print $4 }')"
+echo "-- recipes versions"
+printf 'name = "arr"\nversion = "1.2.0"\n' > "$WORK/recipes/arr/package.toml"
+printf 'name = "jellyfin"\nversion = "1.2.0"\n' > "$WORK/recipes/jellyfin/package.toml"
+mkdir -p "$HS_STATE_DIR/packages"
+printf '[package.arr]\nversion = "1.2.0"\napplied = "1.2.0"\n\n[package.jellyfin]\nversion = "1.2.0"\napplied = "1.0.0"\n' > "$HS_STATE_DIR/packages/installed.toml"
+vout=$(bash "$SCRIPTS/recipes-versions.sh")
+check_eq "current" "arr${T}1.2.0${T}1.2.0${T}current" "$(grep '^arr' <<<"$vout")"
+check_eq "update" "jellyfin${T}1.2.0${T}1.0.0${T}update" "$(grep '^jellyfin' <<<"$vout")"
+check_eq "nothing known" "nodesc${T}-${T}-${T}unknown" "$(grep '^nodesc' <<<"$vout")"
+check_eq "every row has 4 fields" "" "$(awk -F'\t' 'NF != 4 { print $1 }' <<<"$vout")"
+check_eq "same names as recipes-list.sh" "$(bash "$SCRIPTS/recipes-list.sh" | cut -f1)" "$(cut -f1 <<<"$vout")"
 unset HS_RECIPES_DIR
 check_eq "the real recipes: no helper rows" 0 "$(HS_INCUS=$WORK/incus-down bash "$SCRIPTS/recipes-list.sh" | grep -c '^_')"
 check_eq "the real recipes: every row has 4 fields" "" "$(HS_INCUS=$WORK/incus-down bash "$SCRIPTS/recipes-list.sh" | awk -F'\t' 'NF != 4 { print $1 }')"

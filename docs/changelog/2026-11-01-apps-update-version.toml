@@ -1,0 +1,6 @@
+date  = "2026-11-01"
+type  = "feature"
+title = "Apps shows each app's version and says Repair instead of Update when it is up to date"
+body  = """The Apps page has a Version column. The row button reads Repair when the applied version equals the available one, otherwise Update; all buttons have the same width.
+
+The applied version is known only after the next successful run of each app, until then the button reads Update."""

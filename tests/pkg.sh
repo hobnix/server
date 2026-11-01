@@ -49,6 +49,15 @@ check_eq "up to date after record" "" "$($PKG updates)"
 printf '[package.fixapp]\nversion = "0.9.0"\n' > "$HS_STATE_DIR/packages/installed.toml"
 check_out "an older applied version shows as an update" "^fixapp${tab}0[.]9[.]0${tab}1[.]1[.]0" $PKG updates
 check "an unknown package cannot be recorded" bash -c "! $PKG record nope 2>/dev/null"
+rm -f "$HS_STATE_DIR/packages/installed.toml"
+$PKG record fixapp
+check "record without --applied writes no applied" bash -c "! grep -q '^applied' '$HS_STATE_DIR/packages/installed.toml'"
+check_eq "so pkg.py applied prints nothing" "" "$($PKG applied)"
+$PKG record fixapp --applied
+check_out "record --applied writes applied" 'applied = "1.1.0"' cat "$HS_STATE_DIR/packages/installed.toml"
+check_eq "pkg.py applied prints name and version" "fixapp${tab}1.1.0" "$($PKG applied)"
+$PKG record fixapp
+check_eq "a plain record keeps applied" "fixapp${tab}1.1.0" "$($PKG applied)"
 
 echo "-- hs pkg"
 check_out "hs pkg validate says ok" "valid" bash "$SCRIPTS/pkg.sh" validate
