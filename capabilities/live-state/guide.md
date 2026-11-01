@@ -55,6 +55,12 @@ refreshes only the pages it can affect, and a finished background job refreshes 
 service, one user) stay direct. Parts that are switched off, such as the gateway without its capability, are skipped without an error.
 With live state off nothing changes. Not tested on hardware yet.
 
+### Users and Backup pages
+With live state on, the user and group lists, the domain controller certificate state and the Backup page (state, shares and containers with their
+backup switch) also come from Redis. They update after a user, share, instance or backup change, and the backup state also when the backup disk is
+plugged in or removed. Users and groups appear only when Active Directory is set up. What you look up for one user or group, and the snapshots and
+file search of the backup, are still read directly. With live state off nothing changes. Not tested on hardware yet.
+
 ## If something goes wrong
 | Symptom | Cause | Fix |
 | --- | --- | --- |

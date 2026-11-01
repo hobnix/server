@@ -1041,7 +1041,8 @@ cmd_state_kv() {
     printf 'disk\tabsent\n'
   fi
   if mountpoint -q "$BROWSE" 2>/dev/null; then printf 'browse\ton\n'; else printf 'browse\toff\n'; fi
-  printf 'offsite\t%s\n' "$(cat "$OFFSITE" 2>/dev/null || true)"
+  # the address may carry user:password (rest:https://u:pw@host/); this output lands in Redis, so the password is masked
+  printf 'offsite\t%s\n' "$({ cat "$OFFSITE" 2>/dev/null || true; } | sed -E 's#(://[^/@]*):[^/@]*@#\1:***@#')"
   printf 'offsite_ok\t%s\n' "$(get offsite_ok)"
   printf 'last_drill\t%s\n' "$(get last_drill)"
   printf 'drill_ok\t%s\n' "$(get drill_ok)"

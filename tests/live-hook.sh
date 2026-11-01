@@ -78,6 +78,20 @@ for w in "net setup:@network" "gateway acme-token:@network" "dns clean:@network"
   check_eq "hs ${w%%:*} asks for ${w##*:}" "${w##*:}" "$(cat "$WORK/live.log")"
 done
 
+echo "-- the real registry rows of the identity and backup reads' changes reach the dispatcher hook"
+: > "$WORK/real2.tsv"
+for w in "user add" "user <user> unlock" "user flush" "group <group> remove" "backup now" "backup init" "backup offsite" "backup drill" "backup <share> on" "backup ct <ct> on" "dc cert install" "vault header-backup"; do
+  awk -F'	' -v w="$w" -v s="$WORK/ok.sh" -v OFS='	' '$1=="user" && $2==w { n=split($NF, a, ","); f=""; for (i=1;i<=n;i++) if (a[i]=="changes" || a[i] ~ /^topic:/) f=f (f==""?"":",") a[i]; $3=s; $NF=f; print }' "$SCRIPTS/lib/registry.tsv" >> "$WORK/real2.tsv"
+done
+check_eq "all twelve real rows were found" "12" "$(grep -c . "$WORK/real2.tsv")"
+for w in "user add:@users" "user bob unlock:@users" "user flush:@users" "group g remove:@users" "backup now:@backup" "backup init:@backup" "backup offsite:@backup" "backup drill:@backup" "backup docs on:@backup" "backup ct web on:@backup" "dc cert install:@users" "vault header-backup:@security"; do
+  : > "$WORK/live.log"
+  HS_REGISTRY=$(wp "$WORK/real2.tsv") bash "$SCRIPTS/lib/hs.sh" ${w%%:*} >/dev/null 2>&1
+  check_eq "hs ${w%%:*} asks for ${w##*:}" "${w##*:}" "$(cat "$WORK/live.log")"
+done
+check_eq "the backup timers (backup, drill, drill ct) refresh @backup after a run" "3" "$(grep -c 'live.sh refresh @backup' "$SCRIPTS/../capabilities/backup/module.nix")"
+check_eq "disk-event.sh also asks for backup-state (backup disk plugged or removed)" "yes" "$(grep -q 'refresh monitor-disks disk-inventory temp-disks fm-locations backup-state' "$SCRIPTS/disk-event.sh" && echo yes || echo no)"
+
 echo "-- reads-collect.sh in Redis mode"
 if command -v python3 >/dev/null; then
   CALLS=$WORK/calls; : > "$CALLS"

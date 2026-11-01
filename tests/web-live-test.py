@@ -378,6 +378,14 @@ NETWORK = {
 }
 
 
+IDENTITY = {
+    ("users", "list"): "users-list", ("users", "groups"): "users-groups", ("dc", "state"): "dc-state",
+    ("backup", "state"): "backup-state", ("backup", "overview"): "backup-overview", ("backup", "shares"): "backup-shares",
+}
+DIRECT_IDENTITY = [("cache", "state"), ("users", "access"), ("users", "group-access"), ("users", "details"), ("users", "group-details"),
+                   ("backup", "find"), ("backup", "snapshots")]
+
+
 class StorageTopics(RedisBase):
     def test_web_areas_that_change_apps_ask_for_groups_that_wake_the_app_topics(self):
         info = ws.ls.topic_info()
@@ -404,6 +412,28 @@ class StorageTopics(RedisBase):
             g = ws.area_refresh(area)[1:]
             for w in topics:
                 n = NETWORK[w]
+                self.assertTrue(g in info[n]["groups"] or "any" in info[n]["groups"], (area, n))
+
+    def test_every_identity_and_backup_read_has_its_topic(self):
+        known = {r[0] for r in ws.ls.topics()}
+        for words, topic in IDENTITY.items():
+            self.assertEqual(ws.READS[words]["topic"], topic, words)
+            self.assertIn(topic, known)
+            self.assertEqual(ws.live_topic_map()["/api/sys/" + "/".join(words)], topic)
+        for words in DIRECT_IDENTITY:
+            self.assertNotIn("topic", ws.READS[words], words)
+            self.assertNotIn("/api/sys/" + "/".join(words), ws.live_topic_map())
+
+    def test_web_areas_that_change_identity_or_backup_ask_for_groups_that_wake_the_topics(self):
+        info = ws.ls.topic_info()
+        ids = {("users", "list"), ("users", "groups"), ("dc", "state")}
+        bk = {w for w in IDENTITY if w[0] == "backup"}
+        for area, topics in (("users", ids | {("backup", "state")}), ("dc", ids), ("admin", ids), ("backup", bk), ("ct", set(IDENTITY)),
+                             ("recipes", set(IDENTITY)), ("shares", {w for w in IDENTITY if w != ("dc", "state")}), ("pool", bk),
+                             ("secrets", {("dc", "state"), ("backup", "state")}), ("system", set(IDENTITY)), ("config", set(IDENTITY))):
+            g = ws.area_refresh(area)[1:]
+            for w in topics:
+                n = IDENTITY[w]
                 self.assertTrue(g in info[n]["groups"] or "any" in info[n]["groups"], (area, n))
 
     def test_every_apps_read_has_its_topic(self):

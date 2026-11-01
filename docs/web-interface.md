@@ -210,6 +210,10 @@ over the stream. A change from the terminal, from the web interface or from a jo
 everything. Reads that need an argument (one instance's logs, one service, one user) and on-demand reports stay direct. Pages whose feature is off
 (gateway, Active Directory, router connection) show nothing for it. With live state off everything works as before. Not tested on hardware yet.
 
+The Users and Backup pages follow the same rule: the user and group lists, the domain controller certificate state, the backup state and the list of
+shares and instances with their backup switch come from Redis and update after a user, share, instance or backup change. One user's or group's details,
+the snapshots and the file search of the backup stay direct (they open the backup disk). Not tested on hardware yet.
+
 ## Check that it worked
 
 - Open the page and sign in; the summary shows your server and its disks.

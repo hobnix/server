@@ -1,0 +1,7 @@
+date  = "2026-11-01"
+type  = "feature"
+title = "Users and Backup follow the live state"
+docs  = "web-interface#live-state"
+body  = """
+The user and group lists, the domain controller certificate state and the Backup page (state, shares and instances with their backup switch) are served from Redis topics with SSE updates when live state is on. User, group, share, instance and backup changes, and a plugged or removed backup disk, refresh only the topics they affect. Snapshots and file search of the backup stay direct. Off mode is unchanged.
+"""

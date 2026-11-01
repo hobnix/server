@@ -140,6 +140,11 @@ every 10 s (the pages polled 5 s) and refreshed by `@instances`/`@network` after
 3 topics (`pkg-market`, `pkg-repos`, `recipes-list`), see capabilities/live-state/NOTES.md. `pkg.sh` refreshes them (and `parts-list`) after a
 successful fetch, install, update, remove or repository change. Not tested on hardware yet.
 
+## Identity and backup slice (2026-11-01)
+
+6 topics (`users-list`, `users-groups`, `dc-state`, `backup-state`, `backup-overview`, `backup-shares`), see capabilities/live-state/NOTES.md. Users
+topics need capability `ad` (the script fails without a controller). `cache state` stays direct: the READS entry passes no share. Not tested on hardware yet.
+
 ## Network slice (2026-11-01)
 
 8 topics (`gateway-*`, `dns-list`, `unifi-*`, `ports-list`, `remote-list`), see capabilities/live-state/NOTES.md. Not tested on hardware yet.

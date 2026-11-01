@@ -18,7 +18,7 @@ Rules:
 - The `group` option of `services.redis.servers.<n>` is unverified in the pinned nixpkgs; module.nix does not use it. The socket group is
   `redis-hobnix`; hs-web and hs-live get it through SupplementaryGroups.
 
-Topics (58, including `status` and `live`): see `scripts/lib/live-topics.tsv`. Storage fixed reads now have their own topics, including
+Topics (64, including `status` and `live`): see `scripts/lib/live-topics.tsv`. Storage fixed reads now have their own topics, including
 six fixed-pool topics (`pool-info-bulk`, `pool-info-fast`, `pool-members-bulk`, `pool-members-fast`, `pool-state-bulk`,
 `pool-state-fast`) whose words contain the literal pool name. The web resolves those per request from the validated
 `pool=bulk|fast` query; any other pool argument stays a direct read. Lock mode is `skip` for mounted-pool/Samba reads
@@ -71,3 +71,18 @@ rebuild, update, preset and extension rows can change the domain, ports or a cap
 the `hs-remote-mount` timer already ends with `live.sh refresh @shares`), `network` and `system`. No new explicit hooks: every change reaches
 them through the dispatcher. No secret reaches a topic: `dns.sh` and `unifi.sh` read their credentials themselves and print none. The UniFi
 and gateway-health reads call the router or the proxy on their interval even with nobody watching; the long intervals are the limit.
+
+Identity and backup slice (built, not run on hardware): 6 topics. `users-list` and `users-groups` (60 s, `skip`) are cap `ad`: `manage-users.sh --list|--groups`
+fails with no output (and rc 1) when there is no domain controller instance, so without Active Directory they must not run. `dc-state` (600 s, `skip`, cap
+`ad`) calls `incus exec` on the controller. `backup-state` (30 s, `run`, cap `backup`) never mounts the disk and never fails (it reports `vault closed` while
+locked), groups `backup,any`; `backup-overview` and `backup-shares` (60 s, `skip`, cap `backup`) list the pool shares and sizes. Groups: users/groups/dc wake on
+`users`, `shares` (the users reads), `instances` (the controller starts or stops with `ct`), `system` (config set, rebuild and update can switch `ad` or `backup`
+on or change `dcName`); `dc-state` also on `security` (the CA key sits in the vault); the backup overview/shares on `backup`, `shares`, `instances` (the mounted
+instances), `disks` (pools hold the shares) and `system`. Nothing prints a secret: `ldbsearch` asks for login, name, flag and groups only (no hashes), the dc state
+prints subject, names and dates, `backup --state` the dates and sizes of the last run and the off-site address with the `user:password` part of a URL masked as `user:***@` (the page only shows it; the restic password file is never printed; `backup-overview` and `backup-shares` print names, switches and sizes only). Restic reads stay direct: `backup snapshots`
+and `backup find` mount the backup disk and take the repository lock. The backup timers already end with `live.sh refresh @backup`; the disk-event hook now also asks
+for `backup-state` because a plugged or removed backup disk flips its `disk` key. `cache state` stays direct (see below).
+
+`cache state` is left direct: the registry row `sys cache state` runs `share-cache.sh --state` without a share, but the script needs `--state <share>`
+and exits 1 with its usage text, so the READS entry (no argument) can never answer. No page in web/src calls it (only the WARM list does); it needs a
+design (one row per share) before it can become a topic. Reported, not changed.

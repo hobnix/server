@@ -67,3 +67,9 @@ unifi-networks	unifi networks	300	skip	network	network,system
 unifi-clients	unifi clients	60	skip	network	network,instances,system
 ports-list	ports list	120	skip	-	network,instances,system
 remote-list	remote list	60	skip	-	network,shares,system
+users-list	users list	60	skip	ad	users,shares,instances,system
+users-groups	users groups	60	skip	ad	users,shares,instances,system
+dc-state	dc state	600	skip	ad	users,security,instances,system
+backup-state	backup state	30	run	backup	backup,any
+backup-overview	backup overview	60	skip	backup	backup,shares,instances,disks,system
+backup-shares	backup shares	60	skip	backup	backup,shares,instances,disks,system

@@ -23,6 +23,13 @@ has "next${T}" && pass "next run is a key (empty without systemd)" || fail "next
 printf 'sftp:me@nas:/backup\n' > "$WORK/state/backup-offsite"
 out=$(b --state)
 has "offsite${T}sftp:me@nas:/backup" && pass "the off-site repository is named" || fail "offsite: $out"
+printf 'rest:https://bob:hunter2@nas.example:8000/repo
+' > "$WORK/state/backup-offsite"
+out=$(b --state)
+has "offsite${T}rest:https://bob:***@nas.example:8000/repo" && pass "an off-site address with a password is masked" || fail "offsite mask: $out"
+case "$out" in *hunter2*) fail "the off-site password is in the state output" ;; *) pass "the off-site password never appears in the state output" ;; esac
+printf 'sftp:me@nas:/backup
+' > "$WORK/state/backup-offsite"
 
 echo "-- overview"
 out=$(b --overview)
