@@ -486,8 +486,10 @@ class Cli(unittest.TestCase):
 
     def test_status_shape(self):
         import time
+        from unittest import mock
         out = io.StringIO()
-        self.assertEqual(ls.cli_status(self.fake(time.time() - 7), out), 0)
+        with mock.patch.object(ls, "cap_on", lambda name: True):
+            self.assertEqual(ls.cli_status(self.fake(time.time() - 7), out), 0)
         lines = out.getvalue().rstrip("\n").split("\n")
         self.assertEqual(len(lines), 64)
         status = [l for l in lines if l.startswith("status\t")][0].split("\t")
@@ -498,9 +500,25 @@ class Cli(unittest.TestCase):
         self.assertEqual((live[0], live[1], live[3], live[4], live[5], live[6]), ("live", "5", "0", "-", "-", "-"))
         self.assertEqual(live[2], "-1")
 
+    def test_status_skips_topics_whose_capability_is_off(self):
+        """status shows no row for a topic that is not read (the rule of check), so Diagnostics shows no red 'never' for it"""
+        import time
+        real = ls.cap_on
+        try:
+            ls.cap_on = lambda name: name != "backup"
+            out = io.StringIO()
+            ls.cli_status(self.fake(time.time() - 7), out)
+        finally:
+            ls.cap_on = real
+        names = [l.split(chr(9))[0] for l in out.getvalue().rstrip(chr(10)).split(chr(10))]
+        self.assertNotIn("backup-state", names)
+        self.assertIn("status", names)
+
     def test_status_without_data(self):
+        from unittest import mock
         out = io.StringIO()
-        ls.cli_status(FakeResp(), out)
+        with mock.patch.object(ls, "cap_on", lambda name: True):
+            ls.cli_status(FakeResp(), out)
         lines = sorted(out.getvalue().rstrip("\n").split("\n"))
         old = ['disk-health	30	-1	0	-	-	-', 'disk-inventory	30	-1	0	-	-	-', 'disk-marks	15	-1	0	-	-	-', 'encryption	30	-1	0	-	-	-', 'fm-locations	15	-1	0	-	-	-', 'live	5	-1	0	-	-	-', 'monitor-disks	15	-1	0	-	-	-', 'pool-info-bulk	15	-1	0	-	-	-', 'pool-info-fast	15	-1	0	-	-	-', 'pool-members-bulk	15	-1	0	-	-	-', 'pool-members-fast	15	-1	0	-	-	-', 'pool-state-bulk	10	-1	0	-	-	-', 'pool-state-fast	10	-1	0	-	-	-', 'shares-deleted	60	-1	0	-	-	-', 'shares-overview	30	-1	0	-	-	-', 'shares-principals	60	-1	0	-	-	-', 'state-history	30	-1	0	-	-	-', 'status	15	-1	0	-	-	-', 'temp-disks	30	-1	0	-	-	-', 'vault-list	60	-1	0	-	-	-', 'vault-usage	30	-1	0	-	-	-', 'vault-uses	60	-1	0	-	-	-']
         self.assertEqual(lines, sorted(old + ["%s	%s	-1	0	-	-	-" % (t, iv) for t, iv in SYSTEM_TOPICS.items()] + ["%s	%s	-1	0	-	-	-" % (t, v[1]) for t, v in INSTANCE_TOPICS.items()] + ["%s	%s	-1	0	-	-	-" % (t, v[1]) for t, v in APP_TOPICS.items()] + ["%s	%s	-1	0	-	-	-" % (t, v[1]) for t, v in NET_TOPICS.items()] + ["%s	%s	-1	0	-	-	-" % (t, v[1]) for t, v in ID_TOPICS.items()]))

@@ -219,7 +219,10 @@ def cli_status(conn=None, out=None):
     try:
         r = conn or Resp(timeout=2.0)
         now = time.time()
+        info = topic_info()
         for topic, _, interval, _ in topics():
+            if not cap_on((info.get(topic) or {}).get("cap")):
+                continue   # the capability is off: the topic is not read, so it has no row (the same rule as check)
             d = _doc(r, topic) or {}
             age = int(now - d["ts"]) if d.get("ts") else -1
             err = clean(d.get("err") or "-")
