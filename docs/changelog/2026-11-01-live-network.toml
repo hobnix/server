@@ -1,0 +1,7 @@
+date  = "2026-11-01"
+type  = "feature"
+title = "Gateway, DNS, router and ports follow the live state"
+docs  = "web-interface#live-state"
+body  = """
+The gateway status, routes and health, the DNS names, the router networks and clients, the open ports and the remote shares are served from Redis topics with SSE updates when live state is on. Network, service, container, configuration and rebuild changes refresh only the topics they affect. Off mode is unchanged.
+"""

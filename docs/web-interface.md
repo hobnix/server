@@ -204,6 +204,12 @@ file details (SMART history, access lists, snapshots, directory contents) stay d
 other pool names are read directly. While storage is locked the pool and share panels keep their last value (or show "refreshing") until
 unlock refreshes them. With live state off everything works as before. Not tested on hardware yet.
 
+The Summary and top bar, Health, Settings, the Instances and Services pages, the Marketplace and Apps, and the Network pages (gateway status, routes
+and health, DNS names, router networks and clients, open ports, remote shares) use live state too: their fixed lists come from Redis and update
+over the stream. A change from the terminal, from the web interface or from a job refreshes only the pages it can affect; a finished job refreshes
+everything. Reads that need an argument (one instance's logs, one service, one user) and on-demand reports stay direct. Pages whose feature is off
+(gateway, Active Directory, router connection) show nothing for it. With live state off everything works as before. Not tested on hardware yet.
+
 ## Check that it worked
 
 - Open the page and sign in; the summary shows your server and its disks.

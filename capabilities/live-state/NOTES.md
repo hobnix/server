@@ -18,7 +18,7 @@ Rules:
 - The `group` option of `services.redis.servers.<n>` is unverified in the pinned nixpkgs; module.nix does not use it. The socket group is
   `redis-hobnix`; hs-web and hs-live get it through SupplementaryGroups.
 
-Topics (50, including `status` and `live`): see `scripts/lib/live-topics.tsv`. Storage fixed reads now have their own topics, including
+Topics (58, including `status` and `live`): see `scripts/lib/live-topics.tsv`. Storage fixed reads now have their own topics, including
 six fixed-pool topics (`pool-info-bulk`, `pool-info-fast`, `pool-members-bulk`, `pool-members-fast`, `pool-state-bulk`,
 `pool-state-fast`) whose words contain the literal pool name. The web resolves those per request from the validated
 `pool=bulk|fast` query; any other pool argument stays a direct read. Lock mode is `skip` for mounted-pool/Samba reads
@@ -61,3 +61,13 @@ web `pkg` area and a job both reach them. A recipe run (`@instances`) changes th
 the market and the recipe list; `hs update`/`rebuild` pull a new tree (`@system`). `parts list` and `system updates` are slice 2 topics. No
 timer runs `hs pkg fetch` (checked in `config/*.nix` and `capabilities/*/module.nix`).
 `parts-list` also listens to `@network`: a gateway or vps web start runs a rebuild that can switch a part on.
+
+Network slice (built, not run on hardware): 8 topics, all `skip` while locked (they need Incus, the proxy or Samba): `gateway-status` (60 s),
+`gateway-routes` (60 s), `gateway-health` (300 s), all cap `gateway`; `dns-list` (300 s, cap `ad`: `dns list` fails without `adDomain`);
+`unifi-networks` (300 s) and `unifi-clients` (60 s), cap `network` (`unifi.sh` exits 2 without setup); `ports-list` (120 s); `remote-list` (60 s).
+Groups: the gateway, DNS, UniFi and port reads wake on `network` (net, routes, services, gateway rows), `instances` (a container start, stop
+or removal changes routes, addresses and listeners; `unifi-networks` does not list containers, so it skips this) and `system` (config set,
+rebuild, update, preset and extension rows can change the domain, ports or a capability). `remote-list` wakes on `shares` (all `remote *` rows;
+the `hs-remote-mount` timer already ends with `live.sh refresh @shares`), `network` and `system`. No new explicit hooks: every change reaches
+them through the dispatcher. No secret reaches a topic: `dns.sh` and `unifi.sh` read their credentials themselves and print none. The UniFi
+and gateway-health reads call the router or the proxy on their interval even with nobody watching; the long intervals are the limit.

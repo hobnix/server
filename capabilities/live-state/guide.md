@@ -48,6 +48,13 @@ refresh, and a finished background job refreshes everything. What you select for
 snapshots, folder contents) is still read directly. The two pools `bulk` and `fast` have their own topics; any other pool name is read
 directly. With live state off nothing changes. Not tested on hardware yet.
 
+### Dashboard, Instances, Apps and Network pages
+With live state on, the Summary and top bar, Health, Settings, Instances and Services, the Marketplace and Apps, and the Network pages (gateway,
+DNS, router, open ports, remote shares) also come from Redis and update when the data changes. A change from the terminal or the web interface
+refreshes only the pages it can affect, and a finished background job refreshes everything. Reads for one named item (an instance's logs, one
+service, one user) stay direct. Parts that are switched off, such as the gateway without its capability, are skipped without an error.
+With live state off nothing changes. Not tested on hardware yet.
+
 ## If something goes wrong
 | Symptom | Cause | Fix |
 | --- | --- | --- |

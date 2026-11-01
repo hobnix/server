@@ -371,6 +371,13 @@ INSTANCES = {
 APPS = {("pkg", "market"): "pkg-market", ("pkg", "repos"): "pkg-repos", ("recipes", "list"): "recipes-list"}
 
 
+NETWORK = {
+    ("gateway", "status"): "gateway-status", ("gateway", "routes"): "gateway-routes", ("gateway", "health"): "gateway-health",
+    ("dns", "list"): "dns-list", ("unifi", "networks"): "unifi-networks", ("unifi", "clients"): "unifi-clients",
+    ("ports", "list"): "ports-list", ("remote", "list"): "remote-list",
+}
+
+
 class StorageTopics(RedisBase):
     def test_web_areas_that_change_apps_ask_for_groups_that_wake_the_app_topics(self):
         info = ws.ls.topic_info()
@@ -380,6 +387,23 @@ class StorageTopics(RedisBase):
                              ("ct", ("pkg-market", "recipes-list"))):
             g = ws.area_refresh(area)[1:]
             for n in topics:
+                self.assertTrue(g in info[n]["groups"] or "any" in info[n]["groups"], (area, n))
+
+    def test_every_network_read_has_its_topic(self):
+        known = {r[0] for r in ws.ls.topics()}
+        for words, topic in NETWORK.items():
+            self.assertEqual(ws.READS[words]["topic"], topic, words)
+            self.assertIn(topic, known)
+            self.assertEqual(ws.live_topic_map()["/api/sys/" + "/".join(words)], topic)
+
+    def test_web_areas_that_change_the_network_ask_for_groups_that_wake_the_network_topics(self):
+        info = ws.ls.topic_info()
+        net = set(NETWORK) - {("remote", "list")}
+        for area, topics in (("gateway", net), ("routes", net), ("net", net), ("ct", net - {("unifi", "networks")}),
+                             ("system", set(NETWORK)), ("config", set(NETWORK)), ("shares", {("remote", "list")})):
+            g = ws.area_refresh(area)[1:]
+            for w in topics:
+                n = NETWORK[w]
                 self.assertTrue(g in info[n]["groups"] or "any" in info[n]["groups"], (area, n))
 
     def test_every_apps_read_has_its_topic(self):

@@ -228,10 +228,51 @@ APP_TOPICS = {
 }
 
 
+NET_TOPICS = {
+    'gateway-status': (['gateway', 'status'], 60, 'skip', 'gateway', {'network', 'instances', 'system'}),
+    'gateway-routes': (['gateway', 'routes'], 60, 'skip', 'gateway', {'network', 'instances', 'system'}),
+    'gateway-health': (['gateway', 'health'], 300, 'skip', 'gateway', {'network', 'instances', 'system'}),
+    'dns-list': (['dns', 'list'], 300, 'skip', 'ad', {'network', 'instances', 'system'}),
+    'unifi-networks': (['unifi', 'networks'], 300, 'skip', 'network', {'network', 'system'}),
+    'unifi-clients': (['unifi', 'clients'], 60, 'skip', 'network', {'network', 'instances', 'system'}),
+    'ports-list': (['ports', 'list'], 120, 'skip', None, {'network', 'instances', 'system'}),
+    'remote-list': (['remote', 'list'], 60, 'skip', None, {'network', 'shares', 'system'}),
+}
+
+
 class Cli(unittest.TestCase):
     def test_parts_list_wakes_on_network_changes(self):
         # gateway / vps web starts rebuild under @network and can switch a capability on
         self.assertEqual(ls.topic_info()["parts-list"]["groups"], {"system", "network"})
+
+    def test_network_topics(self):
+        info = ls.topic_info()
+        rows = {t[0]: t for t in ls.topics()}
+        for name, (words, iv, lock, cap, groups) in NET_TOPICS.items():
+            self.assertEqual(tuple(rows[name][1:]), (words, iv, lock), name)
+            self.assertEqual(info[name], {"cap": cap, "groups": groups}, name)
+
+    def test_every_change_row_wakes_the_network_topics_it_can_alter(self):
+        # system rows (config set, rebuild, update, preset, ext ...) and network rows reach all of them; instance rows (ct start/stop/remove,
+        # recipe) every one that lists containers or their addresses; remote rows the remote list.
+        reg = os.path.join(os.path.dirname(ls.__file__), "lib", "registry.tsv")
+        info = ls.topic_info()
+        woken_by = lambda g: {n for n, i in info.items() if g in i["groups"] or "any" in i["groups"]}
+        need = {"system": set(NET_TOPICS), "network": set(NET_TOPICS), "instances": set(NET_TOPICS) - {"unifi-networks", "remote-list"}}
+        seen = set()
+        with open(reg, encoding="utf-8") as fh:
+            for line in fh:
+                f = line.rstrip(chr(10)).split(chr(9))
+                if len(f) < 7 or f[0] != "user" or "changes" not in (f[-1].split(",") if f[-1] else []):
+                    continue
+                topic = [x[6:] for x in f[-1].split(",") if x.startswith("topic:")]
+                g = topic[0] if topic else "system"
+                seen.add(g)
+                for n in need.get(g, ()):
+                    self.assertIn(n, woken_by(g), (f[1], n))
+                if f[1].split()[0] == "remote":
+                    self.assertIn("remote-list", woken_by(g), f[1])
+        self.assertTrue({"system", "network", "instances", "shares"} <= seen)
 
     def test_app_topics(self):
         info = ls.topic_info()
@@ -394,14 +435,14 @@ class Cli(unittest.TestCase):
             ('expiry', ['expiry', 'list'], 300, 'run'),
             ('notify-channels', ['notify', 'channels'], 60, 'run'),
             ('notify-providers', ['notify', 'providers'], 3600, 'run'),
-        ] + [(n, v[0], v[1], v[2]) for n, v in INSTANCE_TOPICS.items()] + [(n, v[0], v[1], v[2]) for n, v in APP_TOPICS.items()])
+        ] + [(n, v[0], v[1], v[2]) for n, v in INSTANCE_TOPICS.items()] + [(n, v[0], v[1], v[2]) for n, v in APP_TOPICS.items()] + [(n, v[0], v[1], v[2]) for n, v in NET_TOPICS.items()])
 
     def test_status_shape(self):
         import time
         out = io.StringIO()
         self.assertEqual(ls.cli_status(self.fake(time.time() - 7), out), 0)
         lines = out.getvalue().rstrip("\n").split("\n")
-        self.assertEqual(len(lines), 50)
+        self.assertEqual(len(lines), 58)
         status = [l for l in lines if l.startswith("status\t")][0].split("\t")
         live = [l for l in lines if l.startswith("live\t")][0].split("\t")
         self.assertEqual(len(status), 7)
@@ -415,7 +456,7 @@ class Cli(unittest.TestCase):
         ls.cli_status(FakeResp(), out)
         lines = sorted(out.getvalue().rstrip("\n").split("\n"))
         old = ['disk-health	30	-1	0	-	-	-', 'disk-inventory	30	-1	0	-	-	-', 'disk-marks	15	-1	0	-	-	-', 'encryption	30	-1	0	-	-	-', 'fm-locations	15	-1	0	-	-	-', 'live	5	-1	0	-	-	-', 'monitor-disks	15	-1	0	-	-	-', 'pool-info-bulk	15	-1	0	-	-	-', 'pool-info-fast	15	-1	0	-	-	-', 'pool-members-bulk	15	-1	0	-	-	-', 'pool-members-fast	15	-1	0	-	-	-', 'pool-state-bulk	10	-1	0	-	-	-', 'pool-state-fast	10	-1	0	-	-	-', 'shares-deleted	60	-1	0	-	-	-', 'shares-overview	30	-1	0	-	-	-', 'shares-principals	60	-1	0	-	-	-', 'state-history	30	-1	0	-	-	-', 'status	15	-1	0	-	-	-', 'temp-disks	30	-1	0	-	-	-', 'vault-list	60	-1	0	-	-	-', 'vault-usage	30	-1	0	-	-	-', 'vault-uses	60	-1	0	-	-	-']
-        self.assertEqual(lines, sorted(old + ["%s	%s	-1	0	-	-	-" % (t, iv) for t, iv in SYSTEM_TOPICS.items()] + ["%s	%s	-1	0	-	-	-" % (t, v[1]) for t, v in INSTANCE_TOPICS.items()] + ["%s	%s	-1	0	-	-	-" % (t, v[1]) for t, v in APP_TOPICS.items()]))
+        self.assertEqual(lines, sorted(old + ["%s	%s	-1	0	-	-	-" % (t, iv) for t, iv in SYSTEM_TOPICS.items()] + ["%s	%s	-1	0	-	-	-" % (t, v[1]) for t, v in INSTANCE_TOPICS.items()] + ["%s	%s	-1	0	-	-	-" % (t, v[1]) for t, v in APP_TOPICS.items()] + ["%s	%s	-1	0	-	-	-" % (t, v[1]) for t, v in NET_TOPICS.items()]))
 
     def test_check_fresh_stale_down(self):
         import time
@@ -448,7 +489,7 @@ class Cli(unittest.TestCase):
         st = FakeResp()
         ls.cli_refresh(["--all"], st)
         self.assertEqual(sorted(p[1] for p in st.published), sorted([t[0] for t in ls.topics()]))
-        self.assertEqual(len(st.published), 50)
+        self.assertEqual(len(st.published), 58)
         os.environ["HS_LIVE_SOCKET"] = "/nonexistent/none.sock"
         try:
             self.assertEqual(ls.cli_refresh(["--all"]), 0)

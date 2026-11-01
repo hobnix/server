@@ -67,6 +67,17 @@ check_eq "...and asks for the four package topics" "pkg-market pkg-repos recipes
 HS_STATE_DIR=$(wp "$WORK/pkgstate") bash "$SCRIPTS/pkg.sh" --repos >/dev/null 2>&1; HS_STATE_DIR=$(wp "$WORK/pkgstate") bash "$SCRIPTS/pkg.sh" --market >/dev/null 2>&1
 check_eq "the pkg reads ask for nothing" "0" "$(grep -c . "$WORK/live.log")"
 
+echo "-- the real registry rows of the network reads' changes reach the dispatcher hook (script swapped for a stub, capability flags dropped)"
+for w in "net setup" "gateway acme-token" "dns clean" "services apply" "ct add" "remote add" "config set" "rebuild"; do
+  awk -F'	' -v w="$w" -v s="$WORK/ok.sh" -v OFS='	' '$1=="user" && $2==w { n=split($NF, a, ","); f=""; for (i=1;i<=n;i++) if (a[i]=="changes" || a[i] ~ /^topic:/) f=f (f==""?"":",") a[i]; $3=s; $NF=f; print }' "$SCRIPTS/lib/registry.tsv" >> "$WORK/real.tsv"
+done
+check_eq "all eight real rows were found" "8" "$(grep -c . "$WORK/real.tsv")"
+for w in "net setup:@network" "gateway acme-token:@network" "dns clean:@network" "services apply:@network" "ct add:@instances" "remote add:@shares" "config set:@system" "rebuild:@system"; do
+  : > "$WORK/live.log"
+  HS_REGISTRY=$(wp "$WORK/real.tsv") bash "$SCRIPTS/lib/hs.sh" ${w%%:*} x >/dev/null 2>&1
+  check_eq "hs ${w%%:*} asks for ${w##*:}" "${w##*:}" "$(cat "$WORK/live.log")"
+done
+
 echo "-- reads-collect.sh in Redis mode"
 if command -v python3 >/dev/null; then
   CALLS=$WORK/calls; : > "$CALLS"

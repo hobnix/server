@@ -139,3 +139,7 @@ every 10 s (the pages polled 5 s) and refreshed by `@instances`/`@network` after
 
 3 topics (`pkg-market`, `pkg-repos`, `recipes-list`), see capabilities/live-state/NOTES.md. `pkg.sh` refreshes them (and `parts-list`) after a
 successful fetch, install, update, remove or repository change. Not tested on hardware yet.
+
+## Network slice (2026-11-01)
+
+8 topics (`gateway-*`, `dns-list`, `unifi-*`, `ports-list`, `remote-list`), see capabilities/live-state/NOTES.md. Not tested on hardware yet.
