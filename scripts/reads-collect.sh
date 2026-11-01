@@ -10,7 +10,8 @@
 #   --all    ignore the intervals and read everything now
 #   --list   only print what would be read (key, interval, age of the kept output)
 #   --status the same with what the web interface shows on its Data page: key, interval, age (-1 = never kept), milliseconds, exit code, bytes
-# Test knobs: HS_COLLECTED_FILE (the list), HS_BIN (stand-in for the hs dispatcher), HS_STATE_SH (stand-in for state.sh), HS_LOCKED_MARKER, HS_NOW.
+# In Redis mode (the socket of the live state exists) a read that has a topic in scripts/lib/live-topics.tsv is skipped: hs-live keeps it.
+# Test knobs: HS_LIVE_SOCKET, HS_LIVE_TOPICS, HS_COLLECTED_FILE (the list), HS_BIN (stand-in for the hs dispatcher), HS_STATE_SH (stand-in for state.sh), HS_LOCKED_MARKER, HS_NOW.
 set -euo pipefail
 here=$(dirname "$0")
 list=${HS_COLLECTED_FILE:-$here/lib/collected-reads.tsv}
@@ -27,6 +28,13 @@ if ! $only_list && [ -e "${HS_LOCKED_MARKER:-/run/hs/storage-locked}" ]; then ex
 declare -A age=() took=() code=() size=()
 while IFS=$'\t' read -r k a ms rc bytes _; do [ -z "$k" ] || { age[$k]=$a; took[$k]=${ms:--}; code[$k]=${rc:--}; size[$k]=${bytes:--}; }; done < <(bash "$state" reads 2>/dev/null || true)
 
+# Redis mode (the live socket exists): a read that has a live-state topic is kept by hs-live, not here
+declare -A live=()
+livetsv=${HS_LIVE_TOPICS:-$here/lib/live-topics.tsv}
+if [ -S "${HS_LIVE_SOCKET:-/run/redis-hobnix/redis.sock}" ] && [ -r "$livetsv" ]; then
+  while IFS=$'\t' read -r t w _; do if [[ -n "$t" && "$t" != \#* && -n "${w:-}" ]]; then live[$w]=1; fi; done < "$livetsv"
+fi
+
 now_ms() { echo $(( $(date +%s%N) / 1000000 )); }
 
 while IFS=$'\t' read -r key every _; do
@@ -35,6 +43,7 @@ while IFS=$'\t' read -r key every _; do
   have=${age[$key]:--1}
   if $status; then printf '%s\t%s\t%s\t%s\t%s\t%s\n' "$key" "$every" "$have" "${took[$key]:--}" "${code[$key]:--}" "${size[$key]:--}"; continue; fi
   if $only_list; then printf '%s\t%s\t%s\n' "$key" "$every" "$have"; continue; fi
+  if [ -n "${live[$key]:-}" ]; then continue; fi
   if ! $all && [ "$have" -ge 0 ] && [ "$have" -lt "$every" ]; then continue; fi
   t0=$(now_ms); rc=0
   # shellcheck disable=SC2086

@@ -127,7 +127,105 @@ class Reconnect(unittest.TestCase):
         self.assertIs(c.store, fresh)
 
 
+class Groups(unittest.TestCase):
+    rows = [("a", ["a"], 15, "run"), ("b", ["b"], 15, "run"), ("c", ["c"], 15, "run"), ("d", ["d"], 15, "run")]
+    info = {"a": {"cap": None, "groups": {"disks"}}, "b": {"cap": None, "groups": {"any"}},
+            "c": {"cap": None, "groups": {"shares", "disks"}}, "d": {"cap": "nosuchcap", "groups": {"disks"}}}
+
+    def make(self, run=None, **kw):
+        return lc.Collector(FakeResp(), run=run or (lambda w: (0, "x", "")), topic_rows=self.rows, topic_info=self.info, **kw)
+
+    def set_of(self, c):
+        return sorted(t for t, ev in c.events.items() if ev.is_set())
+
+    def test_group_wakes_its_topics_and_any(self):
+        c = self.make()
+        c.refresh("@disks")
+        self.assertEqual(self.set_of(c), ["a", "b", "c", "d"])
+        c = self.make()
+        c.refresh("@shares")
+        self.assertEqual(self.set_of(c), ["b", "c"])
+        c = self.make()
+        c.refresh("@nothing")
+        self.assertEqual(self.set_of(c), ["b"])
+
+    def test_exact_name_and_all(self):
+        c = self.make()
+        c.refresh("a")
+        self.assertEqual(self.set_of(c), ["a"])
+        c.refresh("*")
+        self.assertEqual(len(self.set_of(c)), 4)
+
+    def test_cap_off_topic_is_not_run(self):
+        calls = []
+        c = self.make(run=lambda w: calls.append(w) or (0, "x", ""))
+        ls._CAP_CACHE["nosuchcap"] = (__import__("time").time(), False)
+        try:
+            self.assertFalse(c.collect("d", ["d"]))
+            self.assertEqual((calls, c.store.data), ([], {}))
+            self.assertTrue(c.collect("a", ["a"]))
+        finally:
+            ls._CAP_CACHE.clear()
+
+    def test_semaphore_limits_parallel_reads(self):
+        import time
+        state = {"now": 0, "max": 0}
+        lk = threading.Lock()
+
+        def run(words):
+            with lk:
+                state["now"] += 1
+                state["max"] = max(state["max"], state["now"])
+            time.sleep(0.05)
+            with lk:
+                state["now"] -= 1
+            return 0, "x", ""
+        os.environ["HS_LIVE_PARALLEL"] = "2"
+        try:
+            c = self.make(run=run)
+        finally:
+            del os.environ["HS_LIVE_PARALLEL"]
+        ts = [threading.Thread(target=c.collect, args=(t, [t])) for t in "aabbcc"]
+        for t in ts:
+            t.start()
+        for t in ts:
+            t.join()
+        self.assertLessEqual(state["max"], 2)
+        self.assertGreaterEqual(state["max"], 1)
+
+
 class Cli(unittest.TestCase):
+    def test_six_column_parse(self):
+        info = ls.topic_info()
+        self.assertEqual(info["status"], {"cap": None, "groups": {"any"}})
+        self.assertEqual(info["temp-disks"]["groups"], {"disks", "shares"})
+        self.assertEqual(info["vault-list"]["groups"], {"security"})
+        self.assertEqual(set(info), {t[0] for t in ls.topics()})
+
+    def test_topic_info_cap_and_dash(self):
+        p = os.path.join(tempfile.mkdtemp(), "t.tsv")
+        with open(p, "w") as f:
+            f.write("# c\nx\tx\t5\trun\tgateway\tnetwork,any\ny\ty\t5\trun\n")
+        self.assertEqual(ls.topic_info(p), {"x": {"cap": "gateway", "groups": {"network", "any"}}, "y": {"cap": None, "groups": set()}})
+
+    def test_check_skips_cap_off_topic(self):
+        import time
+        p = os.path.join(tempfile.mkdtemp(), "t.tsv")
+        with open(p, "w") as f:
+            f.write("old\told\t5\trun\tnosuchcap\tdisks\n")
+        real_t, real_i = ls.topics, ls.topic_info
+        ls.topics, ls.topic_info = (lambda: real_t(p)), (lambda: real_i(p))
+        ls._CAP_CACHE["nosuchcap"] = (time.time(), False)
+        out = io.StringIO()
+        st = FakeResp()
+        st.data["hs:v1:old"] = json.dumps({"ts": time.time() - 999, "gen": 1, "rc": 0, "out": "x", "err": None, "ts_err": None})
+        try:
+            self.assertEqual(ls.cli_check(conn=st, out=out), 0)
+            self.assertEqual(out.getvalue(), "")
+        finally:
+            ls.topics, ls.topic_info = real_t, real_i
+            ls._CAP_CACHE.clear()
+
     def fake(self, ts, err=None, ts_err=None):
         st = FakeResp()
         st.data["hs:v1:status"] = json.dumps({"ts": ts, "gen": 4, "rc": 0, "out": "x", "err": err, "ts_err": ts_err})

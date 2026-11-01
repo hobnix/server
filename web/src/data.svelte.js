@@ -47,7 +47,7 @@ export function poll(path, ms, topic) {
     sync.n;   // a refresh re-runs this effect: the new answer is in the cache
     const p = typeof path === 'function' ? path() : path;
     if (!p) return;
-    const t = typeof topic === 'function' ? topic() : topic;
+    const t = (typeof topic === 'function' ? topic() : topic) ?? live.topics[p];
     const liveOpen = !!t && live.open;
     if (t) live.gen[t];   // a change of the topic re-runs this effect, which reads again
     if (cache.has(p)) { st.data = cache.get(p); st.error = null; st.loaded = true; }

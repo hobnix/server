@@ -401,4 +401,17 @@ long_guard "$@"
 build_args
 # package scripts find the core helpers through HS_SCRIPTS (the scripts folder this dispatcher belongs to)
 export HS_SCRIPTS="$dir"
+case ",$row_flags," in
+  *,changes,*)
+    # a change: after exit 0 the live state of its area is read again (topic: flag, default system); the exit code stays the script's
+    . "$here/live.sh"
+    grp=system
+    case ",$row_flags," in *,topic:*) grp=${row_flags#*topic:}; grp=${grp%%,*} ;; esac
+    if bash "$(script_file "$row_script")" ${cmd_args[@]+"${cmd_args[@]}"}; then rc=0; else rc=$?; fi
+    if [ "$rc" -eq 0 ]; then
+      live_refresh "@$grp"
+      case "$row_path" in "ext "*) w=${row_path#ext }; live_refresh "@ext-${w%% *}" ;; esac   # a package's own topics
+    fi
+    exit "$rc" ;;
+esac
 exec bash "$(script_file "$row_script")" ${cmd_args[@]+"${cmd_args[@]}"}

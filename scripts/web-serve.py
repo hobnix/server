@@ -261,7 +261,22 @@ def docs_search(query, lang=""):
 
 def features(cfg):
     """what the server switched on, for the session answer"""
-    return {"terminal": cfg.terminal, "vps": cfg.vps, "capabilities": capabilities(), "extensions": ext_pages(), "host": socket.gethostname(), "language": runtime_setting("language") or "", "dashboard": runtime_setting("dashboard") or "", "live": cfg.live == "redis"}   # host: the local node's name = the first part of every address (/node/<host>/...)
+    return {"terminal": cfg.terminal, "vps": cfg.vps, "capabilities": capabilities(), "extensions": ext_pages(), "host": socket.gethostname(), "language": runtime_setting("language") or "", "dashboard": runtime_setting("dashboard") or "", "live": cfg.live == "redis", "topics": live_topic_map() if cfg.live == "redis" else {}}   # host: the local node's name = the first part of every address (/node/<host>/...)
+
+
+def live_topic_map():
+    """Read URL -> live-state topic, from READS (mode redis): a string topic is /api/sys/<words>, a pool mapping is /api/sys/pool/<kind>?pool=<x>.
+    The session answer carries it so poll(path) follows the live stream without a topic argument on each page."""
+    out = {}
+    for words, spec in READS.items():
+        t = spec.get("topic")
+        base = "/api/sys/" + "/".join(words)
+        if isinstance(t, str):
+            out[base] = t
+        elif isinstance(t, dict):
+            for pool, name in t.items():
+                out["%s?pool=%s" % (base, pool)] = name
+    return out
 
 
 def _runtime(fn):
@@ -945,6 +960,23 @@ TEMP_NAME = r"^[a-z0-9][a-z0-9-]{0,31}$"                                      # 
 # the keys of the gateway steps (capabilities/gateway/capability.toml; scripts/gateway-setup.sh GW_KEYS); tests/gateway-setup.sh compares both
 GW_SET = (r"^(reverseProxy|gatewayTunnelPort|gatewayPublicHttps|gatewayPublicHttp|proxyDomains|gatewayDirectDomains|gatewayAcmeEmail|"
           r"gatewayAcmeStaging|gatewayAcmeChallenge|gatewayAcmeDnsProvider|gatewayUnknownHostLocal|gatewayUnknownHostPublic)=[A-Za-z0-9.,@_+-]{0,200}$")
+# the change area (first path segment of the area of a web change) -> the live-state group it refreshes (scripts/lib/live-topics.tsv); ext/<n> -> ext-<n>
+AREA_GROUP = {
+    "ct": "instances", "recipes": "instances", "pool": "disks", "shares": "shares", "fm": "shares", "users": "users", "admin": "users", "dc": "users",
+    "backup": "backup", "secrets": "security", "ssh-key": "security", "net": "network", "routes": "network", "gateway": "network", "vps": "network",
+    "peers": "network", "node": "network", "jobs": "jobs", "notify": "system", "health": "system", "expiry": "system", "config": "system",
+    "system": "system", "parts": "system", "pkg": "system",
+}
+
+
+def area_refresh(area):
+    """the refresh message for a started change: "@<group>", or "*" for an unknown area"""
+    if area.startswith("ext/"):
+        return "@ext-" + area[4:]
+    g = AREA_GROUP.get(area)
+    return "@" + g if g else "*"
+
+
 CHANGES = {
     "jobs": [[r"^(run|stop)$", UNIT]],
     # the file manager (fm.sh): copy, move, delete, rename, mkdir. The selection (names below --path) is NOT an argument: the body field `selection` (a list of names,
@@ -1896,6 +1928,10 @@ class RedisStore(StateStore):
 
     def __init__(self, cfg, reads):
         self.cfg, self.off = cfg, OffStore(reads)
+        try:
+            self.caps = {t: i["cap"] for t, i in ls.topic_info().items()}      # topic -> the capability it needs (None = always)
+        except OSError:
+            self.caps = {}
 
     def _doc(self, topic):
         """-> the stored document or None (key missing); OSError when Redis does not answer"""
@@ -1912,7 +1948,7 @@ class RedisStore(StateStore):
 
     def get(self, spec, argv, key, fresh=False):
         topic = spec.get("topic")
-        if not topic:
+        if not topic or not ls.cap_on(self.caps.get(topic)):      # no topic, or its capability is off (the collector never writes it): the direct read
             return self.off.get(spec, argv, key, fresh=fresh)
         try:
             doc = self._doc(topic)
@@ -2300,7 +2336,7 @@ def make_handler(app):
                 if hit is None:
                     rows[words] = []
                     continue
-                code, obj, age = app.reads.get_aged(*hit)
+                code, obj, age, _ = app.store.get(*hit)
                 rows[words] = obj.get("rows", []) if code == 200 and isinstance(obj, dict) else []
                 if age is not None:
                     ages.append(int(age))
@@ -2534,7 +2570,7 @@ def make_handler(app):
             d = parse_change(out, rc)
             if verb == "start":
                 app.reads.clear()      # what the pages show next is read again, not served from before the change (clears the plan cache too)
-                app.store.request("*")      # mode redis: the collector reads every topic again (a no-op in mode off)
+                app.store.request(area_refresh(area))      # mode redis: the collector reads the topics of the area again (a no-op in mode off)
             _timing(verb, shape, t0, "run", rc, d["status"])
             self._json(200, d)
 

@@ -32,7 +32,7 @@ def hs_run(words):
 
 
 class Collector:
-    def __init__(self, store, run=hs_run, topic_rows=None, connect=None):
+    def __init__(self, store, run=hs_run, topic_rows=None, connect=None, topic_info=None):
         self.store = store                       # Resp (or a fake) for writing
         self.run = run
         self.rows = topic_rows if topic_rows is not None else ls.topics()
@@ -40,20 +40,34 @@ class Collector:
         self.events = {t[0]: threading.Event() for t in self.rows}
         self.lock = threading.Lock()
         self.stop = threading.Event()
+        self.info = topic_info if topic_info is not None else ls.topic_info()
+        try:
+            n = int(os.environ.get("HS_LIVE_PARALLEL", "4"))
+        except ValueError:
+            n = 4
+        self.sem = threading.BoundedSemaphore(n if n >= 1 else 4)   # at most N reads at once
 
     def locked(self):
         return os.path.exists(os.environ.get("HS_LOCKED_MARKER", "/run/hs/storage-locked"))
 
     def refresh(self, topic):
+        """"*" = every topic; "@g" = the topics that list the group g or `any`; else the topic of that name."""
         for t, ev in self.events.items():
             if topic == "*" or topic == t:
                 ev.set()
+            elif topic.startswith("@"):
+                groups = (self.info.get(t) or {}).get("groups", set())
+                if topic[1:] in groups or "any" in groups:
+                    ev.set()
 
     def collect(self, topic, words, mode="run"):
         """One read of one topic. Returns True when the key was written with new data."""
         if mode == "skip" and self.locked():
             return False
-        rc, out, err = self.run(words)
+        if not ls.cap_on((self.info.get(topic) or {}).get("cap")):
+            return False      # the capability is off: no read, no document
+        with self.sem:
+            rc, out, err = self.run(words)
         now = time.time()
         with self.lock:
             try:

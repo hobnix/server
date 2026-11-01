@@ -22,5 +22,6 @@ hs_job() {
              bash "$0/live.sh" refresh --all >/dev/null 2>&1 || true   # live state: read again (no-op without the capability)
              [ "$rc" -ne 0 ] || bash "$0/notify.sh" --category ok hs "$d finished" >/dev/null 2>&1
              exit "$rc"' "$here" "$desc" "$@" || return 1
+  bash "$here/live.sh" refresh @jobs >/dev/null 2>&1 || true   # live state: the job list shows the new job (no-op without the capability)
   printf '%s\n' "$unit"
 }

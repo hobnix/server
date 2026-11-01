@@ -3,14 +3,17 @@
 Shared by scripts/live-collect.py (the one writer) and scripts/web-serve.py (the reader). Only the raw text of a `hs sys` read is stored:
 the value of hs:v1:<topic> is JSON {"ts", "gen", "rc", "out", "err", "ts_err"}. Channels: hs:v1:changed ("<topic> <gen>"),
 hs:v1:refresh ("<topic>" or "*").
-  python3 live_state.py refresh <topic>...|--all     ask the collector to read again (exit 0 always)
+  python3 live_state.py refresh <topic>|@<group>...|--all   ask the collector to read again (exit 0 always); @<group> = every topic of
+                                                     that change area (and of `any`), see live-topics.tsv columns 5 and 6
   python3 live_state.py status                       topic, interval, age (-1 none), gen, rc, err or -, ts_err or -
   python3 live_state.py check                        problems: live:down / live:stale:<topic> TAB text (exit 1 when there are some)
 """
 import json
 import os
 import socket
+import subprocess
 import sys
+import threading
 import time
 
 KEY = "hs:v1:%s"
@@ -123,6 +126,49 @@ def topics(path=None):
     return rows
 
 
+def topic_info(path=None):
+    """{topic: {"cap": capability name or None, "groups": set of change areas}} from columns 5 and 6 of live-topics.tsv."""
+    path = path or os.path.join(HERE, "lib", "live-topics.tsv")
+    info = {}
+    with open(path, encoding="utf-8") as f:
+        for line in f:
+            line = line.rstrip("\n")
+            if not line.strip() or line.lstrip().startswith("#"):
+                continue
+            c = line.split("\t")
+            if len(c) < 3:
+                continue
+            cap = c[4] if len(c) > 4 and c[4] not in ("", "-") else None
+            groups = {g for g in (c[5].split(",") if len(c) > 5 else []) if g and g != "-"}
+            info[c[0]] = {"cap": cap, "groups": groups}
+    return info
+
+
+_CAP_CACHE = {}
+_CAP_LOCK = threading.Lock()
+CAP_TTL = 60.0
+
+
+def cap_on(name):
+    """True when the capability is on (lib/capability.sh capability_on); cached for 60 s per name. None/'-' is always on."""
+    if not name or name == "-":
+        return True
+    now = time.time()
+    with _CAP_LOCK:
+        hit = _CAP_CACHE.get(name)
+        if hit and now - hit[0] < CAP_TTL:
+            return hit[1]
+    try:
+        p = subprocess.run(["bash", "-c", '. "$1"; capability_on "$2"', "_", os.path.join(HERE, "lib", "capability.sh"), name],
+                           capture_output=True, timeout=10)
+        on = p.returncode == 0
+    except (OSError, subprocess.TimeoutExpired):
+        on = False
+    with _CAP_LOCK:
+        _CAP_CACHE[name] = (now, on)
+    return on
+
+
 def _doc(r, topic):
     raw = r.cmd("GET", KEY % topic)
     if raw is None:
@@ -169,7 +215,10 @@ def cli_check(conn=None, out=None):
         r = conn or Resp(timeout=2.0)
         now = time.time()
         problems = []
+        info = topic_info()
         for topic, _, interval, _ in topics():
+            if not cap_on((info.get(topic) or {}).get("cap")):
+                continue   # the capability is off: the topic is not read
             d = _doc(r, topic)
             if d is None:
                 continue   # nothing read yet: the collector is still starting

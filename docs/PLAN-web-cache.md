@@ -117,3 +117,9 @@ string topics. `poll` accepts a topic function; shell scripts call `live_refresh
 
 Not built: the instances and services pages (they keep their polls and have no topic), the homeserver-deck, retiring the old collector (`reads-collect.sh`, the `reads` table).
 Retirement stays future work until no served read uses `Reads.collected`.
+
+## Refresh base (2026-11-01)
+
+Built, not run on hardware: topic columns `cap` and `groups`, group refresh (`@<group>`, `any`), bounded parallel reads (`HS_LIVE_PARALLEL`),
+a refresh hook in the dispatcher for `changes` rows and at job start, the old collector skipping topic reads in Redis mode, and the topic map in the
+session answer. Details: capabilities/live-state/NOTES.md. More topics follow in later slices.

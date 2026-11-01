@@ -46,7 +46,7 @@ in
       Type = "oneshot";
       RemainAfterExit = true;
     };
-    script = "bash ${scripts}/bulk-mount.sh";
+    script = "bash ${scripts}/bulk-mount.sh && bash ${scripts}/live.sh refresh @disks";
   };
   # Parity is only as fresh as the last sync: what is new or changed since is unprotected.
   # Once a night at 03:00 by default (machine.toml: syncEveryHours; every run wakes all data disks); a sync only works on what changed.
@@ -58,7 +58,7 @@ in
     # no parity disk: skip the run (not a failure, the health check and the status say "no parity disk")
     serviceConfig.Type = "oneshot";
     serviceConfig.ExecCondition = "${pkgs.gnugrep}/bin/grep -q '^parity ' /var/lib/snapraid/snapraid.conf";
-    script = "bash ${scripts}/bulk-sync.sh";
+    script = "bash ${scripts}/bulk-sync.sh && bash ${scripts}/live.sh refresh @disks";
     startAt = if syncEveryHours >= 24 then "*-*-* 03:00:00" else "*-*-* ${toString (lib.mod 3 syncEveryHours)}/${toString syncEveryHours}:00:00";   # "3/24" is not valid in systemd
     onFailure = notifyFailure;       # also when the sync is refused
   };
@@ -71,7 +71,7 @@ in
     after = [ "bulk-mount.service" ];
     path = [ "/run/current-system/sw" ];
     serviceConfig.Type = "oneshot";
-    script = "bash ${scripts}/cache-mover.sh --if-full";
+    script = "bash ${scripts}/cache-mover.sh --if-full && bash ${scripts}/live.sh refresh @shares";
     startAt = "*:7/15";
     onFailure = notifyFailure;
   };
@@ -82,7 +82,7 @@ in
     path = [ "/run/current-system/sw" ];
     serviceConfig.Type = "oneshot";
     serviceConfig.ExecCondition = "${pkgs.gnugrep}/bin/grep -q '^parity ' /var/lib/snapraid/snapraid.conf";
-    script = "bash ${scripts}/bulk-sync.sh --scrub";
+    script = "bash ${scripts}/bulk-sync.sh --scrub && bash ${scripts}/live.sh refresh @disks";
     startAt = "Sun 05:00";
     onFailure = notifyFailure;
   };
@@ -154,7 +154,7 @@ in
     path = [ "/run/current-system/sw" ];
     serviceConfig.Type = "oneshot";
     unitConfig = whenUnlocked;
-    script = "bash ${scripts}/snapshots-auto.sh run";
+    script = "bash ${scripts}/snapshots-auto.sh run && bash ${scripts}/live.sh refresh @shares";
     startAt = "hourly";
     onFailure = notifyFailure;
   };
@@ -191,7 +191,7 @@ in
     description = "Start a short SMART self-test in every disk (hs disk selftest short)";
     path = [ "/run/current-system/sw" ];
     serviceConfig.Type = "oneshot";
-    script = "bash ${scripts}/selftest.sh short";
+    script = "bash ${scripts}/selftest.sh short && bash ${scripts}/live.sh refresh @disks";
     startAt = "Sat 03:10";    # maintenance window (starts 03:00)
     onFailure = notifyFailure;
   };
@@ -201,7 +201,7 @@ in
     description = "Start a long SMART self-test in one disk per night, ordered by serial (hs disk selftest long)";
     path = [ "/run/current-system/sw" ];
     serviceConfig.Type = "oneshot";
-    script = "bash ${scripts}/selftest.sh long --night";
+    script = "bash ${scripts}/selftest.sh long --night && bash ${scripts}/live.sh refresh @disks";
     startAt = "*-*-* 03:15";    # maintenance window (starts 03:00)
     onFailure = notifyFailure;
   };
@@ -230,7 +230,7 @@ in
     wants = [ "network-online.target" ];
     path = [ "/run/current-system/sw" "/run/wrappers" ];
     serviceConfig.Type = "oneshot";
-    script = "bash ${scripts}/remote.sh mount-all";
+    script = "bash ${scripts}/remote.sh mount-all && bash ${scripts}/live.sh refresh @shares";
     startAt = "*:0/2";
   };
 

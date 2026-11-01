@@ -4,27 +4,30 @@
 # its own Redis lock or issues its own GET/SET. This means the `live` row is one collection behind, which is expected, not staleness.
 # Fixed storage reads: a topic holds the output of exactly one `hs sys` invocation. Pool reads with a fixed `pool=bulk|fast` argument
 # are mapped per request in web-serve.py; other pool names and no pool stay direct reads.
+# Columns 5 and 6: cap = the capability that must be on for the topic to run (`-` = always; a topic whose cap is off is not run and has no
+# document); groups = comma list of change areas (registry `topic:` words, ext-<name>) whose change wakes the topic, `-` = none. A refresh
+# `@<group>` wakes every topic that lists the group or the group `any`; `*` wakes all.
 # Lock mode: mounted-pool/Samba reads skip while locked (they need services that are down); lock-aware reads run so the UI can show
 # the defined locked state. Unlock refreshes all topics immediately.
-status	status	15	run
-live	live status	5	run
-monitor-disks	monitor disks	15	run
-disk-health	disk-health list	30	run
-disk-inventory	state disks	30	run
-disk-marks	disk marks	15	run
-pool-info-bulk	pool info bulk	15	skip
-pool-info-fast	pool info fast	15	skip
-pool-members-bulk	pool members bulk	15	skip
-pool-members-fast	pool members fast	15	skip
-pool-state-bulk	pool state bulk	10	run
-pool-state-fast	pool state fast	10	run
-shares-overview	shares overview	30	skip
-shares-deleted	shares deleted	60	skip
-shares-principals	shares principals	60	skip
-encryption	encryption list	30	run
-vault-list	vault list	60	run
-vault-usage	vault usage	30	run
-vault-uses	vault uses	60	run
-state-history	state history	30	run
-fm-locations	fm locations	15	run
-temp-disks	temp-disk raw	30	run
+status	status	15	run	-	any
+live	live status	5	run	-	any
+monitor-disks	monitor disks	15	run	-	disks
+disk-health	disk-health list	30	run	-	disks
+disk-inventory	state disks	30	run	-	disks
+disk-marks	disk marks	15	run	-	disks
+pool-info-bulk	pool info bulk	15	skip	-	disks
+pool-info-fast	pool info fast	15	skip	-	disks
+pool-members-bulk	pool members bulk	15	skip	-	disks
+pool-members-fast	pool members fast	15	skip	-	disks
+pool-state-bulk	pool state bulk	10	run	-	disks
+pool-state-fast	pool state fast	10	run	-	disks
+shares-overview	shares overview	30	skip	-	shares
+shares-deleted	shares deleted	60	skip	-	shares
+shares-principals	shares principals	60	skip	-	shares
+encryption	encryption list	30	run	-	security
+vault-list	vault list	60	run	-	security
+vault-usage	vault usage	30	run	-	security
+vault-uses	vault uses	60	run	-	security
+state-history	state history	30	run	-	disks
+fm-locations	fm locations	15	run	-	shares
+temp-disks	temp-disk raw	30	run	-	disks,shares

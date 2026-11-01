@@ -63,8 +63,11 @@ event_log() {   # event_log <what> <text>
   tail -n 200 "$log" > "$log.tmp" && mv "$log.tmp" "$log"
 }
 
-# the state database learns about the change at once; never fails the service
-collect_state() { bash "$here/state.sh" collect --event >/dev/null 2>&1 || true; }
+# the state database learns about the change at once; so does the live state (no-op without the capability); never fails the service
+collect_state() {
+  bash "$here/state.sh" collect --event >/dev/null 2>&1 || true
+  bash "$here/live.sh" refresh monitor-disks disk-inventory temp-disks fm-locations >/dev/null 2>&1 || true
+}
 
 push() {   # push <title> <text> <priority> <category>: never fails the service
   local up

@@ -7,6 +7,7 @@ import json
 import os
 import tempfile
 import threading
+import time
 import unittest
 
 here = os.path.dirname(os.path.abspath(__file__))
@@ -294,12 +295,44 @@ class RedisMode(RedisBase):
         self.assertEqual((s, json.loads(d)["rows"]), (200, [["new"]]))
         self.assertEqual(self.redis.published, [("hs:v1:refresh", "live")])
 
-    def test_a_started_change_asks_for_everything(self):
+    def test_the_topic_map(self):
+        m = ws.live_topic_map()
+        self.assertEqual(m["/api/sys/status"], "status")
+        self.assertEqual(m["/api/sys/monitor/disks"], "monitor-disks")
+        self.assertEqual(m["/api/sys/pool/info?pool=bulk"], "pool-info-bulk")
+        self.assertEqual(m["/api/sys/pool/state?pool=fast"], "pool-state-fast")
+        self.assertNotIn("/api/sys/pool/disks", m)
+        self.assertNotIn("/api/sys/pool/info", m)
+        self.assertEqual(ws.features(self.cfg)["topics"], m)
+
+    def test_the_topic_map_is_empty_in_off_mode(self):
+        os.environ.pop("HS_WEB_LIVE")
+        self.assertEqual(ws.features(ws.Config())["topics"], {})
+
+    def test_cap_off_topic_reads_directly(self):
+        calls = []
+        self.app.store.caps["status"] = "nosuchcap"
+        self.app.store.off = type("O", (), {"get": lambda s, spec, argv, key, fresh=False: calls.append(key) or (200, {"d": 1}, 1, ())})()
+        ws.ls._CAP_CACHE["nosuchcap"] = (time.time(), False)
+        try:
+            self.assertEqual(self.app.store.get(ws.READS[("status",)], ["status"], ("status",))[0], 200)
+            self.assertEqual(calls, [("status",)])
+            self.assertEqual(self.redis.published, [])
+        finally:
+            ws.ls._CAP_CACHE.clear()
+
+    def test_area_refresh_messages(self):
+        self.assertEqual(ws.area_refresh("ct"), "@instances")
+        self.assertEqual(ws.area_refresh("pool"), "@disks")
+        self.assertEqual(ws.area_refresh("ext/games"), "@ext-games")
+        self.assertEqual(ws.area_refresh("nonsense"), "*")
+
+    def test_a_started_change_asks_for_its_group(self):
         ch = dict(self.ck, **{"X-CSRF-Token": self.csrf()})
         self.assertEqual(self.req("POST", "/api/plan", {"area": "ct", "args": ["web1", "restart"]}, ch)[0], 200)
         self.assertEqual(self.redis.published, [])
         self.assertEqual(self.req("POST", "/api/start", {"area": "ct", "args": ["web1", "restart"]}, ch)[0], 200)
-        self.assertEqual(self.redis.published, [("hs:v1:refresh", "*")])
+        self.assertEqual(self.redis.published, [("hs:v1:refresh", "@instances")])
 
     def test_login_facts_read_the_stored_status(self):
         self.redis.keys["hs:v1:status"] = doc("instances\t3\t4\n")

@@ -15,6 +15,11 @@ check('other error, live open: the interval', nextDelay('status', true, 15000, {
 check('live topic and live open: no timer', nextDelay('live', true, 5000) === null);
 check('live topic, live closed: the interval', nextDelay('live', false, 5000) === 5000);
 
+// poll(): the explicit topic wins, else live.topics[path] (source check: poll needs Svelte runes, so the line is checked as text)
+import { readFileSync } from 'node:fs';
+const src = readFileSync(new URL('../web/src/data.svelte.js', import.meta.url), 'utf8');
+check('poll: explicit topic first, then live.topics[path]', /\(typeof topic === 'function' \? topic\(\) : topic\) \?\? live\.topics\[p\]/.test(src));
+
 const now = 1000;
 const rows = [
   ['status', '15', '7', '1', '0', '-', '-'],
