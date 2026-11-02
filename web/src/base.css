@@ -101,6 +101,10 @@ tr[tabindex]:focus-visible { outline-offset: -2px; }
 .btn.sm, .btn-sm { min-height: 28px; padding: 0 10px; font-size: 12.5px; }
 .btn-icon { width: 34px; min-height: 34px; padding: 0; }
 .btn-block { width: 100%; }
+/* the one spinner: put `spin` on a Phosphor icon (ph-circle-notch); still under reduced motion, where the ring is enough */
+.spin { display: inline-block; animation: hs-spin 0.9s linear infinite; }
+@keyframes hs-spin { to { transform: rotate(360deg); } }
+@media (prefers-reduced-motion: reduce) { .spin { animation-duration: 3s; } }
 .link-btn { all: unset; cursor: pointer; color: var(--accent-ink); font-weight: 500; }
 .link-btn:hover { text-decoration: underline; }
 .link-btn:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }

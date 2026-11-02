@@ -74,6 +74,4 @@
   .muted { font-size: 12px; color: var(--fg-3); }
   .err { font-size: 12.5px; color: var(--bad-ink); }
   .ok { font-size: 12.5px; color: var(--ok-ink); }
-  .spin { animation: unlock-spin 1s linear infinite; }
-  @keyframes unlock-spin { to { transform: rotate(360deg); } }
 </style>

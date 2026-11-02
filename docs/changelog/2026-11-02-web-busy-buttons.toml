@@ -1,0 +1,4 @@
+date  = "2026-11-02"
+type  = "change"
+title = "Buttons in the web interface show a spinner while their job runs"
+body  = """On the Services page, Apply, Adopt and Import now show a spinner and cannot be clicked again while the job they started is still running. The routes are read again when it ends, so the count on Apply is current."""

@@ -8,6 +8,7 @@ export { default as Skeleton } from './Skeleton.svelte';
 export { default as Switch } from './Switch.svelte';          // also the checkbox: <Switch box>
 export { default as Combobox } from './Combobox.svelte';
 export { default as Drawer } from './Drawer.svelte';
+export { default as Button } from './Button.svelte';          // every button that starts something: busy state, spinner, promise-aware
 export { default as Kv } from './Kv.svelte';
 export { default as Split } from './Split.svelte';
 // elsewhere, kept at their old paths so pages keep working:

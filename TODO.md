@@ -121,6 +121,7 @@ the Storage > Files page, entry points from Disks, Pools and Shares.
 
 ## Later / ideas
 
+- Web buttons, full consistency: `ui/Button.svelte` exists and the buttons that start something use it (plan openers, awaited requests). Convert the rest (~230 plain `<button class="btn">`: navigation, tabs, close, cancel) and the icon-only `.ib` buttons, then add a check to tests that fails on a bare `class="btn` outside ui/Button.svelte. Not tested in a browser yet.
 - Immutable offline copy: a rotating second backup disk with a swap reminder (tied to `hs expiry`).
 - Mobile-friendly web UI; a read-only status page per family member.
 - Quiet hours / fan schedule (`hs fans`).
