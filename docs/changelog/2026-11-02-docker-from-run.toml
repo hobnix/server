@@ -1,0 +1,4 @@
+date  = "2026-11-02"
+type  = "feature"
+title = "New Docker app: paste a docker run command and get a compose file"
+body  = """On the New app page the button "From docker run" turns a pasted command into a compose file and an env file. Values from -e go to the env file. Flags that are not converted stay as a comment and a warning. You can still edit both files before you save or apply. Not tested on hardware yet."""
