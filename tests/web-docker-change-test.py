@@ -62,6 +62,29 @@ class DockerChange(lt.Base):
         self.assertEqual(d["unit"], "hs-job-docker-enable-1.service")
         self.assertIn("start", self.calls[-1][0])
 
+    def test_mount_shapes(self):
+        ok = [
+            ["mount", "media", "--path", "/shares/media"],
+            ["mount", "media", "--path", "/shares/media", "--as", "1000:1000"],
+            ["mount", "remote:nas", "--path", "/shares/nas"],
+        ]
+        for a in ok:
+            self.calls.clear()
+            self.assertEqual(self.post("/api/plan", {"area": "docker", "args": a})[0], 200, a)
+            self.assertIn("plan", self.calls[0][0])
+        bad = [
+            ["mount", "media", "--path", "shares"],
+            ["mount", "media", "--path", "/a b"],
+            ["mount", "media", "--path", "/x", "--as", "1000"],
+            ["mount", "media;id", "--path", "/x"],
+            ["mount", "media", "--path", "/x", "--yes"],
+            ["mount", "-x", "--path", "/x"],
+        ]
+        for a in bad:
+            self.calls.clear()
+            self.assertEqual(self.post("/api/plan", {"area": "docker", "args": a})[0], 400, a)
+            self.assertEqual(self.calls, [], a)
+
     def test_refused_shapes(self):
         bad = [
             ["setup", "--set", "dockerManager=foo"],

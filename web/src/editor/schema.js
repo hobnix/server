@@ -58,6 +58,8 @@ function walk(schema, path) {
   return nodes;
 }
 
+import { VALUE_HINTS } from './volumes.js';
+
 export function candidates(schema, path) {
   const keys = new Map();
   const values = new Set();
@@ -71,6 +73,9 @@ export function candidates(schema, path) {
     if (typeof n.const === 'string') values.add(n.const);
     if (n.type === 'boolean') { values.add('true'); values.add('false'); }
   }
+  // the spec leaves a few values open (restart, network_mode, pull_policy): offer the usual ones
+  const last = path[path.length - 1];
+  if (!values.size && path[0] === 'services' && path.length === 3 && Object.hasOwn(VALUE_HINTS, last)) for (const v of VALUE_HINTS[last]) values.add(v);
   return { keys: [...keys].map(([name, detail]) => ({ name, detail })), values: [...values] };
 }
 

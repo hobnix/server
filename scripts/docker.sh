@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # help: Docker as part of hobnix: turn it on (a locked container with Docker inside), turn it off, list the apps that run in it
 # help.de: Docker als Teil von hobnix: einschalten (ein gesperrter Container mit Docker darin), ausschalten, die Apps darin auflisten
-# args: status | list | enable [--manager webui|arcane|portainer|none] [--size s|m|l] [--yes] [--job] [--dry-run] | disable [--yes --confirm docker] [--no-backup] [--job] [--dry-run] | mount <share|remote:peer> <path> [--as uid:gid] [--yes] [--dry-run] | --status | --list | --apps | --app <app> | --logs <app> [lines]
+# args: status | list | enable [--manager webui|arcane|portainer|none] [--size s|m|l] [--yes] [--job] [--dry-run] | disable [--yes --confirm docker] [--no-backup] [--job] [--dry-run] | mount <share|remote:peer> <path> [--as uid:gid] [--yes] [--job] [--dry-run] | --status | --list | --apps | --containers | --app <app> | --logs <app> [lines]
 # The capability docker (docs/PLAN-docker-instances.md, Decisions 12 to 14): the container `docker` is owned by it (user.hs.managed_by=docker),
 # so only this script deletes it (HS_OWNER=docker on the manage-ct.sh call, scripts/lib/instance.sh).
 #   hs docker status       key/value lines: on or off, the container, the manager, the size, the number of apps, the address
@@ -16,8 +16,10 @@
 #                          name parent project state ports (`-` when empty); a stopped container or a failed read prints no row, exit 0
 #   --apps                 the same data with more fields: name parent project state running/total ports address images managed update
 #                          (`-` when empty); 10 fields, sorted by app name; state stopped (0/0) for an app whose folder /opt/apps/<app> has a docker-compose.yml but no container
+#   --containers           every container of docker as name project state (`-` when empty; the web editor checks container_name against it)
 #   --app <app>            JSON document for the web editor: rev, managed (web|recipe|other), env names, envText (the whole .env, base64 in the script output; envTooBig over 64 KiB), compose; for the admin editor, read nocache
 #   --logs <app> [lines]   the Compose log of one app (default 200, max 2000); the app must be a child of docker, never the manager
+#                          --job runs it as a background job (the web interface: hs sys docker start mount)
 # Test knobs: HS_DOCKER_MANAGE_CT (a script that stands in for manage-ct.sh), HS_DOCKER_BACKUP (stands in for backup.sh), HS_DOCKER_NO_JOB=1
 # (no systemd-run: the long work runs at once), HS_REMOTE_ROOT (default /mnt/remote), HS_SETTINGS_DIR, HS_STATE_DIR, HS_CAPABILITIES_FILE, HS_CAPABILITIES_TSV, HS_INCUS.
 set -euo pipefail
@@ -159,6 +161,13 @@ apps() {   # one row per app: name parent project state running/total ports addr
     }' | sort -t "$tab" -k1,1
 }
 
+containers() {   # every container of docker: name project state (`-` when empty); nothing when Docker is off or does not answer
+  local raw
+  owned && running || return 0
+  raw=$(timeout 8 "${HS_INCUS:-incus}" exec "$CT" -- docker ps -a --format '{{.Names}}\t{{.Label "com.docker.compose.project"}}\t{{.State}}' </dev/null 2>/dev/null) || return 0
+  printf '%s\n' "$raw" | awk -F'\t' 'NF >= 1 && $1 != "" { printf "%s\t%s\t%s\n", $1, ($2 == "" ? "-" : $2), ($3 == "" ? "-" : $3) }' | sort -t "$tab" -k1,1
+}
+
 logs() {   # logs <app> [lines]
   local app=${1:-} lines=${2:-200} raw
   [[ "$app" =~ ^[a-z0-9][a-z0-9_-]{0,40}$ ]] || return 1
@@ -216,7 +225,7 @@ ct_ip() {   # the address of the container, up to 10 tries; nothing when it has 
 dash() { if [ -n "${1:-}" ]; then printf '%s' "$1"; else printf -- '-'; fi; }
 
 status_rows() {   # key<TAB>value
-  local on=off inst=- own=no run=no mgr size mem cpus n addr=-
+  local on=off inst=- own=no run=no mgr size mem cpus n addr=- mapped
   if inc info "$CT" >/dev/null 2>&1; then inst=$CT; fi
   if owned; then own=yes; if running; then run=yes; fi; fi
   # on = the capability is listed AND hobnix owns the container; a listed capability without a container is not "on"
@@ -226,8 +235,9 @@ status_rows() {   # key<TAB>value
   read -r mem cpus < <(size_of)
   n=$(children | wc -l | tr -d ' ')
   if [ "$run" = yes ]; then addr=$(ct_addr); fi
-  printf 'state\t%s\ninstance\t%s\nowned\t%s\nrunning\t%s\nmanager\t%s\nsize\t%s\nmemory\t%s\ncpus\t%s\nchildren\t%s\naddress\t%s\n' \
-    "$on" "$inst" "$own" "$run" "$(dash "$mgr")" "$size" "$mem" "$cpus" "$n" "$(dash "$addr")"
+  mapped=-; if [ "$own" = yes ]; then mapped=$(dash "$(mapped_user)"); fi
+  printf 'state\t%s\ninstance\t%s\nowned\t%s\nrunning\t%s\nmanager\t%s\nsize\t%s\nmemory\t%s\ncpus\t%s\nchildren\t%s\naddress\t%s\nmapped\t%s\n' \
+    "$on" "$inst" "$own" "$run" "$(dash "$mgr")" "$size" "$mem" "$cpus" "$n" "$(dash "$addr")" "$mapped"
 }
 
 yesno() { if [ "$1" = yes ]; then t 'yes'; else t 'no'; fi; }
@@ -415,8 +425,44 @@ remote_mounted() {   # remote_mounted <peer>: the peer is set up (hs remote add)
   return 1
 }
 
+mapped_user() {   # the one user the container docker maps onto the share owner, as uid:gid (raw.idmap "uid 1000 <uid>" / "gid 100 <gid>"); nothing when none
+  local m u g
+  m=$(inc config get "$CT" raw.idmap 2>/dev/null </dev/null || true)
+  u=$(sed -n 's/^uid 1000 \([0-9][0-9]*\)$/\1/p' <<<"$m" | head -n 1)
+  g=$(sed -n 's/^gid 100 \([0-9][0-9]*\)$/\1/p' <<<"$m" | head -n 1)
+  if [ -n "$u" ] && [ -n "$g" ]; then printf '%s:%s\n' "$u" "$g"; fi
+}
+
+# mount_checks <share|remote:peer> <path> <as>: prints nothing; returns 1 with MC_REASON (and MC_FIX, a command, maybe empty) set. Sets MC_PEER, MC_DEV.
+mount_checks() {
+  local src=$1 path=$2 as=$3 have want
+  MC_REASON=; MC_FIX=; MC_PEER=; MC_DEV=
+  owned || { MC_REASON=$(t 'Docker is not on.'); MC_FIX="hs docker enable"; return 1; }
+  [[ "$path" == /* ]] || { MC_REASON=$(t "The path in the container must start with / (got '%s')." "$path"); return 1; }
+  case "$src" in
+    remote:*)
+      MC_PEER=${src#remote:}; MC_DEV=remote-$MC_PEER
+      [[ "$MC_PEER" =~ ^[a-z0-9][a-z0-9-]{0,19}$ ]] || { MC_REASON=$(t "Invalid peer name '%s'." "$MC_PEER"); return 1; }
+      [ -z "$as" ] || { MC_REASON=$(t 'A remote share is read only and takes no --as.'); return 1; }
+      remote_mounted "$MC_PEER" || { MC_REASON=$(t "Nothing is mounted from '%s'." "$MC_PEER"); MC_FIX="hs remote list"; return 1; }
+      if inc config device get "$CT" "$MC_DEV" source >/dev/null 2>&1; then MC_REASON=$(t "'%s' has the device %s already." "$CT" "$MC_DEV"); return 1; fi ;;
+    *)
+      [[ "$src" =~ ^[A-Za-z0-9][A-Za-z0-9._-]*$ ]] || { MC_REASON=$(t "Invalid share name '%s'." "$src"); return 1; }
+      [[ "$as" =~ ^[0-9]+:[0-9]+$ ]] || { MC_REASON=$(t 'A local share needs --as <uid>:<gid>.'); return 1; }
+      MC_DEV=$src
+      if inc config device get "$CT" "$src" type >/dev/null 2>&1; then
+        MC_REASON=$(t "'%s' has a device %s already: the share is mounted, use it as it is." "$CT" "$src"); return 1
+      fi
+      have=$(inc config get "$CT" raw.idmap 2>/dev/null </dev/null || true)
+      want=$(printf 'uid 1000 %s\ngid 100 %s' "${as%%:*}" "${as##*:}")
+      if [ -n "$have" ] && [ "$have" != "$want" ]; then
+        MC_REASON=$(t "The container docker maps another user already (%s). Only one user can write to shares: use that one." "$(mapped_user)"); return 1
+      fi ;;
+  esac
+}
+
 cmd_mount() {   # mount <share|remote:peer> <path> [--as uid:gid] [--yes] [--dry-run]
-  local src=${1:-} path=${2:-} as= yes=0 dry=0 peer= root=${HS_REMOTE_ROOT:-/mnt/remote} dev
+  local src=${1:-} path=${2:-} as= yes=0 dry=0 job=0 root=${HS_REMOTE_ROOT:-/mnt/remote} dev peer
   [ $# -ge 2 ] || usage
   shift 2
   while [ $# -gt 0 ]; do
@@ -424,23 +470,15 @@ cmd_mount() {   # mount <share|remote:peer> <path> [--as uid:gid] [--yes] [--dry
       --as) [ $# -ge 2 ] || usage; as=$2; shift 2 ;;
       --yes) yes=1; shift ;;
       --dry-run) dry=1; shift ;;
+      --job) job=1; shift ;;
       *) usage ;;
     esac
   done
-  owned || fail_fix "$(t 'Docker is not on.')" "hs docker enable"
-  [[ "$path" == /* ]] || fail "$(t "The path in the container must start with / (got '%s')." "$path")"
-  case "$src" in
-    remote:*)
-      peer=${src#remote:}; dev=remote-$peer
-      [[ "$peer" =~ ^[a-z0-9][a-z0-9-]{0,19}$ ]] || fail "$(t "Invalid peer name '%s'." "$peer")"
-      [ -z "$as" ] || fail "$(t 'A remote share is read only and takes no --as.')"
-      remote_mounted "$peer" || fail_fix "$(t "Nothing is mounted from '%s'." "$peer")" "hs remote list"
-      if inc config device get "$CT" "$dev" source >/dev/null 2>&1; then fail "$(t "'%s' has the device %s already." "$CT" "$dev")"; fi ;;
-    *)
-      [[ "$src" =~ ^[A-Za-z0-9][A-Za-z0-9._-]*$ ]] || fail "$(t "Invalid share name '%s'." "$src")"
-      [[ "$as" =~ ^[0-9]+:[0-9]+$ ]] || fail "$(t 'A local share needs --as <uid>:<gid>.')"
-      dev=$src ;;
-  esac
+  if ! mount_checks "$src" "$path" "$as"; then
+    if [ -n "$MC_FIX" ]; then fail_fix "$MC_REASON" "$MC_FIX"; fi
+    fail "$MC_REASON"
+  fi
+  peer=$MC_PEER; dev=$MC_DEV
   step "$(t 'Give the container docker a folder')"
   if [ -n "$peer" ]; then line "$(t "1. Add the shares of %s (%s/%s) as %s, read only." "$peer" "$root" "$peer" "$path")"
   else line "$(t "1. Mount the share %s as %s, files seen as the user %s." "$src" "$path" "$as")"
@@ -449,6 +487,11 @@ cmd_mount() {   # mount <share|remote:peer> <path> [--as uid:gid] [--yes] [--dry
   if [ "$yes" = 0 ]; then
     interactive || fail "$(t 'This needs a terminal or --yes.')"
     confirm "$(t 'Do it?')" || { note "$(t 'Nothing changed.')"; return 0; }
+  fi
+  if [ "$job" = 1 ]; then   # a local share restarts every app: the web interface runs it in the background
+    set -- mount "$src" "$path" --yes
+    if [ -n "$as" ]; then set -- "$@" --as "$as"; fi
+    if as_job docker-mount "hs docker mount $src" "$@"; then return 0; fi
   fi
   if [ -n "$peer" ]; then
     inc config device add "$CT" "$dev" disk source="$root/$peer" path="$path" recursive=true propagation=rslave >/dev/null       || fail "$(t 'Adding the folder failed.')"
@@ -468,6 +511,7 @@ case "$verb" in
   --status) status_rows ;;
   --list) children ;;
   --apps) apps ;;
+  --containers) containers ;;
   --app) [ $# -ge 1 ] || usage; app "$1"; shift ;;
   --logs) logs "$@" ;;
   *) usage ;;

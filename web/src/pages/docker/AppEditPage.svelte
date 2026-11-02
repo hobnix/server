@@ -7,11 +7,15 @@
   import { get } from '../../api.js';
   import { poll, rows } from '../../data.svelte.js';
   import { route, go } from '../../route.svelte.js';
-  import { openPlan, jobRunning } from '../../ui.svelte.js';
+  import { openPlan, jobRunning, tasks } from '../../ui.svelte.js';
+  import { jobMatches } from '../../jobkey.js';
   import PageHeader from '../../shell/PageHeader.svelte';
   import Banner from '../../ui/Banner.svelte';
   import Button from '../../ui/Button.svelte';
   import { appOf } from './apps.js';
+  import BindShare from '../../forms/docker/BindShare.svelte';
+  import { ls } from '../../files/api.js';
+  import { mountsOf } from '../../editor/volumes.js';
   import { lintCompose, lintEnv, lintVars, envNames, normalizeEol } from '../../editor/lint.js';
 
   const NEW = '/instances/docker/new';
@@ -26,6 +30,28 @@
   const appsPoll = poll('/api/sys/docker/apps', 30000);
   const ctPoll = poll('/api/sys/ct/list', 30000);
   const apps = $derived(rows(appsPoll).map(appOf).filter(Boolean));
+  // for the live checks and the Bind share dialog: every container, what docker mounts, the shares, the user docker maps already
+  const contPoll = poll('/api/sys/docker/containers', 30000);
+  const storPoll = poll('/api/sys/ct/storage/docker', 15000);
+  const sharesPoll = poll('/api/sys/shares/list', 30000);
+  const remotePoll = poll('/api/sys/remote/list', 30000);
+  const statusPoll = poll('/api/sys/docker/status', 15000);
+  const containers = $derived(rows(contPoll).filter((r) => r.length >= 3).map((r) => ({ name: r[0], project: r[1], state: r[2] })));
+  const mounts = $derived(mountsOf(rows(storPoll)));
+  const shareNames = $derived(rows(sharesPoll).map((r) => r[0]).filter(Boolean));
+  const peers = $derived.by(() => {
+    const m = new Map();
+    for (const r of rows(remotePoll)) if (r[0] === 'mount' && r[4] === 'mounted') m.set(r[1], [...(m.get(r[1]) ?? []), r[2]]);
+    return [...m].map(([peer, shares]) => ({ peer, shares }));
+  });
+  const mapped = $derived.by(() => { const r = rows(statusPoll).find((x) => x[0] === 'mapped'); return r && r[1] !== '-' ? r[1] : ''; });
+  // one fixed mapped user for the whole docker container: an app whose PUID:PGID differs would write as another user
+  const idWarn = $derived.by(() => {
+    if (!mapped) return '';
+    const u = /^PUID=(\d+)\s*$/m.exec(env)?.[1];
+    const g = /^PGID=(\d+)\s*$/m.exec(env)?.[1];
+    return u && g && `${u}:${g}` !== mapped ? `PUID:PGID in .env is ${u}:${g}, but Docker maps ${mapped} for all shares. Files would be written as another user.` : '';
+  });
 
   let loading = $state(true);
   let loadError = $state('');
@@ -37,7 +63,7 @@
   let saved = $state({ compose: '', env: '' });
   let composeBox = $state();
   let envBox = $state();
-  let editors = null;      // { compose, env } once cm.js is loaded
+  let editors = $state.raw(null);      // { compose, env } once cm.js is loaded (read by the Bind share button: must be reactive)
   let schema = null;
 
   const readOnly = $derived(!isNew && managed !== 'web');
@@ -50,6 +76,7 @@
     schema, isNew,
     apps: apps.map((a) => ({ name: a.name, ports: a.ports })),
     ct: rows(ctPoll).map((r) => r[0]),
+    containers, mounts,
   });
 
   async function load() {
@@ -90,6 +117,8 @@
         compose: cm.createEditor(composeBox, {
           doc: compose, lang: 'yaml', schema, readOnly,
           envNames: () => envNames(env),
+          mounts: () => mounts,
+          listDir: async (mount, rel) => (mount.share ? listShare(mount.share, `/${rel}`) : []),
           onChange: (t) => { compose = t; },
           lint: (text, obj) => [...lintCompose(obj, live(), target), ...lintVars(text, env)],
         }),
@@ -121,6 +150,29 @@
     }
   });
 
+  // Bind share: a mounted share adds its line at once; otherwise the plan of the mount runs first and the line is added when its job ends
+  let binding = $state(false);
+  let pending = $state(null);      // { args, line }
+  const mountRunning = $derived(!!pending && jobRunning('docker', pending.args));
+  let sawMount = false;
+  $effect(() => {
+    if (mountRunning) { sawMount = true; return; }
+    if (sawMount && pending) {
+      sawMount = false;
+      const { args, line } = pending;
+      pending = null;
+      // the line only goes in when the mount worked: the newest task of this plan ended ok
+      const t = tasks.list.find((x) => jobMatches(x.key, 'docker', args));
+      if (t && t.state === 'ok') editors?.compose.insertVolume(line);
+    }
+  });
+  async function listShare(share, path) {
+    const r = await ls(`share:${share}`, path);
+    return r.ok ? r.rows.filter((x) => x.type === 'd').map((x) => x.name) : [];
+  }
+  function bound(line) { binding = false; editors?.compose.insertVolume(line); }
+  function mountFirst(m) { binding = false; pending = m; sawMount = false; openPlan('docker', m.args, `mount ${m.args[1]}`); }
+
   function apply() {
     const document = envTooBig ? { compose, set: {}, remove: [] } : { compose, env };
     openPlan('docker-app', applyArgs, `apply ${target}`, { document, onReload: load });
@@ -132,6 +184,7 @@
 <PageHeader title={isNew ? 'New app' : app} crumb="Docker" sub={isNew ? 'Write a compose file and an env file, then apply.' : 'Edit the compose file and the env file of this app, then apply.'}>
   {#snippet actions()}
     {#if !readOnly}
+      <Button icon="folder-simple-plus" busy={mountRunning} busyLabel="Mounting…" disabled={loading || !editors} tooltip="Add a share to a service as a volume" onclick={() => { binding = true; }}>Bind share</Button>
       <Button variant="primary" icon="check-circle" busy={applying} busyLabel="Applying…" disabled={!canApply} tooltip={canApply ? 'Save both files and recreate the app' : 'Name the app first'} onclick={apply}>Apply</Button>
     {/if}
   {/snippet}
@@ -140,12 +193,17 @@
 {#if loadError}<Banner tone="bad">{loadError}</Banner>{/if}
 {#if readOnly}<Banner tone="info">This app is not managed by the web interface (it is {managed}), so it can be read here but not changed.</Banner>{/if}
 {#if envTooBig}<Banner tone="warn">The env file is over 64 KiB: edit it in a terminal. Apply keeps it as it is.</Banner>{/if}
+{#if idWarn}<Banner tone="warn">{idWarn}</Banner>{/if}
 {#if dirty && !loading}<div class="dirty">Changed, not applied yet.</div>{/if}
 
 {#if isNew}
   <label class="namef">Name
     <input class="input" bind:value={name} placeholder="my-app" autocapitalize="off" autocorrect="off" spellcheck="false" />
   </label>
+{/if}
+
+{#if binding}
+  <BindShare shares={shareNames} {peers} {mounts} {mapped} listDir={listShare} onsubmit={bound} onmount={mountFirst} onclose={() => { binding = false; }} />
 {/if}
 
 <div class="grid">

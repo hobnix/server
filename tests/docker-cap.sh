@@ -20,12 +20,14 @@ case "$1" in
   info) [ -e "$STATE" ]; exit $? ;;
   query) o=$(cat "$OWNERF" 2>/dev/null || true)
     jq -n --arg o "$o" '{type:"container",config:(if $o=="" then {} else {"user.hs.managed_by":$o} end),expanded_devices:{}}' ;;
-  config) [ "$2" = device ] && [ "$3" = get ] && { [ -e "$STATE.dev" ]; exit $?; }
+  config) [ "$2" = get ] && [ "$4" = raw.idmap ] && { cat "$STATE.idmap" 2>/dev/null; exit 0; }
+    [ "$2" = device ] && [ "$3" = get ] && { [ -e "$STATE.dev" ]; exit $?; }
     [ "$2" = set ] && [ -e "$LOCKFAIL" ] && exit 1; [ "$2" = set ] && echo "${4#user.hs.managed_by=}" > "$OWNERF" ;;
   list) case "$*" in *" s"*) echo RUNNING ;; *) printf '"172.17.0.1 (docker0)\n10.10.95.50 (eth0)"\n' ;; esac ;;
   exec) shift 3; [ "$1" = -- ] && shift
     if [ "$1" = docker ] && [ "$2" = ps ]; then
       [ ! -e "$PSFAIL" ] || exit 1
+      case "$*" in *'{{.Names}}'*) printf 'arr-app-1\tarr\trunning\nsolo\t\texited\n'; exit 0 ;; esac
       printf 'arr\trunning\t0.0.0.0:8989->8989/tcp, :::7878->7878/tcp\n'
       printf 'arr\trunning\t0.0.0.0:8989->8989/tcp\n'
       printf 'notes\texited\t\n'
@@ -342,5 +344,51 @@ check_eq "remote not mounted refused" 1 "$rc"
 check_eq "device exists: refused" 1 "$rc"; rm -f "$STATE.dev"
 reset; rc=0; $D mount media /media --as 1000:1000 --yes </dev/null >/dev/null 2>&1 || rc=$?
 check_eq "Docker not on: refused" 1 "$rc"
+
+echo "-- hs sys docker containers"
+reset; : > "$STATE"; echo docker > "$OWNERF"
+out=$($D --containers </dev/null 2>&1)
+check_eq "containers: 2 rows" 2 "$(printf '%s
+' "$out" | grep -c .)"
+check_eq "containers: every row has 3 fields" 0 "$(printf '%s
+' "$out" | awk -F'	' 'NF != 3' | wc -l | tr -d ' ')"
+printf '%s
+' "$out" | grep -qx "solo${T}-${T}exited" && pass "containers: empty project is -" || fail "containers: $out"
+printf '%s
+' "$out" | grep -qx "arr-app-1${T}arr${T}running" && pass "containers: name project state" || fail "containers: $out"
+reset; out=$($D --containers </dev/null 2>&1); check_eq "containers: no row when Docker is off" "" "$out"
+
+echo "-- hs sys docker plan|start mount (docker-setup.sh)"
+reset; : > "$STATE"; echo docker > "$OWNERF"
+rc=0; out=$($S plan mount media --path /shares/media </dev/null 2>&1) || rc=$?
+check_eq "mount plan exit 0" 0 "$rc"
+echo "$out" | grep -qx "status${T}ok" && pass "mount plan status ok" || fail "mount plan: $out"
+echo "$out" | grep -q "^step${T}1\. Mount the share media as /shares/media, files seen as the user 1000:1000" && pass "mount plan: default --as 1000:1000" || fail "mount plan step: $out"
+echo "$out" | grep -q "^warn${T}Docker restarts, and with it every app: arcane, arr" && pass "mount plan: restart warning names the running apps" || fail "mount plan warn: $out"
+echo "$out" | grep -qx "command${T}hs docker mount media /shares/media --as 1000:1000 --yes --job" && pass "mount plan: the command carries the resolved --as" || fail "mount plan command: $out"
+echo "$out" | grep -qx "long${T}yes" && pass "mount plan: long" || fail "mount plan long: $out"
+check_eq "mount plan changed nothing" 0 "$(grep -c . "$MLOG")"
+printf 'uid 1000 1001
+gid 100 1002' > "$STATE.idmap"
+out=$($S plan mount media --path /shares/media </dev/null 2>&1) || true
+echo "$out" | grep -q "files seen as the user 1001:1002" && pass "mount plan: reuses the mapped user" || fail "mount plan idmap: $out"
+echo "$out" | grep -q "^warn${T}" && fail "mount plan: warn although the mapping stays" || pass "mount plan: no restart warning when the mapping stays"
+rc=0; out=$($S plan mount media --path /shares/media --as 1000:1000 </dev/null 2>&1) || rc=$?
+check_eq "mount plan: another user than the mapped one: exit 1" 1 "$rc"
+echo "$out" | grep -qx "status${T}refused" && echo "$out" | grep -q "^reason${T}.*maps another user already" && pass "mount plan: idmap conflict refused with the reason" || fail "mount conflict: $out"
+rm -f "$STATE.idmap"
+: > "$STATE.dev"; rc=0; out=$($S plan mount media --path /shares/media </dev/null 2>&1) || rc=$?
+check_eq "mount plan: a share Docker has already is refused up front" 1 "$rc"
+echo "$out" | grep -q "^reason${T}.*has a device media already" && pass "mount plan: the reason says it is mounted" || fail "mount device: $out"
+rm -f "$STATE.dev"
+rc=0; out=$($S plan mount media --path media </dev/null 2>&1) || rc=$?
+check_eq "mount plan: relative path refused" 1 "$rc"
+rc=0; out=$($S plan mount remote:nas --path /shares/nas --as 1000:1000 </dev/null 2>&1) || rc=$?
+check_eq "mount plan: remote with --as refused" 1 "$rc"
+: > "$MLOG"
+rc=0; out=$($S start mount media --path /shares/media </dev/null 2>&1) || rc=$?
+check_eq "mount start exit 0" 0 "$rc"
+echo "$out" | grep -qx "status${T}started" && pass "mount start: started" || fail "mount start: $out"
+grep -qF "manage-ct docker --add-storage shares media /shares/media --as 1000:1000 OWNER=docker" "$MLOG" && pass "mount start: the owner's pass, the default user" || fail "mount start: $(cat "$MLOG")"
 
 finish

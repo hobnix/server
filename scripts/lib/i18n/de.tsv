@@ -1951,6 +1951,8 @@ A remote share is read only and takes no --as.	Eine entfernte Freigabe ist nur l
 Invalid share name '%s'.	Ungültiger Freigabename '%s'.
 A local share needs --as <uid>:<gid>.	Eine lokale Freigabe braucht --as <uid>:<gid>.
 Give the container docker a folder	Dem Container docker einen Ordner geben
+'%s' has a device %s already: the share is mounted, use it as it is.	'%s' hat das Gerät %s schon: die Freigabe ist eingebunden, nutze sie so.
+The container docker maps another user already (%s). Only one user can write to shares: use that one.	Der Container docker bildet schon einen anderen Benutzer ab (%s). Nur ein Benutzer kann in Freigaben schreiben: nimm diesen.
 1. Add the shares of %s (%s/%s) as %s, read only.	1. Die Freigaben von %s (%s/%s) als %s hinzufügen, nur lesend.
 1. Mount the share %s as %s, files seen as the user %s.	1. Die Freigabe %s als %s einbinden, Dateien als Benutzer %s.
 The user mapping changes: the container docker restarts, and with it every app in it.	Die Benutzerzuordnung ändert sich: der Container docker startet neu, und damit jede App darin.

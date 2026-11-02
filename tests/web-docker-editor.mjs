@@ -94,5 +94,55 @@ check('normalizeEol: CRLF and CR become LF', normalizeEol('A=1\r\nB=2\rC=3\n') =
 const crlf = normalizeEol('A=1\r\nB=x y\r\n');
 check('a normalised CRLF env text has no lint errors', lintEnv(crlf).length === 0 && !crlf.includes('\r'));
 
+// ── D2: shares in the editor (volumes.js, the live checks, completion) ──
+import { varPrefixAt, mountsOf, findMount, mountOfPath, joinHost, volumeEntryText, mountArgs, volumeSource, insertVolumeEdit, volumeEntryAt, volumeCandidates, validContainerPath, validSub } from '../web/src/editor/volumes.js';
+const rowsStor = [['media', 'shares', '/bulk/shares/media', '/shares/media', 'write', '-'], ['remote-nas', 'other', '/mnt/remote/nas', '/shares/nas', 'write', '-'], ['arr', 'shares', '/bulk/shares/arr', '/shares/arr', 'read', '-']];
+const mnt = mountsOf(rowsStor);
+check('mountsOf: share, peer (always read only) and read-only mounts', mnt.length === 3 && mnt[0].share === 'media' && !mnt[0].ro && mnt[1].peer === 'nas' && mnt[1].ro && mnt[2].ro);
+check('findMount: by share or by peer', findMount(mnt, { share: 'media' })?.path === '/shares/media' && findMount(mnt, { peer: 'nas' })?.path === '/shares/nas' && !findMount(mnt, { share: 'x' }));
+check('mountOfPath: the longest mount, never a prefix of a name', mountOfPath(mnt, '/shares/media/x')?.share === 'media' && !mountOfPath(mnt, '/shares/mediabox') && !mountOfPath(mnt, '/srv'));
+check('volume line: subfolder, :ro', volumeEntryText({ host: joinHost('/shares/media', '/movies/'), cpath: '/data', ro: true }) === '/shares/media/movies:/data:ro' && joinHost('/shares/media', '') === '/shares/media');
+check('mountArgs: --as only for a local share', JSON.stringify(mountArgs('media', '/shares/media', '1000:1000')) === JSON.stringify(['mount', 'media', '--path', '/shares/media', '--as', '1000:1000']) && !mountArgs('remote:nas', '/shares/nas', '1:1').includes('--as') && !mountArgs('media', '/shares/media', '').includes('--as'));
+check('validContainerPath and validSub', validContainerPath('/data') && !validContainerPath('data') && !validContainerPath('/a/../b') && validSub('a/b') && validSub('') && !validSub('../x'));
+check('volumeSource: string, object, named volume', volumeSource('/a:/b:ro').ro && volumeSource('./a:/b').bind && !volumeSource('data:/b').bind && volumeSource({ type: 'bind', source: '/x', target: '/y', read_only: true }).ro);
+
+const lintLive = { schema, mounts: mnt, containers: [{ name: 'plex', project: 'media-app' }, { name: 'mine', project: 'me' }, { name: 'solo', project: '-' }] };
+const vdoc = { services: { a: { container_name: 'plex', volumes: ['/shares/media/x:/data', '/srv/foo:/foo', '/var/run/docker.sock:/var/run/docker.sock', './rel:/r', 'named:/n', '/shares/arr/z:/z', '/shares/arr/z:/z2:ro'] }, b: { container_name: 'mine' } } };
+const lf = lintCompose(vdoc, lintLive, 'me');
+check('lint: container_name of another project is an error', lf.some((f) => f.level === 'error' && f.path.join('.') === 'services.a.container_name' && /media-app/.test(f.text)));
+check('lint: container_name of the own project is fine', !lf.some((f) => f.path.join('.') === 'services.b.container_name'));
+check('lint: a container without a project is named as another container', lintCompose({ services: { a: { container_name: 'solo', image: 'x' } } }, lintLive, 'me').some((f) => /another container/.test(f.text)));
+check('lint: a bind outside the shares is a warning', lf.some((f) => f.level === 'warn' && f.path.join('.') === 'services.a.volumes.1' && /not in a share/.test(f.text)));
+check('lint: docker.sock, ./ and named volumes pass silently', !lf.some((f) => f.path[2] === 'volumes' && [2, 3, 4].includes(f.path[3])));
+check('lint: a read-only mount needs :ro', lf.some((f) => f.path.join('.') === 'services.a.volumes.5' && /read only/.test(f.text)) && !lf.some((f) => f.path.join('.') === 'services.a.volumes.6'));
+check('lint: a writable share inside a mount is fine', !lf.some((f) => f.path.join('.') === 'services.a.volumes.0'));
+check('lint: no mounts known, no bind warnings', !lintCompose(vdoc, { schema }, 'me').some((f) => /not in a share/.test(f.text)));
+
+const ymlv = 'services:\n  web:\n    image: x\n    ports:\n      - "80:80"\n  db:\n    image: y\n    volumes:\n      - ./d:/var/lib\n    restart: always\n';
+const applyEdit = (t, r) => t.slice(0, r.from) + r.insert + t.slice(r.from);
+let e = insertVolumeEdit(ymlv, ymlv.indexOf('image: x'), '/shares/media:/m');
+check('insertVolumeEdit: creates volumes: under the service of the cursor', e && applyEdit(ymlv, e).includes('      - "80:80"\n    volumes:\n      - /shares/media:/m\n  db:'));
+e = insertVolumeEdit(ymlv, ymlv.indexOf('image: y'), '/shares/media:/m');
+check('insertVolumeEdit: appends to an existing volumes: list', e && applyEdit(ymlv, e).includes('      - ./d:/var/lib\n      - /shares/media:/m\n    restart: always'));
+check('insertVolumeEdit: inline volumes: [] or no services: gives null', insertVolumeEdit('services:\n  a:\n    volumes: []\n', 30, 'x:/y') === null && insertVolumeEdit('foo: 1\n', 3, 'x:/y') === null);
+check('insertVolumeEdit: a cursor above the first service takes the first', (() => { const r = insertVolumeEdit(ymlv, 3, '/s:/m'); return r && r.from < ymlv.indexOf('  db:'); })());
+
+const vtx = 'services:\n  a:\n    volumes:\n      - /shares/me';
+check('volumeEntryAt: inside a volumes list before the colon', volumeEntryAt(vtx, vtx.length)?.prefix === '/shares/me');
+check('volumeEntryAt: not after the colon, not outside volumes', volumeEntryAt(vtx + 'dia:/da', vtx.length + 7) === null && volumeEntryAt('services:\n  a:\n    ports:\n      - 80', 40) === null);
+const vt2 = 'services:\n  a:\n    volumes:\n      - ./x:/y\n      - /sh';
+check('volumeEntryAt: a later item of the list', volumeEntryAt(vt2, vt2.length)?.prefix === '/sh');
+const rc = volumeCandidates('', mnt);
+check('volumeCandidates: nothing typed -> ./ and the mount paths', rc.kind === 'roots' && rc.items[0] === './' && rc.items.includes('/shares/media/'));
+check('volumeCandidates: a typed start narrows the mount paths', JSON.stringify(volumeCandidates('/shares/me', mnt).items) === JSON.stringify(['/shares/media/']));
+const dc = volumeCandidates('/shares/media/mov/ab', mnt);
+check('volumeCandidates: after <mount>/ the subfolders are listed', dc.kind === 'dir' && dc.mount.share === 'media' && dc.rel === 'mov' && dc.typed === 'ab' && volumeCandidates('/shares/media/', mnt).rel === '');
+check('varPrefixAt: ${ is found anywhere, also in a volumes entry', varPrefixAt('x: ${DA') === 'DA' && varPrefixAt('      - ${') === '' && varPrefixAt('      - ${DATA}/x') === null && varPrefixAt('a: b') === null);
+const dv = 'services:'+String.fromCharCode(10)+'  a:'+String.fromCharCode(10)+'    volumes:'+String.fromCharCode(10)+'      - ${DA';
+check('a ${ in a volumes entry: varPrefixAt finds the name, so cm.js completes env names first', varPrefixAt(dv) === 'DA' && volumeEntryAt(dv, dv.length)?.prefix === '${DA');
+check('volumeCandidates: other text gives none', volumeCandidates('foo', mnt).kind === 'none');
+
+check('candidates: restart, network_mode, pull_policy offer their values', candidates(schema, ['services', 'a', 'restart']).values.includes('unless-stopped') && candidates(schema, ['services', 'a', 'network_mode']).values.includes('host') && candidates(schema, ['services', 'a', 'pull_policy']).values.includes('always'));
+
 console.log(`-- ${ok} ok, ${bad} failed`);
 process.exit(bad ? 1 : 0);
