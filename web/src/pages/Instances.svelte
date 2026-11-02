@@ -64,7 +64,7 @@
   const sharePath = (b) => (b.pool === 'fast' ? '/storage/fast/shares' : '/storage/bulk/shares');
 
   const columns = [
-    { key: 'name', label: 'Name' }, { key: 'type', label: 'Type', value: kind, optional: true }, { key: 'state', label: 'State', value: (c) => word(c.state) },
+    { key: 'name', label: 'Name' }, { key: 'owner', label: 'Lock', width: '64px', value: (c) => c.owner }, { key: 'type', label: 'Type', value: kind, optional: true }, { key: 'state', label: 'State', value: (c) => word(c.state) },
     { key: 'address', label: 'Address' }, { key: 'ram', label: 'RAM', sort: 'num', optional: true, value: (c) => sizeToBytes(c.ram) },
     { key: 'cpu', label: 'CPU', sort: 'num', optional: true, value: (c) => Number(c.cpu) },
     { key: 'lastSnap', label: 'Last snapshot', optional: true }, { key: 'route', label: 'Route', optional: true, value: (c) => servicesOf(c, services).length },
@@ -90,6 +90,7 @@
       <Table id="instances" {columns} rows={cts} key="name" selected={sel?.name} onrow={(c) => { selName = c.name; }} loading={!ctl.loaded} empty="No instances.">
         {#snippet cell(c, col)}
           {#if col.key === 'name'}<span class="nm"><i class="ph ph-{ctIcon(c)} ic"></i>{c.name}</span>
+          {:else if col.key === 'owner'}{#if c.owner}<span class="kd" role="img" aria-label="Locked by {c.owner}" use:tip={`Locked by ${c.owner}: only hs ${c.owner} disable removes it`}><i class="ph ph-lock"></i></span>{/if}
           {:else if col.key === 'type'}<span class="kd">{kind(c)}</span>
           {:else if col.key === 'state'}<StatusDot state={dot(c.state)} label={word(c.state)} />
           {:else if col.key === 'address'}<span class="mono addr">{c.address}</span>
