@@ -30,6 +30,10 @@
 </button>
 
 <style>
-  /* a working button keeps its colours (it is not "disabled"), only the pointer says it will not react */
+  /* a working button keeps its colours (it is not "disabled") and does not react to the pointer: no hover or press look, only the cursor */
   .busy { cursor: progress; }
+  :global(.btn.busy:hover), :global(.btn.busy:active) { filter: none; }
+  :global(.btn-secondary.busy:hover), :global(.btn-secondary.busy:active) { background: var(--panel); }
+  :global(.btn-ghost.busy:hover), :global(.btn-ghost.busy:active) { background: none; color: var(--fg-2); }
+  :global(.btn-primary.busy:hover), :global(.btn-primary.busy:active) { background: var(--accent); }
 </style>
