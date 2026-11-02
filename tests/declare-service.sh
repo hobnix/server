@@ -17,6 +17,7 @@ set -euo pipefail
 scripts=$SCRIPTS
 state=\$HS_STATE_DIR
 ct=\${DEMO_CT:-demo}
+[ -z "\${DEMO_APP:-}" ] || app=\$DEMO_APP
 . "\$scripts/recipes/_lib.sh"
 PORT=\${DEMO_PORT-8080}
 declare_service "\$@"
@@ -177,4 +178,10 @@ check "the route file was made" test -f "$WORK/gw/routes/local-lo2.homeserver.ad
 DEMO_CT=lo3 run lo3 Lo3 mdi-test never-public >/dev/null
 check "an admin page gets the local want too (no question, never public)" grep -q 'local-proxy = true' "$HS_SERVICES_DIR/lo3.toml"
 unset HS_CAPABILITIES_FILE
+echo "-- a child of docker (ct=docker, app=<name>): the service is named after the app"
+out=$(RECIPE_NAME=kid DEMO_APP=kid DEMO_CT=docker run demo Demo mdi-test private-ok Apps "A demo")
+check "the service is the app, not docker" test -f "$HS_SERVICES_DIR/kid.toml"
+check "no service named docker" test ! -f "$HS_SERVICES_DIR/docker.toml"
+check "the title carries the app name" grep -q 'title = "Demo (kid)"' "$HS_SERVICES_DIR/kid.toml"
+check "the container is the parent" grep -q 'container = "docker"' "$HS_SERVICES_DIR/kid.toml"
 finish

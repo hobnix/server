@@ -22,6 +22,7 @@ here=$(cd "$(dirname "$0")" && pwd)
 . "$here/lib/instance.sh"
 . "$here/lib/capability.sh"
 . "$here/lib/job.sh"
+. "$here/lib/docker-apps.sh"
 CT=docker
 OWNER=docker
 tab=$'\t'
@@ -46,11 +47,7 @@ size_of() {   # size_of [size]: "<MiB> <cpus>" from the size, each replaced by d
   if [[ "$v" =~ ^[0-9]+$ ]] && [ "$v" -gt 0 ]; then c=$v; fi
   printf '%s %s\n' "$m" "$c"
 }
-manager_project() {   # the compose project of the manager (not an app of the person): basename of manager_dir; nothing for webui and none
-  local m=${1:-}
-  [ -n "$m" ] && [ -f "$here/providers/docker/$m.sh" ] || return 0
-  ( . "$here/providers/docker/$m.sh"; basename "$manager_dir" )
-}
+manager_project() { docker_manager_project "$@"; }   # see scripts/lib/docker-apps.sh
 children() {   # one row per app: name parent project state ports
   local raw skip
   owned && running || return 0
