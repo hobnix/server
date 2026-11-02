@@ -15,6 +15,8 @@
   import { useConfig } from './config.svelte.js';
   import { useParts, flip } from './parts.svelte.js';
   import { jobRunning } from '../ui.svelte.js';
+  import { poll, rows } from '../data.svelte.js';
+  import { setupDone } from './steps.js';
   import Button from '../ui/Button.svelte';
 
   // the router gives no props: the name is the last part of the address (a caller may pass it)
@@ -27,6 +29,9 @@
   const { partList, parts: getParts } = useParts();
   const part = $derived(getParts().find((p) => p.name === cap));
   const fields = $derived(fieldsFor(layout, `cap:${cap}`, getOpts()));
+  // "set up" is not "listed as on": the docker wizard counts the container (owned in `hs sys docker status`), the others the part (steps.js setupDone)
+  const dockerSt = poll(() => (meta?.apply === 'docker setup' ? '/api/sys/docker/status' : ''), 15000);
+  const setUp = $derived(setupDone(meta?.apply, part?.on, rows(dockerSt)));
 </script>
 
 <div class="page">
@@ -47,7 +52,7 @@
   {:else}
     {#if meta.status}<StatusPanel read={meta.status} bind:off={setupOff} />{/if}
     {#if meta.steps?.length && meta.apply}
-      <WizardSteps steps={meta.steps} apply={meta.apply} opts={getOpts()} off={setupOff} on={!!part?.on} />
+      <WizardSteps steps={meta.steps} apply={meta.apply} opts={getOpts()} off={setupOff} on={setUp} first={meta.apply === 'docker setup' && !setUp} />
     {/if}
     {#if fields.length}
       <Fields opts={fields} />

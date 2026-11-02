@@ -6,7 +6,7 @@
 # gateway-setup.sh. The keys are the ones of the steps in capabilities/docker/capability.toml: dockerManager (webui|arcane|portainer|none)
 # and dockerSize (s|m|l). The work is done by `hs docker enable` (scripts/docker.sh); this script only checks and translates.
 #   plan: exit 0 = allowed, 1 = refused. It changes NOTHING (docker.sh enable --dry-run). Output: status ok|refused, reason<TAB><text> |
-#     heading|step|note<TAB><line>, long<TAB>yes. Refused when Docker is on already, when an instance called docker exists, or for a bad value.
+#     heading|step|note<TAB><line>, long<TAB>yes. Refused when hobnix owns the container already (listed as on without a container is fine), when an instance called docker exists, or for a bad value.
 #   start: the same checks, then `hs docker enable --yes --job`: the container is made in a background job (status started, unit).
 # Test knobs: HS_DOCKER_SCRIPT (stands in for docker.sh), and the knobs of docker.sh.
 set -euo pipefail
@@ -41,7 +41,8 @@ done
 args=(--manager "${manager:-webui}")
 [ -z "$size" ] || args+=(--size "$size")
 
-if capability_on docker; then refuse "Docker is on already."; fi
+# on = hobnix owns the container (docker.sh --status); docker only LISTED in machine.toml or dockerManager set, without a container, may be set up
+if docker_sh --status 2>/dev/null </dev/null | grep -qx "owned$(printf '	')yes"; then refuse "Docker is on already."; fi
 export HS_PLAIN=1 HS_LANG=en HS_CALLER=web
 rc=0; out=$(docker_sh enable --dry-run "${args[@]}" </dev/null 2>&1) || rc=$?
 [ "$rc" = 0 ] || refuse "$(last_line <<<"$out")"

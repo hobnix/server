@@ -85,9 +85,10 @@ dash() { if [ -n "${1:-}" ]; then printf '%s' "$1"; else printf -- '-'; fi; }
 
 status_rows() {   # key<TAB>value
   local on=off inst=- own=no run=no mgr size mem cpus n addr=-
-  capability_on docker && on=on
   if inc info "$CT" >/dev/null 2>&1; then inst=$CT; fi
   if owned; then own=yes; if running; then run=yes; fi; fi
+  # on = the capability is listed AND hobnix owns the container; a listed capability without a container is not "on"
+  if [ "$own" = yes ] && capability_on docker; then on=on; fi
   mgr=$(setting_get dockerManager 2>/dev/null || true)
   size=$(setting_get dockerSize 2>/dev/null || true); [ -n "$size" ] || size=m
   read -r mem cpus < <(size_of)
@@ -99,12 +100,12 @@ status_rows() {   # key<TAB>value
 
 yesno() { if [ "$1" = yes ]; then t 'yes'; else t 'no'; fi; }
 cmd_status() {
-  local k v on=off
+  local k v on=off own=no inst=-
   while IFS=$'\t' read -r k v; do
     case "$k" in
       state) on=$v; kv "$(t 'Docker')" "$(if [ "$v" = on ]; then t 'on'; else t 'off'; fi)" ;;
-      instance) kv "$(t 'Container')" "$v" ;;
-      owned) kv "$(t 'Owned by hobnix')" "$(yesno "$v")" ;;
+      instance) inst=$v; kv "$(t 'Container')" "$v" ;;
+      owned) own=$v; kv "$(t 'Owned by hobnix')" "$(yesno "$v")" ;;
       running) kv "$(t 'Running')" "$(yesno "$v")" ;;
       manager) kv "$(t 'Manager')" "$v" ;;
       size) kv "$(t 'Size')" "$v" ;;
@@ -114,7 +115,11 @@ cmd_status() {
       address) kv "$(t 'Address')" "$v" ;;
     esac
   done < <(status_rows)
-  if [ "$on" != on ]; then note "$(t 'Docker is off. Turn it on: hs docker enable')"; fi
+  if [ "$on" != on ]; then
+    if [ "$own" = yes ]; then note "$(t 'The container docker exists, but Docker is not listed as on. Turn it on: hs docker enable')"
+    elif [ "$inst" != - ]; then note "$(t 'A container named docker exists but hobnix does not own it. Nothing was changed.')"
+    else note "$(t 'No container docker is owned by hobnix yet. Create it: hs docker enable')"; fi
+  fi
 }
 
 cmd_list() {

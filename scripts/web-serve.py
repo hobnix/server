@@ -841,6 +841,7 @@ READS = {
     ("gateway", "routes"): {"kind": "tsv", "ttl": 30, "topic": "gateway-routes"},
     ("gateway", "health"): {"kind": "tsv", "ttl": 300, "topic": "gateway-health"},
     ("docker", "list"): {"kind": "tsv", "ttl": 30, "topic": "docker-list"},
+    ("docker", "status"): {"kind": "tsv", "ttl": 15},      # the docker wizard: is the container there and owned (key<TAB>value rows)
     ("setup", "list"): {"kind": "tsv", "ttl": 5, "topic": "setup-list"},
     ("config", "list"): {"kind": "tsv", "ttl": 5, "topic": "config-list"},
     ("config", "check"): {"kind": "text", "ttl": 0},
