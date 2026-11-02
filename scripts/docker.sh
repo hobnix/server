@@ -16,7 +16,7 @@
 #                          name parent project state ports (`-` when empty); a stopped container or a failed read prints no row, exit 0
 #   --apps                 the same data with more fields: name parent project state running/total ports address images managed update
 #                          (`-` when empty); 10 fields, sorted by app name; state stopped (0/0) for an app whose folder /opt/apps/<app> has a docker-compose.yml but no container
-#   --app <app>            JSON document for the web editor: rev, managed (web|recipe|other), env names, compose; env values never leave the container
+#   --app <app>            JSON document for the web editor: rev, managed (web|recipe|other), env names, envText (the whole .env, base64 in the script output; envTooBig over 64 KiB), compose; for the admin editor, read nocache
 #   --logs <app> [lines]   the Compose log of one app (default 200, max 2000); the app must be a child of docker, never the manager
 # Test knobs: HS_DOCKER_MANAGE_CT (a script that stands in for manage-ct.sh), HS_DOCKER_BACKUP (stands in for backup.sh), HS_DOCKER_NO_JOB=1
 # (no systemd-run: the long work runs at once), HS_REMOTE_ROOT (default /mnt/remote), HS_SETTINGS_DIR, HS_STATE_DIR, HS_CAPABILITIES_FILE, HS_CAPABILITIES_TSV, HS_INCUS.
@@ -195,6 +195,9 @@ app() {   # --app <app>: JSON read for the web editor
     fi
     printf "rev\t%s\nmanaged\t%s\n" "$rev" "$managed"
     if [ -r "$d/.env" ]; then sed -n "s/^\([A-Za-z_][A-Za-z0-9_]*\)=.*/\1/p" "$d/.env" | sort -u | sed "s/^/env\t/"; fi
+    if [ -r "$d/.env" ]; then
+      if [ "$(stat -c %s "$d/.env")" -gt 65536 ]; then printf "envbig\t1\n"; else printf "envb64\t%s\n" "$(base64 -w0 "$d/.env")"; fi
+    fi
     printf "__HS_COMPOSE__\n%s" "$compose"
   ' sh "$app" </dev/null 2>/dev/null | python3 "$here/lib/docker_app_doc.py" parse
 }

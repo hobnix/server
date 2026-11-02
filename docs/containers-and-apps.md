@@ -337,12 +337,26 @@ Compose projects. Open them in the web interface under **Instances > Docker**:
 - On the **Instances** page the locked `docker` row shows how many apps it holds
   and can be expanded to open a specific app directly.
 
+### Edit an app
+
+Click **Open editor** in the Compose tab of an app, or **New app**, to open the editor on its
+own page (`/instances/docker/app/<app>`, `/instances/docker/new`). The compose file is on the
+left and the real text of the `.env` file on the right; on a phone they are stacked. The page
+is for administrators only, so the env file is shown as it is and fully editable. Values of
+keys whose name contains PASS, TOKEN, SECRET or KEY are hidden until you press **show** on
+that line. The editor completes compose keys, marks YAML errors and unknown keys, a missing
+`${VARIABLE}`, a port that another app already publishes and a name that is taken. **Apply**
+shows a plan (the env names that are set, changed or removed, never their values), saves both
+files and recreates the app. An env file over 64 KiB is not shown: edit it in a terminal, and
+Apply keeps it as it is. The page shows "Changed, not applied yet." and the browser warns before you close or reload the tab with unsaved changes (moving to another page inside the interface does not warn yet). The env text is
+read fresh each time, never kept in the web cache, a log or the browser storage. Not tested on
+hardware yet.
+
 ### Creating and editing apps
 
 Apps marked `web` are created and edited on this page: **New app** opens the
 editor with a small Compose template and an empty `.env`. The compose file is
-sent as is; secrets go into the env table, which is write-only and never
-returned by the page. Each save is checked for an optimistic revision: if the
+sent as is; secrets go into the `.env` text of the editor. Each save is checked for an optimistic revision: if the
 app changed meanwhile the editor keeps the text and offers **Reload**.
 
 A failed update restores the previous compose and env files and starts them

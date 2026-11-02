@@ -122,24 +122,37 @@ apply_pull() {
 declare -a DOC_SET_NAMES DOC_SET_VALUES DOC_REM_NAMES
 declare -A DOC_SET_MAP DOC_REM_MAP
 DOC_COMPOSE=""
+DOC_ENV_TEXT=""
+DOC_ENV_SHAPE=0     # 1: the document carries the whole .env text (one "*" record) instead of set/remove records
 
 read_document() {
   DOC_SET_NAMES=(); DOC_SET_VALUES=(); DOC_REM_NAMES=()
   DOC_SET_MAP=(); DOC_REM_MAP=()
-  DOC_COMPOSE=""
-  local rec name value
+  DOC_COMPOSE=""; DOC_ENV_TEXT=""; DOC_ENV_SHAPE=0
+  local rec name value line n
   # read compose up to the first NUL
   if ! IFS= read -r -d '' DOC_COMPOSE; then
     [ -n "$DOC_COMPOSE" ] || refuse "The document is empty or malformed."
   fi
   while IFS= read -r -d '' rec || [ -n "$rec" ]; do
     case "$rec" in
+      \**)
+        if [ "$DOC_ENV_SHAPE" -ne 0 ] || [ "${#DOC_SET_NAMES[@]}" -ne 0 ] || [ "${#DOC_REM_NAMES[@]}" -ne 0 ]; then refuse "Malformed record in the document."; fi
+        DOC_ENV_SHAPE=1; DOC_ENV_TEXT=${rec#\*}
+        n=0
+        while IFS= read -r line || [ -n "$line" ]; do
+          n=$((n + 1))
+          case "$line" in ""|"#"*) continue ;; esac
+          [[ "$line" =~ ^[A-Za-z_][A-Za-z0-9_]*= ]] || refuse "Line $n of the env file is not NAME=value."
+        done <<<"$DOC_ENV_TEXT" ;;
       +*)
+        [ "$DOC_ENV_SHAPE" -eq 0 ] || refuse "Malformed record in the document."
         name=${rec%%=*}; name=${name#+}; value=${rec#*=}
         [[ "$name" =~ $NAME_RE ]] || refuse "Malformed set record in the document."
         if [ -n "${DOC_SET_MAP[$name]:-}" ]; then refuse "Duplicate set name in the document."; fi
         DOC_SET_MAP[$name]=1; DOC_SET_NAMES+=("$name"); DOC_SET_VALUES+=("$value") ;;
       -*)
+        [ "$DOC_ENV_SHAPE" -eq 0 ] || refuse "Malformed record in the document."
         name=${rec#-}
         [[ "$name" =~ $NAME_RE ]] || refuse "Malformed remove record in the document."
         if [ -n "${DOC_REM_MAP[$name]:-}" ]; then refuse "Duplicate remove name in the document."; fi
@@ -153,6 +166,7 @@ compose_to_container() {
   # reconstruct the exact byte stream the container expects
   local i
   printf '%s\0' "$DOC_COMPOSE"
+  if [ "$DOC_ENV_SHAPE" -eq 1 ]; then printf '*%s\0' "$DOC_ENV_TEXT"; return 0; fi
   for i in "${!DOC_SET_NAMES[@]}"; do
     printf '+%s=%s\0' "${DOC_SET_NAMES[$i]}" "${DOC_SET_VALUES[$i]}"
   done
@@ -185,12 +199,13 @@ prepare_in_container() {
     chmod 700 /opt/apps/.hs-tmp
     chmod 700 "$tmp"
     declare -A SET REM
-    compose="" rec="" name="" value="" line=""
+    compose="" rec="" name="" value="" line="" envtxt="" have_txt=0
     IFS= read -r -d "" compose || true
     printf "%s" "$compose" > "$tmp/docker-compose.yml"
     chmod 644 "$tmp/docker-compose.yml"
     while IFS= read -r -d "" rec || [ -n "$rec" ]; do
       case "$rec" in
+        \**) have_txt=1; envtxt=${rec#\*} ;;
         +*)
           name=${rec%%=*}; value=${rec#*=}; name=${name#+}
           if [[ ! "$name" =~ ^[A-Za-z_][A-Za-z0-9_]*$ ]]; then echo "malformed name: $name" >&2; exit 1; fi
@@ -205,7 +220,10 @@ prepare_in_container() {
     old=/opt/apps/$app/.env
     new=$tmp/.env
     : > "$new"
-    if [ -f "$old" ]; then
+    if [ "$have_txt" -eq 1 ]; then
+      printf "%s" "$envtxt" > "$new"
+      if [ -s "$new" ] && [ -n "$(tail -c1 "$new")" ]; then printf "\n" >> "$new"; fi
+    elif [ -f "$old" ]; then
       while IFS= read -r line || [ -n "$line" ]; do
         case "$line" in
           ""|"#"*) printf "%s\n" "$line" >> "$new"; continue ;;
@@ -222,7 +240,7 @@ prepare_in_container() {
     fi
     for name in "${!SET[@]}"; do printf "%s=%s\n" "$name" "${SET[$name]}" >> "$new"; done
     chmod 600 "$new"
-    values=$(sed -n "s/^[^=]*=//p" "$new")
+    values=$(sed -n "s/^[A-Za-z_][A-Za-z0-9_]*=//p" "$new" | awk "length(\$0) >= 4")
     filter() {
       local l
       if [ -z "$values" ]; then cat; return; fi
@@ -243,6 +261,26 @@ prepare_in_container() {
     rm -f "$out"
     exit $rc
   ' sh "$app" "$tmp" </dev/null
+}
+
+# The names that differ between the old .env of the app and the new one in the temp dir: "added|removed|changed<TAB>NAME". Names only.
+env_diff() {
+  local app=$1 tmp=$2
+  timeout 8 "${HS_INCUS:-incus}" exec "$CT" -- sh -c '
+    old=/opt/apps/$1/.env; new=$2/.env
+    [ -f "$old" ] || old=/dev/null
+    awk '"'"'
+      { f = (FILENAME == ARGV[1]) ? 1 : 2 }
+      /^[A-Za-z_][A-Za-z0-9_]*=/ { n = index($0, "="); k = substr($0, 1, n - 1); val[f, k] = substr($0, n + 1); seen[f, k] = 1; names[k] = 1 }
+      END {
+        for (k in names) {
+          if (seen[2, k] && !seen[1, k]) print "added\t" k
+          else if (seen[1, k] && !seen[2, k]) print "removed\t" k
+          else if (val[1, k] != val[2, k]) print "changed\t" k
+        }
+      }
+    '"'"' "$old" "$new" | sort
+  ' sh "$app" "$tmp" </dev/null 2>/dev/null
 }
 
 run_check() {
@@ -311,7 +349,16 @@ cmd_plan_save() {
   fi
   auth_check_tmp "$app" "$tmp"
   printf 'status\tok\nheading\tapp-save %s\n' "$app"
-  local name
+  local name how
+  if [ "$DOC_ENV_SHAPE" -eq 1 ]; then
+    while IFS=$'\t' read -r how name; do
+      case "$how" in
+        added) printf 'step\tSet %s\n' "$name" ;;
+        removed) printf 'step\tRemove %s\n' "$name" ;;
+        changed) printf 'step\tChange %s\n' "$name" ;;
+      esac
+    done < <(env_diff "$app" "$tmp")
+  fi
   for name in "${DOC_SET_NAMES[@]}"; do printf 'step\tSet %s\n' "$name"; done
   for name in "${DOC_REM_NAMES[@]}"; do printf 'step\tRemove %s\n' "$name"; done
   if [ "$is_new" -eq 1 ]; then printf 'step\tCreate the app\n'; else printf 'step\tRecreate the app\n'; fi
@@ -403,7 +450,7 @@ apply_save() {
       chmod 644 "$dir/.hs-webui"
     fi
     values=""
-    [ -f "$dir/.env" ] && values=$(sed -n "s/^[^=]*=//p" "$dir/.env")
+    [ -f "$dir/.env" ] && values=$(sed -n "s/^[A-Za-z_][A-Za-z0-9_]*=//p" "$dir/.env" | awk "length(\$0) >= 4")
     filter() {
       local l
       if [ -z "$values" ]; then cat; return; fi

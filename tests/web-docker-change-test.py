@@ -241,6 +241,29 @@ class DockerAppDocument(lt.Base):
         big = {f"N{i}": "v" for i in range(201)}
         self.assertEqual(self.post("/api/plan", {"area": "docker-app", "args": ["arr", "app-save", "--rev", "new"], "document": {"compose": "x", "set": big, "remove": []}})[0], 400)
 
+    def test_env_text_document(self):
+        doc = {"compose": "services:\n  x:\n    image: y\n", "env": "A=1\nB=two words\n"}
+        body = {"area": "docker-app", "args": ["arr", "app-save", "--rev", "new"], "document": doc}
+        s, d = self.post("/api/plan", body)
+        self.assertEqual(s, 200)
+        cmd, stdin = self.calls[0]
+        self.assertEqual(stdin, doc["compose"].encode() + b"\0*" + doc["env"].encode() + b"\0")
+
+    def test_env_text_refused(self):
+        base = {"area": "docker-app", "args": ["arr", "app-save", "--rev", "new"]}
+        for doc in (
+            {"compose": "x", "env": "A=1\r\n"},
+            {"compose": "x", "env": "A=\x00"},
+            {"compose": "x", "env": "A" * 65537},
+            {"compose": "x", "env": 5},
+            {"compose": "x", "env": "A=1", "set": {}},
+            {"compose": "x", "env": "A=1", "set": {}, "remove": []},
+        ):
+            self.calls.clear()
+            self.assertEqual(self.post("/api/plan", {**base, "document": doc})[0], 400, doc)
+            self.assertEqual(self.calls, [], doc)
+        self.assertEqual(self.post("/api/plan", {**base, "document": {"compose": "x", "env": "A" * 65536}})[0], 200)
+
     def test_plan_cacheable_false(self):
         # document plans are never cached: call plan twice -> _run twice
         body = {"area": "docker-app", "args": ["arr", "app-save", "--rev", "new"], "document": {"compose": "x", "set": {}, "remove": []}}
