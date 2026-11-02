@@ -1,0 +1,4 @@
+date  = "2026-11-02"
+type  = "fix"
+title = "Updating a package in the Marketplace shows the update on the Apps page at once"
+body  = """The update state of an app (available against applied version) was read directly and never pushed to the browser, so it could stay old for a minute after a package changed. It is now part of the live state (with the live state on) and is read again after every package change."""

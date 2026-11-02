@@ -368,7 +368,7 @@ INSTANCES = {
     ("services", "tiles"): "services-tiles", ("services", "stats"): "services-stats",
 }
 
-APPS = {("pkg", "market"): "pkg-market", ("pkg", "repos"): "pkg-repos", ("recipes", "list"): "recipes-list"}
+APPS = {("pkg", "market"): "pkg-market", ("pkg", "repos"): "pkg-repos", ("recipes", "list"): "recipes-list", ("recipes", "versions"): "recipes-versions"}
 
 
 NETWORK = {
@@ -390,9 +390,9 @@ class StorageTopics(RedisBase):
     def test_web_areas_that_change_apps_ask_for_groups_that_wake_the_app_topics(self):
         info = ws.ls.topic_info()
         # pkg (install, update, remove, fetch, repo), parts and system (update, rebuild) change the package tree; recipes change instances
-        for area, topics in (("pkg", ("pkg-market", "pkg-repos", "recipes-list")), ("parts", ("pkg-market", "recipes-list")),
-                             ("system", ("pkg-market", "recipes-list")), ("recipes", ("pkg-market", "recipes-list")),
-                             ("ct", ("pkg-market", "recipes-list"))):
+        for area, topics in (("pkg", ("pkg-market", "pkg-repos", "recipes-list", "recipes-versions")), ("parts", ("pkg-market", "recipes-list", "recipes-versions")),
+                             ("system", ("pkg-market", "recipes-list", "recipes-versions")), ("recipes", ("pkg-market", "recipes-list", "recipes-versions")),
+                             ("ct", ("pkg-market", "recipes-list", "recipes-versions"))):
             g = ws.area_refresh(area)[1:]
             for n in topics:
                 self.assertTrue(g in info[n]["groups"] or "any" in info[n]["groups"], (area, n))
