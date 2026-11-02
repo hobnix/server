@@ -1,0 +1,5 @@
+date  = "2026-11-02"
+type  = "feature"
+title = "Docker apps are edited on their own page: compose file and .env side by side"
+docs  = "containers-and-apps#edit-an-app"
+body  = """The editor shows docker-compose.yml on the left and the real .env text on the right, with highlighting, completion and live checks. Values of keys with PASS, TOKEN, SECRET or KEY in the name are hidden until you press show. Not tested on hardware yet."""

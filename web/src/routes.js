@@ -24,6 +24,7 @@ import Marketplace from './pages/Marketplace.svelte';
 import Services from './pages/Services.svelte';
 import Docker from './pages/Docker.svelte';
 import Registries from './pages/docker/Registries.svelte';
+import AppEditPage from './pages/docker/AppEditPage.svelte';
 import Docs from './pages/Docs.svelte';
 import Certificates from './pages/Certificates.svelte';
 import Notifications from './pages/Notifications.svelte';
@@ -68,6 +69,7 @@ export const routes = {
   '/instances/services': Services,
   '/instances/docker': Docker,
   '/instances/docker/registries': Registries,
+  '/instances/docker/new': AppEditPage,
   '/operations/notifications': Notifications,
   '/operations/whats-new': WhatsNew,
   '/monitoring/diagnostics': Data,
@@ -101,5 +103,5 @@ export { redirect, innerMoves, VPS_NODE } from './redirects.js';
 // The page for an INNER path (route.path: the address without /node/<name>): the exact path, or a guide (/docs/<lang>/<slug>).
 export function pageFor(path, kind = 'main') {
   if (kind !== 'main') return (nodeRoutes[kind] ?? peerRoutes)[path];
-  return routes[path] ?? (path.startsWith('/docs/') ? Docs : path.startsWith('/extensions/') ? Extension : path.startsWith('/settings/capabilities/') ? CapabilitySettings : path.startsWith('/storage/pools/') ? Pools : undefined);
+  return routes[path] ?? (path.startsWith('/docs/') ? Docs : path.startsWith('/extensions/') ? Extension : path.startsWith('/settings/capabilities/') ? CapabilitySettings : path.startsWith('/storage/pools/') ? Pools : path.startsWith('/instances/docker/app/') ? AppEditPage : undefined);
 }

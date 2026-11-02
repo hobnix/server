@@ -3,7 +3,7 @@
   import { poll, rows, refresh } from '../data.svelte.js';
   import { takeSelection } from '../select.svelte.js';
   import { openPlan, jobRunning, ui } from '../ui.svelte.js';
-  import { url } from '../route.svelte.js';
+  import { url, go } from '../route.svelte.js';
   import Table from '../shell/Table.svelte';
   import PageHeader from '../shell/PageHeader.svelte';
   import PageState from '../shell/PageState.svelte';
@@ -15,7 +15,6 @@
   import StatusDot from '../ui/StatusDot.svelte';
   import EmptyState from '../ui/EmptyState.svelte';
   import AppLogs from './docker/AppLogs.svelte';
-  import AppEditor from '../forms/docker/AppEditor.svelte';
   import { appOf } from './docker/apps.js';
 
   const appsPoll = poll('/api/sys/docker/apps', 30000);
@@ -23,7 +22,6 @@
 
   let selName = $state('');
   let tab = $state('overview');
-  let creating = $state(false);
   $effect(() => { const n = takeSelection('docker'); if (n) selName = n; });
   $effect(() => { if (sel) tab = 'overview'; });
 
@@ -60,8 +58,8 @@
       {#snippet action()}<a class="btn" href={url('/settings/capabilities/docker')}>Open Docker settings</a>{/snippet}
     </EmptyState>
   {:else}
-    <div class="toolbar"><Button size="sm" icon="plus" onclick={() => { creating = true; }}>New app</Button></div>
-    <Split open={!!sel || creating}>
+    <div class="toolbar"><Button size="sm" icon="plus" onclick={() => go('/instances/docker/new')}>New app</Button></div>
+    <Split open={!!sel}>
       {#snippet list()}
         <div class="card" style="padding:0">
           <Table id="docker-apps" {columns} rows={apps} key="name" selected={sel?.name} onrow={(a) => { selName = a.name; }} loading={!appsPoll.loaded} empty="No apps.">
@@ -92,17 +90,13 @@
         </div>
       {/snippet}
       {#snippet side()}
-        {#if creating}
-          <div class="sdr-wrap">
-            <AppEditor app="" rev="new" onclose={() => { creating = false; }} />
-          </div>
-        {:else if sel}
+        {#if sel}
           <Drawer title={sel.name} chip={sel.managed} state={dot(sel.state)} stateLabel={sel.state} {tabs} bind:tab onclose={() => { selName = ''; }}>
             {#snippet children(t)}
               {#if t === 'overview'}
                 <Kv items={[{ k: 'State', v: sel.state }, { k: 'Running', v: sel.running }, { k: 'Project', v: sel.project }, { k: 'Address', v: sel.address }, { k: 'Ports', v: sel.ports }, { k: 'Images', v: sel.images }, { k: 'Managed', v: sel.managed }, { k: 'Update', v: sel.update }]} />
               {:else if t === 'compose'}
-                <AppEditor app={sel.name} />
+                <Button icon="pencil-simple" onclick={() => go(`/instances/docker/app/${encodeURIComponent(sel.name)}`)}>Open editor</Button>
               {:else}
                 {#key sel.name}<AppLogs app={sel.name} />{/key}
               {/if}

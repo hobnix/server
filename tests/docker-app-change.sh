@@ -200,4 +200,30 @@ echo "$out" | grep -qx "status${T}refused" && pass "manager status refused" || f
 echo "-- no HS_OWNER is needed"
 grep -qE 'OWNER=' "$LOG" && fail "HS_OWNER leaked to incus" || pass "no HS_OWNER in incus calls"
 
+echo "-- app-save with an env text: line check and one shape per document"
+unset HS_DOCKER_NO_JOB; export HS_DOCKER_SH=$BIN/docker.sh; on webui
+doc_plan() { printf "$1" | $D plan web1 app-save --rev 0123456789abcdef 2>&1; }
+out=$(doc_plan 'services: {}\0*A=1\nbroken line\n\0') || true
+echo "$out" | grep -qx "reason${T}Line 2 of the env file is not NAME=value." && pass "env text: a bad line is refused with its number" || fail "env line: $out"
+out=$(doc_plan 'services: {}\0*A=1\0+B=2\0') || true
+echo "$out" | grep -qx "status${T}refused" && pass "env text then a set record is refused" || fail "env then set: $out"
+out=$(doc_plan 'services: {}\0+B=2\0*A=1\0') || true
+echo "$out" | grep -qx "status${T}refused" && pass "a set record then an env text is refused" || fail "set then env: $out"
+echo "$out" | grep -q 'broken' && fail "a line of the env text was printed" || pass "plan output has no env text"
+
+echo "-- env_diff: names only, also for an empty or a missing old .env"
+mkdir -p "$WORK/apps/e1" "$WORK/apps/e2" "$WORK/apps/e3" "$WORK/etmp"
+printf '#!/bin/sh\nshift 3\nexec "$@"\n' > "$WORK/localexec"; chmod +x "$WORK/localexec"
+eval "$(sed -n '/^env_diff() {/,/^}/p' "$SCRIPTS/docker-app-change.sh" | sed "s#/opt/apps#$WORK/apps#g")"
+export HS_INCUS=$WORK/localexec CT=x
+printf 'A=1\nSECRETX=old\nKEEP=same\n' > "$WORK/apps/e1/.env"
+printf 'A=1\nKEEP=same\nNEWV=n\nSECRETX=new\n' > "$WORK/etmp/.env"
+check_eq "env_diff: added and changed, names only" $'added\tNEWV\nchanged\tSECRETX' "$(env_diff e1 "$WORK/etmp")"
+: > "$WORK/apps/e2/.env"
+check_eq "env_diff: an empty old .env: everything is added" $'added\tA\nadded\tKEEP\nadded\tNEWV\nadded\tSECRETX' "$(env_diff e2 "$WORK/etmp")"
+check_eq "env_diff: no old .env: everything is added" $'added\tA\nadded\tKEEP\nadded\tNEWV\nadded\tSECRETX' "$(env_diff e3 "$WORK/etmp")"
+printf 'A=1\n' > "$WORK/etmp/.env"
+check_eq "env_diff: removed" $'removed\tKEEP\nremoved\tSECRETX' "$(env_diff e1 "$WORK/etmp")"
+unset HS_INCUS CT
+
 finish

@@ -33,6 +33,30 @@ class Doc(unittest.TestCase):
             p = self.run_helper("parse", raw)
             self.assertNotEqual(p.returncode, 0, raw)
 
+    def test_parse_env_text(self):
+        import base64
+        text = "A=1\nDB_PASSWORD=h\u00e4\n"
+        raw = b"rev\t0123456789abcdef\nmanaged\tweb\nenv\tA\nenvb64\t" + base64.b64encode(text.encode()) + b"\n__HS_COMPOSE__\nx"
+        p = self.run_helper("parse", raw)
+        self.assertEqual(p.returncode, 0, p.stderr)
+        d = json.loads(p.stdout)
+        self.assertEqual(d["envText"], text)
+        self.assertNotIn("envTooBig", d)
+
+    def test_parse_env_none_and_big(self):
+        p = self.run_helper("parse", b"rev\t0123456789abcdef\nmanaged\tweb\n__HS_COMPOSE__\nx")
+        self.assertEqual(json.loads(p.stdout)["envText"], "")
+        p = self.run_helper("parse", b"rev\t0123456789abcdef\nmanaged\tweb\nenvbig\t1\n__HS_COMPOSE__\nx")
+        d = json.loads(p.stdout)
+        self.assertTrue(d["envTooBig"])
+        self.assertEqual(d["envText"], "")
+
+    def test_parse_env_bad_base64_or_utf8(self):
+        import base64
+        for val in (b"!!!notbase64", base64.b64encode(b"\xff\xfe")):
+            p = self.run_helper("parse", b"rev\t0123456789abcdef\nmanaged\tweb\nenvb64\t" + val + b"\n__HS_COMPOSE__\nx")
+            self.assertNotEqual(p.returncode, 0, val)
+
     def test_check_named_volume(self):
         cfg = {"services": {"a": {"image": "x"}}, "volumes": {"data": {}}}
         p = self.run_helper("check", json.dumps(cfg).encode())

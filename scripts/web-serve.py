@@ -846,7 +846,7 @@ READS = {
     ("docker", "list"): {"kind": "tsv", "ttl": 30, "topic": "docker-list"},
     ("docker", "apps"): {"kind": "tsv", "ttl": 30, "topic": "docker-apps"},
     ("docker", "logs"): {"kind": "text", "ttl": 3, "nocache": True, "args": [APP], "query": {"lines": (r"^[0-9]{1,4}$", "")}},     # logs and files of an app may hold secrets
-    ("docker", "app"): {"kind": "json", "ttl": 0, "nocache": True, "args": [APP]},     # compose may hold secrets; values never leave the container
+    ("docker", "app"): {"kind": "json", "ttl": 0, "nocache": True, "args": [APP]},     # compose and the real .env text (admin editor); never cached, never in a topic
     ("docker", "registries"): {"kind": "tsv", "ttl": 15},     # host user state used_by; never a token
     ("docker", "status"): {"kind": "tsv", "ttl": 15},      # the docker wizard: is the container there and owned (key<TAB>value rows)
     ("setup", "list"): {"kind": "tsv", "ttl": 5, "topic": "setup-list"},
@@ -1185,6 +1185,7 @@ STDIN_RE = re.compile("[^" + chr(13) + chr(10) + chr(0) + "]{1,256}")      # one
 # docker app-save document: compose + env changes; the bytes travel as stdin, never in args
 DOC_NAME_RE = re.compile(r"^[A-Za-z_][A-Za-z0-9_]*$")
 DOC_COMPOSE_MAX = 262144          # bytes
+DOC_ENV_MAX = 65536              # bytes, the whole .env text
 DOC_VALUE_MAX = 4096              # Unicode characters
 DOC_NAMES_MAX = 200
 FM_SELECTION_MAX = 20000          # names in one file manager selection
@@ -1205,6 +1206,13 @@ def _selection_ok(sel):
 
 def _document_bytes(doc):
     """-> bytes or None. Validates the docker app-save document and serializes it deterministically."""
+    if isinstance(doc, dict) and set(doc) == {"compose", "env"}:
+        compose, env = doc["compose"], doc["env"]
+        if not isinstance(compose, str) or "\0" in compose or len(compose.encode("utf-8")) > DOC_COMPOSE_MAX:
+            return None
+        if not isinstance(env, str) or "\0" in env or "\r" in env or len(env.encode("utf-8")) > DOC_ENV_MAX:
+            return None
+        return compose.encode("utf-8") + b"\0*" + env.encode("utf-8") + b"\0"
     if not isinstance(doc, dict) or set(doc) != {"compose", "set", "remove"}:
         return None
     compose, s, r = doc["compose"], doc["set"], doc["remove"]

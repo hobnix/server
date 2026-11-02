@@ -4,8 +4,10 @@
 Modes:
   parse (default): read a raw document from stdin and print JSON {"rev","managed","env":[...],"compose"}.
   check:          read `docker compose config --format json` from stdin and print policy TSV lines.
-The helper never reads an .env file and never prints a secret value.
+The env text is returned for the admin editor (envText, envTooBig over 64 KiB); the read is nocache.
+The helper never reads an .env file itself and check mode prints no secret value.
 """
+import base64
 import hashlib
 import json
 import re
@@ -35,6 +37,8 @@ def do_parse(raw):
     managed = None
     env = []
     seen_env = set()
+    env_text = ""
+    env_big = False
     for line in head.decode("utf-8", "strict").splitlines():
         if "\t" not in line:
             die("malformed document: header line has no tab")
@@ -54,11 +58,21 @@ def do_parse(raw):
                 die("malformed document: duplicate env name")
             seen_env.add(val)
             env.append(val)
+        elif key == "envb64":
+            try:
+                env_text = base64.b64decode(val, validate=True).decode("utf-8", "strict")
+            except (ValueError, UnicodeDecodeError):
+                die("malformed document: bad envb64")
+        elif key == "envbig":
+            env_big = True
         else:
             die("malformed document: unknown header")
     if rev is None or managed is None:
         die("malformed document: missing rev or managed")
-    print(json.dumps({"rev": rev, "managed": managed, "env": env, "compose": compose}, separators=(",", ":")))
+    doc = {"rev": rev, "managed": managed, "env": env, "compose": compose, "envText": env_text}
+    if env_big:
+        doc["envTooBig"] = True
+    print(json.dumps(doc, separators=(",", ":")))
 
 
 def _published_port(entry):
