@@ -5,7 +5,7 @@
   import { poll, rows } from '../data.svelte.js';
   import { go } from '../route.svelte.js';
   import { takeSelection, setSelection } from '../select.svelte.js';
-  import { openPlan, openCreate } from '../ui.svelte.js';
+  import { openPlan, openCreate, jobRunning } from '../ui.svelte.js';
   import NewUser from '../forms/users/NewUser.svelte';
   import SetPassword from '../forms/users/SetPassword.svelte';
   import EditUser from '../forms/users/EditUser.svelte';
@@ -14,6 +14,7 @@
   import Table from '../shell/Table.svelte';
   import PageHeader from '../shell/PageHeader.svelte';
   import PageState from '../shell/PageState.svelte';
+  import Button from '../ui/Button.svelte';
   import Split from '../ui/Split.svelte';
   import Drawer from '../ui/Drawer.svelte';
   import Kv from '../ui/Kv.svelte';
@@ -96,10 +97,10 @@
             <button class="btn" use:tip={'Change the full name, email and description'} onclick={() => openCreate(EditUser, { user: sel.name })}><i class="ph ph-pencil-simple"></i>Edit</button>
             <button use:tip={'Set a new password for this user'} class="btn" onclick={() => openCreate(SetPassword, { user: sel.name })}><i class="ph ph-password"></i>Password</button>
             <button use:tip={'Choose the groups of this user'} class="btn" onclick={() => openCreate(Membership, { subject: 'user', name: sel.name, have: sel.groups, options: groupNames })}><i class="ph ph-users-three"></i>Groups</button>
-            <button class="btn btn-ghost" disabled={isAdmin} use:tip={isAdmin ? 'Administrator cannot be locked' : sel.enabled ? 'Lock the account (shows the plan first)' : 'Unlock the account (shows the plan first)'}
-              onclick={() => openPlan('users', [sel.name, sel.enabled ? 'lock' : 'unlock'], `${sel.enabled ? 'Lock' : 'Unlock'} ${sel.name}`)}><i class="ph {sel.enabled ? 'ph-lock' : 'ph-lock-open'}"></i>{sel.enabled ? 'Lock' : 'Unlock'}</button>
-            <button class="btn btn-ghost danger" disabled={isAdmin} use:tip={isAdmin ? 'Administrator cannot be deleted' : 'Delete the user (cannot be undone; you type the name)'}
-              onclick={() => openPlan('users', [sel.name, 'user-delete'], `Delete ${sel.name}`)}><i class="ph ph-trash"></i>Delete</button>
+            <Button variant="ghost" icon={sel.enabled ? 'lock' : 'lock-open'} disabled={isAdmin} busy={jobRunning('users', [sel.name, sel.enabled ? 'lock' : 'unlock'])} busyLabel={sel.enabled ? 'Locking…' : 'Unlocking…'} tooltip={isAdmin ? 'Administrator cannot be locked' : sel.enabled ? 'Lock the account (shows the plan first)' : 'Unlock the account (shows the plan first)'}
+              onclick={() => openPlan('users', [sel.name, sel.enabled ? 'lock' : 'unlock'], `${sel.enabled ? 'Lock' : 'Unlock'} ${sel.name}`)}>{sel.enabled ? 'Lock' : 'Unlock'}</Button>
+            <Button variant="ghost" class="danger" icon="trash" disabled={isAdmin} busy={jobRunning('users', [sel.name, 'user-delete'])} busyLabel="Deleting…" tooltip={isAdmin ? 'Administrator cannot be deleted' : 'Delete the user (cannot be undone; you type the name)'}
+              onclick={() => openPlan('users', [sel.name, 'user-delete'], `Delete ${sel.name}`)}>Delete</Button>
           {/snippet}
         </Drawer>
       {/if}

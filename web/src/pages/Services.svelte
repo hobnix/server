@@ -1,11 +1,12 @@
 <script>
   import { tip } from '../ui/tooltip.svelte.js';
   import { poll, rows, refresh } from '../data.svelte.js';
-  import { openPlan, openCreate, ui } from '../ui.svelte.js';
+  import { openPlan, openCreate, jobRunning, ui } from '../ui.svelte.js';
   import { prefetchPlan } from '../api.js';
   import PageHeader from '../shell/PageHeader.svelte';
   import PageState from '../shell/PageState.svelte';
   import Banner from '../ui/Banner.svelte';
+  import Button from '../ui/Button.svelte';
   import Kv from '../ui/Kv.svelte';
   import StatusDot from '../ui/StatusDot.svelte';
   import { ctOf, link, servicesOf } from './instances/ct.js';
@@ -48,9 +49,16 @@
   const dash = (v) => (v === '-' || v === undefined ? '' : v);
 
   // the form only writes the description: read the list and the plans again now, so Apply knows what is new without waiting for the next poll
-  const describe = (props = {}) => openCreate(ServiceForm, {
-    ...props,
-    ondone: () => refresh(['/api/sys/services/list', '/api/sys/services/routes', ...(gateway ? ['/api/sys/services/local-routes'] : [])]),
+  const readAgain = () => refresh(['/api/sys/services/list', '/api/sys/services/routes', ...(gateway ? ['/api/sys/services/local-routes'] : [])]);
+  const describe = (props = {}) => openCreate(ServiceForm, { ...props, ondone: readAgain });
+
+  // a routes job (Apply, Adopt, Import, Forget) started from here: its buttons stay busy until it ends, then the plans are read again
+  // (the next poll could be 15 s away and Apply would still show the old count)
+  const routesJob = $derived(jobRunning('routes'));
+  let wasRunning = false;
+  $effect(() => {
+    if (wasRunning && !routesJob) readAgain();
+    wasRunning = routesJob;
   });
 
   const columns = [
@@ -65,9 +73,9 @@
 <PageHeader title="Services" crumb="{ui.host} › Instances" sub="What the reverse proxy publishes, and what each service wants. Public means reachable from the internet; admin pages never are.">
   {#snippet actions()}
     <button use:tip={'Describe a service so the proxy can route it'} class="btn btn-primary" onclick={() => describe()}><i class="ph ph-plus"></i>Describe a service…</button>
-    <button class="btn" disabled={noProxy || !todo} use:tip={todo ? 'Make the routes the services want' : 'The proxy already matches the services'} onpointerenter={() => prefetchPlan('routes', ['apply'])} onfocus={() => prefetchPlan('routes', ['apply'])} onclick={() => openPlan('routes', ['apply'], 'Apply the routes')}><i class="ph ph-check-circle"></i>Apply{todo ? ` (${todo})` : ''}…</button>
-    <button class="btn btn-ghost" disabled={noProxy || !handmade} use:tip={'Let hs manage routes that were made by hand'} onclick={() => openPlan('routes', ['adopt'], 'Adopt routes')}><i class="ph ph-hand-grabbing"></i>Adopt…</button>
-    <button class="btn btn-ghost" disabled={noProxy} use:tip={'Describe the routes of the proxy as services'} onclick={() => openPlan('routes', ['import'], 'Import services')}><i class="ph ph-download-simple"></i>Import…</button>
+    <Button icon="check-circle" disabled={noProxy || !todo || (routesJob && !jobRunning('routes', ['apply']))} busy={jobRunning('routes', ['apply'])} busyLabel="Applying…" tooltip={todo ? 'Make the routes the services want' : 'The proxy already matches the services'} onpointerenter={() => prefetchPlan('routes', ['apply'])} onfocus={() => prefetchPlan('routes', ['apply'])} onclick={() => openPlan('routes', ['apply'], 'Apply the routes')}>Apply{todo ? ` (${todo})` : ''}…</Button>
+    <Button variant="ghost" icon="hand-grabbing" disabled={noProxy || !handmade || (routesJob && !jobRunning('routes', ['adopt']))} busy={jobRunning('routes', ['adopt'])} busyLabel="Adopting…" tooltip={'Let hs manage routes that were made by hand'} onclick={() => openPlan('routes', ['adopt'], 'Adopt routes')}>Adopt…</Button>
+    <Button variant="ghost" icon="download-simple" disabled={noProxy || (routesJob && !jobRunning('routes', ['import']))} busy={jobRunning('routes', ['import'])} busyLabel="Importing…" tooltip={'Describe the routes of the proxy as services'} onclick={() => openPlan('routes', ['import'], 'Import services')}>Import…</Button>
   {/snippet}
 </PageHeader>
 
@@ -128,8 +136,8 @@
     {#if gw.loaded && gwv.wildcard && gwv.wildcard !== 'ok'}<Banner tone="warn">The wildcard DNS record is {gwv.wildcard}. Run <code>hs gateway check</code> in a terminal.</Banner>{/if}
     <Kv items={[{ k: 'Service', v: gwv.service ?? '' }, { k: 'Web interface', v: gwv.webui ?? '' }, { k: 'Domain', v: gwv.domain ?? '' }, { k: 'Wildcard', v: gwv.wildcard ?? '' }, { k: 'Port 80', v: gwv.port80 ?? '' }]} />
     <div class="acts">
-      <button class="btn" disabled={!localTodo} use:tip={localTodo ? 'Make the local names the services want' : 'The gateway proxy already matches the services'} onclick={() => openPlan('routes', ['apply', '--proxy', 'local'], 'Apply the local names')}><i class="ph ph-check-circle"></i>Apply local{localTodo ? ` (${localTodo})` : ''}…</button>
-      <button class="btn btn-ghost" use:tip={'Let every service without a choice get a local name'} onclick={() => openPlan('routes', ['import', '--proxy', 'local'], 'Import local names')}><i class="ph ph-download-simple"></i>Import local…</button>
+      <Button icon="check-circle" disabled={!localTodo || (routesJob && !jobRunning('routes', ['apply', '--proxy', 'local']))} busy={jobRunning('routes', ['apply', '--proxy', 'local'])} busyLabel="Applying…" tooltip={localTodo ? 'Make the local names the services want' : 'The gateway proxy already matches the services'} onclick={() => openPlan('routes', ['apply', '--proxy', 'local'], 'Apply the local names')}>Apply local{localTodo ? ` (${localTodo})` : ''}…</Button>
+      <Button variant="ghost" icon="download-simple" disabled={routesJob && !jobRunning('routes', ['import', '--proxy', 'local'])} busy={jobRunning('routes', ['import', '--proxy', 'local'])} busyLabel="Importing…" tooltip={'Let every service without a choice get a local name'} onclick={() => openPlan('routes', ['import', '--proxy', 'local'], 'Import local names')}>Import local…</Button>
     </div>
     <Table id="service-local-routes" columns={routeCols} rows={localRoutes} loading={!local.loaded}
            empty={local.error ? 'The local names could not be read.' : 'No services want a local name.'}>

@@ -113,6 +113,10 @@ title = "Game streaming"                     # also the tree label; icon = a Pho
 [[web.page.actions]]                         # page buttons: plan = ["ext/<name>", args...] opens the plan dialog; form = "PcForm" opens a dialog of the
 label = "Add PC"                             # closed list in pages/Extension.svelte (a package cannot bring code)
 form = "PcForm"
+[[web.page.actions]]                         # or asks for one value first: {input} in the plan is it; suggest = a declared read whose first field prefills the field
+label = "Make public"
+plan = ["ext/<name>", "expose", "public", "{input}"]
+input = { label = "Public name", placeholder = "pw.example.org", pattern = "^[a-z0-9.-]+$", suggest = { read = "suggest" } }
 [[web.page.blocks]]                          # table | kv | cards | text | empty | gallery
 type = "table"
 read = "list"                                # the WORDS of a [[web.reads]] entry above

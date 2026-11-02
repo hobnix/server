@@ -1,0 +1,4 @@
+date  = "2026-11-02"
+type  = "fix"
+title = "The UniFi client list works with many clients"
+body  = """With a large number of UniFi clients, the list failed with "Argument list too long" and the live state "unifi-clients" was never read. It is now read without that limit."""

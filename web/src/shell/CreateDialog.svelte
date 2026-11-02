@@ -113,6 +113,7 @@
         {:else if p?.status === 'refused'}
           <div class="lede">Refused</div>
           <div class="refused"><i class="ph ph-prohibit"></i>{p.reason || 'The server refused this.'}</div>
+          {#each p.fixes ?? [] as f}<div class="lede">To make it possible, run <code class="cmd">{f}</code></div>{/each}
         {/if}
         {#if p && p.heading && p.status === 'ok'}<div style="font-size:14px;font-weight:500;margin-bottom:2px">{p.heading}</div>{/if}
         {#if p}<PlanSteps steps={p.steps} long={p.long && allowed} dim={!allowed || asking} />{/if}

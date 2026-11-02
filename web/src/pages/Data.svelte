@@ -97,7 +97,7 @@
         <span>The live state service is down. The table shows the last data; polling every 5 s until it comes back. Check <code>systemctl status redis-hobnix hs-live</code>.</span>
       </div>
     {:else if liveRefreshing}
-      <div class="note"><i class="ph ph-spinner"></i>
+      <div class="note"><i class="ph ph-circle-notch spin"></i>
         <span>Live state is starting; the first reading should arrive in a few seconds.</span>
       </div>
     {:else if !live.open}

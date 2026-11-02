@@ -9,7 +9,7 @@
   import { live } from '../live.svelte.js';
   import { go } from '../route.svelte.js';
   import { changes } from '../changes.svelte.js';
-  import { openPlan, ui } from '../ui.svelte.js';
+  import { openPlan, jobRunning, ui } from '../ui.svelte.js';
   import { prefetchPlan } from '../api.js';
   import { pct, duration } from '../format.js';
   import Spark from '../shell/Spark.svelte';
@@ -17,6 +17,7 @@
   import PageHeader from '../shell/PageHeader.svelte';
   import UnlockForm from '../forms/unlock/UnlockForm.svelte';
   import Banner from '../ui/Banner.svelte';
+  import Button from '../ui/Button.svelte';
   import StatusDot from '../ui/StatusDot.svelte';
 
   let { deck } = $props();    // the shared status document (Shell polls it)
@@ -125,8 +126,8 @@
 <div class="page">
   <PageHeader title="Summary" crumb={hostName} sub="What needs you on {hostName} right now.">
     {#snippet actions()}
-      <button use:tip={locked ? 'Storage is locked' : 'Back up everything now'} class="btn btn-secondary" disabled={locked} onpointerenter={() => prefetchPlan('backup', ['now'])} onfocus={() => prefetchPlan('backup', ['now'])} onclick={() => openPlan('backup', ['now'], 'Back up now')}><i class="ph ph-archive"></i>Back up now</button>
-      <button use:tip={locked ? 'Storage is locked' : 'Update the server (snapshots first; shows the plan)'} class="btn btn-primary" disabled={locked} onpointerenter={() => prefetchPlan('system', ['update'])} onfocus={() => prefetchPlan('system', ['update'])} onclick={() => openPlan('system', ['update'], 'Update')}><i class="ph ph-arrow-circle-up"></i>Update…</button>
+      <Button icon="archive" busy={jobRunning('backup', ['now'])} busyLabel="Backing up…" tooltip={locked ? 'Storage is locked' : 'Back up everything now'} disabled={locked} onpointerenter={() => prefetchPlan('backup', ['now'])} onfocus={() => prefetchPlan('backup', ['now'])} onclick={() => openPlan('backup', ['now'], 'Back up now')}>Back up now</Button>
+      <Button variant="primary" icon="arrow-circle-up" busy={jobRunning('system', ['update'])} busyLabel="Updating…" tooltip={locked ? 'Storage is locked' : 'Update the server (snapshots first; shows the plan)'} disabled={locked} onpointerenter={() => prefetchPlan('system', ['update'])} onfocus={() => prefetchPlan('system', ['update'])} onclick={() => openPlan('system', ['update'], 'Update')}>Update…</Button>
     {/snippet}
   </PageHeader>
 

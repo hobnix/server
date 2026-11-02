@@ -8,7 +8,7 @@
 #                 3. an instance named dc1, else dc2, else the first one named dc<number>
 #                 4. dc1 (nothing found: the scripts say that the controller does not exist here)
 # Test knobs: HS_DC, HS_INCUS, HS_MACHINE_FILE.
-type machine_get >/dev/null 2>&1 || . "$(dirname "${BASH_SOURCE[0]}")/machine.sh"
+type machine_get >/dev/null 2>&1 || . "${BASH_SOURCE[0]%/*}/machine.sh"
 dc_name() {
   local inc=${HS_INCUS:-incus} n names
   if [ -n "${HS_DC:-}" ]; then echo "$HS_DC"; return 0; fi

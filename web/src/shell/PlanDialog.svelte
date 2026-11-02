@@ -3,6 +3,7 @@
   import { onMount } from 'svelte';
   import { plan as askPlan, start as doStart } from '../api.js';
   import { ui, track, trackDone, showTab } from '../ui.svelte.js';
+  import { jobKey } from '../jobkey.js';
   import PlanSteps from './PlanSteps.svelte';
   import Halftone from './Halftone.svelte';
   import Chip from '../ui/Chip.svelte';
@@ -36,7 +37,7 @@
     try {
       const r = await doStart(dialog.area, dialog.args, p.confirm_name ? confirm : '');
       if (r.status === 'started' && r.unit) {
-        track(r.unit, dialog.title || p.heading);
+        track(r.unit, dialog.title || p.heading, jobKey(dialog.area, dialog.args));
         showTab('tasks');
         close();
       } else if (r.status === 'done') {
@@ -77,6 +78,7 @@
         <div class="lede">Asking the server what would happen…</div>
       {:else if !allowed}
         <div class="refused"><i class="ph ph-prohibit"></i>{p.reason || 'The server refused this.'}</div>
+        {#each p.fixes ?? [] as f}<div class="lede">To make it possible, run <code class="cmd">{f}</code></div>{/each}
         <div class="lede">Nothing has run.</div>
       {:else}
         <PlanSteps steps={p.steps} long={p.long} />

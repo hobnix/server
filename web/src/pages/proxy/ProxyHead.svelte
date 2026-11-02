@@ -1,10 +1,10 @@
 <script>
-  import { tip } from '../../ui/tooltip.svelte.js';
   // Page header. `summary` = the node header of the design (tile, name, online dot, meta line, health chip); otherwise crumb + title.
   import { duration } from '../../format.js';
-  import { ui, openPlan } from '../../ui.svelte.js';
+  import { ui, openPlan, jobRunning } from '../../ui.svelte.js';
   import { route } from '../../route.svelte.js';
   import { VPS_NODE } from '../../redirects.js';
+  import Button from '../../ui/Button.svelte';
   // vps update / vps watch exist for the proxyserver node only (CHANGES["vps"]); another edge node is looked at, never changed from here
   const canAct = $derived(route.node === VPS_NODE);
   let { px, summary = false, title = '', sub = '' } = $props();
@@ -26,8 +26,8 @@
     </div>
     <div style="flex:1"></div>
     <!-- vps update / vps watch: hs sys vps plan|start runs them over SSH with a key that can do only that (machine.toml: vpsHost, `hs vps key`) -->
-    {#if canAct}<button class="btn btn-secondary" disabled={!ui.features.vps} use:tip={ui.features.vps ? 'Pull the configuration on the proxyserver and rebuild it' : 'Set vpsHost in machine.toml (steps: docs/web-interface.md)'} onclick={() => openPlan('vps', ['update'], 'Update the proxyserver')}><i class="ph ph-arrow-circle-up"></i>vps update</button>
-    <button class="btn btn-secondary" disabled={!ui.features.vps} use:tip={ui.features.vps ? 'Check the home server from the proxyserver now' : 'Set vpsHost in machine.toml (steps: docs/web-interface.md)'} onclick={() => openPlan('vps', ['watch'], 'Watch the home server from outside')}><i class="ph ph-binoculars"></i>vps watch</button>{/if}
+    {#if canAct}<Button icon="arrow-circle-up" disabled={!ui.features.vps} busy={jobRunning('vps', ['update'])} tooltip={ui.features.vps ? 'Pull the configuration on the proxyserver and rebuild it' : 'Set vpsHost in machine.toml (steps: docs/web-interface.md)'} onclick={() => openPlan('vps', ['update'], 'Update the proxyserver')}>vps update</Button>
+    <Button icon="binoculars" disabled={!ui.features.vps} busy={jobRunning('vps', ['watch'])} tooltip={ui.features.vps ? 'Check the home server from the proxyserver now' : 'Set vpsHost in machine.toml (steps: docs/web-interface.md)'} onclick={() => openPlan('vps', ['watch'], 'Watch the home server from outside')}>vps watch</Button>{/if}
     {#if d}
       <span class="chip"><span class="dot {d.problems > 0 ? 'warn' : d.problems === 0 ? 'ok' : 'off'}"></span>Health · {d.problems == null ? 'not available' : d.problems > 0 ? `${d.problems} problem${d.problems === 1 ? '' : 's'}` : 'no problems'}</span>
     {/if}

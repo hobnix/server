@@ -49,8 +49,6 @@
   .ib { width: 28px; height: 28px; display: grid; place-items: center; border: 1px solid transparent; border-radius: var(--r); background: none; color: inherit; padding: 0; }
   .ib:hover { background: var(--panel-2); border-color: var(--line); }
   .ib:disabled { opacity: 0.5; }
-  .spin { animation: rot 0.9s linear infinite; }
-  @keyframes rot { to { transform: rotate(360deg); } }
   @media (max-width: 900px) { .lbl, .hide-s { display: none; } }
   @media (max-width: 700px) { .age { display: none; } }
 </style>

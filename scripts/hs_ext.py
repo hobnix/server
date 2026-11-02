@@ -189,6 +189,13 @@ def _ext_page(name, page, words):
                 for a in node.get(key, []):
                     if "plan" in a and (not isinstance(a["plan"], list) or not a["plan"] or a["plan"][0] != "ext/" + name):
                         raise ValueError("a page action may only plan changes of its own area")
+                    if "input" in a:    # a text field before the plan: {input} in the plan arguments; the server still checks every argument against the changes
+                        i = a["input"]
+                        if (not isinstance(i, dict) or not isinstance(i.get("label"), str) or not 1 <= len(i["label"]) <= 80
+                                or not any("{input}" in str(x) for x in a.get("plan", [])[1:])):
+                            raise ValueError("an input action needs a label and {input} in its plan arguments")
+                        if "pattern" in i:
+                            _pattern(i["pattern"])
             for c in node.get("columns", []):
                 pl = c.get("plan")
                 if pl is not None and (not isinstance(pl, list) or not pl or pl[0] != "ext/" + name):

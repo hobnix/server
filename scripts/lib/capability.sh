@@ -12,10 +12,10 @@
 #   capability_list          the names that are on, one per line
 #
 # Test knobs: HS_CAPABILITIES_FILE, HS_CAPABILITIES_TSV (and the knobs of setting.sh).
-. "$(dirname "${BASH_SOURCE[0]}")/setting.sh"
+. "${BASH_SOURCE[0]%/*}/setting.sh"
 
 capability_file() { echo "${HS_CAPABILITIES_FILE:-/etc/hs/capabilities}"; }
-_capability_tsv() { echo "${HS_CAPABILITIES_TSV:-$(dirname "${BASH_SOURCE[0]}")/capabilities.tsv}"; }
+_capability_tsv() { echo "${HS_CAPABILITIES_TSV:-${BASH_SOURCE[0]%/*}/capabilities.tsv}"; }
 
 _capability_overlay() { echo "${HS_STATE_DIR:-/var/lib/hs}/capabilities-$1"; }
 

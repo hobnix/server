@@ -20,9 +20,9 @@
 #   - no `legacy:` flag (the old words of a moved command are rows of the core registry), no second row for the same words.
 #   - the names list, enable and disable are reserved (they are the core commands `hs ext list|enable|disable`).
 # Test knobs: HS_REGISTRY (core file), HS_PACKAGES_DIR (the folder that holds the packages; only that one is read).
-. "$(dirname "${BASH_SOURCE[0]}")/capability.sh"
+. "${BASH_SOURCE[0]%/*}/capability.sh"
 
-_ext_lib=$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)
+_ext_lib=$(cd "${BASH_SOURCE[0]%/*}" && pwd)
 ext_core_file() { echo "${HS_REGISTRY:-$_ext_lib/registry.tsv}"; }
 
 # The folders that hold packages, in order. On the server the scripts run from a copy in /nix/store that has no capabilities/:

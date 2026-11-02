@@ -1,12 +1,13 @@
 <script>
   import { tip } from '../ui/tooltip.svelte.js';
   import { poll, rows } from '../data.svelte.js';
-  import { openPlan, ui } from '../ui.svelte.js';
+  import { openPlan, jobRunning, ui } from '../ui.svelte.js';
   import { go } from '../route.svelte.js';
   import { agoShort } from '../format.js';
   import PageHeader from '../shell/PageHeader.svelte';
   import PageState from '../shell/PageState.svelte';
   import Banner from '../ui/Banner.svelte';
+  import Button from '../ui/Button.svelte';
   import StatusDot from '../ui/StatusDot.svelte';
   import Chip from '../ui/Chip.svelte';
 
@@ -102,14 +103,14 @@
 <div class="page">
   <PageHeader title="Health" crumb="{ui.host} / Health" {sub}>
     {#snippet actions()}
-      <button class="btn btn-secondary" use:tip={'Send a test message to the push address'} onclick={() => openPlan('admin', ['test-push'], 'Test push message')}><i class="ph ph-bell-ringing"></i>Send test push</button>
-      <button use:tip={'Check everything now and list the problems'} class="btn btn-primary" onclick={() => openPlan('jobs', ['run', 'hs-health-check.service'], 'Health check')}><i class="ph ph-shield-check"></i>Run health check</button>
+      <Button icon="bell-ringing" busy={jobRunning('admin', ['test-push'])} busyLabel="Sending…" tooltip={'Send a test message to the push address'} onclick={() => openPlan('admin', ['test-push'], 'Test push message')}>Send test push</Button>
+      <Button variant="primary" icon="shield-check" busy={jobRunning('jobs', ['run', 'hs-health-check.service'])} busyLabel="Checking…" tooltip={'Check everything now and list the problems'} onclick={() => openPlan('jobs', ['run', 'hs-health-check.service'], 'Health check')}>Run health check</Button>
     {/snippet}
   </PageHeader>
 
   {#if paused}
     <Banner tone="warn" icon="pause-circle">Sync, scrub and the cache mover are paused. Fix the cause first, then lift the pause.
-      {#snippet action()}<button class="btn btn-primary sm" use:tip={'Shows the plan first'} onclick={() => openPlan('health', ['resume'], 'Resume the bulk jobs')}><i class="ph ph-play"></i>Resume</button>{/snippet}
+      {#snippet action()}<Button variant="primary" size="sm" icon="play" busy={jobRunning('health', ['resume'])} busyLabel="Resuming…" tooltip={'Shows the plan first'} onclick={() => openPlan('health', ['resume'], 'Resume the bulk jobs')}>Resume</Button>{/snippet}
     </Banner>
   {/if}
 
@@ -133,9 +134,9 @@
               </div>
             </div>
             <div class="acts">
-              {#if p.id && p.acked}<button class="btn btn-ghost sm" use:tip={'Report it again and count it'} onclick={() => openPlan('health', ['unack', p.id], 'Undo acknowledge')}>Undo</button>
-              {:else if p.id}<button class="btn btn-ghost sm" use:tip={'Silent until the problem is gone'} onclick={() => openPlan('health', ['ack', p.id], 'Acknowledge')}>Acknowledge</button>{/if}
-              {#if p.act && !p.acked}<button class="btn btn-primary sm" use:tip={`Shows the plan first: ${p.act.title}`} onclick={() => openPlan(p.act.area, p.act.args, p.act.title)}>{p.act.label}</button>{/if}
+              {#if p.id && p.acked}<Button variant="ghost" size="sm" busy={jobRunning('health', ['unack', p.id])} tooltip={'Report it again and count it'} onclick={() => openPlan('health', ['unack', p.id], 'Undo acknowledge')}>Undo</Button>
+              {:else if p.id}<Button variant="ghost" size="sm" busy={jobRunning('health', ['ack', p.id])} tooltip={'Silent until the problem is gone'} onclick={() => openPlan('health', ['ack', p.id], 'Acknowledge')}>Acknowledge</Button>{/if}
+              {#if p.act && !p.acked}<Button variant="primary" size="sm" busy={jobRunning(p.act.area, p.act.args)} tooltip={`Shows the plan first: ${p.act.title}`} onclick={() => openPlan(p.act.area, p.act.args, p.act.title)}>{p.act.label}</Button>{/if}
             </div>
           </div>
         {/each}

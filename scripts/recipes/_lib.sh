@@ -3,14 +3,14 @@
 # start with "_"). Expects $scripts (the scripts/ folder), $state and $ct.
 # The lines a recipe prints (step, spin, ok, warn, fail, box) come from
 # scripts/lib/ui.sh, the same helper the other hs commands use.
-. "$(dirname "${BASH_SOURCE[0]}")/../lib/ui.sh"
-. "$(dirname "${BASH_SOURCE[0]}")/../lib/secret.sh"   # secrets (unifi, grafana-admin) may live in the vault
-. "$(dirname "${BASH_SOURCE[0]}")/../lib/machine.sh"   # machine.toml (adDomain, metrics, ...)
-. "$(dirname "${BASH_SOURCE[0]}")/../lib/dc.sh"        # dc_name: the domain controller instance (dc1, dc2)
-. "$(dirname "${BASH_SOURCE[0]}")/../lib/capability.sh"   # capability_on: is the Docs page there (docs_hint)
-. "$(dirname "${BASH_SOURCE[0]}")/../lib/setting.sh"   # setting_get: which providers are set up (reverseProxy, dashboard)
-. "$(dirname "${BASH_SOURCE[0]}")/../lib/network.sh"   # network_provider / network_run: the router connection
-. "$(dirname "${BASH_SOURCE[0]}")/../lib/internal-link.sh"   # link_get, link_overlaps: the internal link of Incus (internal_link)
+. "${BASH_SOURCE[0]%/*}/../lib/ui.sh"
+. "${BASH_SOURCE[0]%/*}/../lib/secret.sh"   # secrets (unifi, grafana-admin) may live in the vault
+. "${BASH_SOURCE[0]%/*}/../lib/machine.sh"   # machine.toml (adDomain, metrics, ...)
+. "${BASH_SOURCE[0]%/*}/../lib/dc.sh"        # dc_name: the domain controller instance (dc1, dc2)
+. "${BASH_SOURCE[0]%/*}/../lib/capability.sh"   # capability_on: is the Docs page there (docs_hint)
+. "${BASH_SOURCE[0]%/*}/../lib/setting.sh"   # setting_get: which providers are set up (reverseProxy, dashboard)
+. "${BASH_SOURCE[0]%/*}/../lib/network.sh"   # network_provider / network_run: the router connection
+. "${BASH_SOURCE[0]%/*}/../lib/internal-link.sh"   # link_get, link_overlaps: the internal link of Incus (internal_link)
 # the recipe's own German texts: <package folder>/i18n/<lang>.tsv (the run.sh that sourced this file is BASH_SOURCE[1]); the texts of this file and of
 # the shared helpers are in the core catalog
 if [ "${hs_lang:-en}" != en ] && [ -n "${BASH_SOURCE[1]:-}" ]; then _i18n_read "$(dirname "${BASH_SOURCE[1]}")/i18n/$hs_lang.tsv"; fi
@@ -344,7 +344,7 @@ apt_quick='apt-get -o Acquire::http::Timeout=20 -o Acquire::https::Timeout=20 -o
 #   install_dump_tool [sqlite]                  # puts /usr/local/sbin/hs-dump into the container (sqlite: also the sqlite3 program)
 #   backup_with_dump <name> "hs-dump postgres-compose ..."   # declares the dump and puts the container in the nightly backup
 # Idempotent: run again, the tool is replaced and the dump command called <name> is replaced, not doubled.
-. "$(dirname "${BASH_SOURCE[0]}")/../lib/backup-dump.sh"
+. "${BASH_SOURCE[0]%/*}/../lib/backup-dump.sh"
 
 install_dump_tool() {   # install_dump_tool [sqlite]
   if [ "${1:-}" = sqlite ]; then
@@ -359,6 +359,9 @@ declare_dump() {   # declare_dump <name> <command inside the container>
 
 backup_with_dump() {   # backup_with_dump <name> <command inside the container, or "" for a container without a database>
   if [ -n "$2" ]; then declare_dump "$1" "$2" || return 0; fi
+  case "$(setting_get backupNewInstances 2>/dev/null || true)" in
+    false|off) note "$(t "'%s' is not put into the backup (backupNewInstances is false). Later: hs backup ct %s on" "$ct" "$ct")"; return 0 ;;
+  esac
   bash "$scripts/backup.sh" ct "$ct" on >/dev/null 2>&1 || warn "$(t "Could not add '%s' to the backup. Later: hs backup ct %s on" "$ct" "$ct")"
 }
 

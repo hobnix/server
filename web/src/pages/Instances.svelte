@@ -4,7 +4,7 @@
   // Snapshots of an instance live HERE (the Snapshots page is gone); the "in the backup" switch lives on Backup, this page only shows the badge.
   import { poll, rows, refresh } from '../data.svelte.js';
   import { takeSelection } from '../select.svelte.js';
-  import { openPlan, openCreate, ui } from '../ui.svelte.js';
+  import { openPlan, openCreate, jobRunning, ui } from '../ui.svelte.js';
   import { route } from '../route.svelte.js';
   import Terminal from '../shell/Terminal.svelte';
   import CreateInstance from '../forms/instances/CreateInstance.svelte';
@@ -13,6 +13,7 @@
   import Table from '../shell/Table.svelte';
   import PageHeader from '../shell/PageHeader.svelte';
   import PageState from '../shell/PageState.svelte';
+  import Button from '../ui/Button.svelte';
   import Split from '../ui/Split.svelte';
   import Drawer from '../ui/Drawer.svelte';
   import Kv from '../ui/Kv.svelte';
@@ -74,7 +75,7 @@
 
 <PageHeader title="Instances" crumb={ui.host} sub={cts.length ? `${running} of ${cts.length} running` : 'Containers and virtual machines.'}>
   {#snippet actions()}
-    <button class="btn" disabled={!running} use:tip={'Snapshot, then update every running container'} onclick={() => openPlan('ct', ['all', 'update-all'], 'Update all')}><i class="ph ph-arrows-clockwise"></i>Update all</button>
+    <Button icon="arrows-clockwise" disabled={!running} busy={jobRunning('ct', ['all', 'update-all'])} busyLabel="Updating…" tooltip={'Snapshot, then update every running container'} onclick={() => openPlan('ct', ['all', 'update-all'], 'Update all')}>Update all</Button>
     <button use:tip={'Create a new instance (a container or VM)'} class="btn btn-primary" onclick={() => openCreate(CreateInstance)}><i class="ph ph-plus"></i>Create</button>
   {/snippet}
 </PageHeader>
@@ -100,9 +101,9 @@
             {#if s.length}<a {...link('/instances/services')}>{s[0].names && s[0].names !== '-' ? s[0].names.split(',')[0] : s[0].name}{s.length > 1 ? ` +${s.length - 1}` : ''}</a>{:else}<span class="kd">–</span>{/if}
           {:else}
             <span class="acts">
-              <button class="btn btn-ghost btn-icon ib" use:tip={isRunning(c) ? 'Stop' : 'Start'} aria-label="{isRunning(c) ? 'Stop' : 'Start'} {c.name}" onclick={(e) => plan(e, c, isRunning(c) ? 'stop' : 'start')}><i class="ph {isRunning(c) ? 'ph-stop' : 'ph-play'}"></i></button>
-              <button class="btn btn-ghost btn-icon ib" use:tip={'Restart'} aria-label="Restart {c.name}" onclick={(e) => plan(e, c, 'restart')}><i class="ph ph-arrow-clockwise"></i></button>
-              <button class="btn btn-ghost btn-icon ib nophone" use:tip={'Snapshot'} aria-label="Snapshot {c.name}" onclick={(e) => plan(e, c, 'snapshot')}><i class="ph ph-camera"></i></button>
+              <Button variant="ghost" class="btn-icon ib" icon={isRunning(c) ? 'stop' : 'play'} busy={jobRunning('ct', [c.name, isRunning(c) ? 'stop' : 'start'])} tooltip={isRunning(c) ? 'Stop' : 'Start'} aria-label="{isRunning(c) ? 'Stop' : 'Start'} {c.name}" onclick={(e) => plan(e, c, isRunning(c) ? 'stop' : 'start')} />
+              <Button variant="ghost" class="btn-icon ib" icon="arrow-clockwise" busy={jobRunning('ct', [c.name, 'restart'])} tooltip={'Restart'} aria-label="Restart {c.name}" onclick={(e) => plan(e, c, 'restart')} />
+              <Button variant="ghost" class="btn-icon ib nophone" icon="camera" busy={jobRunning('ct', [c.name, 'snapshot'])} tooltip={'Snapshot'} aria-label="Snapshot {c.name}" onclick={(e) => plan(e, c, 'snapshot')} />
             </span>
           {/if}
         {/snippet}
@@ -134,7 +135,7 @@
                         <Chip>{b.kind}</Chip>
                         {#if b.share && b.share !== '-'}<a {...link(sharePath(b), 'shares', b.share)} use:tip={'Open the share'}>{b.share}</a>{:else}<span class="mono">{b.source}</span>{/if}
                         <span class="kd">{b.mode}</span>
-                        {#if !sel.owner}<button class="btn btn-ghost btn-icon ib" style="margin-left:auto" use:tip={'Remove this binding'} aria-label="Remove {b.device}" onclick={() => openPlan('ct', [sel.name, 'remove-storage', '--device', b.device], `Remove ${b.device} from ${sel.name}`)}><i class="ph ph-x"></i></button>{/if}
+                        {#if !sel.owner}<Button variant="ghost" class="btn-icon ib" icon="x" style="margin-left:auto" busy={jobRunning('ct', [sel.name, 'remove-storage', '--device', b.device])} tooltip={'Remove this binding'} aria-label="Remove {b.device}" onclick={() => openPlan('ct', [sel.name, 'remove-storage', '--device', b.device], `Remove ${b.device} from ${sel.name}`)} />{/if}
                       </div>
                       <div class="rs mono">{b.source} → {b.inside}</div>
                       {#if b.also && b.also !== '-'}<div class="rs">Also mounted by {b.also}</div>{/if}
@@ -153,15 +154,15 @@
                     <div class="r"><div class="rt">
                       <span class="mono">{sn.name}</span><span class="kd">{sn.created}</span>
                       <span class="acts" style="margin-left:auto">
-                        <button class="btn btn-ghost btn-icon ib" aria-label="Restore {sn.name}" use:tip={i === 0 ? 'Go back to this snapshot' : 'Go back to this snapshot (the newer ones are deleted)'} onclick={() => openPlan('ct', [sel.name, 'restore', '--snapshot', sn.name], `Restore ${sel.name}`)}><i class="ph ph-arrow-u-up-left"></i></button>
-                        <button class="btn btn-ghost btn-icon ib bad" aria-label="Delete {sn.name}" use:tip={'Delete this snapshot (the plan asks for the instance name)'} onclick={() => openPlan('ct', [sel.name, 'delete-snapshot', '--snapshot', sn.name], `Delete snapshot ${sn.name}`)}><i class="ph ph-trash"></i></button>
+                        <Button variant="ghost" class="btn-icon ib" icon="arrow-u-up-left" busy={jobRunning('ct', [sel.name, 'restore', '--snapshot', sn.name])} aria-label="Restore {sn.name}" tooltip={i === 0 ? 'Go back to this snapshot' : 'Go back to this snapshot (the newer ones are deleted)'} onclick={() => openPlan('ct', [sel.name, 'restore', '--snapshot', sn.name], `Restore ${sel.name}`)} />
+                        <Button variant="ghost" class="btn-icon ib bad" icon="trash" busy={jobRunning('ct', [sel.name, 'delete-snapshot', '--snapshot', sn.name])} aria-label="Delete {sn.name}" tooltip={'Delete this snapshot (the plan asks for the instance name)'} onclick={() => openPlan('ct', [sel.name, 'delete-snapshot', '--snapshot', sn.name], `Delete snapshot ${sn.name}`)} />
                       </span>
                     </div></div>
                   {:else}
                     <div class="kd pad">{snap.loaded ? (snap.error ? 'The snapshots could not be read.' : 'No snapshots yet.') : 'Loading…'}</div>
                   {/each}
                 </div>
-                <button use:tip={'Take a snapshot of this instance now'} class="btn sm" onclick={() => openPlan('ct', [sel.name, 'snapshot'], `Snapshot ${sel.name}`)}><i class="ph ph-camera"></i>Snapshot now</button>
+                <Button size="sm" icon="camera" busy={jobRunning('ct', [sel.name, 'snapshot'])} busyLabel="Snapshotting…" tooltip={'Take a snapshot of this instance now'} onclick={() => openPlan('ct', [sel.name, 'snapshot'], `Snapshot ${sel.name}`)}>Snapshot now</Button>
               </div>
             {:else if t === 'logs'}
               {#key sel.name}<LogsTab ct={sel.name} />{/key}
@@ -183,12 +184,12 @@
             {/if}
           {/snippet}
           {#snippet actions()}
-            <button use:tip={isRunning(sel) ? 'Stop this instance' : 'Start this instance'} class="btn sm" onclick={(e) => plan(e, sel, isRunning(sel) ? 'stop' : 'start')}><i class="ph {isRunning(sel) ? 'ph-stop' : 'ph-play'}"></i>{isRunning(sel) ? 'Stop' : 'Start'}</button>
-            <button use:tip={'Stop and start this instance again'} class="btn sm" onclick={(e) => plan(e, sel, 'restart')}><i class="ph ph-arrow-clockwise"></i>Restart</button>
-            <button class="btn sm" use:tip={'Snapshot the instance, then update the software inside'} onclick={() => openPlan('ct', [sel.name, 'update'], `Update ${sel.name}`)}><i class="ph ph-arrows-clockwise"></i>Update</button>
+            <Button size="sm" icon={isRunning(sel) ? 'stop' : 'play'} busy={jobRunning('ct', [sel.name, isRunning(sel) ? 'stop' : 'start'])} busyLabel={isRunning(sel) ? 'Stopping…' : 'Starting…'} tooltip={isRunning(sel) ? 'Stop this instance' : 'Start this instance'} onclick={(e) => plan(e, sel, isRunning(sel) ? 'stop' : 'start')}>{isRunning(sel) ? 'Stop' : 'Start'}</Button>
+            <Button size="sm" icon="arrow-clockwise" busy={jobRunning('ct', [sel.name, 'restart'])} busyLabel="Restarting…" tooltip={'Stop and start this instance again'} onclick={(e) => plan(e, sel, 'restart')}>Restart</Button>
+            <Button size="sm" icon="arrows-clockwise" busy={jobRunning('ct', [sel.name, 'update'])} busyLabel="Updating…" tooltip={'Snapshot the instance, then update the software inside'} onclick={() => openPlan('ct', [sel.name, 'update'], `Update ${sel.name}`)}>Update</Button>
             <button class="btn sm" disabled={!ui.features.terminal || !isRunning(sel)} use:tip={!ui.features.terminal ? 'Switch on webTerminal in machine.toml' : isRunning(sel) ? 'A shell inside the instance' : 'The instance is not running'} onclick={() => openCreate(Terminal, { target: sel.name, title: sel.name })}><i class="ph ph-terminal-window"></i>Terminal</button>
             <button use:tip={'Change memory, CPU, storage and other settings'} class="btn sm" onclick={() => openCreate(InstanceSettings, { ct: sel })}><i class="ph ph-sliders"></i>Settings</button>
-            {#if !sel.owner}<button class="btn sm btn-danger" use:tip={'Delete the instance (the plan asks for its name)'} onclick={() => openPlan('ct', [sel.name, 'delete'], `Delete ${sel.name}`)}><i class="ph ph-trash"></i>Delete</button>{/if}
+            {#if !sel.owner}<Button variant="danger" size="sm" icon="trash" busy={jobRunning('ct', [sel.name, 'delete'])} busyLabel="Deleting…" tooltip={'Delete the instance (the plan asks for its name)'} onclick={() => openPlan('ct', [sel.name, 'delete'], `Delete ${sel.name}`)}>Delete</Button>{/if}
           {/snippet}
         </Drawer>
       {/if}

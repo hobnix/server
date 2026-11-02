@@ -50,6 +50,8 @@ check_out "a yes reboots" "reboot" calls
 echo "-- busy"
 : > "$LOG"
 check_out "a job running" "hs-job-pool-bulk.service" env FAKE_JOB=hs-job-pool-bulk.service $P reboot --yes
+check_out "its own unit is no job" "Running: " env FAKE_JOB=hs-job-system-reboot-101010.service HS_POWER_SELF=hs-job-system-reboot-101010.service $P reboot --yes
+: > "$LOG"
 check_out "a backup running" "hs-backup.service is running" env FAKE_ACTIVE=hs-backup.service $P reboot --yes
 check_out "the answer says how to go on" " --force" env FAKE_ACTIVE=hs-backup.service $P reboot --yes
 check_out "nothing ran" "^$" calls

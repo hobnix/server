@@ -2,7 +2,8 @@
   import { tip } from '../ui/tooltip.svelte.js';
   import PageHeader from '../shell/PageHeader.svelte';
   import { poll, rows } from '../data.svelte.js';
-  import { openCreate, openPlan } from '../ui.svelte.js';
+  import { openCreate, openPlan, jobRunning } from '../ui.svelte.js';
+  import Button from '../ui/Button.svelte';
   import ExpiryForm from '../forms/ops/ExpiryForm.svelte';
   import Table from '../shell/Table.svelte';
   import { go } from '../route.svelte.js';
@@ -54,7 +55,7 @@
             <span class="left" style="color:{warn(i) ? 'var(--st-warn)' : 'var(--color-neutral-300)'}">{left(i)}</span>
           </div>
         {:else if col.key === 'note'}<span class="note">{i.note}</span>
-        {:else}<button class="btn btn-ghost btn-icon rm" use:tip={`Remove ${i.name} from the list`} aria-label="Remove {i.name}" onclick={() => openPlan('expiry', ['remove', i.name], 'Remove ' + i.name)}><i class="ph ph-x"></i></button>{/if}
+        {:else}<Button variant="ghost" class="btn-icon rm" icon="x" busy={jobRunning('expiry', ['remove', i.name])} aria-label="Remove {i.name}" tooltip={`Remove ${i.name} from the list`} onclick={() => openPlan('expiry', ['remove', i.name], 'Remove ' + i.name)}></Button>{/if}
       {/snippet}
     </Table>
   </div>

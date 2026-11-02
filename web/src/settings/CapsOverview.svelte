@@ -11,6 +11,8 @@
   import { fieldsFor } from './layout.js';
   import { useConfig } from './config.svelte.js';
   import { useParts, flip } from './parts.svelte.js';
+  import { jobRunning } from '../ui.svelte.js';
+  import Button from '../ui/Button.svelte';
 
   const { partList, parts: getParts } = useParts();
   const parts = $derived(getParts());
@@ -33,7 +35,7 @@
           <div class="pt"><code>{p.name}</code><span class="hp">{p.title}</span></div>
           {#if p.nix}<Chip>rebuild</Chip>{/if}
           {#if hasPage(p)}<button use:tip={'Open the settings of this part'} class="btn sm" onclick={() => go(`/settings/capabilities/${p.name}`)}><i class="ph ph-sliders"></i>Settings</button>{/if}
-          <button use:tip={!p.canSwitch ? 'This part cannot be switched here' : p.on ? 'Switch this part off (shows the plan)' : 'Switch this part on (shows the plan)'} class="btn sm" disabled={!p.canSwitch} onclick={() => flip(p)}>{p.on ? 'Switch off…' : 'Switch on…'}</button>
+          <Button size="sm" busy={jobRunning('parts', [p.on ? 'disable' : 'enable', p.name])} busyLabel="Switching…" disabled={!p.canSwitch} tooltip={!p.canSwitch ? 'This part cannot be switched here' : p.on ? 'Switch this part off (shows the plan)' : 'Switch this part on (shows the plan)'} onclick={() => flip(p)}>{p.on ? 'Switch off…' : 'Switch on…'}</Button>
         </div>
       {:else}
         <div class="hp2">{partList.loaded ? (partList.error ? 'The parts could not be read.' : 'No optional parts.') : 'Loading…'}</div>
@@ -47,7 +49,7 @@
           <StatusDot state={p.on ? 'ok' : 'off'} label={p.on ? 'on' : 'off'} bare />
           <div class="pt"><code>{p.name}</code><span class="hp">{p.title}</span></div>
           {#if p.nix}<Chip>rebuild</Chip>{/if}
-          <button use:tip={!p.canSwitch ? 'This part cannot be switched here' : p.on ? 'Switch this part off (shows the plan)' : 'Switch this part on (shows the plan)'} class="btn sm" disabled={!p.canSwitch} onclick={() => flip(p)}>{p.on ? 'Switch off…' : 'Switch on…'}</button>
+          <Button size="sm" busy={jobRunning('parts', [p.on ? 'disable' : 'enable', p.name])} busyLabel="Switching…" disabled={!p.canSwitch} tooltip={!p.canSwitch ? 'This part cannot be switched here' : p.on ? 'Switch this part off (shows the plan)' : 'Switch this part on (shows the plan)'} onclick={() => flip(p)}>{p.on ? 'Switch off…' : 'Switch on…'}</Button>
         </div>
       {:else}
         <div class="hp2">{partList.loaded ? 'No extensions on this server.' : 'Loading…'}</div>

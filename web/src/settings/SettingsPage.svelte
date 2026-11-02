@@ -6,9 +6,10 @@
   import { poll, rows } from '../data.svelte.js';
   import { get, prefetchPlan } from '../api.js';
   import { route, go } from '../route.svelte.js';
-  import { openPlan } from '../ui.svelte.js';
+  import { openPlan, jobRunning } from '../ui.svelte.js';
   import { changes, load } from '../changes.svelte.js';
   import PageHeader from '../shell/PageHeader.svelte';
+  import Button from '../ui/Button.svelte';
   import Fields from './Fields.svelte';
   import layout from './layout.gen.json';
   import { fieldsFor } from './layout.js';
@@ -61,7 +62,7 @@
   <PageHeader title={title[0]} crumb="Settings" sub={title[1]}>
     {#snippet actions()}
       {#if page === 'advanced'}
-        <button use:tip={chkBusy ? 'A check is running' : 'Look for typos and missing values in machine.toml'} class="btn b13" onclick={runCheck} disabled={chkBusy}><i class="ph ph-check-square"></i>Check</button>
+        <Button class="b13" icon="check-square" busy={chkBusy} busyLabel="Checking…" tooltip={chkBusy ? 'A check is running' : 'Look for typos and missing values in machine.toml'} onclick={runCheck}>Check</Button>
       {/if}
     {/snippet}
   </PageHeader>
@@ -98,14 +99,14 @@
         <div class="kv"><span>Last looked</span><span>{fetched}</span></div>
         <p class="hp2">{updates.loaded ? (behind > 0 ? `${behind} new change${behind === 1 ? '' : 's'} upstream.` : 'Up to date as of the last look.') : 'Loading…'}</p>
         <div class="acts">
-          <button use:tip={'Update the server (snapshots first; shows the plan)'} class="btn btn-primary b13" disabled={!!deck?.data?.locked} onpointerenter={() => prefetchPlan('system', ['update'])} onfocus={() => prefetchPlan('system', ['update'])} onclick={() => openPlan('system', ['update'], 'Update')}><i class="ph ph-arrow-circle-up"></i>Update…</button>
+          <Button variant="primary" class="b13" icon="arrow-circle-up" busy={jobRunning('system', ['update'])} busyLabel="Updating…" tooltip={'Update the server (snapshots first; shows the plan)'} disabled={!!deck?.data?.locked} onpointerenter={() => prefetchPlan('system', ['update'])} onfocus={() => prefetchPlan('system', ['update'])} onclick={() => openPlan('system', ['update'], 'Update')}>Update…</Button>
           <button use:tip={'Read what is new, change by change'} class="btn b13" onclick={() => go('/operations/whats-new')}><i class="ph ph-sparkle"></i>What's new</button>
         </div>
       </div>
       <div class="card sec">
         <div class="st">New options</div>
         <p class="hp2">After an update machine.toml may lack options that were added. Syncing puts them in their place with their defaults; your values stay. It shows the plan first.</p>
-        <button use:tip={'Put machine.toml in the layout of the example (shows the plan)'} class="btn sm" style="align-self:flex-start" onclick={() => openPlan('config', ['sync'], 'Sync machine.toml')}><i class="ph ph-arrows-clockwise"></i>Sync new options…</button>
+        <Button size="sm" icon="arrows-clockwise" style="align-self:flex-start" busy={jobRunning('config', ['sync'])} busyLabel="Syncing…" tooltip={'Put machine.toml in the layout of the example (shows the plan)'} onclick={() => openPlan('config', ['sync'], 'Sync machine.toml')}>Sync new options…</Button>
       </div>
     </div>
   {:else if fields.length}

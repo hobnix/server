@@ -1939,3 +1939,4 @@ Deleting the container failed.	Das Löschen des Containers ist fehlgeschlagen.
 Docker is off.	Docker ist aus.
 Ports	Ports
 The background job could not be started.	Der Hintergrundauftrag konnte nicht gestartet werden.
+'%s' is not put into the backup (backupNewInstances is false). Later: hs backup ct %s on	'%s' wird nicht ins Backup aufgenommen (backupNewInstances ist false). Später: hs backup ct %s on

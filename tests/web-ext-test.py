@@ -65,6 +65,14 @@ class ExtPages(unittest.TestCase):
         got = self.pages('[web.page]\ntitle = "Demo"\n[[web.page.actions]]\nlabel = "x"\nplan = ["ct", "a", "stop"]\n')
         self.assertEqual(got, [])
 
+    def test_an_input_action_needs_a_label_and_the_input_in_its_plan(self):
+        act = '[web.page]\ntitle = "Demo"\n[[web.page.actions]]\nlabel = "Go"\nplan = ["ext/demo", "go", "{input}"]\n'
+        self.assertEqual(self.pages(act + 'input = { label = "Name", pattern = "^[a-z]+$", suggest = { read = "list" } }\n')[0]["name"], "demo")
+        self.assertEqual(self.pages(act + 'input = { placeholder = "x" }\n'), [])                       # no label
+        self.assertEqual(self.pages(act.replace(', "{input}"', '') + 'input = { label = "Name" }\n'), [])   # nothing takes the value
+        self.assertEqual(self.pages(act + 'input = { label = "Name", suggest = { read = "secret" } }\n'), [])   # a read the package did not declare
+        self.assertEqual(self.pages(act + 'input = { label = "Name", pattern = "(" }\n'), [])             # a pattern that does not compile
+
     def test_an_unknown_block_type_is_refused(self):
         self.assertEqual(self.pages('[web.page]\ntitle = "Demo"\n[[web.page.blocks]]\ntype = "script"\n'), [])
 

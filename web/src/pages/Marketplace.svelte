@@ -4,7 +4,7 @@
   // that came from a repository somebody added is red (the typed word is its name).
   import { tip } from '../ui/tooltip.svelte.js';
   import { poll, rows, refresh } from '../data.svelte.js';
-  import { openPlan, openCreate, ui } from '../ui.svelte.js';
+  import { openPlan, openCreate, jobRunning, ui } from '../ui.svelte.js';
   import { route, go } from '../route.svelte.js';
   import { start } from '../api.js';
   import RepoAdd from '../forms/ops/RepoAdd.svelte';
@@ -12,6 +12,7 @@
   import PageHeader from '../shell/PageHeader.svelte';
   import PageState from '../shell/PageState.svelte';
   import PageTabs from '../ui/PageTabs.svelte';
+  import Button from '../ui/Button.svelte';
   import StatusDot from '../ui/StatusDot.svelte';
 
   const market = poll('/api/sys/pkg/market', 30000);
@@ -124,7 +125,7 @@
 <PageHeader title="Marketplace" crumb={ui.host}
             sub={market.loaded && !market.error ? `${pkgs.length} packages from ${repos.length} repositories${updates ? ` · ${updates} update${updates > 1 ? 's' : ''}` : ''}` : 'Apps and extensions from the repositories you trust.'}>
   {#snippet actions()}
-    <button class="btn" use:tip={'Read the repositories again and find the newest releases'} onclick={fetchAll}><i class="ph ph-arrows-clockwise"></i>Check for updates</button>
+    <Button icon="arrows-clockwise" busy={jobRunning('pkg', ['fetch'])} busyLabel="Checking…" tooltip={'Read the repositories again and find the newest releases'} onclick={fetchAll}>Check for updates</Button>
     <button class="btn btn-primary" use:tip={'Add a repository of packages'} onclick={addRepo}><i class="ph ph-plus"></i>Add repository</button>
   {/snippet}
 </PageHeader>
@@ -163,9 +164,9 @@
             <input type="checkbox" checked={selected.has(p.name)} onchange={(e) => toggle(p.name, e.target.checked)} aria-label="Select {p.name}" />
           {:else if col.key === 'go'}
             {#if p.state === 'new'}
-              <button class="btn sm btn-primary" use:tip={`Install ${p.name} from ${p.repo}`} onclick={() => install(p)}>Install</button>
+              <Button variant="primary" size="sm" busy={jobRunning('pkg', ['install', p.name])} busyLabel="Installing…" tooltip={`Install ${p.name} from ${p.repo}`} onclick={() => install(p)}>Install</Button>
             {:else if p.state === 'update'}
-              <button class="btn sm btn-primary" use:tip={`Update to ${p.avail}: shows what changed first`} onclick={() => update(p)}>Update</button>
+              <Button variant="primary" size="sm" busy={jobRunning('pkg', ['update', p.name])} busyLabel="Updating…" tooltip={`Update to ${p.avail}: shows what changed first`} onclick={() => update(p)}>Update</Button>
             {/if}
           {:else if col.key === 'name'}
             <span class="nm"><i class="ph ph-{kindIcon(p.kind)}" style="color:{p.state === 'new' ? 'var(--fg-3)' : 'var(--accent-ink)'}"></i>{p.name}</span>
@@ -177,7 +178,7 @@
           {:else if col.key === 'state'}
             <StatusDot state={stateDot(p)} label={stateText(p)} />
           {:else if p.state !== 'new'}
-            <button class="btn btn-ghost btn-icon" disabled={p.core} use:tip={p.core ? 'The server refers to this package by name: it stays' : 'Remove the installed copy (data and containers stay)'} aria-label="Remove {p.name}" onclick={() => remove(p)}><i class="ph ph-trash"></i></button>
+            <Button variant="ghost" class="btn-icon" icon="trash" disabled={p.core} busy={jobRunning('pkg', ['remove', p.name])} tooltip={p.core ? 'The server refers to this package by name: it stays' : 'Remove the installed copy (data and containers stay)'} aria-label="Remove {p.name}" onclick={() => remove(p)} />
           {/if}
         {/snippet}
       </Table>
@@ -198,7 +199,7 @@
           {:else if col.key === 'from'}
             {r.from === 'default' ? 'this project' : 'added by you'}
           {:else if r.from === 'added'}
-            <button class="btn btn-ghost btn-icon" use:tip={'Take this repository out (installed packages stay)'} aria-label="Remove {r.name}" onclick={() => dropRepo(r)}><i class="ph ph-trash"></i></button>
+            <Button variant="ghost" class="btn-icon" icon="trash" busy={jobRunning('pkg', ['repo-remove', r.name])} tooltip={'Take this repository out (installed packages stay)'} aria-label="Remove {r.name}" onclick={() => dropRepo(r)} />
           {/if}
         {/snippet}
       </Table>
@@ -224,9 +225,9 @@
       </ul>
       <div class="bulk-foot">
         <button class="btn" onclick={cancelBulk}>Cancel</button>
-        <button class="btn {bulkOpen.action === 'remove' ? 'btn-danger' : 'btn-primary'}" disabled={bulkBusy} onclick={confirmBulk}>
+        <Button variant={bulkOpen.action === 'remove' ? 'danger' : 'primary'} disabled={bulkBusy} onclick={confirmBulk}>
           {bulkOpen.action === 'remove' ? 'Remove' : 'Start'}{bulkOpen.items.length === 1 ? '' : ' ' + bulkOpen.items.length + (bulkOpen.action === 'remove' ? '' : ' jobs')}
-        </button>
+        </Button>
       </div>
     </div>
   </div>

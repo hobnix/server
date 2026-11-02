@@ -1,7 +1,7 @@
 <script>
-  import { tip } from '../../ui/tooltip.svelte.js';
   import { poll, rows } from '../../data.svelte.js';
-  import { openPlan } from '../../ui.svelte.js';
+  import { openPlan, jobRunning } from '../../ui.svelte.js';
+  import Button from '../../ui/Button.svelte';
 
   let { name } = $props();
   // name, created
@@ -19,8 +19,8 @@
   <td class="n400" style="padding:4px 8px">{ok ? (snaps.length ? snaps[0][1] : '—') : ''}</td>
   <td style="padding:2px 8px">
     <span class="acts">
-      <button class="btn btn-ghost btn-icon" aria-label="Snapshot now" use:tip={'Snapshot now'} onclick={() => openPlan('ct', [name, 'snapshot'], `Snapshot ${name}`)}><i class="ph ph-camera"></i></button>
-      <button class="btn btn-ghost btn-icon" disabled={!newestName} aria-label="Restore newest" use:tip={newestName ? `Restore ${newestName}` : 'No snapshot to restore'} onclick={() => openPlan('ct', [name, 'restore', '--snapshot', newestName], `Restore ${name}`)}><i class="ph ph-arrow-u-up-left"></i></button>
+      <Button variant="ghost" class="btn-icon" icon="camera" busy={jobRunning('ct', [name, 'snapshot'])} aria-label="Snapshot now" tooltip={'Snapshot now'} onclick={() => openPlan('ct', [name, 'snapshot'], `Snapshot ${name}`)} />
+      <Button variant="ghost" class="btn-icon" icon="arrow-u-up-left" disabled={!newestName} busy={jobRunning('ct', [name, 'restore', '--snapshot', newestName])} aria-label="Restore newest" tooltip={newestName ? `Restore ${newestName}` : 'No snapshot to restore'} onclick={() => openPlan('ct', [name, 'restore', '--snapshot', newestName], `Restore ${name}`)} />
     </span>
   </td>
 </tr>

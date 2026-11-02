@@ -128,6 +128,11 @@ class Changes(unittest.TestCase):
         self.assertEqual(d["secret"], {"login": "remote-bob", "domain": "HOME", "host": "me.local", "password": "Pw-Aa1"})
         self.assertNotIn("secret", ws.parse_change("status\tdone\n", 0))
 
+    def test_fix_lines_of_a_refused_plan(self):
+        d = ws.parse_change("status\trefused\nreason\tno route\nfix\ths ext x expose public <name>\nfix\ths services apply\n", 1)
+        self.assertEqual(d["fixes"], ["hs ext x expose public <name>", "hs services apply"])
+        self.assertEqual(ws.parse_change("status\tdone\n", 0)["fixes"], [])
+
     def test_plan_shapes(self):
         d = ws.parse_change("status\tok\nheading\treboot the server\nstep\ta\nwarn\tLOCKED\ndanger\tgoes down\ncommand\tbash power.sh reboot --yes\n"
                             "confirm_name\treboot\nlong\tno\n", 0)

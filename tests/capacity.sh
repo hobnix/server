@@ -84,6 +84,14 @@ check_out "80 % is a plan" "^ssd:nvme0n1:wear	SSD nvme0n1 has used 82 %" echo "$
 check_out "96 % is urgent" "^ssd:sda:wear-high	SSD sda has used 96 %" echo "$out"
 out=$(capacity_problems)
 if grep -q '^ssd:' <<<"$out"; then fail "healthy SSDs are quiet"; else pass "healthy SSDs are quiet"; fi
+echo "-- a wear reading is kept for an hour"
+out=$(HS_CAP_WEAR_TTL=3600 HS_NOW=5000000 WEAR_NVME=82 capacity_problems)
+check_out "the first reading comes from the disk" "^ssd:nvme0n1:wear[[:space:]]" echo "$out"
+out=$(HS_CAP_WEAR_TTL=3600 HS_NOW=5000100 capacity_problems)
+check_out "within the hour the kept reading is used" "^ssd:nvme0n1:wear[[:space:]]" echo "$out"
+out=$(HS_CAP_WEAR_TTL=3600 HS_NOW=$((5000000 + 4000)) capacity_problems)
+if grep -q '^ssd:nvme0n1' <<<"$out"; then fail "after the hour the disk is asked again"; else pass "after the hour the disk is asked again"; fi
+rm -f "$HS_STATE_DIR/wear-cache"
 mkdir -p "$WORK/nocache"
 touch -d '3 days ago' "$WORK/nocache/old.bin"
 check_out "a three day old upload is a backlog" "^space:cache-backlog	uploads have been waiting in the SSD cache for (7[0-9]|8[0-9]) hours" capacity_problems

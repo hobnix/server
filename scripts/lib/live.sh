@@ -6,6 +6,6 @@
 live_refresh() {
   if [ -n "${HS_LIVE_LOG:-}" ]; then printf '%s\n' "$*" >>"$HS_LIVE_LOG" 2>/dev/null || true; return 0; fi
   [ -S "${HS_LIVE_SOCKET:-/run/redis-hobnix/redis.sock}" ] || return 0
-  timeout 2 python3 "$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)/live_state.py" refresh "$@" >/dev/null 2>&1 || true
+  timeout 2 python3 "$(cd "${BASH_SOURCE[0]%/*}/.." && pwd)/live_state.py" refresh "$@" >/dev/null 2>&1 || true
   return 0
 }

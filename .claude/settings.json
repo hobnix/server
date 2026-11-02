@@ -13,6 +13,12 @@
         "matcher": "startup|resume|clear|compact",
         "hooks": [{ "type": "command", "command": "bash scripts/dev/session-context.sh" }]
       }
+    ],
+    "PreToolUse": [
+      {
+        "matcher": "Edit|Write|NotebookEdit|Bash|PowerShell",
+        "hooks": [{ "type": "command", "command": "bash \"$CLAUDE_PROJECT_DIR/scripts/dev/guard-primary-checkout.sh\"" }]
+      }
     ]
   }
 }

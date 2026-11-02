@@ -3,9 +3,10 @@
   // The key of one node and the line its owner has to put on that server (hs sys node keyline <name>: only the PUBLIC half). Shows what is missing
   // when there is no key yet, with the button that makes it. `name` is the node. Used in the Nodes drawer and on the Summary of a node that never answered.
   import { poll, rows } from '../../data.svelte.js';
-  import { openPlan } from '../../ui.svelte.js';
+  import { openPlan, jobRunning } from '../../ui.svelte.js';
   import { keyInfo } from './nodes.js';
   import Banner from '../../ui/Banner.svelte';
+  import Button from '../../ui/Button.svelte';
 
   let { name, canChange = true } = $props();
   const kl = poll(() => `/api/sys/node/keyline/${encodeURIComponent(name)}`, 8000);
@@ -25,7 +26,7 @@
 {:else if info.key !== 'ok'}
   <div class="stack">
     <div class="muted">There is no key for {name} yet. The key lets this server ask for the status of {name}, and nothing else.</div>
-    {#if canChange}<button use:tip={'Make the key that lets this server ask for the status'} class="btn btn-primary sm" onclick={() => openPlan('node', ['key', name], `Make the key for ${name}`)}><i class="ph ph-key"></i>Make the key</button>{/if}
+    {#if canChange}<Button variant="primary" size="sm" icon="key" busy={jobRunning('node', ['key', name])} busyLabel="Making…" tooltip={'Make the key that lets this server ask for the status'} onclick={() => openPlan('node', ['key', name], `Make the key for ${name}`)}>Make the key</Button>{/if}
   </div>
 {:else}
   <div class="stack">
@@ -33,7 +34,7 @@
     <pre class="line">{info.line}</pre>
     <div class="row">
       <button use:tip={'Copy the line to the clipboard'} class="btn sm" onclick={copy}><i class="ph ph-{copied ? 'check' : 'copy'}"></i>{copied ? 'Copied' : 'Copy the line'}</button>
-      {#if canChange}<button use:tip={'Replace the key: the old line stops working'} class="btn btn-ghost sm" onclick={() => openPlan('node', ['key', name, '--new'], `New key for ${name}`)}><i class="ph ph-arrows-clockwise"></i>New key…</button>{/if}
+      {#if canChange}<Button variant="ghost" size="sm" icon="arrows-clockwise" busy={jobRunning('node', ['key', name, '--new'])} tooltip={'Replace the key: the old line stops working'} onclick={() => openPlan('node', ['key', name, '--new'], `New key for ${name}`)}>New key…</Button>{/if}
     </div>
   </div>
 {/if}
