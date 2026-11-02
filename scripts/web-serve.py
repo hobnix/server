@@ -1196,11 +1196,13 @@ def validate_change(body):
 def parse_change(out, rc):
     """The key<TAB>value lines of a plan or start (scripts/*-change.sh) as one object. step, note, warn, danger, section and text (the update preview lists commits) keep their order."""
     d = {"exit": rc, "status": "", "reason": "", "heading": "", "command": "", "confirm_name": "", "long": False, "unit": "",
-         "needs": [], "options": [], "steps": []}
+         "needs": [], "options": [], "steps": [], "fixes": []}
     for line in out.splitlines():
         k, _, v = line.partition("\t")
         if k in ("step", "note", "warn", "danger", "section", "text"):
             d["steps"].append([k, v])
+        elif k == "fix":
+            d["fixes"].append(v)       # a refused plan: the command that makes it possible
         elif k == "needs":
             d["needs"].append(v)
         elif k == "option":

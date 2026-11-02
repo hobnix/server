@@ -10,6 +10,7 @@
   //   title, crumb?, sub?,
   //   actions?: [{ label, icon?, primary?, danger?, plan: [area, arg, ...], planTitle? }   // opens the plan dialog (openPlan): the ONLY way a page changes anything
   //            | { label, form: 'Name' }],                                                  // opens a form of `forms` (a CreateDialog component)
+  //            | { label, plan: [area, ..., '{input}'], input: { label, placeholder?, hint?, pattern?, invalid?, suggest?: { read } } }],   // asks for one value first (InputForm); {input} is it; suggest = a declared read whose first field prefills the field
   //   tabs?: [{ id, label }],                                                               // page tabs; a block with `tab` shows only on that tab
   //   blocks: [block, ...] }
   //
@@ -38,6 +39,8 @@
   import { tr } from '../i18n.js';
   import { openPlan, openCreate } from '../ui.svelte.js';
   import { tpl, planArgs } from './generic.js';
+  import { poll, rows as rowsOf } from '../data.svelte.js';
+  import InputForm from '../forms/ops/InputForm.svelte';
 
   let { spec, forms = {}, data = null } = $props();
 
@@ -45,8 +48,17 @@
   const active = $derived(tab || spec.tabs?.[0]?.id || '');
   const blocks = $derived((spec.blocks ?? []).filter((b) => !b.tab || b.tab === active));
 
-  function run(a) {
-    if (a.form) openCreate(forms[a.form], a.props ?? {});
+  // `input.suggest = { read }`: the first field of the first row of that read is what the field starts with ("-" = nothing)
+  const suggested = (spec.actions ?? []).map((a) => {
+    const p = a.input?.suggest?.read;
+    if (!p) return null;
+    return data?.[p] ? { data: data[p] } : poll(p, 60000);
+  });
+  const suggestion = (i) => { const v = suggested[i] ? (rowsOf(suggested[i])[0] ?? [])[0] : ''; return !v || v === '-' ? '' : String(v); };
+
+  function run(a, i) {
+    if (a.input) openCreate(InputForm, { action: a, suggest: suggestion(i) });
+    else if (a.form) openCreate(forms[a.form], a.props ?? {});
     else if (a.plan) openPlan(a.plan[0], planArgs(a.plan, {}), tpl(a.planTitle ?? a.label, {}));
   }
 </script>
@@ -54,8 +66,8 @@
 <div class="gp">
   <PageHeader title={spec.title} crumb={spec.crumb} sub={spec.sub}>
     {#snippet actions()}
-      {#each spec.actions ?? [] as a}
-        <button use:tip={a.form && !forms[a.form] ? 'This change has no form in the web interface yet' : ''} class="btn {a.primary ? 'btn-primary' : a.danger ? 'btn-danger' : 'btn-secondary'}" disabled={a.form && !forms[a.form]} onclick={() => run(a)}>{#if a.icon}<i class="ph ph-{a.icon}"></i>{/if}{a.label}</button>
+      {#each spec.actions ?? [] as a, i}
+        <button use:tip={a.form && !forms[a.form] ? 'This change has no form in the web interface yet' : ''} class="btn {a.primary ? 'btn-primary' : a.danger ? 'btn-danger' : 'btn-secondary'}" disabled={a.form && !forms[a.form]} onclick={() => run(a, i)}>{#if a.icon}<i class="ph ph-{a.icon}"></i>{/if}{a.label}</button>
       {/each}
     {/snippet}
   </PageHeader>
