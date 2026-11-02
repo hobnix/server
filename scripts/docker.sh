@@ -71,12 +71,13 @@ children() {   # one row per app: name parent project state ports
         print p "\t" ct "\t" p "\t" st[p] "\t" (out == "" ? "-" : out) }
     }' | sort -t "$tab" -k1,1
 }
+ct_addr() {   # the eth0 address of the container, one try; nothing when it has none (docker0 and the like are never the answer)
+  inc list "$CT" -f csv -c 4 2>/dev/null </dev/null | grep -oE '[0-9]+(\.[0-9]+){3} \(eth0\)' | head -1 | cut -d' ' -f1 || true
+}
 ct_ip() {   # the address of the container, up to 10 tries; nothing when it has none
-  local i out ip
+  local i ip
   for i in 1 2 3 4 5 6 7 8 9 10; do
-    out=$(inc list "$CT" -f csv -c 4 2>/dev/null </dev/null || true)
-    ip=$(printf '%s\n' "$out" | grep -oE '[0-9]+(\.[0-9]+){3} \(eth0\)' | head -1 | cut -d' ' -f1 || true)
-    [ -n "$ip" ] || ip=$(printf '%s\n' "$out" | grep -oE '[0-9]+(\.[0-9]+){3}' | head -1 || true)
+    ip=$(ct_addr)
     if [ -n "$ip" ]; then printf '%s\n' "$ip"; return 0; fi
     sleep 1
   done
@@ -93,7 +94,7 @@ status_rows() {   # key<TAB>value
   size=$(setting_get dockerSize 2>/dev/null || true); [ -n "$size" ] || size=m
   read -r mem cpus < <(size_of)
   n=$(children | wc -l | tr -d ' ')
-  if [ "$run" = yes ]; then addr=$(inc list "$CT" -f csv -c 4 2>/dev/null </dev/null | grep -oE '[0-9]+(\.[0-9]+){3}' | head -1 || true); fi
+  if [ "$run" = yes ]; then addr=$(ct_addr); fi
   printf 'state\t%s\ninstance\t%s\nowned\t%s\nrunning\t%s\nmanager\t%s\nsize\t%s\nmemory\t%s\ncpus\t%s\nchildren\t%s\naddress\t%s\n' \
     "$on" "$inst" "$own" "$run" "$(dash "$mgr")" "$size" "$mem" "$cpus" "$n" "$(dash "$addr")"
 }
@@ -160,7 +161,10 @@ st_manager() {
   manager_compose "$port" "$url" | inc exec "$CT" -- tee "$manager_dir/docker-compose.yml" >/dev/null || return 1
   inc exec "$CT" -- sh -c "cd $manager_dir && docker compose up -d" </dev/null
 }
-st_backup() { backup_cmd ct "$CT" on; }
+st_backup() {
+  if backup_new_instances_on; then backup_cmd ct "$CT" on
+  else note "$(t "'%s' is not put into the backup (backupNewInstances is false). Later: hs backup ct %s on" "$CT" "$CT")"; fi
+}
 
 plan_enable() {
   local s=1
@@ -172,7 +176,8 @@ plan_enable() {
     webui) note "$(t 'The manager webui is the web interface of hobnix. It is built later: for now only the choice is recorded.')" ;;
     none) note "$(t 'No manager: Docker only.')" ;;
   esac
-  line "$(t '%s. Lock the container (only hs docker disable deletes it) and add it to the backup.' "$s")"
+  if backup_new_instances_on; then line "$(t '%s. Lock the container (only hs docker disable deletes it) and add it to the backup.' "$s")"
+  else line "$(t '%s. Lock the container (only hs docker disable deletes it). It is not added to the backup (backupNewInstances is false).' "$s")"; fi
 }
 
 cmd_enable() {
@@ -216,7 +221,7 @@ cmd_enable() {
   run_step "$(t 'Install Docker')" st_install
   run_step "$(t 'Make /opt/apps')" st_dir
   case "$manager" in arcane|portainer) run_step "$(t 'Start the manager %s' "$manager")" st_manager ;; esac
-  run_step "$(t 'Add it to the backup')" st_backup
+  run_step "$(if backup_new_instances_on; then t 'Add it to the backup'; else t 'Leave it out of the backup'; fi)" st_backup
   setting_set dockerManager "$manager"
   if [ -n "$size" ]; then setting_set dockerSize "$size"; fi
   ok "$(t 'Docker is on.')"

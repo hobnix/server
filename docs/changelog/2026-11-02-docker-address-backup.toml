@@ -1,0 +1,4 @@
+date  = "2026-11-02"
+type  = "fix"
+title = "hs docker status shows the real address of the container, and hs docker enable follows the setting for the backup"
+body  = """The address was the one of the inner Docker bridge (172.17.0.1); it is now the address of the container. Turning Docker on puts the container into the backup only when backupNewInstances is true; otherwise it says how to do it later."""
