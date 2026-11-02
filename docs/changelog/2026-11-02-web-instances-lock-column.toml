@@ -1,0 +1,4 @@
+date  = "2026-11-02"
+type  = "feature"
+title = "The Instances table shows a lock for instances that a capability manages"
+body  = """A narrow Lock column marks locked instances with a closed lock (hover for the owner and how to unlock); unlocked rows stay empty. The column sorts like the others."""
