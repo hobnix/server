@@ -230,6 +230,7 @@ APP_TOPICS = {
     'pkg-market': (['pkg', 'market'], 120, 'skip', None, {'system', 'instances'}),
     'pkg-repos': (['pkg', 'repos'], 300, 'run', None, {'system'}),
     'recipes-list': (['recipes', 'list'], 60, 'skip', 'incus', {'instances', 'system'}),
+    'recipes-versions': (['recipes', 'versions'], 60, 'skip', None, {'instances', 'system'}),
 }
 
 
@@ -350,12 +351,12 @@ class Cli(unittest.TestCase):
                 if words[0] == "pkg":
                     self.assertEqual(g, "system", f[1])
                 if words[0] in ("pkg", "update", "ext", "parts", "system"):
-                    for n in ("pkg-market", "pkg-repos", "recipes-list"):
+                    for n in ("pkg-market", "pkg-repos", "recipes-list", "recipes-versions"):
                         if words[0] in ("ext", "parts") and n == "pkg-repos":
                             continue
                         self.assertIn(n, woken_by(g), (f[1], n))
                 if words[0] == "recipe":
-                    for n in ("pkg-market", "recipes-list"):
+                    for n in ("pkg-market", "recipes-list", "recipes-versions"):
                         self.assertIn(n, woken_by(g), (f[1], n))
         self.assertEqual(seen, {"pkg", "recipe", "update", "ext", "system"})
 

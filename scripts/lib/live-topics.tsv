@@ -59,6 +59,7 @@ services-stats	services stats	30	skip	dashboard	network
 pkg-market	pkg market	120	skip	-	system,instances
 pkg-repos	pkg repos	300	run	-	system
 recipes-list	recipes list	60	skip	incus	instances,system
+recipes-versions	recipes versions	60	skip	-	instances,system
 gateway-status	gateway status	60	skip	gateway	network,instances,system
 gateway-routes	gateway routes	60	skip	gateway	network,instances,system
 gateway-health	gateway health	300	skip	gateway	network,instances,system
