@@ -1,9 +1,10 @@
 <script>
   import { tip } from '../ui/tooltip.svelte.js';
+  import Button from '../ui/Button.svelte';
   import { onDestroy } from 'svelte';
   import { poll, rows } from '../data.svelte.js';
   import { get } from '../api.js';
-  import { ui, tasks, track, openPlan } from '../ui.svelte.js';
+  import { ui, tasks, track, openPlan, jobRunning } from '../ui.svelte.js';
 
   let { user = '' } = $props();
 
@@ -157,7 +158,7 @@
               <tr>
                 <td class="mono unit">{r[0]}</td><td class="soft">{ui.host}</td><td class="muted">{r[1]}</td><td class="muted">{r[3]}</td><td>{r[2]}</td>
                 <td><span class="res"><span class="dot {dot(r[4])}"></span>{r[4]}</span></td>
-                <td class="act"><button use:tip={'Run this job now (shows the plan first)'} class="btn btn-ghost" style="font-size:11.5px;padding:2px 6px" onclick={() => openPlan('jobs', ['run', r[0]], r[1] || r[0])}>Run now</button></td>
+                <td class="act"><Button variant="ghost" style="font-size:11.5px;padding:2px 6px" busy={jobRunning('jobs', ['run', r[0]])} busyLabel="Running…" tooltip={'Run this job now (shows the plan first)'} onclick={() => openPlan('jobs', ['run', r[0]], r[1] || r[0])}>Run now</Button></td>
               </tr>
             {:else}
               <tr><td colspan="7" class="empty">{jobs.loaded ? 'No scheduled jobs.' : 'Loading…'}</td></tr>

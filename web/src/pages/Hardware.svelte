@@ -1,9 +1,9 @@
 <script>
-  import { tip } from '../ui/tooltip.svelte.js';
   import PageHeader from '../shell/PageHeader.svelte';
   import { poll, rows } from '../data.svelte.js';
   import { bytes, pct, duration } from '../format.js';
-  import { openPlan } from '../ui.svelte.js';
+  import { openPlan, jobRunning } from '../ui.svelte.js';
+  import Button from '../ui/Button.svelte';
 
   let { deck } = $props();
   const ups = poll('/api/sys/ups/status', 20000);
@@ -63,7 +63,7 @@
 
 <div class="page">
   <PageHeader title="Hardware" crumb="Monitoring" sub="Sensors, fans and the UPS of this server.">
-    {#snippet actions()}<button class="btn btn-secondary" use:tip={'Run the fans at full speed for a few seconds'} onclick={() => openPlan('admin', ['fans-clean'], 'Clean the fans')}><i class="ph ph-fan"></i>Clean fans</button>{/snippet}
+    {#snippet actions()}<Button icon="fan" busy={jobRunning('admin', ['fans-clean'])} tooltip={'Run the fans at full speed for a few seconds'} onclick={() => openPlan('admin', ['fans-clean'], 'Clean the fans')}>Clean fans</Button>{/snippet}
   </PageHeader>
 
   <div class="grid">

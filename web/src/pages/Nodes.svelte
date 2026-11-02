@@ -6,11 +6,12 @@
   import { untrack } from 'svelte';
   import { poll, rows } from '../data.svelte.js';
   import { go } from '../route.svelte.js';
-  import { ui, openPlan, openCreate } from '../ui.svelte.js';
+  import { ui, openPlan, openCreate, jobRunning } from '../ui.svelte.js';
   import Table from '../shell/Table.svelte';
   import NodeProbe from '../shell/NodeProbe.svelte';
   import PageHeader from '../shell/PageHeader.svelte';
   import PageState from '../shell/PageState.svelte';
+  import Button from '../ui/Button.svelte';
   import StatusDot from '../ui/StatusDot.svelte';
   import Chip from '../ui/Chip.svelte';
   import Kv from '../ui/Kv.svelte';
@@ -107,7 +108,7 @@
           {#snippet actions()}
             <button use:tip={'Switch the interface to this server'} class="btn btn-primary" onclick={() => go(`/node/${encodeURIComponent(sel.name)}`)}><i class="ph ph-arrow-right"></i>Open</button>
             {#if sel.kind !== 'main' && sel.source === 'file'}
-              <button use:tip={'Take this server off the list (the server itself is not touched)'} class="btn btn-ghost danger" onclick={() => { const n = sel.name; selName = ''; openPlan('node', ['remove', n], `Remove ${n}`); }}><i class="ph ph-trash"></i>Remove…</button>
+              <Button variant="ghost" class="danger" icon="trash" busy={jobRunning('node', ['remove', sel.name])} tooltip={'Take this server off the list (the server itself is not touched)'} onclick={() => { const n = sel.name; selName = ''; openPlan('node', ['remove', n], `Remove ${n}`); }}>Remove…</Button>
             {/if}
           {/snippet}
         </Drawer>

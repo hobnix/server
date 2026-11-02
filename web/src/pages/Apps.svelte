@@ -9,6 +9,7 @@
   import Table from '../shell/Table.svelte';
   import PageHeader from '../shell/PageHeader.svelte';
   import PageState from '../shell/PageState.svelte';
+  import Button from '../ui/Button.svelte';
   import StatusDot from '../ui/StatusDot.svelte';
   import { link } from './instances/ct.js';
   import { appAction } from './apps.js';
@@ -159,8 +160,8 @@
   {#if selected.size}
     <div class="bulk">
       <span class="bulk-count">{selected.size} selected</span>
-      <button class="btn sm {canInstall ? 'btn-primary' : 'btn-ghost'}" disabled={!canInstall || bulkBusy} onclick={() => runBulk('install')}>Install selected</button>
-      <button class="btn sm {canUpdate ? 'btn-primary' : 'btn-ghost'}" disabled={!canUpdate || bulkBusy} onclick={() => runBulk('update')}>Update selected</button>
+      <Button size="sm" variant={canInstall ? 'primary' : 'ghost'} disabled={!canInstall || bulkBusy} onclick={() => runBulk('install')}>Install selected</Button>
+      <Button size="sm" variant={canUpdate ? 'primary' : 'ghost'} disabled={!canUpdate || bulkBusy} onclick={() => runBulk('update')}>Update selected</Button>
       <button class="btn btn-ghost sm" disabled={bulkBusy} onclick={() => (selected = new Set())}>Clear selection</button>
     </div>
   {/if}
@@ -192,7 +193,7 @@
           <StatusDot state={on ? 'ok' : a.state === 'partly' ? 'warn' : 'off'} label={a.state} />
         {:else}
           <button class="btn btn-ghost btn-icon" disabled={!hasService(a)} use:tip={hasService(a) ? 'Services: local and public access' : a.cts ? 'No service is described yet: Update the app to describe it' : 'Install the app first'} aria-label="Services of {a.name}" onclick={() => services(a)}><i class="ph ph-globe-hemisphere-west"></i></button>
-          <button class="btn btn-ghost btn-icon" use:tip={copied === a.name ? 'Copied' : 'Copy the terminal command: hs recipe ' + a.name} aria-label="Copy hs recipe {a.name}" onclick={() => copy(a.name)}><i class="ph ph-{copied === a.name ? 'check' : 'terminal-window'}"></i></button>
+          <Button variant="ghost" class="btn-icon" icon={copied === a.name ? 'check' : 'terminal-window'} tooltip={copied === a.name ? 'Copied' : 'Copy the terminal command: hs recipe ' + a.name} aria-label="Copy hs recipe {a.name}" onclick={() => copy(a.name)} />
         {/if}
       {/snippet}
     </Table>
@@ -209,7 +210,7 @@
       </ul>
       <div class="bulk-foot">
         <button class="btn" onclick={cancelBulk}>Cancel</button>
-        <button class="btn btn-primary" disabled={bulkBusy} onclick={confirmBulk}>Start {bulkOpen.items.length} job{bulkOpen.items.length === 1 ? '' : 's'}</button>
+        <Button variant="primary" disabled={bulkBusy} onclick={confirmBulk}>Start {bulkOpen.items.length} job{bulkOpen.items.length === 1 ? '' : 's'}</Button>
       </div>
     </div>
   </div>

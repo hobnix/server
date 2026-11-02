@@ -11,7 +11,8 @@
   import { route, go } from '../route.svelte.js';
   import { filesLink } from '../files/links.js';
   import { setSelection } from '../select.svelte.js';
-  import { openPlan, openCreate } from '../ui.svelte.js';
+  import { openPlan, openCreate, jobRunning } from '../ui.svelte.js';
+  import Button from '../ui/Button.svelte';
   import AddDisks from '../forms/storage/AddDisks.svelte';
   import ReplaceMember from '../forms/storage/ReplaceMember.svelte';
   import RemoveMember from '../forms/storage/RemoveMember.svelte';
@@ -160,8 +161,8 @@
       <button use:tip={'Back to the list of pools'} class="btn" onclick={() => go('/storage/pools')}><i class="ph ph-caret-left"></i>All pools</button>
       <button class="btn" disabled={locked || failed} use:tip={locked ? 'The storage is locked: the pools are down' : 'Pick free disks and see the plan'} onclick={() => addPool('empty')}><i class="ph ph-plus"></i>{notCreated ? 'Create pool' : snap ? 'Add disks' : 'Add mirror pair'}</button>
       {#if snap}<button class="btn" disabled={why('') !== ''} use:tip={why('Bring a disk that already holds files into the pool')} onclick={() => addPool('adopt')}><i class="ph ph-hand-arrow-down"></i>Adopt disks</button>{/if}
-      <button class="btn btn-primary" disabled={unavailable || notCreated} use:tip={runTitle}
-        onclick={() => (snap ? openPlan('system', ['sync'], 'Sync parity') : openPlan('system', ['scrub', '--pool', pool], `Scrub ${pool}`))}><i class="ph {snap ? 'ph-arrows-clockwise' : 'ph-broom'}"></i>{snap ? 'Sync parity now' : 'Scrub now'}</button>
+      <Button variant="primary" icon={snap ? 'arrows-clockwise' : 'broom'} disabled={unavailable || notCreated} busy={snap ? jobRunning('system', ['sync']) : jobRunning('system', ['scrub', '--pool', pool])} tooltip={runTitle}
+        onclick={() => (snap ? openPlan('system', ['sync'], 'Sync parity') : openPlan('system', ['scrub', '--pool', pool], `Scrub ${pool}`))}>{snap ? 'Sync parity now' : 'Scrub now'}</Button>
     {/snippet}
   </PageHeader>
 

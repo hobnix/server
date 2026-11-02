@@ -2,7 +2,6 @@
   // /settings/capabilities/<name>: the settings page of one capability, the same for all (no per-capability component). From top to bottom:
   // the header (title, on/off, the switch), a status block ([settings] status: StatusPanel) and a setup block ([[settings.steps]]: Steps), then the fields of the
   // keys that belong to this capability (layout.gen.json, page cap:<name>). A capability that is off still has its page: it is how it gets switched on.
-  import { tip } from '../ui/tooltip.svelte.js';
   import { route } from '../route.svelte.js';
   import PageHeader from '../shell/PageHeader.svelte';
   import StatusDot from '../ui/StatusDot.svelte';
@@ -15,6 +14,8 @@
   import { fieldsFor } from './layout.js';
   import { useConfig } from './config.svelte.js';
   import { useParts, flip } from './parts.svelte.js';
+  import { jobRunning } from '../ui.svelte.js';
+  import Button from '../ui/Button.svelte';
 
   // the router gives no props: the name is the last part of the address (a caller may pass it)
   let { name = '' } = $props();
@@ -34,7 +35,7 @@
       {#if part}
         <StatusDot state={part.on ? 'ok' : 'off'} label={part.on ? 'on' : 'off'} />
         {#if part.nix}<Chip>rebuild</Chip>{/if}
-        <button use:tip={!part.canSwitch ? 'This part cannot be switched here' : part.on ? 'Switch this part off (shows the plan)' : 'Switch this part on (shows the plan)'} class="btn" disabled={!part.canSwitch} onclick={() => flip(part)}>{part.on ? 'Switch off…' : 'Switch on…'}</button>
+        <Button busy={jobRunning('parts', [part.on ? 'disable' : 'enable', part.name])} busyLabel="Switching…" disabled={!part.canSwitch} tooltip={!part.canSwitch ? 'This part cannot be switched here' : part.on ? 'Switch this part off (shows the plan)' : 'Switch this part on (shows the plan)'} onclick={() => flip(part)}>{part.on ? 'Switch off…' : 'Switch on…'}</Button>
       {:else if !partList.loaded}
         <span class="muted">Loading…</span>
       {/if}

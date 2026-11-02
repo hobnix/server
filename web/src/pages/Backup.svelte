@@ -2,7 +2,8 @@
   import { tip } from '../ui/tooltip.svelte.js';
   import { poll, rows, refresh } from '../data.svelte.js';
   import { bytes, ago } from '../format.js';
-  import { openPlan, openCreate, ui } from '../ui.svelte.js';
+  import { openPlan, openCreate, ui, jobRunning } from '../ui.svelte.js';
+  import Button from '../ui/Button.svelte';
   import RestoreFiles from '../forms/backup/RestoreFiles.svelte';
   import SetupDisk from '../forms/backup/SetupDisk.svelte';
   import { get, prefetchPlan } from '../api.js';
@@ -98,11 +99,11 @@
 
 <PageHeader title="Backup" crumb="{ui.host} › Protection" sub="restic on the backup disk · 7 daily / 4 weekly / 6 monthly · the one place that decides what is in the backup">
   {#snippet actions()}
-    <button class="btn" disabled={!!why} use:tip={tipWhy('Read part of the stored data and check it')} onpointerenter={() => prefetchPlan('backup', ['verify'])} onfocus={() => prefetchPlan('backup', ['verify'])} onclick={() => openPlan('backup', ['verify'], 'Verify the backup')}><i class="ph ph-seal-check"></i>Verify</button>
-    <button class="btn" disabled={!!why} use:tip={tipWhy('Give space back: delete leftovers of a failed run, apply the retention, prune')} onpointerenter={() => prefetchPlan('backup', ['prune'])} onfocus={() => prefetchPlan('backup', ['prune'])} onclick={() => openPlan('backup', ['prune'], 'Free space on the backup disk')}><i class="ph ph-broom"></i>Free space</button>
-    <button class="btn" disabled={!!why} use:tip={tipWhy('Restore a few random files and compare them with the originals')} onpointerenter={() => prefetchPlan('backup', ['drill'])} onfocus={() => prefetchPlan('backup', ['drill'])} onclick={() => openPlan('backup', ['drill'], 'Restore drill')}><i class="ph ph-first-aid-kit"></i>Restore drill</button>
-    <button class="btn" disabled={!!why && !browsing} use:tip={browsing ? 'Stop showing the backup as a read-only share' : tipWhy('Show the whole backup as a read-only share')} onclick={() => openPlan('backup', ['browse', '--to', browsing ? 'off' : 'on'], browsing ? 'Stop browsing the backup' : 'Browse the backup')}><i class="ph ph-folder-open"></i>{browsing ? 'Stop browsing' : 'Browse'}</button>
-    <button class="btn btn-primary" disabled={!!why} use:tip={tipWhy('Back up right now')} onpointerenter={() => prefetchPlan('backup', ['now'])} onfocus={() => prefetchPlan('backup', ['now'])} onclick={() => openPlan('backup', ['now'], 'Back up now')}><i class="ph ph-cloud-arrow-up"></i>Back up now</button>
+    <Button icon="seal-check" busy={jobRunning('backup', ['verify'])} busyLabel="Verifying…" disabled={!!why} onpointerenter={() => prefetchPlan('backup', ['verify'])} onfocus={() => prefetchPlan('backup', ['verify'])} tooltip={tipWhy('Read part of the stored data and check it')} onclick={() => openPlan('backup', ['verify'], 'Verify the backup')}>Verify</Button>
+    <Button icon="broom" busy={jobRunning('backup', ['prune'])} busyLabel="Freeing space…" disabled={!!why} onpointerenter={() => prefetchPlan('backup', ['prune'])} onfocus={() => prefetchPlan('backup', ['prune'])} tooltip={tipWhy('Give space back: delete leftovers of a failed run, apply the retention, prune')} onclick={() => openPlan('backup', ['prune'], 'Free space on the backup disk')}>Free space</Button>
+    <Button icon="first-aid-kit" busy={jobRunning('backup', ['drill'])} disabled={!!why} onpointerenter={() => prefetchPlan('backup', ['drill'])} onfocus={() => prefetchPlan('backup', ['drill'])} tooltip={tipWhy('Restore a few random files and compare them with the originals')} onclick={() => openPlan('backup', ['drill'], 'Restore drill')}>Restore drill</Button>
+    <Button icon="folder-open" busy={jobRunning('backup', ['browse', '--to', browsing ? 'off' : 'on'])} disabled={!!why && !browsing} tooltip={browsing ? 'Stop showing the backup as a read-only share' : tipWhy('Show the whole backup as a read-only share')} onclick={() => openPlan('backup', ['browse', '--to', browsing ? 'off' : 'on'], browsing ? 'Stop browsing the backup' : 'Browse the backup')}>{browsing ? 'Stop browsing' : 'Browse'}</Button>
+    <Button variant="primary" icon="cloud-arrow-up" busy={jobRunning('backup', ['now'])} busyLabel="Backing up…" disabled={!!why} onpointerenter={() => prefetchPlan('backup', ['now'])} onfocus={() => prefetchPlan('backup', ['now'])} tooltip={tipWhy('Back up right now')} onclick={() => openPlan('backup', ['now'], 'Back up now')}>Back up now</Button>
   {/snippet}
 </PageHeader>
 
@@ -126,8 +127,8 @@
       </div>
       <div class="offs">
         {#if s.offsite}
-          <button class="btn sm" disabled={!!why} use:tip={tipWhy('Copy the new backups to the off-site repository now')} onclick={() => openPlan('backup', ['offsite-now'], 'Copy to the off-site repository')}><i class="ph ph-arrows-clockwise"></i>Copy off-site now</button>
-          <button class="btn sm btn-ghost" use:tip={'Stop copying off site (what is there stays)'} onclick={() => openPlan('backup', ['offsite-off'], 'Switch the off-site copy off')}><i class="ph ph-cloud-slash"></i>Switch off</button>
+          <Button size="sm" icon="arrows-clockwise" busy={jobRunning('backup', ['offsite-now'])} disabled={!!why} tooltip={tipWhy('Copy the new backups to the off-site repository now')} onclick={() => openPlan('backup', ['offsite-now'], 'Copy to the off-site repository')}>Copy off-site now</Button>
+          <Button variant="ghost" size="sm" icon="cloud-slash" busy={jobRunning('backup', ['offsite-off'])} tooltip={'Stop copying off site (what is there stays)'} onclick={() => openPlan('backup', ['offsite-off'], 'Switch the off-site copy off')}>Switch off</Button>
         {:else}
           <span class="muted">Off-site copy: set one on the server with <span class="mono">hs backup offsite set &lt;repo&gt;</span> (an address can carry a password, so it is not typed here).</span>
         {/if}
@@ -167,7 +168,7 @@
       <div class="ctl"><b>Find a file</b><span class="cs">in every restore point</span></div>
       <form class="findrow" onsubmit={(e) => { e.preventDefault(); find(); }}>
         <input class="input" bind:value={q} placeholder="Part of a file name, e.g. Rechnung" maxlength="80" autocomplete="off" spellcheck="false" aria-label="Part of a file name" />
-        <button use:tip={!findOk ? 'Type at least part of a file name first' : 'Look for this name in all backups'} class="btn" type="submit" disabled={!findOk || finding}><i class="ph ph-magnifying-glass"></i>{finding ? 'Searching…' : 'Find'}</button>
+        <Button type="submit" icon="magnifying-glass" disabled={!findOk} busy={finding} busyLabel="Searching…" tooltip={!findOk ? 'Type at least part of a file name first' : 'Look for this name in all backups'}>Find</Button>
       </form>
       {#if findError}<div class="muted">{findError}</div>{/if}
       {#if found}

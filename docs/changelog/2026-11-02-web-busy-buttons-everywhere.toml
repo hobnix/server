@@ -1,0 +1,4 @@
+date  = "2026-11-02"
+type  = "change"
+title = "Buttons that start a job in the web interface show a spinner while it runs"
+body  = """Backup, Disks, Shares, Instances, Marketplace, Users, Network and the other pages now show a spinner on a button that started a job or a request, and the button ignores clicks until it is done."""
