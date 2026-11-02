@@ -1,0 +1,4 @@
+date  = "2026-11-02"
+type  = "fix"
+title = "Changing the Local or Public switch of an app's service updates the Services page at once"
+body  = """The dialog on the Apps page only wrote the service description and did not read the services and the route plan again, so the Apply count on the Services page could stay old for a while. The live-state collector now also writes one journal line per refresh request (which topics it woke)."""

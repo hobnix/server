@@ -40,7 +40,8 @@
   const tag = (a) => (a.state === 'installed' ? (a.cts ? `in ${a.cts.split(',').join(', ')}` : 'installed') : a.state);
 
   const run = (a) => openCreate(RunRecipe, { recipe: a.name });
-  const services = (a) => openCreate(AppServices, { app: a.name, cts: a.cts ? a.cts.split(',') : [] });
+  // the form only writes the description: read the services and the plan again now, so the Services page's Apply count is right at once
+  const services = (a) => openCreate(AppServices, { app: a.name, cts: a.cts ? a.cts.split(',') : [], ondone: () => refresh(['/api/sys/services/app', '/api/sys/services/list', '/api/sys/services/routes']) });
 
   let q = $state('');
   let show = $state('all');

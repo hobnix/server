@@ -64,13 +64,18 @@ class Collector:
         with self.tlock:
             items = list(self.events.items())
             info = dict(self.info)
+        woken = []
         for t, ev in items:
             if topic == "*" or topic == t:
                 ev.set()
+                woken.append(t)
             elif topic.startswith("@"):
                 groups = (info.get(t) or {}).get("groups", set())
                 if topic[1:] in groups or "any" in groups:
                     ev.set()
+                    woken.append(t)
+        # one journal line per request (journalctl -u hs-live): which topics it woke, so a stale page can be traced to a missing or late refresh
+        log("refresh %s -> %s" % (topic, "all %d topics" % len(woken) if topic == "*" else (", ".join(woken) or "no topic")))
 
     def collect(self, topic, words, mode="run"):
         """One read of one topic. Returns True when the key was written with new data."""
