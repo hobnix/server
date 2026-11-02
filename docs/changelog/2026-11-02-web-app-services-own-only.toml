@@ -1,0 +1,4 @@
+date  = "2026-11-02"
+type  = "fix"
+title = "The Services dialog of a Docker app shows only that app"
+body  = """The Services button of an app that runs inside the Docker container opened a dialog with a list of every app in that container. It now shows only the app you clicked."""
