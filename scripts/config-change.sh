@@ -169,7 +169,7 @@ xline() { extra="$extra$1"$'\t'"$2"$'\n'; }
 
 # check_extra <key> <value>: the per-key rules; refuses, or appends plan lines (warn/danger/confirm_name/note) to extra
 check_extra() {
-  local k=$1 v=$2 net bad out old_site
+  local k=$1 v=$2 net bad out old_site zi
   case "$k" in
     nic)
       [ -n "$v" ] || refuse "nic cannot be switched off."
@@ -210,6 +210,19 @@ print("in" if any(h.subnet_of(ipaddress.IPv4Network(t, strict=True)) for t in sy
       fi ;;
     incusUi)
       [ "$v" != false ] || xline warn "Port 8443 closes: the Incus web UI and incus remote clients stop working. An address set earlier stays until incus config unset core.https_address." ;;
+    webTerminal)
+      [ "$v" != true ] || xline warn "Everyone who can sign in to the web interface gets a shell as adminuser on this server." ;;
+    timeZone)
+      if [ -n "$v" ]; then
+        [[ "$v" != /* && "$v" != *..* ]] || refuse "'$v' is not a time zone such as Europe/Vienna."
+        zi=${HS_ZONEINFO:-}
+        if [ -z "$zi" ]; then
+          for zi in /etc/zoneinfo /run/current-system/sw/share/zoneinfo /usr/share/zoneinfo; do [ -d "$zi" ] && break; done
+        fi
+        [ -f "$zi/$v" ] || refuse "There is no time zone called $v (see timedatectl list-timezones)."
+      fi ;;
+    shareSnapshots)
+      [ "$v" != false ] || xline note "Switching snapshots off only stops the timer. Old snapshots stay on the disk but are no longer pruned." ;;
   esac
 }
 
@@ -323,6 +336,7 @@ if [ "$store" = settings ]; then
     printf 'step\twrite %s = %s to %s\n' "$key" "$value" "$(setting_path "$key")"
     printf 'command\ths sys config start set %s %s\n' "$key" "$(shq "$value")"
   fi
+  [ -z "$extra" ] || printf '%s' "$extra"
   printf 'note\tThis setting takes effect at once; no rebuild is needed.\n'
   printf 'long\tno\n'
   exit 0

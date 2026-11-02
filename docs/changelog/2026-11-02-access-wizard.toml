@@ -1,0 +1,4 @@
+date  = "2026-11-02"
+type  = "feature"
+title = "The browser terminal can be switched on in Settings under Users and access"
+body  = """The page asks whether to offer the terminal, then the idle time and the longest connection; a change takes effect at once and the plan warns that every signed-in user gets a shell as adminuser."""

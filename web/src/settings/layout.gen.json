@@ -518,11 +518,303 @@
      "options_from": "net nics"
     }
    ]
+  },
+  "storage": {
+   "apply": "config apply",
+   "steps": [
+    {
+     "id": "parity",
+     "title": "Parity updates",
+     "text": "New and changed files are unprotected until the next run, and each run wakes every disk.",
+     "keys": [
+      "syncEveryHours"
+     ],
+     "question": "How often should the SnapRAID parity be updated?",
+     "when": {
+      "bulkType": "snapraid"
+     },
+     "options": [
+      {
+       "id": "nightly",
+       "label": "Once a night",
+       "text": "At 03:00, so the disks can sleep the rest of the day.",
+       "set": {
+        "syncEveryHours": "24"
+       },
+       "recommended": true
+      },
+      {
+       "id": "twice",
+       "label": "Every 12 hours",
+       "text": "Changes are protected sooner; the disks wake twice a day.",
+       "set": {
+        "syncEveryHours": "12"
+       },
+       "recommended": false
+      },
+      {
+       "id": "often",
+       "label": "Every 4 hours",
+       "text": "Smallest window without protection; the disks wake six times a day.",
+       "set": {
+        "syncEveryHours": "4"
+       },
+       "recommended": false
+      }
+     ]
+    },
+    {
+     "id": "snapshots",
+     "title": "Snapshots",
+     "text": "Hourly ZFS snapshots: the last 24 hours, 7 days and 4 weeks are kept. They hold deleted files, so they use space.",
+     "keys": [
+      "shareSnapshots"
+     ],
+     "question": "Should every share get automatic snapshots?",
+     "when": {
+      "bulkType": "zfs"
+     },
+     "options": [
+      {
+       "id": "off",
+       "label": "No snapshots",
+       "text": "No extra space is used; a deleted file is gone.",
+       "set": {
+        "shareSnapshots": "false"
+       },
+       "recommended": true
+      },
+      {
+       "id": "on",
+       "label": "Hourly snapshots",
+       "text": "You can get an older version of a file back.",
+       "set": {
+        "shareSnapshots": "true"
+       },
+       "recommended": false
+      }
+     ]
+    },
+    {
+     "id": "sleep",
+     "title": "Disk sleep",
+     "text": "Spinning bulk, parity and backup disks only. The first access after a sleep takes 10 to 20 seconds.",
+     "keys": [
+      "diskSpindownMinutes"
+     ],
+     "question": "Should the data disks go to sleep when idle?",
+     "options": [
+      {
+       "id": "never",
+       "label": "Never",
+       "text": "The disks stay ready; no waiting.",
+       "set": {
+        "diskSpindownMinutes": ""
+       },
+       "recommended": true
+      },
+      {
+       "id": "min20",
+       "label": "After 20 minutes",
+       "text": "Saves power and noise on a server that is idle at times.",
+       "set": {
+        "diskSpindownMinutes": "20"
+       },
+       "recommended": false
+      },
+      {
+       "id": "min60",
+       "label": "After 60 minutes",
+       "text": "Saves power while short pauses do not wake-sleep the disks.",
+       "set": {
+        "diskSpindownMinutes": "60"
+       },
+       "recommended": false
+      }
+     ]
+    }
+   ]
+  },
+  "access": {
+   "apply": "config apply",
+   "steps": [
+    {
+     "id": "terminal",
+     "title": "Browser terminal",
+     "text": "A Terminal button in the top bar and on each instance. A change takes effect at once.",
+     "keys": [
+      "webTerminal"
+     ],
+     "question": "Should the web interface offer a terminal?",
+     "options": [
+      {
+       "id": "off",
+       "label": "No",
+       "text": "Shell access stays with ssh.",
+       "set": {
+        "webTerminal": "false"
+       },
+       "recommended": true
+      },
+      {
+       "id": "on",
+       "label": "Yes",
+       "text": "Everyone who can sign in to the web interface gets a shell as adminuser.",
+       "set": {
+        "webTerminal": "true"
+       },
+       "recommended": false
+      }
+     ]
+    },
+    {
+     "id": "idle",
+     "title": "Idle time",
+     "text": "Only typing counts, not output.",
+     "keys": [
+      "webTerminalIdleMinutes"
+     ],
+     "question": "When should an idle terminal window close?",
+     "when": {
+      "webTerminal": "true"
+     },
+     "options": [
+      {
+       "id": "m30",
+       "label": "After 30 minutes without typing",
+       "text": "The shell keeps running; signing in again reattaches it.",
+       "set": {
+        "webTerminalIdleMinutes": "30"
+       },
+       "recommended": true
+      },
+      {
+       "id": "m10",
+       "label": "After 10 minutes without typing",
+       "text": "The shell keeps running; signing in again reattaches it.",
+       "set": {
+        "webTerminalIdleMinutes": "10"
+       },
+       "recommended": false
+      },
+      {
+       "id": "m60",
+       "label": "After 60 minutes without typing",
+       "text": "The shell keeps running; signing in again reattaches it.",
+       "set": {
+        "webTerminalIdleMinutes": "60"
+       },
+       "recommended": false
+      }
+     ]
+    },
+    {
+     "id": "lifetime",
+     "title": "Longest connection",
+     "text": "After that the window closes and can be opened again.",
+     "keys": [
+      "webTerminalMaxHours"
+     ],
+     "question": "How long may one terminal connection last?",
+     "when": {
+      "webTerminal": "true"
+     },
+     "options": [
+      {
+       "id": "h8",
+       "label": "8 hours",
+       "text": "Then it closes and reattaches the same way.",
+       "set": {
+        "webTerminalMaxHours": "8"
+       },
+       "recommended": true
+      },
+      {
+       "id": "h2",
+       "label": "2 hours",
+       "text": "Then it closes and reattaches the same way.",
+       "set": {
+        "webTerminalMaxHours": "2"
+       },
+       "recommended": false
+      },
+      {
+       "id": "h12",
+       "label": "12 hours",
+       "text": "The web login itself ends after 12 hours.",
+       "set": {
+        "webTerminalMaxHours": "12"
+       },
+       "recommended": false
+      }
+     ]
+    }
+   ]
+  },
+  "general": {
+   "apply": "config apply",
+   "steps": [
+    {
+     "id": "language",
+     "title": "Language",
+     "text": "Commands, options and file names stay English.",
+     "keys": [
+      "language"
+     ],
+     "question": "Which language should hs and the web interface use?",
+     "options": [
+      {
+       "id": "en",
+       "label": "English",
+       "text": "Messages and descriptions are in English.",
+       "set": {
+        "language": "en"
+       },
+       "recommended": true
+      },
+      {
+       "id": "de",
+       "label": "Deutsch",
+       "text": "Messages and descriptions are in German.",
+       "set": {
+        "language": "de"
+       },
+       "recommended": false
+      }
+     ]
+    },
+    {
+     "id": "time-zone",
+     "title": "Time zone",
+     "text": "Such as Europe/Vienna. Empty means UTC. The logs, the timers and the times in the apps use it.",
+     "keys": [
+      "timeZone"
+     ]
+    },
+    {
+     "id": "keyboard",
+     "title": "Keyboard",
+     "text": "The keyboard layout of the console on the server itself, such as de. Empty means US.",
+     "keys": [
+      "keyMap"
+     ]
+    }
+   ]
   }
  },
  "defaults": {
+  "timeZone": "",
+  "language": "en",
+  "keyMap": "",
+  "webTerminal": "false",
+  "webTerminalIdleMinutes": "30",
+  "webTerminalMaxHours": "8",
   "dhcpRange": "[ 100 199 ]",
   "incusUi": "true",
+  "bulkType": "zfs",
+  "syncEveryHours": "24",
+  "shareSnapshots": "false",
+  "diskSpindownMinutes": "0",
   "backupNewShares": "false",
   "backupNewInstances": "true",
   "dockerSize": "m",

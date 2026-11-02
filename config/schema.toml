@@ -310,7 +310,7 @@ key = "webTerminal"
 page = "access"
 type = "bool"
 required = false
-settable = false
+settable = true
 secret = false
 store = "settings"
 default = 'false'
@@ -319,7 +319,7 @@ doc = '''
 # adminuser, like an SSH login; root needs sudo and adminuser's password as always) and one on each
 # instance (a shell inside it). Whoever may sign in to the web interface may open it, so switch it
 # on only when you are fine with that. Sessions end after 30 minutes without typing and after 8
-# hours; nothing is recorded. Default false. Needs webUi = true and a rebuild.'''
+# hours; nothing is recorded. Default false. Needs webUi = true; a change takes effect at once.'''
 value = '''
 webTerminal = true'''
 
@@ -329,11 +329,12 @@ key = "webTerminalIdleMinutes"
 page = "access"
 type = "int"
 required = false
-settable = false
+settable = true
 secret = false
 store = "settings"
 default = '30'
 min = 1
+hint = "a whole number of minutes, 1 or more"
 doc = '''
 # How long the browser terminal may stay without typing before the browser connection closes, in
 # minutes (only typing counts, not output). The shell itself keeps running in tmux: sign in again and
@@ -347,11 +348,12 @@ key = "webTerminalMaxHours"
 page = "access"
 type = "int"
 required = false
-settable = false
+settable = true
 secret = false
 store = "settings"
 default = '8'
 min = 1
+hint = "a whole number of hours, 1 or more"
 doc = '''
 # The longest a single browser terminal connection lasts, in hours; after that it closes and
 # reattaches the same way. The web login itself still ends after 12 hours. Default 8.'''
@@ -1673,3 +1675,192 @@ question = "Which network card is the cable in?"
 options_from = "net nics"
 text = "The port the server's cable is in. Everything goes through it: containers, shares, Tailscale. A wrong card leaves the server offline after the rebuild; the plan asks you to type the card's name."
 keys = ["nic"]
+
+[[page]]
+id = "storage"
+
+[[page.steps]]
+id = "parity"
+title = "Parity updates"
+question = "How often should the SnapRAID parity be updated?"
+text = "New and changed files are unprotected until the next run, and each run wakes every disk."
+keys = ["syncEveryHours"]
+when = { bulkType = "snapraid" }
+
+[[page.steps.options]]
+id = "nightly"
+label = "Once a night"
+text = "At 03:00, so the disks can sleep the rest of the day."
+set = { syncEveryHours = "24" }
+recommended = true
+
+[[page.steps.options]]
+id = "twice"
+label = "Every 12 hours"
+text = "Changes are protected sooner; the disks wake twice a day."
+set = { syncEveryHours = "12" }
+
+[[page.steps.options]]
+id = "often"
+label = "Every 4 hours"
+text = "Smallest window without protection; the disks wake six times a day."
+set = { syncEveryHours = "4" }
+
+[[page.steps]]
+id = "snapshots"
+title = "Snapshots"
+question = "Should every share get automatic snapshots?"
+text = "Hourly ZFS snapshots: the last 24 hours, 7 days and 4 weeks are kept. They hold deleted files, so they use space."
+keys = ["shareSnapshots"]
+when = { bulkType = "zfs" }
+
+[[page.steps.options]]
+id = "off"
+label = "No snapshots"
+text = "No extra space is used; a deleted file is gone."
+set = { shareSnapshots = "false" }
+recommended = true
+
+[[page.steps.options]]
+id = "on"
+label = "Hourly snapshots"
+text = "You can get an older version of a file back."
+set = { shareSnapshots = "true" }
+
+[[page.steps]]
+id = "sleep"
+title = "Disk sleep"
+question = "Should the data disks go to sleep when idle?"
+text = "Spinning bulk, parity and backup disks only. The first access after a sleep takes 10 to 20 seconds."
+keys = ["diskSpindownMinutes"]
+
+[[page.steps.options]]
+id = "never"
+label = "Never"
+text = "The disks stay ready; no waiting."
+set = { diskSpindownMinutes = "" }
+recommended = true
+
+[[page.steps.options]]
+id = "min20"
+label = "After 20 minutes"
+text = "Saves power and noise on a server that is idle at times."
+set = { diskSpindownMinutes = "20" }
+
+[[page.steps.options]]
+id = "min60"
+label = "After 60 minutes"
+text = "Saves power while short pauses do not wake-sleep the disks."
+set = { diskSpindownMinutes = "60" }
+
+[[page]]
+id = "access"
+
+[[page.steps]]
+id = "terminal"
+title = "Browser terminal"
+question = "Should the web interface offer a terminal?"
+text = "A Terminal button in the top bar and on each instance. A change takes effect at once."
+keys = ["webTerminal"]
+
+[[page.steps.options]]
+id = "off"
+label = "No"
+text = "Shell access stays with ssh."
+set = { webTerminal = "false" }
+recommended = true
+
+[[page.steps.options]]
+id = "on"
+label = "Yes"
+text = "Everyone who can sign in to the web interface gets a shell as adminuser."
+set = { webTerminal = "true" }
+
+[[page.steps]]
+id = "idle"
+title = "Idle time"
+question = "When should an idle terminal window close?"
+text = "Only typing counts, not output."
+keys = ["webTerminalIdleMinutes"]
+when = { webTerminal = "true" }
+
+[[page.steps.options]]
+id = "m30"
+label = "After 30 minutes without typing"
+text = "The shell keeps running; signing in again reattaches it."
+set = { webTerminalIdleMinutes = "30" }
+recommended = true
+
+[[page.steps.options]]
+id = "m10"
+label = "After 10 minutes without typing"
+text = "The shell keeps running; signing in again reattaches it."
+set = { webTerminalIdleMinutes = "10" }
+
+[[page.steps.options]]
+id = "m60"
+label = "After 60 minutes without typing"
+text = "The shell keeps running; signing in again reattaches it."
+set = { webTerminalIdleMinutes = "60" }
+
+[[page.steps]]
+id = "lifetime"
+title = "Longest connection"
+question = "How long may one terminal connection last?"
+text = "After that the window closes and can be opened again."
+keys = ["webTerminalMaxHours"]
+when = { webTerminal = "true" }
+
+[[page.steps.options]]
+id = "h8"
+label = "8 hours"
+text = "Then it closes and reattaches the same way."
+set = { webTerminalMaxHours = "8" }
+recommended = true
+
+[[page.steps.options]]
+id = "h2"
+label = "2 hours"
+text = "Then it closes and reattaches the same way."
+set = { webTerminalMaxHours = "2" }
+
+[[page.steps.options]]
+id = "h12"
+label = "12 hours"
+text = "The web login itself ends after 12 hours."
+set = { webTerminalMaxHours = "12" }
+
+[[page]]
+id = "general"
+
+[[page.steps]]
+id = "language"
+title = "Language"
+question = "Which language should hs and the web interface use?"
+text = "Commands, options and file names stay English."
+keys = ["language"]
+
+[[page.steps.options]]
+id = "en"
+label = "English"
+text = "Messages and descriptions are in English."
+set = { language = "en" }
+recommended = true
+
+[[page.steps.options]]
+id = "de"
+label = "Deutsch"
+text = "Messages and descriptions are in German."
+set = { language = "de" }
+
+[[page.steps]]
+id = "time-zone"
+title = "Time zone"
+text = "Such as Europe/Vienna. Empty means UTC. The logs, the timers and the times in the apps use it."
+keys = ["timeZone"]
+
+[[page.steps]]
+id = "keyboard"
+title = "Keyboard"
+text = "The keyboard layout of the console on the server itself, such as de. Empty means US."
+keys = ["keyMap"]

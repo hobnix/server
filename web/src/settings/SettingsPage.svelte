@@ -43,6 +43,8 @@
   const core = $derived(layout.core?.[page] ?? null);
   let advanced = $state(false);
   const stepKeys = $derived(new Set((core?.steps ?? []).flatMap((s) => s.keys)));
+  // General keeps everything it shows today: the wizard card first, then Appearance, Nodes and the plain fields of its other keys
+  const keepFields = $derived(page === 'general');
   const otherFields = $derived(fields.filter((o) => !stepKeys.has(o.key)));
   $effect(() => { page; advanced = false; });
 
@@ -91,17 +93,6 @@
     </div>
   {/if}
 
-  {#if page === 'general'}
-    {#if Appearance}<Appearance />{/if}
-    <div class="cols">
-      <div class="card sec" id="nodes">
-        <div class="st">Nodes</div>
-        <p class="hp2">The other servers this one looks at: {rows(nodeList).length} on the list. Adding, removing and the keys are on the Nodes page.</p>
-        <button use:tip={'Open the list of servers'} class="btn sm" style="align-self:flex-start" onclick={() => go('/nodes')}><i class="ph ph-hard-drives"></i>Open Nodes</button>
-      </div>
-    </div>
-  {/if}
-
   {#if page === 'updates'}
     <div class="cols">
       <div class="card sec">
@@ -123,11 +114,22 @@
     </div>
   {:else if core && !(list.loaded && list.error)}
     <WizardSteps steps={core.steps} apply={core.apply} opts={getOpts()} on={true} defaults={layout.defaults} {advanced} />
-    {#if advanced && otherFields.length}<Fields opts={otherFields} />{/if}
+    {#if (advanced || keepFields) && otherFields.length}<Fields opts={otherFields} />{/if}
   {:else if fields.length}
     <Fields opts={fields} />
   {:else}
     <div class="muted">{list.loaded ? (list.error ? `The settings could not be read${list.error?.message ? `: ${list.error.message}` : '.'}` : 'No settings on this page.') : 'Loading…'}</div>
+  {/if}
+
+  {#if page === 'general'}
+    {#if Appearance}<Appearance />{/if}
+    <div class="cols">
+      <div class="card sec" id="nodes">
+        <div class="st">Nodes</div>
+        <p class="hp2">The other servers this one looks at: {rows(nodeList).length} on the list. Adding, removing and the keys are on the Nodes page.</p>
+        <button use:tip={'Open the list of servers'} class="btn sm" style="align-self:flex-start" onclick={() => go('/nodes')}><i class="ph ph-hard-drives"></i>Open Nodes</button>
+      </div>
+    </div>
   {/if}
 </div>
 

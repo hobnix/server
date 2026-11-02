@@ -132,19 +132,29 @@ page_block() {   # page_block <dir> <id> <step lines...>
   local d=$1 id=$2; shift 2
   { printf '\n[[page]]\nid = "%s"\n' "$id"; printf '%s\n' "$@"; } >> "$d/config/schema.toml"
 }
+# page_strip <dir> <id>: drops the real [[page]] block of that id (it is the last one of its kind or followed by the next [[page]])
+page_strip() {
+  python3 - "$1/config/schema.toml" "$2" <<'PY'
+import re, sys
+p, i = sys.argv[1:]
+t = open(p, encoding='utf-8', newline='').read()
+t = re.sub(r'\[\[page\]\]\nid = "%s"\n.*?(?=\n\[\[page\]\]\n|\Z)' % re.escape(i), '', t, flags=re.S)
+open(p, 'w', encoding='utf-8', newline='').write(t)
+PY
+}
 PG_HEAD=('[[page.steps]]' 'id = "s"' 'title = "T"' 'text = "x"' 'keys = ["backupNewShares"]' 'question = "Q?"')
 PG_OPT=('[[page.steps.options]]' 'id = "o"' 'label = "O"' 'text = "t"' 'set = { backupNewShares = "true" }')
 PG_STEP=("${PG_HEAD[@]}" "${PG_OPT[@]}")
 page_unknown() { page_block "$1" nowhere "${PG_STEP[@]}"; }
 page_advanced() { page_block "$1" advanced "${PG_STEP[@]}"; }
 page_twice() { page_block "$1" backups "${PG_STEP[@]}"; page_block "$1" backups "${PG_STEP[@]}"; }
-page_other_key() { page_block "$1" storage "${PG_STEP[@]}"; }
-page_not_settable() { page_block "$1" storage '[[page.steps]]' 'id = "s"' 'title = "T"' 'text = "x"' 'keys = ["bulkType"]'; }
+page_other_key() { page_strip "$1" general; page_block "$1" general "${PG_STEP[@]}"; }
+page_not_settable() { page_strip "$1" general; page_block "$1" general '[[page.steps]]' 'id = "s"' 'title = "T"' 'text = "x"' 'keys = ["bulkType"]'; }
 page_apply() { page_block "$1" backups 'apply = "config apply"' "${PG_STEP[@]}"; }
 page_when_key() { page_block "$1" backups "${PG_HEAD[@]}" 'when = { noSuchOption = "x" }' "${PG_OPT[@]}"; }
 page_when_choice() { page_block "$1" backups "${PG_HEAD[@]}" 'when = { syncEveryHours = "5" }' "${PG_OPT[@]}"; }
-# backups is declared in the real schema now, so the good block is a storage page
-page_good() { page_block "$1" storage '[[page.steps]]' 'id = "s"' 'title = "T"' 'text = "x"' 'keys = ["syncEveryHours"]' 'question = "Q?"' 'when = { bulkType = "zfs" }' '[[page.steps.options]]' 'id = "o"' 'label = "O"' 'text = "t"' 'set = { syncEveryHours = "6" }'; }
+# every core page is declared in the real schema now, so the good block replaces the real general page
+page_good() { page_strip "$1" general; page_block "$1" general '[[page.steps]]' 'id = "s"' 'title = "T"' 'text = "x"' 'keys = ["timeZone"]' 'question = "Q?"' 'when = { bulkType = "zfs" }' '[[page.steps.options]]' 'id = "o"' 'label = "O"' 'text = "t"' 'set = { timeZone = "UTC" }'; }
 trial page_unknown; rc=$?; check_eq "an unknown [[page]] id dies" 2 "$rc"
 trial page_advanced; rc=$?; check_eq "[[page]] id advanced dies" 2 "$rc"
 trial page_twice; rc=$?; check_eq "a [[page]] twice dies" 2 "$rc"

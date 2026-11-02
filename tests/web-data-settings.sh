@@ -238,7 +238,19 @@ has "^warn${T}" && fail "siteName without gateway warns: $out" || pass "siteName
 echo gateway >"$HS_CAPABILITIES_FILE"
 run plan set siteName lab;             has "^warn${T}.*\*\.lab" && pass "siteName: DNS warning with the gateway on" || fail "siteName gateway: $out"
 run plan set incusUi false;            has "^warn${T}Port 8443 closes" && pass "incusUi false: warning" || fail "incusUi: $out"
+run plan set shareSnapshots false;     has "^note${T}Switching snapshots off only stops the timer" && pass "shareSnapshots false: note" || fail "shareSnapshots: $out"
+run plan set webTerminal true;         has "^warn${T}Everyone who can sign in to the web interface gets a shell" && pass "webTerminal true: warn" || fail "webTerminal: $out"
+run plan set webTerminalIdleMinutes 0;  check_eq "idle 0 is refused" 1 "$rc"
 unset HS_SYS_NET HS_HOST_NET HS_SITE_NAME_FILE HS_CAPABILITIES_FILE
+
+echo "-- time zone"
+export HS_ZONEINFO=$WORK/zoneinfo
+mkdir -p "$HS_ZONEINFO/Europe"; : >"$HS_ZONEINFO/Europe/Vienna"
+run plan set timeZone Mars/Base;        check_eq "an unknown time zone is refused" 1 "$rc"
+run plan set timeZone ../etc/passwd;    check_eq "a time zone with .. is refused" 1 "$rc"
+run plan set timeZone /Europe/Vienna;   check_eq "a time zone with a leading slash is refused" 1 "$rc"
+run plan set timeZone Europe/Vienna;    check_eq "a known time zone: plan ok" 0 "$rc"
+unset HS_ZONEINFO
 
 echo "-- registry"
 for w in "recipes list" "config list" "config check" "config plan <action>" "config start <action>"; do
