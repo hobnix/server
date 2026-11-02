@@ -502,7 +502,9 @@ declare_service() {
   _svc_public=(); _svc_blocked=(); _svc_open=(); _svc_auth=""; _svc_reqh=(); _svc_resh=()
   [ -f "$scripts/services.sh" ] && [ -n "$port" ] || return 0
   # a container with a name of its own (hs recipe <name> --name <ct>) is a service of its own: the descriptor must not replace the first one's
-  if [ -n "${RECIPE_NAME:-}" ] && [ "$ct" != "$name" ]; then name=$ct; title="$title ($ct)"; fi
+  # (a child of docker has ct=docker: the instance name is $app)
+  local inst=${app:-$ct}
+  if [ -n "${RECIPE_NAME:-}" ] && [ "$inst" != "$name" ]; then name=$inst; title="$title ($inst)"; fi
   key=${name//-/_}; key=${key^^}
   step "Service"
   if [ "${SERVICE_NO_DASHBOARD:-}" != 1 ] && [ -n "$(setting_get dashboard 2>/dev/null || true)" ]; then

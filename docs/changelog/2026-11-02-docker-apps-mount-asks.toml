@@ -1,0 +1,6 @@
+date  = "2026-11-02"
+type  = "fix"
+title = "Media apps in Docker no longer restart your other Docker apps on their own"
+body  = """When a media app that runs in the Docker container needs the media share mounted and other apps are running there, the recipe now stops and shows the exact command to run yourself, because the mount restarts every app in Docker. With no other app running it still mounts by itself.
+
+Apps in Docker also keep their own name and tile title, and the recipe list shows them as installed in the container docker."""

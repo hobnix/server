@@ -1966,3 +1966,6 @@ Port %s is used by '%s' in Docker already.	Port %s wird in Docker schon von '%s'
 '%s' is backed up with the container docker	'%s' wird mit dem Container docker gesichert
 The container docker is not in the backup, so '%s' is not either. Later: hs backup ct docker on	Der Container docker ist nicht im Backup, '%s' also auch nicht. Später: hs backup ct docker on
 Mounting the share changes the user mapping: the container docker restarts, and with it every app in it.	Das Einbinden der Freigabe ändert die Benutzerzuordnung: der Container docker startet neu, und damit jede App darin.
+Mounting the share changes the user mapping: the container docker restarts, and with it everything in it (running now: %s).	Das Einbinden der Freigabe ändert die Benutzerzuordnung: der Container docker startet neu, und damit alles darin (läuft gerade: %s).
+The share '%s' is not mounted at /media yet. Mount it yourself, then run this recipe again.	Die Freigabe '%s' ist noch nicht unter /media eingebunden. Binde sie selbst ein und führe dieses Rezept dann noch einmal aus.
+Could not read what runs in Docker, so the share is not mounted (the mount restarts everything in it).	Es ließ sich nicht lesen, was in Docker läuft, deshalb wird die Freigabe nicht eingebunden (das Einbinden startet alles darin neu).

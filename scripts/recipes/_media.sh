@@ -50,7 +50,7 @@ media_link_check() {   # media_link_check <container> <user>
 # The same for a child of the container docker: one mapped user `media` (the idmap allows one per container) for every media app;
 # the share comes in through `hs sys docker mount`, the one route the lock allows. Sets $ids; the compose file runs the app as it.
 media_storage_docker() {
-  local user=media
+  local user=media others cmd
   step "User for the files"
   incus exec docker -- sh -c "id $user >/dev/null 2>&1 || useradd --create-home --shell /usr/sbin/nologin $user" </dev/null
   ids=$(incus exec docker -- sh -c "echo \"\$(id -u $user):\$(id -g $user)\"" </dev/null)
@@ -62,6 +62,18 @@ media_storage_docker() {
   elif [ "$(incus query "/1.0/instances/docker" | jq -r '[.expanded_devices[] | select(.path == "/media")] | length')" != 0 ]; then
     ok "/media is mounted already"
   else
+    # the mount changes the user mapping of the container docker: it restarts, and everything in it with it. Do that on its own only
+    # when nothing else runs there (the manager excepted); otherwise the owner decides (a web job has no terminal to ask).
+    . "$scripts/lib/docker-apps.sh"
+    cmd="hs sys docker mount $share /media --as $ids"
+    others=$(docker_others_running "${app:-}") ||
+      fail_fix "$(t "Could not read what runs in Docker, so the share is not mounted (the mount restarts everything in it).")" "$cmd"
+    if [ -n "$others" ]; then
+      others=${others//$'
+'/, }
+      warn "$(t "Mounting the share changes the user mapping: the container docker restarts, and with it everything in it (running now: %s)." "$others")"
+      fail_fix "$(t "The share '%s' is not mounted at /media yet. Mount it yourself, then run this recipe again." "$share")" "$cmd"
+    fi
     warn "$(t 'Mounting the share changes the user mapping: the container docker restarts, and with it every app in it.')"
     spin "$(t "Mounting the share '%s' at /media (read and write)" "$share")" bash "$scripts/docker.sh" mount "$share" /media --as "$ids" --yes
   fi
