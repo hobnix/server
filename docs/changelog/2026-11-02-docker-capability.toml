@@ -1,0 +1,4 @@
+date  = "2026-11-02"
+type  = "feature"
+title = "Docker can be switched on as part of hobnix"
+body  = """hs docker enable creates a locked container called docker with Docker inside, adds it to the backup and records the manager (webui by default, or arcane, portainer, none). hs docker disable removes it after a plan, a backup offer and the typed name. hs docker list shows the apps (compose projects) that run in it. The manager webui is the web interface itself; it is built later, so for now it only records the choice and shows no service tile. Not tested on hardware yet."""

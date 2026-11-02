@@ -1,0 +1,4 @@
+date  = "2026-11-02"
+type  = "feature"
+title = "The Docker settings page asks two questions, one screen at a time"
+body  = """The Docker settings page asks which page should manage Docker and how large the container should be, one question per screen, with a review at the end. The review opens a plan; nothing is created before you start it. Advanced still shows the plain values."""

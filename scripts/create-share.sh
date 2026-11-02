@@ -4,6 +4,7 @@
 # args: <name> [--sensitive] [--ct <container> <path>] [--as <uid>:<gid>]
 set -euo pipefail
 . "$(dirname "$0")/lib/ui.sh"
+. "$(dirname "$0")/lib/instance.sh"
 . "$(dirname "$0")/lib/live.sh"
 live_refresh_shares() { live_refresh status shares-overview shares-deleted fm-locations pool-info-bulk; }
 
@@ -53,6 +54,7 @@ dir="/bulk/$parent/$name"
 # refused request leaves no empty share behind.
 if [ -n "$ct" ]; then
   incus info "$ct" >/dev/null 2>&1 || fail "$(t "'%s' does not exist." "$ct")"
+  refuse_if_locked "$ct" "$(t 'adding a device')"
   if incus config device get "$ct" "$name" type >/dev/null 2>&1; then
     fail "$(t "'%s' already has a device called '%s'." "$ct" "$name")"
   fi

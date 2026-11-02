@@ -112,6 +112,8 @@ default_probes() {
     $'hs services tiles\tservices tiles\t0 1' \
     $'hs services stats\tservices stats\t0 1' \
     $'hs sys services app\tsys services app\t0 1' \
+    $'hs docker status\tdocker status\t0 1' \
+    $'hs docker list\tdocker list\t0 1' \
     $'hs gateway status\tgateway status\t0 1' \
     $'hs gateway routes\tgateway routes\t0 1' \
     $'hs gateway check\tgateway check\t0 1' \

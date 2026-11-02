@@ -840,6 +840,7 @@ READS = {
     ("gateway", "status"): {"kind": "tsv", "ttl": 30, "topic": "gateway-status"},
     ("gateway", "routes"): {"kind": "tsv", "ttl": 30, "topic": "gateway-routes"},
     ("gateway", "health"): {"kind": "tsv", "ttl": 300, "topic": "gateway-health"},
+    ("docker", "list"): {"kind": "tsv", "ttl": 30, "topic": "docker-list"},
     ("setup", "list"): {"kind": "tsv", "ttl": 5, "topic": "setup-list"},
     ("config", "list"): {"kind": "tsv", "ttl": 5, "topic": "config-list"},
     ("config", "check"): {"kind": "text", "ttl": 0},
@@ -882,8 +883,9 @@ CHANGE = r"^[A-Za-z0-9][A-Za-z0-9._-]{0,63}:[A-Za-z0-9][A-Za-z0-9._ -]{0,63}=(ad
 CONFIG_KEYS = ("timeZone|language|keyMap|icons|loginMessage|webAccent|incusUi|syncEveryHours|shareSnapshots|"
                "diskSpindownMinutes|fileManagerWrite|setupDone|backupNewShares|backupNewInstances|"
                "notifySecondMinPriority|notifications|quietHours|autoMitigate|metrics|metricsDays|metricsMaxGB|"
-               "deckApi|gatewayPublicHttps|gatewayPublicHttp|gatewayUnknownHostLocal|gatewayUnknownHostPublic|"
-               "gatewayTunnelPort|gatewayAcmeEmail|gatewayAcmeStaging|gatewayAcmeChallenge|gatewayAcmeDnsProvider")
+               "deckApi|dockerSize|dockerMemory|dockerCpus|gatewayPublicHttps|gatewayPublicHttp|"
+               "gatewayUnknownHostLocal|gatewayUnknownHostPublic|gatewayTunnelPort|gatewayAcmeEmail|"
+               "gatewayAcmeStaging|gatewayAcmeChallenge|gatewayAcmeDnsProvider")
 # schema:end CONFIG_KEYS
 # share forms: a folder name inside the instance (absolute) and inside a share (relative or absolute, both without ..), a SID with its level, a kept folder
 CT_PATH = r"^(?!.*\.\.)/[A-Za-z0-9._/-]{0,200}$"
@@ -909,7 +911,7 @@ GW_SET = (r"^(reverseProxy|gatewayTunnelPort|gatewayPublicHttps|gatewayPublicHtt
           r"gatewayAcmeStaging|gatewayAcmeChallenge|gatewayAcmeDnsProvider|gatewayUnknownHostLocal|gatewayUnknownHostPublic)=[A-Za-z0-9.,@_+-]{0,200}$")
 # the change area (first path segment of the area of a web change) -> the live-state group it refreshes (scripts/lib/live-topics.tsv); ext/<n> -> ext-<n>
 AREA_GROUP = {
-    "ct": "instances", "recipes": "instances", "pool": "disks", "shares": "shares", "fm": "shares", "users": "users", "admin": "users", "dc": "users",
+    "ct": "instances", "recipes": "instances", "docker": "instances", "pool": "disks", "shares": "shares", "fm": "shares", "users": "users", "admin": "users", "dc": "users",
     "backup": "backup", "secrets": "security", "ssh-key": "security", "net": "network", "routes": "network", "gateway": "network", "vps": "network",
     "peers": "network", "node": "network", "jobs": "jobs", "notify": "system", "health": "system", "expiry": "system", "config": "system",
     "system": "system", "parts": "system", "pkg": "system",
@@ -924,6 +926,8 @@ def area_refresh(area):
     return "@" + g if g else "*"
 
 
+# the keys of the docker steps (capabilities/docker/capability.toml; scripts/docker-setup.sh accepts the same ones)
+DOCKER_SET = r"^(dockerManager=(webui|arcane|portainer|none)|dockerSize=[sml])$"
 CHANGES = {
     "jobs": [[r"^(run|stop)$", UNIT]],
     # the file manager (fm.sh): copy, move, delete, rename, mkdir. The selection (names below --path) is NOT an argument: the body field `selection` (a list of names,
@@ -1081,6 +1085,8 @@ CHANGES = {
                [r"^(sync|scrub)$", r"^--pool$", POOL]],
     # the gateway setup (gateway-setup.sh): all changed keys as --set key=value (may repeat); the typed port comes as --confirm
     "gateway": [{"fixed": [r"^setup$"], "opts": {"--set": (GW_SET, True)}}],
+    # turning Docker on (docker-setup.sh, which calls hs docker enable): the manager and the size as --set key=value; the plan changes nothing
+    "docker": [{"fixed": [r"^setup$"], "opts": {"--set": (DOCKER_SET, True)}}],
     "config": [[r"^set$", r"^(" + CONFIG_KEYS + r")$", r"^[A-Za-z0-9._#:/ -]{0,80}$"], [r"^(sync|migrate)$"]],
     # notification channels: a secret (the topic address, the SMTP password) goes in on stdin, never as an argument; a text setting as --set key=value
     "notify": [{"fixed": [r"^add$", NOTIFY_CHANNEL],

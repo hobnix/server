@@ -1,0 +1,6 @@
+date  = "2026-11-02"
+type  = "feature"
+title = "Instances owned by a capability are locked against delete and device changes"
+body  = """An instance with the Incus key user.hs.managed_by is owned by that capability. Deleting it, adding or removing a device, moving a share mount, turning Docker off and making its disk smaller are refused until the capability is turned off under Settings, Capabilities. Starting, stopping, snapshots, updates, memory and CPU stay allowed. If the root size of a locked instance is not exactly a whole number of GiB, every disk change is refused, growth included. The web interface shows a lock chip and hides the refused buttons.
+
+The lock prevents mistakes, not root: a raw incus command still works."""

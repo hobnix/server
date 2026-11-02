@@ -48,6 +48,9 @@
   deckApi = false;
   proxyStatusUrl = "";
   vpsHost = "";
+  dockerSize = "m";
+  dockerMemory = 0;
+  dockerCpus = 0;
   dashboardOpen = false;
   gatewayPublicHttps = 0;
   gatewayPublicHttp = 0;

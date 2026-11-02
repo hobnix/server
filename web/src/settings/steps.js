@@ -38,3 +38,33 @@ export function changed(draft, opts, verb = 'setup') {
   const d = diff(draft, opts);
   return d.length ? [verb, ...d.flatMap((c) => ['--set', `${c.key}=${c.to}`])] : [];
 }
+
+// ---- the wizard (one question per screen): steps with `options` instead of `presets` ----
+
+// the option whose values all equal the draft, or undefined
+export const optionOf = (draft, step) => presetOf(draft, step?.options);
+// the keys of a step that no option sets: shown as fields under the choices
+export const freeKeys = (step) => { const set = new Set((step?.options || []).flatMap((o) => Object.keys(o.set || {}))); return (step?.keys || []).filter((k) => !set.has(k)); };
+
+// every step with options that has no matching option yet gets its recommended one (returns a new draft)
+export function withRecommended(draft, steps) {
+  let out = { ...draft };
+  for (const s of steps || []) {
+    if (!s.options?.length || optionOf(out, s)) continue;
+    const rec = s.options.find((o) => o.recommended);
+    if (rec) out = applyPreset(out, rec);
+  }
+  return out;
+}
+
+// the screens: every step id, then 'review'; `only` = one step id shows just that step and the review
+export function screens(steps, only = '') {
+  const ids = (steps || []).map((s) => s.id);
+  return ids.includes(only) ? [only, 'review'] : [...ids, 'review'];
+}
+
+// "Step 2 of 3" and the width of the bar in percent
+export const progress = (i, n) => ({ text: `Step ${i + 1} of ${n}`, pct: Math.round(((i + 1) / n) * 100) });
+
+// a page is guided (wizard) when a step has options
+export const isGuided = (steps) => (steps || []).some((s) => s.options?.length);

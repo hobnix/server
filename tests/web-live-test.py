@@ -404,6 +404,11 @@ class StorageTopics(RedisBase):
             self.assertIn(topic, known)
             self.assertEqual(ws.live_topic_map()["/api/sys/" + "/".join(words)], topic)
 
+    def test_docker_list_read_has_its_topic(self):
+        self.assertEqual(ws.READS[("docker", "list")]["topic"], "docker-list")
+        self.assertIn("docker-list", {r[0] for r in ws.ls.topics()})
+        self.assertEqual(ws.live_topic_map()["/api/sys/docker/list"], "docker-list")
+
     def test_web_areas_that_change_the_network_ask_for_groups_that_wake_the_network_topics(self):
         info = ws.ls.topic_info()
         net = set(NETWORK) - {("remote", "list")}

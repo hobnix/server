@@ -1,0 +1,4 @@
+date  = "2026-11-02"
+type  = "feature"
+title = "The gateway settings page asks one question per screen"
+body  = """The gateway settings page keeps the same keys and the same plan as before, now with one question per screen and a review at the end. A running gateway opens at the summary. Advanced still shows the plain values."""

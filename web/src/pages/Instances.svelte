@@ -114,6 +114,7 @@
       {#if sel}
         <Drawer title={sel.name} chip={kind(sel)} state={dot(sel.state)} stateLabel={word(sel.state)} {tabs} bind:tab onclose={() => { selName = ''; }}>
           {#snippet children(t)}
+            {#if sel.owner}<span use:tip={`Managed by ${sel.owner}: turn it off under Settings, Capabilities to change or delete it`}><Chip kind="strong"><i class="ph ph-lock"></i> locked: {sel.owner}</Chip></span>{/if}
             <Kv items={[
               { k: 'Address', v: sel.address }, { k: 'RAM / CPU', v: `${spaced(sel.ram) || '–'} / ${sel.cpu || '–'}` },
             ]} />
@@ -134,7 +135,7 @@
                         <Chip>{b.kind}</Chip>
                         {#if b.share && b.share !== '-'}<a {...link(sharePath(b), 'shares', b.share)} use:tip={'Open the share'}>{b.share}</a>{:else}<span class="mono">{b.source}</span>{/if}
                         <span class="kd">{b.mode}</span>
-                        <Button variant="ghost" class="btn-icon ib" icon="x" style="margin-left:auto" busy={jobRunning('ct', [sel.name, 'remove-storage', '--device', b.device])} tooltip={'Remove this binding'} aria-label="Remove {b.device}" onclick={() => openPlan('ct', [sel.name, 'remove-storage', '--device', b.device], `Remove ${b.device} from ${sel.name}`)} />
+                        {#if !sel.owner}<Button variant="ghost" class="btn-icon ib" icon="x" style="margin-left:auto" busy={jobRunning('ct', [sel.name, 'remove-storage', '--device', b.device])} tooltip={'Remove this binding'} aria-label="Remove {b.device}" onclick={() => openPlan('ct', [sel.name, 'remove-storage', '--device', b.device], `Remove ${b.device} from ${sel.name}`)} />{/if}
                       </div>
                       <div class="rs mono">{b.source} → {b.inside}</div>
                       {#if b.also && b.also !== '-'}<div class="rs">Also mounted by {b.also}</div>{/if}
@@ -143,7 +144,7 @@
                     <div class="kd pad">{bind.loaded ? 'No storage bindings.' : 'Loading…'}</div>
                   {/each}
                 </div>
-                <button use:tip={'Give this instance a folder of a pool or a share'} class="btn sm" onclick={() => openCreate(BindStorage, { ct: sel.name })}><i class="ph ph-plus"></i>Bind a share</button>
+                {#if !sel.owner}<button use:tip={'Give this instance a folder of a pool or a share'} class="btn sm" onclick={() => openCreate(BindStorage, { ct: sel.name })}><i class="ph ph-plus"></i>Bind a share</button>{/if}
               </div>
             {:else if t === 'snap'}
               <div class="sec">
@@ -188,7 +189,7 @@
             <Button size="sm" icon="arrows-clockwise" busy={jobRunning('ct', [sel.name, 'update'])} busyLabel="Updating…" tooltip={'Snapshot the instance, then update the software inside'} onclick={() => openPlan('ct', [sel.name, 'update'], `Update ${sel.name}`)}>Update</Button>
             <button class="btn sm" disabled={!ui.features.terminal || !isRunning(sel)} use:tip={!ui.features.terminal ? 'Switch on webTerminal in machine.toml' : isRunning(sel) ? 'A shell inside the instance' : 'The instance is not running'} onclick={() => openCreate(Terminal, { target: sel.name, title: sel.name })}><i class="ph ph-terminal-window"></i>Terminal</button>
             <button use:tip={'Change memory, CPU, storage and other settings'} class="btn sm" onclick={() => openCreate(InstanceSettings, { ct: sel })}><i class="ph ph-sliders"></i>Settings</button>
-            <Button variant="danger" size="sm" icon="trash" busy={jobRunning('ct', [sel.name, 'delete'])} busyLabel="Deleting…" tooltip={'Delete the instance (the plan asks for its name)'} onclick={() => openPlan('ct', [sel.name, 'delete'], `Delete ${sel.name}`)}>Delete</Button>
+            {#if !sel.owner}<Button variant="danger" size="sm" icon="trash" busy={jobRunning('ct', [sel.name, 'delete'])} busyLabel="Deleting…" tooltip={'Delete the instance (the plan asks for its name)'} onclick={() => openPlan('ct', [sel.name, 'delete'], `Delete ${sel.name}`)}>Delete</Button>{/if}
           {/snippet}
         </Drawer>
       {/if}
