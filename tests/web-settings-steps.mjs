@@ -130,3 +130,15 @@ assert.equal(updatesTag(undefined), null);
 assert.deepEqual(updatesTag([['behind', '0'], ['ahead', '0']]), { state: 'ok', label: 'up to date' });
 assert.deepEqual(updatesTag([['behind', '1']]), { state: 'warn', label: '1 update available' });
 assert.deepEqual(updatesTag([['behind', '3']]), { state: 'warn', label: '3 updates available' });
+
+// steps with options_from: the rows of a read become the choices (current first); no rows leave a free field
+import { readPath, withReadOptions } from '../web/src/settings/steps.js';
+const nicStep = { id: 'card', keys: ['nic'], options_from: 'net nics' };
+assert.equal(readPath(nicStep), '/api/sys/net/nics');
+assert.equal(readPath({ id: 'x', keys: ['a'] }), '');
+assert.equal(withReadOptions(nicStep, []), nicStep);
+const nicOpts = withReadOptions(nicStep, [['eth1', 'down', '-', 'no'], ['eth0', 'up', 'aa:bb', 'yes']]).options;
+assert.deepEqual(nicOpts.map((o) => o.id), ['eth0', 'eth1']);
+assert.deepEqual(nicOpts[0].set, { nic: 'eth0' });
+assert.equal(nicOpts[0].text, 'up · aa:bb');
+assert.equal(nicOpts[1].text, 'down');

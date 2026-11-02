@@ -1,0 +1,4 @@
+date  = "2026-11-02"
+type  = "feature"
+title = "The Network settings page lists the detected network cards to choose from"
+body  = """New read `hs sys net nics` lists the physical network cards with link state and MAC address. The Network wizard offers them as choices, the current card first; if the list cannot be read it falls back to a free field."""

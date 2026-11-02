@@ -100,3 +100,20 @@ export const progress = (i, n) => ({ text: `Step ${i + 1} of ${n}`, pct: Math.ro
 
 // a page is guided (wizard) when a step has options
 export const isGuided = (steps) => (steps || []).some((s) => s.options?.length);
+
+// ---- choices from a read (a step with `options_from`: the words of a sys read, e.g. "net nics") ----
+
+// the path of the read, or '' for a step without one
+export const readPath = (step) => (step?.options_from ? '/api/sys/' + step.options_from.split(' ').map(encodeURIComponent).join('/') : '');
+
+// The step with options made from the rows of its read: value, note, detail (- = none), current (yes|-); the current one first. The option sets the step's one key.
+// No rows (the read failed or is empty): the step comes back unchanged, so its key stays a free field.
+export function withReadOptions(step, rows) {
+  if (!step?.options_from || !step.keys?.length || !(rows || []).length) return step;
+  const cur = (r) => r[3] === 'yes';
+  const sorted = [...rows].sort((a, b) => Number(cur(b)) - Number(cur(a)));
+  const options = sorted.map((r) => ({
+    id: r[0], label: r[0], text: [r[1], r[2]].filter((x) => x && x !== '-').join(' · '), set: { [step.keys[0]]: r[0] }, recommended: false,
+  }));
+  return { ...step, options };
+}

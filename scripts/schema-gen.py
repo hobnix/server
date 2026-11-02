@@ -40,7 +40,8 @@ A capability manifest may carry a table [settings]: icon (a Phosphor name, defau
 tree even without options) and status (the words of a `sys` read from scripts/lib/registry.tsv, e.g. "gateway health": the capability page shows
 its rows as a status panel), apply (area and first word of the change, "gateway setup") and [[settings.steps]] (id, title, text, keys, optional question, and
 [[settings.steps.options]] id, label, text, set, recommended: the guided setup of the page;
-options are one question per screen and need a question). A step may carry when = { key = "value" } (shown only while every key has that
+options are one question per screen and need a question). A step may carry options_from = "<words of a sys read>" (one key, a question, no options):
+the page reads it and offers its rows as the choices (value, note, detail, current yes|-; current first) and falls back to a free field when the read fails or is empty. A step may carry when = { key = "value" } (shown only while every key has that
 value; keys are options, values one of their choices). The same steps can be declared for a core page at the end of config/schema.toml:
 [[page]] id (general network storage backups access) and [[page.steps]] like [[settings.steps]]; every step key must be settable on that page.
 They reach layout.gen.json as "core" (apply is always "config apply") and "defaults" (the schema default of each key named in a step or when).
@@ -302,7 +303,7 @@ def check_steps(where, st, option_keys, choices):
     out, ids = [], set()
     for s in raw:
         for k in s:
-            if k not in ('id', 'title', 'text', 'keys', 'question', 'options', 'when'):
+            if k not in ('id', 'title', 'text', 'keys', 'question', 'options', 'when', 'options_from'):
                 die('%s steps: %s is not supported' % (where, k))
         sid = s.get('id')
         if not (isinstance(sid, str) and re.fullmatch(r'[a-z][a-z0-9-]*', sid)) or sid in ids:
@@ -330,6 +331,12 @@ def check_steps(where, st, option_keys, choices):
                     die('%s step %s: the when value of %s must be a string' % (where, sid, k))
                 if k in choices and v not in choices[k]:
                     die('%s step %s: when value %s is not one of the choices of %s' % (where, sid, v, k))
+        of = s.get('options_from')
+        if 'options_from' in s:
+            if not (isinstance(of, str) and re.fullmatch(r'[a-z][a-z0-9-]*( [a-z0-9][a-z0-9-]*)*', of)) or 'sys ' + of not in sys_rows():
+                die('%s step %s: options_from must be the words of a sys read in scripts/lib/registry.tsv' % (where, sid))
+            if 'question' not in s or len(keys) != 1 or 'options' in s:
+                die('%s step %s: options_from needs a question, exactly one key and no options' % (where, sid))
         raw_opts = s.get('options', [])
         if 'options' in s and not (isinstance(raw_opts, list) and raw_opts):
             die('%s step %s: options must be a non-empty array of tables' % (where, sid))
@@ -368,6 +375,8 @@ def check_steps(where, st, option_keys, choices):
             step['question'] = s['question']
         if when:
             step['when'] = when
+        if of:
+            step['options_from'] = of
         if options:
             step['options'] = options
         out.append(step)

@@ -1669,5 +1669,7 @@ set = { incusUi = "false" }
 [[page.steps]]
 id = "card"
 title = "Network card"
+question = "Which network card is the cable in?"
+options_from = "net nics"
 text = "The port the server's cable is in. Everything goes through it: containers, shares, Tailscale. A wrong card leaves the server offline after the rebuild; the plan asks you to type the card's name."
 keys = ["nic"]

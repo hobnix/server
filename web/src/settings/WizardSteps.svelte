@@ -7,7 +7,8 @@
   import ChoiceList from '../ui/ChoiceList.svelte';
   import { tr } from '../i18n.js';
   import { openPlan } from '../ui.svelte.js';
-  import { stepKeys, draftFrom, applyPreset, optionOf, freeKeys, withDefaults, visibleSteps, withRecommended, screens, diff, changed, changedAll, applyParts } from './steps.js';
+  import { stepKeys, draftFrom, applyPreset, optionOf, freeKeys, withDefaults, visibleSteps, withRecommended, screens, diff, changed, changedAll, applyParts, readPath, withReadOptions } from './steps.js';
+  import { poll, rows as rowsOf } from '../data.svelte.js';
 
   // steps: the layout list; apply: "<area> <verb>"; opts: rows of `hs sys config list`; off: a reason the setup is off. on: the part is on already (the page then starts at the review, the summary). known: `on` is settled (parts list / docker status arrived); the draft waits for it, else a set-up part would get the recommended preset
   // first: nothing exists yet (the docker container): Apply is always possible and sends every step key
@@ -36,7 +37,10 @@
   });
 
   const id = $derived(list[Math.min(at, list.length - 1)]);
-  const step = $derived(steps.find((s) => s.id === id));
+  const plain = $derived(steps.find((s) => s.id === id));
+  // a step with `options_from` offers the rows of its read as choices (a free field while the read has not arrived, failed or is empty)
+  const fromRead = poll(() => readPath(plain), 15000);
+  const step = $derived(withReadOptions(plain, rowsOf(fromRead)));
   const isReview = $derived(id === 'review');
   const changes = $derived(diff(draft, opts));
   const go = (n) => { moved = true; at = Math.max(0, Math.min(n, list.length - 1)); };

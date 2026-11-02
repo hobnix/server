@@ -284,6 +284,7 @@ sys	sys node show <name>	node.sh	--show {1}	one node as key<TAB>value lines: nam
 sys	sys node status <name>	node.sh	--status {1}	the status document of a node, read over SSH with the key of hs node key: one JSON object (exit 1: no key, vault closed, no answer)	-
 sys	sys node keyline <name>	node.sh	--keyline {1}	the key of a node as data: key (ok|locked|missing), user, file (where the other server's owner puts the line) and line (the public half with the forced command; never the private key)	-
 sys	sys node plan <action>	node-change.sh	plan {1} {rest}	what adding, removing or making the key of a node would do, as data: status, plan lines (never asks; exit 0 ok, 1 refused, 2 = something is missing)	-
+sys	sys net nics	net-nics.sh	--list	the physical network cards: name, link (up|down), MAC (- = none), current (yes = the nic of machine.toml; listed first)	-
 sys	sys parts list	parts.sh	--list	the optional parts (capabilities) of this server, one per line: name, on|off, extension|part, nix (yes = needs a rebuild), switch (yes = machine.toml switches it), title	-
 sys	sys parts pending	parts.sh	--pending	the parts the next hs rebuild changes, one per line: name, on (switched on in machine.toml, not built yet) or off (taken out of machine.toml, still running); empty: nothing waits	-
 sys	sys parts plan <action>	part-change.sh	plan {1} {rest}	what switching a part on or off would do, as data: status, plan lines (never asks; exit 0 ok, 1 refused; off with a NixOS module is red)	-

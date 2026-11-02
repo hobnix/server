@@ -27,6 +27,7 @@ here=$(dirname "$0")
 . "$here/lib/machine.sh"
 . "$here/lib/setting.sh"
 . "$here/lib/capability.sh"
+. "$here/lib/nic.sh"
 . "$here/lib/config-keys.sh"
 
 refuse() { printf 'status\trefused\nreason\t%s\n' "$1"; exit 1; }
@@ -173,12 +174,11 @@ check_extra() {
     nic)
       [ -n "$v" ] || refuse "nic cannot be switched off."
       [[ "$v" =~ ^[A-Za-z0-9_.-]{1,15}$ ]] || refuse "'nic' must be a network card name such as enp3s0."
-      net=${HS_SYS_NET:-/sys/class/net}
-      [ -e "$net/$v" ] || refuse "There is no network card called $v on this server (see ip link)."
-      [ -e "$net/$v/device" ] || refuse "$v is not a physical network card (a bridge, VLAN or tunnel)."
+      nic_exists "$v" || refuse "There is no network card called $v on this server (see ip link)."
+      nic_physical "$v" || refuse "$v is not a physical network card (a bridge, VLAN or tunnel)."
       xline danger "The server takes its network from $v after hs rebuild. If the cable is not in that port, the server is offline: no SSH, no web, no Tailscale. The way back is a keyboard and screen at the server: hold the space bar while it starts and pick the previous generation."
       xline confirm_name "$v"
-      [ "$(cat "$net/$v/carrier" 2>/dev/null || true)" = 1 ] || xline warn "No cable is connected to $v right now." ;;
+      [ "$(nic_link "$v")" = up ] || xline warn "No cable is connected to $v right now." ;;
     smbAllow)
       [ -n "$v" ] || refuse "smbAllow cannot be switched off."
       # shellcheck disable=SC2086
