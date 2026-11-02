@@ -1,0 +1,4 @@
+date  = "2026-11-02"
+type  = "feature"
+title = "The Backups settings page asks one question per screen"
+body  = """The Backups settings page now shows the current choices as a summary and asks one question per screen: should new shares and new containers be backed up by themselves. The same two keys stay as plain fields under Advanced."""

@@ -4,8 +4,7 @@
   import { tip } from '../ui/tooltip.svelte.js';
   import { go } from '../route.svelte.js';
   import PageHeader from '../shell/PageHeader.svelte';
-  import StatusDot from '../ui/StatusDot.svelte';
-  import Chip from '../ui/Chip.svelte';
+  import PartTag from './PartTag.svelte';
   import layout from './layout.gen.json';
   import Fields from './Fields.svelte';
   import { fieldsFor } from './layout.js';
@@ -31,11 +30,10 @@
       <p class="hp2">Optional parts of this server. Off means its pages and commands are not there. A part with a NixOS module changes at the next <code>hs rebuild</code>.</p>
       {#each plainParts as p (p.name)}
         <div class="prow">
-          <StatusDot state={p.on ? 'ok' : 'off'} label={p.on ? 'on' : 'off'} bare />
+          <PartTag part={p} />
           <div class="pt"><code>{p.name}</code><span class="hp">{p.title}</span></div>
-          {#if p.nix}<Chip>rebuild</Chip>{/if}
           {#if hasPage(p)}<button use:tip={'Open the settings of this part'} class="btn sm" onclick={() => go(`/settings/capabilities/${p.name}`)}><i class="ph ph-sliders"></i>Settings</button>{/if}
-          <Button size="sm" busy={jobRunning('parts', [p.on ? 'disable' : 'enable', p.name])} busyLabel="Switching…" disabled={!p.canSwitch} tooltip={!p.canSwitch ? 'This part cannot be switched here' : p.on ? 'Switch this part off (shows the plan)' : 'Switch this part on (shows the plan)'} onclick={() => flip(p)}>{p.on ? 'Switch off…' : 'Switch on…'}</Button>
+          <Button size="sm" busy={jobRunning('parts', [p.on || p.pending ? 'disable' : 'enable', p.name])} busyLabel="Switching…" disabled={!p.canSwitch} tooltip={!p.canSwitch ? 'This part cannot be switched here' : p.on || p.pending ? 'Switch this part off (shows the plan)' : 'Switch this part on (shows the plan)'} onclick={() => flip(p)}>{p.on || p.pending ? 'Switch off…' : 'Switch on…'}</Button>
         </div>
       {:else}
         <div class="hp2">{partList.loaded ? (partList.error ? 'The parts could not be read.' : 'No optional parts.') : 'Loading…'}</div>
@@ -46,10 +44,9 @@
       <p class="hp2">Packages that add pages and commands (<code>hs ext</code>). Off by default; one without a NixOS module is on at once.</p>
       {#each extensions as p (p.name)}
         <div class="prow">
-          <StatusDot state={p.on ? 'ok' : 'off'} label={p.on ? 'on' : 'off'} bare />
+          <PartTag part={p} />
           <div class="pt"><code>{p.name}</code><span class="hp">{p.title}</span></div>
-          {#if p.nix}<Chip>rebuild</Chip>{/if}
-          <Button size="sm" busy={jobRunning('parts', [p.on ? 'disable' : 'enable', p.name])} busyLabel="Switching…" disabled={!p.canSwitch} tooltip={!p.canSwitch ? 'This part cannot be switched here' : p.on ? 'Switch this part off (shows the plan)' : 'Switch this part on (shows the plan)'} onclick={() => flip(p)}>{p.on ? 'Switch off…' : 'Switch on…'}</Button>
+          <Button size="sm" busy={jobRunning('parts', [p.on || p.pending ? 'disable' : 'enable', p.name])} busyLabel="Switching…" disabled={!p.canSwitch} tooltip={!p.canSwitch ? 'This part cannot be switched here' : p.on || p.pending ? 'Switch this part off (shows the plan)' : 'Switch this part on (shows the plan)'} onclick={() => flip(p)}>{p.on || p.pending ? 'Switch off…' : 'Switch on…'}</Button>
         </div>
       {:else}
         <div class="hp2">{partList.loaded ? 'No extensions on this server.' : 'Loading…'}</div>

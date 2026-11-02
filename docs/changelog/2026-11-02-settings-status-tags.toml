@@ -1,0 +1,4 @@
+date  = "2026-11-02"
+type  = "change"
+title = "Settings shows the state of each part and of the updates as a tag"
+body  = """The Capabilities list now says off, on, running or rebuild needed for each part, the same as the part's own page. The Updates page shows in its header whether new changes are waiting."""

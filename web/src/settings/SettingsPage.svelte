@@ -10,7 +10,10 @@
   import { changes, load } from '../changes.svelte.js';
   import PageHeader from '../shell/PageHeader.svelte';
   import Button from '../ui/Button.svelte';
+  import StatusDot from '../ui/StatusDot.svelte';
+  import { updatesTag } from './tag.js';
   import Fields from './Fields.svelte';
+  import WizardSteps from './WizardSteps.svelte';
   import layout from './layout.gen.json';
   import { fieldsFor } from './layout.js';
   import { useConfig } from './config.svelte.js';
@@ -35,6 +38,15 @@
 
   const { list, opts: getOpts } = useConfig();
   const fields = $derived(fieldsFor(layout, page, getOpts()));
+
+  // A page with guided steps (layout.core, from [[page]] in config/schema.toml): the wizard, and Advanced = the step keys as plain fields + the page's other keys
+  const core = $derived(layout.core?.[page] ?? null);
+  let advanced = $state(false);
+  const stepKeys = $derived(new Set((core?.steps ?? []).flatMap((s) => s.keys)));
+  // General keeps everything it shows today: the wizard card first, then Appearance, Nodes and the plain fields of its other keys
+  const keepFields = $derived(page === 'general');
+  const otherFields = $derived(fields.filter((o) => !stepKeys.has(o.key)));
+  $effect(() => { page; advanced = false; });
 
   // General: the Nodes card
   const nodeList = poll(() => (page === 'general' ? '/api/sys/node/list' : ''), 30000);
@@ -61,6 +73,8 @@
 <div class="page">
   <PageHeader title={title[0]} crumb="Settings" sub={title[1]}>
     {#snippet actions()}
+      {#if page === 'updates' && utag}<StatusDot state={utag.state} label={utag.label} />{/if}
+      {#if core}<Button tooltip={advanced ? 'Back to the guided questions' : 'Every key of this page as plain fields'} onclick={() => (advanced = !advanced)}>{advanced ? 'Back' : 'Advanced'}</Button>{/if}
       {#if page === 'advanced'}
         <Button class="b13" icon="check-square" busy={chkBusy} busyLabel="Checking…" tooltip={chkBusy ? 'A check is running' : 'Look for typos and missing values in machine.toml'} onclick={runCheck}>Check</Button>
       {/if}
@@ -76,17 +90,6 @@
         <button use:tip={'Close the result'} class="btn btn-ghost btn-icon x" aria-label="Close" onclick={() => { chk = null; chkError = ''; }}><i class="ph ph-x"></i></button>
       </div>
       <pre>{chkError || chk.text.trim()}</pre>
-    </div>
-  {/if}
-
-  {#if page === 'general'}
-    {#if Appearance}<Appearance />{/if}
-    <div class="cols">
-      <div class="card sec" id="nodes">
-        <div class="st">Nodes</div>
-        <p class="hp2">The other servers this one looks at: {rows(nodeList).length} on the list. Adding, removing and the keys are on the Nodes page.</p>
-        <button use:tip={'Open the list of servers'} class="btn sm" style="align-self:flex-start" onclick={() => go('/nodes')}><i class="ph ph-hard-drives"></i>Open Nodes</button>
-      </div>
     </div>
   {/if}
 
@@ -109,10 +112,24 @@
         <Button size="sm" icon="arrows-clockwise" style="align-self:flex-start" busy={jobRunning('config', ['sync'])} busyLabel="Syncing…" tooltip={'Put machine.toml in the layout of the example (shows the plan)'} onclick={() => openPlan('config', ['sync'], 'Sync machine.toml')}>Sync new options…</Button>
       </div>
     </div>
+  {:else if core && !(list.loaded && list.error)}
+    <WizardSteps steps={core.steps} apply={core.apply} opts={getOpts()} on={true} defaults={layout.defaults} {advanced} />
+    {#if (advanced || keepFields) && otherFields.length}<Fields opts={otherFields} />{/if}
   {:else if fields.length}
     <Fields opts={fields} />
   {:else}
     <div class="muted">{list.loaded ? (list.error ? `The settings could not be read${list.error?.message ? `: ${list.error.message}` : '.'}` : 'No settings on this page.') : 'Loading…'}</div>
+  {/if}
+
+  {#if page === 'general'}
+    {#if Appearance}<Appearance />{/if}
+    <div class="cols">
+      <div class="card sec" id="nodes">
+        <div class="st">Nodes</div>
+        <p class="hp2">The other servers this one looks at: {rows(nodeList).length} on the list. Adding, removing and the keys are on the Nodes page.</p>
+        <button use:tip={'Open the list of servers'} class="btn sm" style="align-self:flex-start" onclick={() => go('/nodes')}><i class="ph ph-hard-drives"></i>Open Nodes</button>
+      </div>
+    </div>
   {/if}
 </div>
 

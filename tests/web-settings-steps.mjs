@@ -65,6 +65,14 @@ assert.deepEqual(w0, { dockerManager: 'webui', dockerSize: 'm' });
 assert.equal(optionOf(w0, dk.steps[0]).id, 'webui');
 assert.deepEqual(changed(w0, dOpts, 'setup'), ['setup', '--set', 'dockerManager=webui'], 'size m is the default: no diff');
 assert.deepEqual(withRecommended({ dockerManager: 'arcane', dockerSize: '' }, dk.steps), { dockerManager: 'arcane', dockerSize: 'm' });
+// real defaults (layout.defaults): an unset key whose default equals an option keeps that option; a set-up draft is not touched
+assert.equal(layout.defaults.dockerSize, 'm');
+const unset = withRecommended({ dockerManager: '', dockerSize: '' }, dk.steps, layout.defaults);
+assert.equal(unset.dockerSize, '', 'size is unset and its default m matches an option: not preset');
+assert.equal(optionOf(unset, dk.steps[1], layout.defaults).id, dk.steps[1].options.find((o) => o.set.dockerSize === 'm').id);
+assert.equal(layout.defaults.gatewayAcmeStaging, 'true', 'gateway step keys carry their real defaults');
+const gwSet = Object.fromEntries(gw.steps.flatMap((s) => s.keys).map((k) => [k, layout.defaults[k] ?? '']));
+assert.deepEqual(withRecommended(gwSet, gw.steps, layout.defaults), gwSet, 'a draft that matches the defaults is not changed');
 assert.deepEqual(screens(dk.steps), ['manager', 'size', 'review']);
 assert.deepEqual(screens(dk.steps, 'size'), ['size', 'review']);
 assert.deepEqual(screens(dk.steps, 'nope'), ['manager', 'size', 'review']);
@@ -85,3 +93,52 @@ assert.equal(setupDone('docker setup', false, owned), true);
 assert.equal(setupDone('gateway setup', true, notOwned), true);
 assert.equal(setupDone('gateway setup', false, owned), false);
 
+
+// core pages: schema defaults, tolerant optionOf, the `when` rule
+import { withDefaults, visibleSteps } from '../web/src/settings/steps.js';
+const wo = withDefaults([{ key: 'a', cur: '', dflt: '' }, { key: 'b', cur: 'x', dflt: 'y' }], { a: 'true' });
+assert.deepEqual(wo.map((o) => o.dflt), ['true', 'y']);
+assert.deepEqual(withDefaults([{ key: 'a' }], null), [{ key: 'a' }]);
+const stp = { options: [{ id: 'on', set: { a: 'true' } }, { id: 'off', set: { a: 'false' } }] };
+assert.equal(optionOf({ a: '' }, stp), undefined);
+assert.equal(optionOf({ a: '' }, stp, { a: 'true' }).id, 'on');
+assert.equal(optionOf({ a: '' }, stp, { a: 'false' }).id, 'off');
+assert.equal(optionOf({ a: 'false' }, stp, { a: 'true' }).id, 'off');
+assert.equal(optionOf({ a: '' }, stp, {}), undefined);
+assert.equal(optionOf({ a: '' }, { options: [{ id: 'never', set: { a: '' } }] }, {}).id, 'never');
+const ws = [{ id: 'p', when: { bulkType: 'snapraid' } }, { id: 'z', when: { bulkType: 'zfs' } }, { id: 'all' }];
+const ids = (o, d) => visibleSteps(ws, o, d).map((s) => s.id);
+assert.deepEqual(ids([{ key: 'bulkType', cur: 'snapraid' }]), ['p', 'all']);
+assert.deepEqual(ids([{ key: 'bulkType', cur: '', dflt: 'zfs' }]), ['z', 'all']);
+assert.deepEqual(ids([{ key: 'bulkType', cur: '' }], { bulkType: 'zfs' }), ['z', 'all']);
+assert.deepEqual(ids([], null), ['all']);
+assert.deepEqual(visibleSteps(ws.slice(2), null).map((s) => s.id), ['all']);
+assert.deepEqual(changed({ a: 'false' }, withDefaults([{ key: 'a', cur: '' }], { a: 'true' }), 'apply'), ['apply', '--set', 'a=false']);
+assert.deepEqual(changed({ a: 'true' }, withDefaults([{ key: 'a', cur: '' }], { a: 'true' }), 'apply'), []);
+
+// tag.js: the tag of a part and of the Updates header
+import { partTag, updatesTag } from '../web/src/settings/tag.js';
+assert.deepEqual(partTag(undefined, ''), { state: 'off', label: 'off' });
+assert.deepEqual(partTag({ on: false, nix: true }, 'ok'), { state: 'off', label: 'off' });
+assert.deepEqual(partTag({ on: true, nix: true }, 'fail'), { state: 'warn', label: 'rebuild needed' });
+assert.deepEqual(partTag({ on: true, nix: false }, 'fail'), { state: 'ok', label: 'on' });
+assert.deepEqual(partTag({ on: false, nix: true, pending: true }, ''), { state: 'warn', label: 'rebuild needed' });
+assert.deepEqual(partTag({ on: true, nix: true }, 'ok'), { state: 'ok', label: 'running' });
+assert.deepEqual(partTag({ on: true, nix: true }, ''), { state: 'ok', label: 'on' });
+assert.equal(updatesTag([]), null);
+assert.equal(updatesTag(undefined), null);
+assert.deepEqual(updatesTag([['behind', '0'], ['ahead', '0']]), { state: 'ok', label: 'up to date' });
+assert.deepEqual(updatesTag([['behind', '1']]), { state: 'warn', label: '1 update available' });
+assert.deepEqual(updatesTag([['behind', '3']]), { state: 'warn', label: '3 updates available' });
+
+// steps with options_from: the rows of a read become the choices (current first); no rows leave a free field
+import { readPath, withReadOptions } from '../web/src/settings/steps.js';
+const nicStep = { id: 'card', keys: ['nic'], options_from: 'net nics' };
+assert.equal(readPath(nicStep), '/api/sys/net/nics');
+assert.equal(readPath({ id: 'x', keys: ['a'] }), '');
+assert.equal(withReadOptions(nicStep, []), nicStep);
+const nicOpts = withReadOptions(nicStep, [['eth1', 'down', '-', 'no'], ['eth0', 'up', 'aa:bb', 'yes']]).options;
+assert.deepEqual(nicOpts.map((o) => o.id), ['eth0', 'eth1']);
+assert.deepEqual(nicOpts[0].set, { nic: 'eth0' });
+assert.equal(nicOpts[0].text, 'up · aa:bb');
+assert.equal(nicOpts[1].text, 'down');

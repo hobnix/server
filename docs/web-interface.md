@@ -90,7 +90,7 @@ waiting upstream, **Update**, a link to What's new, and **Sync new options** for
 part and extension with its switch) and **Advanced** (every key, read-only ones too, and **Check** for typos in `machine.toml`). Each
 capability that is switched on and has settings of its own (the gateway, metrics, Tailscale ...) also gets a page under **Capabilities**:
 the switch, then its keys. A capability that is off keeps its page, so you can switch it on there. The address `/settings` shows an overview of
-all subpages. Not tested on hardware yet.
+all subpages. **Backups** asks its two questions (new shares, new containers) one per screen, with a review of the current values first; **Advanced** on that page shows the plain keys. **Network and DNS** also asks one question per screen (local names, who may use the shares, the DHCP range, the Incus web UI, the network card last; a new card makes the plan ask you to type its name). **Storage** asks how often the SnapRAID parity is updated (SnapRAID only), whether shares get snapshots (ZFS only) and when idle disks go to sleep; switching snapshots off only stops the timer. **Users and access** asks whether the web interface offers a terminal (a change takes effect at once, the plan warns that every signed-in user gets a shell as adminuser) and, if so, the idle time and the longest connection. **General** asks for the language, the time zone (checked against the zone files, so `Mars/Base` is refused) and the keyboard layout first, then keeps Appearance, Nodes and its other fields. Not tested on hardware yet.
 
 Installed extensions add pages under **Extensions**. The first start shows the **Setup** checklist until you mark it done.
 

@@ -412,7 +412,10 @@ class Changes(Base):
               ("shares", ["media", "snapshot"]), ("shares", ["media", "backup", "--to", "on"]), ("shares", ["media", "rollback", "--snapshot", "auto-2026-10-11"]),
               ("users", ["anna", "lock"]), ("system", ["sync"]), ("system", ["scrub", "--pool", "fast"]), ("system", ["update"]),
               ("ct", ["docker", "update"]), ("ct", ["docker", "restore", "--snapshot", "snap1"]),
-              ("config", ["set", "webAccent", "#4fb286"]), ("config", ["set", "language", "de"])]
+              ("config", ["set", "webAccent", "#4fb286"]), ("config", ["set", "language", "de"]),
+              ("config", ["apply", "--set", "backupNewShares=true", "--set", "syncEveryHours=6"]),
+              ("config", ["apply", "--set", "webTerminal=true"]),
+              ("config", ["apply", "--set", "dhcpRange=[100, 150]"])]
         for area, args in ok:
             self.assertEqual(self.post("/api/plan", {"area": area, "args": args})[0], 200, (area, args))
         n = len(self.calls)
@@ -420,7 +423,8 @@ class Changes(Base):
                ("shares", ["media", "perm", "--set", "x=full"]), ("shares", ["Media", "snapshot"]),
                ("system", ["sync", "--pool", "a;b"]),
                ("config", ["set", "sshKeys", "x"]), ("config", ["set", "hostName", "x"]), ("config", ["set", "language", "a;b"]),
-               ("config", ["set", "language", "x" * 100]), ("pool", ["bulk", "remove"])]
+               ("config", ["set", "language", "x" * 100]),
+               ("config", ["apply", "--set", "hostName=x"]), ("config", ["apply"]),("pool", ["bulk", "remove"])]
         for area, args in bad:
             self.assertEqual(self.post("/api/start", {"area": area, "args": args})[0], 400, (area, args))
         self.assertEqual(len(self.calls), n)

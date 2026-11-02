@@ -1,0 +1,4 @@
+date  = "2026-11-02"
+type  = "feature"
+title = "The network card, share networks, DHCP range and local name can be changed from the web interface"
+body  = """The checks run in the server's own script: a network card must exist and be a physical card (the plan asks you to type its name), the share networks and the DHCP range must be well formed, and the local name must be lower case letters, digits and hyphens. Plans warn about a missing cable, a share list that leaves out the server's own network, and local names that need a new DNS record."""

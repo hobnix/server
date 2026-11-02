@@ -32,7 +32,7 @@ export function readsFor(path, extPages = [], liveOn = false) {
   if ((m = path.match(/^\/storage\/(bulk|fast)$/))) return pool(m[1]);
   if ((m = path.match(/^\/storage\/(bulk|fast)\/disks$/))) return DISKS;
   if ((m = path.match(/^\/storage\/(bulk|fast)\/shares$/))) return SHARES;
-  if (path.startsWith('/settings/capabilities')) return [`${A}config/list`, `${A}parts/list`];
+  if (path.startsWith('/settings/capabilities')) return [`${A}config/list`, `${A}parts/list`, `${A}parts/pending`];
   if (path.startsWith('/settings/')) return [`${A}config/list`];
   switch (path) {
     case '/': return [`${A}status`, `${A}monitor/disks`, `${A}setup/list`, `${A}ups/status`];

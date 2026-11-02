@@ -1,0 +1,4 @@
+date  = "2026-11-02"
+type  = "feature"
+title = "Settings under General ask for the language, time zone and keyboard"
+body  = """Three guided questions come first; the time zone is checked against the zone files of the server, so a name like Mars/Base is refused."""

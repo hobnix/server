@@ -21,10 +21,11 @@ run() { rc=0; out=$(timeout 30 bash "$SCRIPTS/part-change.sh" "$@" </dev/null 2>
 
 echo "-- registry and allowlist"
 reg=$SCRIPTS/lib/registry.tsv
-for r in "sys${T}sys parts list${T}parts.sh" "sys${T}sys parts plan <action>${T}part-change.sh" "sys${T}sys parts start <action>${T}part-change.sh"; do
+for r in "sys${T}sys parts list${T}parts.sh" "sys${T}sys parts pending${T}parts.sh" "sys${T}sys parts plan <action>${T}part-change.sh" "sys${T}sys parts start <action>${T}part-change.sh"; do
   check "row: ${r//$T/ | }" grep -q "^$r${T}" "$reg"
 done
 check "READS has parts/list" grep -qF -- '("parts", "list")' "$SCRIPTS/web-serve.py"
+check "READS has parts/pending" grep -qF -- '("parts", "pending")' "$SCRIPTS/web-serve.py"
 check "CHANGES has parts" grep -q '^    "parts":' "$SCRIPTS/web-serve.py"
 
 echo "-- list"
@@ -45,6 +46,25 @@ run plan enable nope;         check_eq "unknown part is refused" 1 "$rc"
 run plan enable "x y";        check_eq "bad name is refused" 1 "$rc"
 run plan toggle games;        check_eq "unknown action is refused" 1 "$rc"
 run plan enable games extra;  check_eq "extra argument is refused" 1 "$rc"
+
+echo "-- pending"
+P() { bash "$SCRIPTS/parts.sh" --pending; }
+check_eq "built: nothing waits" "" "$(P)"
+printf 'hostName = "hs"
+capabilities = ["metrics"]
+' > "$HS_MACHINE_FILE"; : > "$HS_CAPABILITIES_FILE"
+check_eq "listed, not built: on" "metrics${T}on" "$(P)"
+run plan enable metrics;      check_eq "enable while pending is refused" 1 "$rc"
+run plan disable metrics
+has '^status'"$T"'ok$' && has 'nothing stops' && ! has '^confirm_name' && ! has '^danger' && pass "disable while pending: no name to type" || fail "disable pending: $out"
+printf 'hostName = "hs"
+capabilities = []
+' > "$HS_MACHINE_FILE"; printf 'metrics
+' > "$HS_CAPABILITIES_FILE"
+check_eq "built, not in machine.toml: not listed" "" "$(P)"
+printf 'hostName = "hs"
+capabilities = ["metrics"]
+' > "$HS_MACHINE_FILE"
 
 echo "-- start"
 run start disable metrics

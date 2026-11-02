@@ -40,7 +40,12 @@ A capability manifest may carry a table [settings]: icon (a Phosphor name, defau
 tree even without options) and status (the words of a `sys` read from scripts/lib/registry.tsv, e.g. "gateway health": the capability page shows
 its rows as a status panel), apply (area and first word of the change, "gateway setup") and [[settings.steps]] (id, title, text, keys, optional question, and
 [[settings.steps.options]] id, label, text, set, recommended: the guided setup of the page;
-options are one question per screen and need a question). Nothing else is supported yet.
+options are one question per screen and need a question). A step may carry options_from = "<words of a sys read>" (one key, a question, no options):
+the page reads it and offers its rows as the choices (value, note, detail, current yes|-; current first) and falls back to a free field when the read fails or is empty. A step may carry when = { key = "value" } (shown only while every key has that
+value; keys are options, values one of their choices). The same steps can be declared for a core page at the end of config/schema.toml:
+[[page]] id (general network storage backups access) and [[page.steps]] like [[settings.steps]]; every step key must be settable on that page.
+They reach layout.gen.json as "core" (apply is always "config apply") and "defaults" (the schema default of each key named in a step or when).
+Nothing else is supported yet.
 `required` false means the example shows the option commented out, i.e. it is off and has a default.
 """
 import json
@@ -282,10 +287,9 @@ def sys_rows():
         return {ln.split('	')[1] for ln in f.read().splitlines() if ln.startswith('sys	') and ln.count('	') >= 2}
 
 
-def check_steps(name, st, option_keys, choices):
-    """[settings] apply and [[settings.steps]] (+ options) of one manifest, validated; returns the list for the layout.
-    choices: {option key: [str(choice)]} of the options that have a choices list"""
-    where = 'capabilities/%s/capability.toml: [settings]' % name
+def check_steps(where, st, option_keys, choices):
+    """apply and steps (+ options) of one manifest or core page, validated; returns the list for the layout.
+    where: the message prefix; choices: {option key: [str(choice)]} of the options that have a choices list"""
     if 'apply' in st:
         if not (isinstance(st['apply'], str) and re.fullmatch(r'[a-z][a-z0-9-]*( [a-z0-9][a-z0-9-]*)*', st['apply'])):
             die('%s apply must be the area and first word of a change (e.g. "gateway setup")' % where)
@@ -299,7 +303,7 @@ def check_steps(name, st, option_keys, choices):
     out, ids = [], set()
     for s in raw:
         for k in s:
-            if k not in ('id', 'title', 'text', 'keys', 'question', 'options'):
+            if k not in ('id', 'title', 'text', 'keys', 'question', 'options', 'when', 'options_from'):
                 die('%s steps: %s is not supported' % (where, k))
         sid = s.get('id')
         if not (isinstance(sid, str) and re.fullmatch(r'[a-z][a-z0-9-]*', sid)) or sid in ids:
@@ -316,6 +320,23 @@ def check_steps(name, st, option_keys, choices):
                 die('%s step %s: key %s is no option in config/schema.toml' % (where, sid, k))
         if 'question' in s and not (isinstance(s['question'], str) and s['question'].strip()):
             die('%s step %s: question must be a non-empty string' % (where, sid))
+        when = s.get('when')
+        if 'when' in s:
+            if not (isinstance(when, dict) and when):
+                die('%s step %s: when must be a non-empty table of option = value' % (where, sid))
+            for k, v in when.items():
+                if k not in option_keys:
+                    die('%s step %s: when key %s is no option in config/schema.toml' % (where, sid, k))
+                if not isinstance(v, str):
+                    die('%s step %s: the when value of %s must be a string' % (where, sid, k))
+                if k in choices and v not in choices[k]:
+                    die('%s step %s: when value %s is not one of the choices of %s' % (where, sid, v, k))
+        of = s.get('options_from')
+        if 'options_from' in s:
+            if not (isinstance(of, str) and re.fullmatch(r'[a-z][a-z0-9-]*( [a-z0-9][a-z0-9-]*)*', of)) or 'sys ' + of not in sys_rows():
+                die('%s step %s: options_from must be the words of a sys read in scripts/lib/registry.tsv' % (where, sid))
+            if 'question' not in s or len(keys) != 1 or 'options' in s:
+                die('%s step %s: options_from needs a question, exactly one key and no options' % (where, sid))
         raw_opts = s.get('options', [])
         if 'options' in s and not (isinstance(raw_opts, list) and raw_opts):
             die('%s step %s: options must be a non-empty array of tables' % (where, sid))
@@ -352,15 +373,53 @@ def check_steps(name, st, option_keys, choices):
         step = {'id': sid, 'title': s['title'], 'text': s['text'], 'keys': keys}
         if 'question' in s:
             step['question'] = s['question']
+        if when:
+            step['when'] = when
+        if of:
+            step['options_from'] = of
         if options:
             step['options'] = options
         out.append(step)
     return out
 
 
-def render_settings_layout(items):
-    """web/src/settings/layout.gen.json: the page of every key and the capability pages (title, icon, entry) for the Settings tree"""
+CORE_PAGES = ('general', 'network', 'storage', 'backups', 'access')
+
+
+def check_pages(pages, items, option_keys, choices):
+    """[[page]] of config/schema.toml (guided setup of a core Settings page); returns ({page: {apply, steps}}, keys named in steps or when)"""
+    rows = dict(page_rows(items))
+    settable = {it['key'] for it in items if it.get('kind') == 'option' and it['settable']}
+    core, used = {}, set()
+    if not isinstance(pages, list) or not all(isinstance(p, dict) for p in pages):
+        die('config/schema.toml: [[page]] must be an array of tables')
+    for p in pages:
+        for k in p:
+            if k not in ('id', 'steps'):
+                die('config/schema.toml: [[page]] %s is not supported' % k)
+        pid = p.get('id')
+        if pid not in CORE_PAGES or pid in core:
+            die('config/schema.toml: [[page]] id must be one of %s, once each (got %r)' % (' '.join(CORE_PAGES), pid))
+        if not p.get('steps'):
+            die('config/schema.toml: [[page]] %s needs steps' % pid)
+        where = 'config/schema.toml: [[page]] %s' % pid
+        for s in p['steps'] if isinstance(p['steps'], list) else []:
+            for k in (s.get('keys', []) if isinstance(s, dict) else []):
+                if k in option_keys and (k not in settable or rows.get(k) != pid):
+                    die('%s: key %s is not settable on page %s' % (where, k, pid))
+        steps = check_steps(where, {'apply': 'config apply', 'steps': p['steps']}, option_keys, choices)
+        for s in steps:
+            used.update(s['keys'])
+            used.update(s.get('when', {}))
+        core[pid] = {'apply': 'config apply', 'steps': steps}
+    return core, used
+
+
+def render_settings_layout(items, pages):
+    """web/src/settings/layout.gen.json: the page of every key, the capability pages (title, icon, entry) and the core wizards for the Settings tree"""
     keys = dict(page_rows(items))
+    option_keys = {it['key'] for it in items if it.get('kind') == 'option'}
+    choices = {it['key']: [str(c) for c in it['choices']] for it in items if it.get('kind') == 'option' and it.get('choices')}
     with_opts = {pg[4:] for pg in keys.values() if pg.startswith('cap:')}
     caps = {}
     for name, m in manifests().items():
@@ -381,22 +440,33 @@ def render_settings_layout(items):
             if 'sys ' + st['status'] not in sys_rows():
                 die('capabilities/%s/capability.toml: [settings] status "%s" names no sys row in scripts/lib/registry.tsv' % (name, st['status']))
             caps[name]['status'] = st['status']
-        steps = check_steps(name, st, {it['key'] for it in items if it.get('kind') == 'option'},
-                            {it['key']: [str(c) for c in it['choices']] for it in items if it.get('kind') == 'option' and it.get('choices')})
+        steps = check_steps('capabilities/%s/capability.toml: [settings]' % name, st, option_keys, choices)
         if 'apply' in st:
             caps[name]['apply'] = st['apply']
         if steps:
             caps[name]['steps'] = steps
-    doc = {'pages': list(PAGES), 'keys': keys, 'caps': caps}
+    core, used = check_pages(pages, items, option_keys, choices)
+    for c in caps.values():
+        for s in c.get('steps', []):
+            used.update(s['keys'])
+            used.update(s.get('when', {}))
+    defaults = {}
+    for it in items:
+        if it.get('kind') == 'option' and it['key'] in used and 'default' in it and LITERAL.match(it['default']):
+            d = it['default']
+            defaults[it['key']] = '' if d == 'null' else (d[1:-1] if d.startswith('"') else d)
+    doc = {'pages': list(PAGES), 'keys': keys, 'caps': caps, 'core': core, 'defaults': defaults}
     return json.dumps(doc, indent=1, ensure_ascii=False) + '\n'
 
 
 def targets(items):
+    with open(SCHEMA, 'rb') as f:
+        pages = tomllib.load(f).get('page', [])
     return [
         (EXAMPLE, render_example(items)),
         (KEYS_SH, render_keys_sh(items)),
         (CAPS_TSV, render_caps_tsv(items)),
-        (LAYOUT_JSON, render_settings_layout(items)),
+        (LAYOUT_JSON, render_settings_layout(items, pages)),
         (DEFAULTS_NIX, render_defaults_nix(items)),
         (WEB, render_web(read(WEB), items)),
     ]

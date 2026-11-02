@@ -38,4 +38,20 @@ const withCap = nodeItems('main', null, [], capEntries(layout, ['gateway'])).fin
 assert.deepEqual(withCap.children.find((c) => c.path === '/settings/capabilities').children.map((c) => c.path), ['/settings/capabilities/gateway']);
 assert.equal(settings.children.find((c) => c.path === '/settings/capabilities').children, undefined, 'the static tree is not changed');
 assert.ok(layout.caps.docker.steps.every((s) => s.keys.every((k) => keys.includes(k))));
+// (6) the guided steps of the core pages: every step key is settable and on that page; the real defaults are given
+for (const [page, c] of Object.entries(layout.core ?? {})) {
+  assert.ok(c.apply && c.steps.length, page);
+  for (const s of c.steps) for (const k of s.keys) {
+    assert.ok(settable.has(k), `${page}: ${k} is settable`);
+    assert.ok(fieldsFor(layout, page, opts).some((o) => o.key === k), `${page}: ${k} is on the page`);
+    // a field step may have no literal default (nic, smbAllow, siteName); a choice needs one for the recommended mark
+    assert.ok(!s.options?.length || k in layout.defaults, `${page}: ${k} has a default`);
+  }
+}
+assert.ok(layout.core.backups.steps.length === 2);
+// the network wizard: five steps, the risky card last, incusUi has a recommended option
+const net = layout.core.network.steps;
+assert.deepEqual(net.map((s) => s.id), ['site-name', 'share-networks', 'dhcp-range', 'incus-ui', 'card']);
+assert.ok(net.at(-1).keys.join() === 'nic' && !net.at(-1).options?.length);
+assert.ok(net.find((s) => s.id === 'incus-ui').options.some((o) => o.recommended && o.set.incusUi === 'true'));
 console.log('  ok    settings layout');

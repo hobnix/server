@@ -29,10 +29,14 @@ row=$(bash "$parts" --list 2>/dev/null | awk -F'\t' -v n="$name" '$1 == n { prin
 [ -n "$row" ] || refuse "There is no part called $name."
 IFS=$'\t' read -r _ st kind nix sw _ <<<"$row"
 [ "$sw" = yes ] || refuse "$name follows the role of this server; it is not switched here."
-if [ "$action" = enable ] && [ "$st" = on ]; then refuse "$name is on already."; fi
-if [ "$action" = disable ] && [ "$st" = off ]; then refuse "$name is off already."; fi
 
 caps_list() { machine_has capabilities || return 0; machine_get capabilities 2>/dev/null || true; }
+# switched on in machine.toml, not built yet: it still reads off, but a switch-off just takes the line out again
+pend=no
+if [ "$st" = off ] && [ "$nix" = yes ] && caps_list | grep -qxF -- "$name"; then pend=yes; fi
+if [ "$action" = enable ] && [ "$pend" = yes ]; then refuse "$name is switched on already; it takes effect with the next hs rebuild."; fi
+if [ "$action" = enable ] && [ "$st" = on ]; then refuse "$name is on already."; fi
+if [ "$action" = disable ] && [ "$st" = off ] && [ "$pend" = no ]; then refuse "$name is off already."; fi
 caps_write() { local v="" n; for n in "$@"; do v+="${v:+, }\"$n\""; done; machine_set capabilities "[$v]" ext; }
 
 if [ "$kind" = extension ]; then cmd=(bash "$ext" "$action" "$name"); else cmd=(machine.toml capabilities "$action" "$name"); fi
@@ -63,7 +67,10 @@ else
   printf 'heading\tswitch %s off\n' "$name"
   printf 'step\ttake %s out of the list capabilities of machine.toml\n' "$name"
 fi
-if [ "$nix" = yes ]; then
+if [ "$pend" = yes ]; then
+  printf 'note	It was not built yet: nothing stops.
+'
+elif [ "$nix" = yes ]; then
   printf 'warn\t%s brings a NixOS module: the change takes effect with the next hs rebuild.\n' "$name"
   if [ "$action" = disable ]; then
     printf 'danger\tIts services stop at the next rebuild.\nconfirm_name\t%s\n' "$name"

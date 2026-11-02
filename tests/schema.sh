@@ -127,6 +127,45 @@ trial step_opt_choice; rc=$?; check_eq "an option value outside the choices dies
 trial step_opt_two_rec; rc=$?; check_eq "two recommended options die" 2 "$rc"
 trial step_opt_rec_str; rc=$?; check_eq "recommended that is no bool dies" 2 "$rc"
 trial step_opt_notext; rc=$?; check_eq "an option without text dies" 2 "$rc"
+# core pages: [[page]] appended to the schema; first the mistake, the good block passes
+page_block() {   # page_block <dir> <id> <step lines...>
+  local d=$1 id=$2; shift 2
+  { printf '\n[[page]]\nid = "%s"\n' "$id"; printf '%s\n' "$@"; } >> "$d/config/schema.toml"
+}
+# page_strip <dir> <id>: drops the real [[page]] block of that id (it is the last one of its kind or followed by the next [[page]])
+page_strip() {
+  python3 - "$1/config/schema.toml" "$2" <<'PY'
+import re, sys
+p, i = sys.argv[1:]
+t = open(p, encoding='utf-8', newline='').read()
+t = re.sub(r'\[\[page\]\]\nid = "%s"\n.*?(?=\n\[\[page\]\]\n|\Z)' % re.escape(i), '', t, flags=re.S)
+open(p, 'w', encoding='utf-8', newline='').write(t)
+PY
+}
+PG_HEAD=('[[page.steps]]' 'id = "s"' 'title = "T"' 'text = "x"' 'keys = ["backupNewShares"]' 'question = "Q?"')
+PG_OPT=('[[page.steps.options]]' 'id = "o"' 'label = "O"' 'text = "t"' 'set = { backupNewShares = "true" }')
+PG_STEP=("${PG_HEAD[@]}" "${PG_OPT[@]}")
+page_unknown() { page_block "$1" nowhere "${PG_STEP[@]}"; }
+page_advanced() { page_block "$1" advanced "${PG_STEP[@]}"; }
+page_twice() { page_block "$1" backups "${PG_STEP[@]}"; page_block "$1" backups "${PG_STEP[@]}"; }
+page_other_key() { page_strip "$1" general; page_block "$1" general "${PG_STEP[@]}"; }
+page_not_settable() { page_strip "$1" general; page_block "$1" general '[[page.steps]]' 'id = "s"' 'title = "T"' 'text = "x"' 'keys = ["bulkType"]'; }
+page_apply() { page_block "$1" backups 'apply = "config apply"' "${PG_STEP[@]}"; }
+page_when_key() { page_block "$1" backups "${PG_HEAD[@]}" 'when = { noSuchOption = "x" }' "${PG_OPT[@]}"; }
+page_when_choice() { page_block "$1" backups "${PG_HEAD[@]}" 'when = { syncEveryHours = "5" }' "${PG_OPT[@]}"; }
+# every core page is declared in the real schema now, so the good block replaces the real general page
+page_good() { page_strip "$1" general; page_block "$1" general '[[page.steps]]' 'id = "s"' 'title = "T"' 'text = "x"' 'keys = ["timeZone"]' 'question = "Q?"' 'when = { bulkType = "zfs" }' '[[page.steps.options]]' 'id = "o"' 'label = "O"' 'text = "t"' 'set = { timeZone = "UTC" }'; }
+trial page_unknown; rc=$?; check_eq "an unknown [[page]] id dies" 2 "$rc"
+trial page_advanced; rc=$?; check_eq "[[page]] id advanced dies" 2 "$rc"
+trial page_twice; rc=$?; check_eq "a [[page]] twice dies" 2 "$rc"
+trial page_other_key; rc=$?; check_eq "a page step key of another page dies" 2 "$rc"
+trial page_not_settable; rc=$?; check_eq "a page step key that is not settable dies" 2 "$rc"
+trial page_apply; rc=$?; check_eq "apply in a [[page]] dies" 2 "$rc"
+trial page_when_key; rc=$?; check_eq "when with an unknown key dies" 2 "$rc"
+trial page_when_choice; rc=$?; check_eq "when with a value outside the choices dies" 2 "$rc"
+# a good block passes `check` once layout.gen.json is regenerated: trial runs check only, so write first
+page_good_write() { page_good "$1"; python3 "$1/scripts/schema-gen.py" write >/dev/null 2>&1; }
+trial page_good_write; rc=$?; check_eq "a good [[page]] block passes" 0 "$rc"
 check_eq "the gateway page declares its status read" "gateway health" "$(python3 -c "import json;print(json.load(open('$SCRIPTS/../web/src/settings/layout.gen.json'))['caps']['gateway']['status'])")"
 check_eq "advanced is only on options that are not settable" "" "$($GEN pages | awk -F"$T" '$2 == "advanced" {print $1}' | grep -Fxf <($GEN list | awk -F"$T" '$3 == "yes" {print $1}') | tr '
 ' ' ')"

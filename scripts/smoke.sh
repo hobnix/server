@@ -76,6 +76,8 @@ default_probes() {
     $'hs disk baseline\tdisk baseline\t0 1' \
     $'hs pool bulk\tpool bulk\t0 1' \
     $'hs sys pool state\tsys pool state\t0' \
+    $'hs sys parts pending\tsys parts pending\t0' \
+    $'hs sys net nics\tsys net nics\t0' \
     $'hs sys fm locations\tsys fm locations\t0 1' \
     $'hs user list\tuser list\t0' \
     $'hs user show\tuser Administrator show\t0 1' \

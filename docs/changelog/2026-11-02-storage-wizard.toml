@@ -1,0 +1,4 @@
+date  = "2026-11-02"
+type  = "feature"
+title = "The Storage settings page asks about parity updates, snapshots and disk sleep one question at a time"
+body  = """Parity updates show for SnapRAID, snapshots for ZFS; the plan says that switching snapshots off leaves old snapshots on the disk."""

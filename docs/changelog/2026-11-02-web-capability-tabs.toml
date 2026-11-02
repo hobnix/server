@@ -1,0 +1,4 @@
+date  = "2026-11-02"
+type  = "feature"
+title = "Capability pages have tabs, a status tag and an Advanced button in the header"
+body  = """The page of a capability (Gateway, Docker, ...) now opens on the tab Status, with the wizard as the tab Setup; a part without a wizard shows its fields as the tab Settings. Advanced moved from the wizard to the header, next to the switch, and replaces the tabs with the plain key/value fields. The tag in the header says where the part stands: off, on, running, or rebuild needed (a part with a NixOS module that is on but not running yet)."""

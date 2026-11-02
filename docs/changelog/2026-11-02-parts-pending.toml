@@ -1,0 +1,4 @@
+date  = "2026-11-02"
+type  = "fix"
+title = "The Capabilities overview shows \"rebuild needed\" for a part switched on but not built yet"
+body  = """New read `hs sys parts pending` lists the parts switched on in machine.toml and not built yet. The web interface used to offer "Switch on" again for such a part and refused to switch it off."""
