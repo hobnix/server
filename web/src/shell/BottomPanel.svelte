@@ -65,7 +65,16 @@
     const s = Math.max(0, Math.round(((t.ended ?? new Date(now)) - t.started) / 1000));
     return s < 60 ? `${s} s` : s < 3600 ? `${Math.round(s / 60)} min` : `${Math.floor(s / 3600)} h ${Math.round((s % 3600) / 60)} min`;
   };
-  const select = (t) => { tasks.selected = t.unit; if (t.remote) track(t.unit, t.title); };
+  const select = (t) => { tasks.selected = t.unit; stuck = true; if (t.remote) track(t.unit, t.title); };
+
+  // the task log follows new output while it is scrolled to the bottom; scrolled up it stays where it is
+  let tailEl = $state(null);
+  let stuck = true;
+  const onTailScroll = () => { stuck = tailEl.scrollHeight - tailEl.scrollTop - tailEl.clientHeight < 8; };
+  $effect(() => {
+    sel?.lines.length;
+    if (tailEl && stuck) tailEl.scrollTop = tailEl.scrollHeight;
+  });
   const count = (id) => (id === 'tasks' ? String(all.length) : id === 'jobs' && jobs.loaded ? String(jobRows.length) : '');
 
   // reports: the text of a read, shown in place of the tiles
@@ -142,7 +151,7 @@
               </tbody>
             </table></div>
             {#if sel}
-              <div class="log tail">
+              <div class="log tail" bind:this={tailEl} onscroll={onTailScroll}>
                 {#each sel.lines as l}<div>{l}</div>{:else}<div class="empty" style="padding:0">{sel.state === 'running' ? 'Waiting for output…' : 'No output.'}</div>{/each}
               </div>
             {/if}
