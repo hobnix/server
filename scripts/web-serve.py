@@ -845,6 +845,7 @@ READS = {
     ("docker", "apps"): {"kind": "tsv", "ttl": 30, "topic": "docker-apps"},
     ("docker", "logs"): {"kind": "text", "ttl": 3, "nocache": True, "args": [APP], "query": {"lines": (r"^[0-9]{1,4}$", "")}},     # logs and files of an app may hold secrets
     ("docker", "app"): {"kind": "json", "ttl": 0, "nocache": True, "args": [APP]},     # compose may hold secrets; values never leave the container
+    ("docker", "registries"): {"kind": "tsv", "ttl": 15},     # host user state used_by; never a token
     ("docker", "status"): {"kind": "tsv", "ttl": 15},      # the docker wizard: is the container there and owned (key<TAB>value rows)
     ("setup", "list"): {"kind": "tsv", "ttl": 5, "topic": "setup-list"},
     ("config", "list"): {"kind": "tsv", "ttl": 5, "topic": "config-list"},
@@ -916,7 +917,7 @@ GW_SET = (r"^(reverseProxy|gatewayTunnelPort|gatewayPublicHttps|gatewayPublicHtt
           r"gatewayAcmeStaging|gatewayAcmeChallenge|gatewayAcmeDnsProvider|gatewayUnknownHostLocal|gatewayUnknownHostPublic)=[A-Za-z0-9.,@_+-]{0,200}$")
 # the change area (first path segment of the area of a web change) -> the live-state group it refreshes (scripts/lib/live-topics.tsv); ext/<n> -> ext-<n>
 AREA_GROUP = {
-    "ct": "instances", "recipes": "instances", "docker": "instances", "docker-app": "instances", "pool": "disks", "shares": "shares", "fm": "shares", "users": "users", "admin": "users", "dc": "users",
+    "ct": "instances", "recipes": "instances", "docker": "instances", "docker-app": "instances", "docker-registry": "instances", "pool": "disks", "shares": "shares", "fm": "shares", "users": "users", "admin": "users", "dc": "users",
     "backup": "backup", "secrets": "security", "ssh-key": "security", "net": "network", "routes": "network", "gateway": "network", "vps": "network",
     "peers": "network", "node": "network", "jobs": "jobs", "notify": "system", "health": "system", "expiry": "system", "config": "system",
     "system": "system", "parts": "system", "pkg": "system",
@@ -932,6 +933,7 @@ def area_refresh(area):
 
 
 # the keys of the docker steps (capabilities/docker/capability.toml; scripts/docker-setup.sh accepts the same ones)
+DOCKER_REGISTRY_HOST = r"^[a-z0-9.-]{1,100}(:[0-9]{1,5})?$"
 DOCKER_SET = r"^(dockerManager=(webui|arcane|portainer|none)|dockerSize=[sml])$"
 CHANGES = {
     "jobs": [[r"^(run|stop)$", UNIT]],
@@ -1094,7 +1096,11 @@ CHANGES = {
     "docker": [{"fixed": [r"^setup$"], "opts": {"--set": (DOCKER_SET, True)}}],
     "docker-app": [[APP, r"^(start|stop|restart|pull)$"],
                    {"fixed": [APP, r"^app-save$"], "opts": {"--rev": (r"^(new|[0-9a-f]{16})$", False)}, "document": True},
-                   [APP, r"^(rebuild|delete)$"]],
+                   [APP, r"^rebuild$"],
+                   {"fixed": [APP, r"^delete$"], "opts": {"--delete-data": (None, False)}}],     # the data stay unless --delete-data
+    # the registry logins of Docker (docker-registry-change.sh): the token of add is the one line on stdin, never an argument
+    "docker-registry": [{"fixed": [r"^add$", DOCKER_REGISTRY_HOST], "opts": {"--user": (r"^[A-Za-z0-9][A-Za-z0-9._@+-]{0,99}$", False)}, "stdin": True},
+                        [r"^remove$", DOCKER_REGISTRY_HOST]],
     "config": [[r"^set$", r"^(" + CONFIG_KEYS + r")$", r"^[A-Za-z0-9._#:/ -]{0,80}$"], [r"^(sync|migrate)$"]],
     # notification channels: a secret (the topic address, the SMTP password) goes in on stdin, never as an argument; a text setting as --set key=value
     "notify": [{"fixed": [r"^add$", NOTIFY_CHANNEL],

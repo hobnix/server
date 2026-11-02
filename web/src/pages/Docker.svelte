@@ -78,7 +78,7 @@
               {:else if col.key === 'managed'}<Chip>{a.managed}</Chip>
               {:else}
                 <span class="acts">
-                  {#if a.state === 'exited' || a.state === 'created'}
+                  {#if a.state === 'exited' || a.state === 'created' || a.state === 'stopped'}
                     <Button variant="ghost" class="btn-icon ib" icon="play" busy={jobRunning('docker-app', [a.name, 'start'])} tooltip="Start" aria-label="Start {a.name}" onclick={(e) => plan(e, a, 'start')} />
                   {:else if a.state === 'running' || a.state === 'partial'}
                     <Button variant="ghost" class="btn-icon ib" icon="stop" busy={jobRunning('docker-app', [a.name, 'stop'])} tooltip="Stop" aria-label="Stop {a.name}" onclick={(e) => plan(e, a, 'stop')} />
@@ -108,7 +108,7 @@
               {/if}
             {/snippet}
             {#snippet actions()}
-              {#if sel.state === 'exited' || sel.state === 'created'}
+              {#if sel.state === 'exited' || sel.state === 'created' || sel.state === 'stopped'}
                 <Button size="sm" icon="play" busy={jobRunning('docker-app', [sel.name, 'start'])} busyLabel="Starting…" tooltip="Start this app" onclick={(e) => plan(e, sel, 'start')}>Start</Button>
               {:else if sel.state === 'running' || sel.state === 'partial'}
                 <Button size="sm" icon="stop" busy={jobRunning('docker-app', [sel.name, 'stop'])} busyLabel="Stopping…" tooltip="Stop this app" onclick={(e) => plan(e, sel, 'stop')}>Stop</Button>
@@ -117,7 +117,8 @@
               <Button size="sm" icon="download-simple" busy={jobRunning('docker-app', [sel.name, 'pull'])} busyLabel="Pulling…" tooltip="Pull images and recreate" onclick={(e) => plan(e, sel, 'pull')}>Pull</Button>
               {#if sel.managed === 'web'}
                 <Button size="sm" icon="arrow-clockwise" busy={jobRunning('docker-app', [sel.name, 'rebuild'])} busyLabel="Rebuilding…" tooltip="Rebuild" onclick={(e) => openPlan('docker-app', [sel.name, 'rebuild'], `rebuild ${sel.name}`)}>Rebuild</Button>
-                <Button size="sm" variant="danger" busy={jobRunning('docker-app', [sel.name, 'delete'])} busyLabel="Deleting…" tooltip="Delete" onclick={(e) => openPlan('docker-app', [sel.name, 'delete'], `delete ${sel.name}`)}>Delete</Button>
+                <Button size="sm" variant="danger" busy={jobRunning('docker-app', [sel.name, 'delete'])} busyLabel="Deleting…" tooltip="Remove the containers; the folder in /opt/apps stays, so the app can be started again" onclick={(e) => openPlan('docker-app', [sel.name, 'delete'], `delete ${sel.name}`)}>Delete</Button>
+                <Button size="sm" variant="danger" busy={jobRunning('docker-app', [sel.name, 'delete', '--delete-data'])} busyLabel="Deleting…" tooltip="Also delete the config and data (/opt/apps)" onclick={(e) => openPlan('docker-app', [sel.name, 'delete', '--delete-data'], `delete ${sel.name} and its data`)}>Delete with data</Button>
               {/if}
             {/snippet}
           </Drawer>

@@ -15,7 +15,7 @@
 #   --status, --list       the same as data (hs sys docker status|list): key<TAB>value, and one row per app with exactly 5 fields
 #                          name parent project state ports (`-` when empty); a stopped container or a failed read prints no row, exit 0
 #   --apps                 the same data with more fields: name parent project state running/total ports address images managed update
-#                          (`-` when empty); 10 fields, sorted by app name
+#                          (`-` when empty); 10 fields, sorted by app name; state stopped (0/0) for an app whose folder /opt/apps/<app> has a docker-compose.yml but no container
 #   --app <app>            JSON document for the web editor: rev, managed (web|recipe|other), env names, compose; env values never leave the container
 #   --logs <app> [lines]   the Compose log of one app (default 200, max 2000); the app must be a child of docker, never the manager
 # Test knobs: HS_DOCKER_MANAGE_CT (a script that stands in for manage-ct.sh), HS_DOCKER_BACKUP (stands in for backup.sh), HS_DOCKER_NO_JOB=1
@@ -52,12 +52,17 @@ size_of() {   # size_of [size]: "<MiB> <cpus>" from the size, each replaced by d
   printf '%s %s\n' "$m" "$c"
 }
 manager_project() { docker_manager_project "$@"; }   # see scripts/lib/docker-apps.sh
-children() {   # one row per app: name parent project state ports
-  local raw skip
+kept_apps() {   # the apps whose folder /opt/apps/<app> holds a docker-compose.yml (they may have no containers: a delete that kept the data), space separated
+  timeout 8 "${HS_INCUS:-incus}" exec "$CT" -- sh -c 'ls -d /opt/apps/*/docker-compose.yml 2>/dev/null || true' </dev/null 2>/dev/null |
+    awk -F/ 'NF == 5 && $2 == "opt" && $3 == "apps" && $4 ~ /^[a-z0-9][a-z0-9_-]*$/ { printf "%s ", $4 }' || true
+}
+children() {   # one row per app: name parent project state ports (state stopped: the folder is there, no container)
+  local raw skip kept
   owned && running || return 0
   raw=$(timeout 8 "${HS_INCUS:-incus}" exec "$CT" -- docker ps -a --format '{{.Label "com.docker.compose.project"}}\t{{.State}}\t{{.Ports}}' </dev/null 2>/dev/null) || return 0
   skip=$(manager_project "$(setting_get dockerManager 2>/dev/null || true)")
-  printf '%s\n' "$raw" | awk -F'\t' -v skip="$skip" -v ct="$CT" '
+  kept=$(kept_apps)
+  printf '%s\n' "$raw" | awk -F'\t' -v skip="$skip" -v ct="$CT" -v kept="$kept" '
     $1 !~ /^[a-z0-9][a-z0-9_-]*$/ || $1 == skip { next }
     { p = $1
       if (!(p in seen)) { seen[p] = 1; st[p] = $2 }
@@ -69,6 +74,8 @@ children() {   # one row per app: name parent project state ports
       }
     }
     END {
+      n = split(kept, kl, " ")
+      for (a = 1; a <= n; a++) if (kl[a] != skip && !(kl[a] in seen)) { seen[kl[a]] = 1; st[kl[a]] = "stopped" }
       for (p in seen) { k = cnt[p]
         for (a = 2; a <= k; a++) { v = pl[p, a]; b = a - 1; while (b >= 1 && pl[p, b] > v) { pl[p, b + 1] = pl[p, b]; b-- } pl[p, b + 1] = v }
         out = ""; for (a = 1; a <= k; a++) out = out (a > 1 ? "," : "") pl[p, a]
@@ -84,6 +91,8 @@ apps() {   # one row per app: name parent project state running/total ports addr
     ls -a /opt/apps/*/.hs-webui 2>/dev/null || true
     echo "__HS_MARKER_DIR__"
     ls -d /opt/apps/*/ 2>/dev/null || true
+    echo "__HS_MARKER_COMPOSE__"
+    ls -d /opt/apps/*/docker-compose.yml 2>/dev/null || true
   ' </dev/null 2>/dev/null) || return 0
   skip=$(manager_project "$(setting_get dockerManager 2>/dev/null || true)")
   addr=$(ct_addr); [ -n "$addr" ] || addr=-
@@ -91,6 +100,7 @@ apps() {   # one row per app: name parent project state running/total ports addr
     BEGIN { phase = "ps" }
     $0 == "__HS_MARKER_WEBUI__" { phase = "webui"; next }
     $0 == "__HS_MARKER_DIR__" { phase = "dir"; next }
+    $0 == "__HS_MARKER_COMPOSE__" { phase = "compose"; next }
     phase == "ps" {
       if (NF < 3) next
       p = $1
@@ -121,10 +131,17 @@ apps() {   # one row per app: name parent project state running/total ports addr
       if (n >= 4 && parts[2] == "opt" && parts[3] == "apps" && parts[4] != "") dir[parts[4]] = 1
       next
     }
+    phase == "compose" {
+      n = split($0, parts, "/")
+      if (n == 5 && parts[2] == "opt" && parts[3] == "apps" && parts[5] == "docker-compose.yml") comp[parts[4]] = 1
+      next
+    }
     END {
+      for (p in comp) if (p ~ /^[a-z0-9][a-z0-9_-]*$/ && p != skip && !(p in seen)) { seen[p] = 1; cnt[p] = 0; run[p] = 0; created[p] = 0 }
       for (p in seen) {
         total = cnt[p]; running = run[p]
-        if (running == total) st = "running"
+        if (total == 0) st = "stopped"
+        else if (running == total) st = "running"
         else if (running > 0) st = "partial"
         else if (created[p]) st = "created"
         else st = "exited"

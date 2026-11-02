@@ -1,18 +1,22 @@
 #!/usr/bin/env bash
 # help: -
 # help.de: -
-# args: plan|start <app> <action> [--rev new|<rev>]
+# args: plan|start <app> <action> [--rev new|<rev>] [--delete-data]
 # Change the apps (compose projects) that run in the locked docker container.
 # Actions: start, stop, restart run directly; pull runs as a background job and recreates the containers.
 # app-save creates or updates a web-managed app; rebuild and delete are only for web-managed apps.
 # Every check is repeated at start, and a plan refuses before anything changes.
-# Test knobs: HS_DOCKER_NO_JOB=1 (run pull/rebuild/save/delete inline), HS_INCUS.
+# An image from a private registry (ghcr.io) needs its token from the vault (lib/docker-auth.sh): a closed vault refuses pull, rebuild and
+# app-save at the plan (fix: hs vault open); start, stop, restart never need it.
+# delete keeps /opt/apps/<app> unless --delete-data is given (the app stays editable and can be started again).
+# Test knobs: HS_DOCKER_NO_JOB=1 (run pull/rebuild/save/delete inline), HS_INCUS, HS_DOCKER_SH and HS_CT_CHANGE (stand in for docker.sh and ct-change.sh).
 set -euo pipefail
 here=$(cd "$(dirname "$0")" && pwd)
 . "$here/lib/ui.sh"
 . "$here/lib/job.sh"
 . "$here/lib/setting.sh"
 . "$here/lib/docker-apps.sh"
+. "$here/lib/docker-auth.sh"
 
 CT=docker
 APP_RE='^[a-z0-9][a-z0-9_-]{0,40}$'
@@ -23,17 +27,28 @@ NAME_RE='^[A-Za-z_][A-Za-z0-9_]*$'
 
 refuse() { printf 'status\trefused\nreason\t%s\n' "$1"; exit 1; }
 
+# auth_check <app> [<compose file> <env file>]: refuse when an image of the app names a registry whose token is in the closed vault
+auth_check() {
+  local hosts h
+  hosts=$(docker_auth_hosts "$@")
+  # shellcheck disable=SC2086
+  if h=$(docker_auth_locked $hosts); then
+    printf 'status\trefused\nreason\tThe vault is closed: the token for %s is in it.\nfix\ths vault open\n' "$h"
+    exit 1
+  fi
+}
+
 docker_on_and_running() {
   local k v on=off run=no
   while IFS=$'\t' read -r k v; do
     case "$k" in state) on=$v ;; running) run=$v ;; esac
-  done < <(bash "$here/docker.sh" --status </dev/null 2>/dev/null || true)
+  done < <(bash "${HS_DOCKER_SH:-$here/docker.sh}" --status </dev/null 2>/dev/null || true)
   [ "$on" = on ] && [ "$run" = yes ]
 }
 
 app_is_child() {
   local app=$1
-  bash "$here/docker.sh" --list </dev/null 2>/dev/null | awk -F'\t' -v app="$app" '$1 == app {found=1} END{exit !found}'
+  bash "${HS_DOCKER_SH:-$here/docker.sh}" --list </dev/null 2>/dev/null | awk -F'\t' -v app="$app" '$1 == app {found=1} END{exit !found}'
 }
 
 is_manager() {
@@ -42,7 +57,9 @@ is_manager() {
   [ -n "$mgr" ] && [ "$app" = "$mgr" ]
 }
 
-app_read() { bash "$here/docker.sh" --app "$1" 2>/dev/null; }
+app_state() { bash "${HS_DOCKER_SH:-$here/docker.sh}" --list </dev/null 2>/dev/null | awk -F'\t' -v app="$1" '$1 == app { print $4; exit }'; }
+
+app_read() { bash "${HS_DOCKER_SH:-$here/docker.sh}" --app "$1" 2>/dev/null; }
 current_rev() { app_read "$1" | python3 -c 'import sys,json; print(json.load(sys.stdin)["rev"])'; }
 current_managed() { app_read "$1" | python3 -c 'import sys,json; print(json.load(sys.stdin)["managed"])'; }
 
@@ -69,7 +86,10 @@ find_working_dir() {
   local app=$1 raw dir
   raw=$(timeout 10 "${HS_INCUS:-incus}" exec "$CT" -- sh -c '
     ids=$(docker ps -aq -f label=com.docker.compose.project="$1")
-    [ -n "$ids" ] || exit 1
+    if [ -z "$ids" ]; then   # no container (a delete that kept the data): the app folder is the working directory
+      [ -f "/opt/apps/$1/docker-compose.yml" ] && { printf "%s\n" "/opt/apps/$1"; exit 0; }
+      exit 1
+    fi
     first=""
     for id in $ids; do
       d=$(docker inspect --format "{{.Config.Labels.com.docker.compose.project.working_dir}}" "$id")
@@ -88,7 +108,7 @@ find_working_dir() {
 apply_pull() {
   local app=$1 dir=$2
   step "$(t 'Pull images for %s' "$app")"
-  if timeout 600 "${HS_INCUS:-incus}" exec "$CT" -- sh -c 'cd "$1" && docker compose -p "$2" pull && docker compose -p "$2" up -d' sh "$dir" "$app" </dev/null; then
+  if DOCKER_AUTH_DIR=$dir docker_with_auth "$app" pull && DOCKER_AUTH_DIR=$dir docker_with_auth "$app" up -d; then
     ok "$(t 'Pulled and restarted %s' "$app")"
   else
     fail "$(t 'Pull failed for %s' "$app")"
@@ -235,6 +255,17 @@ run_check() {
 
 # ── app-save plan / start ──
 
+auth_check_tmp() {   # the images of the NEW compose file in the temp dir; the temp dir goes when the vault is closed
+  local app=$1 tmp=$2 hosts h
+  hosts=$(docker_auth_hosts "$app" "$tmp/docker-compose.yml" "$tmp/.env")
+  # shellcheck disable=SC2086
+  if h=$(docker_auth_locked $hosts); then
+    remove_tmp "$tmp"
+    printf 'status\trefused\nreason\tThe vault is closed: the token for %s is in it.\nfix\ths vault open\n' "$h"
+    exit 1
+  fi
+}
+
 cmd_plan_save() {
   local app=$1 rev=$2 tmp rc=0
   local current is_new=0
@@ -278,6 +309,7 @@ cmd_plan_save() {
     remove_tmp "$tmp"
     if [ -n "$err" ]; then refuse "The compose file is not valid. $err"; else refuse "The compose file is not valid."; fi
   fi
+  auth_check_tmp "$app" "$tmp"
   printf 'status\tok\nheading\tapp-save %s\n' "$app"
   local name
   for name in "${DOC_SET_NAMES[@]}"; do printf 'step\tSet %s\n' "$name"; done
@@ -313,6 +345,7 @@ cmd_start_save() {
         refuse "$v" ;;
     esac
   done <<<"$policy"
+  auth_check_tmp "$app" "$tmp"
   if [ -n "${HS_DOCKER_NO_JOB:-}" ]; then
     apply_save "$app" "$rev" "$tmp" "$is_new"
     printf 'status\tdone\n'
@@ -335,10 +368,20 @@ apply_save() {
     current=$(current_rev "$app") || { remove_tmp "$tmp"; fail "The app '$app' cannot be read."; }
     [ "$current" = "$rev" ] || { remove_tmp "$tmp"; fail "The app changed meanwhile. Reload it before saving."; }
   fi
-  timeout 60 "${HS_INCUS:-incus}" exec "$CT" -- bash -c '
+  local hosts h lines
+  hosts=$(docker_auth_hosts "$app" "$tmp/docker-compose.yml" "$tmp/.env")
+  # shellcheck disable=SC2086
+  if h=$(docker_auth_locked $hosts); then
+    remove_tmp "$tmp"
+    fail "$(t 'The vault is closed: the token for %s is in it.' "$h")"
+  fi
+  # shellcheck disable=SC2086
+  lines=$(docker_auth_lines $hosts)
+  printf '%s\n' "$lines" | timeout 600 "${HS_INCUS:-incus}" exec "$CT" -- bash -c "$DOCKER_AUTH_LOGIN"'
     set -uo pipefail
     app=$1; rev=$2; tmp=$3; is_new=$4
     dir=/opt/apps/$app
+    hs_auth_login || { echo "The registry login failed." >&2; rm -rf -- "$tmp"; exit 1; }
     if [ "$is_new" -eq 1 ]; then
       mkdir -p "$dir"
     fi
@@ -418,6 +461,7 @@ apply_save() {
 cmd_plan_rebuild() {
   local app=$1
   write_checks "$app"
+  auth_check "$app"
   printf 'status\tok\nheading\trebuild %s\n' "$app"
   printf 'step\tPull the newest images\n'
   printf 'step\tBuild images that have a Dockerfile\n'
@@ -428,9 +472,10 @@ cmd_plan_rebuild() {
 cmd_start_rebuild() {
   local app=$1
   write_checks "$app"
+  auth_check "$app"
   if [ -n "${HS_DOCKER_NO_JOB:-}" ]; then
     step "$(t 'Rebuild %s' "$app")"
-    if timeout 600 "${HS_INCUS:-incus}" exec "$CT" -- sh -c 'cd "/opt/apps/$1" && docker compose -p "$1" up -d --build --pull always' sh "$app" </dev/null; then
+    if docker_with_auth "$app" up -d --build --pull always; then
       ok "$(t 'Rebuilt %s' "$app")"
       printf 'status\tdone\n'
     else
@@ -452,7 +497,7 @@ apply_rebuild() {
   managed=$(current_managed "$app") || fail "The app '$app' cannot be read."
   [ "$managed" = web ] || fail "Only web-managed apps can be rebuilt."
   step "$(t 'Rebuild %s' "$app")"
-  if timeout 600 "${HS_INCUS:-incus}" exec "$CT" -- sh -c 'cd "/opt/apps/$1" && docker compose -p "$1" up -d --build --pull always' sh "$app" </dev/null; then
+  if docker_with_auth "$app" up -d --build --pull always; then
     ok "$(t 'Rebuilt %s' "$app")"
   else
     fail "$(t 'Rebuild of %s failed.' "$app")"
@@ -462,33 +507,37 @@ apply_rebuild() {
 # ── delete ──
 
 cmd_plan_delete() {
-  local app=$1
+  local app=$1 data=$2
   write_checks "$app"
   printf 'status\tok\nheading\tdelete %s\n' "$app"
-  printf 'danger\tDelete the app, its containers and /opt/apps/%s.\n' "$app"
   printf 'confirm_name\t%s\n' "$app"
   printf 'step\tStop and remove the containers\n'
-  printf 'step\tRemove the app directory and its data\n'
+  if [ "$data" = 1 ]; then
+    printf 'danger\tDelete the app, its containers and /opt/apps/%s.\n' "$app"
+    printf 'step\tRemove the app directory and its data\n'
+  else
+    printf 'note\t/opt/apps/%s is kept: the app stays editable and can be started again.\n' "$app"
+  fi
   printf 'note\tA snapshot of docker is taken first.\n'
   printf 'long\tyes\n'
 }
 
 cmd_start_delete() {
-  local app=$1 confirm=${2:-}
+  local app=$1 confirm=${2:-} data=${3:-0}
   write_checks "$app"
   [ "$confirm" = "$app" ] || refuse "The name did not match. Nothing was deleted."
   if [ -n "${HS_DOCKER_NO_JOB:-}" ]; then
-    apply_delete "$app"
+    apply_delete "$app" "$data"
     printf 'status\tdone\n'
   else
     local unit
-    unit=$(hs_job "docker-app-delete-$app" "Delete $app" -- bash "$0" --apply-delete "$app") || refuse "The background job could not be started."
+    unit=$(hs_job "docker-app-delete-$app" "Delete $app" -- bash "$0" --apply-delete "$app" "$data") || refuse "The background job could not be started."
     printf 'status\tstarted\nunit\t%s\n' "$unit"
   fi
 }
 
 apply_delete() {
-  local app=$1 managed
+  local app=$1 data=${2:-0} managed
   [[ "$app" =~ $APP_RE ]] || fail "The app name is not valid."
   docker_on_and_running || fail "Docker is not on or not running."
   app_is_child "$app" || fail "No app called '$app' was found."
@@ -496,12 +545,16 @@ apply_delete() {
   managed=$(current_managed "$app") || fail "The app '$app' cannot be read."
   [ "$managed" = web ] || fail "Only web-managed apps can be deleted."
   step "$(t 'Snapshot docker before deleting %s' "$app")"
-  if ! bash "$here/ct-change.sh" start docker snapshot --label "pre-delete-$app" >/dev/null 2>&1; then
+  if ! bash "${HS_CT_CHANGE:-$here/ct-change.sh}" start docker snapshot --label "pre-delete-$app" >/dev/null 2>&1; then
     fail "$(t 'The snapshot of docker failed. Nothing was deleted.')"
   fi
   step "$(t 'Stop and remove the containers of %s' "$app")"
   if ! timeout 120 "${HS_INCUS:-incus}" exec "$CT" -- sh -c 'cd "/opt/apps/$1" && docker compose -p "$1" down --remove-orphans' sh "$app" </dev/null; then
     fail "$(t 'Stopping the containers of %s failed. The app directory was not removed.' "$app")"
+  fi
+  if [ "$data" != 1 ]; then
+    ok "$(t 'Deleted the containers of %s; /opt/apps/%s is kept.' "$app" "$app")"
+    return 0
   fi
   step "$(t 'Remove /opt/apps/%s' "$app")"
   timeout 30 "${HS_INCUS:-incus}" exec "$CT" -- sh -c 'rm -rf -- "/opt/apps/$1"' sh "$app" </dev/null || fail "$(t 'Removing /opt/apps/%s failed.' "$app")"
@@ -515,6 +568,9 @@ cmd_plan_old() {
   base_checks "$app"
   if [ "$action" = pull ]; then
     dir=$(find_working_dir "$app") || refuse "The working directory of $app could not be found."
+    DOCKER_AUTH_DIR=$dir auth_check "$app"
+  elif [ "$action" != stop ] && [ "$(app_state "$app")" = stopped ]; then
+    auth_check "$app"
   fi
   printf 'status\tok\nheading\t%s %s\n' "$action" "$app"
   case "$action" in
@@ -533,6 +589,11 @@ cmd_start_old() {
   base_checks "$app"
   case "$action" in
     start|stop|restart)
+      if [ "$action" != stop ] && [ "$(app_state "$app")" = stopped ]; then
+        # no container (the data were kept): bring the app up from its folder
+        if docker_with_auth "$app" up -d; then printf 'status\tdone\n'; else refuse "The $action of $app failed."; fi
+        return 0
+      fi
       if timeout 30 "${HS_INCUS:-incus}" exec "$CT" -- sh -c 'docker compose -p "$1" "$2"' sh "$app" "$action" </dev/null; then
         printf 'status\tdone\n'
       else
@@ -541,6 +602,7 @@ cmd_start_old() {
       ;;
     pull)
       dir=$(find_working_dir "$app") || refuse "The working directory of $app could not be found."
+      DOCKER_AUTH_DIR=$dir auth_check "$app"
       if [ -n "${HS_DOCKER_NO_JOB:-}" ]; then
         apply_pull "$app" "$dir"
         printf 'status\tdone\n'
@@ -573,8 +635,8 @@ if [ "${1:-}" = "--apply-rebuild" ]; then
 fi
 
 if [ "${1:-}" = "--apply-delete" ]; then
-  [ $# -eq 2 ] || exit 1
-  apply_delete "$2"
+  [ $# -eq 3 ] || exit 1
+  apply_delete "$2" "$3"
   exit 0
 fi
 
@@ -585,6 +647,7 @@ verb=$1; app=$2; action=$3; shift 3
 case "$action" in
   start|stop|restart|pull) [ $# -eq 0 ] || refuse "Unexpected arguments." ;;
 esac
+delete_data=0
 
 case "$verb" in
   plan)
@@ -594,7 +657,9 @@ case "$verb" in
         [ $# -eq 2 ] && [ "$1" = --rev ] || refuse "app-save needs --rev new|<rev>."
         cmd_plan_save "$app" "$2" ;;
       rebuild) cmd_plan_rebuild "$app" ;;
-      delete) cmd_plan_delete "$app" ;;
+      delete)
+        [ $# -eq 0 ] || { [ $# -eq 1 ] && [ "$1" = --delete-data ] && delete_data=1; } || refuse "delete takes only --delete-data."
+        cmd_plan_delete "$app" "$delete_data" ;;
     esac
     ;;
   start)
@@ -607,9 +672,13 @@ case "$verb" in
       delete)
         confirm=""
         while [ $# -gt 0 ]; do
-          case "$1" in --confirm) confirm=$2; shift 2 ;; *) refuse "delete takes only --confirm <app>." ;; esac
+          case "$1" in
+            --confirm) [ $# -ge 2 ] || refuse "--confirm needs the app name."; confirm=$2; shift 2 ;;
+            --delete-data) delete_data=1; shift ;;
+            *) refuse "delete takes only --confirm <app> and --delete-data." ;;
+          esac
         done
-        cmd_start_delete "$app" "$confirm" ;;
+        cmd_start_delete "$app" "$confirm" "$delete_data" ;;
     esac
     ;;
   *) refuse "Usage: plan|start <app> <action> [--rev new|<rev>]" ;;
