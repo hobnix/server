@@ -20,6 +20,7 @@ gpu|gpu|nvidia amd intel none
 notifyUrl|string|a URL such as https://ntfy.sh/my-topic, or "none"
 metrics|bool|true false
 backupNewShares|bool|true false
+backupNewInstances|bool|true false
 syncEveryHours|int|1 2 3 4 6 8 12 24
 incusUi|bool|true false
 shareSnapshots|bool|true false

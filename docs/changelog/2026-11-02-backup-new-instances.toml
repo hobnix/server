@@ -1,0 +1,5 @@
+date  = "2026-11-02"
+type  = "feature"
+title = "Setting backupNewInstances: choose whether new app containers go into the backup"
+docs  = "backup-and-recovery"
+body  = """By default a container set up by an app recipe is put into the backup, as before. Set backupNewInstances to false (hs config set backupNewInstances false) to leave new containers out until you run hs backup ct NAME on. Not tested on hardware yet."""

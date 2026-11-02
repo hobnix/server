@@ -649,6 +649,23 @@ value = '''
 backupNewShares = true'''
 
 [[item]]
+kind = "option"
+key = "backupNewInstances"
+type = "bool"
+required = false
+settable = true
+secret = false
+store = "settings"
+default = 'true'
+doc = '''
+# Does a container that an app recipe sets up go into `hs backup` by itself?
+#   true (default)  yes, until you switch it off with `hs backup ct <name> off`
+#   false           no, it is only backed up after `hs backup ct <name> on`
+# Containers that are in the backup stay in it.'''
+value = '''
+backupNewInstances = false'''
+
+[[item]]
 kind = "section"
 title = "Accounts"
 page = "access"

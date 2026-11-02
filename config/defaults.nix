@@ -33,6 +33,7 @@
   fileManagerWrite = false;
   setupDone = false;
   backupNewShares = false;
+  backupNewInstances = true;
   adDomain = null;
   notifyUrl = null;
   heartbeatUrl = null;
