@@ -33,7 +33,7 @@
           <PartTag part={p} />
           <div class="pt"><code>{p.name}</code><span class="hp">{p.title}</span></div>
           {#if hasPage(p)}<button use:tip={'Open the settings of this part'} class="btn sm" onclick={() => go(`/settings/capabilities/${p.name}`)}><i class="ph ph-sliders"></i>Settings</button>{/if}
-          <Button size="sm" busy={jobRunning('parts', [p.on ? 'disable' : 'enable', p.name])} busyLabel="Switching…" disabled={!p.canSwitch} tooltip={!p.canSwitch ? 'This part cannot be switched here' : p.on ? 'Switch this part off (shows the plan)' : 'Switch this part on (shows the plan)'} onclick={() => flip(p)}>{p.on ? 'Switch off…' : 'Switch on…'}</Button>
+          <Button size="sm" busy={jobRunning('parts', [p.on || p.pending ? 'disable' : 'enable', p.name])} busyLabel="Switching…" disabled={!p.canSwitch} tooltip={!p.canSwitch ? 'This part cannot be switched here' : p.on || p.pending ? 'Switch this part off (shows the plan)' : 'Switch this part on (shows the plan)'} onclick={() => flip(p)}>{p.on || p.pending ? 'Switch off…' : 'Switch on…'}</Button>
         </div>
       {:else}
         <div class="hp2">{partList.loaded ? (partList.error ? 'The parts could not be read.' : 'No optional parts.') : 'Loading…'}</div>
@@ -46,7 +46,7 @@
         <div class="prow">
           <PartTag part={p} />
           <div class="pt"><code>{p.name}</code><span class="hp">{p.title}</span></div>
-          <Button size="sm" busy={jobRunning('parts', [p.on ? 'disable' : 'enable', p.name])} busyLabel="Switching…" disabled={!p.canSwitch} tooltip={!p.canSwitch ? 'This part cannot be switched here' : p.on ? 'Switch this part off (shows the plan)' : 'Switch this part on (shows the plan)'} onclick={() => flip(p)}>{p.on ? 'Switch off…' : 'Switch on…'}</Button>
+          <Button size="sm" busy={jobRunning('parts', [p.on || p.pending ? 'disable' : 'enable', p.name])} busyLabel="Switching…" disabled={!p.canSwitch} tooltip={!p.canSwitch ? 'This part cannot be switched here' : p.on || p.pending ? 'Switch this part off (shows the plan)' : 'Switch this part on (shows the plan)'} onclick={() => flip(p)}>{p.on || p.pending ? 'Switch off…' : 'Switch on…'}</Button>
         </div>
       {:else}
         <div class="hp2">{partList.loaded ? 'No extensions on this server.' : 'Loading…'}</div>

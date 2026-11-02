@@ -1,8 +1,9 @@
 // The status tags of Settings (plain functions, tested in tests/web-settings-steps.mjs).
 
-// Where a part stands: off | on | running | rebuild needed. `running` is the state of the row `running` of its status read ('' when unknown).
+// Where a part stands: off | on | running | rebuild needed (`pending`: `hs sys parts pending` lists it, switched on in machine.toml and not rebuilt). `running` is the state of the row `running` of its status read ('' when unknown).
 // A part with a NixOS module that is on but not running yet waits for `hs rebuild`.
 export function partTag(part, running) {
+  if (part?.pending) return { state: 'warn', label: 'rebuild needed' };
   if (!part?.on) return { state: 'off', label: 'off' };
   if (part.nix && running && running !== 'ok') return { state: 'warn', label: 'rebuild needed' };
   if (running === 'ok') return { state: 'ok', label: 'running' };

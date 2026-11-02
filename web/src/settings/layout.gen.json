@@ -454,6 +454,16 @@
  },
  "defaults": {
   "backupNewShares": "false",
-  "backupNewInstances": "true"
+  "backupNewInstances": "true",
+  "dockerSize": "m",
+  "gatewayPublicHttps": "0",
+  "gatewayPublicHttp": "0",
+  "gatewayUnknownHostLocal": "404",
+  "gatewayUnknownHostPublic": "drop",
+  "gatewayTunnelPort": "0",
+  "gatewayAcmeEmail": "",
+  "gatewayAcmeStaging": "true",
+  "gatewayAcmeChallenge": "tls-alpn",
+  "gatewayAcmeDnsProvider": "cloudflare"
  }
 }

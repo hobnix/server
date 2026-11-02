@@ -437,6 +437,10 @@ def render_settings_layout(items, pages):
         if steps:
             caps[name]['steps'] = steps
     core, used = check_pages(pages, items, option_keys, choices)
+    for c in caps.values():
+        for s in c.get('steps', []):
+            used.update(s['keys'])
+            used.update(s.get('when', {}))
     defaults = {}
     for it in items:
         if it.get('kind') == 'option' and it['key'] in used and 'default' in it and LITERAL.match(it['default']):

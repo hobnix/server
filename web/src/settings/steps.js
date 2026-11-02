@@ -79,10 +79,10 @@ export function visibleSteps(steps, opts, defaults = null) {
 export const freeKeys = (step) => { const set = new Set((step?.options || []).flatMap((o) => Object.keys(o.set || {}))); return (step?.keys || []).filter((k) => !set.has(k)); };
 
 // every step with options that has no matching option yet gets its recommended one (returns a new draft)
-export function withRecommended(draft, steps) {
+export function withRecommended(draft, steps, defaults = null) {
   let out = { ...draft };
   for (const s of steps || []) {
-    if (!s.options?.length || optionOf(out, s)) continue;
+    if (!s.options?.length || optionOf(out, s, defaults)) continue;
     const rec = s.options.find((o) => o.recommended);
     if (rec) out = applyPreset(out, rec);
   }

@@ -1,0 +1,4 @@
+date  = "2026-11-02"
+type  = "fix"
+title = "The gateway and Docker setup pages in the web interface start from the real defaults"
+body  = """A setting you have not changed now shows the choice that matches the server's real default, not the example value, and a set-up gateway is no longer pre-selected over a value you set by hand."""

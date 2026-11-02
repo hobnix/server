@@ -33,6 +33,8 @@
   const fields = $derived(fieldsFor(layout, `cap:${cap}`, getOpts()));
   // "set up" is not "listed as on": the docker wizard counts the container (owned in `hs sys docker status`), the others the part (steps.js setupDone)
   const dockerSt = poll(() => (meta?.apply === 'docker setup' ? '/api/sys/docker/status' : ''), 15000);
+  // `known`: what setUp depends on has arrived (the wizard waits with its recommended preset until then)
+  const known = $derived(!!partList.loaded && (meta?.apply !== 'docker setup' || !!dockerSt.loaded));
   const setUp = $derived(setupDone(meta?.apply, part?.on, rows(dockerSt)));
 
   // tabs: Status, Setup (the wizard); a part without a wizard keeps its fields as the tab Settings. Advanced replaces the tabs (wizard keys + fields).
@@ -57,7 +59,7 @@
       {#if part}
         <StatusDot state={tag.state} label={tag.label} />
         {#if hasSteps}<Button tooltip={advanced ? 'Back to the status and the setup' : 'Every key of this part as plain fields'} onclick={() => (advanced = !advanced)}>{advanced ? 'Back' : 'Advanced'}</Button>{/if}
-        <Button busy={jobRunning('parts', [part.on ? 'disable' : 'enable', part.name])} busyLabel="Switching…" disabled={!part.canSwitch} tooltip={!part.canSwitch ? 'This part cannot be switched here' : part.on ? 'Switch this part off (shows the plan)' : 'Switch this part on (shows the plan)'} onclick={() => flip(part)}>{part.on ? 'Switch off…' : 'Switch on…'}</Button>
+        <Button busy={jobRunning('parts', [part.on || part.pending ? 'disable' : 'enable', part.name])} busyLabel="Switching…" disabled={!part.canSwitch} tooltip={!part.canSwitch ? 'This part cannot be switched here' : part.on || part.pending ? 'Switch this part off (shows the plan)' : 'Switch this part on (shows the plan)'} onclick={() => flip(part)}>{part.on || part.pending ? 'Switch off…' : 'Switch on…'}</Button>
       {:else if !partList.loaded}
         <span class="muted">Loading…</span>
       {/if}
@@ -71,7 +73,7 @@
     <!-- every panel stays mounted (hidden): the wizard keeps its draft and the status keeps polling while another tab is open -->
     {#if meta.status}<div hidden={advanced || cur !== 'status'}><StatusPanel read={meta.status} bind:off={setupOff} bind:running={running} /></div>{/if}
     {#if hasSteps}
-      <div hidden={!advanced && cur !== 'setup'}><WizardSteps steps={meta.steps} apply={meta.apply} opts={getOpts()} off={setupOff} on={setUp} first={meta.apply === 'docker setup' && !setUp} {advanced} /></div>
+      <div hidden={!advanced && cur !== 'setup'}><WizardSteps steps={meta.steps} apply={meta.apply} opts={getOpts()} off={setupOff} on={setUp} {known} first={meta.apply === 'docker setup' && !setUp} {advanced} defaults={layout.defaults} /></div>
     {/if}
     {#if fields.length && (advanced || !hasSteps)}
       <div hidden={!advanced && cur !== 'settings'}><Fields opts={fields} /></div>

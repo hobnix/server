@@ -9,12 +9,12 @@
   import { openPlan } from '../ui.svelte.js';
   import { stepKeys, draftFrom, applyPreset, optionOf, freeKeys, withDefaults, visibleSteps, withRecommended, screens, diff, changed, changedAll, applyParts } from './steps.js';
 
-  // steps: the layout list; apply: "<area> <verb>"; opts: rows of `hs sys config list`; off: a reason the setup is off. on: the part is on already (the page then starts at the review, the summary)
+  // steps: the layout list; apply: "<area> <verb>"; opts: rows of `hs sys config list`; off: a reason the setup is off. on: the part is on already (the page then starts at the review, the summary). known: `on` is settled (parts list / docker status arrived); the draft waits for it, else a set-up part would get the recommended preset
   // first: nothing exists yet (the docker container): Apply is always possible and sends every step key
   // advanced: the page's Advanced view is on (it replaces the tabs): the step keys as plain fields over the same draft
-  // defaults: { key: value } of the schema (core pages); the rows then carry them, an unset key matches its default's option and nothing is preset
+  // defaults: { key: value } of the schema; the rows then carry them and an unset key matches its default's option. Only a setup that is not on yet gets the recommended option of a step that still has no match
   // steps with a `when` that does not hold are left out of the screens, the review and the wizard (Advanced keeps every key)
-  let { steps: allSteps = [], apply = '', opts: rows = [], off = '', on = false, first = false, advanced = false, defaults = null } = $props();
+  let { steps: allSteps = [], apply = '', opts: rows = [], off = '', on = false, known = true, first = false, advanced = false, defaults = null } = $props();
   const opts = $derived(defaults ? withDefaults(rows, defaults) : rows);
   const steps = $derived(visibleSteps(allSteps, opts, defaults));
   let draft = $state({});
@@ -28,7 +28,7 @@
   const list = $derived(screens(steps, only));
 
   $effect(() => {
-    if (!ready && opts.length) { draft = defaults ? draftFrom(opts, allSteps) : withRecommended(draftFrom(opts, allSteps), allSteps); ready = true; }
+    if (!ready && known && opts.length) { draft = on ? draftFrom(opts, allSteps) : withRecommended(draftFrom(opts, allSteps), allSteps, defaults); ready = true; }
   });
   // a part that is on shows the summary first, unless the person has moved already
   $effect(() => {
