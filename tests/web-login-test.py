@@ -413,7 +413,8 @@ class Changes(Base):
               ("users", ["anna", "lock"]), ("system", ["sync"]), ("system", ["scrub", "--pool", "fast"]), ("system", ["update"]),
               ("ct", ["docker", "update"]), ("ct", ["docker", "restore", "--snapshot", "snap1"]),
               ("config", ["set", "webAccent", "#4fb286"]), ("config", ["set", "language", "de"]),
-              ("config", ["apply", "--set", "backupNewShares=true", "--set", "syncEveryHours=6"])]
+              ("config", ["apply", "--set", "backupNewShares=true", "--set", "syncEveryHours=6"]),
+              ("config", ["apply", "--set", "dhcpRange=[100, 150]"])]
         for area, args in ok:
             self.assertEqual(self.post("/api/plan", {"area": area, "args": args})[0], 200, (area, args))
         n = len(self.calls)
