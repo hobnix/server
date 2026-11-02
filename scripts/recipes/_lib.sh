@@ -359,6 +359,9 @@ declare_dump() {   # declare_dump <name> <command inside the container>
 
 backup_with_dump() {   # backup_with_dump <name> <command inside the container, or "" for a container without a database>
   if [ -n "$2" ]; then declare_dump "$1" "$2" || return 0; fi
+  case "$(setting_get backupNewInstances 2>/dev/null || true)" in
+    false|off) note "$(t "'%s' is not put into the backup (backupNewInstances is false). Later: hs backup ct %s on" "$ct" "$ct")"; return 0 ;;
+  esac
   bash "$scripts/backup.sh" ct "$ct" on >/dev/null 2>&1 || warn "$(t "Could not add '%s' to the backup. Later: hs backup ct %s on" "$ct" "$ct")"
 }
 

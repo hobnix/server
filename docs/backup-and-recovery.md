@@ -27,7 +27,7 @@ The pool disks are mounted under `/var/lib/hs`, which the host backup includes; 
 never ends up in the host snapshot.
 
 A new share starts **out** of the backup so large replaceable data (films, downloads) does not fill the disk. Set `backupNewShares =
-true` in `machine.toml` to change that default. Retention is 7 daily, 4 weekly and 6 monthly snapshots.
+true` in `machine.toml` to change that default. A container that an app recipe sets up is put into the backup by default; `hs config set backupNewInstances false` turns that off (then use `hs backup ct <name> on`). Retention is 7 daily, 4 weekly and 6 monthly snapshots.
 
 ## Set up the backup disk
 Look at the disks first. **The chosen disk is erased.**

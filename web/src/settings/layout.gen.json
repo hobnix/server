@@ -47,6 +47,7 @@
   "fileManagerWrite": "storage",
   "setupDone": "general",
   "backupNewShares": "backups",
+  "backupNewInstances": "backups",
   "adDomain": "access",
   "notifyUrl": "cap:notifications",
   "heartbeatUrl": "cap:notifications",
