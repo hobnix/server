@@ -3,9 +3,10 @@
 # help.de: den aufbewahrten Ordner einer gelöschten Freigabe endgültig entfernen (<Freigabe>.deleted-<Datum>); die Dateien sind danach weg
 # args: <share>.deleted-<date> [--dry-run]
 # System-layer command behind `hs sys shares start <name> purge` (share-change.sh). It only ever touches folders called
-# <name>.deleted-YYYYMMDD directly under /bulk/shares or /bulk/sensitive (what share-delete.sh leaves behind) and refuses a name that
+# <name>.deleted-YYYYMMDD directly under /bulk/shares, /bulk/sensitive, /fast/shares or /fast/sensitive (what share-delete.sh leaves behind) and refuses a name that
 # is still a Samba share. SnapRAID layout: the folder on every data disk is removed (rm -rf, under the bulk lock); ZFS: the dataset
 # is destroyed (zfs destroy -r). --dry-run prints the commands, indented. Copies in old backup snapshots stay until they age out.
+# A folder under /fast is always a dataset (fast/<kind>/<name>), whatever the bulk layout is.
 # Test knobs: HS_MNT_BULK, HS_BULK_TYPE_FILE, HS_ZFS, HS_NET, HS_LOCK, HS_BULK_POOL.
 set -euo pipefail
 name=${1:-}; dry=false
@@ -40,6 +41,9 @@ else
     if "$zfs" list -H -o name "$pool/$kind/$name" >/dev/null 2>&1; then targets+=("$pool/$kind/$name"); fi
   done
 fi
+for kind in shares sensitive; do
+  if "$zfs" list -H -o name "fast/$kind/$name" >/dev/null 2>&1; then targets+=("fast/$kind/$name"); fi
+done
 if [ ${#targets[@]} -eq 0 ]; then
   echo "There is no kept folder called '$name'." >&2
   exit 1
@@ -47,7 +51,7 @@ fi
 
 if $dry; then
   for t in "${targets[@]}"; do
-    if [ "$bulk_type" = snapraid ]; then printf '  rm -rf %s\n' "$t"; else printf '  zfs destroy -r %s\n' "$t"; fi
+    if [ "$bulk_type" = snapraid ] && [ "${t#fast/}" = "$t" ]; then printf '  rm -rf %s\n' "$t"; else printf '  zfs destroy -r %s\n' "$t"; fi
   done
   exit 0
 fi
@@ -56,7 +60,7 @@ fi
 exec 9>"${HS_LOCK:-/run/hs-bulk.lock}"
 flock -w 600 9 || { echo "Parity sync or cache mover is running, try again later." >&2; exit 1; }
 for t in "${targets[@]}"; do
-  if [ "$bulk_type" = snapraid ]; then rm -rf -- "$t"; else "$zfs" destroy -r "$t"; fi
+  if [ "$bulk_type" = snapraid ] && [ "${t#fast/}" = "$t" ]; then rm -rf -- "$t"; else "$zfs" destroy -r "$t"; fi
   echo "removed $t"
 done
 echo "'$name' is gone for good."

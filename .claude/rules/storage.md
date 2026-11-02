@@ -45,7 +45,8 @@ Loaded when you touch the files above (path-scoped rule). The root CLAUDE.md has
   to backup-on, so switching the default drops nothing; shares created later start off. On
   (or no file yet): the old rule, in unless listed in backup-off. Both lists are kept in step.
 
-- Shares: every dataset under bulk/shares and bulk/sensitive is its own registry share
+- Shares: fast shares: `fast/<kind>/<name>` at `/fast/<kind>/<name>` (`hs share add --fast`; paths and datasets through scripts/lib/sharepath.sh).
+  Every dataset under bulk/shares and bulk/sensitive is its own registry share
   (`hs sync-shares`), new ones open to Domain Admins only; per-user access is set from
   `hs manage-shares` (or from Windows: fsmgmt.msc, type names as `HOME\user`). The catch-all `shares`/`sensitive` are
   admin-only. On disk everything is written as adminuser (`force user`).

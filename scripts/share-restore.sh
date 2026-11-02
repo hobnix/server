@@ -7,6 +7,7 @@
 set -euo pipefail
 here=$(dirname "$0")
 . "$here/lib/ui.sh"
+. "$here/lib/sharepath.sh"
 backup=${HS_BACKUP:-$here/backup.sh}
 create=${HS_CREATE_SHARE:-$here/create-share.sh}
 bulk=${HS_BULK:-/bulk}
@@ -30,9 +31,13 @@ done
 [ -n "$share" ] || usage
 
 # where the share lives: the folder under shares or sensitive (it may be gone: that is why we restore)
-kind=shares
-[ -d "$bulk/sensitive/$share" ] && [ ! -d "$bulk/shares/$share" ] && kind=sensitive
-path="$bulk/$kind/$share"
+if path=$(share_dir "$share"); then kind=$(share_kind "$share")
+else
+  # the folder may be gone (that is why we restore): the registry still knows where it was, a fast share must not fall back to /bulk
+  path=$(net conf getparm "$share" path 2>/dev/null || true)
+  kind=$(share_kind_of_path "$path")
+  if [ "$kind" = other ]; then kind=shares; path="$bulk/$kind/$share"; fi
+fi
 if [ -z "$sub" ] && interactive && ! $yes; then
   sub=$(ask "Folder or file inside the share (empty = the whole share):" "")
 fi

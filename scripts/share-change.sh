@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # help: change a share without asking anything: what would happen (plan), then do it as a background job (start)
 # help.de: eine Freigabe ändern, ohne etwas zu fragen: was passieren würde (plan), dann als Hintergrundjob ausführen (start)
-# args: plan|start <share> <backup|cache|auto|rename|snapshot|rollback|repair|perm|visibility|add|delete|purge|undelete|restore> [--to on|off|<new name>] [--label <name>] [--snapshot <name>] [--set <sid>=<level> ...] [--path <folder or file inside the share>] [--kind shares|sensitive] [--ct <instance> --path <inside> [--as <uid>:<gid>]] [--confirm <word>]
+# args: plan|start <share> <backup|cache|auto|rename|snapshot|rollback|repair|perm|visibility|add|delete|purge|undelete|restore> [--to on|off|<new name>] [--label <name>] [--snapshot <name>] [--set <sid>=<level> ...] [--path <folder or file inside the share>] [--kind shares|sensitive] [--tier bulk|fast] [--ct <instance> --path <inside> [--as <uid>:<gid>]] [--confirm <word>]
 # System command (hs sys shares plan|start): for the interface, timers and tests. It never asks and prints plain
 # key<TAB>value lines like pool-change.sh and ct-change.sh. The console wizards
 # (share-snap-guided.sh, hs backup, ...) stay the console front ends over the same scripts.
@@ -18,7 +18,7 @@
 #   purge                         <share> is a kept folder <name>.deleted-<date>: remove it for good (red: its name is typed)
 #   undelete                      <share> is a kept folder <name>.deleted-<date>: bring it back as the share <name> (a rename, nothing is overwritten or removed; the share starts closed: Domain Admins only)
 #   restore    --snapshot <id|latest> [--path <inside>]   bring files back from the backup into the share `restored` (the original is not touched)
-#   add        --kind shares|sensitive [--ct <instance> --path <inside> [--as <uid>:<gid>]]   create the share <share>, optionally mount it into an instance
+#   add        --kind shares|sensitive [--tier bulk|fast] [--ct <instance> --path <inside> [--as <uid>:<gid>]]   create the share <share>, optionally mount it into an instance
 #
 # plan: exit 0 = allowed, 1 = refused, 2 = something is still missing. Output: status ok|refused|needs, then needs<TAB><input>
 #   | reason<TAB><text> | heading|step|note|warn|danger|command<TAB><line>, confirm_name<TAB><share> (only with a danger line), long<TAB>yes|no.
@@ -28,6 +28,7 @@ set -euo pipefail
 here=$(dirname "$0")
 manage=${HS_MANAGE_SHARES:-$here/manage-shares.sh}
 backup=${HS_BACKUP:-$here/backup.sh}
+. "$here/lib/sharepath.sh"
 snap=${HS_SHARE_SNAP:-$here/share-snap.sh}
 auto=${HS_SNAPSHOTS_AUTO:-$here/snapshots-auto.sh}
 sync=${HS_SYNC_SHARES:-$here/sync-shares.sh}
@@ -46,6 +47,7 @@ case "$verb" in plan|start) ;; *) echo "usage: share-change.sh plan|start <share
 case "$action" in backup|cache|auto|rename|snapshot|rollback|repair|perm|visibility|add|delete|purge|undelete|restore) ;; *) refuse "unknown action" ;; esac
 shift 3
 
+tier=bulk
 to="" label="" snapname="" confirm="" kind="" ct="" ctpath="" as="" sets=() inside=""
 while [ $# -gt 0 ]; do
   case "$1" in
@@ -55,6 +57,7 @@ while [ $# -gt 0 ]; do
     --confirm)  confirm=${2:-}; shift 2 ;;
     --set)      sets+=("${2:-}"); shift 2 ;;
     --kind)     kind=${2:-}; shift 2 ;;
+    --tier)     tier=${2:-}; shift 2 ;;
     --ct)       ct=${2:-}; shift 2 ;;
     --path)     ctpath=${2:-}; inside=${2:-}; shift 2 ;;
     --as)       as=${2:-}; shift 2 ;;
@@ -87,6 +90,7 @@ case "$action" in
   undelete) [[ "$share" =~ ^[A-Za-z0-9][A-Za-z0-9._-]*\.deleted-[0-9]{8}$ ]] || refuse "only a kept folder (<name>.deleted-<date>) can be brought back" ;;
   perm) for x in "${sets[@]}"; do [[ "$x" =~ ^S-[0-9-]+=(none|read|write|full)$ ]] || refuse "expected <sid>=<level> (none, read, write or full), got '$x'"; done ;;
   add) [ "$kind" = shares ] || [ "$kind" = sensitive ] || refuse "--kind is shares or sensitive"
+       [ "$tier" = bulk ] || [ "$tier" = fast ] || refuse "--tier is bulk or fast"
        [ -z "$as" ] || [[ "$as" =~ ^[0-9]+:[0-9]+$ ]] || refuse "--as expects <uid>:<gid>, got '$as'"
        [ -z "$ct" ] || [[ "$ct" =~ ^[a-z][a-z0-9-]*$ ]] || refuse "invalid instance name"
        [ -z "$ctpath" ] || [[ "$ctpath" == /* ]] || refuse "the path inside must start with /" ;;
@@ -111,6 +115,7 @@ case "$action" in
   restore)  cmd=(bash "$restorer" "$share"); [ -z "$inside" ] || cmd+=("${inside#/}"); cmd+=(--snapshot "$snapname" --yes) ;;
   perm)     cmd=(bash "$manage" "$share" --set "${sets[@]}") ;;
   add)      cmd=(bash "$create" "$share"); [ "$kind" != sensitive ] || cmd+=(--sensitive)
+            [ "$tier" != fast ] || cmd+=(--fast)
             [ -z "$ct" ] || cmd+=(--ct "$ct" "$ctpath"); [ -z "$as" ] || cmd+=(--as "$as") ;;
 esac
 
@@ -167,7 +172,7 @@ case "$action" in
     grep -qxF -- "$snapname" <<<"$list" || refuse "No snapshot '$snapname' on this share."
     newer=$(awk -v t="$snapname" 'f { n++ } $0 == t { f = 1 } END { print n + 0 }' <<<"$list") ;;
   add)
-    if "${HS_NET:-net}" conf listshares 2>/dev/null | grep -qxF -- "$share"; then refuse "A share called '$share' exists already."; fi
+    if share_name_taken "$share"; then refuse "A share called '$share' exists already."; fi
     case "${share,,}" in shares|sensitive|global|homes|printers) refuse "'$share' is a reserved name." ;; esac
     [ -z "$ct" ] || ${HS_INCUS:-incus} info "$ct" >/dev/null 2>&1 || refuse "'$ct' does not exist." ;;
   snapshot|auto)
@@ -215,7 +220,7 @@ case "$action" in
       { sub(/^[ \t]+/, ""); print "step\t" $0 }'
     printf 'note\tPermissions are checked when a connection is opened: reconnect to see the change.\n' ;;
   add)
-    printf 'heading\tcreate the share %s\nstep\tcreate the %s folder (a dataset on ZFS)\nstep\tpublish it over Samba; only Domain Admins may use it until you set permissions\n' "$share" "$kind"
+    printf 'heading\tcreate the share %s\nstep\tcreate the %s folder on %s (a dataset)\nstep\tpublish it over Samba; only Domain Admins may use it until you set permissions\n' "$share" "$kind" "$([ "$tier" = fast ] && echo 'the SSD pool (fast)' || echo 'the disks (bulk)')"
     [ -z "$ct" ] || printf 'step\tmount it into %s at %s%s\n' "$ct" "$ctpath" "$([ -n "$as" ] && echo " (user $as can write)" || true)"
     [ "$kind" != sensitive ] || printf 'note\tA sensitive folder is read-only for the Samba users.\n'
     [ -z "$ct" ] || printf 'note\tA changed user mapping restarts %s.\n' "$ct" ;;

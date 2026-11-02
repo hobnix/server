@@ -23,17 +23,20 @@ stamp=${HS_DELETE_STAMP:-$(date +%Y%m%d)}
 new="$share.deleted-$stamp"
 
 BULK=${HS_BULK:-/bulk}
+FAST=${HS_FAST:-/fast}
 path=$("$net" conf getparm "$share" path 2>/dev/null || true)
 case "$path" in
-  "$BULK"/shares/*|"$BULK"/sensitive/*) ;;
-  *) echo "'$share' is not a folder under /bulk/shares or /bulk/sensitive: it can't be deleted here." >&2; exit 1 ;;
+  "$BULK"/shares/*|"$BULK"/sensitive/*) root=$BULK ;;
+  "$FAST"/shares/*|"$FAST"/sensitive/*) root=$FAST ;;
+  *) echo "'$share' is not a folder under /bulk or /fast (shares, sensitive): it can't be deleted here." >&2; exit 1 ;;
 esac
 
 # The folder is gone (deleted by hand, e.g. in a file manager): nothing to rename, only the dead Samba share to drop. Only when the pool is
 # plainly mounted and unlocked: a missing folder is otherwise "not mounted", not "gone".
 gone=false
-if [ ! -e "$path" ] && [ ! -e "${HS_LOCKED_FLAG:-/run/hs/storage-locked}" ] && [ -d "$BULK/shares" ] && [ -d "$BULK/sensitive" ]; then
-  if [ -n "${HS_BULK:-}" ] || [ "$(findmnt -n -T "$BULK/shares" -o TARGET 2>/dev/null || true)" != / ]; then gone=true; fi
+if [ ! -e "$path" ] && [ ! -e "${HS_LOCKED_FLAG:-/run/hs/storage-locked}" ] && [ -d "$(dirname "$path")" ]; then
+  # the root of this very share (shares or sensitive) must exist and be mounted: otherwise the folder is "not mounted", not "gone"
+  if [ -n "${HS_BULK:-}${HS_FAST:-}" ] || [ "$(findmnt -n -T "$(dirname "$path")" -o TARGET 2>/dev/null || true)" != / ]; then gone=true; fi
 fi
 
 # (1) the rename decides first: nothing has changed when it refuses
@@ -59,7 +62,7 @@ if $dry; then
   exit 0
 fi
 
-if $gone; then
+if $gone && [ "$root" = "$BULK" ]; then
   exec 9>"${HS_LOCK:-/run/hs-bulk.lock}"
   flock -w 600 9 || { echo "Parity sync, cache mover or a rename is running, try again later." >&2; exit 1; }
   if [ -e "$path" ]; then echo "The folder of '$share' is back; run the delete again." >&2; exit 1; fi

@@ -24,6 +24,7 @@ set -euo pipefail
 here=$(dirname "$0")
 . "$here/lib/ui.sh"
 . "$here/lib/instance.sh"
+. "$here/lib/sharepath.sh"
 usage() {
   say "usage: hs ct list [--plain]"
   say "       (the options used by the interface are listed at the top of scripts/manage-ct.sh)"
@@ -112,8 +113,8 @@ storage() {
     | select(.value.type == "disk" and .value.path != "/")
     | [ .key,
         (if (.value.pool // "") != "" then "fast"
-         elif (.value.source // "" | startswith("/bulk/shares/")) then "shares"
-         elif (.value.source // "" | startswith("/bulk/sensitive/")) then "sensitive"
+         elif (.value.source // "" | startswith("/bulk/shares/") or startswith("/fast/shares/")) then "shares"
+         elif (.value.source // "" | startswith("/bulk/sensitive/") or startswith("/fast/sensitive/")) then "sensitive"
          else "other" end),
         (if (.value.pool // "") != "" then "volume " + .value.source else .value.source end),
         .value.path,
@@ -295,6 +296,7 @@ case "$1" in
         fi
         share_args=("$sname")
         [ "$kind" = sensitive ] && share_args+=(--sensitive)
+        [ "$(share_tier "$sname" 2>/dev/null || true)" != fast ] || share_args+=(--fast)
         share_args+=(--ct "$ct" "$path")
         [ -z "$as" ] || share_args+=(--as "$as")
         before=$(incus config get "$ct" raw.idmap)

@@ -51,7 +51,7 @@ sudo bash /etc/nixos/scripts/manage-pool.sh --dry-run
 Run it without `--dry-run` once per pool. It asks which pool (`fast` or `bulk`), lists the free disks (never the system disk or disks
 already in a pool), shows the plan and asks you to **type the pool name** before it changes anything.
 
-**`fast`:** select two SSDs. The menu builds a mirror and the dataset `fast/incus`, where Incus keeps containers and VMs.
+**`fast`:** select two SSDs. The menu builds a mirror and the dataset `fast/incus`, where Incus keeps containers and VMs. Shares can live here too (`hs share add <name> --fast`, [Users and shares](users-and-shares.md)).
 
 **`bulk` with ZFS:** select an even number of disks. Equal-sized disks are paired into mirrors. The menu creates the datasets
 `bulk/shares` and `bulk/sensitive`.

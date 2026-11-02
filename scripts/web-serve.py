@@ -1067,7 +1067,7 @@ CHANGES = {
                [SHARE, r"^rollback$", r"^--snapshot$", SNAP],
                # forms (web/src/forms/shares): create, permissions, rename, delete, purge a kept folder, restore from the backup
                {"fixed": [SHARE, r"^add$"],
-                "opts": {"--kind": (r"^(shares|sensitive)$", False), "--ct": (CT, False), "--path": (CT_PATH, False), "--as": (UIDGID, False)}},
+                "opts": {"--kind": (r"^(shares|sensitive)$", False), "--tier": (r"^(bulk|fast)$", False), "--ct": (CT, False), "--path": (CT_PATH, False), "--as": (UIDGID, False)}},
                {"fixed": [SHARE, r"^perm$"], "opts": {"--set": (SID_LEVEL, True)}},
                [SHARE, r"^visibility$", r"^--to$", r"^(visible|hidden)$"],
                [SHARE, r"^rename$", r"^--to$", SHARE],

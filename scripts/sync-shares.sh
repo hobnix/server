@@ -1,10 +1,11 @@
 #!/usr/bin/env bash
-# help: publish every folder directly under /bulk/shares and /bulk/sensitive as its own Samba share (adds missing ones)
-# help.de: veröffentlicht jeden Ordner direkt unter /bulk/shares und /bulk/sensitive als eigene Samba-Freigabe (ergänzt fehlende)
+# help: publish every folder directly under /bulk/shares, /bulk/sensitive, /fast/shares and /fast/sensitive as its own Samba share (adds missing ones)
+# help.de: veröffentlicht jeden Ordner direkt unter /bulk/shares, /bulk/sensitive, /fast/shares und /fast/sensitive als eigene Samba-Freigabe (ergänzt fehlende)
 # args: [--check] [--fix-owner]
 set -euo pipefail
 . "$(dirname "$0")/lib/ui.sh"
 . "$(dirname "$0")/lib/live.sh"
+. "$(dirname "$0")/lib/sharepath.sh"
 live_refresh_shares() { live_refresh status shares-overview shares-deleted fm-locations pool-info-bulk; }
 
 check=false
@@ -46,20 +47,23 @@ fi
 
 # The shares are ZFS datasets, or plain folders on the snapraid layout
 bulk_type=$(cat /etc/hs/bulk-type 2>/dev/null || echo zfs)
-children() {
-  if [ "$bulk_type" = snapraid ]; then
-    find "/bulk/$1" -mindepth 1 -maxdepth 1 -type d ! -name 'lost+found' -printf '%f\n' 2>/dev/null | sort
+children() {   # children <tier> <parent>
+  if [ "$1" = fast ]; then
+    zfs list -H -o name -d 1 "fast/$2" 2>/dev/null | tail -n +2 | sed 's|.*/||'
+  elif [ "$bulk_type" = snapraid ]; then
+    find "/bulk/$2" -mindepth 1 -maxdepth 1 -type d ! -name 'lost+found' -printf '%f\n' 2>/dev/null | sort
   else
-    zfs list -H -o name -d 1 "bulk/$1" 2>/dev/null | tail -n +2 | sed 's|.*/||'
+    zfs list -H -o name -d 1 "bulk/$2" 2>/dev/null | tail -n +2 | sed 's|.*/||'
   fi
 }
 
 missing=0
 rows=()
 row() { rows+=("$1"$'	'"$2"); }   # row <share> <state>: collected, printed as one table at the end
+while read -r tier; do
 for parent in shares sensitive; do
   while read -r name; do
-    path="/bulk/$parent/$name"
+    path="$(share_root "$tier")/$parent/$name"
 
     # a share deleted from the interface keeps its folder as <name>.deleted-<date> (not published, kept until someone removes it)
     case "$name" in
@@ -80,7 +84,19 @@ for parent in shares sensitive; do
     # first and the folder itself last, so an interrupted run starts again.
     if [ "$parent" = shares ] && { $fix_all || [ "$(stat -c %U "$path")" != adminuser ]; }; then
       owner=$(stat -c %U "$path")
-      if $check; then
+      if [ "$name" = apps ] && [ "$tier" = fast ]; then
+        # the files of the Docker apps keep the owners their containers gave them: only the top folder is handed over
+        if [ "$owner" != adminuser ]; then
+          if $check; then
+            row "$name" "$(t 'belongs to %s, nobody can write (hs share repair hands the files over)' "$owner")"
+          else
+            chown adminuser:users "$path"
+            chmod 2775 "$path"
+            row "$name" "$(t "belonged to %s, now adminuser's: writable for the share" "$owner")"
+          fi
+        fi
+        if $fix_all; then row "$name" "$(t 'left as it is: the files of the Docker apps keep their owners')"; fi
+      elif $check; then
         if [ "$owner" != adminuser ]; then
           row "$name" "$(t 'belongs to %s, nobody can write (hs share repair hands the files over)' "$owner")"
         fi
@@ -129,8 +145,9 @@ for parent in shares sensitive; do
     fi
     existing+=("$name")
     row "$name" "$(t 'added (%s)' "$path")"
-  done < <(children "$parent")
+  done < <(children "$tier" "$parent")
 done
+done < <(share_tiers)
 
 # Registry shares whose folder is gone (dataset destroyed or renamed)
 for name in "${existing[@]}"; do

@@ -581,8 +581,8 @@ A share called '%s' exists already.	Eine Freigabe namens '%s' gibt es schon.
 No disk holds a folder '%s' (is the pool mounted?).	Keine Platte hat einen Ordner '%s' (ist der Pool eingehängt?).
 %s has a '%s' already (a share of that name would merge with it).	%s hat schon ein '%s' (eine Freigabe dieses Namens würde damit zusammenfließen).
 The upload cache of '%s' is %s. Switch it off first and wait until it is empty:  hs share %s cache off	Der Upload-Cache von '%s' ist %s. Erst ausschalten und warten, bis er leer ist:  hs share %s cache off
-No dataset bulk/%s/%s.	Es gibt kein Dataset bulk/%s/%s.
-bulk/%s/%s exists already.	bulk/%s/%s gibt es schon.
+No dataset %s/%s/%s.	Es gibt kein Dataset %s/%s/%s.
+%s/%s/%s exists already.	%s/%s/%s gibt es schon.
 Parity sync or cache mover is running, try again later.	Parity-Abgleich oder Cache-Mover läuft, später nochmal versuchen.
 Could not rename %s; undoing the renames already made.	%s ließ sich nicht umbenennen; die schon gemachten Umbenennungen werden zurückgenommen.
 could not undo %s: rename it back by hand	%s ließ sich nicht zurücknehmen: von Hand zurückbenennen
@@ -595,6 +595,7 @@ No share called '%s' (hs share repair lists and creates them).	Keine Freigabe na
 expected <sid>=<level>, got '%s'	erwartet <SID>=<Stufe>, bekommen: '%s'
 Saved. It applies to new connections; someone already connected keeps the old rights until they reconnect.	Gespeichert. Es gilt für neue Verbindungen; wer schon verbunden ist, behält die alten Rechte bis zur nächsten Verbindung.
   --sensitive  put it under /bulk/sensitive (Samba: read-only)	  --sensitive  unter /bulk/sensitive anlegen (Samba: nur lesen)
+  --fast       put it on the SSD pool (/fast/shares or /fast/sensitive) instead of the disks	  --fast       auf den SSD-Pool legen (/fast/shares oder /fast/sensitive) statt auf die Platten
   --ct         also mount it into a container at <path>	  --ct         zusätzlich in einem Container unter <path> einhängen
   --as         with --ct: the user and group inside the container that should be able	  --as         mit --ct: Benutzer und Gruppe im Container, die schreiben dürfen
                to write (numbers; hs ct list shows them). Default: user 1000, group 100	               (Zahlen; hs ct list zeigt sie an). Standard: Benutzer 1000, Gruppe 100
@@ -813,7 +814,7 @@ Parity sync, cache mover or a rename is running, try again later.	Paritäts-Sync
 No terminal to ask on: add --yes to remove them anyway.	Kein Terminal zum Nachfragen: mit --yes trotzdem entfernen.
 Nothing was removed.	Es wurde nichts entfernt.
 usage: hs share <share> perm [--plain]	Aufruf: hs share <share> perm [--plain]
-usage: hs share add <name> [--sensitive] [--ct <container> <path>]	Aufruf: hs share add <name> [--sensitive] [--ct <container> <pfad>]
+usage: hs share add <name> [--sensitive] [--fast] [--ct <container> <path>]	Aufruf: hs share add <name> [--sensitive] [--fast] [--ct <container> <pfad>]
 usage: hs share repair [--check] [--fix-owner]	Aufruf: hs share repair [--check] [--fix-owner]
 %s behind Zoraxy	%s hinter Zoraxy
 %s disk(s), see the last column	%s Platte(n), siehe letzte Spalte
@@ -2017,3 +2018,4 @@ the registry	die Registry
 usage: hs docker registry add <host> --user <user>	Aufruf: hs docker registry add <Host> --user <Benutzer>
 usage: hs docker registry list | add <host> --user <user> | remove <host>	Aufruf: hs docker registry list | add <Host> --user <Benutzer> | remove <Host>
 usage: hs docker registry remove <host>	Aufruf: hs docker registry remove <Host>
+left as it is: the files of the Docker apps keep their owners	bleibt wie es ist: die Dateien der Docker-Apps behalten ihre Besitzer

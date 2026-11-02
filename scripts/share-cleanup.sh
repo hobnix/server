@@ -2,7 +2,7 @@
 # help: remove the Samba shares whose folder is gone (what `hs share repair` reports as "folder is gone")
 # help.de: Samba-Freigaben entfernen, deren Ordner nicht mehr existiert (das, was `hs share repair` als "folder is gone" meldet)
 # args: [--dry-run] [--yes]
-# Only registry shares whose path is under /bulk/shares or /bulk/sensitive are looked at; other shares are never touched. Nothing is removed
+# Only registry shares whose path is under /bulk or /fast (shares, sensitive) are looked at; other shares are never touched. Nothing is removed
 # while the storage is locked or /bulk is not mounted (a missing folder then means "not mounted", not "gone"), and the bulk lock is taken so
 # a rename in progress (old folder already moved, old Samba share not yet dropped) is not mistaken for a gone folder. The share's settings
 # and permissions are lost with it; a folder that comes back is published again by `hs share repair`, closed to Domain Admins.
@@ -14,6 +14,7 @@ live_refresh_shares() { live_refresh status shares-overview shares-deleted fm-lo
 
 net=${HS_NET:-net}
 BULK=${HS_BULK:-/bulk}
+FAST=${HS_FAST:-/fast}
 dry=false; yes=false
 for a in "$@"; do
   case "$a" in
@@ -44,6 +45,10 @@ while IFS= read -r name; do
   path=$("$net" conf getparm "$name" path 2>/dev/null || true)
   case "$path" in
     "$BULK"/shares/*|"$BULK"/sensitive/*) ;;
+    "$FAST"/shares/*|"$FAST"/sensitive/*)
+      # same rule as bulk: a missing /fast/shares (or sensitive) or one on the system disk means not mounted, not gone
+      [ -d "$(dirname "$path")" ] || continue
+      if [ -z "${HS_FAST:-}" ] && [ "$(findmnt -n -T "$(dirname "$path")" -o TARGET 2>/dev/null || true)" = / ]; then continue; fi ;;
     *) continue ;;
   esac
   if [ ! -e "$path" ]; then gone+=("$name"); paths+=("$path"); fi

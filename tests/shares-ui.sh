@@ -32,7 +32,7 @@ cat > "$FB/zfs" <<'FAKE'
 #!/usr/bin/env bash
 echo "$*" >> "$ZCALLS"
 case "$*" in
-  "list -Hp -o name,used -r bulk/shares bulk/sensitive") [ -z "${NOLIST:-}" ] || exit 1
+  "list -Hp -o name,used -r bulk/shares bulk/sensitive fast/shares fast/sensitive") [ -z "${NOLIST:-}" ] || exit 1
     printf 'bulk/shares\t5\nbulk/shares/docs\t1234\nbulk/sensitive\t6\nbulk/sensitive/media\t99\n' ;;
   "list -Hp -o used bulk/shares/docs") echo 1234 ;;
   "list -Hp -o used bulk/sensitive/media") echo 99 ;;

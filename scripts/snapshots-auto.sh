@@ -6,6 +6,7 @@
 # auto-w-<year>W<week>, then deletes the oldest ones beyond 24 / 7 / 4 per share. Shares listed in
 # /var/lib/hs/snapshots-off are skipped (created with pelican-backups in it: big and replaceable).
 # `hs share <share> snapshots` shows them next to the manual ones. HS_ZFS, HS_NOW (epoch), HS_STATE_DIR,
+# A share on the SSD pool (fast/shares, fast/sensitive) is a dataset on every server, also on a snapraid one.
 # HS_BULK_TYPE, HS_BULK_POOL, HS_LOCKED_MARKER, HS_SNAPSHOTS_SWITCH point tests at stand-ins.
 set -euo pipefail
 here=$(dirname "$0")
@@ -31,17 +32,21 @@ done
 set -- ${args[@]+"${args[@]}"}
 
 bulk_type=${HS_BULK_TYPE:-$(cat /etc/hs/bulk-type 2>/dev/null || echo zfs)}
-[ "$bulk_type" = zfs ] || { note "This server keeps /bulk on SnapRAID: there are no snapshots. The backup is the history."; exit 0; }
+pools=(fast)
+[ "$bulk_type" != zfs ] || pools=("$pool" fast)
 
 shares() {   # name<TAB>dataset of every share
-  local kind ds
-  for kind in shares sensitive; do
-    "$zfs" list -H -o name -d 1 -r "$pool/$kind" 2>/dev/null | while read -r ds; do
-      [ "$ds" != "$pool/$kind" ] || continue
-      printf '%s\t%s\n' "${ds##*/}" "$ds"
+  local kind ds p
+  for p in "${pools[@]}"; do
+    for kind in shares sensitive; do
+      "$zfs" list -H -o name -d 1 -r "$p/$kind" 2>/dev/null | while read -r ds; do
+        [ "$ds" != "$p/$kind" ] || continue
+        printf '%s\t%s\n' "${ds##*/}" "$ds"
+      done
     done
   done
 }
+[ "$bulk_type" = zfs ] || [ -n "$(shares)" ] || { note "This server keeps /bulk on SnapRAID: there are no snapshots. The backup is the history."; exit 0; }
 is_off() { grep -qxF -- "$1" "$off_file" 2>/dev/null; }
 init_off() { [ -f "$off_file" ] || { mkdir -p "$state" 2>/dev/null && echo pelican-backups > "$off_file"; } 2>/dev/null || true; }
 
