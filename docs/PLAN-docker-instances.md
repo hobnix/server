@@ -105,7 +105,7 @@ with Docker inside. The gateway itself stays on the host (see the last section).
   `Fields` view of Steps.svelte); edits there show up when switching back. Review is always the last screen and opens the plan
   (`docker plan setup --set k=v...`, same change route as the gateway: `apply = "docker setup"`).
 - Re-entry: from the Docker page, "Change manager" opens the wizard at that step only. A finished setup opens a summary page, not step 1.
-- The gateway page moves to the same component in a later step (phase 5); until then Steps.svelte stays as it is.
+- The gateway page moves to the same component in a later step (phase 5). Done in phase 5; Steps.svelte is removed.
 - Copy follows the web interface's English and is also in the German strings file the interface uses. Sentence case, no "please", no
   "successfully".
 
@@ -176,7 +176,7 @@ with Docker inside. The gateway itself stays on the host (see the last section).
    installed, no service tile) until the page itself is built.
    Later in phase 3: the `webui` page, `adopt`, service via parent, the `dump_hook` per child.
 4. **Wizard**: `Wizard.svelte`, `ChoiceList.svelte`, capability.toml fields, schema-gen validation, web tests (tests/web-forms-*, steps.js).
-5. **Gateway wizard** moves to the same component (visual change only; keys and the `gateway setup` change stay).
+5. **Gateway wizard** moves to the same component (visual change only; keys and the `gateway setup` change stay). DONE (spec .work/docker-instances/spec-p5.md).
 6. **Recipes with `runs`**: header, install flow, compose helpers; convert the arr recipes first (they need no GPU), then the others one by one.
 7. **Addresses**: block options, allocation through `hs net`, own-address children (after the phase 1 test of macvlan/ipvlan).
 8. **Cleanup**: remove the docker recipe from hobnix/recipes, drop the `MANAGER` preference after `adopt` has shipped one release.

@@ -1,15 +1,15 @@
 <script>
   // The guided setup of a capability page as a wizard: one question per screen (steps with `options`, [[settings.steps]] in the manifest), then a
   // review that opens the plan of `apply`. Advanced shows the step keys as plain key/value fields over the SAME draft. Nothing here names a
-  // capability; the logic is steps.js. Steps.svelte is the older view (presets, all steps on one card).
+  // capability; the logic is steps.js.
   import { tip } from '../ui/tooltip.svelte.js';
   import Wizard from '../ui/Wizard.svelte';
   import ChoiceList from '../ui/ChoiceList.svelte';
   import { tr } from '../i18n.js';
   import { openPlan } from '../ui.svelte.js';
-  import { stepKeys, draftFrom, applyPreset, optionOf, withRecommended, screens, diff, changed, applyParts } from './steps.js';
+  import { stepKeys, draftFrom, applyPreset, optionOf, freeKeys, withRecommended, screens, diff, changed, applyParts } from './steps.js';
 
-  // steps, apply, opts, off: as Steps.svelte. on: the part is on already (the page then starts at the review, the summary)
+  // steps: the layout list; apply: "<area> <verb>"; opts: rows of `hs sys config list`; off: a reason the setup is off. on: the part is on already (the page then starts at the review, the summary)
   let { steps = [], apply = '', opts = [], off = '', on = false } = $props();
   let draft = $state({});
   let ready = $state(false);
@@ -85,17 +85,16 @@
     <Wizard index={at} total={list.length} question={step.question || step.title} help={step.text} primary={tr('Next')} onnext={() => go(at + 1)} onback={() => go(at - 1)} bind:advanced>
       {#if step.options?.length}
         <ChoiceList options={step.options} value={optionOf(draft, step)?.id ?? ''} onpick={(oid) => pick(step.options.find((o) => o.id === oid))} label={step.question || step.title} />
-      {:else}
-        {#each step.keys as k (k)}
-          <div class="fld">
-            <div class="k"><code>{k}</code></div>
-            <div class="v">
-              <input class="input in" bind:value={draft[k]} placeholder={dflt[k]} aria-label={k} />
-              <span class="hp" use:tip={help[k]}>{help[k]}</span>
-            </div>
-          </div>
-        {/each}
       {/if}
+      {#each freeKeys(step) as k (k)}
+        <div class="fld">
+          <div class="k"><code>{k}</code></div>
+          <div class="v">
+            <input class="input in" bind:value={draft[k]} placeholder={dflt[k]} aria-label={k} />
+            <span class="hp" use:tip={help[k]}>{help[k]}</span>
+          </div>
+        </div>
+      {/each}
     </Wizard>
   {/if}
 </div>

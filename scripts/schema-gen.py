@@ -39,7 +39,7 @@ The schema is a TOML file with an ordered array of [[item]] tables:
 A capability manifest may carry a table [settings]: icon (a Phosphor name, default puzzle-piece) and entry (true|false: a page in the
 tree even without options) and status (the words of a `sys` read from scripts/lib/registry.tsv, e.g. "gateway health": the capability page shows
 its rows as a status panel), apply (area and first word of the change, "gateway setup") and [[settings.steps]] (id, title, text, keys, optional question, and
-either [[settings.steps.presets]] id, label, set or [[settings.steps.options]] id, label, text, set, recommended: the guided setup of the page;
+[[settings.steps.options]] id, label, text, set, recommended: the guided setup of the page;
 options are one question per screen and need a question). Nothing else is supported yet.
 `required` false means the example shows the option commented out, i.e. it is off and has a default.
 """
@@ -283,7 +283,7 @@ def sys_rows():
 
 
 def check_steps(name, st, option_keys, choices):
-    """[settings] apply and [[settings.steps]] (+ presets or options) of one manifest, validated; returns the list for the layout.
+    """[settings] apply and [[settings.steps]] (+ options) of one manifest, validated; returns the list for the layout.
     choices: {option key: [str(choice)]} of the options that have a choices list"""
     where = 'capabilities/%s/capability.toml: [settings]' % name
     if 'apply' in st:
@@ -299,7 +299,7 @@ def check_steps(name, st, option_keys, choices):
     out, ids = [], set()
     for s in raw:
         for k in s:
-            if k not in ('id', 'title', 'text', 'keys', 'presets', 'question', 'options'):
+            if k not in ('id', 'title', 'text', 'keys', 'question', 'options'):
                 die('%s steps: %s is not supported' % (where, k))
         sid = s.get('id')
         if not (isinstance(sid, str) and re.fullmatch(r'[a-z][a-z0-9-]*', sid)) or sid in ids:
@@ -314,23 +314,6 @@ def check_steps(name, st, option_keys, choices):
         for k in keys:
             if k not in option_keys:
                 die('%s step %s: key %s is no option in config/schema.toml' % (where, sid, k))
-        presets, pids = [], set()
-        for p in s.get('presets', []):
-            pid = p.get('id') if isinstance(p, dict) else None
-            if not (isinstance(pid, str) and re.fullmatch(r'[a-z][a-z0-9-]*', pid)) or pid in pids:
-                die('%s step %s: preset id missing, malformed or twice: %r' % (where, sid, pid))
-            pids.add(pid)
-            if not (isinstance(p.get('label'), str) and p['label'].strip()):
-                die('%s step %s preset %s: label must be a non-empty string' % (where, sid, pid))
-            sets = p.get('set')
-            if not (isinstance(sets, dict) and sets):
-                die('%s step %s preset %s: set must be a non-empty table' % (where, sid, pid))
-            for k, v in sets.items():
-                if k not in keys:
-                    die('%s step %s preset %s: %s is not one of the step keys' % (where, sid, pid, k))
-                if not isinstance(v, str):
-                    die('%s step %s preset %s: the value of %s must be a string' % (where, sid, pid, k))
-            presets.append({'id': pid, 'label': p['label'], 'set': sets})
         if 'question' in s and not (isinstance(s['question'], str) and s['question'].strip()):
             die('%s step %s: question must be a non-empty string' % (where, sid))
         raw_opts = s.get('options', [])
@@ -338,8 +321,6 @@ def check_steps(name, st, option_keys, choices):
             die('%s step %s: options must be a non-empty array of tables' % (where, sid))
         if raw_opts and 'question' not in s:
             die('%s step %s: options need a question' % (where, sid))
-        if raw_opts and 'presets' in s:
-            die('%s step %s: presets or options, not both' % (where, sid))
         options, oids, rec = [], set(), 0
         for o in raw_opts:
             oid = o.get('id') if isinstance(o, dict) else None
@@ -371,8 +352,6 @@ def check_steps(name, st, option_keys, choices):
         step = {'id': sid, 'title': s['title'], 'text': s['text'], 'keys': keys}
         if 'question' in s:
             step['question'] = s['question']
-        if presets:
-            step['presets'] = presets
         if options:
             step['options'] = options
         out.append(step)

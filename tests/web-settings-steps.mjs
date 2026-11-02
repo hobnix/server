@@ -1,7 +1,7 @@
 // The guided steps of a capability page (web/src/settings/steps.js) and what the layout JSON declares. Plain node.
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
-import { stepKeys, draftFrom, applyPreset, presetOf, diff, changed, applyParts, optionOf, withRecommended, screens, progress, isGuided } from '../web/src/settings/steps.js';
+import { stepKeys, draftFrom, applyPreset, presetOf, diff, changed, applyParts, optionOf, withRecommended, screens, progress, isGuided, freeKeys } from '../web/src/settings/steps.js';
 
 const layout = JSON.parse(readFileSync(new URL('../web/src/settings/layout.gen.json', import.meta.url), 'utf8'));
 const gw = layout.caps.gateway;
@@ -9,6 +9,15 @@ assert.equal(gw.apply, 'gateway setup');
 assert.deepEqual(gw.steps.map((s) => s.id), ['connect', 'domain', 'certs', 'auth', 'unknown']);
 assert.deepEqual(stepKeys(gw.steps), ['reverseProxy', 'gatewayTunnelPort', 'gatewayPublicHttps', 'gatewayPublicHttp', 'proxyDomains', 'gatewayDirectDomains', 'gatewayAcmeEmail', 'gatewayAcmeStaging', 'gatewayAcmeChallenge', 'gatewayAcmeDnsProvider', 'gatewayUnknownHostLocal', 'gatewayUnknownHostPublic']);
 assert.ok(Object.values(layout.caps).every((c) => c.steps === undefined || (c.apply && c.steps.every((s) => /^[a-z][a-z0-9-]*$/.test(s.id)))));
+
+assert.ok(isGuided(gw.steps));
+assert.ok(gw.steps.every((s) => !s.presets && s.question));
+assert.deepEqual(gw.steps.find((s) => s.id === 'connect').options.map((o) => o.id), ['tunnel', 'router']);
+assert.deepEqual(gw.steps.find((s) => s.id === 'certs').options.map((o) => o.id), ['cloudflare']);
+assert.ok(gw.steps.every((s) => (s.options || []).every((o) => !o.recommended)));
+assert.deepEqual(freeKeys(gw.steps.find((s) => s.id === 'certs')), ['gatewayAcmeEmail', 'gatewayAcmeStaging']);
+assert.deepEqual(freeKeys(gw.steps.find((s) => s.id === 'connect')), []);
+assert.deepEqual(freeKeys({ keys: ['a'] }), ['a']);
 
 const steps = [
   { id: 'a', keys: ['x', 'y'], presets: [{ id: 'p', label: 'P', set: { x: '1', y: '2' } }, { id: 'q', label: 'Q', set: { x: '3' } }] },
@@ -48,7 +57,7 @@ for (const s of dk.steps) {
   assert.ok(s.question);
 }
 assert.equal(isGuided(dk.steps), true);
-assert.equal(isGuided(gw.steps), false);
+assert.equal(isGuided(gw.steps), true);
 assert.equal(isGuided(undefined), false);
 const dOpts = [{ key: 'dockerManager', cur: '' }, { key: 'dockerSize', cur: '', dflt: 'm' }];
 const w0 = withRecommended(draftFrom(dOpts, dk.steps), dk.steps);

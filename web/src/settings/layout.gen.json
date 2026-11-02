@@ -254,26 +254,31 @@
       "gatewayPublicHttps",
       "gatewayPublicHttp"
      ],
-     "presets": [
+     "question": "How should connections from the internet reach this server?",
+     "options": [
       {
        "id": "tunnel",
        "label": "Cloudflare tunnel",
+       "text": "No open port on the router. Traefik takes the tunnel on port 8081.",
        "set": {
         "reverseProxy": "traefik-public",
         "gatewayTunnelPort": "8081",
         "gatewayPublicHttps": "0",
         "gatewayPublicHttp": "0"
-       }
+       },
+       "recommended": false
       },
       {
        "id": "router",
        "label": "Router port forward",
+       "text": "The router forwards ports 443 and 80 to this server.",
        "set": {
         "reverseProxy": "traefik-public",
         "gatewayTunnelPort": "0",
         "gatewayPublicHttps": "443",
         "gatewayPublicHttp": "80"
-       }
+       },
+       "recommended": false
       }
      ]
     },
@@ -284,7 +289,8 @@
      "keys": [
       "proxyDomains",
       "gatewayDirectDomains"
-     ]
+     ],
+     "question": "Which public domains should reach this server?"
     },
     {
      "id": "certs",
@@ -296,14 +302,17 @@
       "gatewayAcmeChallenge",
       "gatewayAcmeDnsProvider"
      ],
-     "presets": [
+     "question": "How should certificates be requested?",
+     "options": [
       {
        "id": "cloudflare",
        "label": "Cloudflare DNS-01",
+       "text": "No open port needed. The API token is set with hs gateway acme-token.",
        "set": {
         "gatewayAcmeChallenge": "dns",
         "gatewayAcmeDnsProvider": "cloudflare"
-       }
+       },
+       "recommended": false
       }
      ]
     },
@@ -311,7 +320,8 @@
      "id": "auth",
      "title": "Login",
      "text": "The login is set per service, not for the whole gateway: open a service under Instances, Services and choose its login there.",
-     "keys": []
+     "keys": [],
+     "question": "Where is the login set?"
     },
     {
      "id": "unknown",
@@ -320,7 +330,8 @@
      "keys": [
       "gatewayUnknownHostLocal",
       "gatewayUnknownHostPublic"
-     ]
+     ],
+     "question": "What should a request for an unknown name get?"
     }
    ]
   },

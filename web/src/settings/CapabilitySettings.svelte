@@ -1,6 +1,6 @@
 <script>
   // /settings/capabilities/<name>: the settings page of one capability, the same for all (no per-capability component). From top to bottom:
-  // the header (title, on/off, the switch), a status block ([settings] status: StatusPanel) and a setup block ([[settings.steps]]: Steps), then the fields of the
+  // the header (title, on/off, the switch), a status block ([settings] status: StatusPanel) and a setup block ([[settings.steps]]: WizardSteps), then the fields of the
   // keys that belong to this capability (layout.gen.json, page cap:<name>). A capability that is off still has its page: it is how it gets switched on.
   import { tip } from '../ui/tooltip.svelte.js';
   import { route } from '../route.svelte.js';
@@ -10,11 +10,9 @@
   import EmptyState from '../ui/EmptyState.svelte';
   import Fields from './Fields.svelte';
   import StatusPanel from './StatusPanel.svelte';
-  import Steps from './Steps.svelte';
   import WizardSteps from './WizardSteps.svelte';
   import layout from './layout.gen.json';
   import { fieldsFor } from './layout.js';
-  import { isGuided } from './steps.js';
   import { useConfig } from './config.svelte.js';
   import { useParts, flip } from './parts.svelte.js';
 
@@ -48,8 +46,7 @@
   {:else}
     {#if meta.status}<StatusPanel read={meta.status} bind:off={setupOff} />{/if}
     {#if meta.steps?.length && meta.apply}
-      {#if isGuided(meta.steps)}<WizardSteps steps={meta.steps} apply={meta.apply} opts={getOpts()} off={setupOff} on={!!part?.on} />
-      {:else}<Steps steps={meta.steps} apply={meta.apply} opts={getOpts()} off={setupOff} />{/if}
+      <WizardSteps steps={meta.steps} apply={meta.apply} opts={getOpts()} off={setupOff} on={!!part?.on} />
     {/if}
     {#if fields.length}
       <Fields opts={fields} />

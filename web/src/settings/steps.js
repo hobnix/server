@@ -43,6 +43,8 @@ export function changed(draft, opts, verb = 'setup') {
 
 // the option whose values all equal the draft, or undefined
 export const optionOf = (draft, step) => presetOf(draft, step?.options);
+// the keys of a step that no option sets: shown as fields under the choices
+export const freeKeys = (step) => { const set = new Set((step?.options || []).flatMap((o) => Object.keys(o.set || {}))); return (step?.keys || []).filter((k) => !set.has(k)); };
 
 // every step with options that has no matching option yet gets its recommended one (returns a new draft)
 export function withRecommended(draft, steps) {
