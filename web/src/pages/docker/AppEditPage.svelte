@@ -20,6 +20,7 @@
   import { mountsOf } from '../../editor/volumes.js';
   import { lintCompose, lintEnv, lintVars, envNames, normalizeEol } from '../../editor/lint.js';
   import { mapFindings } from '../../editor/findings.js';
+  import { convert } from '../../editor/dockerrun.js';
 
   const NEW = '/instances/docker/new';
   const PREFIX = '/instances/docker/app/';
@@ -80,6 +81,24 @@
   let banner = $state([]);              // findings without a place: [{ level, text }]
   let result = $state(null);            // { errors, warns } of the last Test, until the text changes
   let changedDisk = $state(false);      // the app changed on disk since it was read
+
+  // New app: a pasted `docker run` command becomes the compose text and the env text (the owner edits both before Save or Apply)
+  let runOpen = $state(false);
+  let runText = $state('');
+  let runError = $state('');
+  let runNotes = $state([]);
+  function fromRun() {
+    const r = convert(runText);
+    runError = r.error || '';
+    runNotes = r.notes;
+    if (r.error) return;
+    if (!name.trim()) name = r.name;
+    compose = r.compose; env = r.env;
+    editors?.compose.setText(compose);
+    editors?.env.setText(env);
+    runOpen = false;
+    runText = '';
+  }
 
   const live = () => ({
     schema, isNew,
@@ -256,9 +275,23 @@
 {#if dirty && !loading}<div class="dirty">Changed, not saved yet.</div>{/if}
 
 {#if isNew}
-  <label class="namef">Name
-    <input class="input" bind:value={name} placeholder="my-app" autocapitalize="off" autocorrect="off" spellcheck="false" />
-  </label>
+  <div class="newrow">
+    <label class="namef">Name
+      <input class="input" bind:value={name} placeholder="my-app" autocapitalize="off" autocorrect="off" spellcheck="false" />
+    </label>
+    <Button icon="terminal-window" disabled={loading || !editors} tooltip="Paste a docker run command and turn it into a compose file" onclick={() => { runOpen = !runOpen; }}>From docker run</Button>
+  </div>
+  {#if runOpen}
+    <div class="runbox">
+      <textarea class="input" rows="4" bind:value={runText} placeholder="docker run -d --name my-app -p 8080:80 -e TZ=Europe/Vienna nginx:alpine" spellcheck="false" autocapitalize="off" autocorrect="off"></textarea>
+      <div class="runact">
+        <Button variant="primary" disabled={!runText.trim()} onclick={fromRun}>Convert</Button>
+        <span class="hint">This replaces the text in both panels. Secrets from -e go to the .env panel.</span>
+      </div>
+    </div>
+  {/if}
+  {#if runError}<Banner tone="bad">{runError}</Banner>{/if}
+  {#each runNotes as n}<Banner tone="warn">{n}</Banner>{/each}
 {/if}
 
 {#if binding}
@@ -284,6 +317,10 @@
   .box { height: 60vh; min-height: 60vh; }
   .box :global(.cm-editor) { height: 100%; }
   .dirty { font: 12px var(--mono); color: var(--warn); margin-top: 8px; }
-  .namef { display: flex; flex-direction: column; gap: 4px; margin-top: 12px; max-width: 320px; }
+  .newrow { display: flex; align-items: flex-end; gap: 12px; margin-top: 12px; }
+  .runbox { margin-top: 8px; display: flex; flex-direction: column; gap: 8px; }
+  .runbox textarea { font: 12px var(--mono); }
+  .runact { display: flex; align-items: center; gap: 12px; }
+  .namef { display: flex; flex-direction: column; gap: 4px; max-width: 320px; }
   @media (max-width: 900px) { .grid { grid-template-columns: 1fr; } }
 </style>

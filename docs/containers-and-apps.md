@@ -355,8 +355,12 @@ env names that are set, changed or removed, never their values) only when the Te
 error; warnings do not stop them. If the app changed on disk meanwhile, a banner offers
 **Reload** (your edits are lost). An env file over 64 KiB is not shown: edit it in a terminal, and
 Apply keeps it as it is. The page shows "Changed, not saved yet." and the browser warns before you close or reload the tab with unsaved changes (moving to another page inside the interface does not warn yet). The env text is
-read fresh each time, never kept in the web cache, a log or the browser storage. Not tested on
-hardware yet.
+read fresh each time, never kept in the web cache, a log or the browser storage. On **New app**,
+**From docker run** takes a pasted `docker run ...` command and fills both panels (and the name,
+if empty): `-p`, `-v`, `--restart`, `--network`, `--user`, `--cap-add`, `--device`, `--gpus` and
+more become compose keys, every `-e` value goes to the `.env` panel. A flag that is not converted
+stays as a `# not converted:` comment and a warning, and a named volume becomes a folder next to
+the compose file. Check the result, then Test and Apply. Not tested on hardware yet.
 
 #### Bind a share into an app
 

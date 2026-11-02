@@ -4,6 +4,7 @@ import { envTokenizer } from '../web/src/editor/envlang.js';
 import { candidates, unknownKeys } from '../web/src/editor/schema.js';
 import { locate } from '../web/src/editor/yamlpath.js';
 import { mapFindings, pathOf, hasErrors } from '../web/src/editor/findings.js';
+import { convert, tokenize } from '../web/src/editor/dockerrun.js';
 import { lintCompose, lintEnv, lintVars, varsUsed, hostPort, normalizeEol } from '../web/src/editor/lint.js';
 
 let ok = 0, bad = 0;
@@ -155,6 +156,37 @@ check('findings: the first part after services is the service name, the rest the
 check('findings: a path with a list index points into the parsed document', (() => { const o = { services: { web: { ports: ['80:80'], environment: { FOO: 'x' } } } }; const get = (path) => path.reduce((v, k) => v?.[k], o); return get(pathOf('services.web.ports.0')) === '80:80' && get(pathOf('services.web.environment.FOO')) === 'x'; })());
 check('findings: hasErrors', hasErrors([['warn', '-', 'x']]) === false && hasErrors([['warn', '-', 'x'], ['error', '-', 'y']]) === true && hasErrors(undefined) === false);
 check('findings: no list, no places', mapFindings(undefined).compose.length === 0 && mapFindings(null).banner.length === 0);
+
+// ── dockerrun (New app from `docker run`) ──
+check('dockerrun: tokenizer keeps quotes and joins backslash continuations', JSON.stringify(tokenize("a 'b c' \"d \\\" e\" \\\nf")) === '["a","b c","d \\" e","f"]');
+const r1 = convert("docker run -d --name=My_App -p 8080:80 -v data:/data -v /srv/x:/x:ro -e TZ=Europe/Vienna -e 'DB_PASSWORD=pa ss' \\\n  --restart unless-stopped --network host -u 1000:1000 -w /w --cap-add NET_ADMIN --device /dev/dri:/dev/dri --entrypoint /bin/sh ghcr.io/x/img:1.2 -c 'echo hi'");
+check('dockerrun: name, image, ports, restart, network_mode, user, caps, devices', r1.name === 'my_app' && r1.compose.includes('image: ghcr.io/x/img:1.2') && r1.compose.includes('- "8080:80"') && r1.compose.includes('restart: unless-stopped') && r1.compose.includes('network_mode: host') && r1.compose.includes('user: 1000:1000') && r1.compose.includes('- "NET_ADMIN"') && r1.compose.includes('- "/dev/dri:/dev/dri"') && r1.compose.includes('working_dir: /w'));
+check('dockerrun: a named volume becomes a folder (with a note), a bind keeps :ro', r1.compose.includes('"./data:/data"') && r1.compose.includes('"/srv/x:/x:ro"') && r1.notes.some((n) => n.includes('named volume')));
+check('dockerrun: entrypoint and command', r1.compose.includes('entrypoint: ["/bin/sh"]') && r1.compose.includes('command: ["-c","echo hi"]'));
+check('dockerrun: -e goes to the env text only, the service gets env_file', r1.env === "TZ=Europe/Vienna\nDB_PASSWORD='pa ss'\n" && r1.compose.includes('env_file: .env') && !r1.compose.includes('pa ss') && !r1.compose.includes('TZ='));
+check('dockerrun: -d is ignored with a note', !r1.compose.includes('-d') && r1.notes.some((n) => n.startsWith('-d ignored')));
+const r2 = convert('docker run --rm -it --gpus all --privileged --weird-flag --cpu-shares 512 --stop-signal SIGTERM nginx');
+check('dockerrun: gpus -> runtime nvidia and NVIDIA_VISIBLE_DEVICES', r2.compose.includes('runtime: nvidia') && r2.env === 'NVIDIA_VISIBLE_DEVICES=all\n' && r2.compose.includes('env_file: .env'));
+check('dockerrun: unknown flags stay as comments and notes, never dropped', r2.compose.startsWith('# not converted: --weird-flag\n# not converted: --cpu-shares 512\n') && r2.notes.some((n) => n.startsWith('--weird-flag')) && r2.notes.some((n) => n.startsWith('--cpu-shares 512')));
+check('dockerrun: -it, privileged', r2.compose.includes('stdin_open: true') && r2.compose.includes('tty: true') && r2.compose.includes('privileged: true') && r2.name === 'nginx');
+check('dockerrun: --mount bind and attached short flags', (() => { const r = convert('docker container run -p80:80 --mount type=bind,source=/a,target=/b,readonly nginx:alpine'); return r.compose.includes('"80:80"') && r.compose.includes('"/a:/b:ro"'); })());
+check('dockerrun: not a run command, no image', convert('ls -la').error && convert('docker run -d').error);
+check('dockerrun: the compose output has no secret outside the env text', !convert('docker run -e API_TOKEN=s3cr3t nginx').compose.includes('s3cr3t'));
+
+// dockerrun fixes: clusters, value flags, $ handling, readonly=false, --gpus count
+{
+  const c1 = convert('docker run -dp 80:80 nginx'), c2 = convert('docker run -de A=b nginx'), c3 = convert('docker run -itp8080:80 nginx');
+  check('dockerrun: a cluster ending in a value flag (-dp, -de, -itp)', c1.compose.includes('"80:80"') && c1.name === 'nginx' && c2.env === 'A=b\n' && c3.compose.includes('"8080:80"') && c3.compose.includes('tty: true'));
+  const v = convert('docker run --runtime nvidia --stop-signal SIGTERM --cpuset-cpus 0-3 --link db:db --ulimit nofile=1 nginx');
+  check('dockerrun: known value flags are consumed, not taken for the image', v.name === 'nginx' && v.compose.includes('image: nginx') && v.compose.includes('runtime: nvidia') && v.compose.includes('stop_signal: SIGTERM') && v.compose.includes('cpuset: 0-3') && v.compose.includes('"db:db"') && v.compose.includes('# not converted: --ulimit nofile=1'));
+  check('dockerrun: an unknown flag followed by value and image is an error', !!convert('docker run --frobnicate x nginx cmd').error && !convert('docker run --frobnicate nginx').error);
+  const d = convert("docker run -e 'P=a$b' -e 'Q=a b$c' -e \"R=it's $x\" -v $(pwd)/data:/d -v $PWD:/p -v ${PWD}/z:/z nginx sh -c 'echo $HOME'");
+  check('dockerrun: a $ in .env is single-quoted, or escaped when a quote is inside', d.env === "P='a$b'\nQ='a b$c'\nR=\"it's \\$x\"\n");
+  check('dockerrun: a $ in compose is doubled, $(pwd) and $PWD become .', d.compose.includes('command: ["sh","-c","echo $$HOME"]') && d.compose.includes('"./data:/d"') && d.compose.includes('".:/p"') && d.compose.includes('"./z:/z"'));
+  check('dockerrun: readonly=false adds no :ro', convert('docker run --mount type=bind,source=/a,target=/b,readonly=false nginx').compose.includes('"/a:/b"') && convert('docker run --mount type=bind,source=/a,target=/b,readonly=true nginx').compose.includes('"/a:/b:ro"'));
+  const g2 = convert('docker run --gpus 2 nginx'), g3 = convert('docker run --gpus "device=0,1" nginx');
+  check('dockerrun: --gpus count is not an id list; device= ids are', !g2.env.includes('NVIDIA') && g2.notes.some((n) => n.includes('count')) && g2.compose.includes('# not converted: --gpus 2') && g3.env === 'NVIDIA_VISIBLE_DEVICES=0,1\n');
+}
 
 console.log(`-- ${ok} ok, ${bad} failed`);
 process.exit(bad ? 1 : 0);
