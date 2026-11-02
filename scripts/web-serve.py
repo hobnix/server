@@ -1103,7 +1103,7 @@ CHANGES = {
                {"fixed": [r"^mount$", r"^(remote:[a-z0-9][a-z0-9-]{0,19}|[A-Za-z0-9][A-Za-z0-9._-]{0,63})$"],
                 "opts": {"--path": (r"^/[A-Za-z0-9._/-]{1,200}$", False), "--as": (r"^[0-9]{1,10}:[0-9]{1,10}$", False)}}],
     "docker-app": [[APP, r"^(start|stop|restart|pull)$"],
-                   {"fixed": [APP, r"^app-save$"], "opts": {"--rev": (r"^(new|[0-9a-f]{16})$", False)}, "document": True},
+                   {"fixed": [APP, r"^app-(save|write)$"], "opts": {"--rev": (r"^(new|[0-9a-f]{16})$", False)}, "document": True},
                    [APP, r"^rebuild$"],
                    {"fixed": [APP, r"^delete$"], "opts": {"--delete-data": (None, False)}}],     # the data stay unless --delete-data
     # the registry logins of Docker (docker-registry-change.sh): the token of add is the one line on stdin, never an argument
@@ -1288,6 +1288,8 @@ def parse_change(out, rc):
         k, _, v = line.partition("\t")
         if k in ("step", "note", "warn", "danger", "section", "text"):
             d["steps"].append([k, v])
+        elif k == "finding":
+            d.setdefault("findings", []).append(v.split("	", 2))     # the Test of the Docker editor: level, where (compose:<line|path>, env:<line>, -), text
         elif k == "fix":
             d["fixes"].append(v)       # a refused plan: the command that makes it possible
         elif k == "needs":

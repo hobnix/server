@@ -78,6 +78,19 @@ class Doc(unittest.TestCase):
         self.assertIn(b"warn\tService a environment key TOKEN holds a literal value", p.stdout)
         self.assertNotIn(b"x", p.stdout)
 
+    def test_check_paths_cname_and_bind(self):
+        cfg = {"volumes": {"v": {}}, "services": {"web": {"image": "x", "container_name": "cn", "ports": [{"target": 80}, {"published": 8080, "target": 80}],
+               "volumes": [{"type": "bind", "source": "/srv/a", "target": "/a"}, {"type": "bind", "source": "/srv/b", "target": "/b", "read_only": True}, {"type": "volume", "source": "n", "target": "/c"}]}}}
+        p = self.run_helper("check", json.dumps(cfg).encode())
+        self.assertEqual(p.returncode, 0)
+        out = p.stdout.decode()
+        self.assertIn("refuse\tTop-level named volumes are not allowed.\tvolumes\n", out)
+        self.assertIn("refuse\tEvery published port must name the host port.\tservices.web.ports\n", out)
+        self.assertIn("port\t8080\tservices.web.ports\n", out)
+        self.assertIn("cname\tcn\tservices.web.container_name\n", out)
+        self.assertIn("bind\t/srv/a\trw\tservices.web.volumes\n", out)
+        self.assertIn("bind\t/srv/b\tro\tservices.web.volumes\n", out)
+
     def test_check_malformed_json(self):
         p = self.run_helper("check", b"{not json")
         self.assertNotEqual(p.returncode, 0)

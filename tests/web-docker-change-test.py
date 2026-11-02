@@ -294,6 +294,18 @@ class DockerAppDocument(lt.Base):
         self.post("/api/plan", body)
         self.assertEqual(len(self.calls), 2)
 
+    def test_app_write_and_findings(self):
+        doc = {"compose": "services:\n  x:\n    image: y\n", "env": "A=1\n"}
+        s, d = self.post("/api/plan", {"area": "docker-app", "args": ["arr", "app-write", "--rev", "new"], "document": doc})
+        self.assertEqual(s, 200)
+        self.assertIn("app-write", self.calls[0][0])
+        d = ws.parse_change("status\trefused\nreason\tThe test found 2 problems.\nfinding\terror\tcompose:3\tbad: a\tb\nfinding\twarn\t-\tOnly a text\n", 1)
+        self.assertEqual(d["findings"], [["error", "compose:3", "bad: a\tb"], ["warn", "-", "Only a text"]])
+        self.assertNotIn("findings", ws.parse_change("status\tok\n", 0))
+        self.answer = (1, "status\trefused\nreason\tThe test found 1 problem.\nfinding\terror\tenv:2\tLine 2 of the env file is not NAME=value.\n")
+        s, d = self.post("/api/plan", {"area": "docker-app", "args": ["arr", "app-save", "--rev", "new"], "document": doc})
+        self.assertEqual(d["findings"], [["error", "env:2", "Line 2 of the env file is not NAME=value."]])
+
 
 if __name__ == "__main__":
     unittest.main(verbosity=1)

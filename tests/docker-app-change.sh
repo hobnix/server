@@ -29,10 +29,15 @@ case "$1" in
       printf '/opt/apps/arr\n'
     elif [ "$1" = docker ] && [ "$2" = compose ]; then
       :  # compose actions succeed silently
+    elif [ "$1" = bash ] && [ "$2" = -c ] && [ -s "${PREP_ERR:-/nonexistent}" ]; then
+      cat >/dev/null; cat "$PREP_ERR" >&2; exit 1      # the test of the editor: `compose config` fails with these lines
     elif [ "$1" = sh ] && [ "$2" = -c ]; then
       cmd=$3
       case "$cmd" in
         *'docker inspect --format'*) printf '/opt/apps/arr\n' ;;
+        *'config --images'*) printf 'ghcr.io/acme/app:1\n' ;;
+        *'config --format json'*) cat "${CFGJSON:-/nonexistent}" 2>/dev/null ;;
+        *'[ -e "$p" ]'*) printf '%s\n' "${@:5}" | grep '^/missing' || true ;;
         *'docker compose -p'*) : ;;
         *'[ -d'*) : ;;
       esac
@@ -203,13 +208,70 @@ grep -qE 'OWNER=' "$LOG" && fail "HS_OWNER leaked to incus" || pass "no HS_OWNER
 echo "-- app-save with an env text: line check and one shape per document"
 unset HS_DOCKER_NO_JOB; export HS_DOCKER_SH=$BIN/docker.sh; on webui
 doc_plan() { printf "$1" | $D plan web1 app-save --rev 0123456789abcdef 2>&1; }
+export CFGJSON=$WORK/cfg.json; echo '{"services":{"web":{"image":"x"}}}' > "$CFGJSON"
 out=$(doc_plan 'services: {}\0*A=1\nbroken line\n\0') || true
-echo "$out" | grep -qx "reason${T}Line 2 of the env file is not NAME=value." && pass "env text: a bad line is refused with its number" || fail "env line: $out"
+echo "$out" | grep -qx "status${T}refused" && pass "env text: a bad line is refused" || fail "env line status: $out"
+echo "$out" | grep -qx "reason${T}The test found 1 problem." && pass "env text: the reason counts the problems" || fail "env line reason: $out"
+echo "$out" | grep -qx "finding${T}error${T}env:2${T}Line 2 of the env file is not NAME=value." && pass "env text: a bad line is a finding with its number" || fail "env line: $out"
 out=$(doc_plan 'services: {}\0*A=1\0+B=2\0') || true
 echo "$out" | grep -qx "status${T}refused" && pass "env text then a set record is refused" || fail "env then set: $out"
 out=$(doc_plan 'services: {}\0+B=2\0*A=1\0') || true
 echo "$out" | grep -qx "status${T}refused" && pass "a set record then an env text is refused" || fail "set then env: $out"
 echo "$out" | grep -q 'broken' && fail "a line of the env text was printed" || pass "plan output has no env text"
+
+echo "-- the Test: every problem is a finding at its place"
+printf 'yaml: line 3: mapping values are not allowed in this context\nservices.web.ports must be a list\nsomething else broke\n' > "$WORK/prep.err"
+export PREP_ERR=$WORK/prep.err
+out=$(doc_plan 'services: {}\0*A=1\nbad one\nbad two\n\0') || true
+unset PREP_ERR
+echo "$out" | grep -qx "reason${T}The test found 5 problems." && pass "test: five problems counted" || fail "test count: $out"
+echo "$out" | grep -qx "finding${T}error${T}compose:3${T}yaml: line 3: mapping values are not allowed in this context" && pass "test: a compose error with a line maps to compose:<line>" || fail "test line: $out"
+echo "$out" | grep -qx "finding${T}error${T}compose:services.web.ports${T}services.web.ports must be a list" && pass "test: a service path maps to compose:<path>" || fail "test path: $out"
+echo "$out" | grep -qx "finding${T}error${T}-${T}something else broke" && pass "test: an unplaced error lands on -" || fail "test unplaced: $out"
+echo "$out" | grep -qx "finding${T}error${T}env:2${T}Line 2 of the env file is not NAME=value." && echo "$out" | grep -qx "finding${T}error${T}env:3${T}Line 3 of the env file is not NAME=value." && pass "test: two bad env lines are two findings" || fail "test env: $out"
+cat > "$CFGJSON" <<'JSON'
+{"services":{"web":{"image":"x","container_name":"clash","environment":{"DB_PASSWORD":"zz"},"volumes":[{"type":"bind","source":"/missing/data","target":"/d"},{"type":"bind","source":"/opt/apps/web1/conf","target":"/c"}]}}}
+JSON
+cat > "$BIN/docker.sh" <<'FAKE'
+#!/usr/bin/env bash
+case "$1" in
+  --status) printf 'state\ton\nrunning\tyes\n' ;;
+  --list) printf 'web1\tdocker\tweb1\trunning\t-\n' ;;
+  --app) printf '{"rev":"0123456789abcdef","managed":"web"}\n' ;;
+  --containers) printf 'clash\tother\trunning\nweb1-web-1\tweb1\trunning\n' ;;
+esac
+FAKE
+out=$(doc_plan 'services: {}\0') || true
+echo "$out" | grep -qx "finding${T}error${T}compose:services.web.container_name${T}The container name clash is used by other." && pass "test: a container_name used by another project is an error at its path" || fail "test cname: $out"
+echo "$out" | grep -qx "finding${T}warn${T}compose:services.web.volumes${T}/missing/data does not exist: Docker would make an empty folder on the container disk." && pass "test: a missing bind source is a warning" || fail "test bind: $out"
+echo "$out" | grep -q "/opt/apps/web1/conf" && fail "the app's own folder was reported" || pass "test: the app's own folder is not reported"
+echo "$out" | grep -qx "finding${T}warn${T}compose:services.web.environment${T}Service web environment key DB_PASSWORD holds a literal value; move it to the env file." && pass "test: a literal secret is a warning at its path" || fail "test warn: $out"
+echo "$out" | grep -q 'zz' && fail "a value was printed" || pass "test: no value in the output"
+# the name taken between Test and Apply: the start checks it again
+out=$(printf 'services: {}\0' | $D start web1 app-save --rev 0123456789abcdef 2>&1) || true
+echo "$out" | grep -qx "reason${T}The container name clash is used by other." && pass "start: a container_name taken since the Test is refused" || fail "start cname: $out"
+echo '{"services":{"web":{"image":"x","volumes":[{"type":"bind","source":"/missing/data","target":"/d"}]}}}' > "$CFGJSON"
+out=$(doc_plan 'services: {}\0') || true
+echo "$out" | grep -qx "status${T}ok" && echo "$out" | grep -q "^finding${T}warn${T}" && echo "$out" | grep -qx "step${T}Recreate the app" && pass "test: warnings alone keep the plan ok" || fail "test warn plan: $out"
+out=$(printf 'services: {}\0' | $D plan web1 app-write --rev 0123456789abcdef 2>&1) || true
+echo "$out" | grep -qx "step${T}Save the files (the app is not restarted)" && pass "app-write: the plan only saves the files" || fail "app-write plan: $out"
+echo "$out" | grep -q "Recreate" && fail "app-write plans a recreate" || pass "app-write: no recreate step"
+# a closed vault is one finding next to the others (app-save), and no problem for app-write
+mkdir -p "$WORK/state" "$WORK/vault"
+export HS_VAULT_DIR=$WORK/vault
+printf 'ghcr.io\tme\n' > "$WORK/state/docker-registries.tsv"
+echo uuid > "$WORK/state/vault-uuid"
+ln -sf "$WORK/vault/secrets/docker-registry-ghcr.io" "$WORK/state/docker-registry-ghcr.io"
+echo '{"services":{"web":{"image":"ghcr.io/acme/app:1","ports":["8080:80"],"volumes":[{"type":"bind","source":"/missing/data","target":"/d"}]}}}' > "$CFGJSON"
+out=$(doc_plan 'services: {}\0') || true
+echo "$out" | grep -qx "finding${T}error${T}-${T}The vault is closed: the token for ghcr.io is in it." && pass "test: a closed vault is a finding" || fail "test vault: $out"
+echo "$out" | grep -q "^finding${T}warn${T}compose:services.web.volumes" && pass "test: the other findings stay next to the vault one" || fail "test vault others: $out"
+echo "$out" | grep -qx "fix${T}hs vault open" && pass "test: the vault refusal keeps its fix" || fail "test vault fix: $out"
+out=$(printf 'services: {}\0' | $D plan web1 app-write --rev 0123456789abcdef 2>&1) || true
+echo "$out" | grep -qx "status${T}ok" && pass "app-write: a closed vault is no problem" || fail "app-write vault: $out"
+rm -f "$WORK/state/docker-registries.tsv" "$WORK/state/vault-uuid" "$WORK/state/docker-registry-ghcr.io"
+unset HS_VAULT_DIR
+echo '{"services":{"web":{"image":"x"}}}' > "$CFGJSON"
 
 echo "-- env_diff: names only, also for an empty or a missing old .env"
 mkdir -p "$WORK/apps/e1" "$WORK/apps/e2" "$WORK/apps/e3" "$WORK/etmp"

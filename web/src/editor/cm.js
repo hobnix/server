@@ -3,7 +3,7 @@
 // envmask.js, envlang.js, yamlpath.js), which node tests run.
 //   createEditor(el, { doc, lang: 'yaml' | 'env', onChange(text), lint(text, obj) -> findings, schema, envNames() -> [names], readOnly })
 //   options.mounts() -> the docker mounts [{ path, ... }] and options.listDir(mount, rel) -> Promise<[folder names]> complete a volumes entry
-//     -> { getText, setText, setReadOnly, relint, focus, insertVolume(entry), destroy }
+//     -> { getText, setText, setReadOnly, relint, setFindings(list), focus, insertVolume(entry), destroy }
 // Colours come from CSS variables only (--panel --fg --fg-3 --line --accent --ok --warn --bad), so the dark/light toggle needs no reconfigure.
 import { EditorState, Compartment, StateEffect, StateField, RangeSetBuilder } from '@codemirror/state';
 import { EditorView, keymap, lineNumbers, highlightActiveLine, highlightActiveLineGutter, drawSelection, Decoration, WidgetType } from '@codemirror/view';
@@ -125,7 +125,7 @@ function rangeOfPath(doc, path, textLength) {
   return null;
 }
 
-function lintSource(options) {
+function lintSource(options, serverFindings) {
   return (view) => {
     const text = view.state.doc.toString();
     const out = [];
@@ -138,15 +138,20 @@ function lintSource(options) {
       for (const w of doc.warnings) out.push({ from: clamp(w.pos[0]), to: clamp(Math.max(w.pos[1], w.pos[0] + 1)), severity: 'warning', message: w.message.split('\n')[0] });
       if (!doc.errors.length) obj = doc.toJS();
     }
-    if (options.lint && text.length <= SEMANTIC_MAX && (options.lang === 'env' || obj !== null)) {
-      for (const f of options.lint(text, obj) || []) {
-        let range = null;
-        if (f.line && f.line >= 1 && f.line <= view.state.doc.lines) { const l = view.state.doc.line(f.line); range = [l.from, Math.max(l.to, l.from + 1)]; }
-        else if (f.path && doc) range = rangeOfPath(doc, f.path, text.length);
-        if (!range) range = [0, Math.min(text.length, 1)];
-        out.push({ from: clamp(range[0]), to: clamp(range[1]), severity: f.level === 'error' ? 'error' : 'warning', message: f.text });
+    const place = (f) => {
+      let range = null;
+      if (f.line && f.line >= 1 && f.line <= view.state.doc.lines) { const l = view.state.doc.line(f.line); range = [l.from, Math.max(l.to, l.from + 1)]; }
+      else if (f.path) {
+        if (!doc && options.lang === 'yaml') doc = parseDocument(text);
+        if (doc) range = rangeOfPath(doc, f.path, text.length);
       }
+      if (!range) range = [0, Math.min(text.length, 1)];
+      out.push({ from: clamp(range[0]), to: clamp(range[1]), severity: f.level === 'error' ? 'error' : 'warning', message: f.text });
+    };
+    if (options.lint && text.length <= SEMANTIC_MAX && (options.lang === 'env' || obj !== null)) {
+      for (const f of options.lint(text, obj) || []) place(f);
     }
+    for (const f of serverFindings()) place(f);      // what the Test found on the server (cleared when the text changes)
     return out;
   };
 }
@@ -191,6 +196,7 @@ export function createEditor(el, options = {}) {
   const lang = options.lang === 'env' ? 'env' : 'yaml';
   const opts = { ...options, lang };
   const readOnly = new Compartment();
+  let server = [];      // the findings of the last Test for this text
   const ro = (on) => [EditorState.readOnly.of(!!on), EditorView.editable.of(!on)];
   const extensions = [
     lineNumbers(), highlightActiveLineGutter(), highlightActiveLine(), drawSelection(), history(), highlightSelectionMatches(),
@@ -201,10 +207,10 @@ export function createEditor(el, options = {}) {
     theme,
     EditorView.contentAttributes.of({ autocapitalize: 'off', autocorrect: 'off', spellcheck: 'false' }),
     autocompletion({ override: [completionSource(opts)], activateOnTyping: true }),
-    linter(lintSource(opts), { delay: LINT_DELAY }),
+    linter(lintSource(opts, () => server), { delay: LINT_DELAY }),
     lintGutter(),
     readOnly.of(ro(opts.readOnly)),
-    EditorView.updateListener.of((u) => { if (u.docChanged && opts.onChange) opts.onChange(u.state.doc.toString()); }),
+    EditorView.updateListener.of((u) => { if (u.docChanged) { server = []; if (opts.onChange) opts.onChange(u.state.doc.toString()); } }),
   ];
   if (lang === 'env') extensions.push(maskField);
   const view = new EditorView({ parent: el, state: EditorState.create({ doc: opts.doc || '', extensions }) });
@@ -213,6 +219,8 @@ export function createEditor(el, options = {}) {
     setText: (text) => view.dispatch({ changes: { from: 0, to: view.state.doc.length, insert: text } }),
     setReadOnly: (on) => view.dispatch({ effects: readOnly.reconfigure(ro(on)) }),
     relint: () => forceLinting(view),
+    // show the findings of the Test now: [{ level, text, line | path }]; they go when the text is changed
+    setFindings: (list) => { server = Array.isArray(list) ? list : []; forceLinting(view); },
     focus: () => view.focus(),
     // add `- <entry>` under the volumes: of the service the cursor is in; without a readable services: block at the cursor line
     insertVolume: (entry) => {

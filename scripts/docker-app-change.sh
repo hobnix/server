@@ -4,7 +4,10 @@
 # args: plan|start <app> <action> [--rev new|<rev>] [--delete-data]
 # Change the apps (compose projects) that run in the locked docker container.
 # Actions: start, stop, restart run directly; pull runs as a background job and recreates the containers.
-# app-save creates or updates a web-managed app; rebuild and delete are only for web-managed apps.
+# app-save creates or updates a web-managed app and recreates it (up -d); app-write only writes the two files (the running app is not touched).
+# The plan of app-save/app-write is also the Test of the web editor: it collects every problem as `finding<TAB>error|warn<TAB>where<TAB>text`
+# (where = compose:<line> | compose:<dotted.path> | env:<line> | -) and refuses with "The test found N problems." when one is an error.
+# app-save/app-write rebuild and delete are only for web-managed apps.
 # Every check is repeated at start, and a plan refuses before anything changes.
 # An image from a private registry (ghcr.io) needs its token from the vault (lib/docker-auth.sh): a closed vault refuses pull, rebuild and
 # app-save at the plan (fix: hs vault open); start, stop, restart never need it.
@@ -21,8 +24,8 @@ here=$(cd "$(dirname "$0")" && pwd)
 CT=docker
 APP_RE='^[a-z0-9][a-z0-9_-]{0,40}$'
 REV_RE='^[0-9a-f]{16}$'
-ACTION_RE='^(start|stop|restart|pull|app-save|rebuild|delete)$'
-WRITE_RE='^(app-save|rebuild|delete)$'
+ACTION_RE='^(start|stop|restart|pull|app-save|app-write|rebuild|delete)$'
+WRITE_RE='^(app-save|app-write|rebuild|delete)$'
 NAME_RE='^[A-Za-z_][A-Za-z0-9_]*$'
 
 refuse() { printf 'status\trefused\nreason\t%s\n' "$1"; exit 1; }
@@ -119,16 +122,25 @@ apply_pull() {
 # The document on stdin is: compose (UTF-8, no NUL), NUL, then +NAME=value\0 or -NAME\0 records.
 # Values never leave the container; the host only extracts the names for the plan lines.
 
+ENV_BAD=0
+add_finding() {   # add_finding <error|warn> <where> <text>: a tab or newline in the text becomes a space
+  local text=${3//$'\t'/ }
+  text=${text//$'\n'/ }
+  FINDINGS+=("$1"$'\t'"$2"$'\t'"$text")
+}
+
 declare -a DOC_SET_NAMES DOC_SET_VALUES DOC_REM_NAMES
 declare -A DOC_SET_MAP DOC_REM_MAP
 DOC_COMPOSE=""
 DOC_ENV_TEXT=""
+DOC_COLLECT=0       # 1 (the plan of app-save/app-write): an env line problem becomes a finding instead of a refusal
+FINDINGS=()         # "level<TAB>where<TAB>text"
 DOC_ENV_SHAPE=0     # 1: the document carries the whole .env text (one "*" record) instead of set/remove records
 
 read_document() {
   DOC_SET_NAMES=(); DOC_SET_VALUES=(); DOC_REM_NAMES=()
   DOC_SET_MAP=(); DOC_REM_MAP=()
-  DOC_COMPOSE=""; DOC_ENV_TEXT=""; DOC_ENV_SHAPE=0
+  DOC_COMPOSE=""; DOC_ENV_TEXT=""; DOC_ENV_SHAPE=0; ENV_BAD=0
   local rec name value line n
   # read compose up to the first NUL
   if ! IFS= read -r -d '' DOC_COMPOSE; then
@@ -143,7 +155,10 @@ read_document() {
         while IFS= read -r line || [ -n "$line" ]; do
           n=$((n + 1))
           case "$line" in ""|"#"*) continue ;; esac
-          [[ "$line" =~ ^[A-Za-z_][A-Za-z0-9_]*= ]] || refuse "Line $n of the env file is not NAME=value."
+          if ! [[ "$line" =~ ^[A-Za-z_][A-Za-z0-9_]*= ]]; then
+            if [ "$DOC_COLLECT" -eq 1 ]; then add_finding error "env:$n" "Line $n of the env file is not NAME=value."; ENV_BAD=1
+            else refuse "Line $n of the env file is not NAME=value."; fi
+          fi
         done <<<"$DOC_ENV_TEXT" ;;
       +*)
         [ "$DOC_ENV_SHAPE" -eq 0 ] || refuse "Malformed record in the document."
@@ -304,9 +319,90 @@ auth_check_tmp() {   # the images of the NEW compose file in the temp dir; the t
   fi
 }
 
+# the "where" of a finding for a line of a compose error text: env:<line> (the error names the .env file), compose:<line>, compose:<dotted.path> or -
+finding_where() {
+  local t=$1 w
+  if [[ "$t" == *".env"* ]] && [[ "$t" =~ line\ ([0-9]+) ]]; then printf 'env:%s' "${BASH_REMATCH[1]}"
+  elif [[ "$t" =~ line\ ([0-9]+) ]]; then printf 'compose:%s' "${BASH_REMATCH[1]}"
+  elif [[ "$t" =~ (services\.[A-Za-z0-9_.-]+) ]]; then
+    w=${BASH_REMATCH[1]}
+    while [[ "$w" == *[.:-] ]]; do w=${w%?}; done
+    printf 'compose:%s' "$w"
+  else printf -- '-'
+  fi
+}
+
+where_of() { if [ "$1" = - ] || [ -z "$1" ]; then printf -- '-'; else printf 'compose:%s' "$1"; fi; }
+
+# every line of the error output of `compose config` becomes a finding (at most 20)
+collect_compose_errors() {
+  local errf=$1 tmp=$2 l n=0
+  while IFS= read -r l || [ -n "$l" ]; do
+    l=${l//"$tmp/"/}
+    [ -n "${l//[[:space:]]/}" ] || continue
+    # the env lines were found already by the line check: do not name them twice
+    if [ "$ENV_BAD" -eq 1 ] && [[ "$l" == *".env"* ]]; then continue; fi
+    n=$((n + 1)); [ "$n" -le 20 ] || break
+    add_finding error "$(finding_where "$l")" "$l"
+  done <"$errf"
+  [ "$n" -gt 0 ] || [ "$ENV_BAD" -eq 1 ] || add_finding error - "The compose file is not valid."
+}
+
+PLAN_WARNS=()      # warn lines of the plan (the dialog shows them)
+VAULT_FIX=0
+
+# cname_owner <container name> <app>: the project of ANOTHER container with this name (another container when it has none), nothing when free
+cname_owner() {
+  bash "${HS_DOCKER_SH:-$here/docker.sh}" --containers </dev/null 2>/dev/null \
+    | awk -F'\t' -v n="$1" -v app="$2" '$1 == n && $2 != app { print ($2 == "-" ? "another container" : $2); exit }'
+}
+
+# the Test also shows a closed vault (an image of a private registry) as a finding, next to the others
+vault_finding() {
+  local app=$1 tmp=$2 hosts h
+  hosts=$(docker_auth_hosts "$app" "$tmp/docker-compose.yml" "$tmp/.env")
+  # shellcheck disable=SC2086
+  if h=$(docker_auth_locked $hosts); then
+    add_finding error - "$(t 'The vault is closed: the token for %s is in it.' "$h")"
+    VAULT_FIX=1
+  fi
+}
+
+# the policy lines of docker_app_doc.py check (refuse|port|warn|cname|bind, each with a path) and the host's own checks -> findings
+collect_policy() {
+  local app=$1 policy=$2 k a b c owner src hit
+  local -a binds=()
+  local -A bpath=()
+  while IFS=$'\t' read -r k a b c; do
+    case "$k" in
+      refuse) add_finding error "$(where_of "$b")" "$a" ;;
+      port)
+        owner=$(docker_port_owner "$a" "$app" 2>/dev/null || true)
+        [ -z "$owner" ] || add_finding error "$(where_of "$b")" "Port $a is used by '$owner' in Docker already." ;;
+      warn)
+        add_finding warn "$(where_of "$b")" "$a"
+        PLAN_WARNS+=("$a") ;;
+      cname)
+        hit=$(cname_owner "$a" "$app")
+        [ -z "$hit" ] || add_finding error "$(where_of "$b")" "The container name $a is used by $hit." ;;
+      bind)
+        case "$a" in "/opt/apps/$app/"*|"/opt/apps/$app") continue ;; esac   # the folder of the app itself is made for it
+        binds+=("$a"); bpath[$a]=$c ;;
+    esac
+  done <<<"$policy"
+  if [ "${#binds[@]}" -gt 0 ]; then   # one exec for all the sources
+    while IFS= read -r src; do
+      [ -n "$src" ] || continue
+      add_finding warn "$(where_of "${bpath[$src]:--}")" "$src does not exist: Docker would make an empty folder on the container disk."
+      PLAN_WARNS+=("$src does not exist: Docker would make an empty folder on the container disk.")
+    done < <(timeout 8 "${HS_INCUS:-incus}" exec "$CT" -- sh -c 'for p in "$@"; do [ -e "$p" ] || printf "%s\n" "$p"; done' sh "${binds[@]}" </dev/null 2>/dev/null || true)
+  fi
+}
+
+# cmd_plan_save <app> <rev> [save|write]: the plan, and the Test of the web editor (the same call, no dialog): every problem is a finding line
 cmd_plan_save() {
-  local app=$1 rev=$2 tmp rc=0
-  local current is_new=0
+  local app=$1 rev=$2 mode=${3:-save} tmp rc=0 f nerr=0
+  local current is_new=0 errf=/tmp/docker-app-save-err-$$
   if [ "$rev" = new ]; then
     is_new=1
     if timeout 8 "${HS_INCUS:-incus}" exec "$CT" -- sh -c '[ -e "/opt/apps/$1" ]' sh "$app" </dev/null 2>/dev/null; then
@@ -318,37 +414,31 @@ cmd_plan_save() {
     current=$(current_rev "$app") || refuse "The app '$app' cannot be read."
     [ "$current" = "$rev" ] || refuse "The app changed meanwhile. Reload it before saving."
   fi
+  DOC_COLLECT=1
   read_document
   tmp=$(make_tmp_dir "$app")
-  if ! prepare_in_container "$app" "$tmp" >/tmp/docker-app-save-err-$$ 2>&1; then
+  if ! prepare_in_container "$app" "$tmp" >"$errf" 2>&1; then
     rc=1
   fi
-  local policy=""
-  if [ "$rc" -eq 0 ]; then
-    policy=$(run_check "$app" "$tmp" 2>/dev/null) || { remove_tmp "$tmp"; refuse "The compose file is not valid."; }
-    while IFS=$'\t' read -r k v; do
-      case "$k" in
-        port)
-          local owner
-          owner=$(docker_port_owner "$v" "$app" 2>/dev/null || true)
-          if [ -n "$owner" ]; then
-            remove_tmp "$tmp"
-            refuse "Port $v is used by '$owner' in Docker already."
-          fi ;;
-        refuse)
-          remove_tmp "$tmp"
-          refuse "$v" ;;
-      esac
-    done <<<"$policy"
-  fi
   if [ "$rc" -ne 0 ]; then
-    local err
-    err=$(cat /tmp/docker-app-save-err-$$ 2>/dev/null || true)
-    remove_tmp "$tmp"
-    if [ -n "$err" ]; then refuse "The compose file is not valid. $err"; else refuse "The compose file is not valid."; fi
+    collect_compose_errors "$errf" "$tmp"
+  else
+    local policy
+    if policy=$(run_check "$app" "$tmp" 2>/dev/null); then collect_policy "$app" "$policy"
+    else add_finding error - "The compose file is not valid."; fi
+    [ "$mode" = write ] || vault_finding "$app" "$tmp"
   fi
-  auth_check_tmp "$app" "$tmp"
-  printf 'status\tok\nheading\tapp-save %s\n' "$app"
+  rm -f "$errf"
+  for f in ${FINDINGS[@]+"${FINDINGS[@]}"}; do [ "${f%%$'\t'*}" = error ] && nerr=$((nerr + 1)); done
+  if [ "$nerr" -gt 0 ]; then
+    remove_tmp "$tmp"
+    printf 'status\trefused\nreason\tThe test found %s %s.\n' "$nerr" "$([ "$nerr" -eq 1 ] && printf problem || printf problems)"
+    for f in "${FINDINGS[@]}"; do printf 'finding\t%s\n' "$f"; done
+    [ "$VAULT_FIX" -eq 0 ] || printf 'fix\ths vault open\n'
+    exit 1
+  fi
+  printf 'status\tok\nheading\tapp-%s %s\n' "$mode" "$app"
+  for f in ${FINDINGS[@]+"${FINDINGS[@]}"}; do printf 'finding\t%s\n' "$f"; done
   local name how
   if [ "$DOC_ENV_SHAPE" -eq 1 ]; then
     while IFS=$'\t' read -r how name; do
@@ -359,19 +449,20 @@ cmd_plan_save() {
       esac
     done < <(env_diff "$app" "$tmp")
   fi
-  for name in "${DOC_SET_NAMES[@]}"; do printf 'step\tSet %s\n' "$name"; done
-  for name in "${DOC_REM_NAMES[@]}"; do printf 'step\tRemove %s\n' "$name"; done
-  if [ "$is_new" -eq 1 ]; then printf 'step\tCreate the app\n'; else printf 'step\tRecreate the app\n'; fi
-  while IFS=$'\t' read -r k v; do
-    [ "$k" = warn ] && printf 'warn\t%s\n' "$v"
-  done <<<"$policy"
+  for name in ${DOC_SET_NAMES[@]+"${DOC_SET_NAMES[@]}"}; do printf 'step\tSet %s\n' "$name"; done
+  for name in ${DOC_REM_NAMES[@]+"${DOC_REM_NAMES[@]}"}; do printf 'step\tRemove %s\n' "$name"; done
+  if [ "$mode" = write ]; then printf 'step\tSave the files (the app is not restarted)\n'
+  elif [ "$is_new" -eq 1 ]; then printf 'step\tCreate the app\n'
+  else printf 'step\tRecreate the app\n'; fi
+  for f in ${PLAN_WARNS[@]+"${PLAN_WARNS[@]}"}; do printf 'warn\t%s\n' "$f"; done
   printf 'long\tyes\n'
   remove_tmp "$tmp"
 }
 
 cmd_start_save() {
-  local app=$1 rev=$2 tmp is_new=0 policy
+  local app=$1 rev=$2 mode=${3:-save} tmp is_new=0 policy up=1
   if [ "$rev" = new ]; then is_new=1; fi
+  if [ "$mode" = write ]; then up=0; fi
   read_document
   tmp=$(make_tmp_dir "$app")
   if ! prepare_in_container "$app" "$tmp" >/tmp/docker-app-save-err-$$ 2>&1; then
@@ -381,30 +472,33 @@ cmd_start_save() {
     if [ -n "$err" ]; then refuse "The compose file is not valid. $err"; else refuse "The compose file is not valid."; fi
   fi
   policy=$(run_check "$app" "$tmp" 2>/dev/null) || { remove_tmp "$tmp"; refuse "The compose file is not valid."; }
-  while IFS=$'\t' read -r k v; do
+  while IFS=$'\t' read -r k v p; do
     case "$k" in
       port)
         local owner
         owner=$(docker_port_owner "$v" "$app" 2>/dev/null || true)
         [ -z "$owner" ] || { remove_tmp "$tmp"; refuse "Port $v is used by '$owner' in Docker already."; } ;;
+      cname)
+        owner=$(cname_owner "$v" "$app")
+        [ -z "$owner" ] || { remove_tmp "$tmp"; refuse "The container name $v is used by $owner."; } ;;
       refuse)
         remove_tmp "$tmp"
         refuse "$v" ;;
     esac
   done <<<"$policy"
-  auth_check_tmp "$app" "$tmp"
+  [ "$up" -eq 0 ] || auth_check_tmp "$app" "$tmp"
   if [ -n "${HS_DOCKER_NO_JOB:-}" ]; then
-    apply_save "$app" "$rev" "$tmp" "$is_new"
+    apply_save "$app" "$rev" "$tmp" "$is_new" "$up"
     printf 'status\tdone\n'
   else
     local unit
-    unit=$(hs_job "docker-app-save-$app" "Save $app" -- bash "$0" --apply-save "$app" "$rev" "$tmp" "$is_new") || refuse "The background job could not be started."
+    unit=$(hs_job "docker-app-save-$app" "Save $app" -- bash "$0" --apply-save "$app" "$rev" "$tmp" "$is_new" "$up") || refuse "The background job could not be started."
     printf 'status\tstarted\nunit\t%s\n' "$unit"
   fi
 }
 
 apply_save() {
-  local app=$1 rev=$2 tmp=$3 is_new=$4 current managed rc
+  local app=$1 rev=$2 tmp=$3 is_new=$4 up=${5:-1} current managed rc
   [[ "$app" =~ $APP_RE ]] || { remove_tmp "$tmp"; fail "The app name is not valid."; }
   docker_on_and_running || { remove_tmp "$tmp"; fail "Docker is not on or not running."; }
   app_is_child "$app" || [ "$is_new" -eq 1 ] || { remove_tmp "$tmp"; fail "No app called '$app' was found."; }
@@ -415,20 +509,22 @@ apply_save() {
     current=$(current_rev "$app") || { remove_tmp "$tmp"; fail "The app '$app' cannot be read."; }
     [ "$current" = "$rev" ] || { remove_tmp "$tmp"; fail "The app changed meanwhile. Reload it before saving."; }
   fi
-  local hosts h lines
-  hosts=$(docker_auth_hosts "$app" "$tmp/docker-compose.yml" "$tmp/.env")
-  # shellcheck disable=SC2086
-  if h=$(docker_auth_locked $hosts); then
-    remove_tmp "$tmp"
-    fail "$(t 'The vault is closed: the token for %s is in it.' "$h")"
+  local hosts="" h lines=""
+  if [ "$up" -eq 1 ]; then     # app-write never pulls an image: no registry login
+    hosts=$(docker_auth_hosts "$app" "$tmp/docker-compose.yml" "$tmp/.env")
+    # shellcheck disable=SC2086
+    if h=$(docker_auth_locked $hosts); then
+      remove_tmp "$tmp"
+      fail "$(t 'The vault is closed: the token for %s is in it.' "$h")"
+    fi
+    # shellcheck disable=SC2086
+    lines=$(docker_auth_lines $hosts)
   fi
-  # shellcheck disable=SC2086
-  lines=$(docker_auth_lines $hosts)
   printf '%s\n' "$lines" | timeout 600 "${HS_INCUS:-incus}" exec "$CT" -- bash -c "$DOCKER_AUTH_LOGIN"'
     set -uo pipefail
-    app=$1; rev=$2; tmp=$3; is_new=$4
+    app=$1; rev=$2; tmp=$3; is_new=$4; up=$5
     dir=/opt/apps/$app
-    hs_auth_login || { echo "The registry login failed." >&2; rm -rf -- "$tmp"; exit 1; }
+    if [ "$up" -eq 1 ]; then hs_auth_login || { echo "The registry login failed." >&2; rm -rf -- "$tmp"; exit 1; }; fi
     if [ "$is_new" -eq 1 ]; then
       mkdir -p "$dir"
     fi
@@ -449,6 +545,7 @@ apply_save() {
       : > "$dir/.hs-webui"
       chmod 644 "$dir/.hs-webui"
     fi
+    if [ "$up" -eq 0 ]; then rm -f "$dir"/*.prev; rm -rf -- "$tmp"; exit 0; fi
     values=""
     [ -f "$dir/.env" ] && values=$(sed -n "s/^[A-Za-z_][A-Za-z0-9_]*=//p" "$dir/.env" | awk "length(\$0) >= 4")
     filter() {
@@ -494,13 +591,15 @@ apply_save() {
     fi
     rm -f "$dir"/*.prev
     rm -rf -- "$tmp"
-  ' sh "$app" "$rev" "$tmp" "$is_new"
+  ' sh "$app" "$rev" "$tmp" "$is_new" "$up"
   rc=$?
   if [ "$rc" -ne 0 ]; then
     remove_tmp "$tmp"
     fail "$(t 'The save of %s failed.' "$app")"
   fi
-  [ "$is_new" -eq 1 ] && ok "$(t 'Created %s' "$app")" || ok "$(t 'Updated %s' "$app")"
+  if [ "$up" -eq 0 ]; then ok "$(t 'Saved the files of %s' "$app")"
+  elif [ "$is_new" -eq 1 ]; then ok "$(t 'Created %s' "$app")"
+  else ok "$(t 'Updated %s' "$app")"; fi
 }
 
 # ── rebuild ──
@@ -670,8 +769,8 @@ if [ "${1:-}" = "--apply-pull" ]; then
 fi
 
 if [ "${1:-}" = "--apply-save" ]; then
-  [ $# -eq 5 ] || exit 1
-  apply_save "$2" "$3" "$4" "$5"
+  [ $# -eq 6 ] || exit 1
+  apply_save "$2" "$3" "$4" "$5" "$6"
   exit 0
 fi
 
@@ -690,7 +789,7 @@ fi
 [ $# -ge 3 ] || refuse "Usage: plan|start <app> <action> [--rev new|<rev>]"
 verb=$1; app=$2; action=$3; shift 3
 [[ "$app" =~ $APP_RE ]] || refuse "The app name is not valid."
-[[ "$action" =~ $ACTION_RE ]] || refuse "Action must be start, stop, restart, pull, app-save, rebuild or delete."
+[[ "$action" =~ $ACTION_RE ]] || refuse "Action must be start, stop, restart, pull, app-save, app-write, rebuild or delete."
 case "$action" in
   start|stop|restart|pull) [ $# -eq 0 ] || refuse "Unexpected arguments." ;;
 esac
@@ -700,9 +799,9 @@ case "$verb" in
   plan)
     case "$action" in
       start|stop|restart|pull) cmd_plan_old "$app" "$action" ;;
-      app-save)
-        [ $# -eq 2 ] && [ "$1" = --rev ] || refuse "app-save needs --rev new|<rev>."
-        cmd_plan_save "$app" "$2" ;;
+      app-save|app-write)
+        [ $# -eq 2 ] && [ "$1" = --rev ] || refuse "$action needs --rev new|<rev>."
+        cmd_plan_save "$app" "$2" "${action#app-}" ;;
       rebuild) cmd_plan_rebuild "$app" ;;
       delete)
         [ $# -eq 0 ] || { [ $# -eq 1 ] && [ "$1" = --delete-data ] && delete_data=1; } || refuse "delete takes only --delete-data."
@@ -712,9 +811,9 @@ case "$verb" in
   start)
     case "$action" in
       start|stop|restart|pull) cmd_start_old "$app" "$action" ;;
-      app-save)
-        [ $# -eq 2 ] && [ "$1" = --rev ] || refuse "app-save needs --rev new|<rev>."
-        cmd_start_save "$app" "$2" ;;
+      app-save|app-write)
+        [ $# -eq 2 ] && [ "$1" = --rev ] || refuse "$action needs --rev new|<rev>."
+        cmd_start_save "$app" "$2" "${action#app-}" ;;
       rebuild) cmd_start_rebuild "$app" ;;
       delete)
         confirm=""

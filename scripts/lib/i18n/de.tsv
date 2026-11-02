@@ -1976,6 +1976,7 @@ Pulled and restarted %s	%s heruntergeladen und neu gestartet
 Pull failed for %s	Herunterladen für %s fehlgeschlagen
 Created %s	%s angelegt
 Updated %s	%s aktualisiert
+Saved the files of %s	Dateien von %s gespeichert
 Rebuild %s	%s neu bauen
 Rebuilt %s	%s neu gebaut
 Rebuild of %s failed.	Neu bauen von %s fehlgeschlagen.

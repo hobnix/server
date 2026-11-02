@@ -2,9 +2,11 @@
   // The editor of one Docker app on its own page: docker-compose.yml left, the real .env text right (one column on a phone).
   // /instances/docker/app/<app> edits a web-managed app, /instances/docker/new starts one. The read `docker app` is never cached by the server
   // (it holds the .env text): this page reads it with get() and keeps the text only in its own state, never in a store or the browser's storage.
-  // Apply = a plan for `docker-app app-save` with the document {compose, env}; the plan dialog saves and recreates the app.
+  // Test = the plan of `docker-app app-save` with the document {compose, env}, asked without a dialog: its `finding` lines are shown at their
+  // lines in the panels (editor/findings.js), the ones without a place in a banner. Save (`app-write`) writes the two files only; Apply
+  // (`app-save`) writes them and recreates the app. Both run the Test first and open the plan dialog only when it found no error.
   import { onMount } from 'svelte';
-  import { get } from '../../api.js';
+  import { get, plan } from '../../api.js';
   import { poll, rows } from '../../data.svelte.js';
   import { route, go } from '../../route.svelte.js';
   import { openPlan, jobRunning, tasks } from '../../ui.svelte.js';
@@ -17,6 +19,7 @@
   import { ls } from '../../files/api.js';
   import { mountsOf } from '../../editor/volumes.js';
   import { lintCompose, lintEnv, lintVars, envNames, normalizeEol } from '../../editor/lint.js';
+  import { mapFindings } from '../../editor/findings.js';
 
   const NEW = '/instances/docker/new';
   const PREFIX = '/instances/docker/app/';
@@ -70,7 +73,13 @@
   const dirty = $derived(compose !== saved.compose || env !== saved.env);
   const canApply = $derived(!loading && !loadError && !readOnly && !!target && /^[a-z0-9][a-z0-9_-]{0,40}$/.test(target));
   const applyArgs = $derived([target, 'app-save', '--rev', isNew ? 'new' : rev]);
+  const saveArgs = $derived([target, 'app-write', '--rev', isNew ? 'new' : rev]);
   const applying = $derived(canApply && jobRunning('docker-app', applyArgs));
+  const saving = $derived(canApply && jobRunning('docker-app', saveArgs));
+  let testing = $state(false);          // the Test is being asked
+  let banner = $state([]);              // findings without a place: [{ level, text }]
+  let result = $state(null);            // { errors, warns } of the last Test, until the text changes
+  let changedDisk = $state(false);      // the app changed on disk since it was read
 
   const live = () => ({
     schema, isNew,
@@ -82,6 +91,7 @@
   async function load() {
     loading = true;
     loadError = '';
+    changedDisk = false;
     try {
       if (isNew) {
         rev = 'new'; managed = 'web'; envTooBig = false;
@@ -140,10 +150,17 @@
     shown = key;
   });
 
-  // the job of Apply ended: read the app again (new revision); a new app moves to its own address
+  // an edit makes the answer of the last Test stale
+  $effect(() => {
+    compose; env;
+    result = null;
+    banner = [];
+  });
+
+  // the job of Save or Apply ended: read the app again (new revision); a new app moves to its own address
   let wasApplying = false;
   $effect(() => {
-    if (applying) { wasApplying = true; return; }
+    if (applying || saving) { wasApplying = true; return; }
     if (wasApplying) {
       wasApplying = false;
       if (isNew) go(PREFIX + encodeURIComponent(target)); else load();
@@ -173,19 +190,54 @@
   function bound(line) { binding = false; editors?.compose.insertVolume(line); }
   function mountFirst(m) { binding = false; pending = m; sawMount = false; openPlan('docker', m.args, `mount ${m.args[1]}`); }
 
-  function apply() {
-    const document = envTooBig ? { compose, set: {}, remove: [] } : { compose, env };
-    openPlan('docker-app', applyArgs, `apply ${target}`, { document, onReload: load });
+  const document_ = () => (envTooBig ? { compose, set: {}, remove: [] } : { compose, env });
+
+  // ask the plan with the document, show every finding at its place; -> the answer, or null when the call failed
+  async function runTest(args) {
+    testing = true;
+    changedDisk = false;
+    try {
+      const r = await plan('docker-app', args, undefined, undefined, undefined, document_());
+      const m = mapFindings(r.findings);
+      editors?.compose.setFindings(m.compose);
+      editors?.env.setFindings(m.env);
+      const all = [...m.compose, ...m.env, ...m.banner];
+      banner = m.banner;
+      if (r.status !== 'ok' && !all.length && String(r.reason).includes('changed meanwhile')) changedDisk = true;
+      else if (r.status !== 'ok' && !all.length) banner = [{ level: 'error', text: r.reason || 'The test could not be done.' }];
+      result = { errors: all.filter((f) => f.level === 'error').length, warns: all.filter((f) => f.level !== 'error').length, ok: r.status === 'ok' };
+      return r;
+    } catch (e) {
+      banner = [{ level: 'error', text: e.message || 'The test could not be done.' }];
+      return null;
+    } finally {
+      testing = false;
+    }
   }
+
+  async function test() { await runTest(applyArgs); }      // the plain Test is the one of Apply: it also reports a closed vault
+
+  // Save and Apply: the Test first; the plan dialog opens when it found no error, or when the refusal has no finding to show (its reason and fix)
+  async function submit(args, title) {
+    const r = await runTest(args);       // the Test of the action itself: Save never needs the registry vault
+    if (!r || changedDisk) return;
+    if (r.status === 'ok' || !r.findings?.length) openPlan('docker-app', args, `${title} ${target}`, { document: document_(), onReload: load });
+  }
+  const save = () => submit(saveArgs, 'save');
+  const apply = () => submit(applyArgs, 'apply');
+
+  const resultText = $derived(!result ? '' : result.errors ? `The test found ${result.errors} ${result.errors === 1 ? 'problem' : 'problems'}${result.warns ? ` and ${result.warns} ${result.warns === 1 ? 'warning' : 'warnings'}` : ''}.` : result.warns ? `The test passed with ${result.warns} ${result.warns === 1 ? 'warning' : 'warnings'}.` : 'The test found no problem.');
 </script>
 
 <svelte:window onbeforeunload={(e) => { if (dirty) { e.preventDefault(); e.returnValue = ''; } }} />
 
-<PageHeader title={isNew ? 'New app' : app} crumb="Docker" sub={isNew ? 'Write a compose file and an env file, then apply.' : 'Edit the compose file and the env file of this app, then apply.'}>
+<PageHeader title={isNew ? 'New app' : app} crumb="Docker" sub={isNew ? 'Write a compose file and an env file, test it, then save or apply.' : 'Edit the compose file and the env file of this app, test it, then save or apply.'}>
   {#snippet actions()}
     {#if !readOnly}
       <Button icon="folder-simple-plus" busy={mountRunning} busyLabel="Mounting…" disabled={loading || !editors} tooltip="Add a share to a service as a volume" onclick={() => { binding = true; }}>Bind share</Button>
-      <Button variant="primary" icon="check-circle" busy={applying} busyLabel="Applying…" disabled={!canApply} tooltip={canApply ? 'Save both files and recreate the app' : 'Name the app first'} onclick={apply}>Apply</Button>
+      <Button icon="list-checks" busy={testing} busyLabel="Testing…" disabled={!canApply || testing} tooltip={canApply ? 'Check both files without changing anything' : 'Name the app first'} onclick={test}>Test</Button>
+      <Button icon="floppy-disk" busy={saving} busyLabel="Saving…" disabled={!canApply || testing || applying} tooltip={canApply ? 'Test, then write both files; the app keeps running as it is' : 'Name the app first'} onclick={save}>Save</Button>
+      <Button variant="primary" icon="check-circle" busy={applying} busyLabel="Applying…" disabled={!canApply || testing || saving} tooltip={canApply ? 'Test, then save both files and recreate the app' : 'Name the app first'} onclick={apply}>Apply</Button>
     {/if}
   {/snippet}
 </PageHeader>
@@ -194,7 +246,14 @@
 {#if readOnly}<Banner tone="info">This app is not managed by the web interface (it is {managed}), so it can be read here but not changed.</Banner>{/if}
 {#if envTooBig}<Banner tone="warn">The env file is over 64 KiB: edit it in a terminal. Apply keeps it as it is.</Banner>{/if}
 {#if idWarn}<Banner tone="warn">{idWarn}</Banner>{/if}
-{#if dirty && !loading}<div class="dirty">Changed, not applied yet.</div>{/if}
+{#if changedDisk}
+  <Banner tone="warn">This app changed on disk since you opened it. Reload shows the new files; your edits here are lost.
+    {#snippet action()}<button class="btn sm" onclick={load}>Reload</button>{/snippet}
+  </Banner>
+{/if}
+{#each banner as b}<Banner tone={b.level === 'error' ? 'bad' : 'warn'}>{b.text}</Banner>{/each}
+{#if result && !changedDisk}<Banner tone={result.errors ? 'bad' : result.warns ? 'warn' : 'ok'}>{resultText}</Banner>{/if}
+{#if dirty && !loading}<div class="dirty">Changed, not saved yet.</div>{/if}
 
 {#if isNew}
   <label class="namef">Name
