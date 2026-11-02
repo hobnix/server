@@ -1969,3 +1969,24 @@ Mounting the share changes the user mapping: the container docker restarts, and 
 Mounting the share changes the user mapping: the container docker restarts, and with it everything in it (running now: %s).	Das Einbinden der Freigabe ändert die Benutzerzuordnung: der Container docker startet neu, und damit alles darin (läuft gerade: %s).
 The share '%s' is not mounted at /media yet. Mount it yourself, then run this recipe again.	Die Freigabe '%s' ist noch nicht unter /media eingebunden. Binde sie selbst ein und führe dieses Rezept dann noch einmal aus.
 Could not read what runs in Docker, so the share is not mounted (the mount restarts everything in it).	Es ließ sich nicht lesen, was in Docker läuft, deshalb wird die Freigabe nicht eingebunden (das Einbinden startet alles darin neu).
+Pull images for %s	Images für %s herunterladen
+Pulled and restarted %s	%s heruntergeladen und neu gestartet
+Pull failed for %s	Herunterladen für %s fehlgeschlagen
+Created %s	%s angelegt
+Updated %s	%s aktualisiert
+Rebuild %s	%s neu bauen
+Rebuilt %s	%s neu gebaut
+Rebuild of %s failed.	Neu bauen von %s fehlgeschlagen.
+Snapshot docker before deleting %s	Docker vor dem L\u00f6schen von %s sichern
+The snapshot of docker failed. Nothing was deleted.	Die Sicherung von Docker schlug fehl. Es wurde nichts gel\u00f6scht.
+Stop and remove the containers of %s	Container von %s stoppen und entfernen
+Stopping the containers of %s failed. The app directory was not removed.	Stoppen der Container von %s schlug fehl. Das App-Verzeichnis wurde nicht entfernt.
+Remove /opt/apps/%s	/opt/apps/%s entfernen
+Removing /opt/apps/%s failed.	Entfernen von /opt/apps/%s fehlgeschlagen.
+Deleted %s	%s gel\u00f6scht
+The save of %s failed.	Speichern von %s fehlgeschlagen.
+Only web-managed apps can be deleted.	Nur von der Weboberfl\u00e4che verwaltete Apps k\u00f6nnen gel\u00f6scht werden.
+Only web-managed apps can be rebuilt.	Nur von der Weboberfl\u00e4che verwaltete Apps k\u00f6nnen neu gebaut werden.
+Only web-managed apps can be saved.	Nur von der Weboberfl\u00e4che verwaltete Apps k\u00f6nnen gespeichert werden.
+The app changed meanwhile. Reload it before saving.	Die App hat sich inzwischen ge\u00e4ndert. Laden Sie sie neu, bevor Sie speichern.
+The app name is not valid.	Der App-Name ist nicht g\u00fcltig.

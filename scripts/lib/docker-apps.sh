@@ -14,6 +14,13 @@ docker_manager_project() {
   ( . "$f"; basename "$manager_dir" )
 }
 
+docker_port_owner() {   # docker_port_owner <port> <app>: prints the other Compose project publishing <port> (? for an unlabelled owner), nothing when free
+  local port=$1 app=$2 raw
+  raw=$(timeout 8 "${HS_INCUS:-incus}" exec docker -- docker ps --format '{{.Label "com.docker.compose.project"}}\t{{.Ports}}' </dev/null 2>/dev/null) || return 1
+  printf '%s\n' "$raw" | awk -F'\t' -v port="$port" -v app="$app" '
+    $1 != app && $2 ~ (":" port "->") { print ($1 == "" ? "?" : $1); exit }'
+}
+
 docker_others_running() {
   local raw skip
   raw=$(timeout 8 "${HS_INCUS:-incus}" exec docker -- docker ps --format '{{.Label "com.docker.compose.project"}}	{{.Names}}' </dev/null 2>/dev/null) || return 1

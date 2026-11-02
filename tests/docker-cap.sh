@@ -23,7 +23,7 @@ case "$1" in
   config) [ "$2" = device ] && [ "$3" = get ] && { [ -e "$STATE.dev" ]; exit $?; }
     [ "$2" = set ] && [ -e "$LOCKFAIL" ] && exit 1; [ "$2" = set ] && echo "${4#user.hs.managed_by=}" > "$OWNERF" ;;
   list) case "$*" in *" s"*) echo RUNNING ;; *) printf '"172.17.0.1 (docker0)\n10.10.95.50 (eth0)"\n' ;; esac ;;
-  exec) shift 3
+  exec) shift 3; [ "$1" = -- ] && shift
     if [ "$1" = docker ] && [ "$2" = ps ]; then
       [ ! -e "$PSFAIL" ] || exit 1
       printf 'arr\trunning\t0.0.0.0:8989->8989/tcp, :::7878->7878/tcp\n'
@@ -31,6 +31,29 @@ case "$1" in
       printf 'notes\texited\t\n'
       printf 'arcane\trunning\t0.0.0.0:80->3552/tcp\n'
       printf '\trunning\t\n'
+    elif [ "$1" = docker ] && [ "$2" = compose ]; then
+      case "$*" in
+        *logs*) printf '2024-01-01T00:00:00Z line one\n2024-01-01T00:00:01Z line two\n' ;;
+      esac
+    elif [ "$1" = sh ] && [ "$2" = -c ]; then
+      cmd=$3
+      case "$cmd" in
+        *'docker ps -a --format'*)
+          [ ! -e "$PSFAIL" ] || exit 1
+          printf 'arr\trunning\t0.0.0.0:8989->8989/tcp, :::7878->7878/tcp\tlinuxserver/arr:latest\n'
+          printf 'arr\trunning\t0.0.0.0:8989->8989/tcp\tlinuxserver/arr:latest\n'
+          printf 'notes\texited\t-\tnginx:alpine\n'
+          printf 'wiki\trunning\t0.0.0.0:3000->3000/tcp\trequarks/wiki:2\n'
+          printf 'wiki\tcreated\t-\trequarks/wiki:2\n'
+          printf 'arcane\trunning\t0.0.0.0:80->3552/tcp\tportainer/portainer-ce:latest\n'
+          printf '\trunning\t-\tbusybox\n'
+          printf '__HS_MARKER_WEBUI__\n'
+          printf '/opt/apps/arr/.hs-webui\n'
+          printf '__HS_MARKER_DIR__\n'
+          printf '/opt/apps/arr/\n'
+          printf '/opt/apps/wiki/\n'
+          ;;
+      esac
     else cat >/dev/null 2>&1 </dev/null || true; fi ;;
 esac
 exit 0
@@ -168,6 +191,37 @@ check_eq "off: exit 0" 0 "$rc"; check_eq "off: no output" "" "$out"
 reset; : > "$STATE"; echo docker > "$OWNERF"; : > "$PSFAIL"
 rc=0; out=$($D --list) || rc=$?
 check_eq "exec fails: exit 0" 0 "$rc"; check_eq "exec fails: no output" "" "$out"
+
+echo "-- apps"
+reset; : > "$STATE"; echo docker > "$OWNERF"; echo arcane > "$HS_SETTINGS_DIR/dockerManager"
+apps=$($D --apps)
+check_eq "3 rows" 3 "$(printf '%s\n' "$apps" | grep -c .)"
+check_eq "10 fields" "10 10 10" "$(printf '%s\n' "$apps" | awk -F'\t' '{print NF}' | tr '\n' ' ' | sed 's/ $//')"
+check_eq "arr row" $'arr\tdocker\tarr\trunning\t2/2\t7878,8989\t10.10.95.50\tlinuxserver/arr:latest\tweb\t-' "$(printf '%s\n' "$apps" | sed -n 1p)"
+check_eq "notes row" $'notes\tdocker\tnotes\texited\t0/1\t-\t10.10.95.50\tnginx:alpine\tother\t-' "$(printf '%s\n' "$apps" | sed -n 2p)"
+check_eq "wiki partial" $'wiki\tdocker\twiki\tpartial\t1/2\t3000\t10.10.95.50\trequarks/wiki:2\trecipe\t-' "$(printf '%s\n' "$apps" | sed -n 3p)"
+
+echo "-- logs"
+reset; : > "$STATE"; echo docker > "$OWNERF"; echo arcane > "$HS_SETTINGS_DIR/dockerManager"
+rc=0; out=$($D --logs arr) || rc=$?
+check_eq "logs exit 0" 0 "$rc"
+echo "$out" | grep -q "line one" && pass "logs default has line one" || fail "logs default: $out"
+grep -qF -- "--tail 200" "$LOG" && pass "logs default tail 200" || fail "tail default: $(cat "$LOG")"
+rc=0; out=$($D --logs arr 500) || rc=$?
+check_eq "logs 500 exit 0" 0 "$rc"
+grep -qF -- "--tail 500" "$LOG" && pass "logs tail 500" || fail "tail 500: $(cat "$LOG")"
+rc=0; out=$($D --logs unknown 200) || rc=$?
+check_eq "unknown app exit 1" 1 "$rc"
+check_eq "unknown app no output" "" "$out"
+rc=0; out=$($D --logs arr 99999) || rc=$?
+check_eq "bad count exit 1" 1 "$rc"
+check_eq "bad count no output" "" "$out"
+rc=0; out=$($D --logs arr 0) || rc=$?
+check_eq "zero count exit 1" 1 "$rc"
+check_eq "zero count no output" "" "$out"
+reset
+rc=0; out=$($D --logs arr) || rc=$?
+check_eq "off: logs exit 1" 1 "$rc"; check_eq "off: logs no output" "" "$out"
 
 echo "-- disable"
 reset; : > "$STATE"; echo docker > "$OWNERF"; echo webui > "$HS_SETTINGS_DIR/dockerManager"

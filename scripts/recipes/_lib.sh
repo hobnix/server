@@ -416,8 +416,7 @@ child_up() { incus exec docker -- sh -c "cd /opt/apps/$1 && docker compose -p $1
 child_pull() { incus exec docker -- sh -c "cd /opt/apps/$1 && docker compose -p $1 pull" </dev/null; }   # child_pull <app>
 child_port_free() {   # child_port_free <port> <app>: fails when another project in the parent publishes the port
   local who
-  who=$(incus exec docker -- docker ps --format '{{.Label "com.docker.compose.project"}}\t{{.Ports}}' </dev/null 2>/dev/null |
-    awk -F'\t' -v port="$1" -v app="$2" '$1 != app && $2 ~ (":" port "->") { print ($1 == "" ? "?" : $1); exit }' || true)
+  who=$(docker_port_owner "$1" "$2" 2>/dev/null || true)
   [ -z "$who" ] || fail "$(t "Port %s is used by '%s' in Docker already." "$1" "$who")"
 }
 

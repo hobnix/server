@@ -28,3 +28,4 @@ dns list	120
 services tiles	30
 services stats	30
 docker list	30
+docker apps	30

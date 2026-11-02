@@ -24,7 +24,7 @@
 
   onMount(() => {
     let open = true;       // the answer may be one a button already asked for (prefetchPlan): it is not cancelled with the dialog
-    askPlan(dialog.area, dialog.args)
+    askPlan(dialog.area, dialog.args, undefined, undefined, undefined, dialog.document)
       .then((r) => { if (open) p = r; }, (e) => { if (open) loadError = e.message; });
     return () => { open = false; };
   });
@@ -35,7 +35,7 @@
     busy = true;
     startError = '';
     try {
-      const r = await doStart(dialog.area, dialog.args, p.confirm_name ? confirm : '');
+      const r = await doStart(dialog.area, dialog.args, p.confirm_name ? confirm : '', undefined, undefined, dialog.document);
       if (r.status === 'started' && r.unit) {
         track(r.unit, dialog.title || p.heading, jobKey(dialog.area, dialog.args));
         showTab('tasks');
@@ -95,6 +95,9 @@
     <div class="dfoot">
       <span class="note">{allowed ? 'Nothing has run yet. The result appears under Jobs.' : ''}</span>
       <button class="btn" onclick={close}>{allowed ? 'Cancel' : 'Close'}</button>
+      {#if !allowed && (p?.reason?.includes('changed meanwhile') || startError.includes('changed meanwhile')) && dialog.onReload}
+        <button class="btn btn-primary" onclick={() => { const cb = dialog.onReload; close(); cb(); }}>Reload</button>
+      {/if}
       {#if allowed}
         <button use:tip={canStart ? '' : p.confirm_name && confirm !== p.confirm_name ? 'Type the name to confirm first' : busy ? 'Starting' : 'This change cannot be started now'} class="btn {danger ? 'btn-danger' : 'btn-primary'}" disabled={!canStart} onclick={go}>
           <i class="ph ph-play"></i>{busy ? 'Starting…' : 'Start job'}

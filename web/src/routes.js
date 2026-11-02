@@ -22,6 +22,7 @@ import Extension from './pages/Extension.svelte';
 import Apps from './pages/Apps.svelte';
 import Marketplace from './pages/Marketplace.svelte';
 import Services from './pages/Services.svelte';
+import Docker from './pages/Docker.svelte';
 import Docs from './pages/Docs.svelte';
 import Certificates from './pages/Certificates.svelte';
 import Notifications from './pages/Notifications.svelte';
@@ -64,6 +65,7 @@ export const routes = {
   '/instances/apps': Apps,
   '/marketplace': Marketplace,
   '/instances/services': Services,
+  '/instances/docker': Docker,
   '/operations/notifications': Notifications,
   '/operations/whats-new': WhatsNew,
   '/monitoring/diagnostics': Data,
