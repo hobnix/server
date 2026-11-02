@@ -3,6 +3,7 @@ import { maskRanges } from '../web/src/editor/envmask.js';
 import { envTokenizer } from '../web/src/editor/envlang.js';
 import { candidates, unknownKeys } from '../web/src/editor/schema.js';
 import { locate } from '../web/src/editor/yamlpath.js';
+import { mapFindings, pathOf, hasErrors } from '../web/src/editor/findings.js';
 import { lintCompose, lintEnv, lintVars, varsUsed, hostPort, normalizeEol } from '../web/src/editor/lint.js';
 
 let ok = 0, bad = 0;
@@ -143,6 +144,17 @@ check('a ${ in a volumes entry: varPrefixAt finds the name, so cm.js completes e
 check('volumeCandidates: other text gives none', volumeCandidates('foo', mnt).kind === 'none');
 
 check('candidates: restart, network_mode, pull_policy offer their values', candidates(schema, ['services', 'a', 'restart']).values.includes('unless-stopped') && candidates(schema, ['services', 'a', 'network_mode']).values.includes('host') && candidates(schema, ['services', 'a', 'pull_policy']).values.includes('always'));
+
+// ── findings (the Test) ──
+const fm = mapFindings([['error', 'compose:7', 'bad indent'], ['warn', 'compose:services.web.ports', 'p'], ['error', 'env:2', 'not NAME=value'], ['error', '-', 'unplaced'], ['warn', 'volumes', 'odd'], ['x']]);
+check('findings: compose:<line> goes to the compose panel at its line', fm.compose[0].line === 7 && fm.compose[0].level === 'error' && fm.compose[0].text === 'bad indent');
+check('findings: compose:<path> becomes a path array', JSON.stringify(fm.compose[1].path) === '["services","web","ports"]' && fm.compose[1].level === 'warn');
+check('findings: env:<line> goes to the env panel', fm.env.length === 1 && fm.env[0].line === 2);
+check('findings: - and unknown places go to the banner, a short row is dropped', fm.banner.length === 2 && fm.banner[0].text === 'unplaced' && fm.compose.length === 2);
+check('findings: the first part after services is the service name, the rest the path', JSON.stringify(pathOf('services.web.ports.0')) === '["services","web","ports",0]' && JSON.stringify(pathOf('services.web.environment.FOO')) === '["services","web","environment","FOO"]' && JSON.stringify(pathOf('services.web')) === '["services","web"]' && JSON.stringify(pathOf('services.my-app_2.image')) === '["services","my-app_2","image"]');
+check('findings: a path with a list index points into the parsed document', (() => { const o = { services: { web: { ports: ['80:80'], environment: { FOO: 'x' } } } }; const get = (path) => path.reduce((v, k) => v?.[k], o); return get(pathOf('services.web.ports.0')) === '80:80' && get(pathOf('services.web.environment.FOO')) === 'x'; })());
+check('findings: hasErrors', hasErrors([['warn', '-', 'x']]) === false && hasErrors([['warn', '-', 'x'], ['error', '-', 'y']]) === true && hasErrors(undefined) === false);
+check('findings: no list, no places', mapFindings(undefined).compose.length === 0 && mapFindings(null).banner.length === 0);
 
 console.log(`-- ${ok} ok, ${bad} failed`);
 process.exit(bad ? 1 : 0);

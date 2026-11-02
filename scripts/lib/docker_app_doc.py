@@ -125,38 +125,46 @@ def _warn_env(service, env):
         if not val:
             continue
         if re.search(r"PASS|TOKEN|SECRET|KEY", name, re.IGNORECASE):
-            print(f"warn\tService {service} environment key {name} holds a literal value; move it to the env file.")
+            print(f"warn\tService {service} environment key {name} holds a literal value; move it to the env file.\tservices.{service}.environment")
 
 
 def do_check(raw):
+    """Policy lines, tab separated: refuse|<text>|<path>, port|<port>|<path>, warn|<text>|<path>, cname|<name>|<path>, bind|<src>|<ro|rw>|<path>.
+    <path> is a dotted compose path (services.web.ports) or - ; no secret value is printed."""
     try:
         cfg = json.loads(raw.decode("utf-8", "strict"))
     except (UnicodeDecodeError, ValueError):
         die("malformed JSON")
     if not isinstance(cfg, dict):
         die("malformed JSON")
-    refuse_host = False
-    ports = set()
+    ports = {}
     volumes = cfg.get("volumes")
     if volumes and isinstance(volumes, dict) and len(volumes) > 0:
-        print("refuse\tTop-level named volumes are not allowed.")
+        print("refuse\tTop-level named volumes are not allowed.\tvolumes")
     services = cfg.get("services") or {}
     if not isinstance(services, dict):
         die("malformed JSON")
+    bad_paths = []
     for sname, svc in services.items():
         if not isinstance(svc, dict):
             continue
         for entry in svc.get("ports") or []:
             p, bad = _published_port(entry)
             if bad:
-                refuse_host = True
+                bad_paths.append(f"services.{sname}.ports")
             elif p is not None:
-                ports.add(p)
+                ports.setdefault(p, f"services.{sname}.ports")
+        cname = svc.get("container_name")
+        if isinstance(cname, str) and cname:
+            print(f"cname\t{cname}\tservices.{sname}.container_name")
+        for vol in svc.get("volumes") or []:
+            if isinstance(vol, dict) and vol.get("type") == "bind" and isinstance(vol.get("source"), str):
+                print(f"bind\t{vol['source']}\t{'ro' if vol.get('read_only') else 'rw'}\tservices.{sname}.volumes")
         _warn_env(sname, svc.get("environment"))
-    if refuse_host:
-        print("refuse\tEvery published port must name the host port.")
+    for path in dict.fromkeys(bad_paths):
+        print(f"refuse\tEvery published port must name the host port.\t{path}")
     for p in sorted(ports):
-        print(f"port\t{p}")
+        print(f"port\t{p}\t{ports[p]}")
 
 
 def main():

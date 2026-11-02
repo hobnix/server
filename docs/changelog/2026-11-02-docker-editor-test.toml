@@ -1,0 +1,5 @@
+date  = "2026-11-02"
+type  = "feature"
+title = "Docker editor: Test shows every problem at its line, and Save is separate from Apply"
+docs  = "containers-and-apps#edit-an-app"
+body  = """The Docker app editor has a Test button that checks the compose file and the env file on the server without changing anything and marks every problem at its line (or in a banner when it has no line). Save now only writes the two files and leaves the running app alone; Apply writes them and recreates the app. Both run the Test first. Not tested on hardware yet."""

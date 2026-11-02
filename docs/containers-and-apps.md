@@ -345,10 +345,16 @@ left and the real text of the `.env` file on the right; on a phone they are stac
 is for administrators only, so the env file is shown as it is and fully editable. Values of
 keys whose name contains PASS, TOKEN, SECRET or KEY are hidden until you press **show** on
 that line. The editor completes compose keys, marks YAML errors and unknown keys, a missing
-`${VARIABLE}`, a port that another app already publishes and a name that is taken. **Apply**
-shows a plan (the env names that are set, changed or removed, never their values), saves both
-files and recreates the app. An env file over 64 KiB is not shown: edit it in a terminal, and
-Apply keeps it as it is. The page shows "Changed, not applied yet." and the browser warns before you close or reload the tab with unsaved changes (moving to another page inside the interface does not warn yet). The env text is
+`${VARIABLE}`, a port that another app already publishes and a name that is taken. **Test**
+checks both files on the server without changing anything (`docker compose config`, the port
+and container-name owners, bind sources that do not exist) and shows every problem at its line
+in the panel; what has no line (for example an error of Docker without a line number) appears
+in a banner above the panels. **Save** writes both files and leaves the running app as it is;
+**Apply** writes them and recreates the app. Both run the Test first and show their plan (the
+env names that are set, changed or removed, never their values) only when the Test found no
+error; warnings do not stop them. If the app changed on disk meanwhile, a banner offers
+**Reload** (your edits are lost). An env file over 64 KiB is not shown: edit it in a terminal, and
+Apply keeps it as it is. The page shows "Changed, not saved yet." and the browser warns before you close or reload the tab with unsaved changes (moving to another page inside the interface does not warn yet). The env text is
 read fresh each time, never kept in the web cache, a log or the browser storage. Not tested on
 hardware yet.
 
