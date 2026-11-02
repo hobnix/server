@@ -60,8 +60,21 @@ export function setupDone(apply, on, status) {
 
 // ---- the wizard (one question per screen): steps with `options` instead of `presets` ----
 
-// the option whose values all equal the draft, or undefined
-export const optionOf = (draft, step) => presetOf(draft, step?.options);
+// the rows with the schema default filled in where the layout knows it (core pages: `defaults` of layout.gen.json); returns new rows
+export const withDefaults = (opts, defaults) => (opts || []).map((o) => (defaults && o.key in defaults ? { ...o, dflt: defaults[o.key] } : o));
+
+// the option whose values all equal the draft, or undefined. With `defaults`, an empty draft value (key not set) equals the default's value
+export const optionOf = (draft, step, defaults = null) => (step?.options || []).find((o) => Object.entries(o.set || {}).every(([k, v]) => {
+  const d = draft[k];
+  return d === v || (defaults && (d === '' || d === undefined) && v === (defaults[k] ?? ''));
+}));
+
+// the steps to show: a step with `when` shows only when every key's current value (or its default when unset) equals the wanted one
+export function visibleSteps(steps, opts, defaults = null) {
+  const row = new Map((opts || []).map((o) => [o.key, o]));
+  const val = (k) => { const o = row.get(k); return o?.cur || o?.dflt || defaults?.[k] || ''; };
+  return (steps || []).filter((s) => Object.entries(s.when || {}).every(([k, v]) => val(k) === v));
+}
 // the keys of a step that no option sets: shown as fields under the choices
 export const freeKeys = (step) => { const set = new Set((step?.options || []).flatMap((o) => Object.keys(o.set || {}))); return (step?.keys || []).filter((k) => !set.has(k)); };
 

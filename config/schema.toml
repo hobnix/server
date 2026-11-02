@@ -1575,3 +1575,46 @@ doc = '''
 # Tailscale tags this node asks for when it joins (for example ["tag:vps"]); the ACL in the admin console decides what a tag may reach.'''
 value = '''
 tailscaleTags = ["tag:vps"]'''
+
+[[page]]
+id = "backups"
+
+[[page.steps]]
+id = "new-shares"
+title = "New shares"
+question = "Should a new share be backed up by itself?"
+text = "Shares that are in the backup now stay in it, whatever you choose."
+keys = ["backupNewShares"]
+
+[[page.steps.options]]
+id = "no"
+label = "No, I switch each share on"
+text = "Big, replaceable data such as media does not fill the backup disk."
+set = { backupNewShares = "false" }
+recommended = true
+
+[[page.steps.options]]
+id = "yes"
+label = "Yes, every new share is backed up"
+text = "Nothing new is forgotten. The backup disk fills faster."
+set = { backupNewShares = "true" }
+
+[[page.steps]]
+id = "new-instances"
+title = "New containers"
+question = "Should a container that an app sets up be backed up by itself?"
+text = "Containers that are in the backup now stay in it, whatever you choose."
+keys = ["backupNewInstances"]
+
+[[page.steps.options]]
+id = "yes"
+label = "Yes, every new container is backed up"
+text = "The app and its data are safe from the first day."
+set = { backupNewInstances = "true" }
+recommended = true
+
+[[page.steps.options]]
+id = "no"
+label = "No, I switch each container on"
+text = "Only the containers you pick go into the backup."
+set = { backupNewInstances = "false" }

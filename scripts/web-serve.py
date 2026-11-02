@@ -888,6 +888,7 @@ CONFIG_KEYS = ("timeZone|language|keyMap|icons|loginMessage|webAccent|incusUi|sy
                "gatewayUnknownHostLocal|gatewayUnknownHostPublic|gatewayTunnelPort|gatewayAcmeEmail|"
                "gatewayAcmeStaging|gatewayAcmeChallenge|gatewayAcmeDnsProvider")
 # schema:end CONFIG_KEYS
+CONFIG_SET = r"^(" + CONFIG_KEYS + r")=[A-Za-z0-9._#:/ -]{0,80}$"     # one --set key=value of `config apply` (hand-written, outside the generated block)
 # share forms: a folder name inside the instance (absolute) and inside a share (relative or absolute, both without ..), a SID with its level, a kept folder
 CT_PATH = r"^(?!.*\.\.)/[A-Za-z0-9._/-]{0,200}$"
 SHARE_PATH = r"^(?!.*\.\.)/?[A-Za-z0-9_][A-Za-z0-9._/ -]{0,200}$"
@@ -1088,7 +1089,9 @@ CHANGES = {
     "gateway": [{"fixed": [r"^setup$"], "opts": {"--set": (GW_SET, True)}}],
     # turning Docker on (docker-setup.sh, which calls hs docker enable): the manager and the size as --set key=value; the plan changes nothing
     "docker": [{"fixed": [r"^setup$"], "opts": {"--set": (DOCKER_SET, True)}}],
-    "config": [[r"^set$", r"^(" + CONFIG_KEYS + r")$", r"^[A-Za-z0-9._#:/ -]{0,80}$"], [r"^(sync|migrate)$"]],
+    # apply: the guided setup sets several keys in one plan, each as --set key=value (the same keys and values as set)
+    "config": [[r"^set$", r"^(" + CONFIG_KEYS + r")$", r"^[A-Za-z0-9._#:/ -]{0,80}$"], [r"^(sync|migrate)$"],
+               {"fixed": [r"^apply$"], "opts": {"--set": (CONFIG_SET, True)}, "need": ["--set"]}],
     # notification channels: a secret (the topic address, the SMTP password) goes in on stdin, never as an argument; a text setting as --set key=value
     "notify": [{"fixed": [r"^add$", NOTIFY_CHANNEL],
                 "opts": dict(NOTIFY_OPTS, **{"--provider": (r"^[a-z][a-z0-9-]{0,30}$", False)}), "stdin": True},
@@ -1157,6 +1160,8 @@ def _entry_match(entry, args):
             i += 2
         else:
             return False, False
+    if not all(f in seen for f in entry.get("need", ())):      # "need": flags that must be there (apply without --set is refused here already)
+        return False, False
     return True, bool(entry.get("stdin"))
 
 

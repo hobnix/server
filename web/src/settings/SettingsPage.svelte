@@ -11,6 +11,7 @@
   import PageHeader from '../shell/PageHeader.svelte';
   import Button from '../ui/Button.svelte';
   import Fields from './Fields.svelte';
+  import WizardSteps from './WizardSteps.svelte';
   import layout from './layout.gen.json';
   import { fieldsFor } from './layout.js';
   import { useConfig } from './config.svelte.js';
@@ -35,6 +36,13 @@
 
   const { list, opts: getOpts } = useConfig();
   const fields = $derived(fieldsFor(layout, page, getOpts()));
+
+  // A page with guided steps (layout.core, from [[page]] in config/schema.toml): the wizard, and Advanced = the step keys as plain fields + the page's other keys
+  const core = $derived(layout.core?.[page] ?? null);
+  let advanced = $state(false);
+  const stepKeys = $derived(new Set((core?.steps ?? []).flatMap((s) => s.keys)));
+  const otherFields = $derived(fields.filter((o) => !stepKeys.has(o.key)));
+  $effect(() => { page; advanced = false; });
 
   // General: the Nodes card
   const nodeList = poll(() => (page === 'general' ? '/api/sys/node/list' : ''), 30000);
@@ -61,6 +69,7 @@
 <div class="page">
   <PageHeader title={title[0]} crumb="Settings" sub={title[1]}>
     {#snippet actions()}
+      {#if core}<Button tooltip={advanced ? 'Back to the guided questions' : 'Every key of this page as plain fields'} onclick={() => (advanced = !advanced)}>{advanced ? 'Back' : 'Advanced'}</Button>{/if}
       {#if page === 'advanced'}
         <Button class="b13" icon="check-square" busy={chkBusy} busyLabel="Checking…" tooltip={chkBusy ? 'A check is running' : 'Look for typos and missing values in machine.toml'} onclick={runCheck}>Check</Button>
       {/if}
@@ -109,6 +118,9 @@
         <Button size="sm" icon="arrows-clockwise" style="align-self:flex-start" busy={jobRunning('config', ['sync'])} busyLabel="Syncing…" tooltip={'Put machine.toml in the layout of the example (shows the plan)'} onclick={() => openPlan('config', ['sync'], 'Sync machine.toml')}>Sync new options…</Button>
       </div>
     </div>
+  {:else if core && !(list.loaded && list.error)}
+    <WizardSteps steps={core.steps} apply={core.apply} opts={getOpts()} on={true} defaults={layout.defaults} {advanced} />
+    {#if advanced && otherFields.length}<Fields opts={otherFields} />{/if}
   {:else if fields.length}
     <Fields opts={fields} />
   {:else}

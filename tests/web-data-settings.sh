@@ -124,6 +124,34 @@ run start set syncEveryHours 8
 check_eq "a file the check rejects: refused" 1 "$rc"; has "put back" && pass "says it was put back" || fail "put back: $out"
 check_eq "and the file is as it was" "$before" "$(cat "$HS_MACHINE_FILE")"
 
+echo "-- config apply (several keys, one plan, one start)"
+sed -i 's/^hostId = .*/hostId = "deadbeef"/' "$HS_MACHINE_FILE"
+run plan apply --set syncEveryHours=8 --set backupNewShares=true
+check_eq "apply plan: exit 0" 0 "$rc"
+has "^status${T}ok$" && has "^heading${T}change 2 settings$" && has "^command${T}hs sys config start apply --set syncEveryHours=8 --set backupNewShares=true$" \
+  && has "^note${T}.*hs rebuild" && has "^long${T}no$" && pass "apply plan lines" || fail "apply plan: $out"
+check_eq "apply plan: one step per key" 2 "$(grep -c "^step${T}" <<<"$out")"
+run plan apply --set backupNewShares=true; has "^note${T}.*no rebuild" && pass "settings only: no rebuild note" || fail "apply settings only: $out"
+before=$(cat "$HS_MACHINE_FILE")
+run plan apply;                                              check_eq "apply: no --set is refused" 1 "$rc"
+run plan apply --set syncEveryHours=8 --set syncEveryHours=6; check_eq "apply: a key twice is refused" 1 "$rc"
+run plan apply --set syncEveryHours;                         check_eq "apply: a pair without = is refused" 1 "$rc"
+run plan apply --set hostName=x --set backupNewShares=true;  check_eq "apply: a key that is not settable is refused" 1 "$rc"
+run start apply --set backupNewShares=true --set syncEveryHours=5; check_eq "apply start: a bad value is refused" 1 "$rc"
+check_eq "and no setting was written" "no" "$(test -e "$HS_STATE_DIR/settings/backupNewShares" && echo yes || echo no)"
+check_eq "and machine.toml is unchanged" "$before" "$(cat "$HS_MACHINE_FILE")"
+run start apply --set syncEveryHours=8 --set backupNewShares=true
+check_eq "apply start: exit 0" 0 "$rc"; has "^status${T}done$" && pass "apply start: status done" || fail "apply start: $out"
+check_eq "apply start: the machine key is in the file" "syncEveryHours = 8" "$(grep '^syncEveryHours' "$HS_MACHINE_FILE")"
+check_eq "apply start: the setting is in its file" "true" "$(cat "$HS_STATE_DIR/settings/backupNewShares")"
+sed -i 's/^hostId = .*/hostId = "CHANGEME"/' "$HS_MACHINE_FILE"
+before=$(cat "$HS_MACHINE_FILE")
+run start apply --set syncEveryHours=6 --set language=de
+check_eq "apply start: a file the check rejects is refused" 1 "$rc"; has "put back" && pass "apply says it was put back" || fail "apply put back: $out"
+check_eq "and machine.toml is as it was" "$before" "$(cat "$HS_MACHINE_FILE")"
+check_eq "and the setting was not written" "no" "$(test -e "$HS_STATE_DIR/settings/language" && echo yes || echo no)"
+sed -i 's/^hostId = .*/hostId = "deadbeef"/' "$HS_MACHINE_FILE"
+
 echo "-- config sync and migrate (a stand-in for machine-sync.sh)"
 cat > "$WORK/sync-stub.sh" <<STUB
 #!/usr/bin/env bash

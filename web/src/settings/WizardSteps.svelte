@@ -7,24 +7,28 @@
   import ChoiceList from '../ui/ChoiceList.svelte';
   import { tr } from '../i18n.js';
   import { openPlan } from '../ui.svelte.js';
-  import { stepKeys, draftFrom, applyPreset, optionOf, freeKeys, withRecommended, screens, diff, changed, changedAll, applyParts } from './steps.js';
+  import { stepKeys, draftFrom, applyPreset, optionOf, freeKeys, withDefaults, visibleSteps, withRecommended, screens, diff, changed, changedAll, applyParts } from './steps.js';
 
   // steps: the layout list; apply: "<area> <verb>"; opts: rows of `hs sys config list`; off: a reason the setup is off. on: the part is on already (the page then starts at the review, the summary)
   // first: nothing exists yet (the docker container): Apply is always possible and sends every step key
   // advanced: the page's Advanced view is on (it replaces the tabs): the step keys as plain fields over the same draft
-  let { steps = [], apply = '', opts = [], off = '', on = false, first = false, advanced = false } = $props();
+  // defaults: { key: value } of the schema (core pages); the rows then carry them, an unset key matches its default's option and nothing is preset
+  // steps with a `when` that does not hold are left out of the screens, the review and the wizard (Advanced keeps every key)
+  let { steps: allSteps = [], apply = '', opts: rows = [], off = '', on = false, first = false, advanced = false, defaults = null } = $props();
+  const opts = $derived(defaults ? withDefaults(rows, defaults) : rows);
+  const steps = $derived(visibleSteps(allSteps, opts, defaults));
   let draft = $state({});
   let ready = $state(false);
   let only = $state('');
   let at = $state(0);
   let moved = $state(false);
-  const keys = $derived(stepKeys(steps));
+  const keys = $derived(stepKeys(allSteps));
   const help = $derived(Object.fromEntries(opts.map((o) => [o.key, o.help])));
   const dflt = $derived(Object.fromEntries(opts.map((o) => [o.key, o.dflt])));
   const list = $derived(screens(steps, only));
 
   $effect(() => {
-    if (!ready && opts.length) { draft = withRecommended(draftFrom(opts, steps), steps); ready = true; }
+    if (!ready && opts.length) { draft = defaults ? draftFrom(opts, allSteps) : withRecommended(draftFrom(opts, allSteps), allSteps); ready = true; }
   });
   // a part that is on shows the summary first, unless the person has moved already
   $effect(() => {
@@ -39,10 +43,10 @@
   const pick = (o) => { draft = applyPreset(draft, o); };
   const edit = (s) => { moved = true; only = s.id; at = 0; };
   // what a step shows in the review: the label of the chosen option, else the raw values
-  const shown = (s) => optionOf(draft, s)?.label ?? s.keys.map((k) => `${k} = ${draft[k] || '(empty)'}`).join(', ');
+  const shown = (s) => optionOf(draft, s, defaults)?.label ?? s.keys.map((k) => `${k} = ${draft[k] || '(empty)'}`).join(', ');
   const review = () => {
     const { area, verb } = applyParts(apply);
-    openPlan(area, first ? changedAll(draft, steps, verb) : changed(draft, opts, verb), 'Apply the setup');
+    openPlan(area, first ? changedAll(draft, allSteps, verb) : changed(draft, opts, verb), 'Apply the setup');
   };
 </script>
 
@@ -95,7 +99,7 @@
   {:else if step}
     <Wizard index={at} total={list.length} question={step.question || step.title} help={step.text} primary={tr('Next')} onnext={() => go(at + 1)} onback={() => go(at - 1)}>
       {#if step.options?.length}
-        <ChoiceList options={step.options} value={optionOf(draft, step)?.id ?? ''} onpick={(oid) => pick(step.options.find((o) => o.id === oid))} label={step.question || step.title} />
+        <ChoiceList options={step.options} value={optionOf(draft, step, defaults)?.id ?? ''} onpick={(oid) => pick(step.options.find((o) => o.id === oid))} label={step.question || step.title} />
       {/if}
       {#each freeKeys(step) as k (k)}
         <div class="fld">

@@ -386,5 +386,74 @@
    "icon": "puzzle-piece",
    "entry": true
   }
+ },
+ "core": {
+  "backups": {
+   "apply": "config apply",
+   "steps": [
+    {
+     "id": "new-shares",
+     "title": "New shares",
+     "text": "Shares that are in the backup now stay in it, whatever you choose.",
+     "keys": [
+      "backupNewShares"
+     ],
+     "question": "Should a new share be backed up by itself?",
+     "options": [
+      {
+       "id": "no",
+       "label": "No, I switch each share on",
+       "text": "Big, replaceable data such as media does not fill the backup disk.",
+       "set": {
+        "backupNewShares": "false"
+       },
+       "recommended": true
+      },
+      {
+       "id": "yes",
+       "label": "Yes, every new share is backed up",
+       "text": "Nothing new is forgotten. The backup disk fills faster.",
+       "set": {
+        "backupNewShares": "true"
+       },
+       "recommended": false
+      }
+     ]
+    },
+    {
+     "id": "new-instances",
+     "title": "New containers",
+     "text": "Containers that are in the backup now stay in it, whatever you choose.",
+     "keys": [
+      "backupNewInstances"
+     ],
+     "question": "Should a container that an app sets up be backed up by itself?",
+     "options": [
+      {
+       "id": "yes",
+       "label": "Yes, every new container is backed up",
+       "text": "The app and its data are safe from the first day.",
+       "set": {
+        "backupNewInstances": "true"
+       },
+       "recommended": true
+      },
+      {
+       "id": "no",
+       "label": "No, I switch each container on",
+       "text": "Only the containers you pick go into the backup.",
+       "set": {
+        "backupNewInstances": "false"
+       },
+       "recommended": false
+      }
+     ]
+    }
+   ]
+  }
+ },
+ "defaults": {
+  "backupNewShares": "false",
+  "backupNewInstances": "true"
  }
 }

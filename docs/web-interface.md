@@ -90,7 +90,7 @@ waiting upstream, **Update**, a link to What's new, and **Sync new options** for
 part and extension with its switch) and **Advanced** (every key, read-only ones too, and **Check** for typos in `machine.toml`). Each
 capability that is switched on and has settings of its own (the gateway, metrics, Tailscale ...) also gets a page under **Capabilities**:
 the switch, then its keys. A capability that is off keeps its page, so you can switch it on there. The address `/settings` shows an overview of
-all subpages. Not tested on hardware yet.
+all subpages. **Backups** asks its two questions (new shares, new containers) one per screen, with a review of the current values first; **Advanced** on that page shows the plain keys. Not tested on hardware yet.
 
 Installed extensions add pages under **Extensions**. The first start shows the **Setup** checklist until you mark it done.
 

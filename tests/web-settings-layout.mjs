@@ -38,4 +38,14 @@ const withCap = nodeItems('main', null, [], capEntries(layout, ['gateway'])).fin
 assert.deepEqual(withCap.children.find((c) => c.path === '/settings/capabilities').children.map((c) => c.path), ['/settings/capabilities/gateway']);
 assert.equal(settings.children.find((c) => c.path === '/settings/capabilities').children, undefined, 'the static tree is not changed');
 assert.ok(layout.caps.docker.steps.every((s) => s.keys.every((k) => keys.includes(k))));
+// (6) the guided steps of the core pages: every step key is settable and on that page; the real defaults are given
+for (const [page, c] of Object.entries(layout.core ?? {})) {
+  assert.ok(c.apply && c.steps.length, page);
+  for (const s of c.steps) for (const k of s.keys) {
+    assert.ok(settable.has(k), `${page}: ${k} is settable`);
+    assert.ok(fieldsFor(layout, page, opts).some((o) => o.key === k), `${page}: ${k} is on the page`);
+    assert.ok(k in layout.defaults, `${page}: ${k} has a default`);
+  }
+}
+assert.ok(layout.core.backups.steps.length === 2);
 console.log('  ok    settings layout');
