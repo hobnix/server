@@ -1,5 +1,6 @@
 // State that several parts of the shell share: the open plan dialog, the bottom panel, and the tasks started from this browser.
 import { get } from './api.js';
+import { jobMatches } from './jobkey.js';
 
 export const ui = $state({
   dialog: null,                       // { area, args, title } while a plan dialog is open
@@ -26,15 +27,20 @@ export function showTab(tab) {
 // Tasks: jobs started here, newest first. A job runs on the server whether or not this page is open; the page only follows its journal.
 export const tasks = $state({ list: [], selected: '' });
 
-export function track(unit, title) {
+// `key` (jobKey of the plan's area and args) lets the button that opened the plan stay busy while its job runs: see jobRunning
+export function track(unit, title, key = '') {
   let t = tasks.list.find((x) => x.unit === unit);
   if (t && t.state === 'running') return t;
-  t = { unit, title, started: new Date(), ended: null, state: 'running', exit: null, lines: [], next: 0, gone: 0 };
+  t = { unit, title, key, started: new Date(), ended: null, state: 'running', exit: null, lines: [], next: 0, gone: 0 };
   tasks.list = [t, ...tasks.list.filter((x) => x.unit !== unit)];
   tasks.selected = unit;
   follow(unit);
   return tasks.list[0];
 }
+
+// Does a job started from this browser for that plan still run? `args` left out = any job of the area. Only this page's jobs are known:
+// after a reload the button is idle again (the job itself runs on and the plan refuses a second start).
+export const jobRunning = (area, args) => tasks.list.some((t) => t.state === 'running' && jobMatches(t.key, area, args));
 
 // a change that finished at once (no background job): it still leaves a line in Tasks, so there is a trace of what was done
 let doneSeq = 0;
