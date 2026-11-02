@@ -100,7 +100,7 @@
           <Drawer title={sel.name} chip={sel.managed} state={dot(sel.state)} stateLabel={sel.state} {tabs} bind:tab onclose={() => { selName = ''; }}>
             {#snippet children(t)}
               {#if t === 'overview'}
-                <Kv items={[...]} />
+                <Kv items={[{ k: 'State', v: sel.state }, { k: 'Running', v: sel.running }, { k: 'Project', v: sel.project }, { k: 'Address', v: sel.address }, { k: 'Ports', v: sel.ports }, { k: 'Images', v: sel.images }, { k: 'Managed', v: sel.managed }, { k: 'Update', v: sel.update }]} />
               {:else if t === 'compose'}
                 <AppEditor app={sel.name} />
               {:else}
