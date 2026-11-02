@@ -1624,3 +1624,50 @@ id = "no"
 label = "No, I switch each container on"
 text = "Only the containers you pick go into the backup."
 set = { backupNewInstances = "false" }
+
+[[page]]
+id = "network"
+
+[[page.steps]]
+id = "site-name"
+title = "Local names"
+text = "The label in front of your domain for this server's names, such as jellyfin.home.example.com. Empty means the server's name."
+keys = ["siteName"]
+
+[[page.steps]]
+id = "share-networks"
+title = "Who may use the shares"
+text = "The networks whose PCs may open the Samba shares, separated by spaces. Keep 127.0.0.1."
+keys = ["smbAllow"]
+
+[[page.steps]]
+id = "dhcp-range"
+title = "Addresses the router hands out"
+text = "The last number of the first and the last address your router gives out by DHCP, such as 100 199. Only used to point out containers without a fixed address."
+keys = ["dhcpRange"]
+
+[[page.steps]]
+id = "incus-ui"
+title = "Incus web UI"
+question = "Should the Incus web UI and remote access stay open?"
+text = "The Incus web UI and the network address of the Incus API."
+keys = ["incusUi"]
+
+[[page.steps.options]]
+id = "keep"
+label = "Keep it open"
+text = "https://<server>:8443/ui/ works and incus remote add can reach the server."
+set = { incusUi = "true" }
+recommended = true
+
+[[page.steps.options]]
+id = "close"
+label = "Close it"
+text = "Port 8443 closes; Incus is reachable only on this machine."
+set = { incusUi = "false" }
+
+[[page.steps]]
+id = "card"
+title = "Network card"
+text = "The port the server's cable is in. Everything goes through it: containers, shares, Tailscale. A wrong card leaves the server offline after the rebuild; the plan asks you to type the card's name."
+keys = ["nic"]
