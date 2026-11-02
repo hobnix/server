@@ -86,10 +86,11 @@ export async function get(path, fresh = false) {
 
 // A change is always a plan first, then a start (with the typed word when the plan has a confirm_name).
 // selection: the file manager's list of item names (the server hands it to the script on stdin, NUL separated)
-const planCall = (area, args, stdin, selection, signal) => call('POST', '/api/plan', { area, args, ...(stdin ? { stdin } : {}), ...(selection ? { selection } : {}) }, undefined, signal);   // an aborted call rejects with e.name === 'AbortError'
+// document: the docker app-save body (the server serializes it as bytes on stdin)
+const planCall = (area, args, stdin, selection, signal, document) => call('POST', '/api/plan', { area, args, ...(stdin ? { stdin } : {}), ...(selection ? { selection } : {}), ...(document !== undefined ? { document } : {}) }, undefined, signal);   // an aborted call rejects with e.name === 'AbortError'
 
 // A plan only reads, so a button can ask for it when the pointer arrives (prefetchPlan) and the dialog that opens a moment later takes the
-// answer that is already running or done. Never with stdin or a selection (secrets, file lists); a start forgets everything.
+// answer that is already running or done. Never with stdin, a selection or a document (secrets, file lists); a start forgets everything.
 const PLAN_KEEP_MS = 30000;
 const planned = new Map();   // "area\0args" -> { at, p }
 const planKey = (area, args) => [area, ...args].join('\0');
@@ -105,9 +106,9 @@ export function prefetchPlan(area, args) {
   return p;
 }
 
-// a call with a signal (the create dialog's live plan: a newer question cancels the older one) is never shared
-export const plan = (area, args, stdin, selection, signal) => (stdin || selection || signal) ? planCall(area, args, stdin, selection, signal) : prefetchPlan(area, args);
-export const start = (area, args, confirm, stdin, selection) => {
+// a call with a signal (the create dialog's live plan: a newer question cancels the older one) is never shared; a document bypasses prefetch
+export const plan = (area, args, stdin, selection, signal, document) => (stdin || selection || signal || document !== undefined) ? planCall(area, args, stdin, selection, signal, document) : prefetchPlan(area, args);
+export const start = (area, args, confirm, stdin, selection, document) => {
   planned.clear();
-  return call('POST', '/api/start', { area, args, ...(confirm ? { confirm } : {}), ...(stdin ? { stdin } : {}), ...(selection ? { selection } : {}) });
+  return call('POST', '/api/start', { area, args, ...(confirm ? { confirm } : {}), ...(stdin ? { stdin } : {}), ...(selection ? { selection } : {}), ...(document !== undefined ? { document } : {}) });
 };

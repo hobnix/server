@@ -1,0 +1,4 @@
+date  = "2026-11-02"
+type  = "feature"
+title = "Docker page: list, start, stop, restart, pull and logs"
+body  = """The web interface has a Docker page under Instances. It lists the apps (compose projects) that run in the locked docker container, shows state, running count, ports, images and whether an app is managed by the web interface, a recipe or created by hand. You can start, stop, restart and pull an app; pull runs as a background job and recreates the containers. The Logs tab shows the Compose log of the selected app. On the Instances page the locked docker row shows the number of apps and expands to open one directly. Compose editing and registries are out of scope for this slice. Not tested on hardware yet."""

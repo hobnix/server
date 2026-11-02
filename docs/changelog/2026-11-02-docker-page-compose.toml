@@ -1,0 +1,4 @@
+date  = "2026-11-02"
+type  = "feature"
+title = "Docker page: create, edit, rebuild and delete apps"
+body  = """The Docker page can now create and edit web-managed Compose apps with one write-only env file, optimistic revisions, rollback on a failed update, rebuild, and snapshot-first delete. Secrets stay out of reads, plans, logs and the cache. Not tested on hardware yet."""

@@ -320,6 +320,44 @@ hs pkg repo add <name> <url> --key <allowed-signers-file>
 for the command line, and a repository without signatures lets its owner run code on your server.) Extensions are switched on and off with `hs ext enable <name>`
 and `hs ext disable <name>`, and `hs ext list` shows them.
 
+## Apps in Docker (the Docker page)
+
+When the capability `docker` is on, the locked container `docker` holds apps that are
+Compose projects. Open them in the web interface under **Instances > Docker**:
+
+- The list shows every app with its state, how many of its containers are running,
+  published ports, images and whether it is managed by the web interface (`web`),
+  by a recipe (`recipe`) or created by hand (`other`).
+- Start, stop or restart an app from the actions column or from the drawer that
+  opens when you click a row.
+- **Pull** fetches newer images and recreates the containers; it runs as a
+  background job because it can take a while.
+- The **Logs** tab shows the Compose log of the selected app. Log output may hold
+  secrets, so it is never cached by the web interface.
+- On the **Instances** page the locked `docker` row shows how many apps it holds
+  and can be expanded to open a specific app directly.
+
+### Creating and editing apps
+
+Apps marked `web` are created and edited on this page: **New app** opens the
+editor with a small Compose template and an empty `.env`. The compose file is
+sent as is; secrets go into the env table, which is write-only and never
+returned by the page. Each save is checked for an optimistic revision: if the
+app changed meanwhile the editor keeps the text and offers **Reload**.
+
+A failed update restores the previous compose and env files and starts them
+again. **Rebuild** runs `docker compose up -d --build --pull always` and needs
+any Dockerfile or build context in `/opt/apps/<app>`. **Delete** takes a
+snapshot of `docker` first, then removes the containers and `/opt/apps/<app>`
+(including its data) after you type the app name.
+
+### Move an app from Arcane by hand
+
+Copy its compose file, put the secrets into the env fields, save it here, then
+stop it in Arcane. Remove Arcane later with `hs ct arcane delete`.
+
+Not tested on hardware yet.
+
 ## Check that it worked
 
 ```bash

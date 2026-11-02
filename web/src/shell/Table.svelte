@@ -20,7 +20,7 @@
   import { sortRows, nextOrder, valueOf } from './sort.js';
   import { tr } from '../i18n.js';
 
-  let { columns, rows = [], key = null, id = '', sort = null, onrow = null, selected = null, empty = 'Nothing to show.', loading = false, cell = null, rowClass = null, compact = false, view = $bindable([]), headcell = null, first = null, tabrows = true, draggable = null } = $props();
+  let { columns, rows = [], key = null, id = '', sort = null, onrow = null, selected = null, empty = 'Nothing to show.', loading = false, cell = null, rowClass = null, compact = false, view = $bindable([]), headcell = null, first = null, tabrows = true, draggable = null, below = null, hasBelow = null } = $props();
 
   const store = (v) => { try { v === undefined ? sessionStorage.removeItem('tbl:' + id) : sessionStorage.setItem('tbl:' + id, JSON.stringify(v)); } catch { /* private mode: no memory */ } };
   const stored = () => { try { return id ? JSON.parse(sessionStorage.getItem('tbl:' + id) ?? 'null') : null; } catch { return null; } };
@@ -74,6 +74,9 @@
           </td>
         {/each}
       </tr>
+      {#if below && (hasBelow ? hasBelow(row) : true)}
+        <tr class="sub"><td colspan={columns.length}>{@render below(row)}</td></tr>
+      {/if}
     {:else}
       <tr class="none"><td colspan={columns.length}>{loading ? 'Loading…' : empty}</td></tr>
     {/each}
@@ -92,6 +95,7 @@
   tr.selected td { background: color-mix(in oklch, var(--accent) 12%, transparent); }
   tr.selected td:first-child { box-shadow: inset 2px 0 0 var(--accent); }
   tr.none td { color: var(--fg-3); font-size: 12.5px; padding: 12px; }
+  tr.sub td { padding: 0; background: var(--panel-2); border-bottom: 1px solid var(--line); }
   .compact td { padding-block: 4px; }
   td { vertical-align: middle; }
   @media (max-width: 860px) { .opt { display: none; } }

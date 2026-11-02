@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # help: Docker as part of hobnix: turn it on (a locked container with Docker inside), turn it off, list the apps that run in it
 # help.de: Docker als Teil von hobnix: einschalten (ein gesperrter Container mit Docker darin), ausschalten, die Apps darin auflisten
-# args: status | list | enable [--manager webui|arcane|portainer|none] [--size s|m|l] [--yes] [--job] [--dry-run] | disable [--yes --confirm docker] [--no-backup] [--job] [--dry-run] | mount <share|remote:peer> <path> [--as uid:gid] [--yes] [--dry-run] | --status | --list
+# args: status | list | enable [--manager webui|arcane|portainer|none] [--size s|m|l] [--yes] [--job] [--dry-run] | disable [--yes --confirm docker] [--no-backup] [--job] [--dry-run] | mount <share|remote:peer> <path> [--as uid:gid] [--yes] [--dry-run] | --status | --list | --apps | --app <app> | --logs <app> [lines]
 # The capability docker (docs/PLAN-docker-instances.md, Decisions 12 to 14): the container `docker` is owned by it (user.hs.managed_by=docker),
 # so only this script deletes it (HS_OWNER=docker on the manage-ct.sh call, scripts/lib/instance.sh).
 #   hs docker status       key/value lines: on or off, the container, the manager, the size, the number of apps, the address
@@ -14,6 +14,10 @@
 #                          remote:<peer> <path> (/mnt/remote/<peer>, recursive, rslave, as hs remote attach does); needs --yes without a terminal
 #   --status, --list       the same as data (hs sys docker status|list): key<TAB>value, and one row per app with exactly 5 fields
 #                          name parent project state ports (`-` when empty); a stopped container or a failed read prints no row, exit 0
+#   --apps                 the same data with more fields: name parent project state running/total ports address images managed update
+#                          (`-` when empty); 10 fields, sorted by app name
+#   --app <app>            JSON document for the web editor: rev, managed (web|recipe|other), env names, compose; env values never leave the container
+#   --logs <app> [lines]   the Compose log of one app (default 200, max 2000); the app must be a child of docker, never the manager
 # Test knobs: HS_DOCKER_MANAGE_CT (a script that stands in for manage-ct.sh), HS_DOCKER_BACKUP (stands in for backup.sh), HS_DOCKER_NO_JOB=1
 # (no systemd-run: the long work runs at once), HS_REMOTE_ROOT (default /mnt/remote), HS_SETTINGS_DIR, HS_STATE_DIR, HS_CAPABILITIES_FILE, HS_CAPABILITIES_TSV, HS_INCUS.
 set -euo pipefail
@@ -71,6 +75,113 @@ children() {   # one row per app: name parent project state ports
         print p "\t" ct "\t" p "\t" st[p] "\t" (out == "" ? "-" : out) }
     }' | sort -t "$tab" -k1,1
 }
+apps() {   # one row per app: name parent project state running/total ports address images managed update
+  local raw skip addr
+  owned && running || return 0
+  raw=$(timeout 8 "${HS_INCUS:-incus}" exec "$CT" -- sh -c '
+    docker ps -a --format "{{.Label \"com.docker.compose.project\"}}\t{{.State}}\t{{.Ports}}\t{{.Image}}"
+    echo "__HS_MARKER_WEBUI__"
+    ls -a /opt/apps/*/.hs-webui 2>/dev/null || true
+    echo "__HS_MARKER_DIR__"
+    ls -d /opt/apps/*/ 2>/dev/null || true
+  ' </dev/null 2>/dev/null) || return 0
+  skip=$(manager_project "$(setting_get dockerManager 2>/dev/null || true)")
+  addr=$(ct_addr); [ -n "$addr" ] || addr=-
+  printf '%s\n' "$raw" | awk -F'\t' -v skip="$skip" -v ct="$CT" -v addr="$addr" '
+    BEGIN { phase = "ps" }
+    $0 == "__HS_MARKER_WEBUI__" { phase = "webui"; next }
+    $0 == "__HS_MARKER_DIR__" { phase = "dir"; next }
+    phase == "ps" {
+      if (NF < 3) next
+      p = $1
+      if (p !~ /^[a-z0-9][a-z0-9_-]*$/ || p == skip) next
+      if (!(p in seen)) { seen[p] = 1; cnt[p] = 0; run[p] = 0; created[p] = 0 }
+      cnt[p]++
+      st = $2
+      if (st == "running") run[p]++
+      if (st == "created") created[p] = 1
+      s = $3
+      while (match(s, /:[0-9]+->/)) {
+        port = substr(s, RSTART + 1, RLENGTH - 3); s = substr(s, RSTART + RLENGTH)
+        if (!((p, port) in has)) { has[p, port] = 1; pcnt[p]++; pl[p, pcnt[p]] = port + 0 }
+      }
+      if (NF >= 4 && $4 != "") {
+        img = $4
+        if (!((p, img) in ihas)) { ihas[p, img] = 1; icnt[p]++; il[p, icnt[p]] = img }
+      }
+      next
+    }
+    phase == "webui" {
+      n = split($0, parts, "/")
+      if (n >= 5 && parts[2] == "opt" && parts[3] == "apps" && parts[5] == ".hs-webui") webui[parts[4]] = 1
+      next
+    }
+    phase == "dir" {
+      n = split($0, parts, "/")
+      if (n >= 4 && parts[2] == "opt" && parts[3] == "apps" && parts[4] != "") dir[parts[4]] = 1
+      next
+    }
+    END {
+      for (p in seen) {
+        total = cnt[p]; running = run[p]
+        if (running == total) st = "running"
+        else if (running > 0) st = "partial"
+        else if (created[p]) st = "created"
+        else st = "exited"
+        k = pcnt[p]
+        for (a = 2; a <= k; a++) { v = pl[p, a]; b = a - 1; while (b >= 1 && pl[p, b] > v) { pl[p, b + 1] = pl[p, b]; b-- } pl[p, b + 1] = v }
+        ports = ""; for (a = 1; a <= k; a++) ports = ports (a > 1 ? "," : "") pl[p, a]
+        ik = icnt[p]
+        for (a = 2; a <= ik; a++) { v = il[p, a]; b = a - 1; while (b >= 1 && il[p, b] > v) { il[p, b + 1] = il[p, b]; b-- } il[p, b + 1] = v }
+        images = ""; for (a = 1; a <= ik; a++) images = images (a > 1 ? "," : "") il[p, a]
+        managed = "other"
+        if (webui[p]) managed = "web"
+        else if (dir[p]) managed = "recipe"
+        printf "%s\t%s\t%s\t%s\t%d/%d\t%s\t%s\t%s\t%s\t-\n", p, ct, p, st, running, total, (ports == "" ? "-" : ports), addr, (images == "" ? "-" : images), managed
+      }
+    }' | sort -t "$tab" -k1,1
+}
+
+logs() {   # logs <app> [lines]
+  local app=${1:-} lines=${2:-200} raw
+  [[ "$app" =~ ^[a-z0-9][a-z0-9_-]{0,40}$ ]] || return 1
+  [[ "$lines" =~ ^[0-9]+$ ]] && [ "$lines" -ge 1 ] && [ "$lines" -le 2000 ] || return 1
+  owned && running || return 1
+  raw=$(children) || return 1
+  if ! printf '%s\n' "$raw" | awk -F'\t' -v app="$app" '$1 == app {found=1} END{exit !found}'; then return 1; fi
+  timeout 10 "${HS_INCUS:-incus}" exec "$CT" -- docker compose -p "$app" logs --no-color --tail "$lines" --timestamps </dev/null
+}
+
+app_is_child() {   # app_is_child <app>
+  local app=$1
+  owned && running || return 1
+  bash "$0" --list </dev/null 2>/dev/null | awk -F'\t' -v app="$app" '$1 == app {found=1} END{exit !found}'
+}
+
+app() {   # --app <app>: JSON read for the web editor
+  local app=${1:-} mgr
+  [[ "$app" =~ ^[a-z0-9][a-z0-9_-]{0,40}$ ]] || return 1
+  owned && running || return 1
+  app_is_child "$app" || return 1
+  mgr=$(docker_manager_project "$(setting_get dockerManager 2>/dev/null || true)")
+  [ "$app" != "$mgr" ] || return 1
+  timeout 8 "${HS_INCUS:-incus}" exec "$CT" -- sh -c '
+    set -e
+    app=$1; d=/opt/apps/$app
+    [ -r "$d/docker-compose.yml" ] || exit 1
+    compose=$(cat "$d/docker-compose.yml")
+    if [ -r "$d/.env" ]; then env_stat=$(stat -c "%.9Y %s" "$d/.env"); else env_stat=""; fi
+    rev=$(printf "%s%s" "$compose" "$env_stat" | sha256sum | cut -c1-16)
+    if [ -f "$d/.hs-webui" ]; then managed=web
+    elif [ -d "$d" ]; then managed=recipe
+    else managed=other
+    fi
+    printf "rev\t%s\nmanaged\t%s\n" "$rev" "$managed"
+    if [ -r "$d/.env" ]; then sed -n "s/^\([A-Za-z_][A-Za-z0-9_]*\)=.*/\1/p" "$d/.env" | sort -u | sed "s/^/env\t/"; fi
+    printf "__HS_COMPOSE__\n%s" "$compose"
+  ' sh "$app" </dev/null 2>/dev/null | python3 "$here/lib/docker_app_doc.py" parse
+}
+
 ct_addr() {   # the eth0 address of the container, one try; nothing when it has none (docker0 and the like are never the answer)
   inc list "$CT" -f csv -c 4 2>/dev/null </dev/null | grep -oE '[0-9]+(\.[0-9]+){3} \(eth0\)' | head -1 | cut -d' ' -f1 || true
 }
@@ -336,5 +447,8 @@ case "$verb" in
   mount) cmd_mount "$@" ;;
   --status) status_rows ;;
   --list) children ;;
+  --apps) apps ;;
+  --app) [ $# -ge 1 ] || usage; app "$1"; shift ;;
+  --logs) logs "$@" ;;
   *) usage ;;
 esac
