@@ -12,7 +12,8 @@
   import { takeSelection } from '../select.svelte.js';
   import { route, go } from '../route.svelte.js';
   import { healthDot } from '../format.js';
-  import { openPlan, openCreate } from '../ui.svelte.js';
+  import { openPlan, openCreate, jobRunning } from '../ui.svelte.js';
+  import Button from '../ui/Button.svelte';
   import AddDisks from '../forms/storage/AddDisks.svelte';
   import WipeDisk from '../forms/storage/WipeDisk.svelte';
   import ForgetDisk from '../forms/storage/ForgetDisk.svelte';
@@ -248,8 +249,8 @@
               {/if}
             {/snippet}
             {#snippet actions()}
-              <button class="btn sm" disabled={!!running} use:tip={running ? 'A test is running in this disk' : 'About two minutes; shows the plan first'} onclick={() => runTest('short')}><i class="ph ph-pulse"></i>Short test</button>
-              <button class="btn sm" disabled={!!running} use:tip={running ? 'A test is running in this disk' : 'Reads the whole surface (hours); shows the plan first'} onclick={() => runTest('long')}><i class="ph ph-pulse"></i>Long test</button>
+              <Button size="sm" icon="pulse" busy={jobRunning('disk', [sel.name, 'test', 'short'])} disabled={!!running} tooltip={running ? 'A test is running in this disk' : 'About two minutes; shows the plan first'} onclick={() => runTest('short')}>Short test</Button>
+              <Button size="sm" icon="pulse" busy={jobRunning('disk', [sel.name, 'test', 'long'])} disabled={!!running} tooltip={running ? 'A test is running in this disk' : 'Reads the whole surface (hours); shows the plan first'} onclick={() => runTest('long')}>Long test</Button>
               {#if isLoose(sel)}
                 <button class="btn sm btn-primary" disabled={locked} use:tip={lockTip('Pick this disk and see the plan')} onclick={() => addToPool(poolForNew)}><i class="ph ph-plus"></i>Add to a pool…</button>
                 <button class="btn sm" disabled={locked} use:tip={lockTip('Mount it read-only, copy from it, eject it')} onclick={() => openCreate(OtherDisk, {})}><i class="ph ph-usb"></i>Mount read-only…</button>

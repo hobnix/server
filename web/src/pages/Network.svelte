@@ -1,12 +1,13 @@
 <script>
   import { tip } from '../ui/tooltip.svelte.js';
   import { poll, rows } from '../data.svelte.js';
-  import { openPlan, openCreate, ui } from '../ui.svelte.js';
+  import { openPlan, openCreate, jobRunning, ui } from '../ui.svelte.js';
   import { route, go } from '../route.svelte.js';
   import PageHeader from '../shell/PageHeader.svelte';
   import PageTabs from '../ui/PageTabs.svelte';
   import StatusDot from '../ui/StatusDot.svelte';
   import Banner from '../ui/Banner.svelte';
+  import Button from '../ui/Button.svelte';
   import { ctOf, link } from './instances/ct.js';
   import PeerMount from '../forms/ops/PeerMount.svelte';
   import PeerAttach from '../forms/ops/PeerAttach.svelte';
@@ -153,7 +154,7 @@
       <div class="note">Outside these ranges: {#each others as c, i}{i ? ', ' : ''}<a {...link('/instances', 'instances', c.name)}>{c.name}</a> ({c.address.split(' ')[0]}){/each}</div>
     {/if}
     <div class="note">{list.loaded ? (list.error && !cts.length ? 'The instances could not be read (is the storage locked?).' : routerOff ? 'Shows instances with an address. The router could not be asked: UniFi is not set up on this server, or the key is wrong (Router tab).' : clients.loaded ? `Filled cells are instances; outlined cells are other devices the router has reserved or sees online.${elsewhere ? ` ${elsewhere} more address(es) at the router lie outside these ranges.` : ''}` : 'Loading…') : 'Loading…'}</div>
-    <div><button class="btn sm" use:tip={'Pin the MAC address of every instance'} onclick={() => openPlan('admin', ['pin-macs'], 'Pin the MAC addresses')}><i class="ph ph-push-pin"></i>Pin MACs</button></div>
+    <div><Button size="sm" icon="push-pin" busy={jobRunning('admin', ['pin-macs'])} busyLabel="Pinning…" tooltip={'Pin the MAC address of every instance'} onclick={() => openPlan('admin', ['pin-macs'], 'Pin the MAC addresses')}>Pin MACs</Button></div>
   </div>
 
   <div class="card" style="padding:12px 14px;gap:8px">
@@ -232,10 +233,10 @@
         {:else if col.key === 'state'}<StatusDot state={remDot(r.state)} label={r.state} />
         {:else}<span style="white-space:nowrap">{#if r.kind === 'mount'}
                 <button class="btn btn-ghost sm" use:tip={`Give an instance the shares of ${r.peer}, or take them away`} onclick={() => openCreate(PeerAttach, { peer: r.peer, instances: cts.map((c) => c.name) })}>Instance…</button>
-                <button class="btn btn-ghost sm" use:tip={`Stop using ${r.share} of ${r.peer}`} onclick={() => openPlan('peers', ['remove', r.peer, r.share], 'Stop using ' + r.peer + ' / ' + r.share)}>Remove…</button>
+                <Button variant="ghost" size="sm" busy={jobRunning('peers', ['remove', r.peer, r.share])} tooltip={`Stop using ${r.share} of ${r.peer}`} onclick={() => openPlan('peers', ['remove', r.peer, r.share], 'Stop using ' + r.peer + ' / ' + r.share)}>Remove…</Button>
               {:else}
                 <button class="btn btn-ghost sm" use:tip={`Make a new password for ${r.peer}`} onclick={() => openCreate(PeerOffer, { peer: r.peer, share: r.share, newpw: true, ondone: (o) => (offered = o) })}>New password…</button>
-                <button class="btn btn-ghost sm" use:tip={`Take the access to ${r.share} away from ${r.peer}`} onclick={() => openPlan('peers', ['revoke', r.peer, r.share], 'Take back the access of ' + r.peer)}>Revoke…</button>
+                <Button variant="ghost" size="sm" busy={jobRunning('peers', ['revoke', r.peer, r.share])} tooltip={`Take the access to ${r.share} away from ${r.peer}`} onclick={() => openPlan('peers', ['revoke', r.peer, r.share], 'Take back the access of ' + r.peer)}>Revoke…</Button>
               {/if}</span>{/if}
       {/snippet}
     </Table>

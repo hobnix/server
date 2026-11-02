@@ -2,9 +2,10 @@
   import { tip } from '../ui/tooltip.svelte.js';
   import { poll, rows } from '../data.svelte.js';
   import { go } from '../route.svelte.js';
-  import { openPlan, ui } from '../ui.svelte.js';
+  import { openPlan, jobRunning, ui } from '../ui.svelte.js';
   import PageHeader from '../shell/PageHeader.svelte';
   import Banner from '../ui/Banner.svelte';
+  import Button from '../ui/Button.svelte';
 
   const list = poll('/api/sys/setup/list', 8000);
 
@@ -19,9 +20,9 @@
 <div class="page">
   <PageHeader title="Setup" crumb={ui.host} sub={answered ? `${doneCount} of ${steps.length} steps done. Everything here can be done later.` : 'The first-run checklist.'}>
     {#snippet actions()}
-      <button use:tip={finished ? 'Setup is already marked as finished' : !answered ? 'Waiting for the list of steps' : 'Hide the setup reminder on the summary'} class="btn btn-primary b13" disabled={!answered || finished} onclick={() => openPlan('config', ['set', 'setupDone', 'true'], 'Setup finished')}>
-        <i class="ph ph-check-circle"></i>{finished ? 'Setup is finished' : 'Mark setup as finished'}
-      </button>
+      <Button variant="primary" class="b13" icon="check-circle" busy={jobRunning('config', ['set', 'setupDone', 'true'])} tooltip={finished ? 'Setup is already marked as finished' : !answered ? 'Waiting for the list of steps' : 'Hide the setup reminder on the summary'} disabled={!answered || finished} onclick={() => openPlan('config', ['set', 'setupDone', 'true'], 'Setup finished')}>
+        {finished ? 'Setup is finished' : 'Mark setup as finished'}
+      </Button>
     {/snippet}
   </PageHeader>
 

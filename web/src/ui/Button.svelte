@@ -7,14 +7,16 @@
   // `busy` is for work the page follows itself (a running job); when onclick returns a promise the button is busy until it settles, so a
   // handler that awaits needs no flag of its own. `tooltip` is the text on hover; a disabled button shows its reason there.
   //   variant: primary | secondary (default) | ghost | danger     size: '' | sm     icon: a Phosphor name without `ph-`, or ''
+  //   class: extra classes of the page (`btn-icon`, a layout class); aria-label, href-less attributes and event handlers go through to the <button>
   let { variant = 'secondary', size = '', icon = '', busy = false, busyLabel = '', disabled = false, tooltip = '', type = 'button', block = false,
-        onclick = null, children, ...rest } = $props();
+        class: extra = '', onclick = null, children, ...rest } = $props();
 
   let pending = $state(false);
   const working = $derived(busy || pending);
 
   async function click(e) {
-    if (working || disabled || !onclick) return;
+    if (working) { e.preventDefault(); return; }       // a submit button must not submit the form again while it works
+    if (disabled || !onclick) return;
     const r = onclick(e);
     if (r && typeof r.then === 'function') {
       pending = true;
@@ -23,7 +25,7 @@
   }
 </script>
 
-<button {...rest} {type} class="btn btn-{variant} {size}" class:btn-block={block} class:busy={working} {disabled} aria-busy={working || undefined}
+<button {...rest} {type} class="btn btn-{variant} {size} {extra}" class:btn-block={block} class:busy={working} {disabled} aria-busy={working || undefined}
         aria-disabled={working || undefined} use:tip={tooltip} onclick={click}>
   {#if working}<i class="ph ph-circle-notch spin" aria-hidden="true"></i>{:else if icon}<i class="ph ph-{icon}" aria-hidden="true"></i>{/if}
   {#if working && busyLabel}{busyLabel}{:else}{@render children?.()}{/if}

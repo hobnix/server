@@ -5,7 +5,7 @@
   import { poll, rows } from '../data.svelte.js';
   import { go } from '../route.svelte.js';
   import { takeSelection, setSelection } from '../select.svelte.js';
-  import { openPlan, openCreate } from '../ui.svelte.js';
+  import { openPlan, openCreate, jobRunning } from '../ui.svelte.js';
   import NewGroup from '../forms/users/NewGroup.svelte';
   import Membership from '../forms/users/Membership.svelte';
   import EditGroup from '../forms/users/EditGroup.svelte';
@@ -13,6 +13,7 @@
   import Table from '../shell/Table.svelte';
   import PageHeader from '../shell/PageHeader.svelte';
   import PageState from '../shell/PageState.svelte';
+  import Button from '../ui/Button.svelte';
   import Split from '../ui/Split.svelte';
   import Drawer from '../ui/Drawer.svelte';
   import Kv from '../ui/Kv.svelte';
@@ -47,7 +48,7 @@
 
 <PageHeader title="Groups" crumb="Identity" sub="Who is in which group, and which shares a group is entered on.">
   {#snippet actions()}
-    <button class="btn" use:tip={'Make the file server forget cached users and groups'} onclick={() => openPlan('users', ['all', 'flush'], 'Flush caches')}><i class="ph ph-arrows-clockwise"></i>Flush caches</button>
+    <Button icon="arrows-clockwise" busy={jobRunning('users', ['all', 'flush'])} busyLabel="Flushing…" tooltip={'Make the file server forget cached users and groups'} onclick={() => openPlan('users', ['all', 'flush'], 'Flush caches')}>Flush caches</Button>
     <button use:tip={'Create a group of users'} class="btn btn-primary" onclick={() => openCreate(NewGroup, { existing: groups.map((g) => g.name) })}><i class="ph ph-plus"></i>New group</button>
   {/snippet}
 </PageHeader>
@@ -90,8 +91,8 @@
               onclick={() => openCreate(EditGroup, { name: sel.name })}><i class="ph ph-pencil-simple"></i>Edit</button>
             <button class="btn" disabled={sel.name.toLowerCase() === 'domain users'} use:tip={'Choose the members'}
               onclick={() => openCreate(Membership, { subject: 'group', name: sel.name, have: sel.members, options: userNames })}><i class="ph ph-user-plus"></i>Members</button>
-            <button class="btn btn-ghost danger" disabled={builtin(sel.name)} use:tip={builtin(sel.name) ? 'A built-in group cannot be deleted' : 'Delete the group (cannot be undone; you type the name)'}
-              onclick={() => openPlan('users', [sel.name, 'group-delete'], `Delete ${sel.name}`)}><i class="ph ph-trash"></i>Delete</button>
+            <Button variant="ghost" class="danger" icon="trash" disabled={builtin(sel.name)} busy={jobRunning('users', [sel.name, 'group-delete'])} busyLabel="Deleting…" tooltip={builtin(sel.name) ? 'A built-in group cannot be deleted' : 'Delete the group (cannot be undone; you type the name)'}
+              onclick={() => openPlan('users', [sel.name, 'group-delete'], `Delete ${sel.name}`)}>Delete</Button>
           {/snippet}
         </Drawer>
       {/if}

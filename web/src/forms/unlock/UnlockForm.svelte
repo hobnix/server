@@ -1,5 +1,5 @@
 <script>
-  import { tip } from '../../ui/tooltip.svelte.js';
+  import Button from '../../ui/Button.svelte';
   // The passphrase field and the Unlock button. The passphrase lives only in the input and in the one request; it is cleared after every attempt.
   // On success nothing else happens here: the Shell polls the status document and the page shows the open storage by itself.
   let { width = '100%' } = $props();
@@ -48,9 +48,7 @@
   <div class="unl">
     <input id="unlock-pp" type="password" autocomplete="off" spellcheck="false" maxlength="256" bind:this={input}
       placeholder="One passphrase for every encrypted disk" disabled={busy || done}>
-    <button use:tip={done ? 'Already unlocked' : busy ? 'Unlocking' : 'Unlock the encrypted storage with the passphrase'} class="btn sm" type="submit" disabled={busy || done}>
-      {#if busy}<i class="ph ph-circle-notch spin"></i>Unlocking…{:else}<i class="ph ph-lock-key-open"></i>Unlock{/if}
-    </button>
+    <Button size="sm" type="submit" icon="lock-key-open" busy={busy} busyLabel="Unlocking…" disabled={done} tooltip={done ? 'Already unlocked' : busy ? 'Unlocking' : 'Unlock the encrypted storage with the passphrase'}>Unlock</Button>
   </div>
   {#if busy}
     <div class="muted">Opening the disks and starting the services. This can take a minute; keep this page open.</div>

@@ -1,7 +1,8 @@
 <script>
   import { tip } from '../../ui/tooltip.svelte.js';
   import { poll, rows } from '../../data.svelte.js';
-  import { openPlan } from '../../ui.svelte.js';
+  import { openPlan, jobRunning } from '../../ui.svelte.js';
+  import Button from '../../ui/Button.svelte';
 
   let { name, pool } = $props();
   // name, created, auto|manual, used
@@ -21,8 +22,8 @@
   <td class="n300" style="padding:4px 8px">{hist.loaded && !hist.error ? newest : ''}</td>
   <td style="padding:2px 8px">
     <span class="acts">
-      <button class="btn btn-ghost btn-icon" aria-label="Snapshot now" use:tip={'Snapshot now'} onclick={() => openPlan('shares', [name, 'snapshot'], `Snapshot ${name}`)}><i class="ph ph-camera"></i></button>
-      <button class="btn btn-ghost btn-icon" disabled={!newestName} aria-label="Roll back to newest" use:tip={newestName ? `Roll back to ${newestName}` : 'No snapshot to roll back to'} onclick={() => openPlan('shares', [name, 'rollback', '--snapshot', newestName], `Roll back ${name}`)}><i class="ph ph-arrow-u-up-left"></i></button>
+      <Button variant="ghost" class="btn-icon" icon="camera" busy={jobRunning('shares', [name, 'snapshot'])} aria-label="Snapshot now" tooltip={'Snapshot now'} onclick={() => openPlan('shares', [name, 'snapshot'], `Snapshot ${name}`)} />
+      <Button variant="ghost" class="btn-icon" icon="arrow-u-up-left" disabled={!newestName} busy={jobRunning('shares', [name, 'rollback', '--snapshot', newestName])} aria-label="Roll back to newest" tooltip={newestName ? `Roll back to ${newestName}` : 'No snapshot to roll back to'} onclick={() => openPlan('shares', [name, 'rollback', '--snapshot', newestName], `Roll back ${name}`)} />
     </span>
   </td>
 </tr>

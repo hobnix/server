@@ -4,13 +4,14 @@
   // hs sys notify plan|start add|set|remove|test change. A tick saves at once.
   import { poll, rows, refresh } from '../data.svelte.js';
   import { start } from '../api.js';
-  import { openCreate, openPlan, ui } from '../ui.svelte.js';
+  import { openCreate, openPlan, jobRunning, ui } from '../ui.svelte.js';
   import ChannelForm from '../forms/ops/ChannelForm.svelte';
   import { agoShort } from '../format.js';
   import Table from '../shell/Table.svelte';
   import PageHeader from '../shell/PageHeader.svelte';
   import PageState from '../shell/PageState.svelte';
   import Banner from '../ui/Banner.svelte';
+  import Button from '../ui/Button.svelte';
   import Switch from '../ui/Switch.svelte';
   import Chip from '../ui/Chip.svelte';
   import StatusDot from '../ui/StatusDot.svelte';
@@ -126,9 +127,9 @@
             {#if i.last.result}<StatusDot state={i.last.result === 'ok' ? 'ok' : 'bad'} label={i.last.result === 'ok' ? 'sent' : 'failed'} /> <span class="when" use:tip={i.last.reason}>{i.last.when}{i.last.reason ? ` · ${i.last.reason}` : ''}</span>{:else}<span class="when">never</span>{/if}
           {:else if col.key === 'act'}
             <span class="acts">
-              <button use:tip={busy ? 'Another test is running' : 'Send one test message to this channel'} class="btn btn-ghost sm" disabled={!!busy} onclick={() => test(i)} use:tip={'Send one test message to this channel'}>{busy === i.name + 'test' ? 'Sending…' : 'Send test'}</button>
+              <Button variant="ghost" size="sm" disabled={!!busy && busy !== i.name + 'test'} busy={busy === i.name + 'test'} busyLabel="Sending…" tooltip={busy ? 'Another test is running' : 'Send one test message to this channel'} onclick={() => test(i)}>Send test</Button>
               <button class="btn btn-ghost btn-icon" aria-label="Edit {i.name}" use:tip={'Edit'} onclick={() => edit(i)}><i class="ph ph-pencil-simple"></i></button>
-              <button class="btn btn-ghost btn-icon" aria-label="Remove {i.name}" use:tip={'Remove'} onclick={() => openPlan('notify', ['remove', i.name], 'Remove ' + i.name)}><i class="ph ph-trash"></i></button>
+              <Button variant="ghost" class="btn-icon" icon="trash" busy={jobRunning('notify', ['remove', i.name])} aria-label="Remove {i.name}" tooltip={'Remove'} onclick={() => openPlan('notify', ['remove', i.name], 'Remove ' + i.name)} />
             </span>
           {:else}
             <Switch box checked={i.cats.has(col.key) && i.caps.has(col.key)} disabled={!!busy || !i.caps.has(col.key)} reason={why(i, col.key)} label="{i.name} carries {col.label}" onchange={() => toggleClass(i, col.key)} />
@@ -146,7 +147,7 @@
           {/each}
           <div class="meta">Last send: {i.last.result ? `${i.last.result === 'ok' ? 'sent' : 'failed'} ${i.last.when}${i.last.reason ? ` (${i.last.reason})` : ''}` : 'never'}</div>
           <div class="meta">Lowest priority {i.minprio} · quiet hours {i.quiet === 'ignore' ? 'ignored' : 'respected'} · {i.outside === 'outside' ? 'outside this server' : 'on this server'}</div>
-          <div class="acts"><button use:tip={busy ? 'Another test is running' : 'Send one test message to this channel'} class="btn btn-secondary sm" disabled={!!busy} onclick={() => test(i)}>Send test</button><button use:tip={'Change this channel'} class="btn btn-ghost sm" onclick={() => edit(i)}>Edit</button><button use:tip={'Remove this channel: no messages go there any more'} class="btn btn-ghost sm" onclick={() => openPlan('notify', ['remove', i.name], 'Remove ' + i.name)}>Remove</button></div>
+          <div class="acts"><Button size="sm" disabled={!!busy && busy !== i.name + 'test'} busy={busy === i.name + 'test'} busyLabel="Sending…" tooltip={busy ? 'Another test is running' : 'Send one test message to this channel'} onclick={() => test(i)}>Send test</Button><button use:tip={'Change this channel'} class="btn btn-ghost sm" onclick={() => edit(i)}>Edit</button><Button variant="ghost" size="sm" busy={jobRunning('notify', ['remove', i.name])} tooltip={'Remove this channel: no messages go there any more'} onclick={() => openPlan('notify', ['remove', i.name], 'Remove ' + i.name)}>Remove</Button></div>
         </div>
       {/each}
     </div>
