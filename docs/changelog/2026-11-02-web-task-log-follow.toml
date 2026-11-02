@@ -1,0 +1,4 @@
+date  = "2026-11-02"
+type  = "change"
+title = "The task log in the web interface follows new output"
+body  = """In the bottom panel, the log of a task stays at the bottom while it is scrolled down and follows new lines. Scroll up and it stays where you are."""
