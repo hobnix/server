@@ -105,7 +105,65 @@ rc=0; out=$($D start arr pull </dev/null 2>&1) || rc=$?
 unset HS_DOCKER_NO_JOB
 check_eq "inline pull exit 0" 0 "$rc"
 echo "$out" | grep -qx "status${T}done" && pass "inline pull done" || fail "inline pull: $out"
-grep -qF 'pull && docker compose' "$LOG" && pass "inline pull command" || fail "inline pull command: $(cat "$LOG")"
+grep -qF 'sh arr /opt/apps/arr pull' "$LOG" && pass "inline pull command" || fail "inline pull command: $(cat "$LOG")"
+
+echo "-- delete keeps /opt/apps/<app> unless --delete-data"
+cat > "$BIN/docker.sh" <<'FAKE'
+#!/usr/bin/env bash
+case "$1" in
+  --status) printf 'state	on
+running	yes
+' ;;
+  --list) printf 'web1	docker	web1	running	-
+' ;;
+  --app) printf '{"rev":"0123456789abcdef","managed":"web"}
+' ;;
+esac
+FAKE
+printf '#!/usr/bin/env bash
+exit 0
+' > "$BIN/ct-change.sh"
+chmod +x "$BIN/docker.sh" "$BIN/ct-change.sh"
+export HS_DOCKER_SH=$BIN/docker.sh HS_CT_CHANGE=$BIN/ct-change.sh
+on webui
+out=$($D plan web1 delete </dev/null 2>&1) || true
+echo "$out" | grep -qx "confirm_name${T}web1" && pass "plan delete asks for the name" || fail "plan delete: $out"
+echo "$out" | grep -q "^note${T}/opt/apps/web1 is kept" && pass "plan delete keep: says the folder stays" || fail "plan keep: $out"
+echo "$out" | grep -q "^danger" && fail "plan keep has a danger line" || pass "plan keep: no danger line"
+out=$($D plan web1 delete --delete-data </dev/null 2>&1) || true
+echo "$out" | grep -q "^danger${T}Delete the app" && pass "plan delete-data: danger line" || fail "plan data: $out"
+rc=0; out=$($D plan web1 delete --force </dev/null 2>&1) || rc=$?
+check_eq "plan delete --force refused" 1 "$rc"
+export HS_DOCKER_NO_JOB=1
+: > "$LOG"
+rc=0; out=$($D start web1 delete --confirm web1 </dev/null 2>&1) || rc=$?
+check_eq "delete keep exit 0" 0 "$rc"
+grep -q 'down --remove-orphans' "$LOG" && pass "keep: compose down --remove-orphans" || fail "keep: no down: $(cat "$LOG")"
+grep -q 'rm -rf -- "/opt/apps' "$LOG" && fail "keep: the folder was removed" || pass "keep: the folder stays"
+: > "$LOG"
+rc=0; out=$($D start web1 delete --confirm web1 --delete-data </dev/null 2>&1) || rc=$?
+check_eq "delete-data exit 0" 0 "$rc"
+grep -q 'rm -rf -- "/opt/apps' "$LOG" && pass "delete-data: the folder is removed" || fail "data: not removed: $(cat "$LOG")"
+rc=0; out=$($D start web1 delete --delete-data </dev/null 2>&1) || rc=$?
+check_eq "delete without the typed name refused" 1 "$rc"
+
+echo "-- an app with a folder and no container (a delete that kept the data) starts with up -d"
+cat > "$BIN/docker.sh" <<'FAKE'
+#!/usr/bin/env bash
+case "$1" in
+  --status) printf 'state\ton\nrunning\tyes\n' ;;
+  --list) printf 'web1\tdocker\tweb1\tstopped\t-\n' ;;
+  --app) printf '{"rev":"0123456789abcdef","managed":"web"}\n' ;;
+esac
+FAKE
+: > "$LOG"
+rc=0; out=$($D start web1 start </dev/null 2>&1) || rc=$?
+check_eq "start of a stopped app exit 0" 0 "$rc"
+echo "$out" | grep -qx "status${T}done" && pass "start of a stopped app done" || fail "start stopped: $out"
+grep -q 'sh web1 /opt/apps/web1 up -d' "$LOG" && pass "start of a stopped app runs up -d in its folder" || fail "no up -d: $(cat "$LOG")"
+rc=0; out=$($D plan web1 delete --delete-data </dev/null 2>&1) || rc=$?
+check_eq "delete-data plan of a stopped app" 0 "$rc"
+unset HS_DOCKER_NO_JOB HS_DOCKER_SH HS_CT_CHANGE
 
 echo "-- refused shapes"
 on webui

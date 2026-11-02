@@ -83,7 +83,7 @@ C "$WORK/dstatus" 'printf "services: {}
 " | child_compose radarr; child_up radarr; child_pull radarr' >/dev/null
 check "compose written under /opt/apps/radarr" grep -q "/opt/apps/radarr/docker-compose.yml.new" "$WORK/incus.log"
 check "compose checked with the project name" grep -q "docker compose -p radarr config -q" "$WORK/incus.log"
-check "up and pull use the project name" grep -q "docker compose -p radarr pull" "$WORK/incus.log"
+check "up and pull use the project name" grep -q "sh radarr /opt/apps/radarr pull" "$WORK/incus.log"
 mkdir -p "$WORK/st"; : > "$WORK/st/x"
 out=$(C "$WORK/dstatus" 'RUNS_DOCKER=true; ct=docker; state='"$WORK"'/st; declare_dump radarr "hs-dump sqlite-tree radarr /opt/apps/radarr"; backup_with_dump radarr ""; cat $state/backup-dump/docker')
 check "docker mode: the dump goes to the descriptor of docker" grep -q "# dump:radarr" <<<"$out"

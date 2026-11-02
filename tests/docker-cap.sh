@@ -49,10 +49,17 @@ case "$1" in
           printf '\trunning\t-\tbusybox\n'
           printf '__HS_MARKER_WEBUI__\n'
           printf '/opt/apps/arr/.hs-webui\n'
+          printf '/opt/apps/kept1/.hs-webui\n'
           printf '__HS_MARKER_DIR__\n'
           printf '/opt/apps/arr/\n'
           printf '/opt/apps/wiki/\n'
+          printf '/opt/apps/kept1/\n'
+          printf '__HS_MARKER_COMPOSE__\n'
+          printf '/opt/apps/arr/docker-compose.yml\n'
+          printf '/opt/apps/kept1/docker-compose.yml\n'
           ;;
+        *'ls -d /opt/apps/*/docker-compose.yml'*)   # the folders that hold a compose file (kept1: a delete that kept the data)
+          printf '/opt/apps/arr/docker-compose.yml\n/opt/apps/kept1/docker-compose.yml\n/opt/apps/arcane/docker-compose.yml\n' ;;
       esac
     else cat >/dev/null 2>&1 </dev/null || true; fi ;;
 esac
@@ -181,10 +188,10 @@ check_eq "refused" 1 "$rc"
 echo "-- list"
 reset; : > "$STATE"; echo docker > "$OWNERF"; echo arcane > "$HS_SETTINGS_DIR/dockerManager"
 list=$($D --list)
-check_eq "2 rows" 2 "$(printf '%s\n' "$list" | grep -c .)"
+check_eq "3 rows (with the kept app)" 3 "$(printf '%s\n' "$list" | grep -c .)"
 check_eq "arr row" $'arr\tdocker\tarr\trunning\t7878,8989' "$(printf '%s\n' "$list" | sed -n 1p)"
-check_eq "notes row" $'notes\tdocker\tnotes\texited\t-' "$(printf '%s\n' "$list" | sed -n 2p)"
-check_eq "5 fields" "5 5" "$(printf '%s\n' "$list" | awk -F'\t' '{print NF}' | tr '\n' ' ' | sed 's/ $//')"
+check_eq "notes row" $'notes\tdocker\tnotes\texited\t-' "$(printf '%s\n' "$list" | sed -n 3p)"
+check_eq "5 fields" "5 5 5" "$(printf '%s\n' "$list" | awk -F'\t' '{print NF}' | tr '\n' ' ' | sed 's/ $//')"
 reset
 rc=0; out=$($D --list) || rc=$?
 check_eq "off: exit 0" 0 "$rc"; check_eq "off: no output" "" "$out"
@@ -195,11 +202,14 @@ check_eq "exec fails: exit 0" 0 "$rc"; check_eq "exec fails: no output" "" "$out
 echo "-- apps"
 reset; : > "$STATE"; echo docker > "$OWNERF"; echo arcane > "$HS_SETTINGS_DIR/dockerManager"
 apps=$($D --apps)
-check_eq "3 rows" 3 "$(printf '%s\n' "$apps" | grep -c .)"
-check_eq "10 fields" "10 10 10" "$(printf '%s\n' "$apps" | awk -F'\t' '{print NF}' | tr '\n' ' ' | sed 's/ $//')"
+check_eq "4 rows" 4 "$(printf '%s\n' "$apps" | grep -c .)"
+check_eq "10 fields" "10 10 10 10" "$(printf '%s\n' "$apps" | awk -F'\t' '{print NF}' | tr '\n' ' ' | sed 's/ $//')"
 check_eq "arr row" $'arr\tdocker\tarr\trunning\t2/2\t7878,8989\t10.10.95.50\tlinuxserver/arr:latest\tweb\t-' "$(printf '%s\n' "$apps" | sed -n 1p)"
-check_eq "notes row" $'notes\tdocker\tnotes\texited\t0/1\t-\t10.10.95.50\tnginx:alpine\tother\t-' "$(printf '%s\n' "$apps" | sed -n 2p)"
-check_eq "wiki partial" $'wiki\tdocker\twiki\tpartial\t1/2\t3000\t10.10.95.50\trequarks/wiki:2\trecipe\t-' "$(printf '%s\n' "$apps" | sed -n 3p)"
+check_eq "kept app: folder, no container -> stopped 0/0" $'kept1\tdocker\tkept1\tstopped\t0/0\t-\t10.10.95.50\t-\tweb\t-' "$(printf '%s\n' "$apps" | sed -n 2p)"
+check_eq "notes row" $'notes\tdocker\tnotes\texited\t0/1\t-\t10.10.95.50\tnginx:alpine\tother\t-' "$(printf '%s\n' "$apps" | sed -n 3p)"
+check_eq "wiki partial" $'wiki\tdocker\twiki\tpartial\t1/2\t3000\t10.10.95.50\trequarks/wiki:2\trecipe\t-' "$(printf '%s\n' "$apps" | sed -n 4p)"
+check_eq "the manager folder is not an app" 0 "$(printf '%s\n' "$apps" | grep -c '^arcane')"
+check_eq "--list has the kept app too" $'kept1\tdocker\tkept1\tstopped\t-' "$($D --list | grep '^kept1')"
 
 echo "-- logs"
 reset; : > "$STATE"; echo docker > "$OWNERF"; echo arcane > "$HS_SETTINGS_DIR/dockerManager"

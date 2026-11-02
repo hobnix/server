@@ -21,7 +21,9 @@ export const tree = [
       { label: 'Instances', icon: 'cube', path: '/instances', storage: true, children: [
         { label: 'Apps', icon: 'package', path: '/instances/apps', storage: true },
         { label: 'Services', icon: 'arrows-split', path: '/instances/services', capability: 'reverse-proxy' },
-        { label: 'Docker', icon: 'shipping-container', path: '/instances/docker', capability: 'docker' },
+        { label: 'Docker', icon: 'shipping-container', path: '/instances/docker', capability: 'docker', children: [
+          { label: 'Registries', icon: 'key', path: '/instances/docker/registries', capability: 'docker' },
+        ] },
       ] },
       { label: 'Marketplace', icon: 'storefront', path: '/marketplace' },
       { label: 'Network', icon: 'network', path: '/network' },

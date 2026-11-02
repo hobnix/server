@@ -348,8 +348,30 @@ app changed meanwhile the editor keeps the text and offers **Reload**.
 A failed update restores the previous compose and env files and starts them
 again. **Rebuild** runs `docker compose up -d --build --pull always` and needs
 any Dockerfile or build context in `/opt/apps/<app>`. **Delete** takes a
-snapshot of `docker` first, then removes the containers and `/opt/apps/<app>`
-(including its data) after you type the app name.
+snapshot of `docker` first and stops and removes the containers after you type the
+app name. **Delete** keeps `/opt/apps/<app>`: the app stays in the list with the state
+`stopped` (a folder with a compose file and no container), can be edited, and **Start**
+brings it up again with `docker compose up -d`. **Delete with data** also removes `/opt/apps/<app>`
+(the config and the data).
+
+### Private registries (Instances > Docker > Registries)
+
+An image from a private registry (for example `ghcr.io/you/app`) needs a login. Add it
+on **Registries** (or `hs docker registry add ghcr.io --user <user>`; the token is asked
+for, never put in a command line). For GitHub use a classic token with `read:packages`
+only. The token is tested with a login, then kept in the vault
+(`/var/lib/hs/docker-registry-<host>`); the list in `/var/lib/hs/docker-registries.tsv`
+holds only the host and the user.
+
+A pull, a rebuild, a save of an app and the pull of a recipe app give the token to the
+container for that one command, in a throwaway Docker config on tmpfs that is deleted
+afterwards. Nothing is left in `/root/.docker` and nothing in the backups of the container.
+While the vault is closed these actions are refused with the fix `hs vault open` (a
+terminal: the web interface cannot open the vault); start, stop and restart never need the
+token. `hs docker registry list` shows each registry as `ok`, `locked` (vault closed) or
+`missing`. Remove a login with `hs docker registry remove <host>` after typing the host.
+
+Not tested on hardware yet.
 
 ### Move an app from Arcane by hand
 

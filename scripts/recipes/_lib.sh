@@ -412,8 +412,10 @@ child_compose() {   # child_compose <app>: the compose file on stdin goes to /op
     fail "$(t "Could not write the compose file of '%s'." "$1")"
   incus exec docker -- sh -c "cd $d && docker compose -p $1 config -q" </dev/null || fail "$(t "The compose file of '%s' is not valid." "$1")"
 }
-child_up() { incus exec docker -- sh -c "cd /opt/apps/$1 && docker compose -p $1 up -d" </dev/null; }     # child_up <app>
-child_pull() { incus exec docker -- sh -c "cd /opt/apps/$1 && docker compose -p $1 pull" </dev/null; }   # child_pull <app>
+. "${BASH_SOURCE[0]%/*}/../lib/docker-apps.sh"   # docker_port_owner (child_port_free)
+. "${BASH_SOURCE[0]%/*}/../lib/docker-auth.sh"   # docker_with_auth: the token of a private registry (ghcr.io) from the vault, for one command
+child_up() { docker_with_auth "$1" up -d; }     # child_up <app>
+child_pull() { docker_with_auth "$1" pull; }   # child_pull <app>
 child_port_free() {   # child_port_free <port> <app>: fails when another project in the parent publishes the port
   local who
   who=$(docker_port_owner "$1" "$2" 2>/dev/null || true)

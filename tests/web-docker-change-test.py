@@ -136,6 +136,34 @@ class DockerAppChange(lt.Base):
         self.assertEqual(s, 200)
         self.assertIn("start", self.calls[0][0])
 
+    def test_delete_data_flag(self):
+        self.answer = (0, "status\tok\n")
+        for args in (["arr", "delete"], ["arr", "delete", "--delete-data"]):
+            self.assertEqual(self.post("/api/plan", {"area": "docker-app", "args": args})[0], 200, args)
+        self.assertEqual(self.post("/api/plan", {"area": "docker-app", "args": ["arr", "delete", "--force"]})[0], 400)
+        self.assertEqual(self.post("/api/plan", {"area": "docker-app", "args": ["arr", "rebuild", "--delete-data"]})[0], 400)
+
+    def test_registry_entries(self):
+        self.answer = (0, "status\tok\n")
+        add = ["add", "ghcr.io", "--user", "wolf"]
+        s, d = self.post("/api/plan", {"area": "docker-registry", "args": add})
+        self.assertEqual(s, 200)
+        self.assertIn("docker-registry", self.calls[-1][0])
+        s, d = self.post("/api/start", {"area": "docker-registry", "args": add, "stdin": "ghp_secrettoken"})
+        self.assertEqual(s, 200)
+        self.assertNotIn("ghp_secrettoken", " ".join(self.calls[-1][0]))          # the token is on stdin only
+        self.assertIn(b"ghp_secrettoken", self.calls[-1][1])
+        self.assertEqual(self.post("/api/plan", {"area": "docker-registry", "args": ["remove", "ghcr.io"]})[0], 200)
+        # plans that carried a token are never cached
+        self.assertFalse(ws.plan_cacheable("docker-registry", add, "x"))
+        self.assertFalse(ws.plan_cacheable("docker-registry", add, None))      # the entry takes stdin
+        bad = (["add", "Bad_Host", "--user", "wolf"], ["add", "ghcr.io", "--user", "a b"],
+               ["add", "ghcr.io", "--user", "wolf", "--token", "x"], ["remove", "x y"], ["drop", "ghcr.io"])
+        for a in bad:
+            self.assertEqual(self.post("/api/plan", {"area": "docker-registry", "args": a})[0], 400, a)
+        # a token on a remove, and the read
+        self.assertEqual(self.post("/api/start", {"area": "docker-registry", "args": ["remove", "ghcr.io"], "stdin": "x"})[0], 400)
+
     def test_reads(self):
         s, d, _ = self.req("GET", "/api/sys/docker/apps", headers=self.ck)
         self.assertEqual(s, 200)
