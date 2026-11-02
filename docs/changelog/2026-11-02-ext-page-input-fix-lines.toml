@@ -1,0 +1,4 @@
+date  = "2026-11-02"
+type  = "feature"
+title = "Extension pages can ask for a value first, and a refused plan shows the command that fixes it"
+body  = """A page action of an extension can open a small form with one text field before the plan (the field can start with a suggestion), and a refused plan now lists the commands that make it possible instead of only the reason."""

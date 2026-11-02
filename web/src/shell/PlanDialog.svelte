@@ -77,6 +77,7 @@
         <div class="lede">Asking the server what would happen…</div>
       {:else if !allowed}
         <div class="refused"><i class="ph ph-prohibit"></i>{p.reason || 'The server refused this.'}</div>
+        {#each p.fixes ?? [] as f}<div class="lede">To make it possible, run <code class="cmd">{f}</code></div>{/each}
         <div class="lede">Nothing has run.</div>
       {:else}
         <PlanSteps steps={p.steps} long={p.long} />
