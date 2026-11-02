@@ -107,3 +107,17 @@ assert.deepEqual(ids([], null), ['all']);
 assert.deepEqual(visibleSteps(ws.slice(2), null).map((s) => s.id), ['all']);
 assert.deepEqual(changed({ a: 'false' }, withDefaults([{ key: 'a', cur: '' }], { a: 'true' }), 'apply'), ['apply', '--set', 'a=false']);
 assert.deepEqual(changed({ a: 'true' }, withDefaults([{ key: 'a', cur: '' }], { a: 'true' }), 'apply'), []);
+
+// tag.js: the tag of a part and of the Updates header
+import { partTag, updatesTag } from '../web/src/settings/tag.js';
+assert.deepEqual(partTag(undefined, ''), { state: 'off', label: 'off' });
+assert.deepEqual(partTag({ on: false, nix: true }, 'ok'), { state: 'off', label: 'off' });
+assert.deepEqual(partTag({ on: true, nix: true }, 'fail'), { state: 'warn', label: 'rebuild needed' });
+assert.deepEqual(partTag({ on: true, nix: false }, 'fail'), { state: 'ok', label: 'on' });
+assert.deepEqual(partTag({ on: true, nix: true }, 'ok'), { state: 'ok', label: 'running' });
+assert.deepEqual(partTag({ on: true, nix: true }, ''), { state: 'ok', label: 'on' });
+assert.equal(updatesTag([]), null);
+assert.equal(updatesTag(undefined), null);
+assert.deepEqual(updatesTag([['behind', '0'], ['ahead', '0']]), { state: 'ok', label: 'up to date' });
+assert.deepEqual(updatesTag([['behind', '1']]), { state: 'warn', label: '1 update available' });
+assert.deepEqual(updatesTag([['behind', '3']]), { state: 'warn', label: '3 updates available' });

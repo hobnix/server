@@ -18,6 +18,7 @@
   import { jobRunning } from '../ui.svelte.js';
   import { poll, rows } from '../data.svelte.js';
   import { setupDone } from './steps.js';
+  import { partTag } from './tag.js';
   import Button from '../ui/Button.svelte';
 
   // the router gives no props: the name is the last part of the address (a caller may pass it)
@@ -47,10 +48,7 @@
   // a part that is not set up yet opens on the wizard, else on the status
   const cur = $derived(tab && tabs.some((t) => t.id === tab) ? tab : hasSteps && !setUp ? 'setup' : tabs[0]?.id ?? '');
   // the tag of the header: where the part stands. A part with a NixOS module that is on but not running yet waits for `hs rebuild`.
-  const tag = $derived(!part?.on ? { state: 'off', label: 'off' }
-    : part.nix && running && running !== 'ok' ? { state: 'warn', label: 'rebuild needed' }
-    : running === 'ok' ? { state: 'ok', label: 'running' }
-    : { state: 'ok', label: 'on' });
+  const tag = $derived(partTag(part, running));
 </script>
 
 <div class="page">
