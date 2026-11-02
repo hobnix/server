@@ -6,7 +6,7 @@ set -euo pipefail
 
 # Everything the interface (the web interface, Instances) does goes through this script:
 #   --list                                   instances, tab separated (name, type, state, address, ram, cpu, autostart, mac pinned, docker, disk,
-#                                            snapshots, last snapshot, memory in use, cpu time, bindings, last start (UTC))
+#                                            snapshots, last snapshot, memory in use, cpu time, bindings, last start (UTC), owner (user.hs.managed_by, - when none))
 #   <name> --storage                         disk devices of an instance, tab separated
 #   --create <name> [--vm] [--docker] [--ram MB] [--cpu N] [--disk GB] [--ip <address>] [--profile <vlan>]
 #   --profiles                               network profiles to create on: name, network or bridge, description
@@ -23,6 +23,7 @@ set -euo pipefail
 
 here=$(dirname "$0")
 . "$here/lib/ui.sh"
+. "$here/lib/instance.sh"
 usage() {
   say "usage: hs ct list [--plain]"
   say "       (the options used by the interface are listed at the top of scripts/manage-ct.sh)"
@@ -89,7 +90,8 @@ list() {
     (.state.memory.usage // 0),
     (.state.cpu.usage // 0),
     ([.expanded_devices | to_entries[] | select(.value.type == "disk" and (.value.path // "") != "/")] | length),
-    ((.last_used_at // "") | if . == "" or startswith("0001") then "-" else .[0:19] | sub("T"; " ") end)
+    ((.last_used_at // "") | if . == "" or startswith("0001") then "-" else .[0:19] | sub("T"; " ") end),
+    ((.config["user.hs.managed_by"] // "") | if . == "" then "-" else . end)
   ] | @tsv'
 }
 
@@ -234,12 +236,19 @@ case "$1" in
       jq -r --arg t "$2" '[.[] | .name | sub(".*/"; "")] | (index($t)) as $i
         | if $i == null then error("no snapshot " + $t) else .[$i + 1:][] end') ||
       fail "$(t "'%s' has no snapshot called '%s'." "$ct" "$2")"
+    owner=$(instance_owner "$ct")
     for n in $newer; do
       $dry && echo "  (newer snapshot, must be deleted to go back further:)"
       run incus snapshot delete "$ct" "$n"
     done
     run incus snapshot restore "$ct" "$2"
-    $dry || ok "$(t "'%s' is back at '%s'. Attached storage (shares, volumes) is not part of a snapshot." "$ct" "$2")" ;;
+    if ! $dry; then
+      if [ -n "$owner" ] && [ -z "$(instance_owner "$ct")" ]; then
+        incus config set "$ct" "user.hs.managed_by=$owner"
+        note "$(t "The snapshot was older than the lock: '%s' belongs to %s again." "$ct" "$owner")"
+      fi
+      ok "$(t "'%s' is back at '%s'. Attached storage (shares, volumes) is not part of a snapshot." "$ct" "$2")"
+    fi ;;
 
   --delete-snapshot)
     [ $# -ge 2 ] || usage
@@ -258,6 +267,7 @@ case "$1" in
 
   --add-storage)
     [ $# -ge 4 ] || usage
+    refuse_if_locked "$ct" "$(t 'adding a device')"
     kind="$2"; sname="$3"; path="$4"; readonly=false; as=""
     shift 4
     while [ $# -gt 0 ]; do
@@ -303,6 +313,7 @@ case "$1" in
 
   --remove-storage)
     [ $# -ge 2 ] || usage
+    refuse_if_locked "$ct" "$(t 'removing a device')"
     run incus config device remove "$ct" "$2"
     $dry || ok "Detached. The data itself was not deleted."
     ;;
@@ -310,6 +321,19 @@ case "$1" in
   --set)
     shift
     [ $# -ge 1 ] || usage
+    # every lock check comes before the first change, so a refused key leaves the others unapplied
+    for kv in "$@"; do
+      key=${kv%%=*}; val=${kv#*=}
+      case "$key" in
+        docker) [ "$val" = yes ] || refuse_if_locked "$ct" "docker=no" ;;
+        disk)
+          number Disk "$val"
+          if [ -n "$(instance_owner "$ct")" ]; then
+            cur=$(incus query "/1.0/instances/$ct" | jq -r '.expanded_devices.root.size // ""')
+            { [[ "$cur" =~ ^([0-9]+)GiB$ ]] && [ "$val" -ge "${BASH_REMATCH[1]}" ]; } || refuse_if_locked "$ct" "$(t 'a smaller disk')"
+          fi ;;
+      esac
+    done
     for kv in "$@"; do
       key=${kv%%=*}; val=${kv#*=}
       case "$key" in
@@ -345,6 +369,7 @@ case "$1" in
   --restart) run incus restart "$ct" ;;
 
   --delete)
+    refuse_if_locked "$ct" "$(t 'deleting it')"
     if $dry; then
       echo "Delete '$ct' with all its snapshots. Attached storage stays:"
       storage "$ct" | awk -F'\t' '{ printf "  %s -> %s\n", $3, $4 }'

@@ -18,6 +18,7 @@ set -euo pipefail
 here=$(dirname "$0")
 . "$here/lib/ui.sh"
 . "$here/lib/secret.sh"
+. "$here/lib/instance.sh"
 state=${HS_STATE_DIR:-/var/lib/hs}
 root=${HS_REMOTE_ROOT:-/mnt/remote}
 mu=${HS_MANAGE_USERS:-$here/manage-users.sh}
@@ -267,6 +268,7 @@ EOF
     mkdir -p "$root/$p"
     dev=remote-$p
     "$incus_bin" info "$c" >/dev/null 2>&1 || fail_fix "$(t "No instance called '%s'." "$c")" "hs ct list"
+    refuse_if_locked "$c" "$(t 'adding a device')"
     if "$incus_bin" config device get "$c" "$dev" source >/dev/null 2>&1; then fail_fix "$(t "'%s' has the device %s already." "$c" "$dev")" "hs remote detach $p $c"; fi
     "$incus_bin" config device add "$c" "$dev" disk source="$root/$p" path="$path" recursive=true propagation=rslave >/dev/null
     ok "$(t '%s sees the shares of %s under %s (read only).' "$c" "$p" "$path")" ;;
@@ -275,6 +277,7 @@ EOF
     [ $# -eq 2 ] || usage
     p=$1; c=$2; v_peer "$p"; v_ct "$c"
     need_root
+    refuse_if_locked "$c" "$(t 'removing a device')"
     "$incus_bin" config device remove "$c" "remote-$p" >/dev/null 2>&1 || fail "$(t "'%s' has no device remote-%s." "$c" "$p")"
     ok "$(t 'Removed from %s.' "$c")" ;;
 

@@ -37,6 +37,11 @@ cat <<'JSON'
  {"name":"immich","devices":{"photos":{"type":"disk","source":"/bulk/sensitive/immich","path":"/mnt/immich"}}}
 ]
 JSON
+elif [ "$1" = query ]; then
+  case "$2" in
+    */sonarr) [ "${LOCK_SONARR:-}" = 1 ] && echo '{"config":{"user.hs.managed_by":"docker"}}' || echo '{}' ;;
+    *) echo '{}' ;;
+  esac
 else
   echo "incus $*" >> "$LOG"
 fi
@@ -61,6 +66,13 @@ echo "$out" | grep -q "upload cache" && pass "with the script's reason" || fail 
 ! grep -q '^incus\|delshare' "$LOG" && pass "nothing was detached or removed" || fail "a refusal changed something: $(cat "$LOG")"
 rc=0; $D other >/dev/null 2>&1 || rc=$?
 check_eq "a folder outside /bulk/shares and /bulk/sensitive" 1 "$rc"
+
+echo "-- an instance owned by a capability refuses"
+: > "$LOG"
+rc=0; out=$(LOCK_SONARR=1 $D docs --dry-run 2>&1) || rc=$?
+check_eq "locked mount: refused" 1 "$rc"
+echo "$out" | grep -q "Docker owns 'sonarr'" && pass "names the owner" || fail "reason: $out"
+! grep -q '^incus' "$LOG" && pass "nothing was touched" || fail "a locked refusal changed something"
 
 echo "-- the real run, in order"
 : > "$LOG"

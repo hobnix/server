@@ -39,3 +39,4 @@ Loaded when you touch the files above (path-scoped rule). The root CLAUDE.md has
   first start (manage-ct.sh --create does both).
 
 - New container: `hs ct add <name> [--docker]`, then UniFi reservation, then restart.
+- Locked instances: the Incus key `user.hs.managed_by=<capability>` refuses delete, device changes, docker=no and a smaller disk on every hs route (scripts/lib/instance.sh, `refuse_if_locked`) unless the caller sets `HS_OWNER=<capability>`; the web never sets it.

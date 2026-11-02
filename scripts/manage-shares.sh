@@ -22,6 +22,7 @@ set -euo pipefail
 here=$(dirname "$0")
 . "$here/lib/ui.sh"
 . "$here/lib/bulkpath.sh"
+. "$here/lib/instance.sh"
 . "$(dirname "$0")/lib/live.sh"
 live_refresh_shares() { live_refresh status shares-overview shares-deleted fm-locations pool-info-bulk; }
 
@@ -253,6 +254,7 @@ rename_share() {   # rename_share <old> <new>
              incus query "/1.0/instances/$n" </dev/null 2>/dev/null |
                jq -r --arg n "$n" --arg p "$path" '.devices // {} | to_entries[] | select(.value.type == "disk" and .value.source == $p) | "\($n) \(.key)"'
            done)
+  for line in "${users[@]}"; do refuse_if_locked "${line%% *}" "$(t 'moving a mount')"; done
 
   echo "Rename '$old' to '$new':"
   if [ "$bulk_type" = snapraid ]; then

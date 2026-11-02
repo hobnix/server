@@ -9,6 +9,7 @@
 # of the new name is removed. --dry-run prints these steps as indented commands. If the folder is already gone (deleted by hand), only the instance mounts and the Samba share are removed. Test knobs: HS_MANAGE_SHARES, HS_INCUS, HS_NET, HS_DELETE_STAMP, HS_BULK, HS_LOCK, HS_LOCKED_FLAG.
 set -euo pipefail
 here=$(dirname "$0")
+. "$here/lib/instance.sh"
 . "$here/lib/live.sh"
 live_refresh_shares() { live_refresh status shares-overview shares-deleted fm-locations pool-info-bulk; }
 manage=${HS_MANAGE_SHARES:-$here/manage-shares.sh}
@@ -45,6 +46,7 @@ fi
 mapfile -t mounts < <("$incus" list -f json 2>/dev/null | jq -r --arg p "$path" '.[] | .name as $n | .devices // {} | to_entries[]
   | select(.value.type == "disk" and ((.value.source // "") == $p or ((.value.source // "") | startswith($p + "/"))))
   | [ $n, .key ] | @tsv' || true)
+for m in "${mounts[@]}"; do [ -n "$m" ] || continue; refuse_if_locked "${m%%$'\t'*}" "$(t 'removing a device')"; done
 
 if $dry; then
   for m in "${mounts[@]}"; do

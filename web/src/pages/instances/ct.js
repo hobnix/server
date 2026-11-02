@@ -2,8 +2,8 @@
 import { go, url } from '../../route.svelte.js';
 import { setSelection } from '../../select.svelte.js';
 
-// ct list: name, type, state, address, ram, cpu, autostart, mac pinned, docker, disk, snapshots, last snapshot, memory in use, cpu time, bindings, last start
-export const ctOf = (r) => ({ name: r[0], type: r[1], state: r[2], address: r[3], ram: r[4], cpu: r[5], autostart: r[6], docker: r[8], disk: r[9], lastSnap: r[11] });
+// ct list: name, type, state, address, ram, cpu, autostart, mac pinned, docker, disk, snapshots, last snapshot, memory in use, cpu time, bindings, last start, owner
+export const ctOf = (r) => ({ name: r[0], type: r[1], state: r[2], address: r[3], ram: r[4], cpu: r[5], autostart: r[6], docker: r[8], disk: r[9], lastSnap: r[11], owner: r[16] && r[16] !== '-' ? r[16] : '' });
 
 export const isVm = (c) => /virtual|VM/i.test(c.type);
 export const isRunning = (c) => /running/i.test(c.state);

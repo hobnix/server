@@ -1880,3 +1880,10 @@ The rebuild failed: machine.toml and the gateway settings were put back as they 
 Files that are empty now but had content at the last sync (%s). Syncing again with --force-zero.	Dateien sind jetzt leer, hatten aber beim letzten Sync Inhalt (%s). Der Sync läuft noch einmal mit --force-zero.
 Empty files that had content at the last sync (a kernel crash can do that):	Leere Dateien, die beim letzten Sync Inhalt hatten (ein Kernel-Absturz kann das auslösen):
 Restore them: snapraid -c %s fix -f <path>. If they are meant to be empty: hs pool bulk sync --force	Wiederherstellen: snapraid -c %s fix -f <Pfad>. Falls sie leer sein sollen: hs pool bulk sync --force
+%s owns '%s': %s is refused. Turn %s off under Settings, Capabilities, %s.	%s gehört '%s': %s ist nicht erlaubt. Schalte %s aus unter Settings, Capabilities, %s.
+deleting it	das Löschen
+removing a device	das Entfernen eines Geräts
+adding a device	das Hinzufügen eines Geräts
+a smaller disk	eine kleinere Platte
+moving a mount	das Umhängen einer Einbindung
+The snapshot was older than the lock: '%s' belongs to %s again.	Der Schnappschuss war älter als die Sperre: '%s' gehört wieder %s.

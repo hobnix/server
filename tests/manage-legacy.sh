@@ -44,7 +44,7 @@ export PATH="$BIN:$PATH"
 CT="bash $SCRIPTS/manage-ct.sh"; US="bash $SCRIPTS/manage-users.sh"
 
 echo "-- manage-ct: what the interface reads is unchanged"
-check_eq "--list: one line per instance, tab separated" "web	ct	Running	10.10.95.21	512MiB	-	true	yes	false	10GiB	1	2026-10-01	1	2	0	-" "$($CT --list)"
+check_eq "--list: one line per instance, tab separated" "web	ct	Running	10.10.95.21	512MiB	-	true	yes	false	10GiB	1	2026-10-01	1	2	0	-	-" "$($CT --list)"
 check_eq "--snapshots" "snap-a	2026-10-01 10:00
 snap-b	2026-10-02 11:30" "$($CT web --snapshots)"
 check_eq "--storage" "data	fast	volume vol	/data	write	-" "$($CT web --storage 2>/dev/null)"
