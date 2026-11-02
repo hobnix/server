@@ -1897,7 +1897,9 @@ Manager	Manager
 Memory (MiB)	Speicher (MiB)
 CPUs	CPUs
 Apps	Apps
-Docker is off. Turn it on: hs docker enable	Docker ist aus. Einschalten: hs docker enable
+No container docker is owned by hobnix yet. Create it: hs docker enable	Noch kein Container docker gehört hobnix. Anlegen: hs docker enable
+The container docker exists, but Docker is not listed as on. Turn it on: hs docker enable	Der Container docker existiert, Docker ist aber nicht als an eingetragen. Einschalten: hs docker enable
+A container named docker exists but hobnix does not own it. Nothing was changed.	Ein Container namens docker existiert, gehört aber nicht hobnix. Nichts wurde geändert.
 No apps run in Docker yet.	In Docker läuft noch keine App.
 Started in the background: %s	Im Hintergrund gestartet: %s
 Step failed: %s. hs docker disable removes what was made.	Schritt fehlgeschlagen: %s. hs docker disable entfernt, was angelegt wurde.

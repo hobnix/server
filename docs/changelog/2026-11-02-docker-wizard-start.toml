@@ -1,0 +1,4 @@
+date  = "2026-11-02"
+type  = "fix"
+title = "The Docker setup page starts at the first question until the Docker container exists"
+body  = """Listing Docker as on in machine.toml no longer counts as set up: the page asks the two questions and Apply creates the container with hs docker enable. hs docker status says off, and names the command, while no container owned by hobnix exists."""

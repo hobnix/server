@@ -39,6 +39,25 @@ export function changed(draft, opts, verb = 'setup') {
   return d.length ? [verb, ...d.flatMap((c) => ['--set', `${c.key}=${c.to}`])] : [];
 }
 
+// the arguments of a first setup: every key of the steps is sent, also when it equals the current value (nothing exists yet that could differ)
+export function changedAll(draft, steps, verb = 'setup') {
+  const set = stepKeys(steps).filter((k) => String(draft[k] ?? '').trim() !== '');
+  return set.length ? [verb, ...set.flatMap((k) => ['--set', `${k}=${String(draft[k]).trim()}`])] : [];
+}
+
+// the value of a key in the rows of a key<TAB>value read ('' when missing or '-')
+export function kvGet(rows, key) {
+  const r = (rows || []).find((x) => x[0] === key);
+  return r && r[1] !== '-' ? String(r[1]) : '';
+}
+
+// Is the setup of a capability done? The docker setup is done when its container exists and hobnix owns it (`owned` of `hs sys docker status`),
+// not when the capability is listed as on; every other capability keeps `on`. `status` = rows of the docker status read, or null while unread.
+export function setupDone(apply, on, status) {
+  if (apply === 'docker setup') return kvGet(status, 'owned') === 'yes';
+  return !!on;
+}
+
 // ---- the wizard (one question per screen): steps with `options` instead of `presets` ----
 
 // the option whose values all equal the draft, or undefined

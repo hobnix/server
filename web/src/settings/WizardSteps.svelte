@@ -7,10 +7,11 @@
   import ChoiceList from '../ui/ChoiceList.svelte';
   import { tr } from '../i18n.js';
   import { openPlan } from '../ui.svelte.js';
-  import { stepKeys, draftFrom, applyPreset, optionOf, freeKeys, withRecommended, screens, diff, changed, applyParts } from './steps.js';
+  import { stepKeys, draftFrom, applyPreset, optionOf, freeKeys, withRecommended, screens, diff, changed, changedAll, applyParts } from './steps.js';
 
   // steps: the layout list; apply: "<area> <verb>"; opts: rows of `hs sys config list`; off: a reason the setup is off. on: the part is on already (the page then starts at the review, the summary)
-  let { steps = [], apply = '', opts = [], off = '', on = false } = $props();
+  // first: nothing exists yet (the docker container): Apply is always possible and sends every step key
+  let { steps = [], apply = '', opts = [], off = '', on = false, first = false } = $props();
   let draft = $state({});
   let ready = $state(false);
   let advanced = $state(false);
@@ -41,7 +42,7 @@
   const shown = (s) => optionOf(draft, s)?.label ?? s.keys.map((k) => `${k} = ${draft[k] || '(empty)'}`).join(', ');
   const review = () => {
     const { area, verb } = applyParts(apply);
-    openPlan(area, changed(draft, opts, verb), 'Apply the setup');
+    openPlan(area, first ? changedAll(draft, steps, verb) : changed(draft, opts, verb), 'Apply the setup');
   };
 </script>
 
@@ -63,7 +64,7 @@
       {/each}
     </Wizard>
   {:else if isReview}
-    <Wizard index={at} total={list.length} question={tr('Review')} help="" primary={tr('Apply…')} canNext={!!changes.length} onnext={review} onback={() => go(at - 1)} bind:advanced>
+    <Wizard index={at} total={list.length} question={tr('Review')} help="" primary={tr('Apply…')} canNext={first || !!changes.length} onnext={review} onback={() => go(at - 1)} bind:advanced>
       {#each steps as s (s.id)}
         <div class="rv">
           <span class="rt">{s.title}</span>
@@ -77,6 +78,8 @@
             <code>{c.key}</code><span class="mono">{c.from || '(empty)'} → {c.to || '(empty)'}</span>
           {/each}
         </div>
+      {:else if first}
+        <div class="muted">Nothing is set up yet: Apply creates it with these values.</div>
       {:else}
         <div class="muted">Nothing changed yet.</div>
       {/if}

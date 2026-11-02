@@ -59,6 +59,21 @@ check_eq "exit 0" 0 "$rc"
 echo "$out" | grep -qx $'state\toff' && pass "state off" || fail "state: $out"
 echo "$out" | grep -qx $'instance\t-' && pass "instance -" || fail "instance: $out"
 
+echo "-- listed as on, but no container"
+reset; echo docker > "$HS_CAPABILITIES_FILE"; echo webui > "$HS_SETTINGS_DIR/dockerManager"
+out=$($D --status)
+echo "$out" | grep -qx $'state\toff' && pass "state off without an owned container" || fail "state: $out"
+echo "$out" | grep -qx $'owned\tno' && pass "owned no" || fail "owned: $out"
+out=$($D status 2>&1)
+echo "$out" | grep -q "hs docker enable" && pass "status names hs docker enable" || fail "status text: $out"
+: > "$HS_CAPABILITIES_FILE"
+
+echo "-- status on (owned)"
+reset; : > "$STATE"; echo docker > "$OWNERF"; echo docker > "$HS_CAPABILITIES_FILE"; echo webui > "$HS_SETTINGS_DIR/dockerManager"
+out=$($D --status)
+echo "$out" | grep -qx $'state\ton' && pass "state on when owned" || fail "state: $out"
+: > "$HS_CAPABILITIES_FILE"
+
 echo "-- enable --dry-run"
 reset
 out=$($D enable --dry-run --yes 2>&1) || true
@@ -174,10 +189,28 @@ rc=0; out=$($S plan setup --set dockerManager=webui </dev/null 2>&1) || rc=$?
 check_eq "foreign instance docker: exit 1" 1 "$rc"
 echo "$out" | grep -qx "status${T}refused" && pass "foreign instance refused" || fail "foreign: $out"
 echo "$out" | grep -q "^reason${T}An instance called .docker. exists and is not managed by hs" && pass "foreign instance: the real reason, not the Fix line" || fail "foreign reason: $out"
+echo "-- listed or dockerManager set, but no container: allowed"
 reset; echo webui > "$HS_SETTINGS_DIR/dockerManager"
+rc=0; out=$($S plan setup --set dockerManager=webui </dev/null 2>&1) || rc=$?
+check_eq "manager set, no container: exit 0" 0 "$rc"
+echo "$out" | grep -qx "status${T}ok" && pass "manager set, no container: plan ok" || fail "manager set: $out"
+reset; echo docker > "$HS_CAPABILITIES_FILE"
+rc=0; out=$($S plan setup --set dockerManager=webui </dev/null 2>&1) || rc=$?
+check_eq "listed, no container: exit 0" 0 "$rc"
+echo "$out" | grep -qx "status${T}ok" && pass "listed, no container: plan ok" || fail "listed: $out"
+rc=0; $S start setup --set dockerManager=none </dev/null >/dev/null 2>&1 || rc=$?
+check_eq "listed, no container: start exit 0" 0 "$rc"
+grep -q "manage-ct --create docker" "$MLOG" && pass "listed, no container: enable ran" || fail "enable did not run: $(cat "$MLOG")"
+echo "-- owned: refused"
+reset; : > "$STATE"; echo docker > "$OWNERF"; echo docker > "$HS_CAPABILITIES_FILE"; echo webui > "$HS_SETTINGS_DIR/dockerManager"
 rc=0; out=$($S plan setup --set dockerManager=webui </dev/null 2>&1) || rc=$?
 check_eq "docker on already: exit 1" 1 "$rc"
 echo "$out" | grep -q "^reason${T}Docker is on already" && pass "on already refused" || fail "on already: $out"
+echo "-- owned, not listed: status says so"
+reset; : > "$HS_CAPABILITIES_FILE"; : > "$STATE"; echo docker > "$OWNERF"
+out=$($D status 2>&1)
+echo "$out" | grep -q "exists, but Docker is not listed" && pass "owned, not listed: true text" || fail "text: $out"
+: > "$HS_CAPABILITIES_FILE"
 reset
 rc=0; out=$($S start setup --set dockerManager=none </dev/null 2>&1) || rc=$?
 check_eq "start exit 0" 0 "$rc"

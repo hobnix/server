@@ -1,7 +1,7 @@
 // The guided steps of a capability page (web/src/settings/steps.js) and what the layout JSON declares. Plain node.
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
-import { stepKeys, draftFrom, applyPreset, presetOf, diff, changed, applyParts, optionOf, withRecommended, screens, progress, isGuided, freeKeys } from '../web/src/settings/steps.js';
+import { stepKeys, draftFrom, applyPreset, presetOf, diff, changed, applyParts, optionOf, withRecommended, screens, progress, isGuided, freeKeys, changedAll, kvGet, setupDone } from '../web/src/settings/steps.js';
 
 const layout = JSON.parse(readFileSync(new URL('../web/src/settings/layout.gen.json', import.meta.url), 'utf8'));
 const gw = layout.caps.gateway;
@@ -70,3 +70,18 @@ assert.deepEqual(screens(dk.steps, 'size'), ['size', 'review']);
 assert.deepEqual(screens(dk.steps, 'nope'), ['manager', 'size', 'review']);
 assert.deepEqual(progress(1, 3), { text: 'Step 2 of 3', pct: 67 });
 console.log('  ok    settings steps');
+
+// the docker wizard counts the container, not the capability list
+const dkSteps = layout.caps.docker.steps;
+const dkDraft = withRecommended(draftFrom([], dkSteps), dkSteps);
+assert.deepEqual(changedAll(dkDraft, dkSteps, 'setup'), ['setup', '--set', 'dockerManager=webui', '--set', 'dockerSize=m']);
+assert.deepEqual(changedAll({}, dkSteps, 'setup'), []);
+const owned = [['state', 'on'], ['owned', 'yes']];
+const notOwned = [['state', 'off'], ['owned', 'no'], ['instance', '-']];
+assert.equal(kvGet(notOwned, 'instance'), '');
+assert.equal(setupDone('docker setup', true, notOwned), false);
+assert.equal(setupDone('docker setup', true, null), false);
+assert.equal(setupDone('docker setup', false, owned), true);
+assert.equal(setupDone('gateway setup', true, notOwned), true);
+assert.equal(setupDone('gateway setup', false, owned), false);
+
