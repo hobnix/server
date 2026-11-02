@@ -164,6 +164,11 @@ has '^heading	create the share newshare$' && has '^step	mount it into jellyfin a
 has "^command	.*create newshare --ct jellyfin /data --as 1000:100$" && pass "the command" || fail "add command: $out"
 run plan shares add --kind shares
 check_eq "a reserved name" 1 "$rc"
+run plan newshare add --kind shares --tier fast
+check_eq "add --tier fast: exit 0" 0 "$rc"
+has "^command	.*create newshare --fast$" && has "SSD pool" && pass "add --tier fast: --fast and the plan text" || fail "add fast: $out"
+run plan newshare add --kind shares --tier slow
+check_eq "a bad tier is refused" 1 "$rc"
 
 echo "-- remove a kept folder for good"
 run plan docs purge

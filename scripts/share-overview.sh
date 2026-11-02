@@ -9,13 +9,14 @@
 #                      cache       on | off | emptying, "-" where there is none
 #                      measured    when the sizes were measured (SnapRAID), empty on ZFS (always current)
 #                      backup      on | off, "-" for other
-#                      disks       SnapRAID: the data disks that hold the folder (data-01,data-02), ZFS: the pool name, "-" for other
+#                      disks       SnapRAID: the data disks that hold the folder (data-01,data-02), ZFS: the pool name, `fast` for a share on the SSD pool (/fast/...), "-" for other
 #                      mounted_in  the instances that mount it, name(ro|rw), comma separated, "-" for none
 #   mounts <share>   one line per instance device that mounts the share (or a folder inside it):
 #                      instance  device  inside_path  ro|rw  source
 #   history <share>  ZFS layout: the snapshots of the share, oldest first: name  created  auto|manual  used
 #                    (SnapRAID: nothing, the backup is the history: hs share <share> restore)
 #   deleted          the kept folders of deleted shares (share-delete.sh leaves <share>.deleted-<date>): name  kind  bytes  disks
+#                    (also the ones under fast/shares and fast/sensitive, disks `fast`)
 # One `incus list -f json`, one backup.sh --shares, one manage-shares.sh --list, run side by side: about as fast as the slowest of the three.
 # Test knobs: HS_MANAGE_SHARES, HS_BACKUP, HS_INCUS, HS_ZFS, HS_MNT_BULK, HS_BULK_TYPE_FILE, HS_BULK_POOL.
 set -euo pipefail
@@ -42,14 +43,17 @@ case "${1:-}" in
     exit 0 ;;
   history)
     share=${2:-}; [ -n "$share" ] || { echo "usage: share-overview.sh history <share>" >&2; exit 1; }
-    [ "$bulk_type" = zfs ] || exit 0
-    zfs=${HS_ZFS:-zfs}; pool=${HS_BULK_POOL:-bulk}
-    for kind in shares sensitive; do
-      if "$zfs" list -H -o name "$pool/$kind/$share" >/dev/null 2>&1; then
-        "$zfs" list -H -t snapshot -o name,creation,used -s creation -d 1 "$pool/$kind/$share" 2>/dev/null |
-          awk -F'\t' '{ n = $1; sub(/^[^@]*@/, "", n); print n "\t" $2 "\t" (n ~ /^auto-/ ? "auto" : "manual") "\t" $3 }'
-        break
-      fi
+    zfs=${HS_ZFS:-zfs}
+    pools=(fast)
+    [ "$bulk_type" != zfs ] || pools=("${HS_BULK_POOL:-bulk}" fast)
+    for pool in "${pools[@]}"; do
+      for kind in shares sensitive; do
+        if "$zfs" list -H -o name "$pool/$kind/$share" >/dev/null 2>&1; then
+          "$zfs" list -H -t snapshot -o name,creation,used -s creation -d 1 "$pool/$kind/$share" 2>/dev/null |
+            awk -F'\t' '{ n = $1; sub(/^[^@]*@/, "", n); print n "\t" $2 "\t" (n ~ /^auto-/ ? "auto" : "manual") "\t" $3 }'
+          break 2
+        fi
+      done
     done
     exit 0 ;;
   deleted)
@@ -71,6 +75,9 @@ case "${1:-}" in
         "$zfs" list -H -p -o name,used -d 1 "$pool/$kind" 2>/dev/null |
           awk -F'\t' -v k="$kind" -v p="$pool" '{ n = $1; sub(/^.*\//, "", n); if (n ~ /\.deleted-/) print n "\t" k "\t" $2 "\t" p }'
       fi
+      # a kept folder of a share on the /D pool
+      "$zfs" list -H -p -o name,used -d 1 "fast/$kind" 2>/dev/null |
+        awk -F'\t' -v k="$kind" '{ n = $1; sub(/^.*\//, "", n); if (n ~ /\.deleted-/) print n "\t" k "\t" $2 "\tfast" }' || true
     done | sort
     exit 0 ;;
   "") ;;
@@ -103,8 +110,10 @@ while IFS=$'\t' read -r name kind path cache size measured; do
   bk=- disks=- mounted=${usedby[$path]:--}
   if [ "$kind" != other ]; then
     bk=${backup[$name]:--}
-    rel=${path#/bulk/}
-    if [ "$bulk_type" = snapraid ]; then
+    rel=${path#/*/}
+    if [ "${path#/fast/}" != "$path" ]; then
+      disks=fast
+    elif [ "$bulk_type" = snapraid ]; then
       found=""
       for d in "$mnt"/data-*; do [ -d "$d/$rel" ] && found+="${found:+,}${d##*/}"; done
       disks=${found:--}

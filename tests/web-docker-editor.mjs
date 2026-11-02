@@ -100,6 +100,7 @@ check('a normalised CRLF env text has no lint errors', lintEnv(crlf).length === 
 import { varPrefixAt, mountsOf, findMount, mountOfPath, joinHost, volumeEntryText, mountArgs, volumeSource, insertVolumeEdit, volumeEntryAt, volumeCandidates, validContainerPath, validSub } from '../web/src/editor/volumes.js';
 const rowsStor = [['media', 'shares', '/bulk/shares/media', '/shares/media', 'write', '-'], ['remote-nas', 'other', '/mnt/remote/nas', '/shares/nas', 'write', '-'], ['arr', 'shares', '/bulk/shares/arr', '/shares/arr', 'read', '-']];
 const mnt = mountsOf(rowsStor);
+check('mountsOf: a share on /fast/shares counts as a share', mountsOf([['notes', 'shares', '/fast/shares/notes/x', '/shares/notes', 'write', '-']])[0].share === 'notes');
 check('mountsOf: share, peer (always read only) and read-only mounts', mnt.length === 3 && mnt[0].share === 'media' && !mnt[0].ro && mnt[1].peer === 'nas' && mnt[1].ro && mnt[2].ro);
 check('findMount: by share or by peer', findMount(mnt, { share: 'media' })?.path === '/shares/media' && findMount(mnt, { peer: 'nas' })?.path === '/shares/nas' && !findMount(mnt, { share: 'x' }));
 check('mountOfPath: the longest mount, never a prefix of a name', mountOfPath(mnt, '/shares/media/x')?.share === 'media' && !mountOfPath(mnt, '/shares/mediabox') && !mountOfPath(mnt, '/srv'));

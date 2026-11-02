@@ -60,7 +60,7 @@ check_out "without a domain the new share starts open, and it says so" "open to 
 
 echo "-- hs share repair (--fix-owner) goes through the registry"
 fake=$WORK/reg; mkdir -p "$fake/lib"
-cp "$SCRIPTS"/lib/hs.sh "$SCRIPTS"/lib/capability.sh "$SCRIPTS"/lib/registry-load.sh "$SCRIPTS"/lib/ui.sh "$SCRIPTS"/lib/i18n.sh "$SCRIPTS"/lib/setting.sh "$SCRIPTS"/lib/job.sh "$SCRIPTS"/lib/live.sh "$SCRIPTS/lib/registry.tsv" "$fake/lib/"; cp -r "$SCRIPTS"/lib/i18n "$fake/lib/"
+cp "$SCRIPTS"/lib/hs.sh "$SCRIPTS"/lib/capability.sh "$SCRIPTS"/lib/registry-load.sh "$SCRIPTS"/lib/ui.sh "$SCRIPTS"/lib/i18n.sh "$SCRIPTS"/lib/setting.sh "$SCRIPTS"/lib/job.sh "$SCRIPTS"/lib/live.sh "$SCRIPTS"/lib/sharepath.sh "$SCRIPTS/lib/registry.tsv" "$fake/lib/"; cp -r "$SCRIPTS"/lib/i18n "$fake/lib/"
 cp "$SCRIPTS/sync-shares.sh" "$fake/"
 F="env HS_CALLER=t HS_COMPLETE_DIR=$WORK/complete bash $fake/lib/hs.sh"
 : > "$CALLS"
@@ -80,4 +80,7 @@ check_out "one word is not enough" "usage: hs share <share> cache" $C photos
 check_eq "--state: unsupported, nothing waiting (what the interface reads)" $'unsupported\t0' "$($C --state photos)"
 check_eq "hs sys cache state through the registry" $'unsupported\t0' "$(cp "$SCRIPTS/share-cache.sh" "$fake/"; $F sys cache state photos)"
 check_out "hs share <share> cache on through the registry" "exists only on the snapraid layout" $F share photos cache on
+echo "-- a path on the SSD pool has no upload cache (on a snapraid layout too)"
+echo snapraid > "$WORK/bt-snapraid"
+check_eq "--state of /fast/shares/<name>: unsupported" $'unsupported	0' "$(HS_BULK_TYPE_FILE=$WORK/bt-snapraid $C --state /fast/shares/notes)"
 finish

@@ -21,6 +21,8 @@ class Shapes(unittest.TestCase):
         self.assertTrue(ok(["media", "add", "--kind", "shares"]))
         self.assertTrue(ok(["media", "add", "--kind", "sensitive", "--ct", "jellyfin", "--path", "/media", "--as", "1000:1000"]))
         self.assertTrue(ok(["media", "add", "--path", "/srv/media", "--ct", "jellyfin", "--kind", "shares"]))   # any order
+        self.assertTrue(ok(["media", "add", "--kind", "shares", "--tier", "fast"]))
+        self.assertFalse(ok(["media", "add", "--kind", "shares", "--tier", "slow"]))
         self.assertTrue(ok(["media", "add"]))                       # the script answers `needs kind`
 
     def test_add_refused(self):

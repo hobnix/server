@@ -1,5 +1,5 @@
 <script>
-  // New share: `hs sys shares plan|start <name> add --kind shares|sensitive [--ct <instance> --path <inside> [--as <uid>:<gid>]]`.
+  // New share: `hs sys shares plan|start <name> add --kind shares|sensitive [--tier bulk|fast] [--ct <instance> --path <inside> [--as <uid>:<gid>]]`.
   // The command has no switches for backup, cache or snapshots at creation: those are separate changes on the share afterwards.
   import CreateDialog from '../../shell/CreateDialog.svelte';
   import { poll, rows } from '../../data.svelte.js';
@@ -11,6 +11,7 @@
 
   let name = $state('');
   let kind = $state('shares');
+  let tier = $state('bulk');
   let bind = $state(false);
   let ct = $state('');
   let path = $state('');
@@ -22,6 +23,7 @@
   const args = () => {
     if (!nameOk) return null;
     const a = [name, 'add', '--kind', kind];
+    if (tier === 'fast') a.push('--tier', 'fast');
     if (bind) {
       if (!ct) return null;
       a.push('--ct', ct);
@@ -48,6 +50,15 @@
         <label class="seg-opt"><input type="radio" bind:group={kind} value="sensitive" /><i class="ph ph-folder-lock"></i>Sensitive</label>
       </div>
       <div class="hint">{kind === 'sensitive' ? 'Container-owned data: read-only for the Samba users.' : 'Read and write; everyone acts as adminuser. Only Domain Admins may use it until you set permissions.'}</div>
+    </div>
+
+    <div class="field">
+      <label for="ns-tier">Where</label>
+      <div class="seg" id="ns-tier">
+        <label class="seg-opt"><input type="radio" bind:group={tier} value="bulk" /><i class="ph ph-hard-drives"></i>Disks (bulk)</label>
+        <label class="seg-opt"><input type="radio" bind:group={tier} value="fast" /><i class="ph ph-lightning"></i>SSD (fast)</label>
+      </div>
+      <div class="hint">{tier === 'fast' ? 'Fast and small: for app data and files used often.' : 'The big pool of disks: for media, photos and backups.'}</div>
     </div>
 
     <div class="field">

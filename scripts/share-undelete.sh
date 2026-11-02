@@ -7,7 +7,7 @@
 # under the bulk lock. It refuses when a Samba share, a folder or a dataset of the old name exists already (so nothing is merged or
 # overwritten), and it never deletes. Then sync-shares.sh publishes the folder as a Samba share and hands the files to adminuser (what
 # `hs share repair` does). The delete dropped the share's Samba settings and permissions, so the share starts closed (Domain Admins only);
-# the mounts of instances are not put back. A backup switch the delete moved to the kept name is moved back.
+# the mounts of instances are not put back. A kept folder under fast/ is a dataset and is renamed the same way. A backup switch the delete moved to the kept name is moved back.
 # --dry-run prints the commands, indented. Test knobs: HS_MNT_BULK, HS_BULK_TYPE_FILE, HS_ZFS, HS_NET, HS_LOCK, HS_BULK_POOL, HS_SYNC_SHARES, HS_STATE_DIR.
 set -euo pipefail
 kept=${1:-}; dry=false
@@ -56,6 +56,11 @@ for kind in shares sensitive; do
       echo "$pool/$kind/$orig exists already: nothing is changed." >&2; exit 1
     fi
   fi
+  # a kept folder of a share on the SSD pool: always a dataset
+  if "$zfs" list -H -o name "fast/$kind/$kept" >/dev/null 2>&1; then targets+=("fast/$kind/$kept"); kinds+=("$kind"); fi
+  if "$zfs" list -H -o name "fast/$kind/$orig" >/dev/null 2>&1; then
+    echo "fast/$kind/$orig exists already: nothing is changed." >&2; exit 1
+  fi
 done
 if [ ${#targets[@]} -eq 0 ]; then
   echo "There is no kept folder called '$kept'." >&2
@@ -68,7 +73,7 @@ kind=${kinds[0]}
 
 if $dry; then
   for t in "${targets[@]}"; do
-    if [ "$bulk_type" = snapraid ]; then printf '  mv %s %s\n' "$t" "$(dirname "$t")/$orig"; else printf '  zfs rename %s %s\n' "$t" "${t%/*}/$orig"; fi
+    if [ "$bulk_type" = snapraid ] && [ "${t#fast/}" = "$t" ]; then printf '  mv %s %s\n' "$t" "$(dirname "$t")/$orig"; else printf '  zfs rename %s %s\n' "$t" "${t%/*}/$orig"; fi
   done
   printf '  hs share repair   (publish %s as a Samba share, Domain Admins only)\n' "$orig"
   exit 0
@@ -80,7 +85,7 @@ flock -w 600 9 || { echo "Parity sync or cache mover is running, try again later
 
 done_t=()
 for t in "${targets[@]}"; do
-  if [ "$bulk_type" = snapraid ]; then
+  if [ "$bulk_type" = snapraid ] && [ "${t#fast/}" = "$t" ]; then
     if mv -n -- "$t" "$(dirname "$t")/$orig" && [ ! -e "$t" ]; then done_t+=("$t")
     else
       echo "Could not rename $t; undoing the renames already made." >&2

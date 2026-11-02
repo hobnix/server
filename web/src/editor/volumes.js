@@ -10,7 +10,7 @@ const SHARE_RE = /^[A-Za-z0-9][A-Za-z0-9._-]{0,63}$/;
 const PEER_RE = /^[a-z0-9][a-z0-9-]{0,19}$/;
 
 // rows of `ct storage docker` (device kind source path access cache) -> [{ device, kind, source, path, ro, share, peer }]
-// share = a local share under /bulk/shares; peer = a remote peer under /mnt/remote (always read only)
+// share = a local share under /bulk/shares or /fast/shares; peer = a remote peer under /mnt/remote (always read only)
 export function mountsOf(rows) {
   const out = [];
   for (const r of rows || []) {
@@ -18,7 +18,8 @@ export function mountsOf(rows) {
     const [device, kind, source, path, access] = r;
     if (!path || path === '/' || !String(path).startsWith('/')) continue;
     const m = { device, kind, source, path, ro: access === 'read', share: '', peer: '' };
-    if (String(source).startsWith('/bulk/shares/')) m.share = String(source).slice('/bulk/shares/'.length).split('/')[0];
+    const sh = /^\/(?:bulk|fast)\/shares\//.exec(String(source));
+    if (sh) m.share = String(source).slice(sh[0].length).split('/')[0];
     else if (String(source).startsWith('/mnt/remote/')) { m.peer = String(source).slice('/mnt/remote/'.length).split('/')[0]; m.ro = true; }
     out.push(m);
   }

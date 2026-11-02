@@ -22,6 +22,7 @@ set -euo pipefail
 here=$(dirname "$0")
 . "$here/lib/ui.sh"
 . "$here/lib/bulkpath.sh"
+. "$here/lib/sharepath.sh"
 . "$here/lib/instance.sh"
 . "$(dirname "$0")/lib/live.sh"
 live_refresh_shares() { live_refresh status shares-overview shares-deleted fm-locations pool-info-bulk; }
@@ -82,7 +83,7 @@ entries() { sharesec "$1" --view 2>/dev/null | sed -n 's/^ACL://p'; }
 sizes=${HS_STATE_DIR:-/var/lib/hs}/share-sizes
 bulk_type=$(cat "${HS_BULK_TYPE_FILE:-/etc/hs/bulk-type}" 2>/dev/null || echo zfs)
 size_of() {   # size_of <path>
-  if [ "$bulk_type" = snapraid ]; then
+  if [ "$bulk_type" = snapraid ] && [ "${1#"$(share_root fast)"/}" = "$1" ]; then
     awk -F'\t' -v p="$1" '$1 == p { print $2; found = 1 } END { if (!found) print "-" }' "$sizes" 2>/dev/null || echo -
   else
     "${HS_ZFS:-zfs}" list -Hp -o used "${1#/}" 2>/dev/null || echo -
@@ -96,7 +97,7 @@ measure() {   # measure [share]: every share, or only one (its line in the sizes
     [ -z "$only" ] || [ "$s" = "$only" ] || continue
     path=$(net conf getparm "$s" path 2>/dev/null || true)
     case "$path" in
-      /bulk/shares/*|/bulk/sensitive/*)
+      /bulk/shares/*|/bulk/sensitive/*|/fast/*)
         if [ -n "$only" ]; then { grep -vF "$path"$'\t' "$tmp" || true; } > "$tmp.n"; mv "$tmp.n" "$tmp"; fi
         if [ -t 1 ]; then
           # a person at a terminal sees a spinner per share; the timer and the interface get no extra lines
@@ -129,19 +130,16 @@ shares() {
   done < <("$netc" conf list 2>/dev/null | awk '
     /^[ \t]*\[.*\][ \t]*$/ { sec = $0; sub(/^[ \t]*\[/, "", sec); sub(/\][ \t]*$/, "", sec); next }
     sec != "" && /^[ \t]*path[ \t]*=/ { v = $0; sub(/^[^=]*=[ \t]*/, "", v); sub(/[ \t]+$/, "", v); print sec "\t" v; sec = "" }' || true)
-  if [ "$bulk_type" != snapraid ]; then
-    while IFS=$'\t' read -r name used; do
-      [ -z "$name" ] || useds[$name]=$used
-    done < <("$zfsc" list -Hp -o name,used -r bulk/shares bulk/sensitive 2>/dev/null || true)
-  fi
+  # fast shares are datasets whatever the bulk layout is; bulk ones only on ZFS (errors ignored: a pool may not exist)
+  local pools=(fast/shares fast/sensitive)
+  [ "$bulk_type" = snapraid ] || pools=(bulk/shares bulk/sensitive "${pools[@]}")
+  while IFS=$'\t' read -r name used; do
+    [ -z "$name" ] || useds[$name]=$used
+  done < <("$zfsc" list -Hp -o name,used -r "${pools[@]}" 2>/dev/null || true)
   for s in $names; do
     path=${paths[$s]-}
     [ -n "$path" ] || path=$("$netc" conf getparm "$s" path 2>/dev/null || true)
-    case "$path" in
-      /bulk/shares/*)    kind=shares ;;
-      /bulk/sensitive/*) kind=sensitive ;;
-      *)                 kind=other ;;
-    esac
+    kind=$(share_kind_of_path "$path")
     cache=-
     # on ZFS the cache script only answers "unsupported" (shown as -): no process needed for that
     if [ "$kind" != other ] && [ "$bulk_type" = snapraid ]; then
@@ -150,7 +148,7 @@ shares() {
     fi
     size=-
     if [ "$kind" != other ]; then
-      if [ "$bulk_type" != snapraid ] && [ -n "${useds[${path#/}]-}" ]; then size=${useds[${path#/}]}
+      if [ -n "${useds[${path#/}]-}" ]; then size=${useds[${path#/}]}
       else size=$(size_of "$path"); fi
     fi
     printf '%s\t%s\t%s\t%s\t%s\t%s\n' "$s" "$kind" "$path" "$cache" "${size:--}" "$measured"
@@ -214,17 +212,21 @@ esac
 # disk that holds it, then moves the Samba share (settings and permissions),
 # the backup switch and the mounts of containers over to the new name.
 BULK=${HS_BULK:-/bulk}
+FAST=$(share_root fast)
 DATA_ROOT=${HS_DATA_ROOT:-$(disks_root)}
 STATE=${HS_STATE_DIR:-/var/lib/hs}
 
 rename_share() {   # rename_share <old> <new>
-  local old=$1 new=$2 path kind newpath cache d dirs=() done_dirs=() ct dev line k v acl=() e params=() users=()
+  local old=$1 new=$2 tier=bulk layout=$bulk_type path kind newpath cache d dirs=() done_dirs=() ct dev line k v acl=() e params=() users=()
   path=$(net conf getparm "$old" path)
   case "$path" in
     "$BULK"/shares/*)    kind=shares ;;
     "$BULK"/sensitive/*) kind=sensitive ;;
+    "$FAST"/shares/*)    kind=shares; tier=fast ;;
+    "$FAST"/sensitive/*) kind=sensitive; tier=fast ;;
     *) fail "$(t "'%s' is not a folder under %s/shares or %s/sensitive: it can't be renamed here." "$old" "$BULK" "$BULK")" ;;
   esac
+  [ "$tier" = bulk ] || layout=zfs     # a fast share is always a dataset
   newpath=$(dirname "$path")/$new
 
   [[ "$new" =~ ^[A-Za-z0-9][A-Za-z0-9._-]*$ ]] || fail "$(t "'%s' is not a usable name (letters, digits, . _ - only; at most one word)." "$new")"
@@ -232,7 +234,7 @@ rename_share() {   # rename_share <old> <new>
   [ "$new" != "$old" ] || fail "That is the name it has already."
   if net conf listshares 2>/dev/null | grep -qix "$new"; then fail "$(t "A share called '%s' exists already." "$new")"; fi
 
-  if [ "$bulk_type" = snapraid ]; then
+  if [ "$layout" = snapraid ]; then
     for d in "$DATA_ROOT"/data-*/"$kind"/"$old"; do [ -d "$d" ] && dirs+=("$d"); done
     [ ${#dirs[@]} -gt 0 ] || fail "$(t "No disk holds a folder '%s' (is the pool mounted?)." "$old")"
     for d in "${dirs[@]}"; do
@@ -243,8 +245,8 @@ rename_share() {   # rename_share <old> <new>
       fail "$(t "The upload cache of '%s' is %s. Switch it off first and wait until it is empty:  hs share %s cache off" "$old" "$cache" "$old")" ;;
     esac
   else
-    zfs list -H -o name "bulk/$kind/$old" >/dev/null 2>&1 || fail "$(t 'No dataset bulk/%s/%s.' "$kind" "$old")"
-    ! zfs list -H -o name "bulk/$kind/$new" >/dev/null 2>&1 || fail "$(t 'bulk/%s/%s exists already.' "$kind" "$new")"
+    zfs list -H -o name "$tier/$kind/$old" >/dev/null 2>&1 || fail "$(t 'No dataset %s/%s/%s.' "$tier" "$kind" "$old")"
+    ! zfs list -H -o name "$tier/$kind/$new" >/dev/null 2>&1 || fail "$(t '%s/%s/%s exists already.' "$tier" "$kind" "$new")"
   fi
 
   # containers that have this folder mounted: "<instance> <device>"
@@ -257,10 +259,10 @@ rename_share() {   # rename_share <old> <new>
   for line in "${users[@]}"; do refuse_if_locked "${line%% *}" "$(t 'moving a mount')"; done
 
   echo "Rename '$old' to '$new':"
-  if [ "$bulk_type" = snapraid ]; then
+  if [ "$layout" = snapraid ]; then
     for d in "${dirs[@]}"; do echo "  folder   $d -> $(dirname "$d")/$new"; done
   else
-    echo "  dataset  bulk/$kind/$old -> bulk/$kind/$new"
+    echo "  dataset  $tier/$kind/$old -> $tier/$kind/$new"
   fi
   echo "  Samba    share '$old' is replaced by '$new' (same settings and permissions)"
   [ ${#users[@]} -eq 0 ] || echo "  restart  mounted in: $(printf '%s ' "${users[@]%% *}")(the mount points at the new folder)"
@@ -268,11 +270,13 @@ rename_share() {   # rename_share <old> <new>
   if $dry; then echo "(dry run, nothing changed)"; exit 0; fi
 
   # nothing may write while the folders move: same lock as parity sync and cache mover
-  exec 9>"${HS_LOCK:-/run/hs-bulk.lock}"
-  flock -w 600 9 || fail "Parity sync or cache mover is running, try again later."
+  if [ "$tier" = bulk ]; then
+    exec 9>"${HS_LOCK:-/run/hs-bulk.lock}"
+    flock -w 600 9 || fail "Parity sync or cache mover is running, try again later."
+  fi
   smbcontrol smbd close-share "$old" >/dev/null 2>&1 || true     # disconnect people who have it open
 
-  if [ "$bulk_type" = snapraid ]; then
+  if [ "$layout" = snapraid ]; then
     for d in "${dirs[@]}"; do
       if mv "$d" "$(dirname "$d")/$new"; then done_dirs+=("$d")
       else
@@ -282,7 +286,7 @@ rename_share() {   # rename_share <old> <new>
       fi
     done
   else
-    zfs rename "bulk/$kind/$old" "bulk/$kind/$new"
+    zfs rename "$tier/$kind/$old" "$tier/$kind/$new"
   fi
 
   # Samba: new share with the same parameters and permissions, then drop the old one

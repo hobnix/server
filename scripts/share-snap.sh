@@ -2,8 +2,8 @@
 # help: ZFS snapshots of a share: hs share <share> snapshot [name] | snapshots | rollback [name]
 # help.de: ZFS-Schnappschüsse einer Freigabe: hs share <Freigabe> snapshot [Name] | snapshots | rollback [Name]
 # args: <share> snapshot|snapshots|rollback [<name>] [--yes]
-# Only on the ZFS layout (a share is a dataset). On the snapraid layout the backup is the history:
-# hs share <share> restore. HS_ZFS and HS_BULK_TYPE point tests at stand-ins.
+# Only for a dataset: every share on ZFS, and the shares on the SSD pool (fast/...) also on a snapraid server. For a bulk share on
+# the snapraid layout the backup is the history: hs share <share> restore. HS_ZFS and HS_BULK_TYPE point tests at stand-ins.
 set -euo pipefail
 here=$(dirname "$0")
 . "$here/lib/ui.sh"
@@ -34,14 +34,17 @@ done
 [ -z "$name" ] || [[ "$name" =~ ^[A-Za-z0-9._-]+$ ]] || fail "$(t "'%s' is not a snapshot name (letters, digits, . _ -)." "$name")"
 
 bulk_type=${HS_BULK_TYPE:-$(cat /etc/hs/bulk-type 2>/dev/null || echo zfs)}
-if [ "$bulk_type" != zfs ]; then
+pools=(fast)
+[ "$bulk_type" != zfs ] || pools=("$pool" fast)
+ds=""
+for p in "${pools[@]}"; do
+  for kind in shares sensitive; do
+    if "$zfs" list -H -o name "$p/$kind/$share" >/dev/null 2>&1; then ds="$p/$kind/$share"; break 2; fi
+  done
+done
+if [ -z "$ds" ] && [ "$bulk_type" != zfs ]; then
   fail "$(t 'This server keeps /bulk on SnapRAID: there are no snapshots. Use the backup: hs share %s restore' "$share")"
 fi
-
-ds=""
-for kind in shares sensitive; do
-  if "$zfs" list -H -o name "$pool/$kind/$share" >/dev/null 2>&1; then ds="$pool/$kind/$share"; break; fi
-done
 [ -n "$ds" ] || fail "$(t "No share called '%s'." "$share")"
 
 snaps() { "$zfs" list -H -t snapshot -o name,creation,used -s creation -d 1 "$ds" 2>/dev/null || true; }

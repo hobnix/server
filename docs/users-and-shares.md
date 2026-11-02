@@ -43,6 +43,20 @@ sudo hs share add app-backups --sensitive
 To mount the folder into a container at the same time, add `--ct <container> <path>` (see [Containers and apps](containers-and-apps.md)).
 Two catch-all shares, `\\homeserver\shares` and `\\homeserver\sensitive`, show a whole parent folder and are for administrators only.
 
+### A share on the SSD
+
+```bash
+sudo hs share add notes --fast
+```
+
+`--fast` makes the share on the SSD pool: the folder is `/fast/shares/<name>` (with `--sensitive`: `/fast/sensitive/<name>`) and is its own ZFS
+dataset, like a share on the disks. Use it for small data that is used often, for example the files of apps. It is published, closed to
+Domain Admins at first, renamed, deleted and mounted into a container like any other share. Snapshots (`hs share <name> snapshot`) work on
+every server, also with SnapRAID, and it goes into the backup like the others. A name used on the disks cannot be used again on the SSD. In
+the web interface choose "Where: SSD (fast)".
+
+Not tested on hardware yet.
+
 ## Without a domain: set the password once
 
 Without a domain only `adminuser` can open shares. Set its Samba password (separate from its SSH login):

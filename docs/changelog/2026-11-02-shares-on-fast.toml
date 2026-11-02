@@ -1,0 +1,4 @@
+date  = "2026-11-02"
+type  = "feature"
+title = "A share can now live on the SSD pool"
+body  = """hs share add <name> --fast (or "Where: SSD (fast)" in the web interface) makes the share on the fast pool instead of the disks. It works like every other share: Samba, permissions, rename, snapshots, delete, backup and mounting into an instance. Snapshots of fast shares also work on a SnapRAID server."""

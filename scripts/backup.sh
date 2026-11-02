@@ -53,6 +53,7 @@ MNT=${HS_BACKUP_MOUNT:-/mnt/backup}
 REPO=${HS_BACKUP_REPO:-$MNT/restic}
 DEV=${HS_BACKUP_DEV:-/dev/disk/by-label/backup}
 BULK=${HS_BULK:-/bulk}
+FAST=${HS_FAST:-/fast}
 PASSFILE=$STATE/restic-password
 VAULT_SECRETS=${HS_VAULT_DIR:-/var/lib/hs-vault}/secrets
 OFF=$STATE/backup-off            # shares left out, one per line
@@ -60,6 +61,7 @@ ON=$STATE/backup-on              # shares included on purpose, one per line (onl
 # machine.toml `backupNewShares` (written to /etc/hs/backup-new-shares by configuration.nix):
 # "off" = a share is in the backup only when it was switched on; "on" = in unless switched off.
 # Without the file (a server that was not rebuilt yet) nothing changes: "on".
+. "$(dirname "$0")/lib/sharepath.sh"
 . "$(dirname "$0")/lib/setting.sh"   # backupNewShares is a runtime setting now (true|false); the old /etc/hs file (on|off) is its fallback
 NEW_SHARES=${HS_BACKUP_NEW_SHARES:-$(case "$(setting_get backupNewShares 2>/dev/null)" in false|off) echo off ;; *) echo on ;; esac)}
 CTS=$STATE/backup-instances      # containers included, one per line
@@ -130,12 +132,15 @@ need_repo() {
 }
 
 # ── What is included ──
-# Share folders: name per line, for /bulk/shares and /bulk/sensitive
+# Share folders: "kind name path" per line, for /bulk and /fast (shares, sensitive); path is the folder (lib/sharepath.sh share_dir)
 share_names() {
-  local kind
-  for kind in shares sensitive; do
-    [ -d "$BULK/$kind" ] || continue
-    find "$BULK/$kind" -mindepth 1 -maxdepth 1 -type d ! -name 'lost+found' -printf "$kind %f\n" | sort -k2
+  local tier kind root
+  for tier in $(share_tiers); do
+    root=$(share_root "$tier")
+    for kind in shares sensitive; do
+      [ -d "$root/$kind" ] || continue
+      find "$root/$kind" -mindepth 1 -maxdepth 1 -type d ! -name 'lost+found' -printf "$kind %f $root/$kind/%f\n" | sort -k2
+    done
   done
 }
 # The first time the default is "off", the shares that are in the backup today are written to
@@ -147,7 +152,7 @@ migrate_on() {
   [ ! -f "$ON" ] || return 0
   local kind name tmp="$ON.new"
   { mkdir -p "$STATE" && : > "$tmp"; } 2>/dev/null || return 0
-  while read -r kind name; do
+  while read -r kind name _; do
     [ -n "$name" ] || continue
     grep -qxF "$name" "$OFF" 2>/dev/null || printf '%s
 ' "$name" >> "$tmp"
@@ -350,10 +355,10 @@ cmd_now() {
     die "Not set up yet. Run: hs backup init <device>"
   fi
 
-  local paths=() on=() offn=() cts=() kind name
-  while read -r kind name; do
+  local paths=() on=() offn=() cts=() kind name spath
+  while read -r kind name spath; do
     [ -n "$name" ] || continue
-    if is_off "$name"; then offn+=("$name"); else on+=("$name"); paths+=("$BULK/$kind/$name"); fi
+    if is_off "$name"; then offn+=("$name"); else on+=("$name"); paths+=("$spath"); fi
   done < <(share_names)
   [ -f "$CTS" ] && while read -r name; do [ -n "$name" ] && cts+=("$name"); done < "$CTS"
 
@@ -468,7 +473,7 @@ cmd_status() {
 
   step "Shares"
   { thead 'Share' 'Backup'
-    while read -r kind name; do
+    while read -r kind name _; do
       [ -n "$name" ] || continue
       printf '%s\t%s\n' "$name" "$(is_off "$name" && t 'left out' || t 'in the backup')"
     done < <(share_names); } | table
@@ -812,18 +817,24 @@ share_bytes() {   # share_bytes <path>
   local path=$1 b
   b=$(awk -F'\t' -v p="$path" '$1 == p { print $2; exit }' "$STATE/share-sizes" 2>/dev/null || true)
   if [[ "$b" =~ ^[0-9]+$ ]]; then echo "$b"; return; fi
-  if command -v zfs >/dev/null 2>&1 && [ "$(cat /etc/hs/bulk-type 2>/dev/null || echo zfs)" = zfs ]; then
-    b=$(zfs list -Hp -o used "bulk/${path#"$BULK"/}" 2>/dev/null || true)
+  # a fast share is a dataset whatever the bulk layout is
+  local ds=""
+  case "$path" in
+    "$FAST"/*) ds="fast/${path#"$FAST"/}" ;;
+    *) [ "$(cat /etc/hs/bulk-type 2>/dev/null || echo zfs)" != zfs ] || ds="bulk/${path#"$BULK"/}" ;;
+  esac
+  if [ -n "$ds" ] && command -v zfs >/dev/null 2>&1; then
+    b=$(zfs list -Hp -o used "$ds" 2>/dev/null || true)
     if [[ "$b" =~ ^[0-9]+$ ]]; then echo "$b"; return; fi
   fi
   echo "-"
 }
 included_bytes() {   # prints "bytes unknown-count"
-  local kind name total=0 unknown=0 b
-  while read -r kind name; do
+  local kind name spath total=0 unknown=0 b
+  while read -r kind name spath; do
     [ -n "$name" ] || continue
     is_off "$name" && continue
-    b=$(share_bytes "$BULK/$kind/$name")
+    b=$(share_bytes "$spath")
     if [ "$b" = "-" ]; then unknown=$((unknown + 1)); else total=$((total + b)); fi
   done < <(share_names)
   echo "$total $unknown"
@@ -1057,11 +1068,11 @@ cmd_state_kv() {
 
 # --overview: kind<TAB>name<TAB>on|off<TAB>bytes or -  (kind = shares | sensitive | ct | always)
 cmd_overview_kv() {
-  local kind name state b
-  while read -r kind name; do
+  local kind name spath state b
+  while read -r kind name spath; do
     [ -n "$name" ] || continue
     if is_off "$name"; then state=off; else state=on; fi
-    printf '%s\t%s\t%s\t%s\n' "$kind" "$name" "$state" "$(share_bytes "$BULK/$kind/$name")"
+    printf '%s\t%s\t%s\t%s\n' "$kind" "$name" "$state" "$(share_bytes "$spath")"
   done < <(share_names)
   if [ -f "$CTS" ]; then
     while read -r name; do
@@ -1073,8 +1084,8 @@ cmd_overview_kv() {
 
 # --shares: kind<TAB>name<TAB>on|off  (kind = share | ct | always)
 cmd_shares_kv() {
-  local kind name
-  while read -r kind name; do
+  local kind name _
+  while read -r kind name _; do
     [ -n "$name" ] || continue
     if is_off "$name"; then printf 'share\t%s\toff\n' "$name"; else printf 'share\t%s\ton\n' "$name"; fi
   done < <(share_names)
