@@ -8,6 +8,7 @@
 # hard link (no copy, no extra space), which only works inside one share and one filesystem.
 media_storage() {   # media_storage <user inside the container>
   local user=$1
+  if ${RUNS_DOCKER:-false}; then media_storage_docker; return; fi
   step "User for the files"
   incus exec "$ct" -- sh -c "id $user >/dev/null 2>&1 || useradd --create-home --shell /usr/sbin/nologin $user" </dev/null
   ids=$(incus exec "$ct" -- sh -c "echo \"\$(id -u $user):\$(id -g $user)\"" </dev/null)
@@ -27,8 +28,13 @@ media_storage() {   # media_storage <user inside the container>
   ip=$(address "$ct")
   incus exec "$ct" -- su -s /bin/sh "$user" -c 'mkdir -p /media/movies /media/series /media/music /media/downloads/usenet/complete && touch /media/.hs-write-test && rm /media/.hs-write-test' </dev/null 2>/dev/null ||
     fail "$(t "'%s' can't write to /media. Look at the storage of '%s' in: hs ct list" "$user" "$ct")"
-  # A download moves into the library by a hard link: try one with a real file
-  if incus exec "$ct" -- su -s /bin/sh "$user" -c '
+  media_link_check "$ct" "$user"
+}
+
+# A download moves into the library by a hard link: try one with a real file, as the user, in the container <ct>
+media_link_check() {   # media_link_check <container> <user>
+  local c=$1 user=$2
+  if incus exec "$c" -- su -s /bin/sh "$user" -c '
       set -e
       echo test > /media/downloads/usenet/complete/.hs-link-test
       ln /media/downloads/usenet/complete/.hs-link-test /media/movies/.hs-link-test
@@ -36,9 +42,45 @@ media_storage() {   # media_storage <user inside the container>
       rm -f /media/downloads/usenet/complete/.hs-link-test /media/movies/.hs-link-test' </dev/null 2>/dev/null; then
     ok "Hard links work: a download moves into the library without a copy"
   else
-    incus exec "$ct" -- su -s /bin/sh "$user" -c 'rm -f /media/downloads/usenet/complete/.hs-link-test /media/movies/.hs-link-test' </dev/null 2>/dev/null || true
+    incus exec "$c" -- su -s /bin/sh "$user" -c 'rm -f /media/downloads/usenet/complete/.hs-link-test /media/movies/.hs-link-test' </dev/null 2>/dev/null || true
     warn "Hard links do not work on this storage. Imports will copy every file (twice the space until the download is deleted)."
   fi
+}
+
+# The same for a child of the container docker: one mapped user `media` (the idmap allows one per container) for every media app;
+# the share comes in through `hs sys docker mount`, the one route the lock allows. Sets $ids; the compose file runs the app as it.
+media_storage_docker() {
+  local user=media others cmd
+  step "User for the files"
+  incus exec docker -- sh -c "id $user >/dev/null 2>&1 || useradd --create-home --shell /usr/sbin/nologin $user" </dev/null
+  ids=$(incus exec docker -- sh -c "echo \"\$(id -u $user):\$(id -g $user)\"" </dev/null)
+  ok "$(t "User '%s' (%s)" "$user" "$ids")"
+  step "Storage for films and downloads"
+  if [ -n "${RECIPE_SKIP_STORAGE:-}" ]; then
+    note "skipped (RECIPE_SKIP_STORAGE): the files stay inside the container"
+    incus exec docker -- sh -c "mkdir -p /media; chown $user: /media" </dev/null
+  elif [ "$(incus query "/1.0/instances/docker" | jq -r '[.expanded_devices[] | select(.path == "/media")] | length')" != 0 ]; then
+    ok "/media is mounted already"
+  else
+    # the mount changes the user mapping of the container docker: it restarts, and everything in it with it. Do that on its own only
+    # when nothing else runs there (the manager excepted); otherwise the owner decides (a web job has no terminal to ask).
+    . "$scripts/lib/docker-apps.sh"
+    cmd="hs sys docker mount $share /media --as $ids"
+    others=$(docker_others_running "${app:-}") ||
+      fail_fix "$(t "Could not read what runs in Docker, so the share is not mounted (the mount restarts everything in it).")" "$cmd"
+    if [ -n "$others" ]; then
+      others=${others//$'
+'/, }
+      warn "$(t "Mounting the share changes the user mapping: the container docker restarts, and with it everything in it (running now: %s)." "$others")"
+      fail_fix "$(t "The share '%s' is not mounted at /media yet. Mount it yourself, then run this recipe again." "$share")" "$cmd"
+    fi
+    warn "$(t 'Mounting the share changes the user mapping: the container docker restarts, and with it every app in it.')"
+    spin "$(t "Mounting the share '%s' at /media (read and write)" "$share")" bash "$scripts/docker.sh" mount "$share" /media --as "$ids" --yes
+  fi
+  spin "Waiting for the container" bash -c "$wait_address" _ docker "" 30
+  incus exec docker -- su -s /bin/sh "$user" -c 'mkdir -p /media/movies /media/series /media/music /media/downloads/usenet/complete && touch /media/.hs-write-test && rm /media/.hs-write-test' </dev/null 2>/dev/null ||
+    fail "$(t "'%s' can't write to /media. Look at the storage of '%s' in: hs ct list" "$user" docker)"
+  media_link_check docker "$user"
 }
 
 # The push topic of the film apps (Radarr, Sonarr, Seerr). A topic of its own, on the same ntfy
@@ -61,6 +103,8 @@ media_ntfy() {
 # copy while the apps run (the file backup runs it inside the container right before).
 media_backup() {   # media_backup <command inside the container, or "" for none>
   # these containers have exactly one dump command: it replaces the descriptor (older runs wrote a bare line, without a name)
+  # a child of docker shares the descriptor of the container docker: only its own entry, named after the app, is replaced
+  if ${RUNS_DOCKER:-false}; then backup_with_dump "${app:-media}" "$1"; return; fi
   [ -z "$1" ] || rm -f "$state/backup-dump/$ct" 2>/dev/null || true
   backup_with_dump media "$1"
 }
@@ -84,7 +128,7 @@ media_notify_conf() {   # media_notify_conf <container> <folder inside it> [look
   if [ -n "$lookup" ]; then
     for app in radarr:7878 sonarr:8989; do
       a=${app%%:*}
-      for where in "$a:/opt/$a/config/config.xml" "arr:/opt/arr/$a/config.xml"; do
+      for where in "$a:/opt/$a/config/config.xml" "arr:/opt/arr/$a/config.xml" "docker:/opt/apps/$a/config/config.xml"; do
         aip=$(address "${where%%:*}" 2>/dev/null) && [ -n "$aip" ] || continue
         akey=$(incus exec "${where%%:*}" -- sed -n 's|.*<ApiKey>\(.*\)</ApiKey>.*|\1|p' "${where#*:}" </dev/null 2>/dev/null | head -n1 || true)
         [ -n "$akey" ] || continue

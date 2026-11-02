@@ -1,0 +1,5 @@
+date  = "2026-11-02"
+type  = "feature"
+title = "Docker apps can pull from private registries such as ghcr.io"
+docs  = "containers-and-apps"
+body  = """The new page Instances, Docker, Registries stores a login for a private registry. The token is kept in the vault and handed to a pull or rebuild for that one command only. While the vault is closed these actions are refused and say to open it."""

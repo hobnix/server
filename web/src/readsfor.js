@@ -36,7 +36,9 @@ export function readsFor(path, extPages = [], liveOn = false) {
   if (path.startsWith('/settings/')) return [`${A}config/list`];
   switch (path) {
     case '/': return [`${A}status`, `${A}monitor/disks`, `${A}setup/list`, `${A}ups/status`];
-    case '/instances': return [`${A}ct/list`, `${A}backup/overview`, `${A}services/list`, `${A}recipes/list`];
+    case '/instances': return [`${A}ct/list`, `${A}backup/overview`, `${A}services/list`, `${A}recipes/list`, `${A}docker/list`];
+    case '/instances/docker': return [`${A}docker/apps`, `${A}docker/status`];
+    case '/instances/docker/registries': return [`${A}docker/registries`];
     case '/network': return [`${A}ct/list`, `${A}dns/list`, `${A}ports/list`, `${A}remote/list`, `${A}unifi/clients`, `${A}unifi/networks`];
     case '/identity/users': case '/identity/groups': return [`${A}users/list`, `${A}users/groups`];
     case '/identity/certificates': return [`${A}dc/state`];

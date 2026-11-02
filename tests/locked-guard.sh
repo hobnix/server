@@ -30,4 +30,23 @@ rm -f "$HS_LOCKED_MARKER"
 bash "$SCRIPTS/rebuild.sh" --verbose >/dev/null 2>&1 || true
 check "rebuild --verbose reaches nixos-rebuild" grep -q "^nixos-rebuild switch" "$HS_FAKE_LOG"
 
+echo "-- an instance locked by a capability: adding a folder (hs sys docker mount is the owner's route)"
+cat > "$BIN/incus" <<'FAKE'
+#!/usr/bin/env bash
+case "$1" in
+  query) echo '{"type":"container","config":{"user.hs.managed_by":"docker"},"expanded_devices":{}}' ;;
+  config) [ "$2" = device ] && [ "$3" = get ] && exit 1; [ "$2" = get ] && exit 0 ;;
+  info) exit 0 ;;
+esac
+exit 0
+FAKE
+chmod +x "$BIN/incus"
+if command -v jq >/dev/null 2>&1; then
+  out=$(env -u HS_OWNER bash "$SCRIPTS/manage-ct.sh" docker --add-storage shares media /media --as 1000:1000 --dry-run 2>&1) && rc=0 || rc=$?
+  check_eq "without the owner's pass: refused" 1 "$rc"
+  check "the refusal names the owner" grep -q "Docker owns 'docker'" <<<"$out"
+  out=$(HS_OWNER=docker bash "$SCRIPTS/manage-ct.sh" docker --add-storage shares media /media --as 1000:1000 --dry-run 2>&1) && rc=0 || rc=$?
+  check_eq "with the owner's pass (the route of hs sys docker mount): allowed" 0 "$rc"
+else skip "jq missing: instance lock not tested"; fi
+
 finish

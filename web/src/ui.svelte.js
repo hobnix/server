@@ -10,8 +10,8 @@ export const ui = $state({
   panel: { open: true, tab: 'tasks', height: 214 },   // height in px while open; the grip drags it
 });
 
-export function openPlan(area, args, title) {
-  ui.dialog = { area, args, title };
+export function openPlan(area, args, title, options = {}) {
+  ui.dialog = { area, args, title, ...options };
 }
 
 // a form component (it renders a CreateDialog) is shown on top of the page; props go to it

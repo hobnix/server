@@ -20,9 +20,10 @@ case "$1" in
   info) [ -e "$STATE" ]; exit $? ;;
   query) o=$(cat "$OWNERF" 2>/dev/null || true)
     jq -n --arg o "$o" '{type:"container",config:(if $o=="" then {} else {"user.hs.managed_by":$o} end),expanded_devices:{}}' ;;
-  config) [ "$2" = set ] && [ -e "$LOCKFAIL" ] && exit 1; [ "$2" = set ] && echo "${4#user.hs.managed_by=}" > "$OWNERF" ;;
+  config) [ "$2" = device ] && [ "$3" = get ] && { [ -e "$STATE.dev" ]; exit $?; }
+    [ "$2" = set ] && [ -e "$LOCKFAIL" ] && exit 1; [ "$2" = set ] && echo "${4#user.hs.managed_by=}" > "$OWNERF" ;;
   list) case "$*" in *" s"*) echo RUNNING ;; *) printf '"172.17.0.1 (docker0)\n10.10.95.50 (eth0)"\n' ;; esac ;;
-  exec) shift 3
+  exec) shift 3; [ "$1" = -- ] && shift
     if [ "$1" = docker ] && [ "$2" = ps ]; then
       [ ! -e "$PSFAIL" ] || exit 1
       printf 'arr\trunning\t0.0.0.0:8989->8989/tcp, :::7878->7878/tcp\n'
@@ -30,6 +31,36 @@ case "$1" in
       printf 'notes\texited\t\n'
       printf 'arcane\trunning\t0.0.0.0:80->3552/tcp\n'
       printf '\trunning\t\n'
+    elif [ "$1" = docker ] && [ "$2" = compose ]; then
+      case "$*" in
+        *logs*) printf '2024-01-01T00:00:00Z line one\n2024-01-01T00:00:01Z line two\n' ;;
+      esac
+    elif [ "$1" = sh ] && [ "$2" = -c ]; then
+      cmd=$3
+      case "$cmd" in
+        *'docker ps -a --format'*)
+          [ ! -e "$PSFAIL" ] || exit 1
+          printf 'arr\trunning\t0.0.0.0:8989->8989/tcp, :::7878->7878/tcp\tlinuxserver/arr:latest\n'
+          printf 'arr\trunning\t0.0.0.0:8989->8989/tcp\tlinuxserver/arr:latest\n'
+          printf 'notes\texited\t-\tnginx:alpine\n'
+          printf 'wiki\trunning\t0.0.0.0:3000->3000/tcp\trequarks/wiki:2\n'
+          printf 'wiki\tcreated\t-\trequarks/wiki:2\n'
+          printf 'arcane\trunning\t0.0.0.0:80->3552/tcp\tportainer/portainer-ce:latest\n'
+          printf '\trunning\t-\tbusybox\n'
+          printf '__HS_MARKER_WEBUI__\n'
+          printf '/opt/apps/arr/.hs-webui\n'
+          printf '/opt/apps/kept1/.hs-webui\n'
+          printf '__HS_MARKER_DIR__\n'
+          printf '/opt/apps/arr/\n'
+          printf '/opt/apps/wiki/\n'
+          printf '/opt/apps/kept1/\n'
+          printf '__HS_MARKER_COMPOSE__\n'
+          printf '/opt/apps/arr/docker-compose.yml\n'
+          printf '/opt/apps/kept1/docker-compose.yml\n'
+          ;;
+        *'ls -d /opt/apps/*/docker-compose.yml'*)   # the folders that hold a compose file (kept1: a delete that kept the data)
+          printf '/opt/apps/arr/docker-compose.yml\n/opt/apps/kept1/docker-compose.yml\n/opt/apps/arcane/docker-compose.yml\n' ;;
+      esac
     else cat >/dev/null 2>&1 </dev/null || true; fi ;;
 esac
 exit 0
@@ -157,16 +188,50 @@ check_eq "refused" 1 "$rc"
 echo "-- list"
 reset; : > "$STATE"; echo docker > "$OWNERF"; echo arcane > "$HS_SETTINGS_DIR/dockerManager"
 list=$($D --list)
-check_eq "2 rows" 2 "$(printf '%s\n' "$list" | grep -c .)"
+check_eq "3 rows (with the kept app)" 3 "$(printf '%s\n' "$list" | grep -c .)"
 check_eq "arr row" $'arr\tdocker\tarr\trunning\t7878,8989' "$(printf '%s\n' "$list" | sed -n 1p)"
-check_eq "notes row" $'notes\tdocker\tnotes\texited\t-' "$(printf '%s\n' "$list" | sed -n 2p)"
-check_eq "5 fields" "5 5" "$(printf '%s\n' "$list" | awk -F'\t' '{print NF}' | tr '\n' ' ' | sed 's/ $//')"
+check_eq "notes row" $'notes\tdocker\tnotes\texited\t-' "$(printf '%s\n' "$list" | sed -n 3p)"
+check_eq "5 fields" "5 5 5" "$(printf '%s\n' "$list" | awk -F'\t' '{print NF}' | tr '\n' ' ' | sed 's/ $//')"
 reset
 rc=0; out=$($D --list) || rc=$?
 check_eq "off: exit 0" 0 "$rc"; check_eq "off: no output" "" "$out"
 reset; : > "$STATE"; echo docker > "$OWNERF"; : > "$PSFAIL"
 rc=0; out=$($D --list) || rc=$?
 check_eq "exec fails: exit 0" 0 "$rc"; check_eq "exec fails: no output" "" "$out"
+
+echo "-- apps"
+reset; : > "$STATE"; echo docker > "$OWNERF"; echo arcane > "$HS_SETTINGS_DIR/dockerManager"
+apps=$($D --apps)
+check_eq "4 rows" 4 "$(printf '%s\n' "$apps" | grep -c .)"
+check_eq "10 fields" "10 10 10 10" "$(printf '%s\n' "$apps" | awk -F'\t' '{print NF}' | tr '\n' ' ' | sed 's/ $//')"
+check_eq "arr row" $'arr\tdocker\tarr\trunning\t2/2\t7878,8989\t10.10.95.50\tlinuxserver/arr:latest\tweb\t-' "$(printf '%s\n' "$apps" | sed -n 1p)"
+check_eq "kept app: folder, no container -> stopped 0/0" $'kept1\tdocker\tkept1\tstopped\t0/0\t-\t10.10.95.50\t-\tweb\t-' "$(printf '%s\n' "$apps" | sed -n 2p)"
+check_eq "notes row" $'notes\tdocker\tnotes\texited\t0/1\t-\t10.10.95.50\tnginx:alpine\tother\t-' "$(printf '%s\n' "$apps" | sed -n 3p)"
+check_eq "wiki partial" $'wiki\tdocker\twiki\tpartial\t1/2\t3000\t10.10.95.50\trequarks/wiki:2\trecipe\t-' "$(printf '%s\n' "$apps" | sed -n 4p)"
+check_eq "the manager folder is not an app" 0 "$(printf '%s\n' "$apps" | grep -c '^arcane')"
+check_eq "--list has the kept app too" $'kept1\tdocker\tkept1\tstopped\t-' "$($D --list | grep '^kept1')"
+
+echo "-- logs"
+reset; : > "$STATE"; echo docker > "$OWNERF"; echo arcane > "$HS_SETTINGS_DIR/dockerManager"
+rc=0; out=$($D --logs arr) || rc=$?
+check_eq "logs exit 0" 0 "$rc"
+echo "$out" | grep -q "line one" && pass "logs default has line one" || fail "logs default: $out"
+grep -qF -- "--tail 200" "$LOG" && pass "logs default tail 200" || fail "tail default: $(cat "$LOG")"
+rc=0; out=$($D --logs arr 500) || rc=$?
+check_eq "logs 500 exit 0" 0 "$rc"
+grep -qF -- "--tail 500" "$LOG" && pass "logs tail 500" || fail "tail 500: $(cat "$LOG")"
+rc=0; out=$($D --logs unknown 200) || rc=$?
+check_eq "unknown app exit 1" 1 "$rc"
+check_eq "unknown app no output" "" "$out"
+rc=0; out=$($D --logs arr 99999) || rc=$?
+check_eq "bad count exit 1" 1 "$rc"
+check_eq "bad count no output" "" "$out"
+rc=0; out=$($D --logs arr 0) || rc=$?
+check_eq "zero count exit 1" 1 "$rc"
+check_eq "zero count no output" "" "$out"
+reset
+rc=0; out=$($D --logs arr) || rc=$?
+check_eq "off: logs exit 1" 1 "$rc"; check_eq "off: logs no output" "" "$out"
 
 echo "-- disable"
 reset; : > "$STATE"; echo docker > "$OWNERF"; echo webui > "$HS_SETTINGS_DIR/dockerManager"
@@ -236,5 +301,46 @@ rc=0; out=$($S start setup --set dockerManager=none </dev/null 2>&1) || rc=$?
 check_eq "start exit 0" 0 "$rc"
 echo "$out" | grep -qx "status${T}started" && pass "start status started" || fail "start: $out"
 check_eq "dockerManager written by enable" none "$(cat "$HS_SETTINGS_DIR/dockerManager" 2>/dev/null || true)"
+
+echo "-- hs sys docker mount"
+reset; : > "$STATE"; echo docker > "$OWNERF"
+mkdir -p "$WORK/remote/nas"; export HS_REMOTE_ROOT=$WORK/remote
+printf '#!/usr/bin/env bash
+[ "$2" = "$HS_REMOTE_ROOT/nas/movies" ]
+' > "$BIN/mountpoint"; chmod +x "$BIN/mountpoint"
+export HS_MOUNTPOINT=$BIN/mountpoint
+printf 'nas	nas.lan	movies	remote-nas	-
+' > "$HS_STATE_DIR/remote-mounts"
+rc=0; out=$($D mount media /media --as 1000:1000 </dev/null 2>&1) || rc=$?
+check_eq "no terminal, no --yes: refused" 1 "$rc"
+check_eq "nothing changed" 0 "$(changes)"
+echo "$out" | grep -q "restarts, and with it every app" && pass "restart warning in the plan" || fail "plan: $out"
+rc=0; $D mount media /media </dev/null >/dev/null 2>&1 || rc=$?
+check_eq "local share without --as refused" 1 "$rc"
+rc=0; $D mount media media --as 1000:1000 --yes </dev/null >/dev/null 2>&1 || rc=$?
+check_eq "relative path refused" 1 "$rc"
+rc=0; $D mount media /media --as 1000:1000 --dry-run </dev/null >/dev/null 2>&1 || rc=$?
+check_eq "dry run exit 0" 0 "$rc"; check_eq "dry run changes nothing" 0 "$(changes)"
+rc=0; $D mount media /media --as 1000:1000 --yes </dev/null >/dev/null 2>&1 || rc=$?
+check_eq "local: exit 0" 0 "$rc"
+grep -qF "manage-ct docker --add-storage shares media /media --as 1000:1000 OWNER=docker" "$MLOG" && pass "local: owner's pass" || fail "local: $(cat "$MLOG")"
+: > "$LOG"
+rc=0; $D mount remote:nas /media-nas --yes </dev/null >/dev/null 2>&1 || rc=$?
+check_eq "remote: exit 0" 0 "$rc"
+grep -qF "incus config device add docker remote-nas disk source=$WORK/remote/nas path=/media-nas recursive=true propagation=rslave" "$LOG" && pass "remote: peer directory, recursive, rslave" || fail "remote: $(cat "$LOG")"
+rc=0; $D mount remote:nas /x --as 1000:1000 --yes </dev/null >/dev/null 2>&1 || rc=$?
+check_eq "remote with --as refused" 1 "$rc"
+printf 'nas	nas.lan	music	remote-nas	-
+' > "$HS_STATE_DIR/remote-mounts"
+rc=0; $D mount remote:nas /x --yes </dev/null >/dev/null 2>&1 || rc=$?
+check_eq "remote configured but its share not mounted: refused" 1 "$rc"
+printf 'nas	nas.lan	movies	remote-nas	-
+' > "$HS_STATE_DIR/remote-mounts"
+rc=0; $D mount remote:gone /x --yes </dev/null >/dev/null 2>&1 || rc=$?
+check_eq "remote not mounted refused" 1 "$rc"
+: > "$STATE.dev"; rc=0; $D mount remote:nas /y --yes </dev/null >/dev/null 2>&1 || rc=$?
+check_eq "device exists: refused" 1 "$rc"; rm -f "$STATE.dev"
+reset; rc=0; $D mount media /media --as 1000:1000 --yes </dev/null >/dev/null 2>&1 || rc=$?
+check_eq "Docker not on: refused" 1 "$rc"
 
 finish

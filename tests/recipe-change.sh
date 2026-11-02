@@ -6,7 +6,7 @@
 export HS_PLAIN=1 HS_LANG=en
 unset HS_CALLER HS_GUIDED_TTY
 T=$'\t'
-R=$WORK/recipes; mkdir -p "$R"/{fine,token,sunshine,vpn}
+R=$WORK/recipes; mkdir -p "$R"/{fine,token,sunshine,vpn,two}
 printf '# recipe: Fine: an app\n# kind: generic\n# needs: -\n# input: none\n# uses: -\n' > "$R/fine/run.sh"
 printf '# recipe: Token: asks a token\n# kind: generic\n# needs: -\n# input: terminal\n# uses: -\n' > "$R/token/run.sh"
 printf '# recipe: Sunshine\n' > "$R/sunshine/run.sh"
@@ -76,7 +76,7 @@ hs_job() {
   echo hs-job-test-1
 }
 JOB
-cp "$SCRIPTS/recipe-change.sh" "$WORK/recipe-change.sh"; cp "$SCRIPTS/lib/recipe-path.sh" "$WORK/lib/"; mkdir -p "$WORK/run"
+cp "$SCRIPTS/recipe-change.sh" "$WORK/recipe-change.sh"; cp "$SCRIPTS/lib/recipe-path.sh" "$SCRIPTS/lib/recipe-runs.sh" "$WORK/lib/"; mkdir -p "$WORK/run"
 : > "$WORK/jobs"; : > "$WORK/secretseen"
 rc=0; out=$(printf 's3cret\n' | HS_RUN_DIR="$WORK/run" timeout 20 bash "$WORK/recipe-change.sh" start vpn run --name vpn2 --set ADDR=10.2.0.2/32 --set COUNTRIES=AT 2>/dev/null) || rc=$?
 check_eq "start: exit 0" 0 "$rc"
@@ -87,6 +87,13 @@ grep -q "RECIPE_COUNTRIES=AT" "$WORK/jobs" && pass "an optional answer is passed
 grep -q "s3cret" "$WORK/jobs" && fail "the secret must not be in the environment or the command" || pass "the secret is not in the environment or the command line"
 check_eq "the job could read the secret from its file" "s3cret" "$(cat "$WORK/secretseen")"
 grep -q "CMD:bash -c .*recipe.sh vpn --name vpn2" "$WORK/jobs" && pass "the job removes the folder when it ends, then runs the recipe" || fail "$(cat "$WORK/jobs")"
+printf '# recipe: Two: runs in two ways
+# kind: generic
+# needs: -
+# input: none
+# uses: -
+# runs: lxc docker vm
+' > "$R/two/run.sh"
 rm -rf "$WORK/run"; mkdir -p "$WORK/run"
 rc=0; out=$(printf '\n' | HS_RUN_DIR="$WORK/run" timeout 20 bash "$WORK/recipe-change.sh" start vpn run --set ADDR=10.2.0.2/32 2>/dev/null) || rc=$?
 check_eq "start without the secret: refused (needs)" 2 "$rc"
@@ -98,4 +105,21 @@ check_out "a row per question" "^PROVIDER${T}Provider${T}text${T}proton${T}" ech
 check_out "the condition is a column" "^KEY${T}Private key${T}secret${T}-${T}-${T}KIND=wg" echo "$a"
 check_out "the last row says how it is answered" "^input${T}form" echo "$a"
 check_out "a recipe without questions says none" "^input${T}none" env HS_RECIPES_DIR=$R bash "$SCRIPTS/recipe-asks.sh" fine
+echo "-- runs (pickable runtime)"
+export HS_STATE_DIR=$WORK/st; mkdir -p "$HS_STATE_DIR"
+printf 'state\toff\n' > "$WORK/dstat-off"; printf 'state\ton\n' > "$WORK/dstat-on"
+asks() { HS_DOCKER_STATUS="cat $WORK/dstat-$1" HS_RECIPES_DIR=$R bash "$SCRIPTS/recipe-asks.sh" "${@:2}"; }
+check_out "docker is not offered while Docker is off" "^RUNS${T}.*${T}choice:lxc,vm${T}lxc${T}-${T}-" asks off two
+check_out "docker is the default while Docker is on" "^RUNS${T}.*${T}choice:docker,lxc,vm${T}docker${T}" asks on two
+printf 'RUNS=lxc\n' > "$HS_STATE_DIR/recipe-two.conf"
+check_out "an installed app keeps its runtime, docker is still offered" "^RUNS${T}.*${T}choice:lxc,docker,vm${T}lxc${T}-${T}-" asks on two
+check_out "a second instance (--name) gets its own default" "^RUNS${T}.*${T}choice:docker,lxc,vm${T}docker${T}" asks on two two2
+rm -f "$HS_STATE_DIR/recipe-two.conf"
+check_eq "a recipe with one runtime has no RUNS row" 0 "$(asks off fine | grep -c '^RUNS' || true)"
+mkdir -p "$R/odd"
+printf '# recipe: Odd\n# kind: generic\n# needs: -\n# input: none\n# uses: -\n# runs: lxc podman lxc\n' > "$R/odd/run.sh"
+check_eq "unknown and doubled runtime words are dropped: no RUNS row" 0 "$(asks off odd | grep -c '^RUNS' || true)"
+runin 'u' plan odd run --set RUNS=podman; check_eq "a runtime the recipe does not declare is refused" 1 "$rc"
+runin 'u' plan two run --set RUNS=vm; check_eq "RUNS is accepted without an ask line in the script" 0 "$rc"
+runin 'u' plan two run --set RUNS=podman; check_eq "another runtime is refused" 1 "$rc"
 finish

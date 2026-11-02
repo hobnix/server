@@ -116,6 +116,7 @@ default_probes() {
     $'hs sys services app\tsys services app\t0 1' \
     $'hs docker status\tdocker status\t0 1' \
     $'hs docker list\tdocker list\t0 1' \
+    $'hs docker registry list\tdocker registry list\t0 1' \
     $'hs gateway status\tgateway status\t0 1' \
     $'hs gateway routes\tgateway routes\t0 1' \
     $'hs gateway check\tgateway check\t0 1' \

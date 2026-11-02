@@ -329,5 +329,78 @@ class Collected(unittest.TestCase):
             self.assertTrue(any(ws.READS.get(tuple(words[:n])) is not None for n in range(len(words), 0, -1)), key)
 
 
+class Nocache(unittest.TestCase):
+    """a read marked nocache (docker/logs) is never kept in memory, seen, warm-up, or on disk; ordinary ct logs stay cached"""
+
+    def setUp(self):
+        self.fake = Fake()
+        self.real_run = ws._run
+        ws._run = self.fake
+        self.tmp = tempfile.mkdtemp()
+        self.file = os.path.join(self.tmp, "cache.json")
+        self.cfg = ws.Config()
+        self.cfg.cache_file = self.file
+
+    def tearDown(self):
+        ws._run = self.real_run
+
+    def reads(self):
+        return ws.Reads(self.cfg)
+
+    def ask(self, r, path, query=None):
+        hit = r.resolve(path.split("/"), query or {})
+        self.assertIsNotNone(hit, path)
+        return r.get_aged(*hit)
+
+    def test_a_nocache_read_runs_every_time(self):
+        r = self.reads()
+        self.ask(r, "docker/logs/arr")
+        self.ask(r, "docker/logs/arr")
+        self.assertEqual(len(self.fake.calls), 2)
+
+    def test_a_nocache_read_is_not_in_seen(self):
+        r = self.reads()
+        self.ask(r, "docker/logs/arr")
+        self.assertNotIn(("docker", "logs", "arr"), r.seen)
+
+    def test_a_nocache_read_is_not_warmed(self):
+        r = self.reads()
+        self.assertFalse(any(k[1][:2] == ["docker", "logs"] for k in r.warm_targets()))
+
+    def test_a_nocache_read_is_not_saved(self):
+        r = self.reads()
+        self.ask(r, "docker/logs/arr")
+        r.dirty = True
+        r.save(self.file)
+        if os.path.exists(self.file):
+            with open(self.file) as f:
+                data = json.load(f)
+            self.assertFalse(any(isinstance(x, dict) and x.get("argv", [])[:2] == ["docker", "logs"] for x in data))
+
+    def test_a_nocache_entry_is_not_loaded(self):
+        now = time.time()
+        items = [{"argv": ["docker", "logs", "arr"], "t": now - 1, "code": 200, "obj": {"text": "secret", "rc": 0}}]
+        with open(self.file, "w") as f:
+            json.dump(items, f)
+        r = self.reads()
+        self.assertEqual(r.load(self.file), 0)
+        self.assertNotIn(("docker", "logs", "arr"), r.cache)
+
+    def test_docker_app_not_cached(self):
+        r = self.reads()
+        hit = r.resolve(["docker", "app", "arr"], {})
+        self.assertIsNotNone(hit)
+        r.get_aged(*hit)
+        r.get_aged(*hit)
+        # ttl 0 means it runs every time
+        self.assertEqual(len(self.fake.calls), 2)
+
+    def test_ordinary_ct_logs_stay_cached(self):
+        r = self.reads()
+        self.ask(r, "ct/logs/ct", {"lines": "10"})
+        self.ask(r, "ct/logs/ct", {"lines": "10"})
+        self.assertEqual(len(self.fake.calls), 1)
+
+
 if __name__ == "__main__":
     unittest.main()

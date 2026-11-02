@@ -730,6 +730,7 @@ class Facts:
 #   args   one pattern per required path segment after the words (a container name, a share, ...)
 #   query  optional parameters: query name -> (pattern, how it is passed: "--flag" or "" for a positional)
 NAME = r"^[A-Za-z0-9][A-Za-z0-9._:@-]{0,63}$"
+APP = r"^[a-z0-9][a-z0-9_-]{0,40}$"      # an app (compose project) in the Docker container; logs and files of an app may hold secrets
 UNIT = r"^hs-[A-Za-z0-9@._-]{1,80}$"
 GROUP = r"^[A-Za-z0-9][A-Za-z0-9._ -]{0,63}$"     # group names may hold spaces (Domain Admins); the path segment is unquoted first
 FM_LOC = r"^(disk:data-[0-9]{1,3}|pool:(bulk|fast)|cache:bulk|share:[a-z0-9][a-z0-9-]{0,40}|temp:[a-z0-9][a-z0-9-]{0,31})$"     # a place of the file manager
@@ -843,6 +844,10 @@ READS = {
     ("gateway", "routes"): {"kind": "tsv", "ttl": 30, "topic": "gateway-routes"},
     ("gateway", "health"): {"kind": "tsv", "ttl": 300, "topic": "gateway-health"},
     ("docker", "list"): {"kind": "tsv", "ttl": 30, "topic": "docker-list"},
+    ("docker", "apps"): {"kind": "tsv", "ttl": 30, "topic": "docker-apps"},
+    ("docker", "logs"): {"kind": "text", "ttl": 3, "nocache": True, "args": [APP], "query": {"lines": (r"^[0-9]{1,4}$", "")}},     # logs and files of an app may hold secrets
+    ("docker", "app"): {"kind": "json", "ttl": 0, "nocache": True, "args": [APP]},     # compose may hold secrets; values never leave the container
+    ("docker", "registries"): {"kind": "tsv", "ttl": 15},     # host user state used_by; never a token
     ("docker", "status"): {"kind": "tsv", "ttl": 15},      # the docker wizard: is the container there and owned (key<TAB>value rows)
     ("setup", "list"): {"kind": "tsv", "ttl": 5, "topic": "setup-list"},
     ("config", "list"): {"kind": "tsv", "ttl": 5, "topic": "config-list"},
@@ -916,7 +921,7 @@ GW_SET = (r"^(reverseProxy|gatewayTunnelPort|gatewayPublicHttps|gatewayPublicHtt
           r"gatewayAcmeStaging|gatewayAcmeChallenge|gatewayAcmeDnsProvider|gatewayUnknownHostLocal|gatewayUnknownHostPublic)=[A-Za-z0-9.,@_+-]{0,200}$")
 # the change area (first path segment of the area of a web change) -> the live-state group it refreshes (scripts/lib/live-topics.tsv); ext/<n> -> ext-<n>
 AREA_GROUP = {
-    "ct": "instances", "recipes": "instances", "docker": "instances", "pool": "disks", "shares": "shares", "fm": "shares", "users": "users", "admin": "users", "dc": "users",
+    "ct": "instances", "recipes": "instances", "docker": "instances", "docker-app": "instances", "docker-registry": "instances", "pool": "disks", "shares": "shares", "fm": "shares", "users": "users", "admin": "users", "dc": "users",
     "backup": "backup", "secrets": "security", "ssh-key": "security", "net": "network", "routes": "network", "gateway": "network", "vps": "network",
     "peers": "network", "node": "network", "jobs": "jobs", "notify": "system", "health": "system", "expiry": "system", "config": "system",
     "system": "system", "parts": "system", "pkg": "system",
@@ -932,6 +937,7 @@ def area_refresh(area):
 
 
 # the keys of the docker steps (capabilities/docker/capability.toml; scripts/docker-setup.sh accepts the same ones)
+DOCKER_REGISTRY_HOST = r"^[a-z0-9.-]{1,100}(:[0-9]{1,5})?$"
 DOCKER_SET = r"^(dockerManager=(webui|arcane|portainer|none)|dockerSize=[sml])$"
 CHANGES = {
     "jobs": [[r"^(run|stop)$", UNIT]],
@@ -1092,6 +1098,13 @@ CHANGES = {
     "gateway": [{"fixed": [r"^setup$"], "opts": {"--set": (GW_SET, True)}}],
     # turning Docker on (docker-setup.sh, which calls hs docker enable): the manager and the size as --set key=value; the plan changes nothing
     "docker": [{"fixed": [r"^setup$"], "opts": {"--set": (DOCKER_SET, True)}}],
+    "docker-app": [[APP, r"^(start|stop|restart|pull)$"],
+                   {"fixed": [APP, r"^app-save$"], "opts": {"--rev": (r"^(new|[0-9a-f]{16})$", False)}, "document": True},
+                   [APP, r"^rebuild$"],
+                   {"fixed": [APP, r"^delete$"], "opts": {"--delete-data": (None, False)}}],     # the data stay unless --delete-data
+    # the registry logins of Docker (docker-registry-change.sh): the token of add is the one line on stdin, never an argument
+    "docker-registry": [{"fixed": [r"^add$", DOCKER_REGISTRY_HOST], "opts": {"--user": (r"^[A-Za-z0-9][A-Za-z0-9._@+-]{0,99}$", False)}, "stdin": True},
+                        [r"^remove$", DOCKER_REGISTRY_HOST]],
     # apply: the guided setup sets several keys in one plan, each as --set key=value (the same keys and values as set)
     "config": [[r"^set$", r"^(" + CONFIG_KEYS + r")$", r"^[A-Za-z0-9._#:/ ,\[\]-]{0,80}$"], [r"^(sync|migrate)$"],
                {"fixed": [r"^apply$"], "opts": {"--set": (CONFIG_SET, True)}, "need": ["--set"]}],
@@ -1169,6 +1182,11 @@ def _entry_match(entry, args):
 
 
 STDIN_RE = re.compile("[^" + chr(13) + chr(10) + chr(0) + "]{1,256}")      # one line, no control characters
+# docker app-save document: compose + env changes; the bytes travel as stdin, never in args
+DOC_NAME_RE = re.compile(r"^[A-Za-z_][A-Za-z0-9_]*$")
+DOC_COMPOSE_MAX = 262144          # bytes
+DOC_VALUE_MAX = 4096              # Unicode characters
+DOC_NAMES_MAX = 200
 FM_SELECTION_MAX = 20000          # names in one file manager selection
 FM_SELECTION_BYTES = 4 * 1024 * 1024
 
@@ -1185,8 +1203,42 @@ def _selection_ok(sel):
     return total <= FM_SELECTION_BYTES
 
 
+def _document_bytes(doc):
+    """-> bytes or None. Validates the docker app-save document and serializes it deterministically."""
+    if not isinstance(doc, dict) or set(doc) != {"compose", "set", "remove"}:
+        return None
+    compose, s, r = doc["compose"], doc["set"], doc["remove"]
+    if not isinstance(compose, str) or "\0" in compose or len(compose.encode("utf-8")) > DOC_COMPOSE_MAX:
+        return None
+    if not isinstance(s, dict) or not isinstance(r, list):
+        return None
+    names = set()
+    pieces = []
+    for name in sorted(s):
+        if not DOC_NAME_RE.fullmatch(name):
+            return None
+        value = s[name]
+        if not isinstance(value, str) or "\0" in value or "\r" in value or "\n" in value or len(value) > DOC_VALUE_MAX:
+            return None
+        if name in names:
+            return None
+        names.add(name)
+        pieces.append(("+%s=%s" % (name, value)).encode("utf-8") + b"\0")
+    for name in sorted(r):
+        if not DOC_NAME_RE.fullmatch(name):
+            return None
+        if name in names:
+            return None
+        names.add(name)
+        pieces.append(("-%s" % name).encode("utf-8") + b"\0")
+    if len(names) > DOC_NAMES_MAX:
+        return None
+    return compose.encode("utf-8") + b"\0" + b"".join(pieces)
+
+
 def validate_change(body):
-    """-> (area, args, confirm, stdin) or None. A password or passphrase travels in `stdin` (one line), only for entries that take it, never in args."""
+    """-> (area, args, confirm, stdin) or None. A password or passphrase travels in `stdin` (one line), only for entries that take it, never in args.
+    A docker app-save document travels as bytes on stdin, never together with a stdin line or a selection."""
     area, args, confirm, stdin = body.get("area"), body.get("args"), body.get("confirm"), body.get("stdin")
     ext_refresh()
     if not isinstance(area, str) or area not in CHANGES or not isinstance(args, list)             or not all(isinstance(a, str) for a in args):
@@ -1195,11 +1247,19 @@ def validate_change(body):
     if not any(ok for ok, _ in hits):
         return None
     takes_stdin = any(ok and st for ok, st in hits)
+    takes_document = any(ok and isinstance(e, dict) and e.get("document") for e, (ok, _) in zip(CHANGES[area], hits))
     if confirm is not None and (not isinstance(confirm, str) or not CONFIRM_RE.fullmatch(confirm)):
         return None
     if stdin is not None and (not takes_stdin or not isinstance(stdin, str) or not STDIN_RE.fullmatch(stdin)):
         return None
     sel = body.get("selection")
+    doc = body.get("document")
+    if doc is not None:
+        if stdin is not None or sel is not None or not takes_document:
+            return None
+        stdin = _document_bytes(doc)
+        if stdin is None:
+            return None
     if sel is not None:
         # the file manager's selection: names, NUL separated, as BYTES on stdin (no newline is added); only entries that declare "selection", never together with a stdin line
         if stdin is not None or not _selection_ok(sel) or not any(ok and isinstance(e, dict) and e.get("selection") for e, (ok, _) in zip(CHANGES[area], hits)):
@@ -1283,12 +1343,12 @@ class Plans:
 
 
 def plan_cacheable(area, args, stdin):
-    """Never a plan that carried stdin (password, passphrase, file manager selection), nor one whose matching entry takes stdin or a selection."""
+    """Never a plan that carried stdin (password, passphrase, file manager selection, docker document), nor one whose matching entry takes stdin, a selection or a document."""
     if stdin is not None:
         return False
     for e in CHANGES.get(area, []):
         ok, st = _entry_match(e, args)
-        if ok and (st or (isinstance(e, dict) and e.get("selection"))):
+        if ok and (st or (isinstance(e, dict) and (e.get("selection") or e.get("document")))):
             return False
     return True
 
@@ -1394,7 +1454,8 @@ class Reads:
             return code, obj, 0
         if ttl > 0:
             with self.lock:
-                self.seen[key] = (spec, argv, time.time())
+                if not spec.get("nocache"):
+                    self.seen[key] = (spec, argv, time.time())
                 hit = self.cache.get(key)
             if hit:
                 age = time.time() - hit[0]
@@ -1430,7 +1491,7 @@ class Reads:
             else:
                 rc, out = _run([self.cfg.hs, "sys"] + argv, timeout=30)
             result = self._shape(spec, rc, out)
-            if result[0] == 200:
+            if result[0] == 200 and not spec.get("nocache"):
                 with self.lock:
                     if gen == self.gen:
                         self.cache[key] = (stamp, result)
@@ -1534,7 +1595,7 @@ class Reads:
                 argv = [str(a) for a in it["argv"]]
                 spec = self.spec_for(argv)
                 t = float(it["t"])
-                if spec is None or spec["ttl"] <= 0 or it["code"] != 200 or time.time() - t > self.cfg.stale_max:
+                if spec is None or spec["ttl"] <= 0 or it["code"] != 200 or time.time() - t > self.cfg.stale_max or spec.get("nocache"):
                     continue
                 with self.lock:
                     self.cache[tuple(argv)] = (t, (200, it["obj"]))
@@ -1554,7 +1615,7 @@ class Reads:
             key = tuple(argv)
             # a resolved string topic belongs to the live collector, not the warm-up; a mapping without a match has no topic and can be warmed
             is_topic = self.cfg.live == "redis" and isinstance(spec.get("topic"), str)
-            if key not in done and spec["ttl"] > 0 and not is_topic:
+            if key not in done and spec["ttl"] > 0 and not is_topic and not spec.get("nocache"):
                 done.add(key)
                 out.append((spec, argv, key, every))
         for words in WARM:

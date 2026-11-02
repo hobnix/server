@@ -22,14 +22,20 @@
   import LogsTab from './instances/LogsTab.svelte';
   import { sizeToBytes } from '../format.js';
   import { ctOf, ctIcon, isVm, isRunning, link, servicesOf } from './instances/ct.js';
+  import { childrenOf } from './docker/apps.js';
 
   const ctl = poll('/api/sys/ct/list', 5000);
   const bk = poll('/api/sys/backup/overview', 60000);
   const svc = poll('/api/sys/services/list', 30000);
   const rec = poll('/api/sys/recipes/list', 60000);
+  const dl = poll('/api/sys/docker/list', 30000);
 
   let selName = $state('');
   let tab = $state('storage');
+  let open = $state((() => {
+    try { const s = sessionStorage.getItem('instances:docker-apps'); return new Set(s ? JSON.parse(s) : []); } catch { return new Set(); }
+  })());
+  $effect(() => { try { sessionStorage.setItem('instances:docker-apps', JSON.stringify([...open])); } catch {} });
   $effect(() => { const n = takeSelection('instances'); if (n) selName = n; });
   // /instances?view=snapshots (the old Snapshots page) opens the Snapshots tab of the first instance
   $effect(() => { if (route.query.view === 'snapshots') tab = 'snap'; });
@@ -37,6 +43,7 @@
   const cts = $derived(rows(ctl).map(ctOf));
   const sel = $derived(cts.find((c) => c.name === selName) ?? (route.query.view === 'snapshots' ? cts[0] : null) ?? null);
   const running = $derived(cts.filter(isRunning).length);
+  const kids = $derived(childrenOf(rows(dl)));
 
   // backup overview: kind, name, on|off, bytes. Read only here; empty while the backup disk or the storage is not there
   const backupOf = $derived(Object.fromEntries(rows(bk).filter((r) => r[0] === 'ct').map((r) => [r[1], r[2] === 'on'])));
@@ -55,8 +62,15 @@
 
   const kind = (c) => (isVm(c) ? 'VM' : 'CT');
   const word = (s) => (s ? s.charAt(0).toUpperCase() + s.slice(1).toLowerCase() : '');
-  const dot = (s) => (/running/i.test(s) ? 'ok' : /stopped/i.test(s) ? 'off' : 'warn');
+  const dot = (s) => (/running/i.test(s) ? 'ok' : /partial/i.test(s) ? 'warn' : 'off');
   const plan = (e, c, action) => { e.stopPropagation(); openPlan('ct', [c.name, action], `${action} ${c.name}`); };
+  const eligible = (c) => c.owner === 'docker' && (kids.get(c.name)?.length || 0) > 0;
+  const toggleApps = (e, name) => {
+    e.stopPropagation();
+    const next = new Set(open);
+    if (next.has(name)) next.delete(name); else next.add(name);
+    open = next;
+  };
   const spaced = (v) => (v || '').replace(/^(\d+)([A-Za-z]+)$/, '$1 $2');
   const dash = (v) => (v && v !== '-' ? v : '–');
   const myServices = $derived(sel ? servicesOf(sel, services) : []);
@@ -87,9 +101,13 @@
   <Split open={!!sel}>
     {#snippet list()}
       <div class="card" style="padding:0">
-      <Table id="instances" {columns} rows={cts} key="name" selected={sel?.name} onrow={(c) => { selName = c.name; }} loading={!ctl.loaded} empty="No instances.">
+      <Table id="instances" {columns} rows={cts} key="name" selected={sel?.name} onrow={(c) => { selName = c.name; }} loading={!ctl.loaded} empty="No instances."
+             below={subRow} hasBelow={(c) => open.has(c.name) && eligible(c)}>
         {#snippet cell(c, col)}
-          {#if col.key === 'name'}<span class="nm"><i class="ph ph-{ctIcon(c)} ic"></i>{c.name}</span>
+          {#if col.key === 'name'}
+            <span class="nm"><i class="ph ph-{ctIcon(c)} ic"></i>{c.name}</span>
+            {#if eligible(c)}<Chip>{kids.get(c.name).length} apps</Chip>{/if}
+            {#if eligible(c)}<Button variant="ghost" class="btn-icon chev" icon={open.has(c.name) ? 'caret-down' : 'caret-right'} aria-label="{open.has(c.name) ? 'Collapse' : 'Expand'} apps" onclick={(e) => toggleApps(e, c.name)} />{/if}
           {:else if col.key === 'owner'}{#if c.owner}<span class="kd" role="img" aria-label="Locked by {c.owner}" use:tip={`Locked by ${c.owner}: only hs ${c.owner} disable removes it`}><i class="ph ph-lock"></i></span>{/if}
           {:else if col.key === 'type'}<span class="kd">{kind(c)}</span>
           {:else if col.key === 'state'}<StatusDot state={dot(c.state)} label={word(c.state)} />
@@ -107,6 +125,18 @@
               <Button variant="ghost" class="btn-icon ib nophone" icon="camera" busy={jobRunning('ct', [c.name, 'snapshot'])} tooltip={'Snapshot'} aria-label="Snapshot {c.name}" onclick={(e) => plan(e, c, 'snapshot')} />
             </span>
           {/if}
+        {/snippet}
+        {#snippet subRow(c)}
+          <div class="subrow">
+            {#each kids.get(c.name) as r (r[0])}
+              <div class="subapp">
+                <span class="indent"><i class="ph ph-corners-out"></i>{r[0]}</span>
+                <StatusDot state={dot(r[3])} label={r[3]} bare />
+                <span class="ports">{r[4]}</span>
+                <a {...link('/instances/docker', 'docker', r[0])}>open in Docker</a>
+              </div>
+            {/each}
+          </div>
         {/snippet}
       </Table>
       </div>
@@ -219,4 +249,9 @@
   .rs { font-size: 12px; color: var(--fg-3); overflow-wrap: anywhere; margin-top: 2px; }
   .rs.mono, .mono { font-size: 12px; }
   .pad { padding: 10px; font-size: 12.5px; }
+  .subrow { display: flex; flex-direction: column; gap: 6px; padding: 8px 12px; }
+  .subapp { display: flex; align-items: center; gap: 10px; font-size: 12.5px; }
+  .subapp .indent { display: inline-flex; align-items: center; gap: 6px; margin-left: 16px; min-width: 140px; }
+  .subapp .ports { color: var(--fg-3); min-width: 80px; }
+  .chev { width: 24px; min-height: 24px; color: var(--fg-3); }
 </style>

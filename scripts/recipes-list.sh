@@ -6,7 +6,8 @@
 # (scripts/recipes/<name>.sh, files starting with "_" are helpers), in name order, tab separated:
 #   name  description  containers  state
 #   description  the `# recipe:` line of the recipe; a short fixed text for a recipe without one
-#   containers   the instances the recipe sets up under their default names (comma separated), "-" for none
+#   containers   the instances the recipe sets up under their default names (comma separated), "-" for none; `docker` for an app
+#                installed as a child of the container docker (recipe-<app>.conf says RUNS=docker)
 #   state        installed (all of its instances exist) | partly | not installed | parked (sunshine) | unknown (incus does not answer, e.g. storage locked)
 #                matrix-hook sets up no instance of its own: containers = synapse, installed when /var/lib/hs/matrix-hook exists
 # Test knobs: HS_INCUS, HS_RECIPES_DIR, HS_STATE_DIR.
@@ -16,13 +17,14 @@ here=$(dirname "$0")
 . "$here/lib/dc.sh"
 state_dir=${HS_STATE_DIR:-/var/lib/hs}
 
-# the instance(s) a recipe creates: its `ct=${RECIPE_NAME:-X}` line, or a fixed answer where the script does not have one
+# the instance(s) a recipe creates: its `ct=${RECIPE_NAME:-X}` line (a recipe that can run in docker has `app=${RECIPE_NAME:-X}; ct=$app`),
+# or a fixed answer where the script does not have one
 containers_of() {
   case "$1" in
     pelican) echo "pelican-panel pelican-wings" ;;
     matrix-hook) echo "synapse" ;;
     domain) dc_name ;;   # dc1, or dc2 on a second server: the ct= line of the recipe is a command, not a name
-    *) sed -n 's/^ct=\${RECIPE_NAME:-\([A-Za-z0-9._-]*\)}.*/\1/p' "$(recipe_script "$1")" | head -n1 || true ;;
+    *) sed -n 's/^\(ct\|app\)=\${RECIPE_NAME:-\([A-Za-z0-9._-]*\)}.*/\2/p' "$(recipe_script "$1")" | head -n1 || true ;;
   esac
 }
 
@@ -34,6 +36,9 @@ for n in $(recipe_names); do
   d=${d^}
   [ -n "$d" ] || d="App recipe $n (hs recipe $n)"
   cts=$(containers_of "$n" || true)
+  # an app that runs as a child of the container docker: the answers record RUNS=docker; the instance is then `docker`
+  if [ -n "$cts" ] && [ "$n" != pelican ] && [ "$n" != matrix-hook ] && [ "$n" != domain ] &&
+     [ "$(sed -n 's/^RUNS=//p' "$state_dir/recipe-$cts.conf" 2>/dev/null | tail -n1 || true)" = docker ]; then cts=docker; fi
   if [ "$n" = sunshine ]; then state=parked
   elif [ "$known" = no ]; then state=unknown
   elif [ "$n" = matrix-hook ]; then

@@ -41,6 +41,7 @@ AUDIENCES = ("generic", "personal")
 NEEDS = ("docker", "share", "tailscale")
 USES = ("gpu",)
 INPUTS = ("none", "form", "terminal")
+RUNS = ("lxc", "docker", "vm")
 ASK_TYPES = re.compile(r"^(text|secret|choice)$")
 NAME = re.compile(r"^[a-z][a-z0-9-]{0,40}$")
 SEMVER = re.compile(r"^(0|[1-9]\d*)\.(0|[1-9]\d*)\.(0|[1-9]\d*)$")
@@ -140,6 +141,7 @@ def convert(script):
     title_de = (h.get("recipe.de") or h.get("recipe") or name).split(": ", 1)[-1]
     needs = [w for w in h.get("needs", "-").split() if w != "-"]
     uses = [w for w in h.get("uses", "-").split() if w != "-"]
+    runs = h.get("runs", "lxc").split() or ["lxc"]
     lines = [
         "# Manifest of a package (docs/PLAN-packages.md). Until the packages move out of this repository the header lines of the",
         "# script still say the same (tests/pkg.sh keeps both in step).",
@@ -152,6 +154,7 @@ def convert(script):
         f"audience = {q(h.get('kind', 'generic'))}",
         f"needs = {json.dumps(needs)}",
         f"uses = {json.dumps(uses)}",
+        f"runs = {json.dumps(runs)}",
         f"input = {q(h.get('input', 'none'))}",
         f"script = {q('run.sh')}",
     ]
@@ -211,6 +214,9 @@ def problems():
             for w in m.get("uses", []):
                 if w not in USES:
                     bad(f"unknown use {w}")
+            for w in m.get("runs", ["lxc"]):
+                if w not in RUNS:
+                    bad(f"unknown runtime {w} in runs")
             if m.get("input", "none") not in INPUTS:
                 bad("input is not none, form or terminal")
             s = m.get("script", "")
@@ -225,6 +231,8 @@ def problems():
                     bad("needs differ from the script's '# needs:' header")
                 if sorted(w for w in h.get("uses", "-").split() if w != "-") != sorted(m.get("uses", [])):
                     bad("uses differ from the script's '# uses:' header")
+                if sorted(h.get("runs", "lxc").split()) != sorted(m.get("runs", ["lxc"])):
+                    bad("runs differ from the script's '# runs:' header")
                 if h.get("input", "none") != m.get("input", "none"):
                     bad("input differs from the script's '# input:' header")
                 keys = [a.split("|")[0] for a in h["asks"]]

@@ -10,6 +10,7 @@
 . "${BASH_SOURCE[0]%/*}/../lib/capability.sh"   # capability_on: is the Docs page there (docs_hint)
 . "${BASH_SOURCE[0]%/*}/../lib/setting.sh"   # setting_get: which providers are set up (reverseProxy, dashboard)
 . "${BASH_SOURCE[0]%/*}/../lib/network.sh"   # network_provider / network_run: the router connection
+. "${BASH_SOURCE[0]%/*}/../lib/recipe-runs.sh"   # recipe_runs_default: lxc or docker (recipe_runtime)
 . "${BASH_SOURCE[0]%/*}/../lib/internal-link.sh"   # link_get, link_overlaps: the internal link of Incus (internal_link)
 # the recipe's own German texts: <package folder>/i18n/<lang>.tsv (the run.sh that sourced this file is BASH_SOURCE[1]); the texts of this file and of
 # the shared helpers are in the core catalog
@@ -24,11 +25,13 @@ if [ "${hs_lang:-en}" != en ] && [ -n "${BASH_SOURCE[1]:-}" ]; then _i18n_read "
 # Without a terminal the defaults are used. Each one can be given up front:
 #   sudo RECIPE_PORT=8080 RECIPE_RAM=2048 RECIPE_IP=10.10.95.25 hs recipe <name>
 # A name of its own for the container (a second one of the same recipe): `hs recipe <name> --name <container>` (= RECIPE_NAME).
-conf="$state/recipe-$ct.conf"
+# A recipe that can run as a child of the docker container (recipe_runtime) sets app=<name> BEFORE sourcing this file and later ct=docker:
+# its answers stay in recipe-<app>.conf.
+conf="$state/recipe-${app:-$ct}.conf"
 ASK=false
 for a in "$@"; do [ "$a" != --ask ] || ASK=true; done
 existed=false
-if incus info "$ct" >/dev/null 2>&1; then existed=true; fi
+if incus info "${app:-$ct}" >/dev/null 2>&1; then existed=true; fi
 interactive() { [ -t 0 ] && [ -t 1 ]; }
 preferences_shown=false
 
@@ -279,7 +282,9 @@ systemctl enable -q hs-nvidia-libs.service' </dev/null
 }
 
 # Let Docker inside the container use the NVIDIA card that nvidia_gpu passed in
-# (docker run --gpus all, compose "driver: nvidia"). Returns 1 when it does not work.
+# (docker run --runtime=nvidia -e NVIDIA_VISIBLE_DEVICES=all; compose needs `runtime: nvidia` plus
+# NVIDIA_VISIBLE_DEVICES=all. `--gpus all` and `--device nvidia.com/gpu=` do not work; hardware-tested 2026-11-02,
+# Debian docker.io 26.1.5). Returns 1 when it does not work.
 # How: NVIDIA's container toolkit in CDI mode. Its classic mode asks /proc/driver/nvidia/gpus
 # and the cgroup, neither exists in a container. CDI instead describes the devices and
 # libraries Incus has put into the container; that description (/etc/cdi/nvidia.yaml) is
@@ -287,9 +292,9 @@ systemctl enable -q hs-nvidia-libs.service' </dev/null
 nvidia_docker() {
   step "NVIDIA container toolkit for Docker"
   in_ct "Adding the NVIDIA package source" '
-    curl -fsSL -m 60 https://nvidia.github.io/libnvidia-container/gpgkey | gpg --dearmor --yes -o /usr/share/keyrings/nvidia-container-toolkit-keyring.gpg
+    curl -fsSL -m 60 https://nvidia.github.io/libnvidia-container/gpgkey -o /usr/share/keyrings/nvidia-container-toolkit.asc
     curl -fsSL -m 60 https://nvidia.github.io/libnvidia-container/stable/deb/nvidia-container-toolkit.list |
-      sed "s#deb https://#deb [signed-by=/usr/share/keyrings/nvidia-container-toolkit-keyring.gpg] https://#g" > /etc/apt/sources.list.d/nvidia-container-toolkit.list
+      sed "s#deb https://#deb [signed-by=/usr/share/keyrings/nvidia-container-toolkit.asc] https://#g" > /etc/apt/sources.list.d/nvidia-container-toolkit.list
     $1 update -qq' "$apt_quick" || return 1
   in_ct "Installing the NVIDIA container toolkit" '$1 install -y -qq nvidia-container-toolkit' "$apt_quick" || return 1
   in_ct "Setting Docker up for the card" '
@@ -315,7 +320,7 @@ UNIT
     nvidia-ctk config --in-place --set nvidia-container-runtime.mode=cdi
     systemctl restart docker' || return 1
   in_ct "Testing the card inside Docker" '
-    docker run --rm --gpus all debian:bookworm-slim sh -c "test -e /dev/nvidia0 && ldconfig -p | grep -q libcuda.so.1 && ldconfig -p | grep -q libnvidia-encode"' || return 1
+    docker run --rm --runtime=nvidia -e NVIDIA_VISIBLE_DEVICES=all debian:bookworm-slim sh -c "test -e /dev/nvidia0 && ldconfig -p | grep -q libcuda.so.1 && ldconfig -p | grep -q libnvidia-encode"' || return 1
 }
 
 # Docker from its own package source, inside the container.
@@ -358,11 +363,63 @@ declare_dump() {   # declare_dump <name> <command inside the container>
 }
 
 backup_with_dump() {   # backup_with_dump <name> <command inside the container, or "" for a container without a database>
+  if ${RUNS_DOCKER:-false}; then   # a child: the parent's backup is decided by hs docker enable; only the dump command is ours
+    if [ -n "$2" ]; then declare_dump "$1" "$2" || return 0; fi
+    if grep -qx docker "$state/backup-instances" 2>/dev/null; then ok "$(t "'%s' is backed up with the container docker" "${app:-$1}")"
+    else warn "$(t "The container docker is not in the backup, so '%s' is not either. Later: hs backup ct docker on" "${app:-$1}")"; fi
+    return 0
+  fi
   if [ -n "$2" ]; then declare_dump "$1" "$2" || return 0; fi
   if ! backup_new_instances_on; then
     note "$(t "'%s' is not put into the backup (backupNewInstances is false). Later: hs backup ct %s on" "$ct" "$ct")"; return 0
   fi
   bash "$scripts/backup.sh" ct "$ct" on >/dev/null 2>&1 || warn "$(t "Could not add '%s' to the backup. Later: hs backup ct %s on" "$ct" "$ct")"
+}
+
+# ── Recipes that run as a child of the docker container (docs/PLAN-docker-instances.md, phase 6) ──
+# A recipe with `# runs: lxc docker` sets app=${RECIPE_NAME:-<name>}; ct=$app before sourcing this file and calls
+# `recipe_runtime lxc docker` after its dry-run block. For docker it then has ct=docker, RUNS_DOCKER=true, ip=<address of the parent>
+# and existed=<is /opt/apps/$app there>; it skips ensure_container, fixed_address and install_docker and uses child_compose/up/pull.
+docker_rows() {   # the key<TAB>value rows of `hs sys docker status`
+  if [ -n "${HS_DOCKER_STATUS:-}" ]; then $HS_DOCKER_STATUS 2>/dev/null || true
+  else bash "$scripts/docker.sh" --status 2>/dev/null || true; fi
+}
+
+recipe_runtime() {   # recipe_runtime <declared words, e.g. lxc docker>: sets RUNS; for docker also ct, RUNS_DOCKER, existed, ip
+  local def rows pattern
+  def=$(recipe_runs_default "${BASH_SOURCE[1]}" "${app:-$ct}")
+  pattern="$*"; pattern=${pattern// /|}
+  setting RUNS "$(t 'Where it runs (lxc: its own container, docker: inside the Docker container)')" "$def" lxc "$pattern"
+  RUNS_DOCKER=false
+  [ "$RUNS" = docker ] || return 0
+  rows=$(docker_rows)
+  if ! printf '%s\n' "$rows" | grep -q '^state'$'\t''on$' || ! printf '%s\n' "$rows" | grep -q '^running'$'\t''yes$'; then
+    fail_fix "$(t 'Docker is not on or not running.')" "hs docker enable"
+  fi
+  if incus info "${app:-$ct}" >/dev/null 2>&1; then
+    fail_fix "$(t "An instance called '%s' exists already, so the app can not run in Docker as well." "${app:-$ct}")" "hs ct list"
+  fi
+  app=${app:-$ct}; RUNS_DOCKER=true; ct=docker
+  existed=false
+  if incus exec docker -- test -d "/opt/apps/${app}" </dev/null >/dev/null 2>&1; then existed=true; fi
+  ip=$(printf '%s\n' "$rows" | sed -n 's/^address\t//p' | head -n1)
+  { [ -n "$ip" ] && [ "$ip" != - ]; } || fail "$(t 'The container docker has no address yet.')"
+}
+
+child_compose() {   # child_compose <app>: the compose file on stdin goes to /opt/apps/<app>/docker-compose.yml and is checked
+  local d=/opt/apps/$1
+  incus exec docker -- sh -c "mkdir -p $d && cat > $d/docker-compose.yml.new && mv $d/docker-compose.yml.new $d/docker-compose.yml" ||
+    fail "$(t "Could not write the compose file of '%s'." "$1")"
+  incus exec docker -- sh -c "cd $d && docker compose -p $1 config -q" </dev/null || fail "$(t "The compose file of '%s' is not valid." "$1")"
+}
+. "${BASH_SOURCE[0]%/*}/../lib/docker-apps.sh"   # docker_port_owner (child_port_free)
+. "${BASH_SOURCE[0]%/*}/../lib/docker-auth.sh"   # docker_with_auth: the token of a private registry (ghcr.io) from the vault, for one command
+child_up() { docker_with_auth "$1" up -d; }     # child_up <app>
+child_pull() { docker_with_auth "$1" pull; }   # child_pull <app>
+child_port_free() {   # child_port_free <port> <app>: fails when another project in the parent publishes the port
+  local who
+  who=$(docker_port_owner "$1" "$2" 2>/dev/null || true)
+  [ -z "$who" ] || fail "$(t "Port %s is used by '%s' in Docker already." "$1" "$who")"
 }
 
 # One line for the closing text of a recipe that points at its guide: the page in the web interface (the Docs page, capability docs)
@@ -446,7 +503,9 @@ declare_service() {
   _svc_public=(); _svc_blocked=(); _svc_open=(); _svc_auth=""; _svc_reqh=(); _svc_resh=()
   [ -f "$scripts/services.sh" ] && [ -n "$port" ] || return 0
   # a container with a name of its own (hs recipe <name> --name <ct>) is a service of its own: the descriptor must not replace the first one's
-  if [ -n "${RECIPE_NAME:-}" ] && [ "$ct" != "$name" ]; then name=$ct; title="$title ($ct)"; fi
+  # (a child of docker has ct=docker: the instance name is $app)
+  local inst=${app:-$ct}
+  if [ -n "${RECIPE_NAME:-}" ] && [ "$inst" != "$name" ]; then name=$inst; title="$title ($inst)"; fi
   key=${name//-/_}; key=${key^^}
   step "Service"
   if [ "${SERVICE_NO_DASHBOARD:-}" != 1 ] && [ -n "$(setting_get dashboard 2>/dev/null || true)" ]; then

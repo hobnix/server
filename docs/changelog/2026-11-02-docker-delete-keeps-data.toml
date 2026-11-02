@@ -1,0 +1,5 @@
+date  = "2026-11-02"
+type  = "change"
+title = "Deleting a Docker app keeps its folder unless you ask for the data to go"
+docs  = "containers-and-apps"
+body  = """Delete now removes only the containers and leaves the app folder in /opt/apps, so the app can be started again. The new button Delete with data also removes the config and data."""
