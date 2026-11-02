@@ -152,4 +152,36 @@ check_eq "exit 0" 0 "$rc"
 grep -qF "backup now" "$BLOG" && pass "backup now ran" || fail "no backup"
 grep -qF -- '--delete' "$MLOG" && pass "then deleted" || fail "not deleted"
 
+echo "-- hs sys docker plan|start setup (docker-setup.sh)"
+S="bash $SCRIPTS/docker-setup.sh"
+T=$'	'
+reset
+rc=0; out=$($S plan setup --set dockerManager=arcane --set dockerSize=s </dev/null 2>&1) || rc=$?
+check_eq "plan exit 0" 0 "$rc"
+echo "$out" | grep -qx "status${T}ok" && pass "plan status ok" || fail "plan: $out"
+echo "$out" | grep -q "^step${T}1\. Create the container docker (2048 MiB, 2 CPUs" && pass "plan step with the size" || fail "plan step: $out"
+echo "$out" | grep -q "^step${T}.*Start the manager arcane" && pass "plan names the manager" || fail "plan manager: $out"
+check_eq "plan changed nothing" 0 "$(changes)"
+rc=0; out=$($S plan setup --set dockerManager=foo </dev/null 2>&1) || rc=$?
+check_eq "bad manager: exit 1" 1 "$rc"
+echo "$out" | grep -qx "status${T}refused" && echo "$out" | grep -q "^reason${T}" && pass "bad manager refused with a reason" || fail "bad manager: $out"
+rc=0; out=$($S plan setup --set dockerMemory=1 </dev/null 2>&1) || rc=$?
+check_eq "other key: exit 1" 1 "$rc"
+rc=0; out=$($S plan setup </dev/null 2>&1) || rc=$?
+check_eq "no --set: exit 1" 1 "$rc"
+reset; : > "$STATE"
+rc=0; out=$($S plan setup --set dockerManager=webui </dev/null 2>&1) || rc=$?
+check_eq "foreign instance docker: exit 1" 1 "$rc"
+echo "$out" | grep -qx "status${T}refused" && pass "foreign instance refused" || fail "foreign: $out"
+echo "$out" | grep -q "^reason${T}An instance called .docker. exists and is not managed by hs" && pass "foreign instance: the real reason, not the Fix line" || fail "foreign reason: $out"
+reset; echo webui > "$HS_SETTINGS_DIR/dockerManager"
+rc=0; out=$($S plan setup --set dockerManager=webui </dev/null 2>&1) || rc=$?
+check_eq "docker on already: exit 1" 1 "$rc"
+echo "$out" | grep -q "^reason${T}Docker is on already" && pass "on already refused" || fail "on already: $out"
+reset
+rc=0; out=$($S start setup --set dockerManager=none </dev/null 2>&1) || rc=$?
+check_eq "start exit 0" 0 "$rc"
+echo "$out" | grep -qx "status${T}started" && pass "start status started" || fail "start: $out"
+check_eq "dockerManager written by enable" none "$(cat "$HS_SETTINGS_DIR/dockerManager" 2>/dev/null || true)"
+
 finish

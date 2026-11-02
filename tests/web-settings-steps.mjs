@@ -1,7 +1,7 @@
 // The guided steps of a capability page (web/src/settings/steps.js) and what the layout JSON declares. Plain node.
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
-import { stepKeys, draftFrom, applyPreset, presetOf, diff, changed, applyParts } from '../web/src/settings/steps.js';
+import { stepKeys, draftFrom, applyPreset, presetOf, diff, changed, applyParts, optionOf, withRecommended, screens, progress, isGuided } from '../web/src/settings/steps.js';
 
 const layout = JSON.parse(readFileSync(new URL('../web/src/settings/layout.gen.json', import.meta.url), 'utf8'));
 const gw = layout.caps.gateway;
@@ -39,4 +39,25 @@ assert.deepEqual(changed({ p: '0', q: '' }, optsD), []);
 assert.deepEqual(diff({ p: '8081', q: '' }, optsD), [{ key: 'p', from: '0', to: '8081' }]);
 assert.deepEqual(applyParts('gateway setup'), { area: 'gateway', verb: 'setup' });
 assert.deepEqual(draftFrom([], steps), { x: '', y: '', z: '' });
+// the wizard: docker declares two questions with options, each with one recommended
+const dk = layout.caps.docker;
+assert.equal(dk.apply, 'docker setup');
+assert.deepEqual(dk.steps.map((s) => s.id), ['manager', 'size']);
+for (const s of dk.steps) {
+  assert.equal(s.options.filter((o) => o.recommended).length, 1, s.id);
+  assert.ok(s.question);
+}
+assert.equal(isGuided(dk.steps), true);
+assert.equal(isGuided(gw.steps), false);
+assert.equal(isGuided(undefined), false);
+const dOpts = [{ key: 'dockerManager', cur: '' }, { key: 'dockerSize', cur: '', dflt: 'm' }];
+const w0 = withRecommended(draftFrom(dOpts, dk.steps), dk.steps);
+assert.deepEqual(w0, { dockerManager: 'webui', dockerSize: 'm' });
+assert.equal(optionOf(w0, dk.steps[0]).id, 'webui');
+assert.deepEqual(changed(w0, dOpts, 'setup'), ['setup', '--set', 'dockerManager=webui'], 'size m is the default: no diff');
+assert.deepEqual(withRecommended({ dockerManager: 'arcane', dockerSize: '' }, dk.steps), { dockerManager: 'arcane', dockerSize: 'm' });
+assert.deepEqual(screens(dk.steps), ['manager', 'size', 'review']);
+assert.deepEqual(screens(dk.steps, 'size'), ['size', 'review']);
+assert.deepEqual(screens(dk.steps, 'nope'), ['manager', 'size', 'review']);
+assert.deepEqual(progress(1, 3), { text: 'Step 2 of 3', pct: 67 });
 console.log('  ok    settings steps');

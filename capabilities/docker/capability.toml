@@ -13,3 +13,65 @@ needs = []
 # is made by scripts/docker.sh. The recipe docker still has its own preference MANAGER (recipe-<ct>.conf) until `hs docker adopt` exists.
 implied_by = ["dockerManager"]
 notes = "NOTES.md"
+
+# The guided setup on the settings page (docs/PLAN-docker-instances.md): two questions, one screen each. Apply = `hs sys docker plan|start setup`.
+[settings]
+apply = "docker setup"
+
+[[settings.steps]]
+id = "manager"
+title = "Manager"
+question = "Which page should manage Docker?"
+text = "You can change it later. The apps and their data stay when you switch."
+keys = ["dockerManager"]
+
+[[settings.steps.options]]
+id = "webui"
+label = "The web interface of hobnix"
+text = "State, start, stop, logs and pull of every app. Built later: for now the choice is recorded."
+set = { dockerManager = "webui" }
+recommended = true
+
+[[settings.steps.options]]
+id = "arcane"
+label = "Arcane"
+text = "A page of its own that also edits compose files."
+set = { dockerManager = "arcane" }
+
+[[settings.steps.options]]
+id = "portainer"
+label = "Portainer"
+text = "The most features, and the most memory."
+set = { dockerManager = "portainer" }
+
+[[settings.steps.options]]
+id = "none"
+label = "None"
+text = "Docker only. You manage it with the command line."
+set = { dockerManager = "none" }
+
+[[settings.steps]]
+id = "size"
+title = "Size"
+question = "How large should the Docker container be?"
+text = "It can be resized later with hs ct docker set."
+keys = ["dockerSize"]
+
+[[settings.steps.options]]
+id = "s"
+label = "Small"
+text = "2 GB memory, 2 CPUs"
+set = { dockerSize = "s" }
+
+[[settings.steps.options]]
+id = "m"
+label = "Medium"
+text = "4 GB memory, 4 CPUs"
+set = { dockerSize = "m" }
+recommended = true
+
+[[settings.steps.options]]
+id = "l"
+label = "Large"
+text = "8 GB memory, 8 CPUs"
+set = { dockerSize = "l" }

@@ -60,6 +60,9 @@ It offers a backup, then asks you to type `docker`.
 | A step failed during enable | The setting is not written, so Docker stays off | `sudo hs docker disable`, then `sudo hs docker enable` again |
 | `hs ct docker delete` is refused | The container is locked | `sudo hs docker disable` |
 
+## In the web interface
+Open Settings, Capabilities, Docker. Two questions follow, one screen each: which page manages Docker, and how large the container is. The review shows the plan; nothing is created until you start it, and it runs as a background job. Not tested on hardware yet.
+
 ## Next
 - [Containers and apps](../../docs/containers-and-apps.md)
 - [Backup and recovery](../../docs/backup-and-recovery.md)

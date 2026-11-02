@@ -37,4 +37,5 @@ for (const p of layout.pages) assert.ok(settings.children.some((c) => c.path ===
 const withCap = nodeItems('main', null, [], capEntries(layout, ['gateway'])).find((i) => i.path === '/settings');
 assert.deepEqual(withCap.children.find((c) => c.path === '/settings/capabilities').children.map((c) => c.path), ['/settings/capabilities/gateway']);
 assert.equal(settings.children.find((c) => c.path === '/settings/capabilities').children, undefined, 'the static tree is not changed');
+assert.ok(layout.caps.docker.steps.every((s) => s.keys.every((k) => keys.includes(k))));
 console.log('  ok    settings layout');

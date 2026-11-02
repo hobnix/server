@@ -122,7 +122,95 @@
   "docker": {
    "title": "Docker host with a web page to manage it",
    "icon": "puzzle-piece",
-   "entry": true
+   "entry": true,
+   "apply": "docker setup",
+   "steps": [
+    {
+     "id": "manager",
+     "title": "Manager",
+     "text": "You can change it later. The apps and their data stay when you switch.",
+     "keys": [
+      "dockerManager"
+     ],
+     "question": "Which page should manage Docker?",
+     "options": [
+      {
+       "id": "webui",
+       "label": "The web interface of hobnix",
+       "text": "State, start, stop, logs and pull of every app. Built later: for now the choice is recorded.",
+       "set": {
+        "dockerManager": "webui"
+       },
+       "recommended": true
+      },
+      {
+       "id": "arcane",
+       "label": "Arcane",
+       "text": "A page of its own that also edits compose files.",
+       "set": {
+        "dockerManager": "arcane"
+       },
+       "recommended": false
+      },
+      {
+       "id": "portainer",
+       "label": "Portainer",
+       "text": "The most features, and the most memory.",
+       "set": {
+        "dockerManager": "portainer"
+       },
+       "recommended": false
+      },
+      {
+       "id": "none",
+       "label": "None",
+       "text": "Docker only. You manage it with the command line.",
+       "set": {
+        "dockerManager": "none"
+       },
+       "recommended": false
+      }
+     ]
+    },
+    {
+     "id": "size",
+     "title": "Size",
+     "text": "It can be resized later with hs ct docker set.",
+     "keys": [
+      "dockerSize"
+     ],
+     "question": "How large should the Docker container be?",
+     "options": [
+      {
+       "id": "s",
+       "label": "Small",
+       "text": "2 GB memory, 2 CPUs",
+       "set": {
+        "dockerSize": "s"
+       },
+       "recommended": false
+      },
+      {
+       "id": "m",
+       "label": "Medium",
+       "text": "4 GB memory, 4 CPUs",
+       "set": {
+        "dockerSize": "m"
+       },
+       "recommended": true
+      },
+      {
+       "id": "l",
+       "label": "Large",
+       "text": "8 GB memory, 8 CPUs",
+       "set": {
+        "dockerSize": "l"
+       },
+       "recommended": false
+      }
+     ]
+    }
+   ]
   },
   "docs": {
    "title": "Documentation in the web interface (guides and command reference)",

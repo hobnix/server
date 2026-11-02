@@ -17,6 +17,7 @@ const de = {
   "What's new": 'Neuigkeiten',
   General: 'Allgemein', 'Network and DNS': 'Netzwerk und DNS', 'Users and access': 'Benutzer und Zugang', Updates: 'Aktualisierungen',
   Capabilities: 'Funktionen', Advanced: 'Erweitert', Backups: 'Datensicherungen',
+  Next: 'Weiter', Back: 'Zurück', Review: 'Überprüfen', 'Back to the questions': 'Zurück zu den Fragen', Change: 'Ändern', 'Apply…': 'Anwenden…', recommended: 'empfohlen',   // the wizard's buttons
   'Sort by': 'Sortieren nach', 'Update all': 'Alle aktualisieren',
 };
 

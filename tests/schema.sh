@@ -115,6 +115,20 @@ trial step_preset_key; rc=$?; check_eq "a preset key outside the step keys dies"
 trial step_preset_val; rc=$?; check_eq "a preset value that is no string dies" 2 "$rc"
 trial step_no_apply; rc=$?; check_eq "steps without apply die" 2 "$rc"
 trial apply_no_steps; rc=$?; check_eq "apply without steps dies" 2 "$rc"
+step_opt_noq() { step_manifest "$1" 'apply = "gateway setup"' 'id = "one"' 'title = "T"' 'text = "x"' 'keys = ["language"]' '[[settings.steps.options]]' 'id = "o"' 'label = "O"' 'text = "t"' 'set = { language = "de" }'; }
+step_opt_both() { step_manifest "$1" 'apply = "gateway setup"' 'id = "one"' 'title = "T"' 'text = "x"' 'keys = ["language"]' 'question = "Q?"' '[[settings.steps.presets]]' 'id = "p"' 'label = "P"' 'set = { language = "de" }' '[[settings.steps.options]]' 'id = "o"' 'label = "O"' 'text = "t"' 'set = { language = "de" }'; }
+step_opt_key() { step_manifest "$1" 'apply = "gateway setup"' 'id = "one"' 'title = "T"' 'text = "x"' 'keys = ["syncEveryHours"]' 'question = "Q?"' '[[settings.steps.options]]' 'id = "o"' 'label = "O"' 'text = "t"' 'set = { language = "de" }'; }
+step_opt_choice() { step_manifest "$1" 'apply = "gateway setup"' 'id = "one"' 'title = "T"' 'text = "x"' 'keys = ["dockerSize"]' 'question = "Q?"' '[[settings.steps.options]]' 'id = "o"' 'label = "O"' 'text = "t"' 'set = { dockerSize = "xx" }'; }
+step_opt_two_rec() { step_manifest "$1" 'apply = "gateway setup"' 'id = "one"' 'title = "T"' 'text = "x"' 'keys = ["language"]' 'question = "Q?"' '[[settings.steps.options]]' 'id = "o"' 'label = "O"' 'text = "t"' 'set = { language = "de" }' 'recommended = true' '[[settings.steps.options]]' 'id = "o2"' 'label = "O"' 'text = "t"' 'set = { language = "en" }' 'recommended = true'; }
+step_opt_rec_str() { step_manifest "$1" 'apply = "gateway setup"' 'id = "one"' 'title = "T"' 'text = "x"' 'keys = ["language"]' 'question = "Q?"' '[[settings.steps.options]]' 'id = "o"' 'label = "O"' 'text = "t"' 'set = { language = "de" }' 'recommended = "yes"'; }
+step_opt_notext() { step_manifest "$1" 'apply = "gateway setup"' 'id = "one"' 'title = "T"' 'text = "x"' 'keys = ["language"]' 'question = "Q?"' '[[settings.steps.options]]' 'id = "o"' 'label = "O"' 'set = { language = "de" }'; }
+trial step_opt_noq; rc=$?; check_eq "options without a question die" 2 "$rc"
+trial step_opt_both; rc=$?; check_eq "presets and options together die" 2 "$rc"
+trial step_opt_key; rc=$?; check_eq "an option key outside the step keys dies" 2 "$rc"
+trial step_opt_choice; rc=$?; check_eq "an option value outside the choices dies" 2 "$rc"
+trial step_opt_two_rec; rc=$?; check_eq "two recommended options die" 2 "$rc"
+trial step_opt_rec_str; rc=$?; check_eq "recommended that is no bool dies" 2 "$rc"
+trial step_opt_notext; rc=$?; check_eq "an option without text dies" 2 "$rc"
 check_eq "the gateway page declares its status read" "gateway health" "$(python3 -c "import json;print(json.load(open('$SCRIPTS/../web/src/settings/layout.gen.json'))['caps']['gateway']['status'])")"
 check_eq "advanced is only on options that are not settable" "" "$($GEN pages | awk -F"$T" '$2 == "advanced" {print $1}' | grep -Fxf <($GEN list | awk -F"$T" '$3 == "yes" {print $1}') | tr '
 ' ' ')"

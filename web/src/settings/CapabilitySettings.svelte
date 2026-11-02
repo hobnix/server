@@ -11,8 +11,10 @@
   import Fields from './Fields.svelte';
   import StatusPanel from './StatusPanel.svelte';
   import Steps from './Steps.svelte';
+  import WizardSteps from './WizardSteps.svelte';
   import layout from './layout.gen.json';
   import { fieldsFor } from './layout.js';
+  import { isGuided } from './steps.js';
   import { useConfig } from './config.svelte.js';
   import { useParts, flip } from './parts.svelte.js';
 
@@ -45,7 +47,10 @@
     <div class="card"><EmptyState icon="puzzle-piece" title="Unknown part" text="This server has no part with this name." /></div>
   {:else}
     {#if meta.status}<StatusPanel read={meta.status} bind:off={setupOff} />{/if}
-    {#if meta.steps?.length && meta.apply}<Steps steps={meta.steps} apply={meta.apply} opts={getOpts()} off={setupOff} />{/if}
+    {#if meta.steps?.length && meta.apply}
+      {#if isGuided(meta.steps)}<WizardSteps steps={meta.steps} apply={meta.apply} opts={getOpts()} off={setupOff} on={!!part?.on} />
+      {:else}<Steps steps={meta.steps} apply={meta.apply} opts={getOpts()} off={setupOff} />{/if}
+    {/if}
     {#if fields.length}
       <Fields opts={fields} />
     {:else}
