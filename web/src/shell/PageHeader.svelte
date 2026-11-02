@@ -19,6 +19,6 @@
   .crumb { font: 12px var(--mono); color: var(--fg-3); margin-bottom: 6px; }
   h1 { margin: 0; font-size: 28px; font-weight: 600; letter-spacing: -0.03em; }
   .sub { margin: 4px 0 0; color: var(--fg-2); }
-  .acts { display: flex; gap: 8px; flex-wrap: wrap; }
+  .acts { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; }
   @media (max-width: 860px) { h1 { font-size: 22px; } }
 </style>

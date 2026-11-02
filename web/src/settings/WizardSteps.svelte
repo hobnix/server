@@ -1,6 +1,6 @@
 <script>
   // The guided setup of a capability page as a wizard: one question per screen (steps with `options`, [[settings.steps]] in the manifest), then a
-  // review that opens the plan of `apply`. Advanced shows the step keys as plain key/value fields over the SAME draft. Nothing here names a
+  // review that opens the plan of `apply`. `advanced` (set by the page) shows the step keys as plain key/value fields over the SAME draft. Nothing here names a
   // capability; the logic is steps.js.
   import { tip } from '../ui/tooltip.svelte.js';
   import Wizard from '../ui/Wizard.svelte';
@@ -11,10 +11,10 @@
 
   // steps: the layout list; apply: "<area> <verb>"; opts: rows of `hs sys config list`; off: a reason the setup is off. on: the part is on already (the page then starts at the review, the summary)
   // first: nothing exists yet (the docker container): Apply is always possible and sends every step key
-  let { steps = [], apply = '', opts = [], off = '', on = false, first = false } = $props();
+  // advanced: the page's Advanced view is on (it replaces the tabs): the step keys as plain fields over the same draft
+  let { steps = [], apply = '', opts = [], off = '', on = false, first = false, advanced = false } = $props();
   let draft = $state({});
   let ready = $state(false);
-  let advanced = $state(false);
   let only = $state('');
   let at = $state(0);
   let moved = $state(false);
@@ -52,19 +52,27 @@
   {:else if !ready}
     <div class="muted">Reading the current values…</div>
   {:else if advanced}
-    <Wizard index={at} total={list.length} question={tr('Advanced')} help="The same values as the questions, as plain fields." primary={tr('Review')} onnext={() => { advanced = false; go(list.length - 1); }} bind:advanced>
-      {#each keys as k (k)}
-        <div class="fld">
-          <div class="k"><code>{k}</code></div>
-          <div class="v">
-            <input class="input in" bind:value={draft[k]} placeholder={dflt[k]} aria-label={k} />
-            <span class="hp" use:tip={help[k]}>{help[k]}</span>
-          </div>
+    <div class="q">{tr('Advanced')}</div>
+    <div class="muted">The same values as the questions, as plain fields.</div>
+    {#each keys as k (k)}
+      <div class="fld">
+        <div class="k"><code>{k}</code></div>
+        <div class="v">
+          <input class="input in" bind:value={draft[k]} placeholder={dflt[k]} aria-label={k} />
+          <span class="hp" use:tip={help[k]}>{help[k]}</span>
         </div>
-      {/each}
-    </Wizard>
+      </div>
+    {/each}
+    {#if changes.length}
+      <div class="diff">
+        {#each changes as c (c.key)}
+          <code>{c.key}</code><span class="mono">{c.from || '(empty)'} → {c.to || '(empty)'}</span>
+        {/each}
+      </div>
+    {/if}
+    <div class="foot"><button type="button" class="btn btn-primary" disabled={!first && !changes.length} onclick={review}>{tr('Apply…')}</button></div>
   {:else if isReview}
-    <Wizard index={at} total={list.length} question={tr('Review')} help="" primary={tr('Apply…')} canNext={first || !!changes.length} onnext={review} onback={() => go(at - 1)} bind:advanced>
+    <Wizard index={at} total={list.length} question={tr('Review')} help="" primary={tr('Apply…')} canNext={first || !!changes.length} onnext={review} onback={() => go(at - 1)}>
       {#each steps as s (s.id)}
         <div class="rv">
           <span class="rt">{s.title}</span>
@@ -85,7 +93,7 @@
       {/if}
     </Wizard>
   {:else if step}
-    <Wizard index={at} total={list.length} question={step.question || step.title} help={step.text} primary={tr('Next')} onnext={() => go(at + 1)} onback={() => go(at - 1)} bind:advanced>
+    <Wizard index={at} total={list.length} question={step.question || step.title} help={step.text} primary={tr('Next')} onnext={() => go(at + 1)} onback={() => go(at - 1)}>
       {#if step.options?.length}
         <ChoiceList options={step.options} value={optionOf(draft, step)?.id ?? ''} onpick={(oid) => pick(step.options.find((o) => o.id === oid))} label={step.question || step.title} />
       {/if}
@@ -115,6 +123,8 @@
   .v { display: flex; flex-direction: column; gap: 3px; min-width: 0; }
   .in { min-height: 32px; font-size: 13px; font-family: var(--font-mono, ui-monospace, monospace); }
   .hp { font-size: 11.5px; color: var(--fg-3); display: -webkit-box; -webkit-line-clamp: 3; line-clamp: 3; -webkit-box-orient: vertical; overflow: hidden; }
+  .q { font-size: 20px; font-weight: 600; }
+  .foot { display: flex; justify-content: flex-end; }
   .diff { display: grid; grid-template-columns: max-content 1fr; gap: 4px 16px; font-size: 13px; margin-top: 8px; }
   .muted { font-size: 12px; color: var(--fg-3); }
   @media (max-width: 860px) { .fld { grid-template-columns: 1fr; gap: 2px; } .rv { grid-template-columns: 1fr; gap: 2px; } }

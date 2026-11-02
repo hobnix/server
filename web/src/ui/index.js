@@ -11,7 +11,7 @@ export { default as Drawer } from './Drawer.svelte';
 export { default as Button } from './Button.svelte';          // every button that starts something: busy state, spinner, promise-aware
 export { default as Kv } from './Kv.svelte';
 export { default as Split } from './Split.svelte';
-export { default as Wizard } from './Wizard.svelte';          // one question per screen: progress, back, question, children, Advanced, primary button
+export { default as Wizard } from './Wizard.svelte';          // one question per screen: progress, back, question, children, primary button
 export { default as ChoiceList } from './ChoiceList.svelte';    // radio rows: label, recommended chip, grey line
 // elsewhere, kept at their old paths so pages keep working:
 //   shell/Table.svelte, shell/UsageBar.svelte, shell/Spark.svelte, shell/PlanDialog.svelte (opened with openPlan), forms/unlock/UnlockForm.svelte
