@@ -4,4 +4,5 @@
 # kind: generic
 # needs: docker
 # uses: -
+# runs: lxc docker
 set -euo pipefail

@@ -19,6 +19,7 @@
 set -euo pipefail
 here=$(dirname "$0")
 . "$here/lib/recipe-path.sh"
+. "$here/lib/recipe-runs.sh"
 recipe=${HS_RECIPE:-$here/recipe.sh}
 
 a_fqdn='([a-z0-9]([a-z0-9-]*[a-z0-9])?\.)+[a-z]{2,}'
@@ -54,7 +55,7 @@ ak=() al=() at=() ad=() ap=() aw=()
 while IFS='|' read -r k l t d p w _; do
   [ -n "$k" ] || continue
   ak+=("$k"); al+=("$l"); at+=("$t"); ad+=("$d"); ap+=("$p"); aw+=("$w")
-done < <(sed -n 's/^# ask: //p' "$file")
+done < <(sed -n 's/^# ask: //p' "$file"; recipe_runs_ask "$file" "${ct:-$name}")
 
 value_of() {   # value_of <key>: what is given, else the default
   local i

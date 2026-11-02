@@ -84,9 +84,9 @@ with Docker inside. The gateway itself stays on the host (see the last section).
   logs and pull. It talks to the Docker engine of the parent through the same `incus exec` path as the reads, never a socket exposed to the
   network. Compose editing is out of scope for the first version (use Arcane or Portainer for that). Admin-only like every page. Because the
   manager would then be able to run anything as root in the parent, the permission is the same as "may change instances".
-- Migration: a server that has `hs recipe docker` installed keeps working. `hs docker adopt` marks that container `managed_by = docker`,
-  moves its `MANAGER` value into the setting and registers existing compose projects as children. Until then the recipe still works and
-  the capability is off. The recipe is removed from hobnix/recipes one release after `adopt` exists.
+- Migration: there is none. `hs docker adopt` is dropped. A server that has `hs recipe docker` installed keeps its container running; the
+  owner recreates his two compose apps by hand in the web page. `hs docker enable` refuses while an unmanaged instance called `docker`
+  exists and says to move the apps and rename or delete it. The docker recipe is deleted without a refusing stub (slices 8a and 8c).
 
 ### 4. The wizard (web interface only)
 
@@ -172,18 +172,46 @@ with Docker inside. The gateway itself stays on the host (see the last section).
    - Storage: overlay2 works on the container's rootfs; no separate volume is needed, decision 4 stands.
    - Compose is the v2 plugin (`docker compose`, 2.26.1).
    - A published port is reachable on the parent's address (10.10.95.212); a restart policy survived a restart of the container.
-   - Not tested on hardware yet: GPU (Intel/AMD, NVIDIA), a child's port from the internet side without a route (firewall row), own-address children.
+   - Hardware results 2026-11-02 (nested Docker in the `docker` container): overlay2, `docker compose` v2, ports on the container address and
+     the restart policy all work.
+   - NVIDIA works in Docker there with `docker run --runtime=nvidia -e NVIDIA_VISIBLE_DEVICES=all`; in compose `runtime: nvidia` plus
+     `NVIDIA_VISIBLE_DEVICES=all`. The toolkit is in `mode=cdi`. NOT `--gpus all`, NOT `--device nvidia.com/gpu=`. The apt key is stored as
+     an armored `.asc` (`signed-by=` that file) because gpg is missing in the container.
+   - Jellyfin, Tdarr and Immich stay `lxc` until a transcode test passes in Docker.
+   - `/media` and a remote share are listed in a Docker container through the parent's disk devices. `hs sys docker mount` must cover local
+     and `hs remote` shares, because the lock refuses `hs remote attach` on the parent.
+   - Remount propagation PASSED on the real server: with the peer directory attached the way `hs remote attach` does it (disk device
+     `source=/mnt/remote/<peer>`, `recursive=true`, `propagation=rslave`) and a Docker container started with `-v ...:ro,rslave`, a host
+     `umount` of the CIFS share showed an empty listing in the container, and `systemctl start hs-remote-mount` made the files appear again
+     without restarting the container. So the compose bind for remote shares needs `bind: propagation: rslave` (short form `:ro,rslave`);
+     no restart is needed after a remount.
+   - Not tested on hardware yet: Intel/AMD GPU, a transcode in Docker, a child's port from the internet side without a route (firewall row),
+     own-address children.
 2. **Lock** (`managed_by`, the shared check, the lock chip, tests) DONE in commit 99786f1. Nothing sets the key yet; phase 3 does.
 3. **Capability and children**: first slice (`.work/docker-instances/spec-p3.md`, testable without Docker hardware): schema options,
    enable/disable commands, `hs sys docker list` with `parent`, the lock set on create, registry rows, smoke probes, guide, changelog.
    In the first slice `webui` is already the default of `hs docker enable`, but it only records the setting `dockerManager` (no manager is
    installed, no service tile) until the page itself is built.
-   Later in phase 3: the `webui` page, `adopt`, service via parent, the `dump_hook` per child.
+   Later in phase 3: the `webui` page, service via parent, the `dump_hook` per child. (`adopt` is dropped.)
 4. **Wizard**: `Wizard.svelte`, `ChoiceList.svelte`, capability.toml fields, schema-gen validation, web tests (tests/web-forms-*, steps.js).
 5. **Gateway wizard** moves to the same component (visual change only; keys and the `gateway setup` change stay). DONE (spec .work/docker-instances/spec-p5.md).
 6. **Recipes with `runs`**: header, install flow, compose helpers; convert the arr recipes first (they need no GPU), then the others one by one.
+   Slices (spec `.work/docker-instances/spec-p6-p8.md`, one PR each, in order):
+   - 6a core: `# runs:` header, `recipe-runs.sh`, `pkg.py` key, API level 5, the runtime pickable in the recipe dialog.
+   - 6b core: child helpers in `_lib.sh` / `_media.sh`, `hs sys docker mount` (owner-only, one mapped user `media`), NVIDIA text.
+   - 6c recipes: radarr, sonarr, lidarr, prowlarr, bazarr, maintainerr (hobnix/recipes, after 6a and 6b are on core main).
+   - 6d later, one recipe per PR: sabnzbd, seerr, qbittorrent. Jellyfin, Tdarr, Immich stay `lxc`.
 7. **Addresses**: block options, allocation through `hs net`, own-address children (after the phase 1 test of macvlan/ipvlan).
-8. **Cleanup**: remove the docker recipe from hobnix/recipes, drop the `MANAGER` preference after `adopt` has shipped one release.
+8. **Cleanup**: the docker recipe is deleted without a refusing stub (the former slice 8b is dropped).
+   - 8a core: messages and docs without `adopt` (docker.sh refusal text, de.tsv, capability.toml comment, guide, NOTES.md, this plan).
+   - 8c recipes + core sweep: delete recipes/docker and its index entry (hobnix/recipes), drop `MANAGER` / `recipe-docker` leftovers in core;
+     `hs pkg` must tolerate an installed package missing from the index (unverified).
+9. **Webui manager (future, outline)**: compose create/edit in the `webui` page.
+   - "New app" and "Edit" for a child: compose YAML editor plus one env file (`/opt/apps/<project>/.env`, root-only).
+   - Change route `hs sys docker plan|start app-save <project>`: validates with `docker compose config -q`, refuses named volumes and ports
+     already published, writes via `.new` + mv; env values with secrets go on stdin, never argv.
+   - Up, down and pull reuse the read-only page's actions; the lock and the admin-only permission stay as in section 3.
+   - Tests: web-docker-change with a fake parent and a compose fixture; changelog; guide section. This replaces Decision 2 then.
 
 Phases 2 and 4 do not touch the same files and can run as separate sessions after phase 0.
 
@@ -204,11 +232,14 @@ move would reuse.
 5. `webui` is the default manager; Arcane and Portainer are the "more features" choices, `none` stays.
 6. Address blocks are configuration, defaults keep today's addresses valid, and a range change never moves an existing reservation.
 7. `hs net` owns address allocation; the Docker capability only asks it.
-8. Recipes declare `runs`; the default is `docker` when available, `lxc` otherwise, `vm` only where required.
-9. Existing LXC-with-Docker installs are not moved automatically; a move command is a separate later piece of work.
+8. Recipes declare `runs`; the owner PICKS the runtime in the recipe dialog (lxc, docker or vm, as the recipe supports). Default `docker`
+   when Docker is on and the recipe declares it, otherwise `lxc`; an existing instance keeps its runtime; `vm` only where required.
+9. Existing LXC-with-Docker installs are not moved and not adopted (`hs docker adopt` is dropped); the owner recreates his two compose apps
+   by hand. A move command is a separate later piece of work.
 
 10. GPU in Docker children: Intel and AMD through `/dev/dri` first (the Incus `gpu` device with the right `gid`, `group_add` in the compose
-    file; tested with Jellyfin hardware transcoding in phase 1); NVIDIA through CDI later and marked "Not tested on hardware yet." until it is.
+    file; tested with Jellyfin hardware transcoding in phase 1); NVIDIA works through the nvidia runtime (`runtime: nvidia` plus `NVIDIA_VISIBLE_DEVICES=all`, toolkit in `mode=cdi`; hardware-tested
+    2026-11-02), not through `--gpus all` or CDI device names.
     The Docker capability, not the user, adds and removes the device (the lock forbids a manual change), asked in the wizard only when `gpu` is
     set in machine.toml. Known costs: all children share the card without limits, a driver upgrade needs a restart of the `docker` container,
     and Jellyfin and Tdarr stay `runs = lxc` until the test passes.
@@ -222,6 +253,14 @@ move would reuse.
     covers it. No second volume for backup.sh to learn.
 14. No storage choice for now: the `docker` container uses the one Incus pool (`default`). A pool on bulk is a later, separate question.
 
+15. Owner answers for phases 6 and 8 (2026-11-02):
+    1. `hs sys docker mount`: an owner-only verb with one mapped user `media` for all media children (recipes never set HS_OWNER).
+    2. The runtime is pickable in the recipe dialog; default docker when Docker is on, else lxc; an existing instance keeps its runtime.
+    3. The radarr dedupe timer is off in Docker mode for now. Later a sidecar container with its own dependencies (containers manage
+       their own dependencies; nothing is installed in the parent).
+    4. NVIDIA: toolkit in `mode=cdi`, containers use `runtime: nvidia`.
+    5. The docker recipe is deleted at once, without a refusing stub (8a + 8c).
+
 ## Still open
 
-- Whether NVIDIA works at all in Docker inside LXC on the owner's card; found in a later hardware step, not in phase 1.
+- A transcode test in Docker for Jellyfin, Tdarr and Immich.

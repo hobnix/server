@@ -35,5 +35,7 @@ Docs page shows them under *Apps* and *Extensions*.
 | [PLAN-web-backend](PLAN-web-backend.md) | The web interface backend |
 | [PLAN-disk-health](PLAN-disk-health.md) | Daily SMART baseline, and a disk and pool checklist |
 | [PLAN-web-cache](PLAN-web-cache.md) | Hot state for the web interface (Redis, collector, live updates) |
+| [PLAN-docker-instances](PLAN-docker-instances.md) | Docker as a capability: locked instances, child apps, recipes with `runs` |
+| [PLAN-selfservice](PLAN-selfservice.md) | Self-service password change for domain users |
 | [CLI-DESIGN](CLI-DESIGN.md) | The look of every `hs` command |
 | [Entwicklungsnotizen](Entwicklungsnotizen.md) | Per-feature design notes (grouped by topic) |
