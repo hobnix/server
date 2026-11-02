@@ -62,6 +62,12 @@ rm "$FAKE_FS/sonarr/opt/sonarr/config/config.xml"
 out=$(FAKE_CTS="radarr=10.0.0.5 sonarr=10.0.0.6 arr=10.0.0.9" conf lookup)
 check_eq "a new container without a key yet: the old one answers" "http://10.0.0.9:8989 S-OLD" "$(pick '"\(.sonarr.url) \(.sonarr.key)"' "$out")"
 
+echo "-- an app in the container docker"
+rm -rf "$FAKE_FS/radarr" "$FAKE_FS/sonarr" "$FAKE_FS/arr"
+key docker/opt/apps/radarr/config/config.xml R-DOCK
+out=$(FAKE_CTS="docker=10.0.0.7" conf lookup)
+check_eq "Radarr from the container docker" "http://10.0.0.7:7878 R-DOCK" "$(pick '"\(.radarr.url) \(.radarr.key)"' "$out")"
+
 echo "-- nothing to find, or not asked"
 out=$(FAKE_CTS="" conf lookup)
 check_eq "no container: no address, no key" "null null" "$(pick '"\(.radarr) \(.sonarr)"' "$out")"

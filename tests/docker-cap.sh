@@ -20,7 +20,8 @@ case "$1" in
   info) [ -e "$STATE" ]; exit $? ;;
   query) o=$(cat "$OWNERF" 2>/dev/null || true)
     jq -n --arg o "$o" '{type:"container",config:(if $o=="" then {} else {"user.hs.managed_by":$o} end),expanded_devices:{}}' ;;
-  config) [ "$2" = set ] && [ -e "$LOCKFAIL" ] && exit 1; [ "$2" = set ] && echo "${4#user.hs.managed_by=}" > "$OWNERF" ;;
+  config) [ "$2" = device ] && [ "$3" = get ] && { [ -e "$STATE.dev" ]; exit $?; }
+    [ "$2" = set ] && [ -e "$LOCKFAIL" ] && exit 1; [ "$2" = set ] && echo "${4#user.hs.managed_by=}" > "$OWNERF" ;;
   list) case "$*" in *" s"*) echo RUNNING ;; *) printf '"172.17.0.1 (docker0)\n10.10.95.50 (eth0)"\n' ;; esac ;;
   exec) shift 3
     if [ "$1" = docker ] && [ "$2" = ps ]; then
@@ -236,5 +237,46 @@ rc=0; out=$($S start setup --set dockerManager=none </dev/null 2>&1) || rc=$?
 check_eq "start exit 0" 0 "$rc"
 echo "$out" | grep -qx "status${T}started" && pass "start status started" || fail "start: $out"
 check_eq "dockerManager written by enable" none "$(cat "$HS_SETTINGS_DIR/dockerManager" 2>/dev/null || true)"
+
+echo "-- hs sys docker mount"
+reset; : > "$STATE"; echo docker > "$OWNERF"
+mkdir -p "$WORK/remote/nas"; export HS_REMOTE_ROOT=$WORK/remote
+printf '#!/usr/bin/env bash
+[ "$2" = "$HS_REMOTE_ROOT/nas/movies" ]
+' > "$BIN/mountpoint"; chmod +x "$BIN/mountpoint"
+export HS_MOUNTPOINT=$BIN/mountpoint
+printf 'nas	nas.lan	movies	remote-nas	-
+' > "$HS_STATE_DIR/remote-mounts"
+rc=0; out=$($D mount media /media --as 1000:1000 </dev/null 2>&1) || rc=$?
+check_eq "no terminal, no --yes: refused" 1 "$rc"
+check_eq "nothing changed" 0 "$(changes)"
+echo "$out" | grep -q "restarts, and with it every app" && pass "restart warning in the plan" || fail "plan: $out"
+rc=0; $D mount media /media </dev/null >/dev/null 2>&1 || rc=$?
+check_eq "local share without --as refused" 1 "$rc"
+rc=0; $D mount media media --as 1000:1000 --yes </dev/null >/dev/null 2>&1 || rc=$?
+check_eq "relative path refused" 1 "$rc"
+rc=0; $D mount media /media --as 1000:1000 --dry-run </dev/null >/dev/null 2>&1 || rc=$?
+check_eq "dry run exit 0" 0 "$rc"; check_eq "dry run changes nothing" 0 "$(changes)"
+rc=0; $D mount media /media --as 1000:1000 --yes </dev/null >/dev/null 2>&1 || rc=$?
+check_eq "local: exit 0" 0 "$rc"
+grep -qF "manage-ct docker --add-storage shares media /media --as 1000:1000 OWNER=docker" "$MLOG" && pass "local: owner's pass" || fail "local: $(cat "$MLOG")"
+: > "$LOG"
+rc=0; $D mount remote:nas /media-nas --yes </dev/null >/dev/null 2>&1 || rc=$?
+check_eq "remote: exit 0" 0 "$rc"
+grep -qF "incus config device add docker remote-nas disk source=$WORK/remote/nas path=/media-nas recursive=true propagation=rslave" "$LOG" && pass "remote: peer directory, recursive, rslave" || fail "remote: $(cat "$LOG")"
+rc=0; $D mount remote:nas /x --as 1000:1000 --yes </dev/null >/dev/null 2>&1 || rc=$?
+check_eq "remote with --as refused" 1 "$rc"
+printf 'nas	nas.lan	music	remote-nas	-
+' > "$HS_STATE_DIR/remote-mounts"
+rc=0; $D mount remote:nas /x --yes </dev/null >/dev/null 2>&1 || rc=$?
+check_eq "remote configured but its share not mounted: refused" 1 "$rc"
+printf 'nas	nas.lan	movies	remote-nas	-
+' > "$HS_STATE_DIR/remote-mounts"
+rc=0; $D mount remote:gone /x --yes </dev/null >/dev/null 2>&1 || rc=$?
+check_eq "remote not mounted refused" 1 "$rc"
+: > "$STATE.dev"; rc=0; $D mount remote:nas /y --yes </dev/null >/dev/null 2>&1 || rc=$?
+check_eq "device exists: refused" 1 "$rc"; rm -f "$STATE.dev"
+reset; rc=0; $D mount media /media --as 1000:1000 --yes </dev/null >/dev/null 2>&1 || rc=$?
+check_eq "Docker not on: refused" 1 "$rc"
 
 finish
