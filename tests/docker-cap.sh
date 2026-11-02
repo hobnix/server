@@ -21,7 +21,7 @@ case "$1" in
   query) o=$(cat "$OWNERF" 2>/dev/null || true)
     jq -n --arg o "$o" '{type:"container",config:(if $o=="" then {} else {"user.hs.managed_by":$o} end),expanded_devices:{}}' ;;
   config) [ "$2" = set ] && [ -e "$LOCKFAIL" ] && exit 1; [ "$2" = set ] && echo "${4#user.hs.managed_by=}" > "$OWNERF" ;;
-  list) case "$*" in *" s"*) echo RUNNING ;; *) echo "10.10.95.50 (eth0)" ;; esac ;;
+  list) case "$*" in *" s"*) echo RUNNING ;; *) printf '"172.17.0.1 (docker0)\n10.10.95.50 (eth0)"\n' ;; esac ;;
   exec) shift 3
     if [ "$1" = docker ] && [ "$2" = ps ]; then
       [ ! -e "$PSFAIL" ] || exit 1
@@ -97,6 +97,26 @@ grep -qF "backup ct docker on" "$BLOG" && pass "in the backup" || fail "backup: 
 grep -qF "tee /opt/portainer/docker-compose.yml" "$LOG" && pass "manager compose written" || fail "compose not written"
 check_eq "dockerManager" portainer "$(cat "$HS_SETTINGS_DIR/dockerManager" 2>/dev/null || true)"
 cap_on && pass "capability on" || fail "capability not on"
+
+echo "-- backupNewInstances false: not in the backup, a note, the plan says so"
+reset; printf false > "$HS_SETTINGS_DIR/backupNewInstances"
+rc=0; out=$($D enable --yes </dev/null 2>&1) || rc=$?
+check_eq "exit 0" 0 "$rc"
+[ ! -s "$BLOG" ] && pass "not in the backup" || fail "backup: $(cat "$BLOG")"
+echo "$out" | grep -q "'docker' is not put into the backup (backupNewInstances is false). Later: hs backup ct docker on" && pass "note" || fail "note: $out"
+reset; printf false > "$HS_SETTINGS_DIR/backupNewInstances"
+out=$($D enable --dry-run 2>&1 </dev/null || true)
+echo "$out" | grep -q "It is not added to the backup" && pass "plan says no backup" || fail "plan: $out"
+reset
+out=$($D enable --dry-run 2>&1 </dev/null || true)
+echo "$out" | grep -q "and add it to the backup" && pass "plan says backup" || fail "plan: $out"
+echo "-- status works with docker out of the backup"
+reset; : > "$STATE"; echo docker > "$OWNERF"; printf false > "$HS_SETTINGS_DIR/backupNewInstances"
+rc=0; $D --status >/dev/null 2>&1 || rc=$?
+check_eq "status exit 0" 0 "$rc"
+echo "-- the address is the eth0 one, not docker0"
+out=$($D --status 2>/dev/null || true)
+echo "$out" | grep -qx $'address	10.10.95.50' && pass "address eth0" || fail "address: $(echo "$out" | grep address)"
 
 echo "-- enable with the default manager (webui)"
 reset

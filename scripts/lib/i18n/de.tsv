@@ -1942,3 +1942,5 @@ Docker is off.	Docker ist aus.
 Ports	Ports
 The background job could not be started.	Der Hintergrundauftrag konnte nicht gestartet werden.
 '%s' is not put into the backup (backupNewInstances is false). Later: hs backup ct %s on	'%s' wird nicht ins Backup aufgenommen (backupNewInstances ist false). Später: hs backup ct %s on
+%s. Lock the container (only hs docker disable deletes it). It is not added to the backup (backupNewInstances is false).	%s. Den Container sperren (nur hs docker disable löscht ihn). Er kommt nicht ins Backup (backupNewInstances ist false).
+Leave it out of the backup	Nicht ins Backup aufnehmen

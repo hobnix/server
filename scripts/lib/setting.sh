@@ -62,3 +62,8 @@ setting_set() {
 }
 
 setting_unset() { rm -f "$(setting_path "$1")"; }
+
+backup_new_instances_on() {   # true unless the setting backupNewInstances is false: does a new instance go into the backup?
+  case "$(setting_get backupNewInstances 2>/dev/null || true)" in false|off) return 1 ;; esac
+  return 0
+}

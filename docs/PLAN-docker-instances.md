@@ -168,7 +168,11 @@ with Docker inside. The gateway itself stays on the host (see the last section).
    - No address allocator and no blocks exist; two paths to the router (unifi.sh direct, provider); reservations are not recorded.
    - Container backup excludes custom volumes and docker overlay2; Incus has one pool (`default`, ZFS fast/incus), none on bulk.
    - `docker` already means "nested host" in ct-change.sh, the web regex, tests/dialogues.sh and ct.js icons.
-1. **Hardware test** of nested Docker in an Incus container with the settings above on the real pool type. Result goes into this document.
+1. **Hardware test** of nested Docker in an Incus container with the settings above on the real pool type. PARTLY DONE (real server, 2026-11-02).
+   - Storage: overlay2 works on the container's rootfs; no separate volume is needed, decision 4 stands.
+   - Compose is the v2 plugin (`docker compose`, 2.26.1).
+   - A published port is reachable on the parent's address (10.10.95.212); a restart policy survived a restart of the container.
+   - Not tested on hardware yet: GPU (Intel/AMD, NVIDIA), a child's port from the internet side without a route (firewall row), own-address children.
 2. **Lock** (`managed_by`, the shared check, the lock chip, tests) DONE in commit 99786f1. Nothing sets the key yet; phase 3 does.
 3. **Capability and children**: first slice (`.work/docker-instances/spec-p3.md`, testable without Docker hardware): schema options,
    enable/disable commands, `hs sys docker list` with `parent`, the lock set on create, registry rows, smoke probes, guide, changelog.

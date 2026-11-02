@@ -20,7 +20,7 @@ The plan shows the container, its size and the manager. The manager is `webui` b
 sudo hs docker enable
 ```
 
-It asks, then creates the container `docker`, installs Docker, starts the manager if there is one, locks the container and adds it to the backup. It can run in the background (`--job`).
+It asks, then creates the container `docker`, installs Docker, starts the manager if there is one, locks the container and adds it to the backup (unless the setting `backupNewInstances` is false: then it prints how to do it later, `hs backup ct docker on`). It can run in the background (`--job`).
 
 ## Look at the apps
 Not tested on hardware yet.
