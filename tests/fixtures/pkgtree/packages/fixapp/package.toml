@@ -8,6 +8,7 @@ requires_core = ">=1"
 audience = "generic"
 needs = ["docker"]
 uses = []
+runs = ["lxc", "docker"]
 input = "none"
 script = "run.sh"
 

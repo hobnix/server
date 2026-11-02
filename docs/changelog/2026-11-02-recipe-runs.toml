@@ -1,0 +1,4 @@
+date  = "2026-11-02"
+type  = "feature"
+title = "A recipe can say where it may run, and you pick it when you run the recipe"
+body  = """A recipe with a `# runs:` line (lxc, docker, vm) now asks where it should run. The answer starts as Docker when Docker is on and the recipe supports it, otherwise as its own container; an app that is already installed keeps where it runs. No recipe uses it yet. Package API level 5."""

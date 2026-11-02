@@ -22,6 +22,7 @@ check_eq "the API level is a number" "1" "$($PKG api | grep -cE '^[1-9][0-9]*$')
 
 echo "-- the converter (header lines to manifest)"
 check_out "convert reads kind, needs and an ask" 'key = "' bash -c "$PKG convert $FIX/convert/ask.sh"
+check_out "convert reads the runs header" 'runs = \["lxc", "docker"\]' bash -c "$PKG convert $FIX/packages/fixapp/run.sh"
 check_out "convert gives the audience" 'audience = "personal"' bash -c "$PKG convert $FIX/convert/personal.sh"
 
 echo "-- the validator on a broken tree"

@@ -15,6 +15,7 @@
   let input = $state('none');
   let values = $state({});    // key -> text/choice answers
   let secret = $state('');
+  let runsTouched = $state(false);   // the default of RUNS depends on the container name; the server picks it again unless the user chose
 
   $effect(() => {
     get(`/api/sys/recipes/asks/${encodeURIComponent(recipe)}`)
@@ -44,7 +45,7 @@
     const n = own.trim();
     const a = [recipe, 'run'];
     if (n) a.push('--name', n);
-    for (const q of shown) if (q.kind !== 'secret' && (values[q.key] ?? '') !== '') a.push('--set', `${q.key}=${values[q.key]}`);
+    for (const q of shown) if (q.kind !== 'secret' && (values[q.key] ?? '') !== '' && !(q.key === 'RUNS' && n && !runsTouched)) a.push('--set', `${q.key}=${values[q.key]}`);
     return a;
   };
   const stdin = () => (secretAsk && secret ? secret : undefined);
@@ -63,7 +64,7 @@
           {#if q.kind === 'secret'}
             <input id="rr-{q.key}" class="input" type="password" bind:value={secret} autocomplete="new-password" spellcheck="false" />
           {:else if q.kind.startsWith('choice:')}
-            <select id="rr-{q.key}" class="input" bind:value={values[q.key]}>
+            <select id="rr-{q.key}" class="input" bind:value={values[q.key]} onchange={() => { if (q.key === 'RUNS') runsTouched = true; }}>
               {#each choices(q) as c}<option value={c}>{c}</option>{/each}
             </select>
           {:else}
