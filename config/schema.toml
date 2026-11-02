@@ -922,6 +922,75 @@ networkProvider = "unifi"'''
 
 [[item]]
 kind = "option"
+key = "dockerManager"
+type = "string"
+required = false
+settable = false
+secret = false
+capability = "docker"
+store = "settings"
+choices = ["webui", "arcane", "portainer", "none"]
+doc = '''
+# Which page manages Docker, when the capability docker is on: webui (the web interface of hobnix, the default of
+# `hs docker enable`; built later, until then it only records the choice), arcane, portainer, or none (Docker only).
+# `hs docker enable` sets it; setting it switches the capability docker on. Only `hs docker disable` removes it. No rebuild.'''
+value = '''
+dockerManager = "webui"'''
+
+[[item]]
+kind = "option"
+key = "dockerSize"
+type = "string"
+required = false
+settable = true
+secret = false
+capability = "docker"
+store = "settings"
+default = '"m"'
+choices = ["s", "m", "l"]
+doc = '''
+# Size of the docker container that `hs docker enable` creates: s = 2048 MiB and 2 CPUs, m = 4096 MiB and 4 CPUs,
+# l = 8192 MiB and 8 CPUs. Read when `hs docker enable` runs; changing it later does not resize the container
+# (use `hs ct docker set`, which the lock allows for ram and cpu). Default "m".'''
+value = '''
+dockerSize = "m"'''
+
+[[item]]
+kind = "option"
+key = "dockerMemory"
+type = "int"
+required = false
+settable = true
+secret = false
+capability = "docker"
+store = "settings"
+default = '0'
+min = 0
+doc = '''
+# Advanced: memory of the docker container in MiB. 0 = from dockerSize. Read when `hs docker enable` runs; changing it
+# later does not resize the container (use `hs ct docker set`).'''
+value = '''
+dockerMemory = 0'''
+
+[[item]]
+kind = "option"
+key = "dockerCpus"
+type = "int"
+required = false
+settable = true
+secret = false
+capability = "docker"
+store = "settings"
+default = '0'
+min = 0
+doc = '''
+# Advanced: CPUs of the docker container. 0 = from dockerSize. Read when `hs docker enable` runs; changing it later
+# does not resize the container (use `hs ct docker set`).'''
+value = '''
+dockerCpus = 0'''
+
+[[item]]
+kind = "option"
 key = "reverseProxy"
 type = "string"
 required = false

@@ -62,6 +62,10 @@
   "proxyStatusUrl": "cap:vps",
   "vpsHost": "cap:vps",
   "networkProvider": "cap:network",
+  "dockerManager": "cap:docker",
+  "dockerSize": "cap:docker",
+  "dockerMemory": "cap:docker",
+  "dockerCpus": "cap:docker",
   "reverseProxy": "cap:reverse-proxy",
   "dashboard": "cap:dashboard",
   "dashboardOpen": "cap:dashboard",
@@ -118,7 +122,7 @@
   "docker": {
    "title": "Docker host with a web page to manage it",
    "icon": "puzzle-piece",
-   "entry": false
+   "entry": true
   },
   "docs": {
    "title": "Documentation in the web interface (guides and command reference)",

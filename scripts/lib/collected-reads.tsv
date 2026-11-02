@@ -27,3 +27,4 @@ system updates	60
 dns list	120
 services tiles	30
 services stats	30
+docker list	30

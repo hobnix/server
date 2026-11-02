@@ -3,7 +3,7 @@
 ad		Active Directory (domain users, Domain Admins sign in)
 backup		Backup (restic to the backup disk, restore drills)
 dashboard	dashboard	Dashboard (tiles for the services)
-docker		Docker host with a web page to manage it
+docker	dockerManager	Docker host with a web page to manage it
 docs		Documentation in the web interface (guides and command reference)
 edge-mail		Edge node: public mail entry (MX)
 edge-ports		Edge node: public game and call ports

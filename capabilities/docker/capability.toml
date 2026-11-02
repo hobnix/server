@@ -5,9 +5,11 @@ title_de = "Docker-Host mit einer Webseite zur Verwaltung"
 kind = "provider"
 requires = []
 # the interface this capability fulfils; a variant is a file scripts/providers/docker/<variant>.sh that the recipe SOURCES (not a script
-# with verbs). "none" (Docker only) has no file.
+# with verbs). "webui" (the web interface of hobnix, built later) and "none" (Docker only) have no file.
 provides = ["docker-manager"]
 variants = ["arcane", "portainer"]
 needs = []
-# No NixOS module and no runtime setting: the manager is a preference of the recipe, per container (MANAGER in recipe-<ct>.conf).
+# On when the setting dockerManager is set (webui, arcane, portainer or none; `hs docker enable` sets it). No NixOS module: the container
+# is made by scripts/docker.sh. The recipe docker still has its own preference MANAGER (recipe-<ct>.conf) until `hs docker adopt` exists.
+implied_by = ["dockerManager"]
 notes = "NOTES.md"

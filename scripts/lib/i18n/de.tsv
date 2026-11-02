@@ -1887,3 +1887,55 @@ adding a device	das Hinzufügen eines Geräts
 a smaller disk	eine kleinere Platte
 moving a mount	das Umhängen einer Einbindung
 The snapshot was older than the lock: '%s' belongs to %s again.	Der Schnappschuss war älter als die Sperre: '%s' gehört wieder %s.
+usage: hs docker status | list | enable | disable	Aufruf: hs docker status | list | enable | disable
+yes	ja
+no	nein
+on	an
+Owned by hobnix	Von hobnix verwaltet
+Running	Läuft
+Manager	Manager
+Memory (MiB)	Speicher (MiB)
+CPUs	CPUs
+Apps	Apps
+Docker is off. Turn it on: hs docker enable	Docker ist aus. Einschalten: hs docker enable
+No apps run in Docker yet.	In Docker läuft noch keine App.
+Started in the background: %s	Im Hintergrund gestartet: %s
+Step failed: %s. hs docker disable removes what was made.	Schritt fehlgeschlagen: %s. hs docker disable entfernt, was angelegt wurde.
+Turn Docker on	Docker einschalten
+%s. Create the container docker (%s MiB, %s CPUs, nesting).	%s. Den Container docker anlegen (%s MiB, %s CPUs, Nesting).
+%s. Install Docker in it.	%s. Docker darin installieren.
+%s. Start the manager %s.	%s. Den Manager %s starten.
+The manager webui is the web interface of hobnix. It is built later: for now only the choice is recorded.	Der Manager webui ist die Weboberfläche von hobnix. Sie wird später gebaut: vorerst wird nur die Wahl gespeichert.
+No manager: Docker only.	Kein Manager: nur Docker.
+%s. Lock the container (only hs docker disable deletes it) and add it to the backup.	%s. Den Container sperren (nur hs docker disable löscht ihn) und ins Backup aufnehmen.
+Unknown manager '%s'. Choose webui, arcane, portainer or none.	Unbekannter Manager '%s'. Wähle webui, arcane, portainer oder none.
+Unknown size '%s'. Choose s, m or l.	Unbekannte Größe '%s'. Wähle s, m oder l.
+An instance called 'docker' exists and is not managed by hs (the docker recipe?). Taking it over comes later (hs docker adopt).	Eine Instanz namens 'docker' existiert und wird nicht von hs verwaltet (das Rezept docker?). Das Übernehmen kommt später (hs docker adopt).
+A docker container from an earlier try exists.	Ein docker-Container von einem früheren Versuch existiert.
+Docker is on already.	Docker ist schon an.
+This needs a terminal or --yes.	Das braucht ein Terminal oder --yes.
+Turn Docker on?	Docker einschalten?
+Nothing changed.	Nichts geändert.
+Run in the background?	Im Hintergrund ausführen?
+Create the container	Den Container anlegen
+Lock the container	Den Container sperren
+Make /opt/apps	/opt/apps anlegen
+Start the manager %s	Den Manager %s starten
+Add it to the backup	Ins Backup aufnehmen
+Docker is on.	Docker ist an.
+give it a fixed IP: hs ct docker ip	gib ihm eine feste IP: hs ct docker ip
+the manager: http://%s:%s	der Manager: http://%s:%s
+Docker is off already.	Docker ist schon aus.
+Turn Docker off	Docker ausschalten
+Newest snapshot	Neuester Schnappschuss
+The container 'docker', its apps and their data in /opt/apps are deleted. Snapshots are deleted with it; the backup stays.	Der Container 'docker', seine Apps und deren Daten in /opt/apps werden gelöscht. Schnappschüsse werden mitgelöscht; das Backup bleibt.
+Back it up first (hs backup now)?	Erst sichern (hs backup now)?
+The backup failed. Nothing was deleted.	Das Backup ist fehlgeschlagen. Nichts wurde gelöscht.
+This needs --confirm docker.	Das braucht --confirm docker.
+the instance	die Instanz
+The name did not match. Nothing was deleted.	Der Name stimmte nicht. Nichts wurde gelöscht.
+Delete the container	Den Container löschen
+Deleting the container failed.	Das Löschen des Containers ist fehlgeschlagen.
+Docker is off.	Docker ist aus.
+Ports	Ports
+The background job could not be started.	Der Hintergrundauftrag konnte nicht gestartet werden.

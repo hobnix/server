@@ -1,6 +1,7 @@
 # Plan: Docker as a capability, with locked instances and child instances (draft, 2026-11-02)
 
-Status: design only, nothing built, nothing run on hardware. Open questions at the end are for the owner.
+Status: phase 0 (inspection) and phase 2 (the lock, commit 99786f1) done; nothing run on hardware. The owner answered the storage and
+list questions (Decisions 12 to 14); one question is still open at the end.
 
 ## Problem
 
@@ -46,14 +47,11 @@ with Docker inside. The gateway itself stays on the host (see the last section).
   collision with the `docker` icon/name in ct.js `ctIcons`.
 - A child has `parent = <instance>`. It is a record, not an Incus instance: name, parent, compose project name, published ports, state read
   from the Docker API inside the parent.
-- Reads: the parent goes in a NEW trailing field of `hs sys ct list` (col 17, empty written `-`); phase 0 found that no reader breaks on an
-  extra trailing field (all read by index). Children do NOT come from `manage-ct.sh --list`: running `incus exec ... docker ps` there would
-  make the 5 s poll and the 10 s collected read slow and tie them to the Docker engine. Children come from a separate read
-  (`hs sys docker list`, its own topic and slow read). Whether ct list appends them from that cached result is open (see Still open).
-- If child rows are appended, they use type `docker` and address `-` (or the child's own address only). Every reader (Instances offers
-  start/stop/delete that fail with "does not exist"; Shares, NewShare, ServiceForm offer it as bind or target; `servicesOf` matches by IP and
-  would show every child service on the parent) filters `type === 'docker'` unless it handles children. Names are unique across instances and
-  children and contain no `/` (the CT regex and URLs).
+- Reads: children and their `parent` come only from their own read, `hs sys docker list` (one row per child: name, parent, project, state,
+  ports), its own live topic and slow collected read. They are NOT rows of `hs sys ct list`: running `incus exec ... docker ps` there would
+  make the 5 s poll and the 10 s collected read slow and tie them to the Docker engine, and every page would treat a child row as an Incus
+  instance. Col 17 of `hs sys ct list` is the owner (`user.hs.managed_by`, phase 2); ct list gets no parent field. Names are unique across
+  instances and children and contain no `/` (the CT regex and URLs).
 - State of a child comes from the manager-independent source: `docker compose ls` / `docker ps` run in the parent through `incus exec`
   (read-only, short timeout). With `live-state` (docs/PLAN-web-cache.md) this is one more topic that must publish to the `ct-list` group
   (instances, shares, network), otherwise those pages do not refresh on child changes; without it, the normal cache.
@@ -61,8 +59,8 @@ with Docker inside. The gateway itself stays on the host (see the last section).
   The descriptor gets a `via = "<parent>"` field. The admin-page rule is unchanged: the manager's own page is `never-public` (ADMIN_TARGETS).
 - Backups: the unit is the parent. Phase 0 found that container backup is restic over `$INCUS_ROOT/<name>/rootfs` (default pool only) with
   `var/lib/docker/overlay2` and `image` excluded, and a custom volume mounted at `/var/lib/docker` is NOT under rootfs, so named Docker
-  volumes would not be backed up at all. App data therefore needs bind directories inside rootfs, or a second volume that backup.sh learns
-  to include (open, see Still open), plus a `dump_hook` per child. A child is never backed up on its own in the first version. The list shows
+  volumes would not be backed up at all. App data therefore lives in bind directories inside the parent's rootfs (`/opt/apps/<project>/`),
+  which the existing container backup already covers; named Docker volumes are not used for app data. A `dump_hook` per child comes later. A child is never backed up on its own in the first version. The list shows
   "backed up with docker".
 - Restore of one child is out of scope for the first version; restoring the parent is the supported path.
 
@@ -70,12 +68,12 @@ with Docker inside. The gateway itself stays on the host (see the last section).
 
 - `capabilities/docker/capability.toml` keeps `kind = "provider"`, `provides = ["docker-manager"]`. Variants change from
   `arcane, portainer` to `webui, arcane, portainer, none`. A runtime setting `dockerManager` (store = "settings") replaces the
-  per-container `MANAGER` recipe preference. Further settings: `dockerStorage` (only if a second Incus pool exists, see Still open; today there is one pool, `default` on ZFS fast/incus) and `dockerSize` (`s` | `m` | `l`,
+  per-container `MANAGER` recipe preference. There is no storage choice: the container lives on the one Incus pool (`default`, ZFS fast/incus). Further settings: `dockerSize` (`s` | `m` | `l`,
   preset names that map to memory and CPU; exact values under Advanced as `dockerMemory`, `dockerCpus`). All in config/schema.toml with
   `capability = "docker"`, then `python3 scripts/schema-gen.py write`.
 - Turning the capability on (`hs docker enable`, the wizard's last step) creates the container with `security.nesting=true`, the needed
   `syscalls.intercept.*` keys and a dedicated Incus custom volume for `/var/lib/docker` (on ZFS a block-type volume, `--type=block` with
-  ext4, or ZFS 2.2 or newer, because overlay2 needs it; Not tested on hardware yet) on the chosen pool, sets `managed_by = docker`, installs
+  ext4, or ZFS 2.2 or newer, because overlay2 needs it; Not tested on hardware yet) on the default pool, sets `managed_by = docker`, installs
   Docker and the chosen manager (the existing scripts/providers/docker/<variant>.sh files, now also `webui.sh`), declares the service.
 - Changing the manager (wizard step reopened) reuses today's rule: the old manager's containers are stopped, its volume and compose file
   stay, nothing is deleted.
@@ -171,9 +169,12 @@ with Docker inside. The gateway itself stays on the host (see the last section).
    - Container backup excludes custom volumes and docker overlay2; Incus has one pool (`default`, ZFS fast/incus), none on bulk.
    - `docker` already means "nested host" in ct-change.sh, the web regex, tests/dialogues.sh and ct.js icons.
 1. **Hardware test** of nested Docker in an Incus container with the settings above on the real pool type. Result goes into this document.
-2. **Lock** (`managed_by`, the shared check, the lock chip, tests). Useful alone; the gateway can use it later.
-3. **Capability and children**: schema options, `webui` variant, create/enable/disable/adopt commands, `parent` field, list rows, service via
-   parent, backups through the parent. Registry rows, smoke probes for new `reads`, docs guide, changelog entry.
+2. **Lock** (`managed_by`, the shared check, the lock chip, tests) DONE in commit 99786f1. Nothing sets the key yet; phase 3 does.
+3. **Capability and children**: first slice (`.work/docker-instances/spec-p3.md`, testable without Docker hardware): schema options,
+   enable/disable commands, `hs sys docker list` with `parent`, the lock set on create, registry rows, smoke probes, guide, changelog.
+   In the first slice `webui` is already the default of `hs docker enable`, but it only records the setting `dockerManager` (no manager is
+   installed, no service tile) until the page itself is built.
+   Later in phase 3: the `webui` page, `adopt`, service via parent, the `dump_hook` per child.
 4. **Wizard**: `Wizard.svelte`, `ChoiceList.svelte`, capability.toml fields, schema-gen validation, web tests (tests/web-forms-*, steps.js).
 5. **Gateway wizard** moves to the same component (visual change only; keys and the `gateway setup` change stay).
 6. **Recipes with `runs`**: header, install flow, compose helpers; convert the arr recipes first (they need no GPU), then the others one by one.
@@ -211,10 +212,12 @@ move would reuse.
     `hs net ip <ct> sync` pushes the `hs net` value after confirmation, `hs net adopt` takes the router's value. `hs` changes only entries it
     created or adopted; new allocations are checked against the router's reservations and the DHCP range first.
 
+12. Children are not in `hs sys ct list`. They and their `parent` come from their own read, `hs sys docker list` (own live topic, slow
+    collected read); ct list keeps 17 fields (col 17 = owner).
+13. App data of a child lives in bind directories inside the parent's rootfs (`/opt/apps/<project>/`), so the existing container backup
+    covers it. No second volume for backup.sh to learn.
+14. No storage choice for now: the `docker` container uses the one Incus pool (`default`). A pool on bulk is a later, separate question.
+
 ## Still open
 
 - Whether NVIDIA works at all in Docker inside LXC on the owner's card; found in a later hardware step, not in phase 1.
-- Whether children appear in `hs sys ct list` at all. Phase 0 recommends: the parent field is col 17 and children stay OUT of ct list in
-  phase 3 (only `hs sys docker list`), because every page would treat a child row as an Incus instance.
-- Where app data lives: bind directories inside the parent's rootfs (backed up today), or a second volume that backup.sh learns to include.
-- Storage choice: drop `dockerStorage` `big` (one pool only), or create a new Incus pool on bulk (on snapraid bulk is ext4 + mergerfs).

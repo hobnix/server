@@ -24,3 +24,12 @@ that manages it: `arcane` (default; installs from before the question count as a
 Moved from CLAUDE.md (step 8 of docs/PLAN-modular-core.md); these are the rules for working on this part.
 
 **The docker recipe has a manager variant** (4e): `MANAGER` arcane (default) | portainer | none, a recipe preference per container; a variant is a file scripts/providers/docker/<variant>.sh the recipe SOURCES (title, icon, port, compose file, stop; tests/docker-managers.sh); switching stops the old manager's containers and keeps its volume and compose file (capabilities/docker/NOTES.md).
+
+## The capability owns the container (phase 3, first slice)
+
+`hs docker enable` (scripts/docker.sh) makes the container `docker` itself: `manage-ct.sh --create docker --docker`, then `user.hs.managed_by=docker`
+(the lock, scripts/lib/instance.sh), Docker from Debian (`docker.io`, `docker-compose`), the manager, `hs backup ct docker on`, then the setting
+`dockerManager`. The setting is written last, so a failed enable stays off. `webui` (the default) and `none` start no manager: the page of the web
+interface is built later and has no provider file. `hs docker disable` is the only way to delete the container (`HS_OWNER=docker` on the
+manage-ct.sh call). `hs sys docker list` reads the apps (compose projects) with `docker ps -a` through `incus exec`; the rows are not part of
+`hs sys ct list`. The recipe docker still works and still has its own `MANAGER` preference until `hs docker adopt` exists.
