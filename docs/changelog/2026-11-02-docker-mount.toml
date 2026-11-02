@@ -1,0 +1,4 @@
+date  = "2026-11-02"
+type  = "feature"
+title = "Docker: give the container a folder with hs sys docker mount"
+body  = """The locked docker container refused every folder, local or from another homeserver. hs sys docker mount is now the one route: a plan first, then the share (with the user it is seen as) or a remote:<peer> folder. A local share changes the user mapping and restarts the container and every app in it. The NVIDIA step for Docker now uses the nvidia runtime with the key stored as a .asc file (no gpg needed)."""

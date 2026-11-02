@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # help: Docker as part of hobnix: turn it on (a locked container with Docker inside), turn it off, list the apps that run in it
 # help.de: Docker als Teil von hobnix: einschalten (ein gesperrter Container mit Docker darin), ausschalten, die Apps darin auflisten
-# args: status | list | enable [--manager webui|arcane|portainer|none] [--size s|m|l] [--yes] [--job] [--dry-run] | disable [--yes --confirm docker] [--no-backup] [--job] [--dry-run] | --status | --list
+# args: status | list | enable [--manager webui|arcane|portainer|none] [--size s|m|l] [--yes] [--job] [--dry-run] | disable [--yes --confirm docker] [--no-backup] [--job] [--dry-run] | mount <share|remote:peer> <path> [--as uid:gid] [--yes] [--dry-run] | --status | --list
 # The capability docker (docs/PLAN-docker-instances.md, Decisions 12 to 14): the container `docker` is owned by it (user.hs.managed_by=docker),
 # so only this script deletes it (HS_OWNER=docker on the manage-ct.sh call, scripts/lib/instance.sh).
 #   hs docker status       key/value lines: on or off, the container, the manager, the size, the number of apps, the address
@@ -9,10 +9,13 @@
 #   hs docker enable       plan, then: create the container, install Docker, start the manager (arcane, portainer; webui and none start
 #                          nothing: the page of hobnix itself is built later), lock it, add it to the backup, write dockerManager
 #   hs docker disable      plan, a backup offer, the typed name docker, then delete the container and unset dockerManager
+#   hs sys docker mount    the only route that gives the locked container a folder (the lock refuses create-share, hs remote attach): plan, then
+#                          <share> <path> --as <uid:gid> (a local share; the idmap change restarts the container and so every app in it) or
+#                          remote:<peer> <path> (/mnt/remote/<peer>, recursive, rslave, as hs remote attach does); needs --yes without a terminal
 #   --status, --list       the same as data (hs sys docker status|list): key<TAB>value, and one row per app with exactly 5 fields
 #                          name parent project state ports (`-` when empty); a stopped container or a failed read prints no row, exit 0
 # Test knobs: HS_DOCKER_MANAGE_CT (a script that stands in for manage-ct.sh), HS_DOCKER_BACKUP (stands in for backup.sh), HS_DOCKER_NO_JOB=1
-# (no systemd-run: the long work runs at once), HS_SETTINGS_DIR, HS_STATE_DIR, HS_CAPABILITIES_FILE, HS_CAPABILITIES_TSV, HS_INCUS.
+# (no systemd-run: the long work runs at once), HS_REMOTE_ROOT (default /mnt/remote), HS_SETTINGS_DIR, HS_STATE_DIR, HS_CAPABILITIES_FILE, HS_CAPABILITIES_TSV, HS_INCUS.
 set -euo pipefail
 here=$(cd "$(dirname "$0")" && pwd)
 . "$here/lib/ui.sh"
@@ -23,7 +26,7 @@ CT=docker
 OWNER=docker
 tab=$'\t'
 
-usage() { fail "$(t 'usage: hs docker status | list | enable | disable')" >&2; }
+usage() { fail "$(t 'usage: hs docker status | list | enable | disable | mount')" >&2; }
 interactive() { [ -t 0 ] && [ -t 1 ] && [ -z "${HS_CALLER:-}" ]; }
 inc() { "${HS_INCUS:-incus}" "$@"; }
 ct_cmd() {   # ct_cmd <manage-ct args>: a call that changes the container, with the owner's pass
@@ -274,12 +277,66 @@ cmd_disable() {
   ok "$(t 'Docker is off.')"
 }
 
+remote_mounted() {   # remote_mounted <peer>: the peer is set up (hs remote add) and one of its shares is mounted now, as hs remote attach needs
+  local p h sh rest mp=${HS_MOUNTPOINT:-mountpoint}
+  [ -f "${HS_STATE_DIR:-/var/lib/hs}/remote-mounts" ] || return 1
+  while IFS=$'	' read -r p h sh rest; do
+    [ "$p" = "$1" ] || continue
+    if timeout 10 $mp -q "${HS_REMOTE_ROOT:-/mnt/remote}/$p/$sh" 2>/dev/null; then return 0; fi
+  done < <(grep -v '^[[:space:]]*#' "${HS_STATE_DIR:-/var/lib/hs}/remote-mounts" || true)
+  return 1
+}
+
+cmd_mount() {   # mount <share|remote:peer> <path> [--as uid:gid] [--yes] [--dry-run]
+  local src=${1:-} path=${2:-} as= yes=0 dry=0 peer= root=${HS_REMOTE_ROOT:-/mnt/remote} dev
+  [ $# -ge 2 ] || usage
+  shift 2
+  while [ $# -gt 0 ]; do
+    case "$1" in
+      --as) [ $# -ge 2 ] || usage; as=$2; shift 2 ;;
+      --yes) yes=1; shift ;;
+      --dry-run) dry=1; shift ;;
+      *) usage ;;
+    esac
+  done
+  owned || fail_fix "$(t 'Docker is not on.')" "hs docker enable"
+  [[ "$path" == /* ]] || fail "$(t "The path in the container must start with / (got '%s')." "$path")"
+  case "$src" in
+    remote:*)
+      peer=${src#remote:}; dev=remote-$peer
+      [[ "$peer" =~ ^[a-z0-9][a-z0-9-]{0,19}$ ]] || fail "$(t "Invalid peer name '%s'." "$peer")"
+      [ -z "$as" ] || fail "$(t 'A remote share is read only and takes no --as.')"
+      remote_mounted "$peer" || fail_fix "$(t "Nothing is mounted from '%s'." "$peer")" "hs remote list"
+      if inc config device get "$CT" "$dev" source >/dev/null 2>&1; then fail "$(t "'%s' has the device %s already." "$CT" "$dev")"; fi ;;
+    *)
+      [[ "$src" =~ ^[A-Za-z0-9][A-Za-z0-9._-]*$ ]] || fail "$(t "Invalid share name '%s'." "$src")"
+      [[ "$as" =~ ^[0-9]+:[0-9]+$ ]] || fail "$(t 'A local share needs --as <uid>:<gid>.')"
+      dev=$src ;;
+  esac
+  step "$(t 'Give the container docker a folder')"
+  if [ -n "$peer" ]; then line "$(t "1. Add the shares of %s (%s/%s) as %s, read only." "$peer" "$root" "$peer" "$path")"
+  else line "$(t "1. Mount the share %s as %s, files seen as the user %s." "$src" "$path" "$as")"
+    warn "$(t 'The user mapping changes: the container docker restarts, and with it every app in it.')"; fi
+  if [ "$dry" = 1 ]; then return 0; fi
+  if [ "$yes" = 0 ]; then
+    interactive || fail "$(t 'This needs a terminal or --yes.')"
+    confirm "$(t 'Do it?')" || { note "$(t 'Nothing changed.')"; return 0; }
+  fi
+  if [ -n "$peer" ]; then
+    inc config device add "$CT" "$dev" disk source="$root/$peer" path="$path" recursive=true propagation=rslave >/dev/null       || fail "$(t 'Adding the folder failed.')"
+  else
+    ct_cmd "$CT" --add-storage shares "$src" "$path" --as "$as" || fail "$(t 'Adding the folder failed.')"
+  fi
+  ok "$(t 'The container docker has the folder %s.' "$path")"
+}
+
 verb=${1:-}; if [ $# -gt 0 ]; then shift; fi
 case "$verb" in
   status) cmd_status ;;
   list) cmd_list ;;
   enable) cmd_enable "$@" ;;
   disable) cmd_disable "$@" ;;
+  mount) cmd_mount "$@" ;;
   --status) status_rows ;;
   --list) children ;;
   *) usage ;;

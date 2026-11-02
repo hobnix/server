@@ -1887,7 +1887,7 @@ adding a device	das Hinzufügen eines Geräts
 a smaller disk	eine kleinere Platte
 moving a mount	das Umhängen einer Einbindung
 The snapshot was older than the lock: '%s' belongs to %s again.	Der Schnappschuss war älter als die Sperre: '%s' gehört wieder %s.
-usage: hs docker status | list | enable | disable	Aufruf: hs docker status | list | enable | disable
+usage: hs docker status | list | enable | disable | mount	Aufruf: hs docker status | list | enable | disable | mount
 yes	ja
 no	nein
 on	an
@@ -1944,3 +1944,25 @@ The background job could not be started.	Der Hintergrundauftrag konnte nicht ges
 '%s' is not put into the backup (backupNewInstances is false). Later: hs backup ct %s on	'%s' wird nicht ins Backup aufgenommen (backupNewInstances ist false). Später: hs backup ct %s on
 %s. Lock the container (only hs docker disable deletes it). It is not added to the backup (backupNewInstances is false).	%s. Den Container sperren (nur hs docker disable löscht ihn). Er kommt nicht ins Backup (backupNewInstances ist false).
 Leave it out of the backup	Nicht ins Backup aufnehmen
+Docker is not on.	Docker ist nicht eingeschaltet.
+The path in the container must start with / (got '%s').	Der Pfad im Container muss mit / beginnen (bekommen: '%s').
+Invalid peer name '%s'.	Ungültiger Name der Gegenstelle '%s'.
+A remote share is read only and takes no --as.	Eine entfernte Freigabe ist nur lesbar und nimmt kein --as.
+Invalid share name '%s'.	Ungültiger Freigabename '%s'.
+A local share needs --as <uid>:<gid>.	Eine lokale Freigabe braucht --as <uid>:<gid>.
+Give the container docker a folder	Dem Container docker einen Ordner geben
+1. Add the shares of %s (%s/%s) as %s, read only.	1. Die Freigaben von %s (%s/%s) als %s hinzufügen, nur lesend.
+1. Mount the share %s as %s, files seen as the user %s.	1. Die Freigabe %s als %s einbinden, Dateien als Benutzer %s.
+The user mapping changes: the container docker restarts, and with it every app in it.	Die Benutzerzuordnung ändert sich: der Container docker startet neu, und damit jede App darin.
+Adding the folder failed.	Das Hinzufügen des Ordners ist fehlgeschlagen.
+The container docker has the folder %s.	Der Container docker hat jetzt den Ordner %s.
+Where it runs (lxc: its own container, docker: inside the Docker container)	Wo es läuft (lxc: eigener Container, docker: im Docker-Container)
+Docker is not on or not running.	Docker ist nicht eingeschaltet oder läuft nicht.
+An instance called '%s' exists already, so the app can not run in Docker as well.	Eine Instanz namens '%s' gibt es schon, die App kann nicht zusätzlich in Docker laufen.
+The container docker has no address yet.	Der Container docker hat noch keine Adresse.
+Could not write the compose file of '%s'.	Die Compose-Datei von '%s' konnte nicht geschrieben werden.
+The compose file of '%s' is not valid.	Die Compose-Datei von '%s' ist ungültig.
+Port %s is used by '%s' in Docker already.	Port %s wird in Docker schon von '%s' benutzt.
+'%s' is backed up with the container docker	'%s' wird mit dem Container docker gesichert
+The container docker is not in the backup, so '%s' is not either. Later: hs backup ct docker on	Der Container docker ist nicht im Backup, '%s' also auch nicht. Später: hs backup ct docker on
+Mounting the share changes the user mapping: the container docker restarts, and with it every app in it.	Das Einbinden der Freigabe ändert die Benutzerzuordnung: der Container docker startet neu, und damit jede App darin.
