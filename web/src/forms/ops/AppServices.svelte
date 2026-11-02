@@ -14,9 +14,12 @@
   const dash = (v) => (v === '-' || v === undefined ? '' : v);
 
   // services app: name, container, title, local, public, fqdn, exposure, admin
-  const mine = $derived(rows(read)
+  const inCts = $derived(rows(read)
     .map((r) => ({ name: r[0], ct: dash(r[1]), title: dash(r[2]) || r[0], local: r[3] === 'yes', pub: r[4] === 'yes', fqdn: dash(r[5]), exposure: r[6], admin: r[7] === 'yes' }))
     .filter((s) => cts.includes(s.ct)));
+  // an app that runs inside the shared container docker has that container as its ct: only the service of the app itself, not its neighbours
+  const own = $derived(inCts.filter((s) => s.name === app));
+  const mine = $derived(own.length ? own : inCts);
 
   let pick = $state('');
   let local = $state(false);
