@@ -2,7 +2,8 @@
 // when the editor page opens, so the main bundle does not grow. All decisions are in the plain modules next to it (lint.js, schema.js,
 // envmask.js, envlang.js, yamlpath.js), which node tests run.
 //   createEditor(el, { doc, lang: 'yaml' | 'env', onChange(text), lint(text, obj) -> findings, schema, envNames() -> [names], readOnly })
-//     -> { getText, setText, setReadOnly, relint, focus, destroy }
+//   options.mounts() -> the docker mounts [{ path, ... }] and options.listDir(mount, rel) -> Promise<[folder names]> complete a volumes entry
+//     -> { getText, setText, setReadOnly, relint, focus, insertVolume(entry), destroy }
 // Colours come from CSS variables only (--panel --fg --fg-3 --line --accent --ok --warn --bad), so the dark/light toggle needs no reconfigure.
 import { EditorState, Compartment, StateEffect, StateField, RangeSetBuilder } from '@codemirror/state';
 import { EditorView, keymap, lineNumbers, highlightActiveLine, highlightActiveLineGutter, drawSelection, Decoration, WidgetType } from '@codemirror/view';
@@ -18,9 +19,11 @@ import { maskRanges } from './envmask.js';
 import { envTokenizer } from './envlang.js';
 import { candidates } from './schema.js';
 import { locate } from './yamlpath.js';
+import { varPrefixAt, volumeEntryAt, volumeCandidates, insertVolumeEdit } from './volumes.js';
 
 const SEMANTIC_MAX = 64 * 1024;      // over this size only the syntax is checked
 const LINT_DELAY = 500;
+const LS_DELAY = 300;      // the folder listing of a share is asked 300 ms after the last key
 
 const theme = EditorView.theme({
   '&': { height: '100%', color: 'var(--fg)', backgroundColor: 'var(--panel)', fontFamily: 'var(--mono)', fontSize: '13px' },
@@ -150,12 +153,27 @@ function lintSource(options) {
 
 // ── completion ──
 function completionSource(options) {
-  return (ctx) => {
+  return async (ctx) => {
     const text = ctx.state.doc.toString();
     const before = text.slice(0, ctx.pos);
-    const v = /\$\{([A-Za-z0-9_]*)$/.exec(before);
-    if (v && options.envNames) {
-      return { from: ctx.pos - v[1].length, options: options.envNames().map((n) => ({ label: n, type: 'variable', apply: n + '}' })), validFor: /^[A-Za-z0-9_]*$/ };
+    // ${NAME} first: it works in any value, also inside a volumes entry (- ${DATA}/x:/data)
+    const vp = varPrefixAt(before);
+    const ve = vp === null && options.lang === 'yaml' && options.mounts ? volumeEntryAt(text, ctx.pos) : null;
+    if (ve) {
+      const c = volumeCandidates(ve.prefix, options.mounts());
+      if (c.kind === 'roots') return { from: ctx.pos - ve.prefix.length, options: c.items.map((x) => ({ label: x, type: 'folder' })), validFor: /^[^:\s]*$/ };
+      if (c.kind === 'dir' && options.listDir) {
+        await new Promise((r) => setTimeout(r, LS_DELAY));
+        if (ctx.aborted) return null;
+        let names = [];
+        try { names = await options.listDir(c.mount, c.rel); } catch { /* the share cannot be listed: no suggestions */ }
+        if (ctx.aborted) return null;
+        return { from: ctx.pos - c.typed.length, options: names.map((n) => ({ label: n + '/', type: 'folder' })), validFor: /^[^:\s/]*$/ };
+      }
+      return null;
+    }
+    if (vp !== null && options.envNames) {
+      return { from: ctx.pos - vp.length, options: options.envNames().map((n) => ({ label: n, type: 'variable', apply: n + '}' })), validFor: /^[A-Za-z0-9_]*$/ };
     }
     if (options.lang !== 'yaml' || !options.schema) return null;
     const loc = locate(text, ctx.pos);
@@ -196,6 +214,14 @@ export function createEditor(el, options = {}) {
     setReadOnly: (on) => view.dispatch({ effects: readOnly.reconfigure(ro(on)) }),
     relint: () => forceLinting(view),
     focus: () => view.focus(),
+    // add `- <entry>` under the volumes: of the service the cursor is in; without a readable services: block at the cursor line
+    insertVolume: (entry) => {
+      const text = view.state.doc.toString();
+      let e = insertVolumeEdit(text, view.state.selection.main.head, entry);
+      if (!e) { const at = view.state.selection.main.head; const ins = `- ${entry}\n`; e = { from: at, insert: ins, cursor: at + ins.length }; }
+      view.dispatch({ changes: { from: e.from, insert: e.insert }, selection: { anchor: e.cursor }, scrollIntoView: true });
+      view.focus();
+    },
     destroy: () => view.destroy(),
   };
 }

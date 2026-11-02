@@ -846,6 +846,7 @@ READS = {
     ("docker", "list"): {"kind": "tsv", "ttl": 30, "topic": "docker-list"},
     ("docker", "apps"): {"kind": "tsv", "ttl": 30, "topic": "docker-apps"},
     ("docker", "logs"): {"kind": "text", "ttl": 3, "nocache": True, "args": [APP], "query": {"lines": (r"^[0-9]{1,4}$", "")}},     # logs and files of an app may hold secrets
+    ("docker", "containers"): {"kind": "tsv", "ttl": 30},     # name project state of every container (the editor checks container_name); no topic
     ("docker", "app"): {"kind": "json", "ttl": 0, "nocache": True, "args": [APP]},     # compose and the real .env text (admin editor); never cached, never in a topic
     ("docker", "registries"): {"kind": "tsv", "ttl": 15},     # host user state used_by; never a token
     ("docker", "status"): {"kind": "tsv", "ttl": 15},      # the docker wizard: is the container there and owned (key<TAB>value rows)
@@ -1097,7 +1098,10 @@ CHANGES = {
     # the gateway setup (gateway-setup.sh): all changed keys as --set key=value (may repeat); the typed port comes as --confirm
     "gateway": [{"fixed": [r"^setup$"], "opts": {"--set": (GW_SET, True)}}],
     # turning Docker on (docker-setup.sh, which calls hs docker enable): the manager and the size as --set key=value; the plan changes nothing
-    "docker": [{"fixed": [r"^setup$"], "opts": {"--set": (DOCKER_SET, True)}}],
+    # the same script gives Docker a folder: a share (or remote:<peer>) at --path, as one fixed mapped user (--as, default: the one it has, else 1000:1000)
+    "docker": [{"fixed": [r"^setup$"], "opts": {"--set": (DOCKER_SET, True)}},
+               {"fixed": [r"^mount$", r"^(remote:[a-z0-9][a-z0-9-]{0,19}|[A-Za-z0-9][A-Za-z0-9._-]{0,63})$"],
+                "opts": {"--path": (r"^/[A-Za-z0-9._/-]{1,200}$", False), "--as": (r"^[0-9]{1,10}:[0-9]{1,10}$", False)}}],
     "docker-app": [[APP, r"^(start|stop|restart|pull)$"],
                    {"fixed": [APP, r"^app-save$"], "opts": {"--rev": (r"^(new|[0-9a-f]{16})$", False)}, "document": True},
                    [APP, r"^rebuild$"],

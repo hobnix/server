@@ -2,6 +2,7 @@
 // A finding is { level: 'error' | 'warn', text, path } for a place in the compose object (cm.js maps the path to a range)
 // or { level, text, line } for a line (1-based) of the text it was given.
 import { unknownKeys } from './schema.js';
+import { volumeSource, mountOfPath } from './volumes.js';
 
 // the editor works with LF only (CodeMirror does too); the server refuses a carriage return in the env text
 export const normalizeEol = (s) => String(s ?? '').replace(/\r\n?/g, '\n');
@@ -22,7 +23,7 @@ export function hostPort(entry) {
   return /^[0-9]{1,5}$/.test(host) && Number(host) > 0 && Number(host) < 65536 ? Number(host) : null;
 }
 
-// live: { schema, isNew, apps: [{ name, ports: "80,443" | "-" }], ct: [names] }; appName: the project name (the name field of a new app)
+// live: { schema, isNew, apps: [{ name, ports: "80,443" | "-" }], ct: [names], containers: [{ name, project }], mounts: [{ path, ro }] (of docker, see volumes.js) }; appName: the project name (the name field of a new app)
 export function lintCompose(obj, live, appName) {
   const out = [];
   const l = live || {};
@@ -49,6 +50,24 @@ export function lintCompose(obj, live, appName) {
     svc.ports.forEach((entry, i) => {
       const p = hostPort(entry);
       if (p != null && owners.has(p)) out.push({ level: 'error', path: ['services', sname, 'ports', i], text: `Port ${p} is used by ${owners.get(p)}.` });
+    });
+  }
+  for (const [sname, svc] of Object.entries(services || {})) {
+    if (!svc || typeof svc !== 'object') continue;
+    const cn = typeof svc.container_name === 'string' ? svc.container_name : '';
+    if (cn) {
+      const other = (l.containers || []).find((c) => c.name === cn && c.project !== appName);
+      if (other) out.push({ level: 'error', path: ['services', sname, 'container_name'], text: `The container name ${cn} is used by ${other.project && other.project !== '-' ? other.project : 'another container'}.` });
+    }
+    if (!Array.isArray(svc.volumes) || !l.mounts) continue;
+    svc.volumes.forEach((entry, i) => {
+      const v = volumeSource(entry);
+      if (!v.bind || !v.source.startsWith('/')) return;
+      if (v.source === '/var/run/docker.sock' || v.source === '/run/docker.sock') return;
+      const m = mountOfPath(l.mounts, v.source);
+      const path = ['services', sname, 'volumes', i];
+      if (!m) out.push({ level: 'warn', path, text: `${v.source} is not in a share: it lives on the container disk of Docker.` });
+      else if (m.ro && !v.ro) out.push({ level: 'warn', path, text: `${m.path} is read only here: add :ro, or the app fails when it writes.` });
     });
   }
   return out;

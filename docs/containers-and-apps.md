@@ -352,6 +352,22 @@ Apply keeps it as it is. The page shows "Changed, not applied yet." and the brow
 read fresh each time, never kept in the web cache, a log or the browser storage. Not tested on
 hardware yet.
 
+#### Bind a share into an app
+
+**Bind share** (top right of the editor) adds one volume line to the service your cursor is in.
+Choose the share, an optional subfolder and the path inside the container; **Read only** adds
+`:ro`. Docker sees a share at `/shares/<share>`. A share that Docker has already is inserted at
+once. Otherwise the second step gives the share to Docker first: it shows the plan, and a local
+share changes the user mapping of the container `docker`, which **restarts Docker and with it
+every app in it** (the plan lists the running apps). The line is added when that job has ended.
+Docker has one fixed user for all shares (the one it maps already, else `1000:1000`); the page
+warns when the `PUID` and `PGID` in the app's `.env` are different. A share of another server
+is read only. While you type, the editor warns about a `container_name` that another app
+uses, a bind source that is not in a share (it lives on the container disk of Docker), and a
+read-only mount without `:ro`. Inside a `volumes:` entry it completes the mount paths and then
+the folders of the share, and `${` completes the names of the `.env` panel. Not tested on
+hardware yet.
+
 ### Creating and editing apps
 
 Apps marked `web` are created and edited on this page: **New app** opens the

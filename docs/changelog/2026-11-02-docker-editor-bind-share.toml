@@ -1,0 +1,5 @@
+date  = "2026-11-02"
+type  = "feature"
+title = "Docker editor: bind a share into an app, and warnings for container names and volumes"
+docs  = "containers-and-apps#bind-a-share-into-an-app"
+body  = """The Docker app editor has a Bind share button that adds a volume line for a share (Docker sees it at /shares/<share>) and gives the share to Docker first when needed. That restarts Docker and every app in it, and the plan says so. The editor also warns about a container name that another app uses and a folder that is not in a share, and completes folders of a share. Not tested on hardware yet."""
