@@ -14,7 +14,8 @@ hobnix/extensions (docs/PLAN-packages.md); the core fetches them with `hs pkg`.
   Machine-readable lines (`hs sys ...`, `--list`, `--dry-run`, `--state`) are a contract with the web interface: never change their shape; an
   empty tab-separated field is written `-`.
 - **Generated files are never edited by hand:** config/defaults.nix, scripts/lib/config-keys.sh, scripts/lib/capabilities.tsv,
-  machine.toml.example. Edit config/schema.toml, then `python3 scripts/schema-gen.py write`.
+  machine.toml.example. Edit config/schema.toml, then `python3 scripts/schema-gen.py write`. Also generated: docs/api/openapi.json (from registry.tsv and
+  docs/api/sys.toml: `python3 scripts/openapi-gen.py write` in the same commit as a new or changed `sys` row).
 - **A new script needs a row** in scripts/lib/registry.tsv (tests/commands.sh); a new `reads` command needs a probe in scripts/smoke.sh; a new
   recipe needs packages/<name>/package.toml and ends with `docs_hint`; a user-visible change adds a docs/changelog entry.
 - **Secrets** are read only through scripts/lib/secret.sh and never go through argv or the environment.
