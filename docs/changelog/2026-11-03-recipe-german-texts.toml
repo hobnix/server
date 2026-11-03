@@ -1,0 +1,4 @@
+date  = "2026-11-03"
+type  = "fix"
+title = "Recipes print their own German texts again"
+body  = """Since the apps moved into the share apps, a recipe lost the German texts of its own file (i18n/de.tsv) as soon as it loaded the Docker helpers: the helpers loaded the language a second time and emptied the list. The German dry runs and closing texts of the recipes are complete again."""
