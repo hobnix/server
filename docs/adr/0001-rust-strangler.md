@@ -29,7 +29,8 @@ Issue: hobnix/server#122 (epic #121)
 2. **One dispatcher, one list.** `hs` and `scripts/lib/registry.tsv` stay the only entry and the only list. A moved row names the Rust binary
    instead of a script. Form (decided in #125): the script column holds `rust:<subcommand>`, and `hs` runs it as `hobnix <subcommand>` with the
    same arguments. The dispatcher, tests/commands.sh, `hs help`, `hs sys registry` and the shell completion treat a `rust:` value as a valid
-   script entry. This is implemented with the pilot (#127), not with the skeleton. Going back to the old script is a one-line change of that row.
+   script entry. The binary is `HOBNIX_BIN` or `hobnix` on PATH; while it is missing, the flag `fallback:<script>` of the row runs the old
+   script (the side-by-side release), and a row without it fails with exit 2. `rust:` is for core `sys` rows only and not for `long` rows yet. This is implemented with the pilot (#127), not with the skeleton. Going back to the old script is a one-line change of that row.
 3. **Service layer.** Rust code is split in two crates. `hobnix-core` is the service layer: typed inputs, typed results and errors; reads,
    `plan` and `start` as functions; no terminal output, no colours, no argv parsing, no translation. `hobnix-cli` is the adapter: it parses the
    `hs sys` words, calls the service and writes the existing lines. Every later caller (a Rust HTTP API, tests) calls `hobnix-core`, never the
@@ -94,7 +95,7 @@ points at Rust and the old script is deleted. After that docs/Entwicklungsnotize
 
 - Whether a Rust HTTP server replaces `scripts/web-serve.py` (decision 4).
 - The job system (E02) and the package protocol (E12).
-- Which command group is the pilot (#127, after #128).
+- Pilot chosen: `hs sys secrets plan|start` (scripts/vault-change.sh, #127).
 - Whether human (kind `user`) commands ever move.
 
 ## Errors and logs (#126)
@@ -105,3 +106,11 @@ points at Rust and the old script is deleted. After that docs/Entwicklungsnotize
 - `Secret` prints `***` for both `{}` and `{:?}`; the value is read only with `expose()`.
 - A log field whose key contains password, passwd, secret, token, key or passphrase (any case) is written as `***`.
 - Std only: no new dependencies, so the later Nix build needs no network.
+
+## Pilot (#127)
+
+- The group is `hs sys secrets plan|start` (scripts/vault-change.sh): small, one contract, a characterization test already exists (job-audit verdict).
+- `hobnix-core` `secrets` holds Action, Plan, the `Host` trait and `SystemHost`, which runs `hs_job` from scripts/lib/job.sh; `hobnix-cli` `secrets` parses the words and writes the lines.
+- A refusal stays `status refused` on stdout (exit 1); only infrastructure errors are `hobnix: <msg>` on stderr (exit 2).
+- tests/vault-change-rust.sh runs tests/vault-change.sh unchanged against the binary and compares both implementations byte for byte.
+- The two rows stay on `vault-change.sh` for now. Switching them to `rust:secrets` with `fallback:vault-change.sh` waits for the Nix build that puts `hobnix` on PATH (#125); the server keeps running the script until then.

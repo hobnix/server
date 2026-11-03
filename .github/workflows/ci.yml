@@ -35,8 +35,8 @@ jobs:
             # nix: the system configuration; root: scripts and root tests (loop devices, packages against this core)
             echo "$files" | grep -qvE '^(web/|docs/|tests/|\.claude/|\.github/ISSUE_TEMPLATE/)|\.md$' || nix=false
             echo "$files" | grep -qvE '^(web/|docs/|\.claude/|\.github/ISSUE_TEMPLATE/)|\.md$' || root=false
-            # rust: the Cargo workspace or this workflow
-            echo "$files" | grep -qE '^rust/|^\.github/workflows/ci\.yml$' || rust=false
+            # rust: the Cargo workspace, the scripts it stands in for, or this workflow
+            echo "$files" | grep -qE '^rust/|^\.github/workflows/ci\.yml$|^scripts/vault-change\.sh$|^tests/vault-change(-rust)?\.sh$|^tests/lib\.sh$|^scripts/lib/job\.sh$' || rust=false
           fi
           echo "nix=$nix" >> "$GITHUB_OUTPUT"
           echo "root=$root" >> "$GITHUB_OUTPUT"
@@ -59,6 +59,10 @@ jobs:
         run: cargo clippy --locked --all-targets -- -D warnings
       - name: Tests
         run: cargo test --locked
+      - name: tests/vault-change.sh against the binary, and shell and Rust side by side (tests/vault-change-rust.sh)
+        run: |
+          cargo build --locked
+          HOBNIX_BIN=$PWD/target/debug/hobnix bash ../tests/vault-change-rust.sh
 
   scripts:
     needs: changes
