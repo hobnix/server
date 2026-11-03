@@ -387,11 +387,11 @@ app changed meanwhile the editor keeps the text and offers **Reload**.
 
 A failed update restores the previous compose and env files and starts them
 again. **Rebuild** runs `docker compose up -d --build --pull always` and needs
-any Dockerfile or build context in `/opt/apps/<app>`. **Delete** takes a
+any Dockerfile or build context in the folder of the app (`apps/stacks/<app>` in the share `apps`, or the older `/opt/apps/<app>`). **Delete** takes a
 snapshot of `docker` first and stops and removes the containers after you type the
-app name. **Delete** keeps `/opt/apps/<app>`: the app stays in the list with the state
+app name. **Delete** keeps the folder of the app: the app stays in the list with the state
 `stopped` (a folder with a compose file and no container), can be edited, and **Start**
-brings it up again with `docker compose up -d`. **Delete with data** also removes `/opt/apps/<app>`
+brings it up again with `docker compose up -d`. **Delete with data** also removes the folder of the app
 (the config and the data).
 
 ### Private registries (Instances > Docker > Registries)

@@ -15,7 +15,7 @@
 #   --status, --list       the same as data (hs sys docker status|list): key<TAB>value, and one row per app with exactly 5 fields
 #                          name parent project state ports (`-` when empty); a stopped container or a failed read prints no row, exit 0
 #   --apps                 the same data with more fields: name parent project state running/total ports address images managed update
-#                          (`-` when empty); 10 fields, sorted by app name; state stopped (0/0) for an app whose folder /opt/apps/<app> has a docker-compose.yml but no container
+#                          (`-` when empty); 10 fields, sorted by app name; state stopped (0/0) for an app whose folder (apps/stacks/<app>, apps/recipes/<app>, legacy /opt/apps/<app>) has a docker-compose.yml but no container
 #   --containers           every container of docker as name project state (`-` when empty; the web editor checks container_name against it)
 #   --app <app>            JSON document for the web editor: rev, managed (web|recipe|other), env names, envText (the whole .env, base64 in the script output; envTooBig over 64 KiB), compose; for the admin editor, read nocache
 #   --logs <app> [lines]   the Compose log of one app (default 200, max 2000); the app must be a child of docker, never the manager
@@ -29,6 +29,7 @@ here=$(cd "$(dirname "$0")" && pwd)
 . "$here/lib/capability.sh"
 . "$here/lib/job.sh"
 . "$here/lib/docker-apps.sh"
+. "$here/lib/sharepath.sh"
 CT=docker
 OWNER=docker
 tab=$'\t'
@@ -54,9 +55,13 @@ size_of() {   # size_of [size]: "<MiB> <cpus>" from the size, each replaced by d
   printf '%s %s\n' "$m" "$c"
 }
 manager_project() { docker_manager_project "$@"; }   # see scripts/lib/docker-apps.sh
-kept_apps() {   # the apps whose folder /opt/apps/<app> holds a docker-compose.yml (they may have no containers: a delete that kept the data), space separated
-  timeout 8 "${HS_INCUS:-incus}" exec "$CT" -- sh -c 'ls -d /opt/apps/*/docker-compose.yml 2>/dev/null || true' </dev/null 2>/dev/null |
-    awk -F/ 'NF == 5 && $2 == "opt" && $3 == "apps" && $4 ~ /^[a-z0-9][a-z0-9_-]*$/ { printf "%s ", $4 }' || true
+kept_apps() {   # the apps whose folder (stacks/, recipes/ of the share apps, legacy /opt/apps) holds a docker-compose.yml (they may have no containers: a delete that kept the data), space separated
+  timeout 8 "${HS_INCUS:-incus}" exec "$CT" -- sh -c 'ls -d /opt/apps/*/docker-compose.yml /shares/apps/stacks/*/docker-compose.yml /shares/apps/recipes/*/docker-compose.yml 2>/dev/null || true' </dev/null 2>/dev/null |
+    awk -F/ '
+      NF == 5 && $2 == "opt" && $3 == "apps" { n = $4 }
+      NF == 6 && $2 == "shares" && $3 == "apps" && ($4 == "stacks" || $4 == "recipes") { n = $5 }
+      n ~ /^[a-z0-9][a-z0-9_-]*$/ && !seen[n]++ { printf "%s ", n }
+      { n = "" }' || true
 }
 children() {   # one row per app: name parent project state ports (state stopped: the folder is there, no container)
   local raw skip kept
@@ -95,6 +100,12 @@ apps() {   # one row per app: name parent project state running/total ports addr
     ls -d /opt/apps/*/ 2>/dev/null || true
     echo "__HS_MARKER_COMPOSE__"
     ls -d /opt/apps/*/docker-compose.yml 2>/dev/null || true
+    echo "__HS_MARKER_STACKS__"
+    ls -d /shares/apps/stacks/*/docker-compose.yml 2>/dev/null || true
+    echo "__HS_MARKER_RECIPES__"
+    ls -d /shares/apps/recipes/*/ 2>/dev/null || true
+    echo "__HS_MARKER_RECIPECOMPOSE__"
+    ls -d /shares/apps/recipes/*/docker-compose.yml 2>/dev/null || true
   ' </dev/null 2>/dev/null) || return 0
   skip=$(manager_project "$(setting_get dockerManager 2>/dev/null || true)")
   addr=$(ct_addr); [ -n "$addr" ] || addr=-
@@ -103,6 +114,9 @@ apps() {   # one row per app: name parent project state running/total ports addr
     $0 == "__HS_MARKER_WEBUI__" { phase = "webui"; next }
     $0 == "__HS_MARKER_DIR__" { phase = "dir"; next }
     $0 == "__HS_MARKER_COMPOSE__" { phase = "compose"; next }
+    $0 == "__HS_MARKER_STACKS__" { phase = "stacks"; next }
+    $0 == "__HS_MARKER_RECIPES__" { phase = "recipes"; next }
+    $0 == "__HS_MARKER_RECIPECOMPOSE__" { phase = "recipecompose"; next }
     phase == "ps" {
       if (NF < 3) next
       p = $1
@@ -138,6 +152,16 @@ apps() {   # one row per app: name parent project state running/total ports addr
       if (n == 5 && parts[2] == "opt" && parts[3] == "apps" && parts[5] == "docker-compose.yml") comp[parts[4]] = 1
       next
     }
+    phase == "stacks" || phase == "recipecompose" {
+      n = split($0, parts, "/")
+      if (n == 6 && parts[2] == "shares" && parts[3] == "apps" && parts[6] == "docker-compose.yml") { comp[parts[5]] = 1; if (phase == "stacks") stack[parts[5]] = 1 }
+      next
+    }
+    phase == "recipes" {
+      n = split($0, parts, "/")
+      if (n >= 5 && parts[2] == "shares" && parts[3] == "apps" && parts[4] == "recipes" && parts[5] != "") rdir[parts[5]] = 1
+      next
+    }
     END {
       for (p in comp) if (p ~ /^[a-z0-9][a-z0-9_-]*$/ && p != skip && !(p in seen)) { seen[p] = 1; cnt[p] = 0; run[p] = 0; created[p] = 0 }
       for (p in seen) {
@@ -154,8 +178,8 @@ apps() {   # one row per app: name parent project state running/total ports addr
         for (a = 2; a <= ik; a++) { v = il[p, a]; b = a - 1; while (b >= 1 && il[p, b] > v) { il[p, b + 1] = il[p, b]; b-- } il[p, b + 1] = v }
         images = ""; for (a = 1; a <= ik; a++) images = images (a > 1 ? "," : "") il[p, a]
         managed = "other"
-        if (webui[p]) managed = "web"
-        else if (dir[p]) managed = "recipe"
+        if (stack[p] || webui[p]) managed = "web"
+        else if (rdir[p] || dir[p]) managed = "recipe"
         printf "%s\t%s\t%s\t%s\t%d/%d\t%s\t%s\t%s\t%s\t-\n", p, ct, p, st, running, total, (ports == "" ? "-" : ports), addr, (images == "" ? "-" : images), managed
       }
     }' | sort -t "$tab" -k1,1
@@ -193,15 +217,18 @@ app() {   # --app <app>: JSON read for the web editor
   [ "$app" != "$mgr" ] || return 1
   timeout 8 "${HS_INCUS:-incus}" exec "$CT" -- sh -c '
     set -e
-    app=$1; d=/opt/apps/$app
+    app=$1; managed=other
+    if [ -f "/shares/apps/stacks/$app/docker-compose.yml" ]; then d=/shares/apps/stacks/$app; managed=web
+    elif [ -d "/opt/apps/$app" ]; then
+      d=/opt/apps/$app
+      if [ -f "$d/.hs-webui" ]; then managed=web; else managed=recipe; fi
+    elif [ -d "/shares/apps/recipes/$app" ]; then d=/shares/apps/recipes/$app; managed=recipe
+    else d=/opt/apps/$app
+    fi
     [ -r "$d/docker-compose.yml" ] || exit 1
     compose=$(cat "$d/docker-compose.yml")
     if [ -r "$d/.env" ]; then env_stat=$(stat -c "%.9Y %s" "$d/.env"); else env_stat=""; fi
     rev=$(printf "%s%s" "$compose" "$env_stat" | sha256sum | cut -c1-16)
-    if [ -f "$d/.hs-webui" ]; then managed=web
-    elif [ -d "$d" ]; then managed=recipe
-    else managed=other
-    fi
     printf "rev\t%s\nmanaged\t%s\n" "$rev" "$managed"
     if [ -r "$d/.env" ]; then sed -n "s/^\([A-Za-z_][A-Za-z0-9_]*\)=.*/\1/p" "$d/.env" | sort -u | sed "s/^/env\t/"; fi
     if [ -r "$d/.env" ]; then
@@ -293,6 +320,20 @@ st_lock() {   # a container that cannot be locked is removed again: never leave 
 }
 st_install() { inc exec "$CT" -- sh -c 'apt-get update -q && DEBIAN_FRONTEND=noninteractive apt-get install -y -q docker.io docker-compose' </dev/null; }
 st_dir() { inc exec "$CT" -- mkdir -p /opt/apps </dev/null; }
+APPS_SHARE=apps
+st_share() {   # the share apps on fast, always in the backup, auto snapshots on (a share that is there is kept as it is)
+  if [ "$(share_tier "$APPS_SHARE" 2>/dev/null || true)" != fast ]; then
+    if [ -n "${HS_DOCKER_CREATE_SHARE:-}" ]; then "$HS_DOCKER_CREATE_SHARE" "$APPS_SHARE" --fast; else bash "$here/create-share.sh" "$APPS_SHARE" --fast; fi || return 1
+  fi
+  backup_cmd "$APPS_SHARE" on || return 1
+  if [ -n "${HS_DOCKER_SNAPS:-}" ]; then "$HS_DOCKER_SNAPS" "$APPS_SHARE" on; else bash "$here/snapshots-auto.sh" "$APPS_SHARE" on; fi
+}
+st_give() {   # the share apps into docker at /shares/apps, as the one mapped user (else 1000:1000 = adminuser:users)
+  local as
+  inc config device get "$CT" "$APPS_SHARE" type >/dev/null 2>&1 && return 0
+  as=$(mapped_user); [ -n "$as" ] || as=1000:1000
+  cmd_mount "$APPS_SHARE" "$DOCKER_APPS_ROOT" --as "$as" --yes
+}
 st_manager() {
   local ip port url
   . "$here/providers/docker/$MANAGER.sh"
@@ -317,8 +358,38 @@ plan_enable() {
     webui) note "$(t 'The manager webui is the web interface of hobnix. It is built later: for now only the choice is recorded.')" ;;
     none) note "$(t 'No manager: Docker only.')" ;;
   esac
+  line "$(t '%s. Make the share apps on the SSD pool (the files of every app; in the backup, with automatic snapshots) and give it to Docker at %s.' "$s" "$DOCKER_APPS_ROOT")"; s=$((s + 1))
   if backup_new_instances_on; then line "$(t '%s. Lock the container (only hs docker disable deletes it) and add it to the backup.' "$s")"
   else line "$(t '%s. Lock the container (only hs docker disable deletes it). It is not added to the backup (backupNewInstances is false).' "$s")"; fi
+}
+
+apps_on_bulk() {
+  fail_fix "$(t "A share called 'apps' exists on the disks. Docker keeps its apps in a share apps on the SSD pool: rename or move the old one first.")" "hs share list"
+}
+
+# Docker is on already (an older server): make sure the share apps is there and mounted in docker. Idempotent; the mount restarts every app.
+ensure_apps() {   # ensure_apps <yes> <dry> <job>
+  local yes=$1 dry=$2 job=$3 have_share=0 have_dev=0 path s=1
+  [ "$(share_tier "$APPS_SHARE" 2>/dev/null || true)" != fast ] || have_share=1
+  path=$(inc config device get "$CT" "$APPS_SHARE" path 2>/dev/null </dev/null || true)
+  if [ "$path" = "$DOCKER_APPS_ROOT" ]; then have_dev=1
+  elif [ -n "$path" ]; then fail_fix "$(t "'%s' has a device called apps at %s already." "$CT" "$path")" "hs ct storage docker"; fi
+  if [ "$have_share" = 1 ] && [ "$have_dev" = 1 ]; then ok "$(t 'Docker is on already, and it has the share apps at %s.' "$DOCKER_APPS_ROOT")"; return 0; fi
+  step "$(t 'Give Docker the share apps')"
+  if [ "$have_share" = 0 ]; then line "$(t '%s. Make the share apps on the SSD pool (in the backup, with automatic snapshots).' "$s")"; s=$((s + 1)); fi
+  if [ "$have_dev" = 0 ]; then
+    line "$(t '%s. Mount it in the container docker at %s.' "$s" "$DOCKER_APPS_ROOT")"
+    warn "$(t 'The user mapping changes: the container docker restarts, and with it every app in it.')"
+  fi
+  if [ "$dry" = 1 ]; then return 0; fi
+  if [ "$yes" = 0 ]; then
+    interactive || fail "$(t 'This needs a terminal or --yes.')"
+    confirm "$(t 'Do it?')" || { note "$(t 'Nothing changed.')"; return 0; }
+  fi
+  if [ "$job" = 1 ] && as_job docker-enable "hs docker enable" enable --yes; then return 0; fi
+  if [ "$have_share" = 0 ]; then step "$(t 'Make the share apps')"; st_share || fail "$(t 'Making the share apps failed.')"; fi
+  if [ "$have_dev" = 0 ]; then step "$(t 'Give Docker the share')"; st_give || fail "$(t 'Giving Docker the share failed.')"; fi
+  ok "$(t 'Docker has the share apps at %s.' "$DOCKER_APPS_ROOT")"
 }
 
 cmd_enable() {
@@ -339,9 +410,11 @@ cmd_enable() {
     if ! owned; then
       fail_fix "$(t "An instance called 'docker' exists and is not managed by hs (the docker recipe?). Taking it over comes later (hs docker adopt).")" "hs ct list"
     fi
-    if capability_on docker; then ok "$(t 'Docker is on already.')"; return 0; fi
+    if [ "$(share_tier "$APPS_SHARE" 2>/dev/null || true)" = bulk ]; then apps_on_bulk; fi
+    if capability_on docker; then ensure_apps "$yes" "$dry" "$job"; return 0; fi
     fail_fix "$(t 'A docker container from an earlier try exists.')" "hs docker disable"
   fi
+  if [ "$(share_tier "$APPS_SHARE" 2>/dev/null || true)" = bulk ]; then apps_on_bulk; fi
   MANAGER=$manager
   read -r MEM CPUS < <(size_of "$size")
   plan_enable
@@ -356,10 +429,12 @@ cmd_enable() {
     if [ -n "$size" ]; then set -- "$@" --size "$size"; fi
     if as_job docker-enable "hs docker enable" "$@"; then return 0; fi
   fi
-  case "$manager" in arcane|portainer) steps 6 ;; *) steps 5 ;; esac
+  case "$manager" in arcane|portainer) steps 8 ;; *) steps 7 ;; esac
   run_step "$(t 'Create the container')" st_create
   run_step "$(t 'Lock the container')" st_lock
   run_step "$(t 'Install Docker')" st_install
+  run_step "$(t 'Make the share apps')" st_share
+  run_step "$(t 'Give Docker the share')" st_give
   run_step "$(t 'Make /opt/apps')" st_dir
   case "$manager" in arcane|portainer) run_step "$(t 'Start the manager %s' "$manager")" st_manager ;; esac
   run_step "$(if backup_new_instances_on; then t 'Add it to the backup'; else t 'Leave it out of the backup'; fi)" st_backup
@@ -394,7 +469,10 @@ cmd_disable() {
   kv "$(t 'Container')" "$CT"
   kv "$(t 'Apps')" "$n"
   kv "$(t 'Newest snapshot')" "$(dash "$snap")"
-  danger "$(t "The container 'docker', its apps and their data in /opt/apps are deleted. Snapshots are deleted with it; the backup stays.")"
+  danger "$(t "The container 'docker' and its containers are deleted, and with them the apps that are still in /opt/apps (the older place). Snapshots are deleted with it; the backup stays.")"
+  if share_dir "$APPS_SHARE" >/dev/null 2>&1; then
+    note "$(t "The share apps (the files of your apps) stays on the SSD pool at %s. Delete it too: hs share apps delete" "$(share_dir "$APPS_SHARE")")"
+  fi
   if [ "$dry" = 1 ]; then return 0; fi
   if [ "$yes" = 0 ]; then interactive || fail "$(t 'This needs a terminal or --yes.')"
   elif [ "$confirm_arg" != "$CT" ]; then fail "$(t 'This needs --confirm docker.')"; fi   # before the backup: a refusal costs nothing

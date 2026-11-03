@@ -59,6 +59,12 @@ case "$1" in
           printf '__HS_MARKER_COMPOSE__\n'
           printf '/opt/apps/arr/docker-compose.yml\n'
           printf '/opt/apps/kept1/docker-compose.yml\n'
+          printf '__HS_MARKER_STACKS__\n'
+          [ ! -e "$STATE.newapps" ] || printf '/shares/apps/stacks/zeta/docker-compose.yml\n'
+          printf '__HS_MARKER_RECIPES__\n'
+          [ ! -e "$STATE.newapps" ] || printf '/shares/apps/recipes/pico/\n'
+          printf '__HS_MARKER_RECIPECOMPOSE__\n'
+          [ ! -e "$STATE.newapps" ] || printf '/shares/apps/recipes/pico/docker-compose.yml\n'
           ;;
         *'ls -d /opt/apps/*/docker-compose.yml'*)   # the folders that hold a compose file (kept1: a delete that kept the data)
           printf '/opt/apps/arr/docker-compose.yml\n/opt/apps/kept1/docker-compose.yml\n/opt/apps/arcane/docker-compose.yml\n' ;;
@@ -78,8 +84,19 @@ cat > "$BIN/backup" <<'FAKE'
 echo "backup $* OWNER=${HS_OWNER:-}" >> "$BLOG"
 exit 0
 FAKE
-chmod +x "$BIN/incus" "$BIN/manage" "$BIN/backup"
-export PATH="$BIN:$PATH" HS_DOCKER_MANAGE_CT=$BIN/manage HS_DOCKER_BACKUP=$BIN/backup
+cat > "$BIN/mkshare" <<'FAKE'
+#!/usr/bin/env bash
+echo "create-share $*" >> "$MLOG"
+exit 0
+FAKE
+cat > "$BIN/snaps" <<'FAKE'
+#!/usr/bin/env bash
+echo "snapshots-auto $*" >> "$MLOG"
+exit 0
+FAKE
+chmod +x "$BIN/incus" "$BIN/manage" "$BIN/backup" "$BIN/mkshare" "$BIN/snaps"
+export PATH="$BIN:$PATH" HS_DOCKER_MANAGE_CT=$BIN/manage HS_DOCKER_BACKUP=$BIN/backup HS_DOCKER_CREATE_SHARE=$BIN/mkshare HS_DOCKER_SNAPS=$BIN/snaps
+export HS_BULK=$WORK/nobulk HS_FAST=$WORK/nofast HS_ZFS=false
 D="bash $SCRIPTS/docker.sh"
 reset() { rm -f "$STATE" "$OWNERF" "$PSFAIL" "$LOCKFAIL" "$HS_SETTINGS_DIR"/*; : > "$LOG"; : > "$MLOG"; : > "$BLOG"; }
 changes() { grep -cE 'incus (config set|exec)|manage-ct' "$LOG" "$MLOG" "$BLOG" | awk -F: '{s+=$2} END{print s+0}'; }
@@ -126,6 +143,8 @@ rc=0; $D enable --yes --manager portainer --size s </dev/null >/dev/null 2>&1 ||
 check_eq "exit 0" 0 "$rc"
 grep -qF "manage-ct --create docker --docker --ram 2048 --cpu 2 OWNER=docker" "$MLOG" && pass "create with the owner's pass" || fail "create: $(cat "$MLOG")"
 grep -qF "incus config set docker user.hs.managed_by=docker" "$LOG" && pass "locked" || fail "lock not set"
+grep -qF "create-share apps --fast" "$MLOG" && grep -qF "backup apps on" "$BLOG" && grep -qF "snapshots-auto apps on" "$MLOG" && pass "share apps made, in the backup, snapshots on" || fail "share apps: $(cat "$MLOG" "$BLOG")"
+grep -qF "manage-ct docker --add-storage shares apps /shares/apps --as 1000:1000" "$MLOG" && pass "docker gets the share apps at /shares/apps" || fail "mount: $(cat "$MLOG")"
 grep -qF "backup ct docker on" "$BLOG" && pass "in the backup" || fail "backup: $(cat "$BLOG")"
 grep -qF "tee /opt/portainer/docker-compose.yml" "$LOG" && pass "manager compose written" || fail "compose not written"
 check_eq "dockerManager" portainer "$(cat "$HS_SETTINGS_DIR/dockerManager" 2>/dev/null || true)"
@@ -135,7 +154,7 @@ echo "-- backupNewInstances false: not in the backup, a note, the plan says so"
 reset; printf false > "$HS_SETTINGS_DIR/backupNewInstances"
 rc=0; out=$($D enable --yes </dev/null 2>&1) || rc=$?
 check_eq "exit 0" 0 "$rc"
-[ ! -s "$BLOG" ] && pass "not in the backup" || fail "backup: $(cat "$BLOG")"
+! grep -qv '^backup apps on' "$BLOG" && pass "not in the backup" || fail "backup: $(cat "$BLOG")"
 echo "$out" | grep -q "'docker' is not put into the backup (backupNewInstances is false). Later: hs backup ct docker on" && pass "note" || fail "note: $out"
 reset; printf false > "$HS_SETTINGS_DIR/backupNewInstances"
 out=$($D enable --dry-run 2>&1 </dev/null || true)
@@ -176,6 +195,29 @@ check_eq "exit 1" 1 "$rc"
 echo "$out" | grep -q "Started in the background" && fail "claimed to have started: $out" || pass "no false success"
 rm -f "$BIN/systemd-run"
 
+echo "-- enable on a server where Docker is on already: it gets the share apps"
+reset; : > "$STATE"; echo docker > "$OWNERF"; echo docker > "$HS_CAPABILITIES_FILE"
+out=$($D enable --dry-run </dev/null 2>&1) || true
+echo "$out" | grep -q "Mount it in the container docker at /shares/apps" && pass "plan: the mount, with the restart warning" || fail "ensure plan: $out"
+echo "$out" | grep -q "restarts" && pass "plan warns about the restart" || fail "restart warning: $out"
+check_eq "dry-run changed nothing" 0 "$(grep -c 'create-share\|add-storage' "$MLOG" || true)"
+rc=0; $D enable --yes </dev/null >/dev/null 2>&1 || rc=$?
+check_eq "ensure exit 0" 0 "$rc"
+grep -qF "create-share apps --fast" "$MLOG" && grep -qF "backup apps on" "$BLOG" && pass "ensure: share made, in the backup" || fail "ensure share: $(cat "$MLOG" "$BLOG")"
+grep -qF "manage-ct docker --add-storage shares apps /shares/apps --as 1000:1000" "$MLOG" && pass "ensure: mounted" || fail "ensure mount: $(cat "$MLOG")"
+check_eq "ensure created no container" 0 "$(grep -c -- '--create' "$MLOG" || true)"
+
+echo "-- a share apps on the disks stops enable"
+reset; mkdir -p "$HS_BULK/shares/apps"
+rc=0; out=$($D enable --yes </dev/null 2>&1) || rc=$?
+check_eq "refused" 1 "$rc"
+echo "$out" | grep -q "exists on the disks" && pass "says why" || fail "bulk apps: $out"
+check_eq "nothing created" 0 "$(grep -c -- '--create' "$MLOG" || true)"
+: > "$STATE"; echo docker > "$OWNERF"; echo docker > "$HS_CAPABILITIES_FILE"
+rc=0; $D enable --yes </dev/null >/dev/null 2>&1 || rc=$?
+check_eq "refused also when Docker is on" 1 "$rc"
+rm -rf "$HS_BULK"; : > "$HS_CAPABILITIES_FILE"
+
 echo "-- enable when docker exists and is not ours"
 reset; : > "$STATE"
 rc=0; $D enable --yes </dev/null >/dev/null 2>&1 || rc=$?
@@ -210,6 +252,10 @@ check_eq "arr row" $'arr\tdocker\tarr\trunning\t2/2\t7878,8989\t10.10.95.50\tlin
 check_eq "kept app: folder, no container -> stopped 0/0" $'kept1\tdocker\tkept1\tstopped\t0/0\t-\t10.10.95.50\t-\tweb\t-' "$(printf '%s\n' "$apps" | sed -n 2p)"
 check_eq "notes row" $'notes\tdocker\tnotes\texited\t0/1\t-\t10.10.95.50\tnginx:alpine\tother\t-' "$(printf '%s\n' "$apps" | sed -n 3p)"
 check_eq "wiki partial" $'wiki\tdocker\twiki\tpartial\t1/2\t3000\t10.10.95.50\trequarks/wiki:2\trecipe\t-' "$(printf '%s\n' "$apps" | sed -n 4p)"
+: > "$STATE.newapps"
+apps=$($D --apps)
+check_eq "stacks/ is web, recipes/ is recipe" $'pico\tdocker\tpico\tstopped\t0/0\t-\t10.10.95.50\t-\trecipe\t-\nzeta\tdocker\tzeta\tstopped\t0/0\t-\t10.10.95.50\t-\tweb\t-' "$(printf '%s\n' "$apps" | grep -E '^(pico|zeta)')"
+rm -f "$STATE.newapps"
 check_eq "the manager folder is not an app" 0 "$(printf '%s\n' "$apps" | grep -c '^arcane')"
 check_eq "--list has the kept app too" $'kept1\tdocker\tkept1\tstopped\t-' "$($D --list | grep '^kept1')"
 

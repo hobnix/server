@@ -58,7 +58,7 @@ echo "incus $*" >> "$WORK/incus.log"
 case "$1" in
   info) exit 1 ;;
   exec) case "$*" in *"docker ps"*) printf 'other	0.0.0.0:7878->7878/tcp
-' ;; *"test -d"*) exit 1 ;; *) cat >/dev/null ;; esac ;;
+' ;; *"test -d"*|*'[ -d "$d" ]'*) exit 1 ;; *'mountpoint -q'*) [ ! -e "$WORK/nomount" ]; exit $? ;; *) cat >/dev/null ;; esac ;;
 esac
 exit 0
 FAKE
@@ -70,6 +70,11 @@ C() {   # C <status script> <snippet>: a recipe called radarr asks for its runti
 out=$(C "$WORK/dstatus" 'recipe_runtime lxc docker; echo "$ct $RUNS_DOCKER $ip $existed $conf"')
 check_eq "docker mode: parent, flag, address, answers stay with the app" "docker true 10.1.2.3 false $WORK/recipe-radarr.conf" "$(printf '%s
 ' "$out" | tail -n1)"
+: > "$WORK/nomount"
+out=$(C "$WORK/dstatus" 'recipe_runtime lxc docker; echo reached')
+check "share apps not mounted: refused with the pointer" grep -q "hs docker enable" <<<"$out"
+check "share apps not mounted: the recipe did not go on" bash -c '! grep -q reached <<<"$1"' _ "$out"
+rm -f "$WORK/nomount"
 out=$(C "$WORK/dstatus-off" 'recipe_runtime lxc docker; echo reached')
 check "docker off: refused with the pointer" grep -q "hs docker enable" <<<"$out"
 check "docker off: the recipe did not go on" bash -c '! grep -q reached <<<"$1"' _ "$out"
@@ -79,11 +84,11 @@ out=$(C "$WORK/dstatus" 'child_port_free 7878 other; echo free')
 check_eq "its own port is free" "free" "$(printf '%s
 ' "$out" | tail -n1)"
 : > "$WORK/incus.log"
-C "$WORK/dstatus" 'printf "services: {}
+C "$WORK/dstatus" 'APP_DIR=/shares/apps/recipes/radarr; printf "services: {}
 " | child_compose radarr; child_up radarr; child_pull radarr' >/dev/null
-check "compose written under /opt/apps/radarr" grep -q "/opt/apps/radarr/docker-compose.yml.new" "$WORK/incus.log"
+check "compose written under /shares/apps/recipes/radarr" grep -q "/shares/apps/recipes/radarr/docker-compose.yml.new" "$WORK/incus.log"
 check "compose checked with the project name" grep -q "docker compose -p radarr config -q" "$WORK/incus.log"
-check "up and pull use the project name" grep -q "sh radarr /opt/apps/radarr pull" "$WORK/incus.log"
+check "up and pull use the project name" grep -q "sh radarr /shares/apps/recipes/radarr pull" "$WORK/incus.log"
 mkdir -p "$WORK/st"; : > "$WORK/st/x"
 out=$(C "$WORK/dstatus" 'RUNS_DOCKER=true; ct=docker; state='"$WORK"'/st; declare_dump radarr "hs-dump sqlite-tree radarr /opt/apps/radarr"; backup_with_dump radarr ""; cat $state/backup-dump/docker')
 check "docker mode: the dump goes to the descriptor of docker" grep -q "# dump:radarr" <<<"$out"

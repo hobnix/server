@@ -34,6 +34,9 @@ case "$1" in
     elif [ "$1" = sh ] && [ "$2" = -c ]; then
       cmd=$3
       case "$cmd" in
+        *'recipes/$a'*)   # docker_app_find: a web stack, or with $STATE.legacy a legacy app
+          if [ -e "$STATE.legacy" ]; then printf 'legacy\t/opt/apps/%s\n' "$5"; else printf 'web\t/shares/apps/stacks/%s\n' "$5"; fi ;;
+        *'mountpoint -q'*) [ ! -e "$STATE.nomount" ]; exit $? ;;
         *'docker inspect --format'*) printf '/opt/apps/arr\n' ;;
         *'config --images'*) printf 'ghcr.io/acme/app:1\n' ;;
         *'config --format json'*) cat "${CFGJSON:-/nonexistent}" 2>/dev/null ;;
@@ -129,11 +132,12 @@ printf '#!/usr/bin/env bash
 exit 0
 ' > "$BIN/ct-change.sh"
 chmod +x "$BIN/docker.sh" "$BIN/ct-change.sh"
-export HS_DOCKER_SH=$BIN/docker.sh HS_CT_CHANGE=$BIN/ct-change.sh
+printf '#!/usr/bin/env bash\necho "share-snap $*" >> "$LOG"\n' > "$BIN/share-snap.sh"; chmod +x "$BIN/share-snap.sh"
+export HS_DOCKER_SH=$BIN/docker.sh HS_CT_CHANGE=$BIN/ct-change.sh HS_SHARE_SNAP=$BIN/share-snap.sh
 on webui
 out=$($D plan web1 delete </dev/null 2>&1) || true
 echo "$out" | grep -qx "confirm_name${T}web1" && pass "plan delete asks for the name" || fail "plan delete: $out"
-echo "$out" | grep -q "^note${T}/opt/apps/web1 is kept" && pass "plan delete keep: says the folder stays" || fail "plan keep: $out"
+echo "$out" | grep -q "^note${T}/shares/apps/stacks/web1 is kept" && pass "plan delete keep: says the folder stays" || fail "plan keep: $out"
 echo "$out" | grep -q "^danger" && fail "plan keep has a danger line" || pass "plan keep: no danger line"
 out=$($D plan web1 delete --delete-data </dev/null 2>&1) || true
 echo "$out" | grep -q "^danger${T}Delete the app" && pass "plan delete-data: danger line" || fail "plan data: $out"
@@ -144,13 +148,35 @@ export HS_DOCKER_NO_JOB=1
 rc=0; out=$($D start web1 delete --confirm web1 </dev/null 2>&1) || rc=$?
 check_eq "delete keep exit 0" 0 "$rc"
 grep -q 'down --remove-orphans' "$LOG" && pass "keep: compose down --remove-orphans" || fail "keep: no down: $(cat "$LOG")"
-grep -q 'rm -rf -- "/opt/apps' "$LOG" && fail "keep: the folder was removed" || pass "keep: the folder stays"
+grep -q 'rm -rf -- "$1" sh /shares/apps/stacks/web1' "$LOG" && fail "keep: the folder was removed" || pass "keep: the folder stays"
 : > "$LOG"
 rc=0; out=$($D start web1 delete --confirm web1 --delete-data </dev/null 2>&1) || rc=$?
 check_eq "delete-data exit 0" 0 "$rc"
-grep -q 'rm -rf -- "/opt/apps' "$LOG" && pass "delete-data: the folder is removed" || fail "data: not removed: $(cat "$LOG")"
+grep -q 'rm -rf -- "$1" sh /shares/apps/stacks/web1' "$LOG" && pass "delete-data: the folder is removed" || fail "data: not removed: $(cat "$LOG")"
+grep -q 'share-snap apps snapshot pre-delete-web1' "$LOG" && pass "delete-data: the share apps is snapshotted first" || fail "data: no share snapshot: $(cat "$LOG")"
+grep -q 'share-snap' <(: > "$LOG"; $D start web1 delete --confirm web1 </dev/null 2>&1; cat "$LOG") && fail "keep: the share was snapshotted" || pass "keep: no share snapshot"
+out=$($D plan web1 delete --delete-data </dev/null 2>&1) || true
+echo "$out" | grep -q "^note${T}A snapshot of docker and of the share apps is taken first" && pass "plan says the share is snapshotted" || fail "plan note: $out"
 rc=0; out=$($D start web1 delete --delete-data </dev/null 2>&1) || rc=$?
 check_eq "delete without the typed name refused" 1 "$rc"
+
+echo "-- a legacy app in /opt/apps is deleted there, no share snapshot"
+: > "$STATE.legacy"; : > "$LOG"
+out=$($D plan web1 delete --delete-data </dev/null 2>&1) || true
+echo "$out" | grep -q "^danger${T}Delete the app, its containers and /opt/apps/web1" && pass "legacy plan names /opt/apps/web1" || fail "legacy plan: $out"
+echo "$out" | grep -q "^note${T}A snapshot of docker is taken first" && pass "legacy plan: no share snapshot claimed" || fail "legacy note: $out"
+rc=0; out=$($D start web1 delete --confirm web1 --delete-data </dev/null 2>&1) || rc=$?
+check_eq "legacy delete-data exit 0" 0 "$rc"
+grep -q 'rm -rf -- "$1" sh /opt/apps/web1' "$LOG" && pass "legacy: /opt/apps/web1 removed" || fail "legacy rm: $(cat "$LOG")"
+grep -q 'share-snap' "$LOG" && fail "legacy: share snapshot taken" || pass "legacy: no share snapshot"
+rm -f "$STATE.legacy"
+
+echo "-- a new app needs the share apps mounted in docker"
+: > "$STATE.nomount"
+out=$($D plan newapp app-save --rev new </dev/null 2>&1) || true
+echo "$out" | grep -qx "status${T}refused" && echo "$out" | grep -qx "fix${T}hs docker enable" && pass "refused with the fix hs docker enable" || fail "nomount: $out"
+echo "$out" | grep -q "not mounted" && pass "says why" || fail "nomount reason: $out"
+rm -f "$STATE.nomount"
 
 echo "-- an app with a folder and no container (a delete that kept the data) starts with up -d"
 cat > "$BIN/docker.sh" <<'FAKE'
@@ -165,7 +191,7 @@ FAKE
 rc=0; out=$($D start web1 start </dev/null 2>&1) || rc=$?
 check_eq "start of a stopped app exit 0" 0 "$rc"
 echo "$out" | grep -qx "status${T}done" && pass "start of a stopped app done" || fail "start stopped: $out"
-grep -q 'sh web1 /opt/apps/web1 up -d' "$LOG" && pass "start of a stopped app runs up -d in its folder" || fail "no up -d: $(cat "$LOG")"
+grep -q 'sh web1 /shares/apps/stacks/web1 up -d' "$LOG" && pass "start of a stopped app runs up -d in its folder" || fail "no up -d: $(cat "$LOG")"
 rc=0; out=$($D plan web1 delete --delete-data </dev/null 2>&1) || rc=$?
 check_eq "delete-data plan of a stopped app" 0 "$rc"
 unset HS_DOCKER_NO_JOB HS_DOCKER_SH HS_CT_CHANGE
@@ -280,12 +306,12 @@ eval "$(sed -n '/^env_diff() {/,/^}/p' "$SCRIPTS/docker-app-change.sh" | sed "s#
 export HS_INCUS=$WORK/localexec CT=x
 printf 'A=1\nSECRETX=old\nKEEP=same\n' > "$WORK/apps/e1/.env"
 printf 'A=1\nKEEP=same\nNEWV=n\nSECRETX=new\n' > "$WORK/etmp/.env"
-check_eq "env_diff: added and changed, names only" $'added\tNEWV\nchanged\tSECRETX' "$(env_diff e1 "$WORK/etmp")"
+check_eq "env_diff: added and changed, names only" $'added\tNEWV\nchanged\tSECRETX' "$(env_diff e1 "$WORK/etmp" "$WORK/apps/e1")"
 : > "$WORK/apps/e2/.env"
-check_eq "env_diff: an empty old .env: everything is added" $'added\tA\nadded\tKEEP\nadded\tNEWV\nadded\tSECRETX' "$(env_diff e2 "$WORK/etmp")"
-check_eq "env_diff: no old .env: everything is added" $'added\tA\nadded\tKEEP\nadded\tNEWV\nadded\tSECRETX' "$(env_diff e3 "$WORK/etmp")"
+check_eq "env_diff: an empty old .env: everything is added" $'added\tA\nadded\tKEEP\nadded\tNEWV\nadded\tSECRETX' "$(env_diff e2 "$WORK/etmp" "$WORK/apps/e2")"
+check_eq "env_diff: no old .env: everything is added" $'added\tA\nadded\tKEEP\nadded\tNEWV\nadded\tSECRETX' "$(env_diff e3 "$WORK/etmp" "$WORK/apps/e3")"
 printf 'A=1\n' > "$WORK/etmp/.env"
-check_eq "env_diff: removed" $'removed\tKEEP\nremoved\tSECRETX' "$(env_diff e1 "$WORK/etmp")"
+check_eq "env_diff: removed" $'removed\tKEEP\nremoved\tSECRETX' "$(env_diff e1 "$WORK/etmp" "$WORK/apps/e1")"
 unset HS_INCUS CT
 
 finish

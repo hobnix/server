@@ -1915,7 +1915,6 @@ Unknown manager '%s'. Choose webui, arcane, portainer or none.	Unbekannter Manag
 Unknown size '%s'. Choose s, m or l.	Unbekannte Größe '%s'. Wähle s, m oder l.
 An instance called 'docker' exists and is not managed by hs (the docker recipe?). Taking it over comes later (hs docker adopt).	Eine Instanz namens 'docker' existiert und wird nicht von hs verwaltet (das Rezept docker?). Das Übernehmen kommt später (hs docker adopt).
 A docker container from an earlier try exists.	Ein docker-Container von einem früheren Versuch existiert.
-Docker is on already.	Docker ist schon an.
 This needs a terminal or --yes.	Das braucht ein Terminal oder --yes.
 Turn Docker on?	Docker einschalten?
 Nothing changed.	Nichts geändert.
@@ -1931,7 +1930,6 @@ the manager: http://%s:%s	der Manager: http://%s:%s
 Docker is off already.	Docker ist schon aus.
 Turn Docker off	Docker ausschalten
 Newest snapshot	Neuester Schnappschuss
-The container 'docker', its apps and their data in /opt/apps are deleted. Snapshots are deleted with it; the backup stays.	Der Container 'docker', seine Apps und deren Daten in /opt/apps werden gelöscht. Schnappschüsse werden mitgelöscht; das Backup bleibt.
 Back it up first (hs backup now)?	Erst sichern (hs backup now)?
 The backup failed. Nothing was deleted.	Das Backup ist fehlgeschlagen. Nichts wurde gelöscht.
 This needs --confirm docker.	Das braucht --confirm docker.
@@ -1985,8 +1983,8 @@ Snapshot docker before deleting %s	Docker vor dem L\u00f6schen von %s sichern
 The snapshot of docker failed. Nothing was deleted.	Die Sicherung von Docker schlug fehl. Es wurde nichts gel\u00f6scht.
 Stop and remove the containers of %s	Container von %s stoppen und entfernen
 Stopping the containers of %s failed. The app directory was not removed.	Stoppen der Container von %s schlug fehl. Das App-Verzeichnis wurde nicht entfernt.
-Remove /opt/apps/%s	/opt/apps/%s entfernen
-Removing /opt/apps/%s failed.	Entfernen von /opt/apps/%s fehlgeschlagen.
+Remove %s	%s entfernen
+Removing %s failed.	Entfernen von %s fehlgeschlagen.
 Deleted %s	%s gel\u00f6scht
 The save of %s failed.	Speichern von %s fehlgeschlagen.
 Only web-managed apps can be deleted.	Nur von der Weboberfl\u00e4che verwaltete Apps k\u00f6nnen gel\u00f6scht werden.
@@ -1995,7 +1993,7 @@ Only web-managed apps can be saved.	Nur von der Weboberfl\u00e4che verwaltete Ap
 The app changed meanwhile. Reload it before saving.	Die App hat sich inzwischen ge\u00e4ndert. Laden Sie sie neu, bevor Sie speichern.
 The app name is not valid.	Der App-Name ist nicht g\u00fcltig.
 --user needs a name.	--user braucht einen Namen.
-Deleted the containers of %s; /opt/apps/%s is kept.	Die Container von %s wurden gelöscht; /opt/apps/%s bleibt erhalten.
+Deleted the containers of %s; %s is kept.	Die Container von %s wurden gelöscht; %s bleibt erhalten.
 For GitHub use a classic token with read:packages only.	Für GitHub ein klassisches Token nur mit read:packages verwenden.
 Give the user with --user <user>.	Den Benutzer mit --user <Benutzer> angeben.
 No registry called %s is set up.	Es ist keine Registry namens %s eingerichtet.
@@ -2019,3 +2017,21 @@ usage: hs docker registry add <host> --user <user>	Aufruf: hs docker registry ad
 usage: hs docker registry list | add <host> --user <user> | remove <host>	Aufruf: hs docker registry list | add <Host> --user <Benutzer> | remove <Host>
 usage: hs docker registry remove <host>	Aufruf: hs docker registry remove <Host>
 left as it is: the files of the Docker apps keep their owners	bleibt wie es ist: die Dateien der Docker-Apps behalten ihre Besitzer
+Make the share apps	Freigabe apps anlegen
+Give Docker the share	Docker die Freigabe geben
+%s. Make the share apps on the SSD pool (the files of every app; in the backup, with automatic snapshots) and give it to Docker at %s.	%s. Die Freigabe apps auf dem SSD-Pool anlegen (die Dateien jeder App; im Backup, mit automatischen Schnappschüssen) und Docker unter %s geben.
+A share called 'apps' exists on the disks. Docker keeps its apps in a share apps on the SSD pool: rename or move the old one first.	Auf den Platten gibt es eine Freigabe 'apps'. Docker legt seine Apps in einer Freigabe apps auf dem SSD-Pool ab: Die alte zuerst umbenennen oder verschieben.
+The folder of the app %s cannot be found.	Der Ordner der App %s wurde nicht gefunden.
+%s. Make the share apps on the SSD pool (in the backup, with automatic snapshots).	%s. Die Freigabe apps auf dem SSD-Pool anlegen (im Backup, mit automatischen Schnappschüssen).
+%s. Mount it in the container docker at %s.	%s. Sie im Container docker unter %s einbinden.
+'%s' has a device called apps at %s already.	'%s' hat schon ein Gerät apps unter %s.
+Docker has the share apps at %s.	Docker hat die Freigabe apps unter %s.
+Docker is on already, and it has the share apps at %s.	Docker ist schon an und hat die Freigabe apps unter %s.
+Give Docker the share apps	Docker die Freigabe apps geben
+Giving Docker the share failed.	Docker die Freigabe zu geben ist fehlgeschlagen.
+Making the share apps failed.	Die Freigabe apps anzulegen ist fehlgeschlagen.
+Snapshot the share apps before deleting %s	Schnappschuss der Freigabe apps vor dem Löschen von %s
+The container 'docker' and its containers are deleted, and with them the apps that are still in /opt/apps (the older place). Snapshots are deleted with it; the backup stays.	Der Container 'docker' und seine Container werden gelöscht, damit auch die Apps, die noch in /opt/apps (dem älteren Ort) liegen. Schnappschüsse werden mitgelöscht; das Backup bleibt.
+The share apps (the files of your apps) stays on the SSD pool at %s. Delete it too: hs share apps delete	Die Freigabe apps (die Dateien Ihrer Apps) bleibt auf dem SSD-Pool unter %s. Auch löschen: hs share apps delete
+The share apps is not mounted in Docker.	Die Freigabe apps ist in Docker nicht eingebunden.
+The snapshot of the share apps failed. Nothing was deleted.	Der Schnappschuss der Freigabe apps ist fehlgeschlagen. Es wurde nichts gelöscht.
