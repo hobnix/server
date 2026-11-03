@@ -254,6 +254,7 @@ ID_TOPICS = {
     'backup-overview': (['backup', 'overview'], 60, 'skip', 'backup', {'backup', 'shares', 'instances', 'disks', 'system'}),
     'backup-shares': (['backup', 'shares'], 60, 'skip', 'backup', {'backup', 'shares', 'instances', 'disks', 'system'}),
     'docker-list': (['docker', 'list'], 30, 'skip', 'docker', {'instances', 'system'}),
+    'docker-apps': (['docker', 'apps'], 30, 'skip', 'docker', {'instances', 'system'}),
 }
 
 
@@ -491,7 +492,7 @@ class Cli(unittest.TestCase):
         out = io.StringIO()
         self.assertEqual(ls.cli_status(self.fake(time.time() - 7), out), 0)
         lines = out.getvalue().rstrip("\n").split("\n")
-        self.assertEqual(len(lines), 65)
+        self.assertEqual(len(lines), 67)
         status = [l for l in lines if l.startswith("status\t")][0].split("\t")
         live = [l for l in lines if l.startswith("live\t")][0].split("\t")
         self.assertEqual(len(status), 7)
@@ -538,7 +539,7 @@ class Cli(unittest.TestCase):
         st = FakeResp()
         ls.cli_refresh(["--all"], st)
         self.assertEqual(sorted(p[1] for p in st.published), sorted([t[0] for t in ls.topics()]))
-        self.assertEqual(len(st.published), 65)
+        self.assertEqual(len(st.published), 67)
         os.environ["HS_LIVE_SOCKET"] = "/nonexistent/none.sock"
         try:
             self.assertEqual(ls.cli_refresh(["--all"]), 0)

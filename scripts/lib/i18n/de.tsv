@@ -545,7 +545,7 @@ Could not tell which key this session uses. Make sure you can still log in with 
 Remove the key %s (%s, %s)	Schlüssel %s entfernen (%s, %s)
 Remove it from machine.toml?	Aus machine.toml entfernen?
 The key is removed from machine.toml. It takes effect with: hs rebuild	Der Schlüssel ist aus machine.toml entfernt. Das gilt nach: hs rebuild
-usage: hs update --preview [--no-build]	Aufruf: hs update --preview [--no-build]
+usage: hs update --preview [--no-build] [--max-age <seconds>]	Aufruf: hs update --preview [--no-build] [--max-age <Sekunden>]
 No Git checkout in %s.	Kein Git-Checkout in %s.
 Preview of the update	Vorschau auf das Update
 Fetching what is new (nothing is applied)	Neuigkeiten holen (nichts wird angewendet)

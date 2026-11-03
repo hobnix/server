@@ -1,10 +1,11 @@
 <script>
   // Small mono label. `kind`: '' (plain chip: a type, a count word), 'strong' = high contrast (over the halftone), 'out' = pill "outside this server" (blue outline), 'in' = pill "this server".
   //   <Chip>zfs</Chip>   <Chip kind="out">outside</Chip>   <Chip kind="in">this server</Chip>
+  import { tip } from './tooltip.svelte.js';
   let { kind = '', tone = '', title = undefined, children } = $props();   // tone: '' | 'warn' | 'bad' | 'info' (state colour); title: tooltip
 </script>
 
-<span class="chip {kind} {tone}" {title}>{@render children?.()}</span>
+<span class="chip {kind} {tone}" use:tip={title}>{@render children?.()}</span>
 
 <style>
   .chip { display: inline-block; font: 500 10.5px var(--mono); text-transform: uppercase; letter-spacing: 0.06em; padding: 1px 6px; border: 1px solid var(--line-2); border-radius: var(--r); color: var(--fg-3); white-space: nowrap; }
