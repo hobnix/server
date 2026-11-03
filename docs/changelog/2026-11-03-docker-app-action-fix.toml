@@ -1,0 +1,4 @@
+date  = "2026-11-03"
+type  = "fix"
+title = "Docker page: Save, Start, Stop and the other app actions reach the script again"
+body  = """The Docker page actions were refused with "Action must be start, stop, ..." because the command rows left the action word out. Save, Apply, Start, Stop, Restart, Pull, Rebuild and Delete now pass it on. Not tested on hardware yet."""
