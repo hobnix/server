@@ -4,6 +4,7 @@ on:
   push:
     tags: ['v*']
   pull_request:
+    types: [opened, synchronize, reopened, ready_for_review]
   workflow_dispatch:
 
 concurrency:
@@ -11,7 +12,35 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
+  # What did the change touch? Draft pull requests run nothing (mark one ready for review to start CI); the slow jobs run only when they can
+  # be affected. A tag or a manual run always runs everything.
+  changes:
+    if: github.event_name != 'pull_request' || !github.event.pull_request.draft
+    runs-on: ubuntu-latest
+    outputs:
+      nix: ${{ steps.f.outputs.nix }}
+      root: ${{ steps.f.outputs.root }}
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          fetch-depth: 0
+      - id: f
+        env:
+          BASE: ${{ github.event.pull_request.base.sha }}
+        run: |
+          nix=true root=true
+          if [ -n "$BASE" ] && git cat-file -e "$BASE" 2>/dev/null; then
+            files=$(git diff --name-only "$BASE" HEAD)
+            # nix: the system configuration; root: scripts and root tests (loop devices, packages against this core)
+            echo "$files" | grep -qvE '^(web/|docs/|tests/|\.claude/|\.github/ISSUE_TEMPLATE/)|\.md$' || nix=false
+            echo "$files" | grep -qvE '^(web/|docs/|\.claude/|\.github/ISSUE_TEMPLATE/)|\.md$' || root=false
+          fi
+          echo "nix=$nix" >> "$GITHUB_OUTPUT"
+          echo "root=$root" >> "$GITHUB_OUTPUT"
+          echo "evaluate the system: $nix; root tests and packages: $root"
+
   scripts:
+    needs: changes
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v5
@@ -23,10 +52,10 @@ jobs:
         if: github.event_name == 'pull_request'
         env:
           BASE: ${{ github.event.pull_request.base.sha }}
-        run: bash scripts/dev/changelog-check.sh "$BASE" || echo "::warning::No docs/changelog entry: add one if users see this change (CONTRIBUTING.md)."
+        run: |
+          bash scripts/dev/changelog-check.sh "$BASE" || echo "::warning::No docs/changelog entry: add one if users see this change (CONTRIBUTING.md)."
       - name: shellcheck (errors only)
         run: |
-          sudo apt-get install -y -qq shellcheck
           shellcheck -S error -x scripts/*.sh scripts/lib/*.sh scripts/recipes/*.sh vps/*.sh tests/*.sh
       - name: shellcheck warnings in the pool scripts (informational, counts only)
         continue-on-error: true
@@ -37,11 +66,13 @@ jobs:
       - name: Tests that need no root (every tests/*.sh; tests/run-all.sh lists them, root tests are skipped here)
         run: |
           sudo apt-get install -y -qq jq python3-pil
-          HS_TEST_CI=1 bash tests/run-all.sh
+          HS_TEST_CI=1 bash tests/run-all.sh --jobs 2
 
   # The default package repositories at their latest main, checked against this core: manifests, indexes and their own tests. A core change
   # that breaks a package is seen here, before a release (docs/PLAN-packages.md, "Compatibility and CI across repositories").
   packages:
+    needs: changes
+    if: needs.changes.outputs.root == 'true'
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v5
@@ -67,29 +98,15 @@ jobs:
           for r in recipes extensions; do HS_CORE="$PWD" HS_TEST_CI=1 bash pkgs/$r/tests/run-all.sh || exit 1; done
 
   nixos:
+    needs: changes
+    if: needs.changes.outputs.nix == 'true'
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v5
-        with:
-          fetch-depth: 0
-      # The evaluation is the longest job (minutes are limited): a pull request that only touches the web interface, docs or tests cannot change it.
-      - name: Does the change reach the system configuration?
-        id: nix
-        env:
-          BASE: ${{ github.event.pull_request.base.sha }}
-        run: |
-          run=true
-          if [ -n "$BASE" ] && git cat-file -e "$BASE" 2>/dev/null; then
-            git diff --name-only "$BASE" HEAD | grep -qvE '^(web/|docs/|tests/|\.claude/|\.github/ISSUE_TEMPLATE/)|\.md$' || run=false
-          fi
-          echo "run=$run" >> "$GITHUB_OUTPUT"
-          echo "evaluate the system: $run"
       - uses: cachix/install-nix-action@v27
-        if: steps.nix.outputs.run == 'true'
         with:
           nix_path: nixpkgs=channel:nixos-unstable
       - name: Evaluate the system configuration
-        if: steps.nix.outputs.run == 'true'
         run: |
           cp machine.toml.example machine.toml
           sed -i 's/CHANGEME/deadbeef/' machine.toml
@@ -100,13 +117,13 @@ jobs:
           }
           HW
           nix-instantiate '<nixpkgs/nixos>' -A system -I nixos-config=./configuration.nix --show-trace >/dev/null
+      # 20 minutes: only for a release (a pull request into main), a tag or a manual run; the plain evaluation above runs on every pull request.
       - name: Capability matrix (each capability alone, all of them, none; docs/PLAN-modular-core.md)
-        if: steps.nix.outputs.run == 'true'
+        if: github.event_name != 'pull_request' || github.base_ref == 'main'
         run: |
           rm -f machine.toml hardware-configuration.nix
           bash scripts/dev/nix-matrix.sh
       - name: Installer ISO evaluates (installer/iso.nix; the image itself is built on a release tag)
-        if: steps.nix.outputs.run == 'true'
         run: bash scripts/dev/build-iso.sh --eval
 
   # The installer ISO (installer/iso.nix, docs/PLAN-modular-core.md step 10): built when a version tag is pushed and attached to the release.
@@ -133,6 +150,8 @@ jobs:
   # The storage scripts on loop devices with the real tools: xfs, btrfs, ext4, LUKS (dm-crypt),
   # restic, mergerfs. REQUIRE_ALL makes a test that cannot run a failure instead of a skip.
   integration:
+    needs: changes
+    if: needs.changes.outputs.root == 'true'
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v5

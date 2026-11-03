@@ -124,6 +124,7 @@
    "title": "Docker host with a web page to manage it",
    "icon": "puzzle-piece",
    "entry": true,
+   "status": "docker health",
    "apply": "docker setup",
    "steps": [
     {
