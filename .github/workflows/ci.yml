@@ -142,6 +142,8 @@ jobs:
           }
           HW
           nix-instantiate '<nixpkgs/nixos>' -A system -I nixos-config=./configuration.nix --show-trace >/dev/null
+      - name: Build the Rust program (pkgs/hobnix.nix, with its tests)
+        run: nix-build -E 'with import <nixpkgs> {}; callPackage ./pkgs/hobnix.nix {}' --no-out-link
       # 20 minutes: only for a release (a pull request into main), a tag or a manual run; the plain evaluation above runs on every pull request.
       - name: Capability matrix (each capability alone, all of them, none; docs/PLAN-modular-core.md)
         if: github.event_name != 'pull_request' || github.base_ref == 'main'
