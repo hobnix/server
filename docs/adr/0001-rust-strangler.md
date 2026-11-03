@@ -27,8 +27,9 @@ Issue: hobnix/server#122 (epic #121)
    words, arguments, flags, output lines, exit codes, stdin rules and job units stay byte for byte the same. A caller (web interface, timers,
    extensions, people) cannot tell which language answered. Shell and Python stay valid implementations; there is no deadline for removing them.
 2. **One dispatcher, one list.** `hs` and `scripts/lib/registry.tsv` stay the only entry and the only list. A moved row names the Rust binary
-   instead of a script (the exact column form is decided in #125; it must keep tests/commands.sh, `hs help`, `hs sys registry` and the shell
-   completion working). Going back to the old script is a one-line change of that row.
+   instead of a script. Form (decided in #125): the script column holds `rust:<subcommand>`, and `hs` runs it as `hobnix <subcommand>` with the
+   same arguments. The dispatcher, tests/commands.sh, `hs help`, `hs sys registry` and the shell completion treat a `rust:` value as a valid
+   script entry. This is implemented with the pilot (#127), not with the skeleton. Going back to the old script is a one-line change of that row.
 3. **Service layer.** Rust code is split in two crates. `hobnix-core` is the service layer: typed inputs, typed results and errors; reads,
    `plan` and `start` as functions; no terminal output, no colours, no argv parsing, no translation. `hobnix-cli` is the adapter: it parses the
    `hs sys` words, calls the service and writes the existing lines. Every later caller (a Rust HTTP API, tests) calls `hobnix-core`, never the
@@ -43,7 +44,8 @@ Issue: hobnix/server#122 (epic #121)
    `secret.sh` reads (a Rust reader of the same files, never argv or environment). A destructive `start` keeps the typed `--confirm <name>`
    check inside the service, not only in the caller. Long work is a job (`scripts/lib/job.sh` units until E02 decides the job system).
 7. **Build.** Rust is built by Nix inside this repository (no network at build time, locked dependencies), like `pkgs/hs-web.nix`. CI builds,
-   runs `cargo clippy` and the tests (#125).
+   runs `cargo clippy` and the tests (#125). The workspace and the CI job exist (`rust/`); the Nix build is a follow-up in #125 and is not done
+   yet.
 
 ### When a command moves to Rust
 
@@ -83,7 +85,7 @@ points at Rust and the old script is deleted. After that docs/Entwicklungsnotize
 - Follow-up issues:
   - #123 OpenAPI document of the read, plan, start and jobs-tail contract (decision 1 is what it describes).
   - #124 TypeScript types for `web/`, generated from #123.
-  - #125 Cargo workspace `hobnix-core` and `hobnix-cli`, the registry column form (decision 2), Nix build, CI build and clippy (decision 7).
+  - #125 Cargo workspace `hobnix-core` and `hobnix-cli`, Nix build (the registry column form is decided, decision 2), CI build and clippy (decision 7).
   - #126 Typed errors mapped to exit codes 0/1/2 and stderr; structured logs to the journal, never a secret in a log.
   - #127 First pilot, one command group, chosen with the job-system audit of #128 (E02) so the service layer is not shaped around the wrong
     job abstraction.
@@ -91,7 +93,6 @@ points at Rust and the old script is deleted. After that docs/Entwicklungsnotize
 ## Open points
 
 - Whether a Rust HTTP server replaces `scripts/web-serve.py` (decision 4).
-- The registry column form for a moved row (#125).
 - The job system (E02) and the package protocol (E12).
 - Which command group is the pilot (#127, after #128).
 - Whether human (kind `user`) commands ever move.
