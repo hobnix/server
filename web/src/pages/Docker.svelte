@@ -15,7 +15,7 @@
   import StatusDot from '../ui/StatusDot.svelte';
   import EmptyState from '../ui/EmptyState.svelte';
   import AppLogs from './docker/AppLogs.svelte';
-  import { appOf } from './docker/apps.js';
+  import { appOf, filesChip, applyOf, isActionable } from './docker/apps.js';
 
   const appsPoll = poll('/api/sys/docker/apps', 30000);
   const statusPoll = poll('/api/sys/docker/status', 15000);
@@ -32,6 +32,7 @@
 
   const dot = (s) => (s === 'running' ? 'ok' : s === 'partial' ? 'warn' : 'off');
   const portHref = (app, port) => (app.address && app.address !== '-' ? `http://${app.address}:${port}` : null);
+  const applyPlan = (e, app) => { e.stopPropagation(); openPlan('docker-app', [app.name, 'recreate'], `apply ${app.name}`); };
   const plan = (e, app, action) => { e.stopPropagation(); openPlan('docker-app', [app.name, action], `${action} ${app.name}`); };
 
   const columns = [
@@ -43,7 +44,9 @@
     { key: 'managed', label: 'Managed' },
     { key: 'actions', label: '', sort: false, align: 'right' },
   ];
-  const tabs = $derived(sel?.managed === 'web'
+  const tabs = $derived(sel?.managed === 'unmanaged'
+    ? [{ id: 'overview', label: 'Overview' }]
+    : sel?.managed === 'web'
     ? [{ id: 'overview', label: 'Overview' }, { id: 'compose', label: 'Compose' }, { id: 'logs', label: 'Logs' }]
     : [{ id: 'overview', label: 'Overview' }, { id: 'logs', label: 'Logs' }]);
 </script>
@@ -65,6 +68,7 @@
           <Table id="docker-apps" {columns} rows={apps} key="name" selected={sel?.name} onrow={(a) => { selName = a.name; }} loading={!appsPoll.loaded} empty="No apps.">
             {#snippet cell(a, col)}
               {#if col.key === 'name'}{a.name}
+                {#if filesChip(a)}{@const c = filesChip(a)} <Chip tone={c.tone} title={c.tip}>{c.text}</Chip>{/if}
               {:else if col.key === 'state'}<StatusDot state={dot(a.state)} label={a.state} />
               {:else if col.key === 'running'}{a.running}
               {:else if col.key === 'ports'}
@@ -74,8 +78,13 @@
                 {:else}–{/if}
               {:else if col.key === 'images'}<span class="images" title={a.images}>{a.images}</span>
               {:else if col.key === 'managed'}<Chip>{a.managed}</Chip>
+              {:else if !isActionable(a)}
+                <span class="acts"></span>
               {:else}
                 <span class="acts">
+                  {#if applyOf(a).show}
+                    <Button variant="ghost" size="sm" icon="check-circle" disabled={!applyOf(a).ok} busy={jobRunning('docker-app', [a.name, 'recreate'])} tooltip={applyOf(a).ok ? 'Apply: docker compose up -d from the files on disk (no pull, no build)' : applyOf(a).reason} aria-label="Apply {a.name}" onclick={(e) => applyPlan(e, a)}>Apply</Button>
+                  {/if}
                   {#if a.state === 'exited' || a.state === 'created' || a.state === 'stopped'}
                     <Button variant="ghost" class="btn-icon ib" icon="play" busy={jobRunning('docker-app', [a.name, 'start'])} tooltip="Start" aria-label="Start {a.name}" onclick={(e) => plan(e, a, 'start')} />
                   {:else if a.state === 'running' || a.state === 'partial'}
@@ -94,7 +103,7 @@
           <Drawer title={sel.name} chip={sel.managed} state={dot(sel.state)} stateLabel={sel.state} {tabs} bind:tab onclose={() => { selName = ''; }}>
             {#snippet children(t)}
               {#if t === 'overview'}
-                <Kv items={[{ k: 'State', v: sel.state }, { k: 'Running', v: sel.running }, { k: 'Project', v: sel.project }, { k: 'Address', v: sel.address }, { k: 'Ports', v: sel.ports }, { k: 'Images', v: sel.images }, { k: 'Managed', v: sel.managed }, { k: 'Update', v: sel.update }]} />
+                <Kv items={[{ k: 'State', v: sel.state }, { k: 'Running', v: sel.running }, { k: 'Project', v: sel.project }, { k: 'Address', v: sel.address }, { k: 'Ports', v: sel.ports }, { k: 'Images', v: sel.images }, { k: 'Managed', v: sel.managed }, { k: 'Update', v: sel.update }, ...(sel.files !== '-' ? [{ k: 'Files', v: sel.files }] : [])]} />
               {:else if t === 'compose'}
                 <Button icon="pencil-simple" onclick={() => go(`/instances/docker/app/${encodeURIComponent(sel.name)}`)}>Open editor</Button>
               {:else}
@@ -102,6 +111,12 @@
               {/if}
             {/snippet}
             {#snippet actions()}
+              {#if !isActionable(sel)}
+                <Chip title={filesChip(sel).tip}>{filesChip(sel).text}</Chip>
+              {:else}
+              {#if applyOf(sel).show}
+                <Button size="sm" variant="primary" icon="check-circle" disabled={!applyOf(sel).ok} busy={jobRunning('docker-app', [sel.name, 'recreate'])} busyLabel="Applying…" tooltip={applyOf(sel).ok ? 'Recreate the app from the files on disk' : applyOf(sel).reason} onclick={(e) => applyPlan(e, sel)}>Apply</Button>
+              {/if}
               {#if sel.state === 'exited' || sel.state === 'created' || sel.state === 'stopped'}
                 <Button size="sm" icon="play" busy={jobRunning('docker-app', [sel.name, 'start'])} busyLabel="Starting…" tooltip="Start this app" onclick={(e) => plan(e, sel, 'start')}>Start</Button>
               {:else if sel.state === 'running' || sel.state === 'partial'}
@@ -113,6 +128,7 @@
                 <Button size="sm" icon="arrow-clockwise" busy={jobRunning('docker-app', [sel.name, 'rebuild'])} busyLabel="Rebuilding…" tooltip="Rebuild" onclick={(e) => openPlan('docker-app', [sel.name, 'rebuild'], `rebuild ${sel.name}`)}>Rebuild</Button>
                 <Button size="sm" variant="danger" busy={jobRunning('docker-app', [sel.name, 'delete'])} busyLabel="Deleting…" tooltip="Remove the containers; the folder in /opt/apps stays, so the app can be started again" onclick={(e) => openPlan('docker-app', [sel.name, 'delete'], `delete ${sel.name}`)}>Delete</Button>
                 <Button size="sm" variant="danger" busy={jobRunning('docker-app', [sel.name, 'delete', '--delete-data'])} busyLabel="Deleting…" tooltip="Also delete the config and data (/opt/apps)" onclick={(e) => openPlan('docker-app', [sel.name, 'delete', '--delete-data'], `delete ${sel.name} and its data`)}>Delete with data</Button>
+              {/if}
               {/if}
             {/snippet}
           </Drawer>

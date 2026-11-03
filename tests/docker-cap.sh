@@ -49,6 +49,16 @@ case "$1" in
           printf 'wiki\tcreated\t-\trequarks/wiki:2\n'
           printf 'arcane\trunning\t0.0.0.0:80->3552/tcp\tportainer/portainer-ce:latest\n'
           printf '\trunning\t-\tbusybox\n'
+          if [ -e "$STATE.fs" ]; then   # files on disk against the config-hash label (fields 5 to 7: hash, service, container name)
+            printf 'zs\trunning\t-\timg\th1\tweb\tzs-web-1\n'
+            printf 'zc\trunning\t-\timg\told\tweb\tzc-web-1\n'
+            printf 'zu\trunning\t-\timg\t\tweb\tzu-web-1\n'
+            printf 'zm\trunning\t-\timg\th1\tweb\tzm-web-1\n'
+            printf 'zo\trunning\t-\timg\th1\tweb\tzo-web-1\tFalse\n'
+            printf 'zo\texited\t-\timg\tzzz\tweb\tzo-run-1\tTrue\n'   # a compose run container: not the app
+            printf '\trunning\t0.0.0.0:2222->22/tcp\tbusybox\t\t\thandrun\n'
+            printf '\texited\t-\tnginx\t\t\tnotes\n'
+          fi
           printf '__HS_MARKER_WEBUI__\n'
           printf '/opt/apps/arr/.hs-webui\n'
           printf '/opt/apps/kept1/.hs-webui\n'
@@ -60,12 +70,19 @@ case "$1" in
           printf '/opt/apps/arr/docker-compose.yml\n'
           printf '/opt/apps/kept1/docker-compose.yml\n'
           printf '__HS_MARKER_STACKS__\n'
+          [ ! -e "$STATE.fs" ] || printf '/shares/apps/stacks/%s/docker-compose.yml\n' zs zc zn zi zu zm zo
           [ ! -e "$STATE.newapps" ] || printf '/shares/apps/stacks/zeta/docker-compose.yml\n'
           printf '__HS_MARKER_RECIPES__\n'
           [ ! -e "$STATE.newapps" ] || printf '/shares/apps/recipes/pico/\n'
           printf '__HS_MARKER_RECIPECOMPOSE__\n'
           [ ! -e "$STATE.newapps" ] || printf '/shares/apps/recipes/pico/docker-compose.yml\n'
+          printf '__HS_MARKER_FILES__\n'
+          if [ -e "$STATE.fs" ]; then
+            printf 'zs\tweb\th1\nzc\tweb\th2\nzn\tweb\th1\nzi\tinvalid\nzu\tunknown\nzm\tweb\th1\nzm\tdb\th9\nzo\tweb\th1\n'
+          fi
           ;;
+        *'__HS_COMPOSE__'*)   # the app document of --app (and so of --rev)
+          printf 'rev\t0123456789abcdef\nmanaged\tweb\n__HS_COMPOSE__\nservices: {}\n' ;;
         *'ls -d /opt/apps/*/docker-compose.yml'*)   # the folders that hold a compose file (kept1: a delete that kept the data)
           printf '/opt/apps/arr/docker-compose.yml\n/opt/apps/kept1/docker-compose.yml\n/opt/apps/arcane/docker-compose.yml\n' ;;
       esac
@@ -247,15 +264,35 @@ echo "-- apps"
 reset; : > "$STATE"; echo docker > "$OWNERF"; echo arcane > "$HS_SETTINGS_DIR/dockerManager"
 apps=$($D --apps)
 check_eq "4 rows" 4 "$(printf '%s\n' "$apps" | grep -c .)"
-check_eq "10 fields" "10 10 10 10" "$(printf '%s\n' "$apps" | awk -F'\t' '{print NF}' | tr '\n' ' ' | sed 's/ $//')"
-check_eq "arr row" $'arr\tdocker\tarr\trunning\t2/2\t7878,8989\t10.10.95.50\tlinuxserver/arr:latest\tweb\t-' "$(printf '%s\n' "$apps" | sed -n 1p)"
-check_eq "kept app: folder, no container -> stopped 0/0" $'kept1\tdocker\tkept1\tstopped\t0/0\t-\t10.10.95.50\t-\tweb\t-' "$(printf '%s\n' "$apps" | sed -n 2p)"
-check_eq "notes row" $'notes\tdocker\tnotes\texited\t0/1\t-\t10.10.95.50\tnginx:alpine\tother\t-' "$(printf '%s\n' "$apps" | sed -n 3p)"
-check_eq "wiki partial" $'wiki\tdocker\twiki\tpartial\t1/2\t3000\t10.10.95.50\trequarks/wiki:2\trecipe\t-' "$(printf '%s\n' "$apps" | sed -n 4p)"
+check_eq "11 fields" "11 11 11 11" "$(printf '%s\n' "$apps" | awk -F'\t' '{print NF}' | tr '\n' ' ' | sed 's/ $//')"
+check_eq "arr row" $'arr\tdocker\tarr\trunning\t2/2\t7878,8989\t10.10.95.50\tlinuxserver/arr:latest\tweb\t-\t-' "$(printf '%s\n' "$apps" | sed -n 1p)"
+check_eq "kept app: folder, no container -> stopped 0/0" $'kept1\tdocker\tkept1\tstopped\t0/0\t-\t10.10.95.50\t-\tweb\t-\t-' "$(printf '%s\n' "$apps" | sed -n 2p)"
+check_eq "notes row" $'notes\tdocker\tnotes\texited\t0/1\t-\t10.10.95.50\tnginx:alpine\tother\t-\t-' "$(printf '%s\n' "$apps" | sed -n 3p)"
+check_eq "wiki partial" $'wiki\tdocker\twiki\tpartial\t1/2\t3000\t10.10.95.50\trequarks/wiki:2\trecipe\t-\t-' "$(printf '%s\n' "$apps" | sed -n 4p)"
 : > "$STATE.newapps"
 apps=$($D --apps)
-check_eq "stacks/ is web, recipes/ is recipe" $'pico\tdocker\tpico\tstopped\t0/0\t-\t10.10.95.50\t-\trecipe\t-\nzeta\tdocker\tzeta\tstopped\t0/0\t-\t10.10.95.50\t-\tweb\t-' "$(printf '%s\n' "$apps" | grep -E '^(pico|zeta)')"
+check_eq "stacks/ is web, recipes/ is recipe" $'pico\tdocker\tpico\tstopped\t0/0\t-\t10.10.95.50\t-\trecipe\t-\t-\nzeta\tdocker\tzeta\tstopped\t0/0\t-\t10.10.95.50\t-\tweb\t-\t-' "$(printf '%s\n' "$apps" | grep -E '^(pico|zeta)')"
 rm -f "$STATE.newapps"
+echo "-- apps: files on disk against the containers, unmanaged containers"
+: > "$STATE.fs"
+apps=$($D --apps)
+files() { printf '%s\n' "$apps" | awk -F'\t' -v n="$1" '$1 == n { print $11 }'; }
+check_eq "same hash -> same" same "$(files zs)"
+check_eq "other hash -> changed" changed "$(files zc)"
+check_eq "folder, no container -> new" new "$(files zn)"
+check_eq "config -q fails -> invalid" invalid "$(files zi)"
+check_eq "hash not readable -> - (never a false changed)" - "$(files zu)"
+check_eq "a service of the files without a container is not a change" same "$(files zm)"
+check_eq "a one-off (compose run) container is not compared" same "$(files zo)"
+check_eq "legacy app -> -" - "$(files arr)"
+check_eq "unmanaged row" $'handrun\tdocker\t-\trunning\t1/1\t2222\t10.10.95.50\tbusybox\tunmanaged\t-\t-' "$(printf '%s\n' "$apps" | grep '^handrun')"
+check_eq "a container named like a project is not listed twice" 1 "$(printf '%s\n' "$apps" | grep -c '^notes')"
+check_eq "all rows keep 11 fields" "" "$(printf '%s\n' "$apps" | awk -F'\t' 'NF != 11')"
+rm -f "$STATE.fs"
+echo "-- rev"
+check_eq "--rev prints the revision of the app, one line" 0123456789abcdef "$($D --rev arr)"
+$D --rev nosuch >/dev/null 2>&1 && fail "rev of an unknown app" || pass "rev of an unknown app fails"
+$D --rev 'a b' >/dev/null 2>&1 && fail "rev of a bad name" || pass "rev of a bad name fails"
 check_eq "the manager folder is not an app" 0 "$(printf '%s\n' "$apps" | grep -c '^arcane')"
 check_eq "--list has the kept app too" $'kept1\tdocker\tkept1\tstopped\t-' "$($D --list | grep '^kept1')"
 

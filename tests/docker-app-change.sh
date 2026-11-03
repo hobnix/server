@@ -115,6 +115,21 @@ check_eq "inline pull exit 0" 0 "$rc"
 echo "$out" | grep -qx "status${T}done" && pass "inline pull done" || fail "inline pull: $out"
 grep -qF 'sh arr /opt/apps/arr pull' "$LOG" && pass "inline pull command" || fail "inline pull command: $(cat "$LOG")"
 
+echo "-- recreate = up -d only (no pull, no build)"
+on webui
+rc=0; out=$($D plan arr recreate </dev/null 2>&1) || rc=$?
+check_eq "plan recreate exit 0" 0 "$rc"
+echo "$out" | grep -qx "status${T}ok" && pass "plan recreate status ok" || fail "plan recreate: $out"
+echo "$out" | grep -qx "long${T}no" && pass "plan recreate is short" || fail "plan recreate long: $out"
+: > "$LOG"
+rc=0; out=$($D start arr recreate </dev/null 2>&1) || rc=$?
+check_eq "start recreate exit 0" 0 "$rc"
+echo "$out" | grep -qx "status${T}done" && pass "start recreate done" || fail "start recreate: $out"
+grep -qE 'sh arr [^ ]+ up -d' "$LOG" && pass "recreate runs up -d" || fail "recreate command: $(cat "$LOG")"
+grep -qE -- '--build|--pull| down| -v( |$)' "$LOG" && fail "recreate must not build, pull or remove: $(cat "$LOG")" || pass "recreate has no --build/--pull/down/-v"
+rc=0; $D plan arr recreate extra </dev/null >/dev/null 2>&1 || rc=$?
+[ "$rc" != 0 ] && pass "recreate takes no arguments" || fail "recreate accepted an argument"
+
 echo "-- delete keeps /opt/apps/<app> unless --delete-data"
 cat > "$BIN/docker.sh" <<'FAKE'
 #!/usr/bin/env bash

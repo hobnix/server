@@ -145,6 +145,20 @@ has '^command	.*docs --set S-1-1-0=read S-1-5-21-1-1000=write$' && pass "both ch
 run plan docs perm --set S-1-5-21-1-512=read
 check_eq "the script's refusal (nobody would have full access)" 1 "$rc"
 has '^reason	Not possible: nobody would have full access' && pass "with its reason" || fail "perm refusal: $out"
+echo "-- perm: a share with an .env files warns"
+export HS_BULK=$WORK/bulk HS_FAST=$WORK/fast
+mkdir -p "$HS_BULK/shares/docs/sub" "$HS_FAST/shares/apps"
+run plan docs perm --set S-1-1-0=read
+has '^warn	.*\.env' && fail "no .env: no warning: $out" || pass "no .env: no warning"
+: > "$HS_BULK/shares/docs/sub/.env"
+run plan docs perm --set S-1-1-0=read
+has '^warn	This share holds \.env files' && pass "an .env below the share: warning" || fail "env warn: $out"
+run plan docs perm --set S-1-1-0=none
+has '^warn	.*\.env' && fail "revoking does not warn: $out" || pass "revoking access does not warn"
+rm -f "$HS_BULK/shares/docs/sub/.env"
+run plan apps perm --set S-1-1-0=read
+has '^warn	This share holds \.env files' && pass "the share apps always warns" || fail "apps warn: $out"
+unset HS_BULK HS_FAST
 run start docs perm --set S-1-1-0=read
 check_eq "perm starts without a typed name" 0 "$rc"
 grep -q -- '--set S-1-1-0=read' "$WORK/jobcalls" && pass "the job sets it" || fail "job: $(cat "$WORK/jobcalls")"

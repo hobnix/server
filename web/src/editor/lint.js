@@ -70,6 +70,7 @@ export function lintCompose(obj, live, appName) {
       else if (m.ro && !v.ro) out.push({ level: 'warn', path, text: `${m.path} is read only here: add :ro, or the app fails when it writes.` });
     });
   }
+  for (const u of userMismatch(obj, l.mapped)) out.push({ level: 'warn', path: ['services', u.service, 'user'], text: `user: ${u.user} differs from ${l.mapped}, the user Docker maps for all shares. Files would be written as another user.` });
   return out;
 }
 
@@ -97,6 +98,21 @@ export function envNames(envText) {
     if (m) names.push(m[1]);
   }
   return names;
+}
+
+// The user: entries of the services that name a numeric uid:gid (or a uid alone) other than the mapped user "uid:gid" -> [{ service, user }]
+export function userMismatch(obj, mapped) {
+  const m = /^(\d+):(\d+)$/.exec(mapped || '');
+  const out = [];
+  const svc = obj && typeof obj === 'object' ? obj.services : null;
+  if (!m || !svc || typeof svc !== 'object') return out;
+  for (const [service, def] of Object.entries(svc)) {
+    const u = def && typeof def === 'object' ? def.user : null;
+    if (u == null) continue;
+    const t = /^(\d+)(?::(\d+))?$/.exec(String(u).trim());
+    if (t && (t[1] !== m[1] || (t[2] !== undefined && t[2] !== m[2]))) out.push({ service, user: String(u).trim() });
+  }
+  return out;
 }
 
 // ${VAR} in the compose text without a default and not in the env text

@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # help: Docker as part of hobnix: turn it on (a locked container with Docker inside), turn it off, list the apps that run in it
 # help.de: Docker als Teil von hobnix: einschalten (ein gesperrter Container mit Docker darin), ausschalten, die Apps darin auflisten
-# args: status | list | enable [--manager webui|arcane|portainer|none] [--size s|m|l] [--yes] [--job] [--dry-run] | disable [--yes --confirm docker] [--no-backup] [--job] [--dry-run] | mount <share|remote:peer> <path> [--as uid:gid] [--yes] [--job] [--dry-run] | --status | --list | --apps | --containers | --app <app> | --logs <app> [lines]
+# args: status | list | enable [--manager webui|arcane|portainer|none] [--size s|m|l] [--yes] [--job] [--dry-run] | disable [--yes --confirm docker] [--no-backup] [--job] [--dry-run] | mount <share|remote:peer> <path> [--as uid:gid] [--yes] [--job] [--dry-run] | --status | --list | --apps | --containers | --app <app> | --rev <app> | --logs <app> [lines]
 # The capability docker (docs/PLAN-docker-instances.md, Decisions 12 to 14): the container `docker` is owned by it (user.hs.managed_by=docker),
 # so only this script deletes it (HS_OWNER=docker on the manage-ct.sh call, scripts/lib/instance.sh).
 #   hs docker status       key/value lines: on or off, the container, the manager, the size, the number of apps, the address
@@ -15,9 +15,14 @@
 #   --status, --list       the same as data (hs sys docker status|list): key<TAB>value, and one row per app with exactly 5 fields
 #                          name parent project state ports (`-` when empty); a stopped container or a failed read prints no row, exit 0
 #   --apps                 the same data with more fields: name parent project state running/total ports address images managed update
-#                          (`-` when empty); 10 fields, sorted by app name; state stopped (0/0) for an app whose folder (apps/stacks/<app>, apps/recipes/<app>, legacy /opt/apps/<app>) has a docker-compose.yml but no container
+#                          files (`-` when empty); 11 fields, sorted by app name; field 11 files = same|changed|new|invalid|-: the compose files on disk
+#                          (docker compose config --hash '*', cached per stack in /run/hs-apps) against the config-hash label of the containers
+#                          (`-` for legacy apps, unmanaged containers and when the hash can not be read; invalid = config -q fails or the name is in stacks/ AND recipes/;
+#                          new = a folder with a compose file, no containers). A container without a compose project is a row of kind
+#                          `unmanaged` (name = container name, project `-`; none when a project has that name); state stopped (0/0) for an app whose folder (apps/stacks/<app>, apps/recipes/<app>, legacy /opt/apps/<app>) has a docker-compose.yml but no container
 #   --containers           every container of docker as name project state (`-` when empty; the web editor checks container_name against it)
 #   --app <app>            JSON document for the web editor: rev, managed (web|recipe|other), env names, envText (the whole .env, base64 in the script output; envTooBig over 64 KiB), compose; for the admin editor, read nocache
+#   --rev <app>            the revision of the compose file + .env of one app, one line (what --app prints as rev)
 #   --logs <app> [lines]   the Compose log of one app (default 200, max 2000); the app must be a child of docker, never the manager
 #                          --job runs it as a background job (the web interface: hs sys docker start mount)
 # Test knobs: HS_DOCKER_MANAGE_CT (a script that stands in for manage-ct.sh), HS_DOCKER_BACKUP (stands in for backup.sh), HS_DOCKER_NO_JOB=1
@@ -93,7 +98,7 @@ apps() {   # one row per app: name parent project state running/total ports addr
   local raw skip addr
   owned && running || return 0
   raw=$(timeout 8 "${HS_INCUS:-incus}" exec "$CT" -- sh -c '
-    docker ps -a --format "{{.Label \"com.docker.compose.project\"}}\t{{.State}}\t{{.Ports}}\t{{.Image}}"
+    docker ps -a --format "{{.Label \"com.docker.compose.project\"}}\t{{.State}}\t{{.Ports}}\t{{.Image}}\t{{.Label \"com.docker.compose.config-hash\"}}\t{{.Label \"com.docker.compose.service\"}}\t{{.Names}}\t{{.Label \"com.docker.compose.oneoff\"}}"
     echo "__HS_MARKER_WEBUI__"
     ls -a /opt/apps/*/.hs-webui 2>/dev/null || true
     echo "__HS_MARKER_DIR__"
@@ -106,6 +111,36 @@ apps() {   # one row per app: name parent project state running/total ports addr
     ls -d /shares/apps/recipes/*/ 2>/dev/null || true
     echo "__HS_MARKER_RECIPECOMPOSE__"
     ls -d /shares/apps/recipes/*/docker-compose.yml 2>/dev/null || true
+    echo "__HS_MARKER_FILES__"
+    mkdir -p /run/hs-apps 2>/dev/null
+    for d in /shares/apps/stacks/* /shares/apps/recipes/*; do
+      [ -f "$d/docker-compose.yml" ] || continue
+      a=${d##*/}; k=${d%/*}; k=${k##*/}
+      case "$a" in *[!a-z0-9_-]*) continue ;; esac
+      if [ "$k" = recipes ] && [ -f "/shares/apps/stacks/$a/docker-compose.yml" ]; then printf "%s\tinvalid\n" "$a"; continue; fi
+      key=$(stat -c "%.9Y %s" "$d/docker-compose.yml" "$d/.env" 2>/dev/null | tr "\n" " ")
+      c=/run/hs-apps/$k-$a
+      if [ -f "$c" ] && [ "$(head -n 1 "$c")" = "$key" ]; then tail -n +2 "$c"; continue; fi
+      keep=1
+      # invalid only when compose itself blames the file; a timeout, a busy daemon or a missing plugin is unknown (files `-`, not kept)
+      err=$(cd "$d" && timeout 20 docker compose -p "$a" config -q 2>&1 >/dev/null); rc=$?
+      if [ "$rc" = 0 ]; then
+        # the project the files name themselves (name:, COMPOSE_PROJECT_NAME) must be the folder name, else the containers live under another project
+        pn=$(cd "$d" && timeout 20 docker compose config --format json 2>/dev/null | sed -n "s/^  \"name\": *\"\\([^\"]*\\)\".*/\\1/p" | head -n 1)
+        if [ -n "$pn" ] && [ "$pn" != "$a" ]; then r=$(printf "%s\tunknown\n" "$a")
+        else
+          h=$(cd "$d" && timeout 20 docker compose -p "$a" config --hash "*" 2>/dev/null) || h=""
+          r=$(printf "%s\n" "$h" | sed -n "s/^\\([^ ][^ ]*\\) \\([^ ][^ ]*\\)\$/$a\\t\\1\\t\\2/p")
+          if [ -z "$r" ]; then r=$(printf "%s\tunknown\n" "$a"); keep=0; fi
+        fi
+      elif [ "$rc" != 124 ] && printf "%s" "$err" | grep -qiE "yaml|validating|undefined|invalid|unsupported|unknown field|must be a|mapping|required variable|additional propert|no such service|conflict"; then
+        r=$(printf "%s\tinvalid\n" "$a")
+      else
+        r=$(printf "%s\tunknown\n" "$a"); keep=0
+      fi
+      if [ "$keep" = 1 ]; then { printf "%s\n" "$key"; printf "%s\n" "$r"; } > "$c" 2>/dev/null || true; fi
+      printf "%s\n" "$r"
+    done
   ' </dev/null 2>/dev/null) || return 0
   skip=$(manager_project "$(setting_get dockerManager 2>/dev/null || true)")
   addr=$(ct_addr); [ -n "$addr" ] || addr=-
@@ -117,12 +152,23 @@ apps() {   # one row per app: name parent project state running/total ports addr
     $0 == "__HS_MARKER_STACKS__" { phase = "stacks"; next }
     $0 == "__HS_MARKER_RECIPES__" { phase = "recipes"; next }
     $0 == "__HS_MARKER_RECIPECOMPOSE__" { phase = "recipecompose"; next }
+    $0 == "__HS_MARKER_FILES__" { phase = "files"; next }
+    phase == "files" {
+      if ($2 == "invalid" || $2 == "unknown") { fstate[$1] = $2; next }
+      if (NF >= 3 && $2 != "" && $3 != "") {
+        if (!($1 in fstate)) fstate[$1] = "hashes"
+        dsn[$1]++; dsv[$1, dsn[$1]] = $2; dh[$1, $2] = $3
+      }
+      next
+    }
     phase == "ps" {
       if (NF < 3) next
       p = $1
-      if (p !~ /^[a-z0-9][a-z0-9_-]*$/ || p == skip) next
+      if (p == "" && NF >= 7 && $7 != "") { p = "u:" $7; isun[p] = 1 }
+      if (!isun[p] && (p !~ /^[a-z0-9][a-z0-9_-]*$/ || p == skip)) next
       if (!(p in seen)) { seen[p] = 1; cnt[p] = 0; run[p] = 0; created[p] = 0 }
       cnt[p]++
+      if ($8 != "True") { cn[p]++; cs[p, cn[p]] = $6; ch[p, cn[p]] = $5; cseen[p, $6] = 1 }   # a one-off run (compose run) is not the app
       st = $2
       if (st == "running") run[p]++
       if (st == "created") created[p] = 1
@@ -163,7 +209,7 @@ apps() {   # one row per app: name parent project state running/total ports addr
       next
     }
     END {
-      for (p in comp) if (p ~ /^[a-z0-9][a-z0-9_-]*$/ && p != skip && !(p in seen)) { seen[p] = 1; cnt[p] = 0; run[p] = 0; created[p] = 0 }
+      for (p in comp) if (!isun[p] && p ~ /^[a-z0-9][a-z0-9_-]*$/ && p != skip && !(p in seen)) { seen[p] = 1; cnt[p] = 0; run[p] = 0; created[p] = 0 }
       for (p in seen) {
         total = cnt[p]; running = run[p]
         if (total == 0) st = "stopped"
@@ -180,7 +226,21 @@ apps() {   # one row per app: name parent project state running/total ports addr
         managed = "other"
         if (stack[p] || webui[p]) managed = "web"
         else if (rdir[p] || dir[p]) managed = "recipe"
-        printf "%s\t%s\t%s\t%s\t%d/%d\t%s\t%s\t%s\t%s\t-\n", p, ct, p, st, running, total, (ports == "" ? "-" : ports), addr, (images == "" ? "-" : images), managed
+        nm = p; pr = p; files = "-"
+        if (isun[p]) { nm = substr(p, 3); pr = "-"; managed = "unmanaged"; if (nm in seen) continue }
+        else if (p in fstate) {
+          if (fstate[p] == "invalid") files = "invalid"
+          else if (cnt[p] == 0) files = "new"
+          else if (fstate[p] == "hashes") {
+            files = "same"; unk = 0
+            for (a = 1; a <= cn[p]; a++) {
+              if (ch[p, a] == "") unk = 1
+              else if (((p, cs[p, a]) in dh) && ch[p, a] != dh[p, cs[p, a]]) files = "changed"
+            }
+            if (unk) files = "-"
+          }
+        }
+        printf "%s\t%s\t%s\t%s\t%d/%d\t%s\t%s\t%s\t%s\t-\t%s\n", nm, ct, pr, st, running, total, (ports == "" ? "-" : ports), addr, (images == "" ? "-" : images), managed, files
       }
     }' | sort -t "$tab" -k1,1
 }
@@ -236,6 +296,13 @@ app() {   # --app <app>: JSON read for the web editor
     fi
     printf "__HS_COMPOSE__\n%s" "$compose"
   ' sh "$app" </dev/null 2>/dev/null | python3 "$here/lib/docker_app_doc.py" parse
+}
+
+rev() {   # --rev <app>: one line, the revision of the compose file + .env (the one --app and the editor's --rev use)
+  local r
+  r=$(app "${1:-}" | python3 -c 'import sys,json; print(json.load(sys.stdin)["rev"])') || return 1
+  [ -n "$r" ] || return 1
+  printf '%s\n' "$r"
 }
 
 ct_addr() {   # the eth0 address of the container, one try; nothing when it has none (docker0 and the like are never the answer)
@@ -591,6 +658,7 @@ case "$verb" in
   --apps) apps ;;
   --containers) containers ;;
   --app) [ $# -ge 1 ] || usage; app "$1"; shift ;;
+  --rev) [ $# -ge 1 ] || usage; rev "$1" ;;
   --logs) logs "$@" ;;
   *) usage ;;
 esac

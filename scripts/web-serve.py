@@ -848,6 +848,7 @@ READS = {
     ("docker", "logs"): {"kind": "text", "ttl": 3, "nocache": True, "args": [APP], "query": {"lines": (r"^[0-9]{1,4}$", "")}},     # logs and files of an app may hold secrets
     ("docker", "containers"): {"kind": "tsv", "ttl": 30},     # name project state of every container (the editor checks container_name); no topic
     ("docker", "app"): {"kind": "json", "ttl": 0, "nocache": True, "args": [APP]},     # compose and the real .env text (admin editor); never cached, never in a topic
+    ("docker", "rev"): {"kind": "text", "ttl": 0, "nocache": True, "args": [APP]},     # one line, the revision of compose + .env: the open editor polls it
     ("docker", "registries"): {"kind": "tsv", "ttl": 15},     # host user state used_by; never a token
     ("docker", "status"): {"kind": "tsv", "ttl": 15},      # the docker wizard: is the container there and owned (key<TAB>value rows)
     ("setup", "list"): {"kind": "tsv", "ttl": 5, "topic": "setup-list"},
@@ -1104,7 +1105,7 @@ CHANGES = {
                 "opts": {"--path": (r"^/[A-Za-z0-9._/-]{1,200}$", False), "--as": (r"^[0-9]{1,10}:[0-9]{1,10}$", False)}}],
     "docker-app": [[APP, r"^(start|stop|restart|pull)$"],
                    {"fixed": [APP, r"^app-(save|write)$"], "opts": {"--rev": (r"^(new|[0-9a-f]{16})$", False)}, "document": True},
-                   [APP, r"^rebuild$"],
+                   [APP, r"^(rebuild|recreate)$"],
                    {"fixed": [APP, r"^delete$"], "opts": {"--delete-data": (None, False)}}],     # the data stay unless --delete-data
     # the registry logins of Docker (docker-registry-change.sh): the token of add is the one line on stdin, never an argument
     "docker-registry": [{"fixed": [r"^add$", DOCKER_REGISTRY_HOST], "opts": {"--user": (r"^[A-Za-z0-9][A-Za-z0-9._@+-]{0,99}$", False)}, "stdin": True},
