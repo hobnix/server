@@ -20,6 +20,7 @@ jobs:
     outputs:
       nix: ${{ steps.f.outputs.nix }}
       root: ${{ steps.f.outputs.root }}
+      rust: ${{ steps.f.outputs.rust }}
     steps:
       - uses: actions/checkout@v5
         with:
@@ -28,16 +29,36 @@ jobs:
         env:
           BASE: ${{ github.event.pull_request.base.sha }}
         run: |
-          nix=true root=true
+          nix=true root=true rust=true
           if [ -n "$BASE" ] && git cat-file -e "$BASE" 2>/dev/null; then
             files=$(git diff --name-only "$BASE" HEAD)
             # nix: the system configuration; root: scripts and root tests (loop devices, packages against this core)
             echo "$files" | grep -qvE '^(web/|docs/|tests/|\.claude/|\.github/ISSUE_TEMPLATE/)|\.md$' || nix=false
             echo "$files" | grep -qvE '^(web/|docs/|\.claude/|\.github/ISSUE_TEMPLATE/)|\.md$' || root=false
+            # rust: the Cargo workspace or this workflow
+            echo "$files" | grep -qE '^rust/|^\.github/workflows/ci\.yml$' || rust=false
           fi
           echo "nix=$nix" >> "$GITHUB_OUTPUT"
           echo "root=$root" >> "$GITHUB_OUTPUT"
-          echo "evaluate the system: $nix; root tests and packages: $root"
+          echo "rust=$rust" >> "$GITHUB_OUTPUT"
+          echo "evaluate the system: $nix; root tests and packages: $root; rust: $rust"
+
+  # The Rust workspace (docs/adr/0001-rust-strangler.md): format, clippy without warnings, tests; the lock file must be up to date.
+  rust:
+    needs: changes
+    if: needs.changes.outputs.rust == 'true'
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: rust
+    steps:
+      - uses: actions/checkout@v5
+      - name: Format
+        run: cargo fmt --check
+      - name: Clippy
+        run: cargo clippy --locked --all-targets -- -D warnings
+      - name: Tests
+        run: cargo test --locked
 
   scripts:
     needs: changes

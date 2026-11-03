@@ -24,3 +24,6 @@ __pycache__/
 web/node_modules/
 web/dist/
 .work/
+
+# Rust build output
+rust/target/
