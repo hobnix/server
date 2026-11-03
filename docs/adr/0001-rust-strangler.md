@@ -44,8 +44,9 @@ Issue: hobnix/server#122 (epic #121)
    `secret.sh` reads (a Rust reader of the same files, never argv or environment). A destructive `start` keeps the typed `--confirm <name>`
    check inside the service, not only in the caller. Long work is a job (`scripts/lib/job.sh` units until E02 decides the job system).
 7. **Build.** Rust is built by Nix inside this repository (no network at build time, locked dependencies), like `pkgs/hs-web.nix`. CI builds,
-   runs `cargo clippy` and the tests (#125). The workspace and the CI job exist (`rust/`); the Nix build is a follow-up in #125 and is not done
-   yet.
+   runs `cargo clippy` and the tests (#125). The workspace and the CI job exist (`rust/`); the Nix build is `pkgs/hobnix.nix` (`rustPlatform.buildRustPackage`,
+   `cargoLock` from `rust/Cargo.lock`), installed as `hobnix` on the system PATH by `configuration.nix`; CI builds it in the `nixos` job.
+   Not built on a real server yet.
 
 ### When a command moves to Rust
 

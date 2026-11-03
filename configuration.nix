@@ -131,6 +131,9 @@ let
   # Web interface frontend (pkgs/hs-web.nix); only built when machine.toml says webUi = true
   hsWeb = pkgs.callPackage ./pkgs/hs-web.nix { };
 
+  # The Rust part of the core (pkgs/hobnix.nix): `hobnix`, which registry rows named rust:<subcommand> run (docs/adr/0001-rust-strangler.md)
+  hobnix = pkgs.callPackage ./pkgs/hobnix.nix { };
+
   # The part of the container network the router hands out by DHCP (last number
   # of the address, from - to). An instance with an address in there has no
   # fixed IP yet; hs ct list points that out.
@@ -491,6 +494,7 @@ in
   nixpkgs.config.allowUnfree = true;
 
   environment.systemPackages = with pkgs; [
+    hobnix          # the Rust part of the core (pkgs/hobnix.nix)
     vim
     git
     htop
