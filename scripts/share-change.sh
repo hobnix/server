@@ -218,7 +218,15 @@ case "$action" in
       /^[ \t]*$/ { next }
       !h { sub(/:[ \t]*$/, ""); print "heading\t" $0; h = 1; next }
       { sub(/^[ \t]+/, ""); print "step\t" $0 }'
-    printf 'note\tPermissions are checked when a connection is opened: reconnect to see the change.\n' ;;
+    printf 'note\tPermissions are checked when a connection is opened: reconnect to see the change.\n'
+    grant=0; for x in "${sets[@]}"; do [ "${x#*=}" = none ] || grant=1; done
+    if [ "$grant" = 1 ]; then   # a share with an .env (the share apps always) holds secrets of apps
+      sdir=$(share_dir "$share" 2>/dev/null || true); env_found=""
+      if [ -n "$sdir" ]; then env_found=$(find "$sdir" -maxdepth 4 -name .env -print -quit 2>/dev/null || true); fi
+      if [ "$share" = apps ] || [ -n "$env_found" ]; then
+        printf 'warn\tThis share holds .env files: they can contain passwords and keys of apps. Everyone who gets access can read them.\n'
+      fi
+    fi ;;
   add)
     printf 'heading\tcreate the share %s\nstep\tcreate the %s folder on %s (a dataset)\nstep\tpublish it over Samba; only Domain Admins may use it until you set permissions\n' "$share" "$kind" "$([ "$tier" = fast ] && echo 'the SSD pool (fast)' || echo 'the disks (bulk)')"
     [ -z "$ct" ] || printf 'step\tmount it into %s at %s%s\n' "$ct" "$ctpath" "$([ -n "$as" ] && echo " (user $as can write)" || true)"

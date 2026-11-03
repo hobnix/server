@@ -394,6 +394,33 @@ app name. **Delete** keeps the folder of the app: the app stays in the list with
 brings it up again with `docker compose up -d`. **Delete with data** also removes the folder of the app
 (the config and the data).
 
+### Files changed on disk, and containers hobnix did not start
+
+Compose files and `.env` files can also be changed outside the page, for example over Samba in the share `apps`. Nothing starts by itself.
+`hs sys docker apps` (the page reads it) compares the files in `apps/stacks/<app>` and `apps/recipes/<app>` with the running containers
+(`docker compose config --hash '*'` against the label `com.docker.compose.config-hash`) and adds a last column `files`:
+
+| Value | Meaning |
+|---|---|
+| `same` | the containers run what the files say |
+| `changed` | the files changed after the containers were made: Apply (`recreate`, up -d) starts the new version |
+| `new` | a folder with a compose file and no containers yet |
+| `invalid` | `docker compose config` reports an error in the file, or the name exists in both `stacks/` and `recipes/`: fix the files first |
+| `-` | old apps in `/opt/apps`, unmanaged containers, or the hash could not be read (never shown as changed) |
+
+A container that was started by hand (`docker run`) has no Compose project. It is listed as an `unmanaged` row and can only be looked at.
+The open editor reads `hs sys docker rev <app>` every 30 seconds to notice a change on disk and shows the banner "This app changed on
+disk"; it never reloads by itself.
+
+In the web interface the list shows the chips "Changed, not applied" and "New, not started" next to the name, with an Apply button that
+opens the plan of `recreate` (`docker compose up -d` from the folder: it never pulls, builds or removes a volume). For `invalid` files Apply is disabled and says why. "Unmanaged" rows
+have no Start, Stop or Edit. The editor also warns when a `user:` of a service differs from the user Docker maps for all shares.
+
+Giving a person access to a share that holds a `.env` file (the share `apps` always) shows a warning in the plan: those files can
+contain passwords and keys of apps.
+
+Not tested on hardware yet. The flag `--hash` of `docker compose config` is unverified on Compose 2.26.1; without it every app shows `-`.
+
 ### Private registries (Instances > Docker > Registries)
 
 An image from a private registry (for example `ghcr.io/you/app`) needs a login. Add it

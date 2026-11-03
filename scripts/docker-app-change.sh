@@ -7,7 +7,8 @@
 # app-save creates or updates a web-managed app and recreates it (up -d); app-write only writes the two files (the running app is not touched).
 # The plan of app-save/app-write is also the Test of the web editor: it collects every problem as `finding<TAB>error|warn<TAB>where<TAB>text`
 # (where = compose:<line> | compose:<dotted.path> | env:<line> | -) and refuses with "The test found N problems." when one is an error.
-# app-save/app-write rebuild and delete are only for web-managed apps.
+# app-save/app-write rebuild and delete are only for web-managed apps. recreate = `docker compose up -d` from the folder (the Apply of the app
+# list for files changed on disk): no pull, no build, no volume removal; any app that is a child of the Docker container.
 # Every check is repeated at start, and a plan refuses before anything changes.
 # An image from a private registry (ghcr.io) needs its token from the vault (lib/docker-auth.sh): a closed vault refuses pull, rebuild and
 # app-save at the plan (fix: hs vault open); start, stop, restart never need it.
@@ -25,7 +26,7 @@ here=$(cd "$(dirname "$0")" && pwd)
 CT=docker
 APP_RE='^[a-z0-9][a-z0-9_-]{0,40}$'
 REV_RE='^[0-9a-f]{16}$'
-ACTION_RE='^(start|stop|restart|pull|app-save|app-write|rebuild|delete)$'
+ACTION_RE='^(start|stop|restart|pull|app-save|app-write|rebuild|recreate|delete)$'
 WRITE_RE='^(app-save|app-write|rebuild|delete)$'
 NAME_RE='^[A-Za-z_][A-Za-z0-9_]*$'
 
@@ -690,6 +691,31 @@ apply_rebuild() {
   fi
 }
 
+# ── recreate ──
+
+cmd_plan_recreate() {
+  local app=$1
+  base_checks "$app"
+  auth_check "$app"
+  printf 'status	ok
+heading	recreate %s
+' "$app"
+  printf 'step	Recreate the containers whose settings changed and start the missing ones (docker compose up -d)
+'
+  printf 'note	No image is pulled or built and no volume is removed.
+'
+  printf 'long	no
+'
+}
+
+cmd_start_recreate() {
+  local app=$1
+  base_checks "$app"
+  auth_check "$app"
+  if docker_with_auth "$app" up -d; then printf 'status	done
+'; else refuse "The recreate of $app failed."; fi
+}
+
 # ── delete ──
 
 cmd_plan_delete() {
@@ -842,9 +868,9 @@ fi
 [ $# -ge 3 ] || refuse "Usage: plan|start <app> <action> [--rev new|<rev>]"
 verb=$1; app=$2; action=$3; shift 3
 [[ "$app" =~ $APP_RE ]] || refuse "The app name is not valid."
-[[ "$action" =~ $ACTION_RE ]] || refuse "Action must be start, stop, restart, pull, app-save, app-write, rebuild or delete."
+[[ "$action" =~ $ACTION_RE ]] || refuse "Action must be start, stop, restart, pull, app-save, app-write, rebuild, recreate or delete."
 case "$action" in
-  start|stop|restart|pull) [ $# -eq 0 ] || refuse "Unexpected arguments." ;;
+  start|stop|restart|pull|recreate) [ $# -eq 0 ] || refuse "Unexpected arguments." ;;
 esac
 delete_data=0
 
@@ -856,6 +882,7 @@ case "$verb" in
         [ $# -eq 2 ] && [ "$1" = --rev ] || refuse "$action needs --rev new|<rev>."
         cmd_plan_save "$app" "$2" "${action#app-}" ;;
       rebuild) cmd_plan_rebuild "$app" ;;
+      recreate) cmd_plan_recreate "$app" ;;
       delete)
         [ $# -eq 0 ] || { [ $# -eq 1 ] && [ "$1" = --delete-data ] && delete_data=1; } || refuse "delete takes only --delete-data."
         cmd_plan_delete "$app" "$delete_data" ;;
@@ -868,6 +895,7 @@ case "$verb" in
         [ $# -eq 2 ] && [ "$1" = --rev ] || refuse "$action needs --rev new|<rev>."
         cmd_start_save "$app" "$2" "${action#app-}" ;;
       rebuild) cmd_start_rebuild "$app" ;;
+      recreate) cmd_start_recreate "$app" ;;
       delete)
         confirm=""
         while [ $# -gt 0 ]; do

@@ -7,14 +7,14 @@
   // (`app-save`) writes them and recreates the app. Both run the Test first and open the plan dialog only when it found no error.
   import { onMount } from 'svelte';
   import { get, plan } from '../../api.js';
-  import { poll, rows } from '../../data.svelte.js';
+  import { poll, rows, refresh } from '../../data.svelte.js';
   import { route, go } from '../../route.svelte.js';
   import { openPlan, jobRunning, tasks } from '../../ui.svelte.js';
   import { jobMatches } from '../../jobkey.js';
   import PageHeader from '../../shell/PageHeader.svelte';
   import Banner from '../../ui/Banner.svelte';
   import Button from '../../ui/Button.svelte';
-  import { appOf } from './apps.js';
+  import { appOf, revOf, diskChanged } from './apps.js';
   import BindShare from '../../forms/docker/BindShare.svelte';
   import { ls } from '../../files/api.js';
   import { mountsOf } from '../../editor/volumes.js';
@@ -80,7 +80,11 @@
   let testing = $state(false);          // the Test is being asked
   let banner = $state([]);              // findings without a place: [{ level, text }]
   let result = $state(null);            // { errors, warns } of the last Test, until the text changes
-  let changedDisk = $state(false);      // the app changed on disk since it was read
+  let changedDisk = $state(false);      // the app changed on disk since it was read (the Test said so, or the poll of the revision)
+  // the revision of the files on disk, read every 30 s while the page is open (a new app has none); no reload by itself
+  const revPoll = poll(() => (isNew || !app || loading || loadError ? '' : `/api/sys/docker/rev/${encodeURIComponent(app)}`), 30000);
+  let revFresh = $state(false);         // false from the start of a load until the fresh read of the revision returned: the poll may hold an older one
+  const diskMoved = $derived(!isNew && revFresh && diskChanged(rev, revOf(revPoll.data)));
 
   // New app: a pasted `docker run` command becomes the compose text and the env text (the owner edits both before Save or Apply)
   let runOpen = $state(false);
@@ -104,13 +108,14 @@
     schema, isNew,
     apps: apps.map((a) => ({ name: a.name, ports: a.ports })),
     ct: rows(ctPoll).map((r) => r[0]),
-    containers, mounts,
+    containers, mounts, mapped,
   });
 
   async function load() {
     loading = true;
     loadError = '';
     changedDisk = false;
+    revFresh = false;
     try {
       if (isNew) {
         rev = 'new'; managed = 'web'; envTooBig = false;
@@ -121,6 +126,8 @@
         compose = normalizeEol(d.compose); env = normalizeEol(d.envText);
       }
       saved = { compose, env };
+      if (!isNew) await refresh([`/api/sys/docker/rev/${encodeURIComponent(app)}`]);   // the poll must not compare with the revision from before this load
+      revFresh = true;
       if (editors) {
         editors.compose.setText(compose);
         editors.env.setText(env);
@@ -265,13 +272,13 @@
 {#if readOnly}<Banner tone="info">This app is not managed by the web interface (it is {managed}), so it can be read here but not changed.</Banner>{/if}
 {#if envTooBig}<Banner tone="warn">The env file is over 64 KiB: edit it in a terminal. Apply keeps it as it is.</Banner>{/if}
 {#if idWarn}<Banner tone="warn">{idWarn}</Banner>{/if}
-{#if changedDisk}
+{#if changedDisk || diskMoved}
   <Banner tone="warn">This app changed on disk since you opened it. Reload shows the new files; your edits here are lost.
     {#snippet action()}<button class="btn sm" onclick={load}>Reload</button>{/snippet}
   </Banner>
 {/if}
 {#each banner as b}<Banner tone={b.level === 'error' ? 'bad' : 'warn'}>{b.text}</Banner>{/each}
-{#if result && !changedDisk}<Banner tone={result.errors ? 'bad' : result.warns ? 'warn' : 'ok'}>{resultText}</Banner>{/if}
+{#if result && !changedDisk && !diskMoved}<Banner tone={result.errors ? 'bad' : result.warns ? 'warn' : 'ok'}>{resultText}</Banner>{/if}
 {#if dirty && !loading}<div class="dirty">Changed, not saved yet.</div>{/if}
 
 {#if isNew}

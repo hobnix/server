@@ -1,0 +1,4 @@
+date  = "2026-11-03"
+type  = "feature"
+title = "The Docker page can see when the files of an app changed on disk"
+body  = """hs sys docker apps has a new last column: whether the compose files of an app (apps/stacks, apps/recipes) match the running containers (same, changed, new, invalid). Containers started by hand are listed as unmanaged. hs sys docker rev <app> gives the revision of an app for the open editor. Giving access to a share with .env files (the share apps always) now warns in the plan. The Docker page shows the chips "Changed, not applied", "New, not started" and "Unmanaged" with an Apply button, the open editor warns when the app changed on disk, and it also checks the user: of services against the mapped user. Apply recreates with docker compose up -d only (no pull, no build). Nothing starts by itself."""

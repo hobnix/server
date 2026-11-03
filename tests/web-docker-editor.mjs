@@ -5,7 +5,7 @@ import { candidates, unknownKeys } from '../web/src/editor/schema.js';
 import { locate } from '../web/src/editor/yamlpath.js';
 import { mapFindings, pathOf, hasErrors } from '../web/src/editor/findings.js';
 import { convert, tokenize } from '../web/src/editor/dockerrun.js';
-import { lintCompose, lintEnv, lintVars, varsUsed, hostPort, normalizeEol } from '../web/src/editor/lint.js';
+import { lintCompose, lintEnv, lintVars, userMismatch, varsUsed, hostPort, normalizeEol } from '../web/src/editor/lint.js';
 
 let ok = 0, bad = 0;
 const check = (name, cond, extra = '') => { if (cond) { ok++; console.log(`  ok    ${name}`); } else { bad++; console.log(`  FAIL  ${name} ${extra}`); } };
@@ -187,6 +187,18 @@ check('dockerrun: the compose output has no secret outside the env text', !conve
   check('dockerrun: readonly=false adds no :ro', convert('docker run --mount type=bind,source=/a,target=/b,readonly=false nginx').compose.includes('"/a:/b"') && convert('docker run --mount type=bind,source=/a,target=/b,readonly=true nginx').compose.includes('"/a:/b:ro"'));
   const g2 = convert('docker run --gpus 2 nginx'), g3 = convert('docker run --gpus "device=0,1" nginx');
   check('dockerrun: --gpus count is not an id list; device= ids are', !g2.env.includes('NVIDIA') && g2.notes.some((n) => n.includes('count')) && g2.compose.includes('# not converted: --gpus 2') && g3.env === 'NVIDIA_VISIBLE_DEVICES=0,1\n');
+}
+
+// compose user: against the user Docker maps
+{
+  const o = (u) => ({ services: { a: { user: u }, b: {} } });
+  check('user: same uid:gid -> none', userMismatch(o('1000:100'), '1000:100').length === 0);
+  check('user: other uid:gid warns', userMismatch(o('1001:100'), '1000:100').length === 1 && userMismatch(o('1000:101'), '1000:100')[0].service === 'a');
+  check('user: number alone is checked against the uid', userMismatch(o(1000), '1000:100').length === 0 && userMismatch(o(0), '1000:100').length === 1);
+  check('user: names and variables are skipped', userMismatch(o('node'), '1000:100').length === 0 && userMismatch(o('${PUID}:${PGID}'), '1000:100').length === 0);
+  check('user: nothing mapped -> none', userMismatch(o('0:0'), '').length === 0 && userMismatch(null, '1000:100').length === 0);
+  const f = lintCompose(o('0:0'), { mapped: '1000:100' }, 'x').filter((x) => x.path.includes('user'));
+  check('user: lintCompose gives a warn at services.a.user', f.length === 1 && f[0].level === 'warn' && f[0].path.join('.') === 'services.a.user');
 }
 
 console.log(`-- ${ok} ok, ${bad} failed`);
