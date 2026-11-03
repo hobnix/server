@@ -1,0 +1,4 @@
+date  = "2026-11-03"
+type  = "fix"
+title = "hs share <share> auto no longer says No share called for a share that exists"
+body  = """With many shares the check for the share closed its pipe at the first match, and the pipeline then counted that as "not found". Turning automatic snapshots on or off for a share, and rolling back to a named snapshot, now find the share or snapshot reliably. This stopped hs docker enable at the share apps."""

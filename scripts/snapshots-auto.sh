@@ -74,7 +74,8 @@ case "$mode" in
     # hs share <share> auto on|off
     [ $# -eq 2 ] || usage
     name=$1
-    shares | cut -f1 | grep -qxF -- "$name" || fail "$(t "No share called '%s'." "$name")"
+    # no `grep -q` on the pipe: it would close it at the first match and pipefail would count the producer's SIGPIPE as "not found"
+    shares | cut -f1 | grep -xF -- "$name" >/dev/null || fail "$(t "No share called '%s'." "$name")"
     init_off
     case "$2" in
       on)  grep -vxF -- "$name" "$off_file" > "$off_file.new" || true; mv "$off_file.new" "$off_file"

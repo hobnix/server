@@ -70,7 +70,7 @@ case "$action" in
     [ -n "$list" ] || fail "$(t 'There are no snapshots to go back to. Take one first: hs share %s snapshot' "$share")"
     newest=$(printf '%s\n' "$list" | tail -n 1 | cut -f1 | sed 's/^[^@]*@//')
     [ -n "$name" ] || name=$newest
-    printf '%s\n' "$list" | cut -f1 | grep -qx "$ds@$name" || fail "$(t "No snapshot '%s' on this share." "$name")"
+    printf '%s\n' "$list" | cut -f1 | grep -x "$ds@$name" >/dev/null || fail "$(t "No snapshot '%s' on this share." "$name")"
     extra=""
     if [ "$name" != "$newest" ]; then
       extra="-r"
