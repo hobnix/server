@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # help: Docker as part of hobnix: turn it on (a locked container with Docker inside), turn it off, list the apps that run in it
 # help.de: Docker als Teil von hobnix: einschalten (ein gesperrter Container mit Docker darin), ausschalten, die Apps darin auflisten
-# args: status | list | enable [--manager webui|arcane|portainer|none] [--size s|m|l] [--yes] [--job] [--dry-run] | disable [--yes --confirm docker] [--no-backup] [--job] [--dry-run] | mount <share|remote:peer> <path> [--as uid:gid] [--yes] [--job] [--dry-run] | --status | --list | --apps | --containers | --app <app> | --logs <app> [lines]
+# args: status | list | enable [--manager webui|arcane|portainer|none] [--size s|m|l] [--yes] [--job] [--dry-run] | disable [--yes --confirm docker] [--no-backup] [--job] [--dry-run] | mount <share|remote:peer> <path> [--as uid:gid] [--yes] [--job] [--dry-run] | move-apps [--yes --confirm docker] [--job] [--dry-run] [--finish] | --status | --list | --apps | --containers | --app <app> | --logs <app> [lines]
 # The capability docker (docs/PLAN-docker-instances.md, Decisions 12 to 14): the container `docker` is owned by it (user.hs.managed_by=docker),
 # so only this script deletes it (HS_OWNER=docker on the manage-ct.sh call, scripts/lib/instance.sh).
 #   hs docker status       key/value lines: on or off, the container, the manager, the size, the number of apps, the address
@@ -12,6 +12,9 @@
 #   hs sys docker mount    the only route that gives the locked container a folder (the lock refuses create-share, hs remote attach): plan, then
 #                          <share> <path> --as <uid:gid> (a local share; the idmap change restarts the container and so every app in it) or
 #                          remote:<peer> <path> (/mnt/remote/<peer>, recursive, rslave, as hs remote attach does); needs --yes without a terminal
+#   hs docker move-apps    move /opt/apps/<app> into the share apps: plan, snapshot, the typed name docker, then per app down, copy, rewrite the
+#                          compose file (.prev kept), up from the share, rename the old folder to <app>.moved-<date>; a failing app is set back;
+#                          --finish removes the *.moved-* folders after the typed name
 #   --status, --list       the same as data (hs sys docker status|list): key<TAB>value, and one row per app with exactly 5 fields
 #                          name parent project state ports (`-` when empty); a stopped container or a failed read prints no row, exit 0
 #   --apps                 the same data with more fields: name parent project state running/total ports address images managed update
@@ -34,7 +37,7 @@ CT=docker
 OWNER=docker
 tab=$'\t'
 
-usage() { fail "$(t 'usage: hs docker status | list | enable | disable | mount')" >&2; }
+usage() { fail "$(t 'usage: hs docker status | list | enable | disable | mount | move-apps')" >&2; }
 interactive() { [ -t 0 ] && [ -t 1 ] && [ -z "${HS_CALLER:-}" ]; }
 inc() { "${HS_INCUS:-incus}" "$@"; }
 ct_cmd() {   # ct_cmd <manage-ct args>: a call that changes the container, with the owner's pass
@@ -579,6 +582,187 @@ cmd_mount() {   # mount <share|remote:peer> <path> [--as uid:gid] [--yes] [--dry
   ok "$(t 'The container docker has the folder %s.' "$path")"
 }
 
+# ── hs docker move-apps: /opt/apps/<app> -> the share apps (docs/PLAN-docker-instances.md, S3) ──
+dx() { inc exec "$CT" -- "$@" </dev/null; }   # one command inside docker
+ma_list() {   # the apps in /opt/apps with a compose file: name<TAB>web|recipe<TAB>KiB (web: has .hs-webui)
+  dx sh -c '
+    for d in "$1"/*/; do
+      d=${d%/}; a=${d##*/}
+      [ -f "$d/docker-compose.yml" ] || continue
+      w=recipe; if [ -e "$d/.hs-webui" ]; then w=web; fi
+      printf "%s\t%s\t%s\n" "$a" "$w" "$(du -sk "$d" | cut -f1)"
+    done' sh "$DOCKER_APPS_LEGACY"
+}
+ma_target() { docker_new_app_dir "$1" "$2"; }   # ma_target <app> web|recipe: the folder in the share apps
+ma_rewrite() {   # ma_rewrite <old> <new> <file>: the literal prefix <old> (a whole path word) becomes <new>, in place
+  sed -i -e "s|$1\([^A-Za-z0-9_.-]\)|$2\1|g" -e "s|$1\$|$2|g" "$3"
+}
+MA_FILES="docker-compose.yml docker-compose.yaml compose.yml compose.yaml docker-compose.override.yml docker-compose.override.yaml compose.override.yml compose.override.yaml .env"
+MA_OLD= MA_NEW= MA_RUN=no
+ma_up() { dx sh -c 'cd "$1" && docker compose up -d' sh "$1" >/dev/null 2>&1; }   # ma_up <folder>
+ma_back() {   # ma_back <app> <day>: undo what was done: the copy is set aside (a scratch copy is removed), the app runs from /opt/apps again if it ran before
+  local app=$1 day=$2 aside="$MA_NEW.failed-$2"
+  dx rm -rf -- "$MA_NEW.partial" >/dev/null 2>&1 || true
+  if dx test -e "$MA_NEW"; then
+    dx sh -c 'cd "$1" && docker compose down' sh "$MA_NEW" >/dev/null 2>&1 || true
+    if dx test -e "$aside"; then aside="$aside-$$"; fi
+    dx mv "$MA_NEW" "$aside" >/dev/null 2>&1 || true
+    note "$(t "The copy is kept at %s." "$aside")"
+  fi
+  if [ "$MA_RUN" = yes ]; then
+    if ma_up "$MA_OLD"; then warn "$(t "%s stayed in %s and runs as before." "$app" "$MA_OLD")"
+    else warn "$(t "%s could not be started again from %s: look at it with hs docker logs." "$app" "$MA_OLD")"; fi
+  else
+    warn "$(t "%s stayed in %s (it was stopped and stays stopped)." "$app" "$MA_OLD")"
+  fi
+  MA_OLD=
+}
+ma_interrupt() {   # a job that is stopped in the middle of an app: put that app back
+  trap - INT TERM
+  if [ -n "$MA_OLD" ]; then ma_back "${MA_OLD##*/}" "$(date +%F)"; fi
+  fail "$(t 'Interrupted. The app being moved was put back; apps that were done stay moved.')"
+}
+ma_one() {   # ma_one <app> web|recipe <as> <day>: 0 moved, 1 stayed (reported)
+  local app=$1 kind=$2 as=$3 day=$4 old new part moved dump hits
+  old=$DOCKER_APPS_LEGACY/$app; new=$(ma_target "$app" "$kind"); part="$new.partial"
+  MA_OLD=$old; MA_NEW=$new; MA_RUN=no
+  if [ -n "$(dx sh -c 'cd "$1" && docker compose ps -q' sh "$old" 2>/dev/null || true)" ]; then MA_RUN=yes; fi
+  # stop the REAL project (the one the compose file names, also with name:) from inside its folder; none of its containers may be left
+  if ! dx sh -c 'cd "$1" && docker compose down' sh "$old" >/dev/null 2>&1 ||
+     [ -n "$(dx sh -c 'cd "$1" && docker compose ps -aq' sh "$old" 2>/dev/null || true)" ]; then
+    warn "$(t "%s could not be stopped. Nothing was moved." "$app")"; ma_back "$app" "$day"; return 1
+  fi
+  dx rm -rf -- "$part" >/dev/null 2>&1 || true   # a half copy of an earlier run
+  if ! dx sh -c 'mkdir -p "$(dirname "$2")" && cp -a "$1" "$2"' sh "$old" "$part" >/dev/null 2>&1; then
+    warn "$(t "Copying %s failed." "$app")"; ma_back "$app" "$day"; return 1
+  fi
+  # every compose file and the .env: the own prefix becomes the new folder (the old file stays as <file>.prev)
+  if ! dx sh -c '
+      cd "$1" || exit 1
+      for f in $4; do
+        [ -f "$f" ] || continue
+        if grep -qF -- "$2" "$f"; then
+          cp -p "$f" "$f.prev" &&
+          sed -e "s|$2\([^A-Za-z0-9_.-]\)|$3\1|g" -e "s|$2\$|$3|g" "$f.prev" > "$f.new" &&
+          mv "$f.new" "$f" || exit 1
+        fi
+      done' sh "$part" "$old" "$new" "$MA_FILES" >/dev/null 2>&1; then
+    warn "$(t "Rewriting the compose files of %s failed." "$app")"; ma_back "$app" "$day"; return 1
+  fi
+  # anything under /opt/apps that is left points to another folder (another app, a leftover): do not move this app (file and line only, never the text)
+  hits=$(dx sh -c '
+      cd "$1" || exit 0
+      for f in $3; do
+        [ -f "$f" ] || continue
+        for n in $(grep -nF -- "$2" "$f" | cut -d: -f1); do printf "%s:%s " "$f" "$n"; done
+      done' sh "$part" "$DOCKER_APPS_LEGACY" "$MA_FILES" 2>/dev/null || true)
+  if [ -n "$hits" ]; then
+    warn "$(t "%s still points into %s (%s). It is not moved: change that path first." "$app" "$DOCKER_APPS_LEGACY" "$hits")"; ma_back "$app" "$day"; return 1
+  fi
+  if [ "$kind" = web ] && ! dx chown -R "$as" "$part" >/dev/null 2>&1; then
+    warn "$(t "Setting the owner of %s failed." "$app")"; ma_back "$app" "$day"; return 1
+  fi
+  if ! dx mv "$part" "$new" >/dev/null 2>&1; then
+    warn "$(t "Copying %s failed." "$app")"; ma_back "$app" "$day"; return 1
+  fi
+  if [ "$MA_RUN" = yes ] && ! ma_up "$new"; then
+    warn "$(t "%s did not start from the share apps." "$app")"; ma_back "$app" "$day"; return 1
+  fi
+  # it is in the new place now (running as before): the old folder is set aside (never deleted here), the backup dump list follows
+  moved="$old.moved-$day"
+  if dx test -e "$moved"; then moved="$moved-$$"; fi
+  dump=${HS_STATE_DIR:-/var/lib/hs}/backup-dump/$CT
+  if [ -f "$dump" ]; then ma_rewrite "$old" "$new" "$dump" || warn "$(t "The backup dump list %s could not be updated." "$dump")"; fi
+  MA_OLD=
+  if dx mv "$old" "$moved" >/dev/null 2>&1; then
+    ok "$(t "%s now runs from %s. The old folder is kept as %s." "$app" "$new" "$moved")"
+  else
+    warn "$(t "%s now runs from %s, but the old folder %s could not be renamed: it is still in place. Rename or remove it yourself." "$app" "$new" "$old")"
+  fi
+}
+
+cmd_move_apps() {   # move-apps [--yes --confirm docker] [--job] [--dry-run] [--finish]
+  local yes=0 confirm_arg= job=0 dry=0 finish=0 as day n=0 total=0 name kind kib target bad=0 free moved_n=0 failed_n=0 rows list skip
+  while [ $# -gt 0 ]; do
+    case "$1" in
+      --yes) yes=1; shift ;;
+      --confirm) [ $# -ge 2 ] || usage; confirm_arg=$2; shift 2 ;;
+      --job) job=1; shift ;;
+      --dry-run) dry=1; shift ;;
+      --finish) finish=1; shift ;;
+      *) usage ;;
+    esac
+  done
+  owned || fail_fix "$(t 'Docker is not on.')" "hs docker enable"
+  running || fail "$(t 'Docker is not running.')"
+  docker_apps_mounted || fail_fix "$(t 'The share apps is not mounted in Docker at %s.' "$DOCKER_APPS_ROOT")" "hs docker enable"
+  if [ "$finish" = 1 ]; then
+    list=$(dx sh -c 'for d in "$1"/*.moved-*; do if [ -d "$d" ]; then printf "%s\n" "$d"; fi; done' sh "$DOCKER_APPS_LEGACY" || true)
+    if [ -z "$list" ]; then ok "$(t 'No old folders (*.moved-*) are left in %s.' "$DOCKER_APPS_LEGACY")"; return 0; fi
+    step "$(t 'Remove the old folders of the moved apps')"
+    while IFS= read -r name; do line "$name"; done <<<"$list"
+    danger "$(t 'These folders are deleted for good. The apps run from the share apps now; the backup of the share apps stays.')"
+    if [ "$dry" = 1 ]; then return 0; fi
+    if [ "$yes" = 0 ]; then interactive || fail "$(t 'This needs a terminal or --yes.')"
+    elif [ "$confirm_arg" != "$CT" ]; then fail "$(t 'This needs --confirm docker.')"; fi
+    if [ "$yes" = 0 ]; then confirm_name "$CT" "$(t 'the instance')" || fail "$(t 'The name did not match. Nothing was deleted.')"; fi
+    while IFS= read -r name; do
+      case "$name" in "$DOCKER_APPS_LEGACY"/*.moved-*) dx rm -rf -- "$name" || warn "$(t 'Removing %s failed.' "$name")" ;; esac
+    done <<<"$list"
+    ok "$(t 'The old folders are removed.')"
+    return 0
+  fi
+  [ "$(share_tier "$APPS_SHARE" 2>/dev/null || true)" = fast ] || fail_fix "$(t 'The share apps is not on the SSD pool.')" "hs docker enable"
+  rows=$(ma_list) || fail "$(t 'The apps in %s could not be read.' "$DOCKER_APPS_LEGACY")"
+  skip=$(manager_project "$(setting_get dockerManager 2>/dev/null || true)")
+  step "$(t 'Move the apps into the share apps')"
+  while IFS=$'\t' read -r name kind kib; do
+    [ -n "$name" ] || continue
+    [[ "$name" =~ ^[a-z0-9][a-z0-9_-]{0,40}$ ]] || continue
+    if [ -n "$skip" ] && [ "$name" = "$skip" ]; then continue; fi
+    target=$(ma_target "$name" "$kind")
+    n=$((n + 1)); total=$((total + kib))
+    if dx test -e "$target"; then
+      warn "$(t "%s: the target %s exists already. Nothing is overwritten." "$name" "$target")"; bad=$((bad + 1))
+    else
+      line "$(t '%s. %s to %s (%s, %s MiB)' "$n" "$name" "$target" "$kind" "$((kib / 1024 + 1))")"
+    fi
+  done <<<"$rows"
+  if [ "$n" = 0 ]; then ok "$(t 'There is no app in %s to move.' "$DOCKER_APPS_LEGACY")"; return 0; fi
+  [ "$bad" = 0 ] || fail "$(t 'Move or rename those target folders first. Nothing was changed.')"
+  free=$(df -Pk "$(share_dir "$APPS_SHARE")" 2>/dev/null | awk 'NR == 2 { print $4 }' || true)
+  kv "$(t 'Size to copy')" "$((total / 1024 + 1)) MiB"
+  kv "$(t 'Free on the SSD pool')" "$(if [ -n "$free" ]; then printf '%s MiB' "$((free / 1024))"; else printf -- '-'; fi)"
+  if [ -n "$free" ] && [ "$((total * 12 / 10 + 1024))" -gt "$free" ]; then fail "$(t 'There is not enough free space on the SSD pool for a copy. Nothing was changed.')"; fi
+  note "$(t "Each app is stopped, copied, its compose file rewritten (the old one is kept as docker-compose.yml.prev) and started again from the share. The old folder is renamed to <app>.moved-<date>, never deleted: hs docker move-apps --finish removes them later. An app that fails is set back to %s." "$DOCKER_APPS_LEGACY")"
+  warn "$(t 'Every app is stopped for a short time while it is moved. A snapshot of docker is taken first.')"
+  if [ "$dry" = 1 ]; then return 0; fi
+  if [ "$yes" = 0 ]; then interactive || fail "$(t 'This needs a terminal or --yes.')"
+  elif [ "$confirm_arg" != "$CT" ]; then fail "$(t 'This needs --confirm docker.')"; fi
+  if [ "$yes" = 0 ]; then
+    confirm_name "$CT" "$(t 'the instance')" || fail "$(t 'The name did not match. Nothing was changed.')"
+    if [ "$job" = 0 ] && confirm "$(t 'Run in the background?')"; then job=1; fi
+  fi
+  if [ "$job" = 1 ] && as_job docker-move-apps "hs docker move-apps" move-apps --yes --confirm "$CT"; then return 0; fi
+  step "$(t 'Snapshot docker')"
+  bash "${HS_CT_CHANGE:-$here/ct-change.sh}" start "$CT" snapshot --label "pre-move-apps" >/dev/null 2>&1 || fail "$(t 'The snapshot of docker failed. Nothing was changed.')"
+  as=$(mapped_user); [ -n "$as" ] || as=1000:1000
+  day=$(date +%F)
+  steps "$n"
+  trap ma_interrupt INT TERM
+  while IFS=$'\t' read -r name kind kib; do
+    [ -n "$name" ] || continue
+    [[ "$name" =~ ^[a-z0-9][a-z0-9_-]{0,40}$ ]] || continue
+    if [ -n "$skip" ] && [ "$name" = "$skip" ]; then continue; fi
+    step "$(t 'Move %s' "$name")"
+    if ma_one "$name" "$kind" "$as" "$day"; then moved_n=$((moved_n + 1)); else failed_n=$((failed_n + 1)); fi
+  done <<<"$rows"
+  trap - INT TERM
+  ok "$(t '%s apps moved, %s stayed in %s.' "$moved_n" "$failed_n" "$DOCKER_APPS_LEGACY")"
+  next_step "$(t 'check the apps, then remove the old folders: hs docker move-apps --finish')"
+  [ "$failed_n" = 0 ] || return 1
+}
+
 verb=${1:-}; if [ $# -gt 0 ]; then shift; fi
 case "$verb" in
   status) cmd_status ;;
@@ -586,6 +770,7 @@ case "$verb" in
   enable) cmd_enable "$@" ;;
   disable) cmd_disable "$@" ;;
   mount) cmd_mount "$@" ;;
+  move-apps) cmd_move_apps "$@" ;;
   --status) status_rows ;;
   --list) children ;;
   --apps) apps ;;

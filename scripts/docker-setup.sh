@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # help: turn Docker on from the web interface: what would happen (plan), then do it (start)
 # help.de: Docker über die Weboberfläche einschalten: was passieren würde (plan), dann ausführen (start)
-# args: plan|start setup --set <key>=<value>... | plan|start mount <share|remote:peer> --path <p> [--as uid:gid]
+# args: plan|start setup --set <key>=<value>... | plan|start mount <share|remote:peer> --path <p> [--as uid:gid] | plan|start move-apps
 # System command (hs sys docker plan|start setup), for the interface and tests. It never asks and prints plain key<TAB>value lines like
 # gateway-setup.sh. The keys are the ones of the steps in capabilities/docker/capability.toml: dockerManager (webui|arcane|portainer|none)
 # and dockerSize (s|m|l). The work is done by `hs docker enable` (scripts/docker.sh); this script only checks and translates.
@@ -11,6 +11,8 @@
 #   mount: the folder of a share in Docker (hs sys docker plan|start mount <share|remote:peer> --path /shares/<share> [--as uid:gid]).
 #     --as defaults to the user the container maps already (raw.idmap), else 1000:1000. The plan runs the checks of `docker.sh mount --dry-run`,
 #     and for a local share whose mapping changes warns that Docker restarts, with every running app; start is `docker.sh mount --yes --job`.
+#   move-apps: the apps of /opt/apps into the share apps (hs sys docker plan|start move-apps): plan is `docker.sh move-apps --dry-run`, start is
+#     `docker.sh move-apps --yes --confirm docker --job` (the typed name is asked in the web interface).
 # Test knobs: HS_DOCKER_SCRIPT (stands in for docker.sh), and the knobs of docker.sh.
 set -euo pipefail
 here=$(cd "$(dirname "$0")" && pwd)
@@ -73,12 +75,47 @@ mount_main() {   # mount_main <plan|start> <share|remote:peer> --path <p> [--as 
   exit 0
 }
 
+move_main() {   # move_main <plan|start>: hs docker move-apps (the apps of /opt/apps into the share apps)
+  local verb=$1 out rc l unit
+  export HS_PLAIN=1 HS_LANG=en HS_CALLER=web
+  if [ "$verb" = plan ]; then
+    rc=0; out=$(docker_sh move-apps --dry-run </dev/null 2>&1) || rc=$?
+    [ "$rc" = 0 ] || refuse "$(last_line <<<"$out")"
+    printf 'status	ok
+heading	Move the apps into the share apps
+'
+    while IFS= read -r l; do
+      case "$l" in
+        '  '[0-9]*'. '*) printf 'step	%s
+' "${l#"${l%%[![:space:]]*}"}" ;;
+        '  ! '*) printf 'warn	%s
+' "${l#  ! }" ;;
+        '    Size to copy'*|'    Free on the SSD pool'*) printf 'note	%s
+' "$(tr -s ' ' <<<"${l#"${l%%[![:space:]]*}"}")" ;;
+      esac
+    done <<<"$out"
+    printf 'command	hs docker move-apps --yes --confirm docker --job
+long	yes
+'
+    exit 0
+  fi
+  rc=0; out=$(docker_sh move-apps --yes --confirm docker --job </dev/null 2>&1) || rc=$?
+  [ "$rc" = 0 ] || refuse "$(last_line <<<"$out")"
+  unit=$(sed -n 's/^.*Started in the background: //p' <<<"$out" | head -n 1)
+  printf 'status	started
+'
+  [ -z "$unit" ] || printf 'unit	%s
+' "$unit"
+  exit 0
+}
+
 verb=${1:-}; action=${2:-}
-case "$verb" in plan|start) ;; *) echo "usage: docker-setup.sh plan|start setup --set <key>=<value>... | mount <share|remote:peer> --path <p>" >&2; exit 1 ;; esac
+case "$verb" in plan|start) ;; *) echo "usage: docker-setup.sh plan|start setup --set <key>=<value>... | mount <share|remote:peer> --path <p> | move-apps" >&2; exit 1 ;; esac
 case "$action" in
   setup) ;;
   mount) shift 2; mount_main "$verb" "$@" ;;
-  *) refuse "unknown action (setup, mount)" ;;
+  move-apps) move_main "$verb" ;;
+  *) refuse "unknown action (setup, mount, move-apps)" ;;
 esac
 shift 2
 

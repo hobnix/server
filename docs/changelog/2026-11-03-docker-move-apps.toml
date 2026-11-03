@@ -1,0 +1,4 @@
+date  = "2026-11-03"
+type  = "feature"
+title = "hs docker move-apps moves existing Docker apps into the share apps"
+body  = """Apps that were made before the share apps existed live in /opt/apps inside Docker. hs docker move-apps shows a plan, takes a snapshot of docker, asks you to type docker and then moves them one by one into apps/stacks/<name>/ (apps of the Docker page) or apps/recipes/<name>/ (recipes). Nothing is deleted: the compose file is rewritten with a docker-compose.yml.prev next to it, the old folder is renamed to <name>.moved-<date> after the app started from its new place, and an app that fails is started from /opt/apps again while the others go on. hs docker move-apps --finish removes the old folders later. hs update never runs it. Not tested on hardware yet."""

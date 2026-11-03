@@ -13,8 +13,8 @@
 #   docker_new_app_dir <app> web|recipe  where a NEW app goes: $DOCKER_APPS_ROOT/stacks/<app> or recipes/<app> (no exec, the folder is not made)
 # The share `apps` (host /fast/shares/apps) is mounted in docker at /shares/apps (docs/PLAN-docker-instances.md).
 _dockerapps_lib=$(cd "${BASH_SOURCE[0]%/*}" && pwd)
-DOCKER_APPS_ROOT=/shares/apps
-DOCKER_APPS_LEGACY=/opt/apps
+DOCKER_APPS_ROOT=${HS_DOCKER_APPS_ROOT:-/shares/apps}   # the HS_ knobs are for tests
+DOCKER_APPS_LEGACY=${HS_DOCKER_APPS_LEGACY:-/opt/apps}
 
 docker_app_find() {   # docker_app_find <app>: prints "kind<TAB>folder" (web|recipe|legacy), exit 1 when the app has no folder
   local app=${1:-} out
