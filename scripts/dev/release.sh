@@ -79,9 +79,9 @@ if [ "$what" = bump ]; then
   ok "$(t 'Branch %s pushed' "$branch")"
   if $pr; then
     command -v gh >/dev/null 2>&1 || fail "gh is not installed: open the pull request by hand."
-    gh pr create --base main --title "$pkg: $old -> $new" --body "Raises the version of $pkg ($mode). package.toml and index.toml agree." || fail "gh could not open the pull request."
+    gh pr create --base develop --title "$pkg: $old -> $new" --body "Raises the version of $pkg ($mode). package.toml and index.toml agree." || fail "gh could not open the pull request."
   else
-    next_step "gh pr create --base main"
+    next_step "gh pr create --base develop"
   fi
   exit 0
 fi

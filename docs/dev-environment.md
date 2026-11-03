@@ -50,6 +50,28 @@ scripts/dev/t wsl root
 
 The runner copies the working tree into `~/hobnix-test` in the WSL (ext4, much faster than `/mnt/c`) and runs the tests there.
 
+## Branches and releases
+
+The same model in hobnix/server, hobnix/recipes and hobnix/extensions.
+
+| Branch | Holds | Who writes to it |
+|---|---|---|
+| `develop` | the next release, always green | pull requests from `feature/<topic>` and `fix/<topic>` |
+| `main` | released code only | release pull requests from `develop`, hotfix pull requests |
+
+1. Start a worktree from `origin/develop`, name the branch `feature/<topic>`, open the pull request against `develop`. CI runs on every
+   pull request, whatever its target.
+2. To release, open a pull request from `develop` into `main` and merge it with a **merge commit** (no squash, so `develop` stays an
+   ancestor of `main`). Then, on `main`, tag it: core `git tag -s vX.Y.Z`, package repositories `bash <core>/scripts/dev/release.sh`
+   (it refuses unless you are on `main`, clean and equal to `origin/main`). The tag on the core builds the installer ISO.
+3. A hotfix branches from `main`, goes into `main` through a pull request and is tagged. Merge `main` back into `develop` right after, so
+   the fix is not lost and the next release pull request has no conflict.
+4. `main` is protected: no direct pushes, no force pushes, no deletion. The primary checkout stays on `main` (guard
+   scripts/dev/guard-primary-checkout.sh).
+
+Update channels (Stable, Beta, Edge) are designed in docs/PLAN-channels.md; they build on these branches and tags.
+Not tested on hardware yet.
+
 ## Agents
 
 The main session orchestrates and keeps its context small. It delegates to the agents in `.claude/agents/`, each with its own model and effort:

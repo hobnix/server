@@ -19,6 +19,9 @@ hobnix/extensions (docs/PLAN-packages.md); the core fetches them with `hs pkg`.
   recipe needs packages/<name>/package.toml and ends with `docs_hint`; a user-visible change adds a docs/changelog entry.
 - **Secrets** are read only through scripts/lib/secret.sh and never go through argv or the environment.
 - **Docs are English** and follow docs/GUIDE-TEMPLATE.md; a step that was not run on real hardware says "Not tested on hardware yet."
+- **Branches:** `develop` is the default branch: feature branches start from it and pull requests target it. `main` holds released code
+  only and takes nothing but a release pull request (develop into main, merge commit, no squash) followed by a signed `vX.Y.Z` tag on
+  main. A hotfix branches from main, goes into main, then back into develop. Details: docs/dev-environment.md "Branches and releases".
 - **Git:** never edit, commit or switch branches in the primary checkout (stays on main; work in your own worktree; guard: scripts/dev/guard-primary-checkout.sh, `bash scripts/dev/install-guards.sh` once per clone); stage files by name after `git status`; no `Co-Authored-By` or "generated with" lines about any AI tool in commits or PRs.
 - **Honest reports:** say what failed or was not run. Never claim a result that was not seen.
 
