@@ -122,6 +122,7 @@ Moving recipes out of the repository turns `scripts/recipes/_lib.sh`, `scripts/l
 - a function in the contract is only removed after one API level where it prints a deprecation warning;
 - level 4: a package may bring a `sys ext <name> boot` row that `hs-ext-boot.service` runs at boot (docs/PLAN-extensions.md, "At boot");
 - level 5: a recipe may declare `# runs: lxc docker vm` (manifest `runs = [...]`, default `lxc`); with more than one word the recipe dialog asks `RUNS` (docs/PLAN-docker-instances.md, phase 6);
+- level 6: a recipe that runs in Docker keeps its files in `APP_DIR` (`apps/recipes/<app>` in the share apps, or the legacy `/opt/apps/<app>` when the app is there already); `child_compose` writes there (docs/PLAN-docker-instances.md, Decision 13);
 - `requires_core` names the lowest level a package works with; the core refuses a package that needs more;
 - core tests run every package of the default repositories against the current core (see "Compatibility").
 

@@ -11,7 +11,8 @@
 # Every check is repeated at start, and a plan refuses before anything changes.
 # An image from a private registry (ghcr.io) needs its token from the vault (lib/docker-auth.sh): a closed vault refuses pull, rebuild and
 # app-save at the plan (fix: hs vault open); start, stop, restart never need it.
-# delete keeps /opt/apps/<app> unless --delete-data is given (the app stays editable and can be started again).
+# The files of an app live in the share apps (seen in docker at /shares/apps): stacks/<app> for web-managed apps, recipes/<app> for recipes,
+# or the legacy /opt/apps/<app> (lib/docker-apps.sh docker_app_dir). delete keeps the folder unless --delete-data is given (the app stays editable and can be started again).
 # Test knobs: HS_DOCKER_NO_JOB=1 (run pull/rebuild/save/delete inline), HS_INCUS, HS_DOCKER_SH and HS_CT_CHANGE (stand in for docker.sh and ct-change.sh).
 set -euo pipefail
 here=$(cd "$(dirname "$0")" && pwd)
@@ -90,7 +91,9 @@ find_working_dir() {
   raw=$(timeout 10 "${HS_INCUS:-incus}" exec "$CT" -- sh -c '
     ids=$(docker ps -aq -f label=com.docker.compose.project="$1")
     if [ -z "$ids" ]; then   # no container (a delete that kept the data): the app folder is the working directory
-      [ -f "/opt/apps/$1/docker-compose.yml" ] && { printf "%s\n" "/opt/apps/$1"; exit 0; }
+      for d in "/shares/apps/stacks/$1" "/opt/apps/$1" "/shares/apps/recipes/$1"; do
+        [ -f "$d/docker-compose.yml" ] && { printf "%s\n" "$d"; exit 0; }
+      done
       exit 1
     fi
     first=""
@@ -190,12 +193,38 @@ compose_to_container() {
   done
 }
 
-make_tmp_dir() {
+# the temp files are on the same filesystem as the app folders (so mv is atomic), in a folder only root of docker may enter
+tmp_root_for() {   # tmp_root_for <app folder>: the .hs-tmp next to the folder's parent, so mv into the folder stays on one filesystem
+  case "$1" in "$DOCKER_APPS_ROOT"/*) printf '%s/.hs-tmp\n' "$DOCKER_APPS_ROOT" ;; *) printf '%s/.hs-tmp\n' "$DOCKER_APPS_LEGACY" ;; esac
+}
+
+# a NEW app goes under the share apps: refuse when docker does not have it mounted (the files would land on the container disk)
+need_apps_mounted() {
+  docker_apps_mounted && return 0
+  printf 'status\trefused\nreason\tThe share apps is not mounted in Docker.\nfix\ths docker enable\n'
+  exit 1
+}
+
+app_dir_for() {   # app_dir_for <app> [new]: the folder of the app; a NEW app goes to stacks/
+  if [ "${2:-}" = new ]; then docker_new_app_dir "$1" web; else docker_app_dir "$1"; fi
+}
+
+mapped_owner() {   # the one user of docker that writes the share apps, uid:gid (docker.sh --status mapped), else 1000:1000
+  local k v m=
+  while IFS=$'\t' read -r k v; do
+    [ "$k" = mapped ] && m=$v
+  done < <(bash "${HS_DOCKER_SH:-$here/docker.sh}" --status </dev/null 2>/dev/null || true)
+  [[ "$m" =~ ^[0-9]+:[0-9]+$ ]] || m=1000:1000
+  printf '%s\n' "$m"
+}
+
+make_tmp_dir() {   # make_tmp_dir <app> <app folder>
+  local root; root=$(tmp_root_for "$2")
   timeout 8 "${HS_INCUS:-incus}" exec "$CT" -- sh -c '
-    mkdir -p /opt/apps/.hs-tmp
-    chmod 700 /opt/apps/.hs-tmp
-    mktemp -d /opt/apps/.hs-tmp/"$1".XXXX
-  ' sh "$1" </dev/null
+    mkdir -p "$2"
+    chmod 700 "$2"
+    mktemp -d "$2"/"$1".XXXX
+  ' sh "$1" "$root" </dev/null
 }
 
 remove_tmp() {
@@ -206,12 +235,10 @@ remove_tmp() {
 
 # Prepare the temp files inside the container. Prints nothing on success, filtered compose errors on failure.
 prepare_in_container() {
-  local app=$1 tmp=$2
+  local app=$1 tmp=$2 dir=$3
   compose_to_container | timeout 30 "${HS_INCUS:-incus}" exec "$CT" -- bash -c '
     set -uo pipefail
-    app=$1; tmp=$2
-    mkdir -p /opt/apps/.hs-tmp
-    chmod 700 /opt/apps/.hs-tmp
+    app=$1; tmp=$2; dir=$3
     chmod 700 "$tmp"
     declare -A SET REM
     compose="" rec="" name="" value="" line="" envtxt="" have_txt=0
@@ -232,7 +259,7 @@ prepare_in_container() {
         *) echo "malformed record" >&2; exit 1 ;;
       esac
     done
-    old=/opt/apps/$app/.env
+    old=$dir/.env
     new=$tmp/.env
     : > "$new"
     if [ "$have_txt" -eq 1 ]; then
@@ -271,18 +298,18 @@ prepare_in_container() {
     }
     out=$tmp/.out
     rc=0
-    docker compose -p "$app" --project-directory "/opt/apps/$app" -f "$tmp/docker-compose.yml" --env-file "$tmp/.env" config -q >"$out" 2>&1 || rc=$?
+    docker compose -p "$app" --project-directory "$dir" -f "$tmp/docker-compose.yml" --env-file "$tmp/.env" config -q >"$out" 2>&1 || rc=$?
     filter <"$out" >&2
     rm -f "$out"
     exit $rc
-  ' sh "$app" "$tmp" </dev/null
+  ' sh "$app" "$tmp" "$dir" </dev/null
 }
 
 # The names that differ between the old .env of the app and the new one in the temp dir: "added|removed|changed<TAB>NAME". Names only.
 env_diff() {
-  local app=$1 tmp=$2
+  local app=$1 tmp=$2 dir=$3
   timeout 8 "${HS_INCUS:-incus}" exec "$CT" -- sh -c '
-    old=/opt/apps/$1/.env; new=$2/.env
+    old=$3/.env; new=$2/.env
     [ -f "$old" ] || old=/dev/null
     awk '"'"'
       { f = (FILENAME == ARGV[1]) ? 1 : 2 }
@@ -295,14 +322,14 @@ env_diff() {
         }
       }
     '"'"' "$old" "$new" | sort
-  ' sh "$app" "$tmp" </dev/null 2>/dev/null
+  ' sh "$app" "$tmp" "$dir" </dev/null 2>/dev/null
 }
 
 run_check() {
-  local app=$1 tmp=$2 json
+  local app=$1 tmp=$2 dir=$3 json
   json=$(timeout 30 "${HS_INCUS:-incus}" exec "$CT" -- sh -c '
-    docker compose -p "$1" --project-directory "/opt/apps/$1" -f "$2/docker-compose.yml" --env-file "$2/.env" config --format json
-  ' sh "$app" "$tmp" </dev/null 2>/dev/null) || return 1
+    docker compose -p "$1" --project-directory "$3" -f "$2/docker-compose.yml" --env-file "$2/.env" config --format json
+  ' sh "$app" "$tmp" "$dir" </dev/null 2>/dev/null) || return 1
   printf '%s\n' "$json" | python3 "$here/lib/docker_app_doc.py" check
 }
 
@@ -370,7 +397,7 @@ vault_finding() {
 
 # the policy lines of docker_app_doc.py check (refuse|port|warn|cname|bind, each with a path) and the host's own checks -> findings
 collect_policy() {
-  local app=$1 policy=$2 k a b c owner src hit
+  local app=$1 policy=$2 dir=$3 k a b c owner src hit
   local -a binds=()
   local -A bpath=()
   while IFS=$'\t' read -r k a b c; do
@@ -386,7 +413,7 @@ collect_policy() {
         hit=$(cname_owner "$a" "$app")
         [ -z "$hit" ] || add_finding error "$(where_of "$b")" "The container name $a is used by $hit." ;;
       bind)
-        case "$a" in "/opt/apps/$app/"*|"/opt/apps/$app") continue ;; esac   # the folder of the app itself is made for it
+        case "$a" in "$dir/"*|"$dir") continue ;; esac   # the folder of the app itself is made for it
         binds+=("$a"); bpath[$a]=$c ;;
     esac
   done <<<"$policy"
@@ -402,10 +429,13 @@ collect_policy() {
 # cmd_plan_save <app> <rev> [save|write]: the plan, and the Test of the web editor (the same call, no dialog): every problem is a finding line
 cmd_plan_save() {
   local app=$1 rev=$2 mode=${3:-save} tmp rc=0 f nerr=0
-  local current is_new=0 errf=/tmp/docker-app-save-err-$$
+  local current is_new=0 errf=/tmp/docker-app-save-err-$$ dir
   if [ "$rev" = new ]; then
     is_new=1
-    if timeout 8 "${HS_INCUS:-incus}" exec "$CT" -- sh -c '[ -e "/opt/apps/$1" ]' sh "$app" </dev/null 2>/dev/null; then
+    need_apps_mounted
+    dir=$(app_dir_for "$app" new)
+    # the three places an app can live: stacks/ and recipes/ of the share apps, the legacy /opt/apps
+    if timeout 8 "${HS_INCUS:-incus}" exec "$CT" -- sh -c '[ -e "$2/stacks/$1" ] || [ -e "$2/recipes/$1" ] || [ -e "$3/$1" ]' sh "$app" "$DOCKER_APPS_ROOT" "$DOCKER_APPS_LEGACY" </dev/null 2>/dev/null; then
       refuse "The app '$app' exists already."
     fi
     if app_is_child "$app"; then refuse "An app called '$app' already runs in Docker."; fi
@@ -413,18 +443,19 @@ cmd_plan_save() {
   else
     current=$(current_rev "$app") || refuse "The app '$app' cannot be read."
     [ "$current" = "$rev" ] || refuse "The app changed meanwhile. Reload it before saving."
+    dir=$(app_dir_for "$app") || refuse "The folder of the app '$app' cannot be found."
   fi
   DOC_COLLECT=1
   read_document
-  tmp=$(make_tmp_dir "$app")
-  if ! prepare_in_container "$app" "$tmp" >"$errf" 2>&1; then
+  tmp=$(make_tmp_dir "$app" "$dir")
+  if ! prepare_in_container "$app" "$tmp" "$dir" >"$errf" 2>&1; then
     rc=1
   fi
   if [ "$rc" -ne 0 ]; then
     collect_compose_errors "$errf" "$tmp"
   else
     local policy
-    if policy=$(run_check "$app" "$tmp" 2>/dev/null); then collect_policy "$app" "$policy"
+    if policy=$(run_check "$app" "$tmp" "$dir" 2>/dev/null); then collect_policy "$app" "$policy" "$dir"
     else add_finding error - "The compose file is not valid."; fi
     [ "$mode" = write ] || vault_finding "$app" "$tmp"
   fi
@@ -447,7 +478,7 @@ cmd_plan_save() {
         removed) printf 'step\tRemove %s\n' "$name" ;;
         changed) printf 'step\tChange %s\n' "$name" ;;
       esac
-    done < <(env_diff "$app" "$tmp")
+    done < <(env_diff "$app" "$tmp" "$dir")
   fi
   for name in ${DOC_SET_NAMES[@]+"${DOC_SET_NAMES[@]}"}; do printf 'step\tSet %s\n' "$name"; done
   for name in ${DOC_REM_NAMES[@]+"${DOC_REM_NAMES[@]}"}; do printf 'step\tRemove %s\n' "$name"; done
@@ -460,18 +491,18 @@ cmd_plan_save() {
 }
 
 cmd_start_save() {
-  local app=$1 rev=$2 mode=${3:-save} tmp is_new=0 policy up=1
-  if [ "$rev" = new ]; then is_new=1; fi
+  local app=$1 rev=$2 mode=${3:-save} tmp is_new=0 policy up=1 dir
+  if [ "$rev" = new ]; then is_new=1; need_apps_mounted; dir=$(app_dir_for "$app" new); else dir=$(app_dir_for "$app") || refuse "The folder of the app '$app' cannot be found."; fi
   if [ "$mode" = write ]; then up=0; fi
   read_document
-  tmp=$(make_tmp_dir "$app")
-  if ! prepare_in_container "$app" "$tmp" >/tmp/docker-app-save-err-$$ 2>&1; then
+  tmp=$(make_tmp_dir "$app" "$dir")
+  if ! prepare_in_container "$app" "$tmp" "$dir" >/tmp/docker-app-save-err-$$ 2>&1; then
     local err
     err=$(cat /tmp/docker-app-save-err-$$ 2>/dev/null || true)
     remove_tmp "$tmp"
     if [ -n "$err" ]; then refuse "The compose file is not valid. $err"; else refuse "The compose file is not valid."; fi
   fi
-  policy=$(run_check "$app" "$tmp" 2>/dev/null) || { remove_tmp "$tmp"; refuse "The compose file is not valid."; }
+  policy=$(run_check "$app" "$tmp" "$dir" 2>/dev/null) || { remove_tmp "$tmp"; refuse "The compose file is not valid."; }
   while IFS=$'\t' read -r k v p; do
     case "$k" in
       port)
@@ -498,7 +529,7 @@ cmd_start_save() {
 }
 
 apply_save() {
-  local app=$1 rev=$2 tmp=$3 is_new=$4 up=${5:-1} current managed rc
+  local app=$1 rev=$2 tmp=$3 is_new=$4 up=${5:-1} current managed rc dir owner
   [[ "$app" =~ $APP_RE ]] || { remove_tmp "$tmp"; fail "The app name is not valid."; }
   docker_on_and_running || { remove_tmp "$tmp"; fail "Docker is not on or not running."; }
   app_is_child "$app" || [ "$is_new" -eq 1 ] || { remove_tmp "$tmp"; fail "No app called '$app' was found."; }
@@ -520,13 +551,17 @@ apply_save() {
     # shellcheck disable=SC2086
     lines=$(docker_auth_lines $hosts)
   fi
+  if [ "$is_new" -eq 1 ]; then
+    docker_apps_mounted || { remove_tmp "$tmp"; fail "$(t 'The share apps is not mounted in Docker.')"; }
+    dir=$(app_dir_for "$app" new)
+  else dir=$(app_dir_for "$app") || { remove_tmp "$tmp"; fail "The folder of the app '$app' cannot be found."; }; fi
+  owner=$(mapped_owner)
   printf '%s\n' "$lines" | timeout 600 "${HS_INCUS:-incus}" exec "$CT" -- bash -c "$DOCKER_AUTH_LOGIN"'
     set -uo pipefail
-    app=$1; rev=$2; tmp=$3; is_new=$4; up=$5
-    dir=/opt/apps/$app
+    app=$1; rev=$2; tmp=$3; is_new=$4; up=$5; dir=$6; owner=$7
     if [ "$up" -eq 1 ]; then hs_auth_login || { echo "The registry login failed." >&2; rm -rf -- "$tmp"; exit 1; }; fi
     if [ "$is_new" -eq 1 ]; then
-      mkdir -p "$dir"
+      mkdir -p "$dir/data"
     fi
     # make .prev copies when present
     for f in docker-compose.yml .env; do
@@ -541,10 +576,12 @@ apply_save() {
       mv -f "$tmp/.env" "$dir/.env"
       chmod 600 "$dir/.env"
     fi
-    if [ "$is_new" -eq 1 ]; then
-      : > "$dir/.hs-webui"
-      chmod 644 "$dir/.hs-webui"
-    fi
+    case "$dir" in   # the files belong to the one user of docker that Samba and the Docker page share (not the legacy folder)
+      /shares/apps/*)
+        chown "$owner" "$dir/docker-compose.yml"
+        [ ! -f "$dir/.env" ] || chown "$owner" "$dir/.env"
+        if [ "$is_new" -eq 1 ]; then chown "$owner" "$dir" "$dir/data"; elif [ -d "$dir/data" ]; then chown "$owner" "$dir/data"; fi ;;
+    esac
     if [ "$up" -eq 0 ]; then rm -f "$dir"/*.prev; rm -rf -- "$tmp"; exit 0; fi
     values=""
     [ -f "$dir/.env" ] && values=$(sed -n "s/^[A-Za-z_][A-Za-z0-9_]*=//p" "$dir/.env" | awk "length(\$0) >= 4")
@@ -591,7 +628,7 @@ apply_save() {
     fi
     rm -f "$dir"/*.prev
     rm -rf -- "$tmp"
-  ' sh "$app" "$rev" "$tmp" "$is_new" "$up"
+  ' sh "$app" "$rev" "$tmp" "$is_new" "$up" "$dir" "$owner"
   rc=$?
   if [ "$rc" -ne 0 ]; then
     remove_tmp "$tmp"
@@ -653,18 +690,23 @@ apply_rebuild() {
 # ── delete ──
 
 cmd_plan_delete() {
-  local app=$1 data=$2
+  local app=$1 data=$2 dir
   write_checks "$app"
+  dir=$(app_dir_for "$app") || refuse "The folder of the app '$app' cannot be found."
   printf 'status\tok\nheading\tdelete %s\n' "$app"
   printf 'confirm_name\t%s\n' "$app"
   printf 'step\tStop and remove the containers\n'
   if [ "$data" = 1 ]; then
-    printf 'danger\tDelete the app, its containers and /opt/apps/%s.\n' "$app"
+    printf 'danger\tDelete the app, its containers and %s.\n' "$dir"
     printf 'step\tRemove the app directory and its data\n'
   else
-    printf 'note\t/opt/apps/%s is kept: the app stays editable and can be started again.\n' "$app"
+    printf 'note\t%s is kept: the app stays editable and can be started again.\n' "$dir"
   fi
-  printf 'note\tA snapshot of docker is taken first.\n'
+  if [ "$data" = 1 ] && [[ "$dir" == "$DOCKER_APPS_ROOT"/* ]]; then
+    printf 'note\tA snapshot of docker and of the share apps is taken first.\n'
+  else
+    printf 'note\tA snapshot of docker is taken first.\n'
+  fi
   printf 'long\tyes\n'
 }
 
@@ -683,27 +725,35 @@ cmd_start_delete() {
 }
 
 apply_delete() {
-  local app=$1 data=${2:-0} managed
+  local app=$1 data=${2:-0} managed dir
   [[ "$app" =~ $APP_RE ]] || fail "The app name is not valid."
   docker_on_and_running || fail "Docker is not on or not running."
   app_is_child "$app" || fail "No app called '$app' was found."
   is_manager "$app" && fail "The app '$app' is the Docker manager."
   managed=$(current_managed "$app") || fail "The app '$app' cannot be read."
   [ "$managed" = web ] || fail "Only web-managed apps can be deleted."
+  dir=$(app_dir_for "$app") || fail "$(t 'The folder of the app %s cannot be found.' "$app")"
   step "$(t 'Snapshot docker before deleting %s' "$app")"
   if ! bash "${HS_CT_CHANGE:-$here/ct-change.sh}" start docker snapshot --label "pre-delete-$app" >/dev/null 2>&1; then
     fail "$(t 'The snapshot of docker failed. Nothing was deleted.')"
   fi
+  if [ "$data" = 1 ] && [[ "$dir" == "$DOCKER_APPS_ROOT"/* ]]; then   # the files are in the share apps, which the snapshot of the container does not cover
+    step "$(t 'Snapshot the share apps before deleting %s' "$app")"
+    if ! bash "${HS_SHARE_SNAP:-$here/share-snap.sh}" apps snapshot "pre-delete-$app" >/dev/null 2>&1; then
+      fail "$(t 'The snapshot of the share apps failed. Nothing was deleted.')"
+    fi
+  fi
   step "$(t 'Stop and remove the containers of %s' "$app")"
-  if ! timeout 120 "${HS_INCUS:-incus}" exec "$CT" -- sh -c 'cd "/opt/apps/$1" && docker compose -p "$1" down --remove-orphans' sh "$app" </dev/null; then
+  if ! timeout 120 "${HS_INCUS:-incus}" exec "$CT" -- sh -c 'cd "$2" && docker compose -p "$1" down --remove-orphans' sh "$app" "$dir" </dev/null; then
     fail "$(t 'Stopping the containers of %s failed. The app directory was not removed.' "$app")"
   fi
   if [ "$data" != 1 ]; then
-    ok "$(t 'Deleted the containers of %s; /opt/apps/%s is kept.' "$app" "$app")"
+    ok "$(t 'Deleted the containers of %s; %s is kept.' "$app" "$dir")"
     return 0
   fi
-  step "$(t 'Remove /opt/apps/%s' "$app")"
-  timeout 30 "${HS_INCUS:-incus}" exec "$CT" -- sh -c 'rm -rf -- "/opt/apps/$1"' sh "$app" </dev/null || fail "$(t 'Removing /opt/apps/%s failed.' "$app")"
+  step "$(t 'Remove %s' "$dir")"
+  case "$dir" in "$DOCKER_APPS_ROOT/stacks/$app"|"$DOCKER_APPS_LEGACY/$app") ;; *) fail "$(t 'Removing %s failed.' "$dir")" ;; esac
+  timeout 30 "${HS_INCUS:-incus}" exec "$CT" -- sh -c 'rm -rf -- "$1"' sh "$dir" </dev/null || fail "$(t 'Removing %s failed.' "$dir")"
   ok "$(t 'Deleted %s' "$app")"
 }
 

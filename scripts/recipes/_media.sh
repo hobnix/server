@@ -128,7 +128,7 @@ media_notify_conf() {   # media_notify_conf <container> <folder inside it> [look
   if [ -n "$lookup" ]; then
     for app in radarr:7878 sonarr:8989; do
       a=${app%%:*}
-      for where in "$a:/opt/$a/config/config.xml" "arr:/opt/arr/$a/config.xml" "docker:/opt/apps/$a/config/config.xml"; do
+      for where in "$a:/opt/$a/config/config.xml" "arr:/opt/arr/$a/config.xml" "docker:/opt/apps/$a/config/config.xml" "docker:/shares/apps/recipes/$a/config/config.xml"; do
         aip=$(address "${where%%:*}" 2>/dev/null) && [ -n "$aip" ] || continue
         akey=$(incus exec "${where%%:*}" -- sed -n 's|.*<ApiKey>\(.*\)</ApiKey>.*|\1|p' "${where#*:}" </dev/null 2>/dev/null | head -n1 || true)
         [ -n "$akey" ] || continue

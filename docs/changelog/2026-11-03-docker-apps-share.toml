@@ -1,0 +1,4 @@
+date  = "2026-11-03"
+type  = "feature"
+title = "Docker keeps the files of its apps in one share, apps"
+body  = """hs docker enable now makes a share `apps` on the SSD pool and gives it to Docker at /shares/apps. Apps made on the Docker page live in apps/stacks/<name>/ and recipes in apps/recipes/<name>/, so you can reach them over Samba, they are in the backup and have automatic snapshots. Existing apps stay in /opt/apps until they are moved. Package API level 6."""

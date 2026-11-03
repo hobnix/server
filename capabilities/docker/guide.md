@@ -20,7 +20,7 @@ The plan shows the container, its size and the manager. The manager is `webui` b
 sudo hs docker enable
 ```
 
-It asks, then creates the container `docker`, installs Docker, starts the manager if there is one, locks the container and adds it to the backup (unless the setting `backupNewInstances` is false: then it prints how to do it later, `hs backup ct docker on`). It can run in the background (`--job`).
+It asks, then creates the container `docker`, installs Docker, makes the share `apps` on the SSD pool and gives it to Docker (see "Where the app data goes"; a share called `apps` on the disks stops this), starts the manager if there is one, locks the container and adds it to the backup (unless the setting `backupNewInstances` is false: then it prints how to do it later, `hs backup ct docker on`). It can run in the background (`--job`).
 
 ## Look at the apps
 Not tested on hardware yet.
@@ -32,10 +32,10 @@ hs docker list
 Every compose project in Docker is an app, with its state and the ports it publishes. The manager itself is not listed. `hs docker status` shows the container, the manager, the size and the address.
 
 ## Where the app data goes
-Keep the data of an app in a folder under `/opt/apps/<app>/` and mount it into the app as a bind mount. These folders are in the container and so in its backup. Named Docker volumes are not in the backup.
+All files of the apps are in one share, `apps`, on the SSD pool (`/fast/shares/apps` on the server, `/shares/apps` inside Docker). An app made on the Docker page has its folder `stacks/<app>/` (`docker-compose.yml`, `.env`, `data/`), an app made by a recipe `recipes/<app>/`. You can also drop a folder with a `docker-compose.yml` into `stacks/` over Samba. Keep the data of an app in a folder under its own folder and mount it as a bind mount. The share is in the backup and has automatic snapshots. Named Docker volumes are not in the backup. Apps from an earlier version stay in `/opt/apps/<app>` inside the container (and in its backup) until they are moved. Not tested on hardware yet.
 
 ## Turn Docker off
-**This deletes the container `docker`, its apps and their data in `/opt/apps`.** Snapshots go with it; the backup stays. Look at the plan first.
+**This deletes the container `docker` and its containers.** Snapshots go with it; the backup stays. The share `apps` with the files of your apps stays on the SSD pool; delete it too with `hs share apps delete`. Apps still in `/opt/apps` are deleted with the container. Look at the plan first.
 
 Not tested on hardware yet.
 

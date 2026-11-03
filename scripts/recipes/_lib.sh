@@ -379,7 +379,8 @@ backup_with_dump() {   # backup_with_dump <name> <command inside the container, 
 # ── Recipes that run as a child of the docker container (docs/PLAN-docker-instances.md, phase 6) ──
 # A recipe with `# runs: lxc docker` sets app=${RECIPE_NAME:-<name>}; ct=$app before sourcing this file and calls
 # `recipe_runtime lxc docker` after its dry-run block. For docker it then has ct=docker, RUNS_DOCKER=true, ip=<address of the parent>
-# and existed=<is /opt/apps/$app there>; it skips ensure_container, fixed_address and install_docker and uses child_compose/up/pull.
+# APP_DIR=<the folder of the app in docker: the legacy /opt/apps/$app when it is there, else /shares/apps/recipes/$app>
+# and existed=<is that folder there>; it skips ensure_container, fixed_address and install_docker and uses child_compose/up/pull.
 docker_rows() {   # the key<TAB>value rows of `hs sys docker status`
   if [ -n "${HS_DOCKER_STATUS:-}" ]; then $HS_DOCKER_STATUS 2>/dev/null || true
   else bash "$scripts/docker.sh" --status 2>/dev/null || true; fi
@@ -401,21 +402,25 @@ recipe_runtime() {   # recipe_runtime <declared words, e.g. lxc docker>: sets RU
   fi
   app=${app:-$ct}; RUNS_DOCKER=true; ct=docker
   existed=false
-  if incus exec docker -- test -d "/opt/apps/${app}" </dev/null >/dev/null 2>&1; then existed=true; fi
+  APP_DIR=$(incus exec docker -- sh -c 'for d in "/opt/apps/$1" "/shares/apps/recipes/$1"; do [ -d "$d" ] && { printf "%s\n" "$d"; exit 0; }; done; exit 1' sh "$app" </dev/null 2>/dev/null) && existed=true
+  [ "$existed" = true ] || APP_DIR=/shares/apps/recipes/$app
+  case "$APP_DIR" in   # a new app goes to the share apps: it must be mounted in docker, else the files land on the container disk
+    /shares/apps/*) docker_apps_mounted || fail_fix "$(t 'The share apps is not mounted in Docker.')" "hs docker enable" ;;
+  esac
   ip=$(printf '%s\n' "$rows" | sed -n 's/^address\t//p' | head -n1)
   { [ -n "$ip" ] && [ "$ip" != - ]; } || fail "$(t 'The container docker has no address yet.')"
 }
 
-child_compose() {   # child_compose <app>: the compose file on stdin goes to /opt/apps/<app>/docker-compose.yml and is checked
-  local d=/opt/apps/$1
+child_compose() {   # child_compose <app>: the compose file on stdin goes to $APP_DIR/docker-compose.yml and is checked
+  local d=${APP_DIR:-/shares/apps/recipes/$1}
   incus exec docker -- sh -c "mkdir -p $d && cat > $d/docker-compose.yml.new && mv $d/docker-compose.yml.new $d/docker-compose.yml" ||
     fail "$(t "Could not write the compose file of '%s'." "$1")"
   incus exec docker -- sh -c "cd $d && docker compose -p $1 config -q" </dev/null || fail "$(t "The compose file of '%s' is not valid." "$1")"
 }
 . "${BASH_SOURCE[0]%/*}/../lib/docker-apps.sh"   # docker_port_owner (child_port_free)
 . "${BASH_SOURCE[0]%/*}/../lib/docker-auth.sh"   # docker_with_auth: the token of a private registry (ghcr.io) from the vault, for one command
-child_up() { docker_with_auth "$1" up -d; }     # child_up <app>
-child_pull() { docker_with_auth "$1" pull; }   # child_pull <app>
+child_up() { DOCKER_AUTH_DIR=${APP_DIR:-} docker_with_auth "$1" up -d; }     # child_up <app>
+child_pull() { DOCKER_AUTH_DIR=${APP_DIR:-} docker_with_auth "$1" pull; }   # child_pull <app>
 child_port_free() {   # child_port_free <port> <app>: fails when another project in the parent publishes the port
   local who
   who=$(docker_port_owner "$1" "$2" 2>/dev/null || true)

@@ -15,8 +15,9 @@
 #   docker_auth_locked <host>...         prints the first host whose token is locked (exit 0), exit 1 when none is
 #   docker_auth_lines <host>...          the stdin lines host<TAB>user<TAB>token of the hosts whose token is readable
 #   DOCKER_AUTH_LOGIN                    shell code for the container: logs in from stdin into a throwaway DOCKER_CONFIG, sets a cleanup trap
-#   docker_with_auth <app> <compose args...>   run `docker compose -p <app> <args>` in /opt/apps/<app> ($DOCKER_AUTH_DIR) with the logins
+#   docker_with_auth <app> <compose args...>   run `docker compose -p <app> <args>` in the folder of the app ($DOCKER_AUTH_DIR, else docker_app_dir) with the logins
 . "${BASH_SOURCE[0]%/*}/secret.sh"
+. "${BASH_SOURCE[0]%/*}/docker-apps.sh"
 
 docker_registries_file() { printf '%s/docker-registries.tsv\n' "${HS_STATE_DIR:-/var/lib/hs}"; }
 docker_registry_token_file() { printf '%s/docker-registry-%s\n' "${HS_STATE_DIR:-/var/lib/hs}" "$1"; }
@@ -31,12 +32,14 @@ docker_image_hosts() {
       h = p[1]; if (h ~ /[.:]/ || h == "localhost") if (!seen[h]++) print h }'
 }
 
+_auth_dir() { docker_app_dir "$1" 2>/dev/null || printf '%s/%s\n' "$DOCKER_APPS_LEGACY" "$1"; }   # the folder of the app (lib/docker-apps.sh)
+
 docker_app_images() {   # docker_app_images <app> [<compose file> <env file>]
-  local app=$1 file=${2:-} env=${3:-} dir=${DOCKER_AUTH_DIR:-/opt/apps/$1}
+  local app=$1 file=${2:-} env=${3:-} dir=${DOCKER_AUTH_DIR:-$(_auth_dir "$1")}
   timeout 30 "${HS_INCUS:-incus}" exec docker -- sh -c '
     app=$1; file=$2; env=$3; dir=$4
     if [ -n "$file" ]; then
-      docker compose -p "$app" --project-directory "/opt/apps/$app" -f "$file" ${env:+--env-file "$env"} config --images
+      docker compose -p "$app" --project-directory "$dir" -f "$file" ${env:+--env-file "$env"} config --images
     else
       cd "$dir" && docker compose -p "$app" config --images
     fi' sh "$app" "$file" "$env" "$dir" </dev/null 2>/dev/null || true
@@ -90,7 +93,7 @@ hs_auth_login() {
 '
 
 docker_with_auth() {
-  local app=$1 hosts h lines dir=${DOCKER_AUTH_DIR:-/opt/apps/$1}
+  local app=$1 hosts h lines dir=${DOCKER_AUTH_DIR:-$(_auth_dir "$1")}
   shift
   hosts=$(DOCKER_AUTH_DIR=$dir docker_auth_hosts "$app")
   # shellcheck disable=SC2086

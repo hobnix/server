@@ -59,8 +59,8 @@ with Docker inside. The gateway itself stays on the host (see the last section).
   The descriptor gets a `via = "<parent>"` field. The admin-page rule is unchanged: the manager's own page is `never-public` (ADMIN_TARGETS).
 - Backups: the unit is the parent. Phase 0 found that container backup is restic over `$INCUS_ROOT/<name>/rootfs` (default pool only) with
   `var/lib/docker/overlay2` and `image` excluded, and a custom volume mounted at `/var/lib/docker` is NOT under rootfs, so named Docker
-  volumes would not be backed up at all. App data therefore lives in bind directories inside the parent's rootfs (`/opt/apps/<project>/`),
-  which the existing container backup already covers; named Docker volumes are not used for app data. A `dump_hook` per child comes later. A child is never backed up on its own in the first version. The list shows
+  volumes would not be backed up at all. App data therefore lived in bind directories inside the parent's rootfs (`/opt/apps/<project>/`); since S2
+  it lives in the share `apps` (backed up as a share) and the docker rootfs backup keeps the dumps (/var/backups/hs); named Docker volumes are not used for app data. A `dump_hook` per child comes later. A child is never backed up on its own in the first version. The list shows
   "backed up with docker".
 - Restore of one child is out of scope for the first version; restoring the parent is the supported path.
 
@@ -249,8 +249,9 @@ move would reuse.
 
 12. Children are not in `hs sys ct list`. They and their `parent` come from their own read, `hs sys docker list` (own live topic, slow
     collected read); ct list keeps 17 fields (col 17 = owner).
-13. App data of a child lives in bind directories inside the parent's rootfs (`/opt/apps/<project>/`), so the existing container backup
-    covers it. No second volume for backup.sh to learn.
+13. (Replaced by S2, 2026-11-03: app data lives in the share `apps` on the SSD pool, `apps/stacks/<project>/` and `apps/recipes/<project>/`,
+    seen in docker at `/shares/apps`; it is backed up as a share. Older apps stay in `/opt/apps/<project>/` until `hs docker move-apps`.)
+    Before: App data of a child lived in bind directories inside the parent's rootfs (`/opt/apps/<project>/`).
 14. No storage choice for now: the `docker` container uses the one Incus pool (`default`). A pool on bulk is a later, separate question.
 
 15. Owner answers for phases 6 and 8 (2026-11-02):
