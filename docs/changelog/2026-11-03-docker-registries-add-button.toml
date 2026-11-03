@@ -1,0 +1,4 @@
+date  = "2026-11-03"
+type  = "fix"
+title = "Docker, Registries: the Add registry button shows when there is no login yet"
+body  = """With no registry login the page showed only the empty message and no way to add the first one, because the button sat in the toolbar above the table, which is hidden while the list is empty. The empty message now carries the Add registry button."""
