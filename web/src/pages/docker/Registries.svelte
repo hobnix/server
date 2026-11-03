@@ -52,6 +52,7 @@
       {/snippet}
     </Table>
   </div>
+  {#snippet emptyAction()}<Button size="sm" icon="plus" onclick={add}>Add registry</Button>{/snippet}
 </PageState>
 
 <style>
