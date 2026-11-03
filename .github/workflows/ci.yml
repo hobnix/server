@@ -23,7 +23,8 @@ jobs:
         if: github.event_name == 'pull_request'
         env:
           BASE: ${{ github.event.pull_request.base.sha }}
-        run: bash scripts/dev/changelog-check.sh "$BASE" || echo "::warning::No docs/changelog entry: add one if users see this change (CONTRIBUTING.md)."
+        run: |
+          bash scripts/dev/changelog-check.sh "$BASE" || echo "::warning::No docs/changelog entry: add one if users see this change (CONTRIBUTING.md)."
       - name: shellcheck (errors only)
         run: |
           sudo apt-get install -y -qq shellcheck
