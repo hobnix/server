@@ -1,0 +1,33 @@
+# Hand-written shapes of `hs sys` outputs; scripts/openapi-gen.py turns them into docs/api/openapi.json.
+# Key = the row path without "sys ". Fields: kind (tsv|json|text); either columns = [...] (every line has these fields) or
+# records = {tag = [fields after the tag]} (the first field names the line); optional enums = {field = [...]}
+# (records: "tag.field" for one line kind), stdin = "line"|"bytes", note. Rows without an entry are marked x-hs-described: false.
+
+["jobs list"]
+kind = "tsv"
+columns = ["unit", "description", "next", "last", "result"]
+enums = { result = ["ok", "failed", "never"] }
+
+["jobs running"]
+kind = "tsv"
+columns = ["unit", "description", "started"]
+
+["jobs tail <unit>"]
+kind = "tsv"
+records = { state = ["state"], exit = ["status"], line = ["text"], next = ["count"] }
+enums = { state = ["running", "ok", "failed", "unknown"] }
+
+["ct list"]
+kind = "tsv"
+columns = ["name", "type", "state", "address", "ram", "cpu", "autostart", "mac_pinned", "docker", "disk", "snapshots",
+           "last_snapshot", "memory_in_use", "cpu_time", "bindings", "last_start_utc", "owner"]
+
+["pool state"]
+kind = "tsv"
+records = { lock = ["state", "text"], paused = ["state", "text"], scrub = ["pool", "state", "text"], sync = ["pool", "state", "text"] }
+enums = { "lock.state" = ["pool-change", "free", "busy", "unknown"], "paused.state" = ["yes", "no"] }
+
+["pool state <pool>"]
+kind = "tsv"
+records = { lock = ["state", "text"], paused = ["state", "text"], scrub = ["pool", "state", "text"], sync = ["pool", "state", "text"] }
+enums = { "lock.state" = ["pool-change", "free", "busy", "unknown"], "paused.state" = ["yes", "no"] }

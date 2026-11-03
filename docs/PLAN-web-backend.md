@@ -7,7 +7,7 @@ reference of what the server offers); this file records the decisions about how 
 
 - **Reads and changes are `hs sys ...` calls.** No second data layer. The state database (`state.db`) stays what it is (history: disk inventory,
   events, SMART, hourly samples) and is read through `sys state ...`. Changes are always `plan`, then `start` (with `--confirm <name>` when the plan
-  names one), progress is `sys jobs tail`. The plan/start contract already is the API.
+  names one), progress is `sys jobs tail`. The plan/start contract already is the API. Written down in docs/api/openapi.json (#123).
 - **Backend: Python stdlib, `scripts/web-serve.py`**, one process on the host as root (`hs-web.service`), never in Incus (it has to work while the
   storage is locked). It sets `HS_CALLER=web`.
 - **Frontend: Svelte 5 + Vite in `web/`**, built by Nix (`pkgs/hs-web.nix`, `buildNpmPackage`) into static files that the backend hands out. The Nocturne
