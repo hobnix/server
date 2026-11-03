@@ -15,6 +15,11 @@
 #                                                             format in single quotes, then t fills it)
 # Machine-readable output (lists the interface reads) is never translated.
 
+# Every lib that sources ui.sh (vault.sh, crypt.sh, secret.sh ...) sources this file again. A second run would empty _T and drop the texts a
+# recipe read in between (recipes/_lib.sh reads <package>/i18n/<lang>.tsv, then sources docker-auth.sh): once per shell is enough.
+[ -z "${_hs_i18n_loaded:-}" ] || return 0
+_hs_i18n_loaded=1
+
 hs_lang=${HS_LANG:-}
 . "${BASH_SOURCE[0]%/*}/setting.sh"
 [ -n "$hs_lang" ] || hs_lang=$(setting_get language 2>/dev/null || true)
