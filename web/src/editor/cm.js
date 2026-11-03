@@ -10,7 +10,7 @@ import { EditorView, keymap, lineNumbers, highlightActiveLine, highlightActiveLi
 import { defaultKeymap, history, historyKeymap, indentWithTab } from '@codemirror/commands';
 import { StreamLanguage, syntaxHighlighting, HighlightStyle, indentUnit } from '@codemirror/language';
 import { autocompletion, completionKeymap } from '@codemirror/autocomplete';
-import { linter, lintGutter, lintKeymap, forceLinting } from '@codemirror/lint';
+import { linter, lintGutter, lintKeymap } from '@codemirror/lint';
 import { searchKeymap, highlightSelectionMatches } from '@codemirror/search';
 import { yaml as yamlLang } from '@codemirror/lang-yaml';
 import { tags as t } from '@lezer/highlight';
@@ -58,6 +58,7 @@ const highlight = HighlightStyle.define([
 
 // ── masked values of secret-looking keys, one eye button per line ──
 const toggleReveal = StateEffect.define();
+const relintEffect = StateEffect.define();
 
 class EyeWidget extends WidgetType {
   constructor(name, shown) { super(); this.name = name; this.shown = shown; }
@@ -207,7 +208,8 @@ export function createEditor(el, options = {}) {
     theme,
     EditorView.contentAttributes.of({ autocapitalize: 'off', autocorrect: 'off', spellcheck: 'false' }),
     autocompletion({ override: [completionSource(opts)], activateOnTyping: true }),
-    linter(lintSource(opts, () => server), { delay: LINT_DELAY }),
+    // needsRefresh: a change of something outside the text (the .env panel, the findings of a Test) asks for a new lint through relintEffect
+    linter(lintSource(opts, () => server), { delay: LINT_DELAY, needsRefresh: (u) => u.transactions.some((tr) => tr.effects.some((e) => e.is(relintEffect))) }),
     lintGutter(),
     readOnly.of(ro(opts.readOnly)),
     EditorView.updateListener.of((u) => { if (u.docChanged) { server = []; if (opts.onChange) opts.onChange(u.state.doc.toString()); } }),
@@ -218,9 +220,9 @@ export function createEditor(el, options = {}) {
     getText: () => view.state.doc.toString(),
     setText: (text) => view.dispatch({ changes: { from: 0, to: view.state.doc.length, insert: text } }),
     setReadOnly: (on) => view.dispatch({ effects: readOnly.reconfigure(ro(on)) }),
-    relint: () => forceLinting(view),
+    relint: () => view.dispatch({ effects: relintEffect.of(null) }),
     // show the findings of the Test now: [{ level, text, line | path }]; they go when the text is changed
-    setFindings: (list) => { server = Array.isArray(list) ? list : []; forceLinting(view); },
+    setFindings: (list) => { server = Array.isArray(list) ? list : []; view.dispatch({ effects: relintEffect.of(null) }); },
     focus: () => view.focus(),
     // add `- <entry>` under the volumes: of the service the cursor is in; without a readable services: block at the cursor line
     insertVolume: (entry) => {
