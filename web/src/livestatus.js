@@ -2,6 +2,10 @@
 // Pure JavaScript: no fetch, no Redis, no Svelte, no CLI contract changes.
 
 // topic, interval, age (-1 = none), generation, exit code, error, error timestamp
+/**
+ * @param {import('./api/sys.gen').SysLines<'live.status'>} rows
+ * @param {number} [nowSec]
+ */
 export function parseLiveRows(rows, nowSec) {
   const now = nowSec ?? Date.now() / 1000;
   return (rows || [])
