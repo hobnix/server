@@ -17,6 +17,9 @@ case "$1" in
       case "$last" in
         bulk/shares) printf 'bulk/shares\nbulk/shares/docs\nbulk/shares/media\n' ;;
         bulk/sensitive) printf 'bulk/sensitive\nbulk/sensitive/photos\nbulk/sensitive/pelican-backups\n' ;;
+        fast/shares) if [ -n "${FAKE_MANY:-}" ]; then printf 'fast/shares
+fast/shares/apps
+'; seq -f 'fast/shares/z%g' 1 4000; fi ;;
       esac
     fi ;;
   snapshot) echo "$2" >> "$SNAPS" ;;
@@ -56,6 +59,8 @@ check_out "a share can be left out" "left out of the automatic snapshots" $A med
 HS_NOW=$t0 $A run >/dev/null
 check_eq "and gets no snapshot" "0" "$(grep -c 'shares/media' "$SNAPS")"
 check_out "a share can be taken back" "included in the automatic snapshots" $A media on
+for i in 1 2 3 4 5; do FAKE_MANY=1 $A apps on >/dev/null 2>&1 || { fail "a share that sorts first among many is found (try $i)"; break; }; done
+check_out "a share that sorts first among many is found" "included in the automatic snapshots" env FAKE_MANY=1 $A apps on
 check_out "an unknown share is refused" "No share called 'nope'" $A nope off
 check_out "list shows the switch and the shares" "pelican-backups	off" $A list
 check_out "list shows an included share" "docs	on" $A list
