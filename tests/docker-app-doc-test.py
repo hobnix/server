@@ -78,6 +78,17 @@ class Doc(unittest.TestCase):
         self.assertIn(b"warn\tService a environment key TOKEN holds a literal value", p.stdout)
         self.assertNotIn(b"x", p.stdout)
 
+    def test_check_secret_from_env_file_is_no_warning(self):
+        env = {"DB_PASSWORD": "s3cretvalue", "API_KEY": "literalkey", "DB_URL": "postgres://u:s3cretvalue@h/d"}
+        cfg = {"services": {"a": {"image": "x", "environment": env}}}
+        raw = {"services": {"a": {"image": "x", "environment": {"DB_PASSWORD": "${DB_PASSWORD:?set it}", "API_KEY": "literalkey", "DB_URL": "postgres://u:${DB_PASSWORD}@h/d"}}}}
+        stdin = json.dumps(cfg).encode() + b"\n\x1e\n" + json.dumps(raw).encode()
+        p = self.run_helper("check", stdin)
+        self.assertEqual(p.returncode, 0, p.stderr)
+        self.assertNotIn(b"DB_PASSWORD", p.stdout)
+        self.assertIn(b"warn\tService a environment key API_KEY holds a literal value", p.stdout)
+        self.assertNotIn(b"s3cretvalue", p.stdout)
+
     def test_check_paths_cname_and_bind(self):
         cfg = {"volumes": {"v": {}}, "services": {"web": {"image": "x", "container_name": "cn", "ports": [{"target": 80}, {"published": 8080, "target": 80}],
                "volumes": [{"type": "bind", "source": "/srv/a", "target": "/a"}, {"type": "bind", "source": "/srv/b", "target": "/b", "read_only": True}, {"type": "volume", "source": "n", "target": "/c"}]}}}
