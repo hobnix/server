@@ -12,6 +12,8 @@
   import { ui } from '../ui.svelte.js';
   import { changes, startChanges } from '../changes.svelte.js';
   import { treeMeta } from '../pages/proxy/status.js';
+  import { treeMeta as dockerTree, dockerChildren } from '../pages/docker/health.js';
+  import { tree } from '../nav.js';
   import { VPS_NODE } from '../redirects.js';
 
   let { user, onsignout } = $props();
@@ -41,6 +43,9 @@
   const users = poll(() => (locked ? '' : '/api/sys/users/list'), 60000);
   const groups = poll(() => (locked ? '' : '/api/sys/users/groups'), 60000);
   const vault = poll(() => (locked ? '' : '/api/sys/vault/list'), 60000, 'vault-list');
+  // Docker is on but something it needs is missing (the share apps, its mount): a dot on Docker, its children dimmed
+  const dockerOn = $derived(Array.isArray(ui.features.capabilities) && ui.features.capabilities.includes('docker'));
+  const dockerHealth = poll(() => (locked || !dockerOn ? '' : '/api/sys/docker/health'), 30000);
 
   // once the deck says the storage is open: read what the main pages show first, while the browser is idle (the answers land in poll()'s cache)
   let prefetched = false;
@@ -126,6 +131,7 @@
       const h = Math.floor(Number(b[2]) / 3600);
       m['/protection/backup'] = { text: h < 1 ? '< 1 h' : h < 48 ? `${h} h` : `${Math.floor(h / 24)} d`, warn: b[1] !== 'ok' };
     }
+    if (dockerHealth.loaded && dockerOn) Object.assign(m, dockerTree(rows(dockerHealth), dockerChildren(tree)));
     if (d?.problems > 0) m['/operations/health'] = { text: String(d.problems), warn: true };
     // a remote node's rows are keyed "<node>:<inner path>"
     for (const [p, v] of Object.entries(treeMeta(proxState, prox.data))) m[`${VPS_NODE}:${p}`] = v;

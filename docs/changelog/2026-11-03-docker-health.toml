@@ -1,0 +1,4 @@
+date  = "2026-11-03"
+type  = "fix"
+title = "Docker shows what it is missing, and hs docker enable no longer stops at the share apps"
+body  = """Turning on automatic snapshots for the first share on the SSD pool failed with "No share called 'apps'" when the pool had no sensitive folder yet, so hs docker enable stopped before the share apps was mounted. That is fixed. The page Settings, Capabilities, Docker now has a Status tab (the container, the share apps, its mount), the Docker page shows a banner when something is missing, and the entries below Docker are greyed out in the tree until it is fixed."""

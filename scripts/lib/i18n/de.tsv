@@ -2073,3 +2073,12 @@ usage: hs docker status | list | enable | disable | mount | move-apps	Aufruf: hs
 Interrupted. The app being moved was put back; apps that were done stay moved.	Abgebrochen. Die App, die gerade verschoben wurde, ist zurückgesetzt; fertige Apps bleiben verschoben.
 Rewriting the compose files of %s failed.	Das Umschreiben der Compose-Dateien von %s ist fehlgeschlagen.
 The copy is kept at %s.	Die Kopie liegt in %s.
+Docker is off: there is no container docker made by hobnix.	Docker ist aus: es gibt keinen von hobnix angelegten Container docker.
+Nothing to check while Docker is off.	Nichts zu prüfen, solange Docker aus ist.
+The container docker runs.	Der Container docker läuft.
+The container docker is stopped.	Der Container docker ist gestoppt.
+The share apps is on the SSD pool.	Die Freigabe apps liegt auf dem SSD-Pool.
+The share apps is missing on the SSD pool. Fix: hs docker enable	Die Freigabe apps fehlt auf dem SSD-Pool. Abhilfe: hs docker enable
+Checked when the container runs.	Wird geprüft, wenn der Container läuft.
+The share apps is mounted in Docker at %s.	Die Freigabe apps ist in Docker unter %s eingebunden.
+The share apps is not mounted in Docker at %s. Fix: hs docker enable	Die Freigabe apps ist in Docker nicht unter %s eingebunden. Abhilfe: hs docker enable

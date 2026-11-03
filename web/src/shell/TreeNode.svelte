@@ -16,8 +16,10 @@
   const hasKids = $derived(kids.length > 0);
   const here = $derived(route.node === node);
   const selected = $derived(!!item.path && here && (route.path === item.path || (item.prefix && route.path.startsWith(item.path + '/'))));
-  const dim = $derived(local && locked && !!item.storage);
-  const m = $derived(item.path && !dim && local ? meta[item.path] : (item.path && !local ? meta[`${node}:${item.path}`] : null));
+  const lockDim = $derived(local && locked && !!item.storage);
+  const m = $derived(item.path && !lockDim && local ? meta[item.path] : (item.path && !local ? meta[`${node}:${item.path}`] : null));
+  // a row can also be dimmed by its note (m.dim): its page would only fail (the children of Docker while the share apps is not mounted)
+  const dim = $derived(lockDim || !!m?.dim);
 
   // open state: a group stays open while the page on screen is inside it
   const inside = (it) => (it.path && route.node === node && (route.path === it.path || route.path.startsWith(it.path + '/'))) || (it.children ?? []).some(inside);
@@ -33,7 +35,7 @@
 <TreeRow {depth} icon={item.icon} label={item.label} href={addr} active={selected} {dim} gap={!!item.gap}
          caret={hasKids ? (open ? 'open' : 'closed') : null} ontoggle={() => (open = !open)} onclick={click}
          onhover={() => local && prefetchRoute(item.path)}
-         lock={dim} count={m?.text ?? ''} warn={!!m?.warn} dot={m?.dot ? { state: m.dot, title: m.title || m.dot } : null} />
+         lock={lockDim} count={m?.text ?? ''} warn={!!m?.warn} dot={m?.dot ? { state: m.dot, title: m.title || m.dot } : null} />
 {#if hasKids && open}
   {#each kids as c (c.label + (c.path ?? ''))}
     <TreeNode item={c} {node} {local} depth={depth + 1} {locked} {meta} />
