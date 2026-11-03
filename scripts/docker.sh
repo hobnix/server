@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # help: Docker as part of hobnix: turn it on (a locked container with Docker inside), turn it off, list the apps that run in it
 # help.de: Docker als Teil von hobnix: einschalten (ein gesperrter Container mit Docker darin), ausschalten, die Apps darin auflisten
-# args: status | list | enable [--manager webui|arcane|portainer|none] [--size s|m|l] [--yes] [--job] [--dry-run] | disable [--yes --confirm docker] [--no-backup] [--job] [--dry-run] | mount <share|remote:peer> <path> [--as uid:gid] [--yes] [--job] [--dry-run] | move-apps [--yes --confirm docker] [--job] [--dry-run] [--finish] | --status | --list | --apps | --containers | --app <app> | --rev <app> | --logs <app> [lines]
+# args: status | list | enable [--manager webui|arcane|portainer|none] [--size s|m|l] [--yes] [--job] [--dry-run] | disable [--yes --confirm docker] [--no-backup] [--job] [--dry-run] | mount <share|remote:peer> <path> [--as uid:gid] [--yes] [--job] [--dry-run] | move-apps [--yes --confirm docker] [--job] [--dry-run] [--finish] | --status | --health | --list | --apps | --containers | --app <app> | --rev <app> | --logs <app> [lines]
 # The capability docker (docs/PLAN-docker-instances.md, Decisions 12 to 14): the container `docker` is owned by it (user.hs.managed_by=docker),
 # so only this script deletes it (HS_OWNER=docker on the manage-ct.sh call, scripts/lib/instance.sh).
 #   hs docker status       key/value lines: on or off, the container, the manager, the size, the number of apps, the address
@@ -15,6 +15,7 @@
 #   hs docker move-apps    move /opt/apps/<app> into the share apps: plan, snapshot, the typed name docker, then per app down, copy, rewrite the
 #                          compose file (.prev kept), up from the share, rename the old folder to <app>.moved-<date>; a failing app is set back;
 #                          --finish removes the *.moved-* folders after the typed name
+#   --health               the checks of the capability page as id<TAB>state<TAB>fix<TAB>detail<TAB>reason: container, share, mount (- when empty)
 #   --status, --list       the same as data (hs sys docker status|list): key<TAB>value, and one row per app with exactly 5 fields
 #                          name parent project state ports (`-` when empty); a stopped container or a failed read prints no row, exit 0
 #   --apps                 the same data with more fields: name parent project state running/total ports address images managed update
@@ -335,6 +336,29 @@ status_rows() {   # key<TAB>value
   mapped=-; if [ "$own" = yes ]; then mapped=$(dash "$(mapped_user)"); fi
   printf 'state\t%s\ninstance\t%s\nowned\t%s\nrunning\t%s\nmanager\t%s\nsize\t%s\nmemory\t%s\ncpus\t%s\nchildren\t%s\naddress\t%s\nmapped\t%s\n' \
     "$on" "$inst" "$own" "$run" "$(dash "$mgr")" "$size" "$mem" "$cpus" "$n" "$(dash "$addr")" "$mapped"
+}
+
+# --health: one line per check, id<TAB>state<TAB>fix<TAB>detail<TAB>reason (state ok|warn|fail|off; an empty field is -; fix is always - : the
+# repair is a command, named in the reason). The web page shows it as the status of the capability, the Docker page as a banner and greys the
+# tree entries below Docker while a check fails. Only an owned container is checked: without one the whole page is off anyway.
+health_rows() {
+  local c_state=off c_reason s_state=off s_reason m_state=off m_reason
+  if ! owned; then
+    c_reason=$(t 'Docker is off: there is no container docker made by hobnix.')
+    s_reason=$(t 'Nothing to check while Docker is off.'); m_reason=$s_reason
+  else
+    if running; then c_state=ok; c_reason=$(t 'The container docker runs.')
+    else c_state=fail; c_reason=$(t 'The container docker is stopped.'); fi
+    if [ "$(share_tier "$APPS_SHARE" 2>/dev/null || true)" = fast ]; then s_state=ok; s_reason=$(t 'The share apps is on the SSD pool.')
+    else s_state=fail; s_reason=$(t 'The share apps is missing on the SSD pool. Fix: hs docker enable'); fi
+    if [ "$c_state" != ok ]; then m_reason=$(t 'Checked when the container runs.')
+    elif docker_apps_mounted; then m_state=ok; m_reason=$(t 'The share apps is mounted in Docker at %s.' "$DOCKER_APPS_ROOT")
+    else m_state=fail; m_reason=$(t 'The share apps is not mounted in Docker at %s. Fix: hs docker enable' "$DOCKER_APPS_ROOT"); fi
+  fi
+  printf 'container	%s	-	-	%s
+share	%s	-	-	%s
+mount	%s	-	-	%s
+'     "$c_state" "$c_reason" "$s_state" "$s_reason" "$m_state" "$m_reason"
 }
 
 yesno() { if [ "$1" = yes ]; then t 'yes'; else t 'no'; fi; }
@@ -839,6 +863,7 @@ case "$verb" in
   mount) cmd_mount "$@" ;;
   move-apps) cmd_move_apps "$@" ;;
   --status) status_rows ;;
+  --health) health_rows ;;
   --list) children ;;
   --apps) apps ;;
   --containers) containers ;;

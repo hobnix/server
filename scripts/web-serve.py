@@ -850,6 +850,7 @@ READS = {
     ("docker", "app"): {"kind": "json", "ttl": 0, "nocache": True, "args": [APP]},     # compose and the real .env text (admin editor); never cached, never in a topic
     ("docker", "rev"): {"kind": "text", "ttl": 0, "nocache": True, "args": [APP]},     # one line, the revision of compose + .env: the open editor polls it
     ("docker", "registries"): {"kind": "tsv", "ttl": 15},     # host user state used_by; never a token
+    ("docker", "health"): {"kind": "tsv", "ttl": 15},      # container, share, mount: id state fix detail reason (the capability page, the Docker page and the tree read it)
     ("docker", "status"): {"kind": "tsv", "ttl": 15},      # the docker wizard: is the container there and owned (key<TAB>value rows)
     ("setup", "list"): {"kind": "tsv", "ttl": 5, "topic": "setup-list"},
     ("config", "list"): {"kind": "tsv", "ttl": 5, "topic": "config-list"},

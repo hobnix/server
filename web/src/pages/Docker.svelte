@@ -14,11 +14,14 @@
   import Chip from '../ui/Chip.svelte';
   import StatusDot from '../ui/StatusDot.svelte';
   import EmptyState from '../ui/EmptyState.svelte';
+  import Banner from '../ui/Banner.svelte';
   import AppLogs from './docker/AppLogs.svelte';
   import { appOf, filesChip, applyOf, isActionable } from './docker/apps.js';
+  import { problems } from './docker/health.js';
 
   const appsPoll = poll('/api/sys/docker/apps', 30000);
   const statusPoll = poll('/api/sys/docker/status', 15000);
+  const healthPoll = poll('/api/sys/docker/health', 30000);
 
   let selName = $state('');
   let tab = $state('overview');
@@ -27,6 +30,8 @@
 
   const apps = $derived(rows(appsPoll).map(appOf).filter(Boolean));
   const status = $derived(Object.fromEntries(rows(statusPoll).map((r) => [r[0], r[1]])));
+  // Docker is on, but something it needs is missing (the share apps, its mount): said once at the top, with the command that fixes it
+  const broken = $derived(status.state === 'on' ? problems(rows(healthPoll)) : []);
   const sel = $derived(apps.find((a) => a.name === selName) ?? null);
   const runningCount = $derived(apps.filter((a) => a.state === 'running').length);
 
@@ -52,6 +57,13 @@
 </script>
 
 <PageHeader title="Docker" crumb="Instances" sub={apps.length ? `${runningCount} of ${apps.length} apps running${status.address && status.address !== '-' ? ` · ${status.address}` : ''}` : 'Apps that run in the Docker container.'} />
+
+{#if broken.length}
+  <Banner tone="bad">
+    Docker is on, but not complete: {broken.map((b) => b.reason).join(' ')}
+    {#snippet action()}<a class="btn" href={url('/settings/capabilities/docker')}>Open Docker settings</a>{/snippet}
+  </Banner>
+{/if}
 
 <PageState loading={!appsPoll.loaded} error={appsPoll.error?.message} hasData={appsPoll.data != null}
            empty={appsPoll.loaded && !apps.length && !appsPoll.error} emptyIcon="shipping-container" emptyTitle="No apps yet" emptyText="No apps run in Docker yet."

@@ -16,6 +16,7 @@ notes = "NOTES.md"
 
 # The guided setup on the settings page (docs/PLAN-docker-instances.md): two questions, one screen each. Apply = `hs sys docker plan|start setup`.
 [settings]
+status = "docker health"
 apply = "docker setup"
 
 [[settings.steps]]

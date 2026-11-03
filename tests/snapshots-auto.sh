@@ -20,6 +20,7 @@ case "$1" in
         fast/shares) if [ -n "${FAKE_MANY:-}" ]; then printf 'fast/shares
 fast/shares/apps
 '; seq -f 'fast/shares/z%g' 1 4000; fi ;;
+        fast/sensitive) exit 1 ;;   # not there until the first sensitive fast share: zfs list fails
       esac
     fi ;;
   snapshot) echo "$2" >> "$SNAPS" ;;
