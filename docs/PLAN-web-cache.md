@@ -123,6 +123,7 @@ Retirement stays future work until no served read uses `Reads.collected`.
 Built, not run on hardware: topic columns `cap` and `groups`, group refresh (`@<group>`, `any`), bounded parallel reads (`HS_LIVE_PARALLEL`),
 a refresh hook in the dispatcher for `changes` rows and at job start, the old collector skipping topic reads in Redis mode, and the topic map in the
 session answer. Details: capabilities/live-state/NOTES.md. More topics follow in later slices.
+Audit of every event source and consumer: docs/PLAN-events.md.
 
 ## System slice (2026-11-01)
 

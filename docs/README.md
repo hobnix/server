@@ -34,8 +34,11 @@ Docs page shows them under *Apps* and *Extensions*.
 | [PLAN-packages](PLAN-packages.md) | Recipes and extensions as packages, repositories, signed releases |
 | [PLAN-web-backend](PLAN-web-backend.md) | The web interface backend |
 | [PLAN-disk-health](PLAN-disk-health.md) | Daily SMART baseline, and a disk and pool checklist |
+| [PLAN-events](PLAN-events.md) | Event sources, consumers and delivery (audit for the event architecture) |
+| [PLAN-jobs](PLAN-jobs.md) | Job system audit: which commands run as jobs, what a job record holds |
 | [PLAN-web-cache](PLAN-web-cache.md) | Hot state for the web interface (Redis, collector, live updates) |
 | [PLAN-docker-instances](PLAN-docker-instances.md) | Docker as a capability: locked instances, child apps, recipes with `runs` |
 | [PLAN-selfservice](PLAN-selfservice.md) | Self-service password change for domain users |
+| [Architecture decisions](adr/README.md) | Decision records (ADRs), starting with Rust behind the `hs sys` contract |
 | [CLI-DESIGN](CLI-DESIGN.md) | The look of every `hs` command |
 | [Entwicklungsnotizen](Entwicklungsnotizen.md) | Per-feature design notes (grouped by topic) |
