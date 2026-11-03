@@ -22,6 +22,8 @@ scripts/dev/t quick pkg docs
 
 Add `-v` for a line per test. `grep -n FAIL .work/test-logs/<name>.log` shows why one failed.
 
+Rust: `cargo build` in rust/ (in WSL for a Linux binary), then `scripts/dev/t quick vault-change-rust` runs the shell test against it (skipped without a binary).
+
 ## Where each test can run
 
 | Tier | Where | Covers |

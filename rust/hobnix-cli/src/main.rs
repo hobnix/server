@@ -4,12 +4,15 @@ use hobnix_core::log::{self, Level};
 use hobnix_core::Error;
 use std::process::ExitCode;
 
-fn run(args: &[String]) -> hobnix_core::Result<()> {
+mod secrets;
+
+fn run(args: &[String]) -> hobnix_core::Result<u8> {
     match args.first().map(String::as_str) {
         None | Some("--version") => {
             println!("hobnix {}", hobnix_core::version());
-            Ok(())
+            Ok(hobnix_core::EXIT_OK)
         }
+        Some("secrets") => secrets::run(&args[1..]),
         Some(other) => Err(Error::Refused(format!("unknown subcommand: {other}"))),
     }
 }
@@ -34,7 +37,7 @@ fn main() -> ExitCode {
         })
         .collect();
     match args.and_then(|a| run(&a)) {
-        Ok(()) => ExitCode::from(hobnix_core::EXIT_OK),
+        Ok(code) => ExitCode::from(code),
         Err(e) => {
             eprintln!("hobnix: {e}");
             ExitCode::from(e.exit_code())

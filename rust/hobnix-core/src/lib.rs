@@ -3,6 +3,7 @@
 pub mod error;
 pub mod log;
 pub mod secret;
+pub mod secrets;
 
 pub use error::{Error, Result, EXIT_MISSING, EXIT_OK, EXIT_REFUSED};
 pub use secret::Secret;

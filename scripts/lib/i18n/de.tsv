@@ -2082,3 +2082,5 @@ The share apps is missing on the SSD pool. Fix: hs docker enable	Die Freigabe ap
 Checked when the container runs.	Wird geprüft, wenn der Container läuft.
 The share apps is mounted in Docker at %s.	Die Freigabe apps ist in Docker unter %s eingebunden.
 The share apps is not mounted in Docker at %s. Fix: hs docker enable	Die Freigabe apps ist in Docker nicht unter %s eingebunden. Abhilfe: hs docker enable
+hobnix: HOBNIX_BIN is not a program: %s	hobnix: HOBNIX_BIN ist kein Programm: %s
+hobnix: the Rust program for hs sys %s is missing (HOBNIX_BIN, or hobnix on the PATH)	hobnix: für hs sys %s fehlt das Rust-Programm (HOBNIX_BIN oder hobnix im PATH)

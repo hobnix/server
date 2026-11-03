@@ -17,13 +17,15 @@ echo "-- registry"
 missing=""
 for s in "$SCRIPTS"/*.sh; do
   b=$(basename "$s")
-  grep -q "	$b	" "$REG" "$ROOT"/capabilities/*/commands.tsv || missing="$missing $b"   # a script is a row of the core or of an extension package
+  grep -q "	$b	" "$REG" "$ROOT"/capabilities/*/commands.tsv ||   # a script is a row of the core or of an extension package, or the fallback of a rust: row
+    awk -F'	' -v b="$b" '{ n = split($7, f, ","); for (i = 1; i <= n; i++) if (f[i] == "fallback:" b) found = 1 } END { exit !found }' "$REG" ||
+    missing="$missing $b"
 done
 check_eq "every script has a row" "" "$missing"
 bad=""
 while IFS=$'\t' read -r kind path script args _; do
   case "$kind" in user|sys) ;; *) bad="$bad kind:$path" ;; esac
-  if [ "$script" != "-" ] && [ ! -f "$SCRIPTS/$script" ]; then bad="$bad nofile:$script"; fi
+  case "$script" in rust:*) ;; *) if [ "$script" != "-" ] && [ ! -f "$SCRIPTS/$script" ]; then bad="$bad nofile:$script"; fi ;; esac
   [ -n "$args" ] || bad="$bad noargs:$path"
 done < <(grep -v '^#' "$REG")
 check_eq "rows are well formed" "" "$bad"
@@ -33,6 +35,20 @@ while IFS=$'\t' read -r kind path script _ hen _; do
   grep -q '^# help: ' "$SCRIPTS/$script" || [ "$hen" != "-" ] || nohelp="$nohelp $path"
 done < <(grep -v '^#' "$REG")
 check_eq "user commands have a help text" "" "$nohelp"
+
+echo "-- rust: rows (docs/adr/0001-rust-strangler.md)"
+bad=""
+while IFS=$'\t' read -r kind path script args hen _ flags; do
+  case "$script" in rust:*) ;; *) continue ;; esac
+  sub=${script#rust:}
+  [ "$kind" = sys ] || bad="$bad user:$path"
+  [[ "$sub" =~ ^[a-z][a-z0-9-]{0,30}$ ]] || bad="$bad name:$path"
+  grep -qF "Some(\"$sub\")" "$ROOT/rust/hobnix-cli/src/main.rs" || bad="$bad nosub:$sub"
+  [ "$hen" != "-" ] || bad="$bad nohelp:$path"
+  case ",${flags:-}," in *,long,*) bad="$bad long:$path" ;; esac
+  case ",${flags:-}," in *,fallback:*) fb=${flags#*fallback:}; fb=${fb%%,*}; [ -f "$SCRIPTS/$fb" ] || bad="$bad nofallback:$fb" ;; esac
+done < <(grep -v '^#' "$REG")
+check_eq "rust: rows: sys, a help text, a subcommand of hobnix-cli, not long, the fallback exists" "" "$bad"
 
 echo "-- help"
 check_out "help lists the commands" "^  backup " $HS help
@@ -70,10 +86,29 @@ fake=$WORK/fake; mkdir -p "$fake/lib"
 cp -r "$SCRIPTS"/lib/job.sh "$SCRIPTS"/lib/hs.sh "$SCRIPTS"/lib/capability.sh "$SCRIPTS"/lib/registry-load.sh "$SCRIPTS"/lib/ui.sh "$SCRIPTS"/lib/i18n.sh "$SCRIPTS"/lib/setting.sh "$SCRIPTS"/lib/i18n "$fake/lib/"
 printf 'echo "args:$*"\n' > "$fake/x.sh"
 printf '# kind\n# comment\nuser\tpool bulk add\tx.sh\t-\tadd\t-\t-\nuser\tslow thing\tx.sh\tgo\tslow\t-\tlong\nsys\tsys pool info\tx.sh\t--info\tinfo\t-\t-\nuser\tshare <share> rename\tx.sh\tren\trename\t-\t-\n' > "$fake/lib/registry.tsv"
+printf 'sys\tsys demo rs\trust:demo\tplan {rest}\tdemo\t-\tfallback:x.sh\nsys\tsys demo bare\trust:demo\tplan {rest}\tdemo\t-\t-\n' >> "$fake/lib/registry.tsv"
+printf '#!/bin/sh\necho "rust:$* $HS_SCRIPTS"\n' > "$WORK/hobnix-fake"; chmod +x "$WORK/hobnix-fake"
 F="bash $fake/lib/hs.sh"
 check_eq "words, rest passed on" "args:--yes" "$(HS_CALLER=t $F pool bulk add --yes)"
 check_eq "fixed args come first" "args:--info extra" "$(HS_CALLER=t $F sys pool info extra)"
 check_eq "a value is handed to the script" "args:docs ren --force" "$(HS_CALLER=t $F share docs rename --force)"
+check_eq "a rust: row runs hobnix <subcommand> with the arguments and HS_SCRIPTS" "rust:demo plan a $fake" "$(HS_CALLER=t HOBNIX_BIN=$WORK/hobnix-fake $F sys demo rs a)"
+check_eq "HOBNIX_BIN that is not a program: exit 2" "2" "$(HS_CALLER=t HOBNIX_BIN=$WORK/nope $F sys demo rs a >/dev/null 2>&1; echo $?)"
+if command -v hobnix >/dev/null 2>&1; then skip "a hobnix on PATH: the fallback is not reached"
+else
+  check_eq "without the binary the fallback script runs" "args:plan a" "$(env -u HOBNIX_BIN HS_CALLER=t $F sys demo rs a)"
+  check_eq "without the binary and without a fallback: exit 2" "2" "$(env -u HOBNIX_BIN HS_CALLER=t $F sys demo bare a >/dev/null 2>&1; echo $?)"
+fi
+printf '# args: <thing>
+# detail line of the fallback
+echo y
+' > "$fake/y.sh"
+printf 'user	demo ru	rust:demo	go	-	-	fallback:y.sh
+' >> "$fake/lib/registry.tsv"
+check_out "help of a rust: row reads its arguments and detail from the fallback script" "<thing>" env HS_LANG=en bash $fake/lib/hs.sh help demo ru
+check_out "help detail of a rust: row comes from the fallback script" "detail line of the fallback" env HS_LANG=en bash $fake/lib/hs.sh help demo ru
+check_out "hs sys registry shows the rust: value" "^sys	sys demo rs	rust:demo	" $F sys registry
+if HS_LANG=de $F help --all 2>&1 >/dev/null | grep -q "rust:"; then fail "help --all reads no header of a rust: row"; else pass "help --all reads no header of a rust: row"; fi
 
 echo "-- the REAL registry reaches the scripts with the right arguments (a wrong fixed-args field once sent "backup now" to backup.sh instead of "now")"
 real=$WORK/real; mkdir -p "$real/lib"
@@ -138,6 +173,9 @@ for pkg in $(HS_REGISTRY=$REG ext_package_names); do
 done
 check_eq "package rows: scripts exist, help and help.de, topic, reads or changes" "" "$bad"
 check_eq "the core registry has no row inside a package namespace" "" "$(awk -F'	' '$1 == "user" && $2 ~ /^ext [a-z]/ && $2 !~ /^ext (list|enable|disable|<package>)/ { print $2 } $1 == "sys" && $2 ~ /^sys ext [a-z]/ && $2 != "sys ext list" { print $2 }' "$REG" | paste -sd, -)"
+pk=$WORK/pk; mkdir -p "$pk/demo"; printf 'name = "demo"\nextension = true\n' > "$pk/demo/capability.toml"
+printf 'sys\tsys ext demo x\trust:x\t-\tx\t-\t-\n' > "$pk/demo/commands.tsv"
+check_out "a package row may not name the Rust binary" "rust: rows belong to the core" env HS_PACKAGES_DIR="$pk" HS_REGISTRY="$REG" bash -c '. "$1/lib/registry-load.sh"; registry_refused demo' _ "$SCRIPTS"
 
 echo "-- pool commands"
 check_eq "hs pool <TAB> offers bulk and fast" "bulk fast" "$($HS sys complete pool | paste -sd' ')"

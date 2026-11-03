@@ -1,6 +1,7 @@
 #!/usr/bin/env bash
 # The `hs` dispatcher: looks the words up in the command list (scripts/lib/registry.tsv plus the commands.tsv of every enabled
 # extension package, scripts/lib/registry-load.sh) and runs the script.
+# A row whose script is rust:<subcommand> runs the hobnix binary (docs/adr/0001-rust-strangler.md, row_command below).
 # The Nix wrapper only opens the interface and escalates to root; everything else is here.
 #   hs help [--all]              grouped list (--all adds the system commands)
 #   hs help <words...>           what one command (or every command under those words) does, with the
@@ -24,8 +25,41 @@ rows() { registry_rows; }
 # a script of the registry: a path under scripts/, or an absolute one (a file of an extension package, written as @/file there)
 script_file() { case "$1" in /*) printf '%s' "$1" ;; *) printf '%s' "$dir/$1" ;; esac; }
 
+# A row whose script is rust:<subcommand> (docs/adr/0001-rust-strangler.md) runs `hobnix <subcommand>` with the same arguments.
+# The binary: HOBNIX_BIN (a dev build, tests), else hobnix on PATH. Without it the row's flag fallback:<script> runs the old script
+# (the side-by-side release); a row without that flag fails with exit 2.
+run_cmd=()
+row_command() {   # row_command <script> <flags>: sets run_cmd (the program and its first words)
+  local sub bin fb
+  case "$1" in
+    rust:*) ;;
+    *) run_cmd=(bash "$(script_file "$1")"); return 0 ;;
+  esac
+  sub=${1#rust:}
+  bin=${HOBNIX_BIN:-}
+  if [ -n "$bin" ]; then
+    [ -x "$bin" ] || { . "$here/ui.sh"; warn "$(t 'hobnix: HOBNIX_BIN is not a program: %s' "$bin")" >&2; exit 2; }
+  else
+    bin=$(command -v hobnix 2>/dev/null || true)
+  fi
+  if [ -n "$bin" ]; then run_cmd=("$bin" "$sub"); return 0; fi
+  case ",${2:-}," in
+    *,fallback:*) fb=${2#*fallback:}; fb=${fb%%,*}; run_cmd=(bash "$(script_file "$fb")"); return 0 ;;
+  esac
+  . "$here/ui.sh"; warn "$(t 'hobnix: the Rust program for hs sys %s is missing (HOBNIX_BIN, or hobnix on the PATH)' "$sub")" >&2
+  exit 2
+}
+
 # header text of a script: "# help:" / "# help.<lang>:" and "# args:"
+# the script that documents a row: the row's own, or for a rust: row its fallback:<script> (the comment block lives there)
+doc_script() {   # doc_script <script> <flags>
+  case "$1" in
+    rust:*) case ",${2:-}," in *,fallback:*) local fb=${2#*fallback:}; printf '%s' "${fb%%,*}"; return 0 ;; esac ;;
+  esac
+  printf '%s' "$1"
+}
 header() {   # header <script> <key>
+  case "$1" in rust:*) return 0 ;; esac
   sed -n "s/^# $2: //p" "$(script_file "$1")" | head -n1
 }
 help_of() {   # help_of <script> <help_en> <help_de>
@@ -101,7 +135,7 @@ usage() {   # usage [--all]
     # a blank line between the groups (disk, share, ct, ...)
     [ "${path%% *}" = "${prev:-}" ] || { [ -z "${prev:-}" ] || echo; prev=${path%% *}; }
     a=""
-    [ "$hen" != "-" ] || a=$(header "$script" args)
+    [ "$hen" != "-" ] || a=$(header "$(doc_script "$script" "${flags:-}")" args)
     help_item "$path" "$(help_of "$script" "$hen" "$hde")" "$a"
   done < <(rows)
   help_item "help [--all]" "$(tr_txt list)"
@@ -141,11 +175,11 @@ help_for() {   # help_for <words...>
       case ",${flags:-}," in *,nohelp,*) continue ;; esac
       n=$((n + 1))
       a=""
-      [ "$hen" != "-" ] || a=$(header "$script" args)
+      [ "$hen" != "-" ] || a=$(header "$(doc_script "$script" "${flags:-}")" args)
       [ "$a" != "(none)" ] || a=""
       help_cmd "hs $path" "$a" "$(help_of "$script" "$hen" "$hde")"
       # the comment block under "# args:" explains how it works
-      detail=$(awk '/^# args:/ { on = 1; next } on && /^# / { sub(/^# /, ""); print "    " $0; n++; if (n >= 14) exit } on && !/^#/ { exit }' "$(script_file "$script")" 2>/dev/null || true)
+      detail=$(awk '/^# args:/ { on = 1; next } on && /^# / { sub(/^# /, ""); print "    " $0; n++; if (n >= 14) exit } on && !/^#/ { exit }' "$(script_file "$(doc_script "$script" "${flags:-}")")" 2>/dev/null || true)
       [ -z "$detail" ] || help_note "$detail"
       echo
     done < <(rows)
@@ -314,7 +348,7 @@ long_guard() {   # long_guard <args...>
     for v in ${row_vals[@]+"${row_vals[@]}"}; do
       [[ $shown =~ ^([^<]*)\<[^\>]*\>(.*)$ ]] && shown="${BASH_REMATCH[1]}$v${BASH_REMATCH[2]}"
     done
-    unit=$(hs_job "${shown// /-}" "hs $shown" -- bash "$(script_file "$row_script")" ${cmd_args[@]+"${cmd_args[@]}"}) || exit 1
+    unit=$(hs_job "${shown// /-}" "hs $shown" -- "${run_cmd[@]}" ${cmd_args[@]+"${cmd_args[@]}"}) || exit 1
     ok "$(t 'Started as job %s. Follow it: hs job follow %s' "$unit" "$unit")"
     exit 0
   fi
@@ -393,6 +427,7 @@ if [ -z "$row_script" ] || [ "$row_script" = "-" ]; then
 fi
 shift "$consumed"
 legacy_guard
+row_command "$row_script" "$row_flags"
 sys_guard
 # system commands (hs sys ...) are for programs and timers: never the styled form, even on a terminal
 [ "$row_kind" != sys ] || export HS_PLAIN=1
@@ -407,11 +442,11 @@ case ",$row_flags," in
     . "$here/live.sh"
     grp=system
     case ",$row_flags," in *,topic:*) grp=${row_flags#*topic:}; grp=${grp%%,*} ;; esac
-    if bash "$(script_file "$row_script")" ${cmd_args[@]+"${cmd_args[@]}"}; then rc=0; else rc=$?; fi
+    if "${run_cmd[@]}" ${cmd_args[@]+"${cmd_args[@]}"}; then rc=0; else rc=$?; fi
     if [ "$rc" -eq 0 ]; then
       live_refresh "@$grp"
       case "$row_path" in "ext "*) w=${row_path#ext }; live_refresh "@ext-${w%% *}" ;; esac   # a package's own topics
     fi
     exit "$rc" ;;
 esac
-exec bash "$(script_file "$row_script")" ${cmd_args[@]+"${cmd_args[@]}"}
+exec "${run_cmd[@]}" ${cmd_args[@]+"${cmd_args[@]}"}

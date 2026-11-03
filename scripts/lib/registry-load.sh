@@ -17,6 +17,7 @@
 #     can neither collide with another one nor shadow a core command. `hs ext <name>` alone lists the package, it is not a row.
 #   - the script is a path under scripts/ (like the core), or `@/file` = a file inside the package folder (rewritten to the folder).
 #     No `..`, no other absolute path.
+#   - no rust:<subcommand> script (Rust implementations are core rows, docs/adr/0001-rust-strangler.md).
 #   - no `legacy:` flag (the old words of a moved command are rows of the core registry), no second row for the same words.
 #   - the names list, enable and disable are reserved (they are the core commands `hs ext list|enable|disable`).
 # Test knobs: HS_REGISTRY (core file), HS_PACKAGES_DIR (the folder that holds the packages; only that one is read).
@@ -92,6 +93,7 @@ _ext_filter() {   # _ext_filter <name> <dir> <report 0|1>
       if (reason == "" && NF < 6) reason = "a row has at least 6 columns (kind path script args help help.de)"
       if (reason == "" && (script == "" || script ~ /(^|\/)\.\.(\/|$)/ || (script ~ /^\// ))) reason = "the script must be a path under scripts/ or @/file in the package, without .."
       if (reason == "" && script ~ /^@/ && script !~ /^@\/./) reason = "the script must be a path under scripts/ or @/file in the package, without .."
+      if (reason == "" && script ~ /^rust:/) reason = "rust: rows belong to the core registry"
       if (reason == "" && $7 ~ /(^|,)legacy:/) reason = "a legacy: flag belongs to the core registry"
       if (reason == "" && (path in seen)) reason = "the words are used twice"
       if (reason != "") { if (report == 1) print "REFUSED", NR, path, reason; next }

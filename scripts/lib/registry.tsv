@@ -1,4 +1,4 @@
-# kind	path	script	args	help	help.de	flags   ("-" = take help from the script header "# help:" / none; flags: long = ask first and run as a job, nohelp = not listed in hs help)
+# kind	path	script	args	help	help.de	flags   ("-" = take help from the script header "# help:" / none; flags: long = ask first and run as a job, nohelp = not listed in hs help; script rust:<subcommand> = the hobnix binary runs it (docs/adr/0001-rust-strangler.md), flag fallback:<script> = the script that runs while the binary is missing)
 # Source of `hs help`, `hs sys registry` and the shell completion. Path words in <> are values (<share> <pool> <ct> <disk>).
 user	backup	backup.sh	-	-	-	topic:backup,reads,capability:backup
 user	bulk-mount	bulk-mount.sh	-	-	-	nohelp,topic:disks,changes,capability:storage
