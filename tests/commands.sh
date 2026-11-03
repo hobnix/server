@@ -152,4 +152,8 @@ check_eq "next words of a path" "add" "$(HS_REGISTRY=$fake/lib/registry.tsv $HS 
 mkdir -p "$WORK/bulk/shares/docs" "$WORK/bulk/shares/media" "$WORK/bulk/sensitive/photos"
 check_eq "values of <share>" "docs media photos" "$(HS_BULK=$WORK/bulk HS_REGISTRY=$fake/lib/registry.tsv $HS sys complete share | paste -sd' ')"
 
+echo "-- argument templates"
+# a template ({1} {rest}) that leaves out a <placeholder> drops that word: `hs sys docker-app start app stop` ran the script without the action
+check_eq "templates pass every <placeholder> of two-placeholder rows on" "" "$(awk -F'	' '$2 ~ /<[a-z]+> <[a-z]+>/ && $4 ~ /\{/ { n = gsub(/</, "<", $2); for (i = 1; i <= n; i++) if (index($4, "{" i "}") == 0) { print $2; break } }' "$REG" | paste -sd, -)"
+
 finish
