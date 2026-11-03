@@ -96,3 +96,12 @@ points at Rust and the old script is deleted. After that docs/Entwicklungsnotize
 - The job system (E02) and the package protocol (E12).
 - Which command group is the pilot (#127, after #128).
 - Whether human (kind `user`) commands ever move.
+
+## Errors and logs (#126)
+
+- Errors are `hobnix_core::Error` (`Refused`, `Missing`, `Failed`). Exit codes: 0 success, 1 refused or failed, 2 missing.
+- The CLI prints an error to stderr as `hobnix: <message>` and nothing to stdout.
+- Log events are single lines on stderr, `<P>event key=value ...`; `<P>` is the syslog priority that journald reads (3 error, 4 warn, 6 info, 7 debug). The level comes from `HOBNIX_LOG` (default `info`).
+- `Secret` prints `***` for both `{}` and `{:?}`; the value is read only with `expose()`.
+- A log field whose key contains password, passwd, secret, token, key or passphrase (any case) is written as `***`.
+- Std only: no new dependencies, so the later Nix build needs no network.
