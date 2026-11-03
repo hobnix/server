@@ -39,7 +39,8 @@ shares() {   # name<TAB>dataset of every share
   local kind ds p
   for p in "${pools[@]}"; do
     for kind in shares sensitive; do
-      "$zfs" list -H -o name -d 1 -r "$p/$kind" 2>/dev/null | while read -r ds; do
+      # a pool without a "sensitive" dataset yet (the first fast share creates only fast/shares) is no error: under pipefail it would fail the whole function
+      { "$zfs" list -H -o name -d 1 -r "$p/$kind" 2>/dev/null || true; } | while read -r ds; do
         [ "$ds" != "$p/$kind" ] || continue
         printf '%s\t%s\n' "${ds##*/}" "$ds"
       done
