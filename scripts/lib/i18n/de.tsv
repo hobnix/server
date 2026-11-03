@@ -1888,7 +1888,6 @@ adding a device	das Hinzufügen eines Geräts
 a smaller disk	eine kleinere Platte
 moving a mount	das Umhängen einer Einbindung
 The snapshot was older than the lock: '%s' belongs to %s again.	Der Schnappschuss war älter als die Sperre: '%s' gehört wieder %s.
-usage: hs docker status | list | enable | disable | mount	Aufruf: hs docker status | list | enable | disable | mount
 yes	ja
 no	nein
 on	an
@@ -2035,3 +2034,42 @@ The container 'docker' and its containers are deleted, and with them the apps th
 The share apps (the files of your apps) stays on the SSD pool at %s. Delete it too: hs share apps delete	Die Freigabe apps (die Dateien Ihrer Apps) bleibt auf dem SSD-Pool unter %s. Auch löschen: hs share apps delete
 The share apps is not mounted in Docker.	Die Freigabe apps ist in Docker nicht eingebunden.
 The snapshot of the share apps failed. Nothing was deleted.	Der Schnappschuss der Freigabe apps ist fehlgeschlagen. Es wurde nichts gelöscht.
+%s apps moved, %s stayed in %s.	%s Apps verschoben, %s blieben in %s.
+%s could not be started again from %s: look at it with hs docker logs.	%s ließ sich aus %s nicht wieder starten: sieh mit hs docker logs nach.
+%s could not be stopped. Nothing was moved.	%s ließ sich nicht stoppen. Nichts wurde verschoben.
+%s did not start from the share apps.	%s startete aus der Freigabe apps nicht.
+%s now runs from %s. The old folder is kept as %s.	%s läuft jetzt aus %s. Der alte Ordner bleibt als %s erhalten.
+%s. %s to %s (%s, %s MiB)	%s. %s nach %s (%s, %s MiB)
+%s: the target %s exists already. Nothing is overwritten.	%s: das Ziel %s gibt es schon. Nichts wird überschrieben.
+Copying %s failed.	Das Kopieren von %s ist fehlgeschlagen.
+Docker is not running.	Docker läuft nicht.
+Each app is stopped, copied, its compose file rewritten (the old one is kept as docker-compose.yml.prev) and started again from the share. The old folder is renamed to <app>.moved-<date>, never deleted: hs docker move-apps --finish removes them later. An app that fails is set back to %s.	Jede App wird gestoppt, kopiert, ihre Compose-Datei umgeschrieben (die alte bleibt als docker-compose.yml.prev) und aus der Freigabe wieder gestartet. Der alte Ordner wird in <App>.moved-<Datum> umbenannt, nie gelöscht: hs docker move-apps --finish entfernt sie später. Eine App, die scheitert, wird nach %s zurückgesetzt.
+Every app is stopped for a short time while it is moved. A snapshot of docker is taken first.	Jede App ist kurz gestoppt, während sie verschoben wird. Vorher wird ein Snapshot von docker gemacht.
+Free on the SSD pool	Frei auf dem SSD-Pool
+Move %s	%s verschieben
+Move or rename those target folders first. Nothing was changed.	Verschiebe oder benenne zuerst diese Zielordner um. Nichts wurde geändert.
+Move the apps into the share apps	Die Apps in die Freigabe apps verschieben
+No old folders (*.moved-*) are left in %s.	In %s sind keine alten Ordner (*.moved-*) mehr.
+Remove the old folders of the moved apps	Die alten Ordner der verschobenen Apps entfernen
+Setting the owner of %s failed.	Der Besitzer von %s ließ sich nicht setzen.
+Size to copy	Zu kopierende Größe
+Snapshot docker	Snapshot von docker
+The apps in %s could not be read.	Die Apps in %s ließen sich nicht lesen.
+The backup dump list %s could not be updated.	Die Dump-Liste des Backups %s ließ sich nicht aktualisieren.
+The name did not match. Nothing was changed.	Der Name stimmte nicht. Nichts wurde geändert.
+The old folders are removed.	Die alten Ordner sind entfernt.
+The share apps is not mounted in Docker at %s.	Die Freigabe apps ist in Docker nicht unter %s eingehängt.
+The share apps is not on the SSD pool.	Die Freigabe apps liegt nicht auf dem SSD-Pool.
+The snapshot of docker failed. Nothing was changed.	Der Snapshot von docker ist fehlgeschlagen. Nichts wurde geändert.
+There is no app in %s to move.	In %s gibt es keine App zum Verschieben.
+There is not enough free space on the SSD pool for a copy. Nothing was changed.	Auf dem SSD-Pool ist nicht genug Platz für eine Kopie. Nichts wurde geändert.
+These folders are deleted for good. The apps run from the share apps now; the backup of the share apps stays.	Diese Ordner werden endgültig gelöscht. Die Apps laufen jetzt aus der Freigabe apps; das Backup der Freigabe apps bleibt.
+check the apps, then remove the old folders: hs docker move-apps --finish	prüfe die Apps und entferne dann die alten Ordner: hs docker move-apps --finish
+usage: hs docker status | list | enable | disable | mount | move-apps	Aufruf: hs docker status | list | enable | disable | mount | move-apps
+%s now runs from %s, but the old folder %s could not be renamed: it is still in place. Rename or remove it yourself.	%s läuft jetzt aus %s, aber der alte Ordner %s ließ sich nicht umbenennen: er liegt noch dort. Benenne ihn um oder entferne ihn selbst.
+%s stayed in %s (it was stopped and stays stopped).	%s blieb in %s (sie war gestoppt und bleibt gestoppt).
+%s stayed in %s and runs as before.	%s blieb in %s und läuft wie vorher.
+%s still points into %s (%s). It is not moved: change that path first.	%s verweist noch nach %s (%s). Sie wird nicht verschoben: ändere zuerst diesen Pfad.
+Interrupted. The app being moved was put back; apps that were done stay moved.	Abgebrochen. Die App, die gerade verschoben wurde, ist zurückgesetzt; fertige Apps bleiben verschoben.
+Rewriting the compose files of %s failed.	Das Umschreiben der Compose-Dateien von %s ist fehlgeschlagen.
+The copy is kept at %s.	Die Kopie liegt in %s.
