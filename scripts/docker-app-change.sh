@@ -302,7 +302,7 @@ prepare_in_container() {
     filter <"$out" >&2
     rm -f "$out"
     exit $rc
-  ' sh "$app" "$tmp" "$dir" </dev/null
+  ' sh "$app" "$tmp" "$dir"   # no </dev/null: stdin is the document from compose_to_container
 }
 
 # The names that differ between the old .env of the app and the new one in the temp dir: "added|removed|changed<TAB>NAME". Names only.

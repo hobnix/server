@@ -1,0 +1,4 @@
+date  = "2026-11-03"
+type  = "fix"
+title = "The Test and Save of the Docker app editor no longer say empty compose file"
+body  = """The compose file and the env file went to the container through a pipe that was then replaced by an empty input, so Docker saw an empty compose file and every Test failed. The Test and the plan before Save now check the file you wrote."""
