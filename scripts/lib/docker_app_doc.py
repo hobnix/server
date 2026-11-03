@@ -104,12 +104,10 @@ def _published_port(entry):
     return None, True
 
 
-def _warn_env(service, env):
-    if env is None:
-        return
+def _env_items(env):
     if isinstance(env, dict):
-        items = env.items()
-    elif isinstance(env, list):
+        return list(env.items())
+    if isinstance(env, list):
         items = []
         for e in env:
             if isinstance(e, str) and "=" in e:
@@ -117,12 +115,21 @@ def _warn_env(service, env):
                 items.append((name, val))
             elif isinstance(e, str):
                 items.append((e, ""))
-    else:
+        return items
+    return []
+
+
+def _warn_env(service, env, raw_env=None):
+    """raw_env: the same environment before interpolation; a value that is a ${VAR} there comes from the env file and is fine."""
+    if env is None:
         return
-    for name, val in items:
+    raw = {n: v for n, v in _env_items(raw_env) if isinstance(n, str) and isinstance(v, str)}
+    for name, val in _env_items(env):
         if not isinstance(name, str) or not isinstance(val, str):
             continue
         if not val:
+            continue
+        if re.search(r"\$\{|\$[A-Za-z_]", raw.get(name, "")):
             continue
         if re.search(r"PASS|TOKEN|SECRET|KEY", name, re.IGNORECASE):
             print(f"warn\tService {service} environment key {name} holds a literal value; move it to the env file.\tservices.{service}.environment")
@@ -131,12 +138,20 @@ def _warn_env(service, env):
 def do_check(raw):
     """Policy lines, tab separated: refuse|<text>|<path>, port|<port>|<path>, warn|<text>|<path>, cname|<name>|<path>, bind|<src>|<ro|rw>|<path>.
     <path> is a dotted compose path (services.web.ports) or - ; no secret value is printed."""
+    # stdin: the config JSON, optionally followed by a line holding RS (0x1e) and the same config without interpolation
+    first, _, rest = raw.partition(b"\n\x1e\n")
     try:
-        cfg = json.loads(raw.decode("utf-8", "strict"))
+        cfg = json.loads(first.decode("utf-8", "strict"))
     except (UnicodeDecodeError, ValueError):
         die("malformed JSON")
     if not isinstance(cfg, dict):
         die("malformed JSON")
+    try:
+        raw_services = (json.loads(rest.decode("utf-8", "strict")) or {}).get("services") or {} if rest.strip() else {}
+    except (UnicodeDecodeError, ValueError, AttributeError):
+        raw_services = {}
+    if not isinstance(raw_services, dict):
+        raw_services = {}
     ports = {}
     volumes = cfg.get("volumes")
     if volumes and isinstance(volumes, dict) and len(volumes) > 0:
@@ -160,7 +175,8 @@ def do_check(raw):
         for vol in svc.get("volumes") or []:
             if isinstance(vol, dict) and vol.get("type") == "bind" and isinstance(vol.get("source"), str):
                 print(f"bind\t{vol['source']}\t{'ro' if vol.get('read_only') else 'rw'}\tservices.{sname}.volumes")
-        _warn_env(sname, svc.get("environment"))
+        raw_svc = raw_services.get(sname)
+        _warn_env(sname, svc.get("environment"), raw_svc.get("environment") if isinstance(raw_svc, dict) else None)
     for path in dict.fromkeys(bad_paths):
         print(f"refuse\tEvery published port must name the host port.\t{path}")
     for p in sorted(ports):

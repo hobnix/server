@@ -70,7 +70,7 @@
               {#if col.key === 'name'}{a.name}
                 {#if filesChip(a)}{@const c = filesChip(a)} <Chip tone={c.tone} title={c.tip}>{c.text}</Chip>{/if}
               {:else if col.key === 'state'}<StatusDot state={dot(a.state)} label={a.state} />
-              {:else if col.key === 'running'}{a.running}
+              {:else if col.key === 'running'}{#if a.running === '0/0'}<span title="No containers yet: save applies when the app is started or pulled">–</span>{:else}{a.running}{/if}
               {:else if col.key === 'ports'}
                 {@const ports = a.ports === '-' ? [] : a.ports.split(',').filter(Boolean)}
                 {#if ports.length}
@@ -91,7 +91,7 @@
                     <Button variant="ghost" class="btn-icon ib" icon="stop" busy={jobRunning('docker-app', [a.name, 'stop'])} tooltip="Stop" aria-label="Stop {a.name}" onclick={(e) => plan(e, a, 'stop')} />
                   {/if}
                   <Button variant="ghost" class="btn-icon ib" icon="arrow-clockwise" busy={jobRunning('docker-app', [a.name, 'restart'])} tooltip="Restart" aria-label="Restart {a.name}" onclick={(e) => plan(e, a, 'restart')} />
-                  <Button variant="ghost" class="btn-icon ib" icon="download-simple" busy={jobRunning('docker-app', [a.name, 'pull'])} tooltip="Pull" aria-label="Pull {a.name}" onclick={(e) => plan(e, a, 'pull')}>Pull</Button>
+                  <Button variant="ghost" class="btn-icon ib" icon="download-simple" busy={jobRunning('docker-app', [a.name, 'pull'])} tooltip="Pull" aria-label="Pull {a.name}" onclick={(e) => plan(e, a, 'pull')} />
                 </span>
               {/if}
             {/snippet}
@@ -141,5 +141,5 @@
 <style>
   .images { font-size: 12px; color: var(--fg-3); max-width: 220px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; display: inline-block; }
   .acts { display: flex; justify-content: flex-end; gap: 2px; }
-  .ib { width: 28px; min-height: 28px; color: var(--fg-2); }
+  .acts :global(.ib) { width: 28px; min-height: 28px; height: 28px; padding: 0; color: var(--fg-2); }
 </style>

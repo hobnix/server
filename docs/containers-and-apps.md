@@ -447,6 +447,33 @@ stop it in Arcane. Remove Arcane later with `hs ct arcane delete`.
 
 Not tested on hardware yet.
 
+### Move the apps of an older server into the share apps
+
+Apps made before the share `apps` existed live in `/opt/apps` inside Docker. Move them once:
+
+```bash
+hs docker move-apps --dry-run
+hs docker move-apps
+```
+
+The plan lists every app with its new folder (`apps/stacks/<name>` when it has the `.hs-webui` marker, else `apps/recipes/<name>`) and
+its size, and refuses when a target folder exists already, when the SSD pool is too full for a copy or when the share `apps` is not
+mounted in Docker (`hs docker enable` fixes that). It takes a snapshot of `docker`, asks you to type `docker` and offers to run in the
+background. Each app is stopped for a short time, copied, its compose file rewritten (the paths that start with `/opt/apps/<name>`;
+the old file stays as `docker-compose.yml.prev`) and started from the share. Only then the old folder is renamed to
+`<name>.moved-<date>`. An app that does not start is stopped again and started from `/opt/apps`; the other apps go on, and the
+failed copy stays next to the target as `<name>.failed-<date>`.
+
+Look at your apps. When all is well, remove the old folders (you type `docker` again):
+
+```bash
+hs docker move-apps --finish
+```
+
+`hs update` never moves apps by itself.
+
+Not tested on hardware yet.
+
 ## Check that it worked
 
 ```bash

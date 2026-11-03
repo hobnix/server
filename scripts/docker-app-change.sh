@@ -329,7 +329,10 @@ env_diff() {
 run_check() {
   local app=$1 tmp=$2 dir=$3 json
   json=$(timeout 30 "${HS_INCUS:-incus}" exec "$CT" -- sh -c '
-    docker compose -p "$1" --project-directory "$3" -f "$2/docker-compose.yml" --env-file "$2/.env" config --format json
+    docker compose -p "$1" --project-directory "$3" -f "$2/docker-compose.yml" --env-file "$2/.env" config --format json || exit 1
+    # the same file before ${VAR} is filled in: a value that comes from the env file is not a literal secret (the check reads it after the 0x1e line)
+    printf "\n\036\n"
+    docker compose -p "$1" --project-directory "$3" -f "$2/docker-compose.yml" --env-file "$2/.env" config --no-interpolate --format json 2>/dev/null || true
   ' sh "$app" "$tmp" "$dir" </dev/null 2>/dev/null) || return 1
   printf '%s\n' "$json" | python3 "$here/lib/docker_app_doc.py" check
 }

@@ -1,0 +1,4 @@
+date  = "2026-11-03"
+type  = "fix"
+title = "The Docker page shows its row actions as icon buttons with tooltips"
+body  = """The actions at the end of a row (start, stop, restart, pull) are small square icon buttons like on the Pools page; the name is the tooltip. An app that has no containers yet (saved, not applied) shows a dash instead of 0/0."""
