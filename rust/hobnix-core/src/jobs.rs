@@ -745,7 +745,14 @@ impl Store {
             if rec.state.as_deref() != Some("cancelled") || rec.exit.is_some() {
                 return Err(failed("job is not cancelled, or it ended already"));
             }
-            rec.state = Some(if rec.started.is_some() { "running" } else { "queued" }.to_string());
+            rec.state = Some(
+                if rec.started.is_some() {
+                    "running"
+                } else {
+                    "queued"
+                }
+                .to_string(),
+            );
             rec.ended = None;
             rec.cancel = None;
             self.save(&rec)
