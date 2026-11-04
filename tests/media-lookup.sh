@@ -76,7 +76,7 @@ HOOK_ROOM=films
 ' > "$STATE/recipe-synapse.conf"
 out=$(FAKE_CTS="synapse=10.0.0.8" conf)
 check_eq "no hook address in the container file" "null" "$(pick .hook "$out")"
-check_eq "the channel is written for the provider matrix" "provider=matrix http://10.0.0.8:8091/hook/S3CRET/films" "$(sed -n 's/^provider=//p;s/^url=//p' "$WORK/channels/matrix.conf" | paste -sd' ')"
+check_eq "the channel is written for the provider matrix" "matrix http://10.0.0.8:8091/hook/S3CRET/films" "$(sed -n 's/^provider=//p;s/^url=//p' "$WORK/channels/matrix.conf" | paste -sd' ')"
 printf 'provider=matrix
 enabled=no
 minprio=high
