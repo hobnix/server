@@ -21,3 +21,4 @@ Issue: hobnix/server#<n>
 | Record | Decision | Status |
 | --- | --- | --- |
 | [0001](0001-rust-strangler.md) | Rust grows behind the `hs sys` contract, one command group at a time | Proposed |
+| [0002](0002-system-state-vs-runtime-state.md) | `store` in the schema separates declarative state (rebuild) from runtime state (at once) | Proposed |
