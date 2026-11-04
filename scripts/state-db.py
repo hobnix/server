@@ -20,6 +20,7 @@ Commands (machine readable output; scripts/state.sh makes the pretty version for
   usage-record <key> <used> <size>  one reading of a pool / filesystem fill level (bytes; backup: percent and 100), at most one per hour and key
   usage <key> [days]         the readings of the last N days (default 60): time TAB used TAB size, oldest first (scripts/forecast.py reads them)
   read-get <key>             the kept output (nothing and exit 1 when there is none)
+  topic-bump <topic|@group|--all>...  count one change up in the table `topics` (docs/adr/0005-events.md rule 5): live_refresh and the collector call it
   reads                      key TAB age in seconds TAB milliseconds the read took TAB exit code TAB bytes, oldest first
   baseline-run               the daily SMART check: read every disk through disk-health.sh --readings, compare with the stored reading,
                              update the table baseline (docs/PLAN-disk-health.md)
@@ -81,6 +82,7 @@ CREATE TABLE IF NOT EXISTS baseline (serial TEXT PRIMARY KEY, wwn TEXT, dev TEXT
 CREATE TABLE IF NOT EXISTS samples (
   time INTEGER NOT NULL, cpu INTEGER, mem INTEGER, gpu INTEGER, rx INTEGER, tx INTEGER, boot INTEGER NOT NULL DEFAULT 0);
 -- the output of the slow `hs sys ...` reads, written by the collector (scripts/reads-collect.sh) and served by the web interface instead of running the script
+CREATE TABLE IF NOT EXISTS topics (topic TEXT PRIMARY KEY, gen INTEGER NOT NULL DEFAULT 0, time INTEGER NOT NULL DEFAULT 0);
 CREATE TABLE IF NOT EXISTS reads (
   key TEXT PRIMARY KEY, payload TEXT NOT NULL, updated INTEGER NOT NULL, ms INTEGER, rc INTEGER NOT NULL DEFAULT 0);
 -- fill levels for the capacity forecast (scripts/forecast.py, health-check.sh): one reading per hour and key
@@ -911,9 +913,58 @@ def cmd_read_put(args):
         return 1
     c = open_rw()
     with c:
+        old = c.execute("SELECT payload FROM reads WHERE key = ?", (key,)).fetchone()
+        if old is None or old[0] != payload:
+            bump(c, ["reads:" + key])      # the collector read something new: the browser may read it again
         c.execute("INSERT INTO reads (key, payload, updated, ms, rc) VALUES (?, ?, ?, ?, ?) "
                   "ON CONFLICT(key) DO UPDATE SET payload = excluded.payload, updated = excluded.updated, ms = excluded.ms, rc = excluded.rc",
                   (key, payload, now(), ms, rc))
+    return 0
+
+
+def bump(c, names):
+    """Count each topic one up (inserts it at 1). The caller owns the transaction."""
+    t = now()
+    for n in names:
+        c.execute("INSERT INTO topics (topic, gen, time) VALUES (?, 1, ?) "
+                  "ON CONFLICT(topic) DO UPDATE SET gen = gen + 1, time = excluded.time", (n, t))
+
+
+def expand_topics(args):
+    """topic names as given; @group = every live topic of that change area and of `any`; --all or * = every live topic
+    (scripts/lib/live-topics.tsv, column 6 = groups). Without the list the names stay as given."""
+    rows = []
+    try:
+        with open(os.environ.get("HS_LIVE_TOPICS", os.path.join(HERE, "lib", "live-topics.tsv")), encoding="utf-8") as f:
+            for line in f:
+                p = line.rstrip("\r\n").split("\t")
+                if p[0] and not p[0].startswith("#"):
+                    rows.append((p[0], (p[5] if len(p) > 5 else "-").split(",")))
+    except OSError:
+        pass
+    out = []
+    for a in args:
+        if a in ("--all", "*"):
+            out += [r[0] for r in rows]
+        elif a.startswith("@"):
+            out += [t for t, groups in rows if a[1:] in groups or "any" in groups]
+        else:
+            out.append(a)
+    return list(dict.fromkeys(out))
+
+
+def cmd_topic_bump(args):
+    """Best effort and silent: no database folder (a test box), not root, a busy database: nothing happens and the exit code is 0."""
+    names = [n for n in expand_topics(args) if re.fullmatch(r"[A-Za-z0-9_:. -]{1,64}", n)]
+    if not names or not os.path.isdir(os.path.dirname(DB) or "."):
+        return 0
+    try:
+        c = open_rw()
+        with c:
+            bump(c, names)
+        c.close()
+    except (sqlite3.Error, OSError):
+        pass
     return 0
 
 
@@ -990,6 +1041,8 @@ def main(argv):
         return cmd_usage(args)
     if cmd == "read-put":
         return cmd_read_put(args)
+    if cmd == "topic-bump":
+        return cmd_topic_bump(args)
     if cmd == "read-get":
         return cmd_read_get(args)
     if cmd == "reads":

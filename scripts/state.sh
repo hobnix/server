@@ -76,6 +76,6 @@ case "$cmd" in
     exit "$rc" ;;
   collect) db collect "$@"; rc=$?; if [ "$rc" -eq 0 ] && [ -f "$here/lib/live.sh" ]; then . "$here/lib/live.sh"; live_refresh disk-inventory || true; fi; exit "$rc" ;;
   history-record) db history-record "$@"; rc=$?; if [ "$rc" -eq 0 ] && [ -f "$here/lib/live.sh" ]; then . "$here/lib/live.sh"; live_refresh state-history || true; fi; exit "$rc" ;;
-  disks|smart|problems|deck-disks|inventory-json|disks-json|events-json|history|usage-record|usage|read-put|read-get|reads) db "$cmd" "$@" ;;
+  disks|smart|problems|deck-disks|inventory-json|disks-json|events-json|history|usage-record|usage|read-put|read-get|reads|topic-bump) db "$cmd" "$@" ;;
   *) echo "usage: hs disk inventory | hs disk events | hs disk <serial> forget" >&2; exit 1 ;;
 esac
