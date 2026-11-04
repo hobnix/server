@@ -1,6 +1,6 @@
 # Event catalogue
 
-The names, levels and payloads of the events that scripts write to the event log. For developers; the design is in [ADR 0005](adr/0005-events.md).
+The names, levels and payloads of the events that scripts write to the event log. For developers; the design is in ADR 0005 (docs/adr/0005-events.md).
 
 ## The list
 
