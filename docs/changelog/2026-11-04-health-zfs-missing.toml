@@ -1,0 +1,5 @@
+date  = "2026-11-04"
+type  = "improvement"
+title = "Health reports a pool that did not import"
+body  = """The health check now reports a ZFS pool that NixOS should import at boot but that is missing from the pool list, and failed zfs-import and zfs-scrub units, like the failed hs jobs. Not tested on hardware yet."""
+docs  = "operations"

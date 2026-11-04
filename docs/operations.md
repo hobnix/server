@@ -64,6 +64,8 @@ What triggers a message:
 | Problem | Threshold |
 | --- | --- |
 | A ZFS pool is not healthy | state other than `ONLINE`, or errors in the pool |
+| A ZFS pool is not imported | a pool NixOS imports at boot (`zfs-import-<pool>`) is missing from `zpool list` |
+| A ZFS import or scrub unit failed | `zfs-import-*` or `zfs-scrub*` in state failed, like the `hs-*` jobs |
 | A SnapRAID data or parity disk is missing or not mounted | state `MISSING` / `UNMOUNTED`; no parity disk at all |
 | A disk fails its SMART self-check | health `FAIL` |
 | A disk has sectors it cannot read | pending sectors above 0 |

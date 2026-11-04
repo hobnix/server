@@ -58,6 +58,14 @@ if have zpool; then
     health=$(zpool list -H -o health "$p" 2>/dev/null || echo unknown)
     problem "zfs:$p:$health" "ZFS pool $p is not healthy (state $health). Details: zpool status $p"
   done
+  # A pool NixOS imports at boot (zfs-import-<pool>.service) that `zpool list` does not show failed to import: the loop above never sees it.
+  if have systemctl && listed=$(zpool list -H -o name 2>/dev/null); then
+    while read -r u _; do
+      p=${u#zfs-import-}; p=${p%.service}
+      [ -n "$p" ] && [ "$p" != "$u" ] || continue
+      grep -qx -- "$p" <<<"$listed" || problem "zfs:$p:missing" "ZFS pool $p is not imported. Details: journalctl -u zfs-import-$p, zpool import"
+    done < <(systemctl list-unit-files --plain --no-legend 'zfs-import-*.service' 2>/dev/null || true)
+  fi
   # Scrub: the weekly one must keep running and must not have found errors.
   # "scrub repaired 0B in 00:10:02 with 0 errors on Sun Oct  4 00:24:01 2026"
   for p in $(zpool list -H -o name 2>/dev/null || true); do
@@ -200,7 +208,9 @@ done
 # ── Failed services: the scheduled jobs (hs-*) and what the shares depend on ──
 if have systemctl; then
   mapfile -t units < <(systemctl list-units --all --plain --no-legend 'hs-*.service' 2>/dev/null | awk '{ print $1 }' || true)
-  for u in "${units[@]}" bulk-mount.service samba-smbd.service; do
+  mapfile -t zunits < <(systemctl list-units --all --plain --no-legend 'zfs-import-*.service' 'zfs-scrub*.service' 2>/dev/null | awk '{ print $1 }' || true)
+  for u in "${units[@]}" "${zunits[@]}" bulk-mount.service samba-smbd.service; do
+    [ -n "$u" ] || continue
     if systemctl is-failed --quiet "$u" 2>/dev/null; then
       problem "unit:$u" "$u failed. Details: journalctl -u $u"
     fi
