@@ -7699,6 +7699,275 @@
     }
    }
   },
+  "/release/plan/{action}": {
+   "post": {
+    "operationId": "release.plan.by_action",
+    "summary": "what switching the update channel would do, as data: status, plan lines (never asks; exit 0 ok, 1 refused: unknown channel, same channel, invalid tag signature); a newer channel adds a danger line and confirm_name",
+    "x-hs-exit": true,
+    "x-hs-sys": {
+     "words": [
+      "release",
+      "plan",
+      "<action>"
+     ],
+     "script": "release-change.sh",
+     "args": "plan {1} {rest}",
+     "class": "plan",
+     "rest": true
+    },
+    "parameters": [
+     {
+      "name": "action",
+      "in": "path",
+      "required": true,
+      "schema": {
+       "type": "string"
+      }
+     }
+    ],
+    "responses": {
+     "0": {
+      "description": "allowed",
+      "content": {
+       "text/tab-separated-values": {
+        "schema": {
+         "$ref": "#/components/schemas/ChangeLines"
+        }
+       }
+      }
+     },
+     "1": {
+      "description": "refused; the reason line says why",
+      "content": {
+       "text/tab-separated-values": {
+        "schema": {
+         "$ref": "#/components/schemas/ChangeLines"
+        }
+       }
+      }
+     },
+     "2": {
+      "description": "something is missing; the needs lines say what",
+      "content": {
+       "text/tab-separated-values": {
+        "schema": {
+         "$ref": "#/components/schemas/ChangeLines"
+        }
+       }
+      }
+     }
+    }
+   }
+  },
+  "/release/show": {
+   "get": {
+    "operationId": "release.show",
+    "summary": "the update channel and what the next update does, as key<TAB>value lines: channel, installed, offer (channel, ref or -, state) for each channel, then ref, state (none|unknown|current|kept|update) and signed (yes|no|-) of the current channel; reads fetched refs only",
+    "x-hs-exit": true,
+    "x-hs-sys": {
+     "words": [
+      "release",
+      "show"
+     ],
+     "script": "release-channel.sh",
+     "args": "--show",
+     "class": "read",
+     "rest": false
+    },
+    "responses": {
+     "0": {
+      "description": "ok",
+      "content": {
+       "text/tab-separated-values": {
+        "schema": {
+         "type": "array",
+         "items": {
+          "oneOf": [
+           {
+            "type": "array",
+            "prefixItems": [
+             {
+              "const": "channel"
+             },
+             {
+              "$ref": "#/components/schemas/Field",
+              "title": "channel"
+             }
+            ],
+            "minItems": 2,
+            "maxItems": 2
+           },
+           {
+            "type": "array",
+            "prefixItems": [
+             {
+              "const": "installed"
+             },
+             {
+              "$ref": "#/components/schemas/Field",
+              "title": "version"
+             }
+            ],
+            "minItems": 2,
+            "maxItems": 2
+           },
+           {
+            "type": "array",
+            "prefixItems": [
+             {
+              "const": "offer"
+             },
+             {
+              "$ref": "#/components/schemas/Field",
+              "title": "channel"
+             },
+             {
+              "$ref": "#/components/schemas/Field",
+              "title": "ref"
+             },
+             {
+              "$ref": "#/components/schemas/Field",
+              "title": "state",
+              "enum": [
+               "none",
+               "unknown",
+               "current",
+               "kept",
+               "update"
+              ]
+             }
+            ],
+            "minItems": 4,
+            "maxItems": 4
+           },
+           {
+            "type": "array",
+            "prefixItems": [
+             {
+              "const": "ref"
+             },
+             {
+              "$ref": "#/components/schemas/Field",
+              "title": "ref"
+             }
+            ],
+            "minItems": 2,
+            "maxItems": 2
+           },
+           {
+            "type": "array",
+            "prefixItems": [
+             {
+              "const": "state"
+             },
+             {
+              "$ref": "#/components/schemas/Field",
+              "title": "state",
+              "enum": [
+               "none",
+               "unknown",
+               "current",
+               "kept",
+               "update"
+              ]
+             }
+            ],
+            "minItems": 2,
+            "maxItems": 2
+           },
+           {
+            "type": "array",
+            "prefixItems": [
+             {
+              "const": "signed"
+             },
+             {
+              "$ref": "#/components/schemas/Field",
+              "title": "signed",
+              "enum": [
+               "yes",
+               "no",
+               "-"
+              ]
+             }
+            ],
+            "minItems": 2,
+            "maxItems": 2
+           }
+          ]
+         }
+        }
+       }
+      }
+     },
+     "default": {
+      "description": "failed; stderr says why, stdout may be empty"
+     }
+    }
+   }
+  },
+  "/release/start/{action}": {
+   "post": {
+    "operationId": "release.start.by_action",
+    "summary": "do it (hs sys release start channel <stable|beta|edge> [--confirm <channel>]; a newer channel needs its own name), answers status done",
+    "x-hs-exit": true,
+    "x-hs-sys": {
+     "words": [
+      "release",
+      "start",
+      "<action>"
+     ],
+     "script": "release-change.sh",
+     "args": "start {1} {rest}",
+     "class": "start",
+     "rest": true,
+     "confirm": "--confirm <name>, the name the plan's confirm_name line asks for"
+    },
+    "parameters": [
+     {
+      "name": "action",
+      "in": "path",
+      "required": true,
+      "schema": {
+       "type": "string"
+      }
+     }
+    ],
+    "description": "a long change starts a job; the `unit` line names it; follow it with `jobs tail`",
+    "responses": {
+     "0": {
+      "description": "done or started",
+      "content": {
+       "text/tab-separated-values": {
+        "schema": {
+         "$ref": "#/components/schemas/ChangeLines"
+        }
+       }
+      }
+     },
+     "1": {
+      "description": "refused",
+      "content": {
+       "text/tab-separated-values": {
+        "schema": {
+         "$ref": "#/components/schemas/ChangeLines"
+        }
+       }
+      }
+     },
+     "2": {
+      "description": "something is missing",
+      "content": {
+       "text/tab-separated-values": {
+        "schema": {
+         "$ref": "#/components/schemas/ChangeLines"
+        }
+       }
+      }
+     }
+    }
+   }
+  },
   "/remote/list": {
    "get": {
     "operationId": "remote.list",

@@ -45,3 +45,8 @@ enums = { "lock.state" = ["pool-change", "free", "busy", "unknown"], "paused.sta
 kind = "tsv"
 records = { lock = ["state", "text"], paused = ["state", "text"], scrub = ["pool", "state", "text"], sync = ["pool", "state", "text"] }
 enums = { "lock.state" = ["pool-change", "free", "busy", "unknown"], "paused.state" = ["yes", "no"] }
+
+["release show"]
+kind = "tsv"
+records = { channel = ["channel"], installed = ["version"], offer = ["channel", "ref", "state"], ref = ["ref"], state = ["state"], signed = ["signed"] }
+enums = { "offer.state" = ["none", "unknown", "current", "kept", "update"], "state.state" = ["none", "unknown", "current", "kept", "update"], "signed.signed" = ["yes", "no", "-"] }

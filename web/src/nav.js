@@ -55,6 +55,7 @@ export const tree = [
         { label: 'Backups', icon: 'cloud-arrow-up', path: '/settings/backups', capability: 'backup' },
         { label: 'Users and access', icon: 'users-three', path: '/settings/access' },
         { label: 'Updates', icon: 'arrow-circle-up', path: '/settings/updates' },
+        { label: 'Releases', icon: 'git-branch', path: '/settings/releases' },
         // one child per capability that is on and has a settings page of its own is added at render time (nodeItems capItems)
         { label: 'Capabilities', icon: 'puzzle-piece', path: '/settings/capabilities', prefix: true },
         { label: 'Advanced', icon: 'wrench', path: '/settings/advanced' },

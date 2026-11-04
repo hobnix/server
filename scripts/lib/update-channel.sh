@@ -77,3 +77,16 @@ uc_verify() {
   fi
   return 0
 }
+
+# uc_state <repo> <kind> <ref>: what `hs update` would do with the target, from refs already fetched (nothing is fetched):
+# none (no target yet), unknown (the ref is not in this checkout), current (HEAD is the target), kept (the target is part of HEAD: the installed
+# version stays until the channel catches up, no downgrade), update (the target is newer or on another line).
+uc_state() {
+  local repo=$1 kind=$2 ref=$3 target head
+  if [ "$kind" != tag ] && [ "$kind" != branch ]; then echo none; return 0; fi
+  target=$(_uc_git "$repo" rev-parse --verify -q "$ref^{commit}" 2>/dev/null) || { echo unknown; return 0; }
+  head=$(_uc_git "$repo" rev-parse HEAD 2>/dev/null) || { echo unknown; return 0; }
+  if [ "$target" = "$head" ]; then echo current
+  elif _uc_git "$repo" merge-base --is-ancestor "$target" "$head" 2>/dev/null; then echo kept
+  else echo update; fi
+}
