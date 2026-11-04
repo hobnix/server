@@ -1,0 +1,4 @@
+date  = "2026-11-04"
+type  = "feature"
+title = "Push messages appear in the event log"
+body  = """Every push message that is sent, held back by the quiet hours or could not be delivered is now also written to the event log, with the channel it went to. The journal line stays."""
