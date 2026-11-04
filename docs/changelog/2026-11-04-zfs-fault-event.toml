@@ -1,5 +1,5 @@
 date  = "2026-11-04"
 type  = "feature"
 title = "A ZFS fault shows up at once"
-body  = """When a ZFS pool or one of its disks faults (device FAULTED, DEGRADED, UNAVAIL or REMOVED, an I/O failure or a data error), the ZFS event daemon now writes the event storage.pool-fault to the event log and refreshes the disks view, so Health shows the problem without waiting for the 15-minute check. Not tested on hardware yet."""
+body  = """When a ZFS pool or one of its disks faults (device FAULTED, DEGRADED, UNAVAIL or REMOVED, an I/O failure or a data error), the ZFS event daemon now writes the event storage.pool-fault to the event log and refreshes the disks view, so Health shows the problem without waiting for the 15-minute check. This relies on the NixOS default that runs the ZFS event daemon whenever ZFS is in use (the repo does not set it itself). Not tested on hardware yet."""
 docs  = "storage"

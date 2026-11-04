@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# scripts/zed-event.sh (hs sys zed event): a ZFS fault from ZED is written to the event log, harmless events are not. No root, no ZFS.
+# scripts/zed-event.sh (hs zed-event, called by the zedlet): a ZFS fault from ZED is written to the event log, harmless events are not. No root, no ZFS.
 # shellcheck source=tests/lib.sh
 . "$(dirname "$0")/lib.sh"
 export HS_LANG=en HS_PLAIN=1 HS_CALLER=test HS_EVENT_NOROOT=1 HS_STATE_NO_COLLECT=1

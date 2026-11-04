@@ -264,7 +264,7 @@ in
 
   # ZFS fault events (hobnix/server#297): ZED (services.zfs.zed) runs this zedlet for every ZFS event; scripts/zed-event.sh writes a
   # pool or device fault to the event log (storage.pool-fault) and refreshes the disks group, so Health shows it at once.
-  # Not tested on hardware yet.
+  # This repo does not set services.zfs.zed itself; it relies on the NixOS default (zfs-zed runs when ZFS is in use). Not tested on hardware yet.
   environment.etc."zfs/zed.d/all-hobnix.sh" = {
     mode = "0755";
     text = ''
