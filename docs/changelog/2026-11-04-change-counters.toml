@@ -1,0 +1,4 @@
+date  = "2026-11-04"
+type  = "feature"
+title = "A change made with hs in a terminal shows up in the web interface"
+body  = """The web interface now notices a change made with the hs command in a terminal, or by a timer, within about a second: it drops what it had remembered and tells open pages to read again. This works without the live state service; with it, nothing gets slower."""

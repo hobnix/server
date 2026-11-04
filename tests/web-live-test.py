@@ -632,9 +632,13 @@ class Events(RedisBase):
         s = self.req("GET", "/api/events", headers=dict(self.ck, Origin="http://evil.example"))[0]
         self.assertEqual(s, 403)
 
-    def test_off_mode_is_404(self):
+    def test_off_mode_serves_the_stream_too(self):
         self.cfg.live = ""
-        self.assertEqual(self.req("GET", "/api/events", headers=self.ck)[0], 404)
+        c, r = self.open()
+        try:
+            self.assertEqual((r.status, r.getheader("Content-Type")), (200, "text/event-stream"))
+        finally:
+            c.close()
 
     def test_too_many_streams(self):
         self.cfg.events_max = 0
@@ -667,6 +671,83 @@ class Events(RedisBase):
                 break
             threading.Event().wait(0.05)
         self.assertEqual(self.app.event_streams, 0)
+
+
+class Counters(Base):
+    """The change counters (table topics of state.db): the watcher feeds `changed` and clears the read cache, also in mode off."""
+
+    def setUp(self):
+        super().setUp()
+        self.db = os.path.join(self.tmp, "state.db")
+        os.environ["HS_STATE_DB"] = self.db
+        self.hub = self.app.events
+        self.q = self.hub.add()
+
+    def tearDown(self):
+        os.environ.pop("HS_STATE_DB", None)
+        super().tearDown()
+
+    def bump(self, topic, n=1):
+        import sqlite3
+        c = sqlite3.connect(self.db)
+        c.execute("CREATE TABLE IF NOT EXISTS topics (topic TEXT PRIMARY KEY, gen INTEGER NOT NULL DEFAULT 0, time INTEGER NOT NULL DEFAULT 0)")
+        for _ in range(n):
+            c.execute("INSERT INTO topics (topic, gen, time) VALUES (?, 1, 0) ON CONFLICT(topic) DO UPDATE SET gen = gen + 1", (topic,))
+        c.commit()
+        c.close()
+
+    def drain(self):
+        out = []
+        while not self.q.empty():
+            out.append(self.q.get())
+        return out
+
+    def test_no_database_is_no_event(self):
+        self.hub.poll_counters()
+        self.hub.poll_counters()
+        self.assertEqual(self.drain(), [])
+
+    def test_a_bump_is_one_changed_and_clears_the_cache(self):
+        cleared = []
+        self.hub.on_change = lambda: cleared.append(1)
+        self.hub.poll_counters()                  # baseline: no database yet
+        self.bump("status")
+        self.hub.poll_counters()
+        self.assertEqual(self.drain(), [("changed", "status", 1)])
+        self.assertEqual(cleared, [1])
+        self.hub.poll_counters()                  # nothing moved
+        self.assertEqual((self.drain(), cleared), ([], [1]))
+
+    def test_the_first_read_is_a_baseline(self):
+        self.bump("status", 3)
+        self.hub.poll_counters()
+        self.assertEqual(self.drain(), [])
+        self.bump("status")
+        self.hub.poll_counters()
+        self.assertEqual(self.drain(), [("changed", "status", 4)])
+
+    def test_a_collector_counter_keeps_the_cache(self):
+        cleared = []
+        self.hub.on_change = lambda: cleared.append(1)
+        self.hub.poll_counters()
+        self.bump("reads:monitor disks")
+        self.hub.poll_counters()
+        self.assertEqual(self.drain(), [("changed", "reads:monitor disks", 1)])
+        self.assertEqual(cleared, [])
+
+    def test_redis_up_leaves_the_live_topics_to_redis(self):
+        self.hub.poll_counters()
+        self.hub.redis_up = True
+        self.bump("status")
+        self.hub.poll_counters()
+        self.assertEqual(self.drain(), [])
+
+    def test_a_change_clears_the_read_cache(self):
+        self.app.reads.cache["k"] = (time.time(), (200, {}))
+        self.hub.poll_counters()
+        self.bump("storage")
+        self.hub.poll_counters()
+        self.assertEqual(self.app.reads.cache, {})
 
 
 if __name__ == "__main__":

@@ -11,7 +11,7 @@ This file is the whole HTTP side of the entry page:
   POST /api/changes/seen   {rev: 40 hex}: remember it for the signed-in user (web-changes-seen.json in the state folder); session + CSRF
   GET  /api/sys/...   a read-only `hs sys` call from the allowlist READS below (session needed), e.g. /api/sys/ct/list
   GET  /api/sys/jobs/stream/<unit>  the same job journal as `sys jobs tail`, as server-sent events (one JSON {rows} per look, `event: end` when the unit ended), session needed
-  GET  /api/events    server-sent events `changed` ({topic, gen}) while live state is on (HS_WEB_LIVE=redis, else 404), `down`/`up` when Redis goes; session, same Origin
+  GET  /api/events    server-sent events `changed` ({topic, gen}) in every mode (a watcher reads the table `topics` of state.db once a second; Redis, when on, is the fast path), `down`/`up` when Redis goes; session, same Origin
   GET  /api/board     the dashboard tiles and their stats, only while the dashboard variant is web; a session, or (setting dashboardOpen) a private address
   GET  /api/proxy/status  the VPS status document (machine.toml proxyStatusUrl, env HS_WEB_PROXY_URL; 404 while not configured), session needed
   GET  /api/docs/index|page/<lang>/<slug>|search?q=  the guides (capability docs; `hs docs build` writes them), session needed
@@ -311,6 +311,7 @@ class Config:
         # live state (capability live-state): "redis" serves topic reads from Redis and pushes changes on /api/events; anything else = off
         self.live = env("HS_WEB_LIVE", "")
         self.live_socket = env("HS_LIVE_SOCKET", "/run/redis-hobnix/redis.sock")
+        self.events_watch = 1.0                                           # seconds between two reads of the change counters (table topics of state.db)
         self.events_ping = 15.0                                           # seconds of silence before a `: ping` on /api/events (tests shorten it)
         self.events_max = int(env("HS_WEB_EVENTS_MAX", "32"))             # /api/events streams open at once
 
@@ -1901,6 +1902,9 @@ class Events:
 
     def __init__(self, cfg):
         self.cfg, self.lock, self.queues = cfg, threading.Lock(), set()
+        self.redis_up = False        # the Redis subscription holds: it delivers the live topics, the counters are then only the fallback
+        self.counters = None         # topic -> gen as the watcher saw it last; None = not read yet (the first read is the baseline, no event)
+        self.on_change = None        # App sets it: called once per round that saw a change made outside the web (clears the read cache)
 
     def add(self):
         q = queue.Queue(maxsize=256)
@@ -1924,6 +1928,51 @@ class Events:
     def start(self):
         threading.Thread(target=self._run, daemon=True).start()
 
+    def start_watch(self):
+        threading.Thread(target=self._watch, daemon=True).start()
+
+    def read_counters(self):
+        """-> {topic: gen} from the table `topics` of the state database (read-only, no subprocess); {} while there is no database or table;
+        None when it could not be read now (busy): the watcher keeps what it knows."""
+        db = env("HS_STATE_DB", os.path.join(env("HS_STATE_DIR", "/var/lib/hs"), "state.db"))
+        if not os.path.exists(db):
+            return {}
+        try:
+            c = sqlite3.connect("file:%s?mode=ro" % db.replace("\\", "/"), uri=True, timeout=2)
+            try:
+                c.execute("PRAGMA query_only=1")
+                return {t: int(g) for t, g in c.execute("SELECT topic, gen FROM topics")}
+            finally:
+                c.close()
+        except sqlite3.OperationalError as e:
+            return {} if "no such table" in str(e) else None
+        except sqlite3.Error:
+            return None
+
+    def poll_counters(self):
+        """One round: every topic whose gen moved gets a `changed` (not while Redis delivers it); a change made outside the web (hs in a terminal, a
+        timer) also clears the read cache. A `reads:<key>` counter is the collector keeping newer output: the event only, the cache stays."""
+        now = self.read_counters()
+        if now is None:
+            return
+        before, self.counters = self.counters, now
+        if before is None:
+            return
+        moved = sorted((t, g) for t, g in now.items() if g != before.get(t))
+        if any(not t.startswith("reads:") for t, _ in moved) and self.on_change:
+            self.on_change()
+        for t, g in moved:
+            if t.startswith("reads:") or not self.redis_up:
+                self.feed("changed", t, g)
+
+    def _watch(self):
+        while True:
+            try:
+                self.poll_counters()
+            except Exception:
+                pass          # the watcher must not die
+            time.sleep(self.cfg.events_watch)
+
     def _run(self):
         up, wait = False, 1
         while True:
@@ -1935,6 +1984,7 @@ class Events:
                         wait = 1
                         if not up:
                             up = True
+                            self.redis_up = True
                             self.announce()
                         topic, _, gen = msg.partition(" ")
                         if topic:
@@ -1946,6 +1996,7 @@ class Events:
             if up:
                 self.feed("down")
             up = False
+            self.redis_up = False
             if time.time() - began > 10:      # the subscription held for a while: start the backoff again
                 wait = 1
             self.sleep(wait)
@@ -2016,7 +2067,8 @@ class App:
         self.changes_seen = ChangesSeen(self.cfg)
         self.reads.on_clear = self.plans.clear
         self.store = RedisStore(self.cfg, self.reads) if self.cfg.live == "redis" else OffStore(self.reads)
-        self.events = Events(self.cfg)       # started by main() in mode redis
+        self.events = Events(self.cfg)       # main() starts the counter watcher always and the Redis subscription in mode redis
+        self.events.on_change = self.reads.clear
         self.proxy = Proxy(self.cfg)
         self.warmer = Warmer(self)       # started by main(), not here
         self.terminals = wt.Terminals()
@@ -2318,14 +2370,12 @@ def make_handler(app):
                     app.streams -= 1
 
         def _events(self):
-            """Server-sent events for the live state: `changed` {topic, gen} when the collector read a topic again, `down` / `up` when Redis goes
-            or comes back. One thread per stream (at most cfg.events_max). The page reads the topic again when `changed` arrives."""
+            """Server-sent events, in every liveState mode: `changed` {topic, gen} when a change counter moved (Events.poll_counters) or, in mode
+            redis, the collector read a topic again; `down` / `up` when Redis goes or comes back. One thread per stream (at most cfg.events_max). The page reads the topic again when `changed` arrives."""
             if not self._session():
                 return self._json(401, {"error": "not signed in"})
             if self.headers.get("Origin") and not self._same_origin():
                 return self._json(403, {"error": "origin"})
-            if cfg.live != "redis":
-                return self._json(404, {"error": "live state is off"})
             with app.stream_lock:
                 if app.event_streams >= cfg.events_max:
                     return self._json(503, {"error": "too many open streams"})
@@ -2645,6 +2695,7 @@ def main():
     app = App(cfg)
     app.reads.load(cfg.cache_file)
     app.warmer.start()
+    app.events.start_watch()
     if cfg.live == "redis":
         app.events.start()
     server = Server((cfg.bind, cfg.port), make_handler(app))
