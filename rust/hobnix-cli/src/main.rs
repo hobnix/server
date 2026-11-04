@@ -4,6 +4,7 @@ use hobnix_core::log::{self, Level};
 use hobnix_core::Error;
 use std::process::ExitCode;
 
+mod jobs;
 mod secrets;
 
 fn run(args: &[String]) -> hobnix_core::Result<u8> {
@@ -12,6 +13,7 @@ fn run(args: &[String]) -> hobnix_core::Result<u8> {
             println!("hobnix {}", hobnix_core::version());
             Ok(hobnix_core::EXIT_OK)
         }
+        Some("job-record") => jobs::run(&args[1..]),
         Some("secrets") => secrets::run(&args[1..]),
         Some(other) => Err(Error::Refused(format!("unknown subcommand: {other}"))),
     }

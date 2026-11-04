@@ -4,6 +4,22 @@
 #   hs_job <slug> <description> -- <command...>     starts it, prints the unit name
 # HS_CALLER=job tells the script it was started this way (no questions). The unit notifies on
 # failure (hs-notify-failure@) and on success (notify.sh). Look: hs job running, hs job log <unit>.
+# hs_job_record ARGS...: the job record writer (docs/adr/0004-job-record.md). The Rust binary (hobnix job-record, HOBNIX_BIN or on PATH) does it
+# unless HS_JOB_RECORD=python, there is no binary or it does not know `job-record --probe`; then scripts/job-record.py does, exactly as before. Same words, same output, same exit codes.
+hs_job_record() {
+  # Decided once per shell: the binary must answer `job-record --probe`, an older build (after a git pull before the rebuild, or a rollback)
+  # does not, and then the Python program writes the record as before.
+  if [ -z "${_HS_JOB_RECORD_USE:-}" ]; then
+    _HS_JOB_RECORD_USE=python
+    if [ "${HS_JOB_RECORD:-}" != python ] && command -v "${HOBNIX_BIN:-hobnix}" >/dev/null 2>&1        && "${HOBNIX_BIN:-hobnix}" job-record --probe >/dev/null 2>&1; then _HS_JOB_RECORD_USE=rust; fi
+  fi
+  if [ "$_HS_JOB_RECORD_USE" = rust ]; then
+    "${HOBNIX_BIN:-hobnix}" job-record "$@"
+  else
+    python3 "${BASH_SOURCE[0]%/*}/../job-record.py" "$@"
+  fi
+}
+
 hs_job() {
   local slug=$1 desc=$2 unit here
   shift 3   # slug, description, --
@@ -17,21 +33,24 @@ hs_job() {
   # job record (docs/adr/0004-job-record.md): best effort, the job runs without one
   local src=cli jid=
   case "${HS_CALLER:-}" in web|ui) src=web ;; ext) src=extension ;; timer) src=timer ;; esac
-  jid=$(python3 "$here/job-record.py" new --slug "$slug" --desc "$desc" --unit "$unit" --source "$src" \
+  jid=$(hs_job_record new --slug "$slug" --desc "$desc" --unit "$unit" --source "$src" \
           --initiator "${SUDO_USER:-${USER:-}}" 2>/dev/null) || jid=
   [ -z "$jid" ] || extra+=(-E "HS_JOB_ID=$jid")
   [ -z "${HS_JOBS_DIR:-}" ] || extra+=(-E "HS_JOBS_DIR=$HS_JOBS_DIR")   # the unit writes to the same directory as hs_job
+  [ -z "${HOBNIX_BIN:-}" ] || extra+=(-E "HOBNIX_BIN=$HOBNIX_BIN")   # and with the same job record writer
+  [ -z "${HS_JOB_RECORD:-}" ] || extra+=(-E "HS_JOB_RECORD=$HS_JOB_RECORD")
   systemd-run --quiet --unit="$unit" --description="$desc" \
     --property="OnFailure=hs-notify-failure@$unit.service" \
     -E HS_CALLER=job -E "HS_LANG=${hs_lang:-en}" -E "PATH=$PATH" ${extra[@]+"${extra[@]}"} \
     bash -c 'd=$1; shift   # $0 = scripts dir, $1 = description, the rest = the command
-             [ -z "${HS_JOB_ID:-}" ] || python3 "$0/job-record.py" run "$HS_JOB_ID" 2>/dev/null || true
+             . "$0/lib/job.sh"   # hs_job_record
+             [ -z "${HS_JOB_ID:-}" ] || hs_job_record run "$HS_JOB_ID" 2>/dev/null || true
              "$@"; rc=$?
-             [ -z "${HS_JOB_ID:-}" ] || python3 "$0/job-record.py" finish "$HS_JOB_ID" "$rc" 2>/dev/null || true
+             [ -z "${HS_JOB_ID:-}" ] || hs_job_record finish "$HS_JOB_ID" "$rc" 2>/dev/null || true
              bash "$0/live.sh" refresh --all >/dev/null 2>&1 || true   # live state: read again (no-op without the capability)
              [ "$rc" -ne 0 ] || bash "$0/notify.sh" --category ok hs "$d finished" >/dev/null 2>&1
              exit "$rc"' "$here" "$desc" "$@" || {
-    [ -z "$jid" ] || python3 "$here/job-record.py" finish "$jid" 1 2>/dev/null || true
+    [ -z "$jid" ] || hs_job_record finish "$jid" 1 2>/dev/null || true
     return 1
   }
   bash "$here/live.sh" refresh @jobs >/dev/null 2>&1 || true   # live state: the job list shows the new job (no-op without the capability)
@@ -42,15 +61,15 @@ hs_job() {
 #   hs_job_step N OF TEXT        hs_job_progress DONE TOTAL UNIT        hs_job_cancelled (0 = stop cleanly now)
 hs_job_step() {
   [ -n "${HS_JOB_ID:-}" ] || return 0
-  python3 "${BASH_SOURCE[0]%/*}/../job-record.py" step "$HS_JOB_ID" "$1" "$2" "$3" 2>/dev/null || true
+  hs_job_record step "$HS_JOB_ID" "$1" "$2" "$3" 2>/dev/null || true
 }
 hs_job_progress() {
   [ -n "${HS_JOB_ID:-}" ] || return 0
-  python3 "${BASH_SOURCE[0]%/*}/../job-record.py" progress "$HS_JOB_ID" "$1" "$2" "$3" 2>/dev/null || true
+  hs_job_record progress "$HS_JOB_ID" "$1" "$2" "$3" 2>/dev/null || true
 }
 # hs_job_cancelled: returns 0 when the job's record says cancelled (a long job polls it at a safe point and stops cleanly),
 # 1 otherwise and always 1 outside a job.
 hs_job_cancelled() {
   [ -n "${HS_JOB_ID:-}" ] || return 1
-  python3 "${BASH_SOURCE[0]%/*}/../job-record.py" cancelled "$HS_JOB_ID" 2>/dev/null
+  hs_job_record cancelled "$HS_JOB_ID" 2>/dev/null
 }

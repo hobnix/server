@@ -115,3 +115,12 @@ points at Rust and the old script is deleted. After that docs/Entwicklungsnotize
 - A refusal stays `status refused` on stdout (exit 1); only infrastructure errors are `hobnix: <msg>` on stderr (exit 2).
 - tests/vault-change-rust.sh runs tests/vault-change.sh unchanged against the binary and compares both implementations byte for byte.
 - The two rows stay on `vault-change.sh` for now. Switching them to `rust:secrets` with `fallback:vault-change.sh` waits for the Nix build that puts `hobnix` on PATH (#125); the server keeps running the script until then.
+
+## Job store (#137)
+
+- What moved: the job record writer of ADR 0004 (`scripts/job-record.py`: new, run, step, progress, finish, get, find-unit, cancel, cancelled, reconcile) is now also `hobnix job-record <same words and flags>`. `hobnix-core` `jobs` holds Record, Store and the `System` trait (`systemctl is-active`, boot time; tests use fakes); `hobnix-cli` `jobs` parses the words like argparse does and writes the same lines.
+- First outside crates: `serde` and `serde_json`, in `hobnix-core` only (decided by the owner). Everything else stays std: locks are `File::lock`, time and the random letters are done by hand. This is the one exception to "std only" in "Errors and logs (#126)".
+- Exit codes follow job-record.py, not the 0/1/2 scheme: every failure is one stderr line `hobnix: <msg>` and exit 1, because the callers only test for zero.
+- The switch is one shell function, `hs_job_record` in scripts/lib/job.sh: it runs `${HOBNIX_BIN:-hobnix} job-record ...` unless `HS_JOB_RECORD=python` or no such binary exists, then `python3 scripts/job-record.py ...` exactly as before. hs_job, hs_job_step/progress/cancelled, jobs-change.sh and job-reconcile.sh all go through it, inside the systemd unit wrapper too (`HOBNIX_BIN` and `HS_JOB_RECORD` travel with `-E`).
+- tests/job-record-rust.sh runs tests/job-record.sh, tests/job-reconcile.sh and tests/jobs-change.sh unchanged against the binary, then runs the same commands against both implementations in two directories and compares stdout, the last stderr line, the exit code and every record file (ids and clock times normalised).
+- The Python program stays as the fallback until a server has run the binary; it is the oracle until then and is not changed.

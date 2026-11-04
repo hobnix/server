@@ -96,3 +96,91 @@ fn secrets_without_hs_scripts_is_exit_2() {
     assert!(String::from_utf8_lossy(&o.stderr).starts_with("hobnix: "));
     assert!(o.stdout.is_empty());
 }
+
+fn job_dir(name: &str) -> std::path::PathBuf {
+    let d = std::env::temp_dir().join(format!("hobnix-cli-jobs-{}-{name}", std::process::id()));
+    let _ = std::fs::remove_dir_all(&d);
+    d
+}
+
+fn job(dir: &std::path::Path, args: &[&str]) -> std::process::Output {
+    let mut a = vec!["job-record"];
+    a.extend_from_slice(args);
+    hobnix_env(&a, &[("HS_JOBS_DIR", dir.to_str().unwrap())], &[])
+}
+
+fn text(b: &[u8]) -> String {
+    String::from_utf8_lossy(b).into_owned()
+}
+
+#[test]
+fn job_record_life_of_a_job() {
+    let dir = job_dir("life");
+    let o = job(
+        &dir,
+        &[
+            "new",
+            "--slug",
+            "pool sync",
+            "--desc",
+            "hs pool sync",
+            "--unit",
+            "hs-job-x-1",
+            "--initiator",
+            "alice",
+        ],
+    );
+    assert_eq!(o.status.code(), Some(0));
+    let id = text(&o.stdout).trim().to_string();
+    assert!(id.contains("-pool-sync-"), "{id}");
+    assert_eq!(job(&dir, &["run", &id]).status.code(), Some(0));
+    assert_eq!(
+        job(&dir, &["step", &id, "2", "2", "last"]).status.code(),
+        Some(0)
+    );
+    assert_eq!(job(&dir, &["cancelled", &id]).status.code(), Some(1));
+    let o = job(&dir, &["find-unit", "hs-job-x-1.service"]);
+    assert_eq!(text(&o.stdout), format!("{id}\n"));
+    assert_eq!(job(&dir, &["finish", &id, "0"]).status.code(), Some(0));
+    let o = job(&dir, &["get", &id]);
+    let rec = text(&o.stdout);
+    assert!(rec.starts_with("{\n  \"id\": "), "{rec}");
+    assert!(rec.contains("\"state\": \"ok\""));
+    assert!(rec.contains("\"step\": {\n    \"n\": 2,\n    \"of\": 2,\n    \"text\": \"last\"\n  }"));
+    let o = job(&dir, &["cancel", &id, "--by", "bob", "--safe", "yes"]);
+    assert_eq!(o.status.code(), Some(1));
+    assert_eq!(text(&o.stderr), "hobnix: job already finished\n");
+    let _ = std::fs::remove_dir_all(&dir);
+}
+
+#[test]
+fn job_record_failures_are_one_line_and_exit_1() {
+    let dir = job_dir("fail");
+    for (args, line) in [
+        (vec!["get", "nope"], "hobnix: bad job id\n"),
+        (vec!["bogus"], "hobnix: bad arguments\n"),
+        (vec!["new", "--slug", "x"], "hobnix: bad arguments\n"),
+        (
+            vec!["step", "20240101-120000-a-abcd", "x", "1", "t"],
+            "hobnix: bad arguments\n",
+        ),
+        (
+            vec!["cancel", "20240101-120000-a-abcd", "--safe", "maybe"],
+            "hobnix: bad arguments\n",
+        ),
+        (
+            vec!["new", "--slug", "x", "--desc", "d", "--source", "bogus"],
+            "hobnix: bad source: bogus\n",
+        ),
+        (
+            vec!["find-unit", "none"],
+            "hobnix: no running job record for none\n",
+        ),
+    ] {
+        let o = job(&dir, &args);
+        assert_eq!(o.status.code(), Some(1), "{args:?}");
+        assert_eq!(text(&o.stderr), line, "{args:?}");
+        assert!(o.stdout.is_empty(), "{args:?}");
+    }
+    let _ = std::fs::remove_dir_all(&dir);
+}

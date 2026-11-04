@@ -167,4 +167,15 @@ check "hs_job_cancelled is 1 for a running job" "1" "$(hjc HS_JOBS_DIR="$HS_JOBS
 $W cancel "$cx" --by x --safe yes
 check "hs_job_cancelled is 0 for a cancelled job" "0" "$(hjc HS_JOBS_DIR="$HS_JOBS_DIR" HS_JOB_ID="$cx")"
 
+# an older binary (no `job-record`) must not swallow the records: hs_job falls back to Python
+mkdir -p "$T/oldbin"
+printf '#!/usr/bin/env bash
+echo "hobnix: unknown subcommand: job-record" >&2
+exit 1
+' > "$T/oldbin/hobnix"; chmod +x "$T/oldbin/hobnix"
+export HS_JOBS_DIR="$T/old"
+HOBNIX_BIN="$T/oldbin/hobnix" run 'hs_job oldbin "old binary job" -- bash -c "exit 0"' >/dev/null
+f=$(ls "$HS_JOBS_DIR"/*-oldbin-*.json 2>/dev/null | head -n1); rid=$(basename "${f:-x}" .json)
+check "an old binary falls back to the Python writer" "ok" "$(jf "$rid" state)"
+
 exit $fail
