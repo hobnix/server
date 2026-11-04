@@ -438,15 +438,14 @@ build_args
 export HS_SCRIPTS="$dir"
 case ",$row_flags," in
   *,changes,*)
-    # a change: after exit 0 the live state of its area is read again (topic: flag, default system); the exit code stays the script's
+    # a change: after the command, any exit code, the live state of its area is read again (topic: flag, default system); the exit code stays the script's
     . "$here/live.sh"
     grp=system
     case ",$row_flags," in *,topic:*) grp=${row_flags#*topic:}; grp=${grp%%,*} ;; esac
     if "${run_cmd[@]}" ${cmd_args[@]+"${cmd_args[@]}"}; then rc=0; else rc=$?; fi
-    if [ "$rc" -eq 0 ]; then
-      live_refresh "@$grp"
-      case "$row_path" in "ext "*) w=${row_path#ext }; live_refresh "@ext-${w%% *}" ;; esac   # a package's own topics
-    fi
+    # also after a failure: a half-done change leaves a changed state (docs/adr/0005-events.md, rule 8)
+    live_refresh "@$grp"
+    case "$row_path" in "ext "*) w=${row_path#ext }; live_refresh "@ext-${w%% *}" ;; esac   # a package's own topics
     exit "$rc" ;;
 esac
 exec "${run_cmd[@]}" ${cmd_args[@]+"${cmd_args[@]}"}

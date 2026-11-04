@@ -1,0 +1,4 @@
+date  = "2026-11-04"
+type  = "fix"
+title = "The web interface also updates after a command or a scheduled job failed"
+body  = """After a command that changes something, a background job or a timer, the live view is read again even when the command failed, so a half-done change shows up right away. A failed background job also writes a job.failed entry to the event log."""

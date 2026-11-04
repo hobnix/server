@@ -36,4 +36,13 @@ run 'HS_DISK_PASSPHRASE_FILE=/run/hs/job-pass.X hs_job y "with key" -- true' >/d
 check "the passphrase file path is handed to the unit" "1" "$(grep -c 'HS_DISK_PASSPHRASE_FILE=/run/hs/job-pass.X' "$T/calls")"
 check "the secret itself is never an argument" "0" "$(grep -c 'hunter2' "$T/calls")"
 
+# a failed job writes job.failed to the event log (rule 8 of docs/adr/0005-events.md); the refresh runs on any exit code
+if command -v python3 >/dev/null; then
+  export HS_EVENT_NOROOT=1 HS_STATE_DB="$T/ev.db"
+  run 'hs_job z "a bad job" -- bash -c "exit 3"' >/dev/null
+  check "a failed job emits job.failed" "1" "$(python3 "$here/scripts/state-db.py" event-list 5 2>/dev/null | grep -c 'job.failed')"
+  run 'hs_job w "a good job" -- true' >/dev/null
+  check "a good job emits no second job.failed" "1" "$(python3 "$here/scripts/state-db.py" event-list 5 2>/dev/null | grep -c 'job.failed')"
+fi
+
 exit $fail
