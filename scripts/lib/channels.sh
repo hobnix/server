@@ -146,12 +146,14 @@ chan_migrate() {
 }
 
 # chan_run <provider> <sub> [args...]: the provider script with the loaded channel's settings as CH_<key>
-# (the environment, never argv). CHAN_CATEGORY is the message category (default info).
+# (the environment, never argv). CHAN_CATEGORY is the message category (default info), CHAN_PAYLOAD_FILE
+# the JSON file of the event behind the message (optional; a provider that cannot use it ignores it).
 chan_run() {
   local p=$1 k envs=()
   shift
   for k in "${!CH[@]}"; do envs+=("CH_$k=${CH[$k]}"); done
   envs+=("CH_CATEGORY=${CHAN_CATEGORY:-info}")
+  [ -z "${CHAN_PAYLOAD_FILE:-}" ] || envs+=("CH_PAYLOAD_FILE=$CHAN_PAYLOAD_FILE")
   if command -v timeout >/dev/null 2>&1; then
     env "${envs[@]}" timeout "${HS_NOTIFY_TIMEOUT:-20}" bash "$(chan_providers_dir)/$p.sh" "$@"
   else

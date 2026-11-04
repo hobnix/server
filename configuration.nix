@@ -634,6 +634,21 @@ in
     timerConfig = { OnBootSec = "1min"; OnUnitInactiveSec = "15s"; AccuracySec = "1s"; };
   };
 
+  # Notifications are a subscriber of the event log (docs/adr/0005-events.md, docs/notify-rules.md): this reads the rows after its cursor,
+  # matches them with scripts/lib/notify-rules.tsv and calls `hs notify`; it also takes in the events the media helpers in containers
+  # leave in the share `media`. One cheap read per run. Not on an edge node (no event log there).
+  systemd.services.hs-event-notify = lib.mkIf (!isEdge) {
+    description = "Send the push messages that the event log asks for (scripts/event-notify.sh)";
+    path = [ "/run/current-system/sw" pkgs.python3 ];
+    serviceConfig.Type = "oneshot";
+    script = "bash ${./scripts}/event-notify.sh";
+  };
+  systemd.timers.hs-event-notify = lib.mkIf (!isEdge) {
+    description = "Timer of hs-event-notify";
+    wantedBy = [ "timers.target" ];
+    timerConfig = { OnBootSec = "1min"; OnUnitInactiveSec = "30s"; AccuracySec = "1s"; };
+  };
+
 
 
 
