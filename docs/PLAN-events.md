@@ -1,6 +1,6 @@
 # Plan: events (audit, 2026-11-04)
 
-Status: audit only, nothing built.
+Status: audit; the decisions are in docs/adr/0005-events.md (Proposed), nothing built.
 
 Epic: hobnix/server#139 (event architecture), audit issue #141, next step ADR #143. Baseline: develop at a070a7c. Everything below is read
 from code; nothing was run on hardware. `liveState` defaults to `off`, so on a default install most of the live paths below are inactive.
@@ -161,6 +161,6 @@ No answers here; the facts are from this audit.
     Topics: scripts/lib/live-topics.tsv (core) plus extension topics from hs_ext.py (E15); state.db kinds are in state-db.py; push
     categories are in notify.sh; the media notifier has its own event names (E21).
 
-## Open questions
+## Open questions (answered in docs/adr/0005-events.md)
 
 None yet. The design follows from this audit.
