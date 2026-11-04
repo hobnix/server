@@ -114,4 +114,4 @@ points at Rust and the old script is deleted. After that docs/Entwicklungsnotize
 - `hobnix-core` `secrets` holds Action, Plan, the `Host` trait and `SystemHost`, which runs `hs_job` from scripts/lib/job.sh; `hobnix-cli` `secrets` parses the words and writes the lines.
 - A refusal stays `status refused` on stdout (exit 1); only infrastructure errors are `hobnix: <msg>` on stderr (exit 2).
 - tests/vault-change-rust.sh runs tests/vault-change.sh unchanged against the binary and compares both implementations byte for byte.
-- The two rows stay on `vault-change.sh` for now. Switching them to `rust:secrets` with `fallback:vault-change.sh` waits for the Nix build that puts `hobnix` on PATH (#125); the server keeps running the script until then.
+- The two rows run `rust:secrets` with `fallback:vault-change.sh` (switched 2026-11-04, after the Nix build of #125 put `hobnix` on PATH and `tests/vault-change-rust.sh` passed in CI). A server that has not rebuilt yet has no binary and keeps running the script. Not yet run on a real server: after the first `hs rebuild`, run `hs sys secrets plan header-backup` and compare with `hobnix secrets plan header-backup`.
