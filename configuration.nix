@@ -18,19 +18,9 @@ let
   # How /bulk is built. "zfs": a pool like fast (mirror pairs). "snapraid":
   # single disks of any size, merged with mergerfs, protected by SnapRAID parity.
   bulkType = machine.bulkType;
-  # Language of the descriptions and messages of the hs commands: "en" (default) or "de".
-  # Commands, options and file names are never translated. See scripts/lib/i18n.sh.
-  language = machine.language;
   bulkSnapraid = bulkType == "snapraid";
   # what has to be up before anything touches /bulk
   bulkReady = if bulkSnapraid then "bulk-mount.service" else "zfs-mount.service";
-  # Optional address push messages are POSTed to (ntfy.sh style); see `hs notify`.
-  notifyUrl = machine.notifyUrl;
-  # address that gets a "still alive" message every health check (machine.toml: heartbeatUrl); scripts/vps-watch.sh on the VPS raises the alarm when it stops
-  heartbeatUrl = machine.heartbeatUrl;
-  # Does a share (or dataset) that appears later go into the backup by itself? (machine.toml:
-  # backupNewShares, default false: a share is only backed up once you switch it on)
-  backupNewShares = machine.backupNewShares;
   # Hours between two parity syncs (machine.toml: syncEveryHours, default 24 = once a night at 03:00, so the HDDs can sleep
   # the rest of the day; 4 = 03 07 11 15 19 23).
   syncEveryHours = machine.syncEveryHours;
@@ -47,10 +37,6 @@ let
   timeZone = machine.timeZone;
   # Hourly/daily/weekly ZFS snapshots of every share (machine.toml: shareSnapshots, default false; hs snapshots)
   shareSnapshots = machine.shareSnapshots;
-  # Three status lines at SSH login (machine.toml: loginMessage, default true; hs motd)
-  loginMessage = machine.loginMessage;
-  # Icons of the interface and the console (machine.toml: icons = "unicode" | "nerd" | "ascii"; nerd needs a Nerd Font in your terminal)
-  icons = machine.icons;
   # hand out numbers for Prometheus (machine.toml: metrics; set by `hs recipe monitoring`)
   metrics = machine.metrics;
   # Optional parts of the server (capabilities/<name>/, docs/PLAN-modular-core.md step 3): the list in machine.toml, plus the
@@ -88,10 +74,6 @@ let
   webTailscale = machine.webTailscale;
   # also reachable on the home network by address, plain HTTP (machine.toml: webLan, default true); only with webTailscale does turning it off close the LAN port
   webLan = machine.webLan;
-  # Status document of the proxyserver for the web interface (machine.toml: proxyStatusUrl, default "" = off)
-  proxyStatusUrl = machine.proxyStatusUrl;
-  # Where the web interface runs `vps update` / `vps watch` over SSH (machine.toml: vpsHost, default "" = off); the work is scripts/vps-change.sh
-  vpsHost = machine.vpsHost;
   # Upper limit of the ZFS read cache (ARC) in GiB (machine.toml: zfsArcMaxGB, default 12; 0 = ZFS default, nearly all of the RAM on current OpenZFS)
   zfsArcMaxGB = machine.zfsArcMaxGB;
   # Minutes of idle time after which the spinning bulk/parity/backup disks go to sleep (machine.toml: diskSpindownMinutes, default 0 = never)
@@ -174,11 +156,7 @@ in
   # The scripts read the layout from here (hs pool bulk, create-share, ...).
   environment.etc."hs/bulk-type".text = bulkType;
   environment.etc."hs/share-snapshots".text = if shareSnapshots then "on" else "off";
-  environment.etc."hs/login-message".text = if loginMessage then "on" else "off";
-  environment.etc."hs/icons".text = icons;
   environment.etc."hs/incus-ui".text = if incusUi then "on" else "off";
-  environment.etc."hs/backup-new-shares".text = if backupNewShares then "on" else "off";
-  environment.etc."hs/language".text = language;
   environment.etc."hs/site-name".text = siteName;
   environment.etc."hs/dhcp-range".text = lib.concatMapStringsSep " " toString dhcpRange;
   environment.etc."hs/capabilities".text = lib.concatStrings (map (c: c + "\n") capabilities);   # scripts/lib/capability.sh
@@ -226,12 +204,6 @@ in
     assertion = builtins.elem syncEveryHours [ 1 2 3 4 6 8 12 24 ];
     message = "machine.toml: syncEveryHours must be 1, 2, 3, 4, 6, 8, 12 or 24 (found ${toString syncEveryHours}).";
   } {
-    assertion = proxyStatusUrl == "" || builtins.match "https?://[^ ]+" proxyStatusUrl != null;
-    message = "machine.toml: proxyStatusUrl must be empty or start with http:// or https:// (found \"${proxyStatusUrl}\").";
-  } {
-    assertion = vpsHost == "" || builtins.match "[A-Za-z0-9][A-Za-z0-9._:-]{0,100}" vpsHost != null;
-    message = "machine.toml: vpsHost must be a host name or address (found \"${vpsHost}\").";
-  } {
     assertion = builtins.elem bulkType [ "zfs" "snapraid" ];
     message = "machine.toml: bulkType must be \"zfs\" or \"snapraid\" (found \"${bulkType}\").";
   } {
@@ -240,9 +212,6 @@ in
   } {
     assertion = builtins.elem nvidiaDriver [ "stable" "legacy_580" ];
     message = "machine.toml: nvidiaDriver must be \"stable\" or \"legacy_580\" (found ${builtins.toJSON nvidiaDriver}).";
-  } {
-    assertion = builtins.elem language [ "en" "de" ];
-    message = "machine.toml: language must be \"en\" or \"de\" (found \"${language}\").";
   } {
     assertion = builtins.match "[a-z0-9]([a-z0-9-]{0,30}[a-z0-9])?" siteName != null;
     message = "machine.toml: siteName '${siteName}' must be lower case letters, digits and hyphens (it becomes a DNS label).";
@@ -337,8 +306,6 @@ in
       HS_CALLER = "web";
       HS_WEB_PORT = toString webPort;
       HS_WEB_ROOT = "${hsWeb}";
-      HS_WEB_PROXY_URL = proxyStatusUrl;
-      HS_WEB_VPS_HOST = vpsHost;
       HS_WEB_BIND = if webTailscale && !webLan then "127.0.0.1" else "";
       HS_WEB_SECURE = if webTailscale then "1" else "";
       HS_WEB_TRUST_PROXY = if webTailscale || builtins.elem "gateway" capabilities then "1" else "";
@@ -585,10 +552,6 @@ in
   };
 
   # ──────────────────────── Notifications ────────────────────────
-  # Where push messages go (machine.toml: notifyUrl). Without it `hs notify`
-  # only writes to the journal: journalctl -t hs-notify
-  environment.etc."hs/notify-url" = lib.mkIf (notifyUrl != null) { text = notifyUrl; };
-  environment.etc."hs/heartbeat-url" = lib.mkIf (heartbeatUrl != null) { text = heartbeatUrl; };
 
   # Looks at pools, disks, free space, failed jobs and the domain controller's
   # certificate. Sends one message when the list of problems changes, and an
@@ -706,7 +669,7 @@ in
       # `hs <Tab>`: the words come from scripts/lib/registry.tsv (hs sys complete)
       _hs() { local -a c; c=("''${(@f)$(hs sys complete "''${(@)words[2,CURRENT-1]}" 2>/dev/null)}"); compadd -a c; }
       compdef _hs hs
-      # three status lines at SSH login (switch off: loginMessage = false in machine.toml)
+      # three status lines at SSH login (switch off: hs config set loginMessage false)
       if [[ -o login && -n "$SSH_TTY" && -z "$HS_MOTD_DONE" ]]; then export HS_MOTD_DONE=1; hs motd 2>/dev/null; fi
     '';
   };

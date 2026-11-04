@@ -1,0 +1,5 @@
+date  = "2026-11-04"
+type  = "change"
+title = "Runtime settings no longer need a rebuild or machine.toml"
+body  = """Language, icons, login message, backup of new shares, the push and heartbeat addresses, the VPS host, the proxy status address, the web accent and the web terminal limits are only read from the runtime settings now (hs config set, no rebuild). A rebuild no longer takes them from machine.toml. If an old machine.toml still has such a line, run hs update (or hs config migrate-settings) once to move it. Not tested on hardware yet."""
+docs  = "operations"

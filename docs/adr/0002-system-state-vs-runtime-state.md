@@ -73,17 +73,11 @@ files is the next step, one option at a time, because the web service reads some
 The rebuild duration: `hs rebuild` now writes the seconds of the last successful build to `/var/lib/hs/last-rebuild-seconds`, and a plan that
 needs a rebuild adds "The last rebuild took about N min." when that file exists. Nothing is shown before the first measured rebuild.
 
-### Update: four of the twelve are out of Nix
+### Update: no live option is read by Nix any more
 
-`webAccent`, `webTerminal`, `webTerminalIdleMinutes` and `webTerminalMaxHours` are no longer read by `configuration.nix`: the `HS_WEB_*`
-variables and the `webAccent` assertion are gone (the schema pattern checks the colour when it is set; `scripts/web-serve.py` has the defaults).
-A value that is still a line of an old `machine.toml` is moved by `hs config migrate-settings` (run by `hs update`); until then the default
-applies. The other eight stay on the list of known violations:
-
-- `language`, `icons`, `loginMessage`, `backupNewShares`, `notifyUrl`, `heartbeatUrl`: the `/etc/hs/*` file Nix writes is the legacy fallback
-  that `setting_get` (scripts/lib/setting.sh) reads for a server that was not migrated. Dropping it needs the decision that a rebuild
-  without `hs update` may lose an old `machine.toml` value; `language` also has a Nix assertion. Not done in this step.
-- `vpsHost`, `proxyStatusUrl`: the `HS_WEB_*` environment switches the `vps` capability on for a server that was not migrated
-  (scripts/hs_ext.py). Same decision, plus a test of the capability switch.
-
-None of the eight touches storage, network or the firewall. Not tested on hardware yet.
+The twelve options (`backupNewShares`, `heartbeatUrl`, `icons`, `language`, `loginMessage`, `notifyUrl`, `proxyStatusUrl`, `vpsHost`,
+`webAccent`, `webTerminal`, `webTerminalIdleMinutes`, `webTerminalMaxHours`) are no longer read by `configuration.nix`: the `/etc/hs/*` files,
+the `HS_WEB_*` variables and the three assertions (language, proxyStatusUrl, vpsHost; the schema `choices`/`pattern` check them when set) are gone.
+Every reader already used `setting_get` / `runtime_setting` or `/var/lib/hs/notify-url` and `heartbeat-url`, and `hs config migrate-settings`
+(run by `hs update`) moves an old `machine.toml` line into the settings store. A rebuild without `hs update` no longer carries such a line over.
+`tests/schema.sh` now lists no exceptions, so rule 3 holds. Not tested on hardware yet.
