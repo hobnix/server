@@ -7,6 +7,7 @@ Never stores argv or environment, only the description the caller gives.
 
   new --slug S --desc D --unit U --source cli|web|timer|extension --initiator NAME
   run ID | step ID N OF TEXT | progress ID DONE TOTAL UNIT | finish ID EXIT | get ID
+  find-unit UNIT | cancel ID --by NAME --safe yes|no | cancelled ID (exit 0 when cancelled)
   reconcile   mark queued/running records whose unit is gone as interrupted (boot); never re-runs anything
 """
 import argparse
@@ -204,12 +205,15 @@ def cmd_progress(a):
 def cmd_finish(a):
     with locked(a.id):
         rec = load(a.id)
-        rec["ended"] = now_iso()
         rec["exit"] = a.exit
-        if a.exit == 0:
+        if rec.get("state") == "cancelled":   # a cancel stays cancelled; the earlier end time and cancel block stay
+            rec["ended"] = rec.get("ended") or now_iso()
+        elif a.exit == 0:
+            rec["ended"] = now_iso()
             rec["state"] = "ok"
             rec["error"] = None
         else:
+            rec["ended"] = now_iso()
             rec["state"] = "failed"
             rec["error"] = {"category": "exit", "message": "exit status %d" % a.exit}
         save(rec)
@@ -222,6 +226,42 @@ def cmd_finish(a):
         os.unlink(os.path.join(jobs_dir(), "%s.lock" % a.id))
     except OSError:
         pass
+
+
+def cmd_find_unit(a):
+    """Print the id of the newest queued/running record of a unit (highest id), else exit 1."""
+    try:
+        names = sorted((n[:-5] for n in os.listdir(jobs_dir()) if n.endswith(".json")), reverse=True)
+    except OSError:
+        names = []
+    for job_id in names:
+        try:
+            rec = load(job_id)
+        except Fail:
+            continue
+        # hs_job stores the unit without the .service suffix that systemctl and jobs-change.sh use
+        if rec.get("unit") in (a.unit, a.unit[:-8] if a.unit.endswith(".service") else a.unit) and rec.get("state") in ("queued", "running"):
+            sys.stdout.write(job_id + "\n")
+            return
+    raise Fail("no running job record for %s" % a.unit)
+
+
+def cmd_cancel(a):
+    with locked(a.id):
+        rec = load(a.id)
+        if rec.get("state") not in ("queued", "running"):
+            raise Fail("job already finished")
+        at = now_iso()
+        rec["state"] = "cancelled"
+        rec["ended"] = at
+        rec["error"] = None
+        rec["cancel"] = {"requested_by": a.by or None, "at": at, "safe": a.safe == "yes"}
+        save(rec)
+
+
+def cmd_cancelled(a):
+    if load(a.id).get("state") != "cancelled":
+        sys.exit(1)
 
 
 def cmd_get(a):
@@ -331,6 +371,10 @@ def main():
     s = sub.add_parser("finish"); s.add_argument("id"); s.add_argument("exit", type=int); s.set_defaults(fn=cmd_finish)
     s = sub.add_parser("get"); s.add_argument("id"); s.set_defaults(fn=cmd_get)
     s = sub.add_parser("reconcile"); s.set_defaults(fn=cmd_reconcile)
+    s = sub.add_parser("find-unit"); s.add_argument("unit"); s.set_defaults(fn=cmd_find_unit)
+    s = sub.add_parser("cancel"); s.add_argument("id"); s.add_argument("--by", default="")
+    s.add_argument("--safe", choices=("yes", "no"), required=True); s.set_defaults(fn=cmd_cancel)
+    s = sub.add_parser("cancelled"); s.add_argument("id"); s.set_defaults(fn=cmd_cancelled)
     try:
         a = p.parse_args()
     except SystemExit as e:

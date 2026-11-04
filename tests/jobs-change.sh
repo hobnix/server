@@ -61,6 +61,31 @@ run start stop hs-job-system-sync-bulk-0300 --confirm stop
 check_eq "the word stops it" 0 "$rc"
 check_eq "systemctl stop of the sync" "stop hs-job-system-sync-bulk-0300.service" "$(cat "$WORK/sysctl-calls")"
 
+echo "-- the job record"
+export HS_JOBS_DIR=$WORK/jobsdir
+JR="python3 $SCRIPTS/job-record.py"
+rid=$($JR new --slug gc --desc "Clean up old generations" --unit hs-job-gc-0320 --initiator alice); $JR run "$rid"
+run plan stop hs-job-gc-0320
+has "^note${T}The job record will say cancelled by " && pass "plan: the record note" || fail "record note: $out"
+run plan stop hs-health-check
+has "job record will say" && fail "no record, no note" || pass "no record, no note"
+rm -f "$WORK/sysctl-calls"
+SUDO_USER=carol run start stop hs-job-gc-0320
+check_eq "start stop with a record: exit 0" 0 "$rc"
+check_eq "start stop with a record: output unchanged" "status${T}done" "$out"
+check_eq "the record is cancelled" cancelled "$($JR get "$rid" | python3 -c 'import json,sys; print(json.load(sys.stdin)["state"])')"
+check_eq "cancelled by the caller, safe" "carol True" "$($JR get "$rid" | python3 -c 'import json,sys; c=json.load(sys.stdin)["cancel"]; print(c["requested_by"], c["safe"])')"
+check_eq "systemctl stop still ran" "stop hs-job-gc-0320.service" "$(cat "$WORK/sysctl-calls")"
+rid2=$($JR new --slug system-sync-bulk --desc "Update the parity" --unit hs-job-system-sync-bulk-0300 --initiator alice); $JR run "$rid2"
+rm -f "$WORK/sysctl-calls"
+SUDO_USER=carol run start stop hs-job-system-sync-bulk-0300 --confirm stop
+check_eq "a red stop with a record: exit 0" 0 "$rc"
+check_eq "a red stop is not safe" "False" "$($JR get "$rid2" | python3 -c 'import json,sys; print(json.load(sys.stdin)["cancel"]["safe"])')"
+rm -f "$WORK/sysctl-calls"
+run start stop hs-job-gc-0320
+check_eq "a finished record does not stop systemctl" "stop hs-job-gc-0320.service" "$(cat "$WORK/sysctl-calls")"
+unset HS_JOBS_DIR
+
 echo "-- running a scheduled job now"
 run plan run hs-selftest-short
 check_eq "run: exit 0" 0 "$rc"

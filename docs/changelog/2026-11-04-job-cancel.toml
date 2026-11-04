@@ -1,0 +1,4 @@
+date  = "2026-11-04"
+type  = "feature"
+title = "Stopping a job is written to its job record"
+body  = """When you stop a running job, the job record now says it was cancelled, by whom and whether it was stopped at a safe point. The stop plan shows one more line about it. Stopping works as before."""

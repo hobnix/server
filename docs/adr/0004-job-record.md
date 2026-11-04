@@ -52,6 +52,7 @@ From the audit of #129 (docs/PLAN-jobs.md has the older one):
 - The writer exists (`scripts/job-record.py`, used by `hs_job`, tests/job-record.sh). Follow-up work, not done by this record: cancel states (#135),
   the new read rows, the file manager bridge.
 - The reconcile at boot exists (`job-record.py reconcile`, `scripts/job-reconcile.sh`, service `hs-job-reconcile`, tests/job-reconcile.sh): it marks and tells, it never re-runs a job.
+- Cancellation exists (`job-record.py find-unit|cancel|cancelled`, `hs_job_cancelled`, `jobs-change.sh stop`): the record says `cancelled` before the unit is stopped, and a later `finish` keeps that state.
 
 ## Open points
 
