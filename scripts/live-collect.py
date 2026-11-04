@@ -78,7 +78,7 @@ class Collector:
         log("refresh %s -> %s" % (topic, "all %d topics" % len(woken) if topic == "*" else (", ".join(woken) or "no topic")))
 
     def collect(self, topic, words, mode="run"):
-        """One read of one topic. Returns True when the key was written with new data."""
+        """One read of one topic. Returns True when the output differs from the last read (new gen, published); an identical read only moves ts."""
         if mode == "skip" and self.locked():
             return False
         if not ls.cap_on((self.info.get(topic) or {}).get("cap")):
@@ -93,6 +93,11 @@ class Collector:
             except ValueError:
                 old = {}
             if rc == 0 or out:
+                if old and old.get("rc") == rc and old.get("out") == out and old.get("err") is None:
+                    # the same output as the last read: only the time moves (the data is still fresh); no new gen, no publish
+                    old["ts"] = now
+                    self.store.cmd("SET", ls.KEY % topic, json.dumps(old))
+                    return False
                 gen = int(old.get("gen", 0)) + 1
                 doc = {"ts": now, "gen": gen, "rc": rc, "out": out, "err": None, "ts_err": None}
                 self.store.cmd("SET", ls.KEY % topic, json.dumps(doc))

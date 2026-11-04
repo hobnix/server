@@ -71,8 +71,8 @@ Chosen by the owner on 2026-11-04 (questions 2, 4 and 1 of the plan, section 5).
 
 ## Open points
 
-- **"Changed" should mean "different"** (question 6): comparing `out` before bumping `gen` in the collector. Not decided here; a separate
-  small change with its own measurement.
+- **"Changed" should mean "different"** (question 6): comparing `out` before bumping `gen` in the collector. Done in #295: an identical read
+  only moves `ts`, no new `gen`, no publish.
 - **Three push paths** (question 7): `vps/hs-watch.sh` -> ntfy and `hs-media-notify.py` -> Matrix bypass notify.sh, channels and quiet
   hours. Moving them onto `notify.sh` is wanted but changes the edge VPS and a container recipe; its own issue.
 - **Daemon watchers** (question 9): `incus monitor`, Docker events, ZED. Each would be an event source after this record; out of scope for

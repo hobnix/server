@@ -67,6 +67,31 @@ class Collect(unittest.TestCase):
         self.assertEqual(json.loads(st.data["hs:v1:status"])["gen"], 2)
         self.assertEqual(st.published, [("hs:v1:changed", "status 1"), ("hs:v1:changed", "status 2")])
 
+    def test_identical_output_keeps_gen_and_does_not_publish(self):
+        S = "same\n"
+        c, st, _ = self.make([(0, S, ""), (0, S, ""), (0, S, ""), (1, S, "e"), (1, S, "e")])
+        self.assertTrue(c.collect("status", ["status"]))
+        ts1 = json.loads(st.data["hs:v1:status"])["ts"]
+        self.assertFalse(c.collect("status", ["status"]))
+        self.assertFalse(c.collect("status", ["status"]))
+        d = json.loads(st.data["hs:v1:status"])
+        self.assertEqual(d["gen"], 1)
+        self.assertGreaterEqual(d["ts"], ts1)     # freshness still moves
+        self.assertEqual(len(st.published), 1)
+        # a changed rc with the same text counts as different
+        self.assertTrue(c.collect("status", ["status"]))
+        self.assertEqual(json.loads(st.data["hs:v1:status"])["gen"], 2)
+        self.assertFalse(c.collect("status", ["status"]))
+        self.assertEqual(len(st.published), 2)
+
+    def test_output_back_after_an_error_counts_as_different(self):
+        c, st, _ = self.make([(0, "good", ""), (2, "", "boom"), (0, "good", "")])
+        c.collect("status", ["status"])
+        c.collect("status", ["status"])
+        self.assertTrue(c.collect("status", ["status"]))
+        d = json.loads(st.data["hs:v1:status"])
+        self.assertEqual((d["gen"], d["err"]), (2, None))
+
     def test_nonzero_with_output_counts_as_data(self):
         c, st, _ = self.make([(1, "partial", "boom")])
         self.assertTrue(c.collect("status", ["status"]))
