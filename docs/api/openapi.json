@@ -7672,7 +7672,7 @@
       "plan",
       "<action>"
      ],
-     "script": "vault-change.sh",
+     "script": "rust:secrets",
      "args": "plan {1} {rest}",
      "class": "plan",
      "rest": true
@@ -7732,7 +7732,7 @@
       "start",
       "<action>"
      ],
-     "script": "vault-change.sh",
+     "script": "rust:secrets",
      "args": "start {1} {rest}",
      "class": "start",
      "rest": true,
