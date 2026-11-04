@@ -65,6 +65,18 @@ The payload is optional extra data for programs. Rules:
 | `disk.removed` | warn | none | a disk was taken out (udev; subject: the kernel name) |
 | `disk.other` | info | none | an old disk-events line with a label that is not known (import only) |
 | `storage.pool-fault` | warn | none | a ZFS pool or one of its devices has a fault (ZED zedlet; subject: the pool; level error when a device is faulted or unavailable) |
+| `ext.media.maintainerr.planned` | info | `service`, `name`, `label`, `icon`, `title`, `sub?`, `body`, `fields?`, `footer?`, `poster_url?` | a lower version of a film was found and is announced (media helper; subject: the service) |
+| `ext.media.maintainerr.deleted` | info | `service`, `name`, `label`, `icon`, `title`, `sub?`, `body`, `fields?`, `footer?`, `poster_url?` | a lower version of a film was deleted (media helper; subject: the service) |
+| `ext.media.maintainerr.test` | info | `service`, `name`, `label`, `icon`, `title`, `sub?`, `body`, `fields?`, `footer?`, `poster_url?` | the test message of Maintainerr (Script) (media helper; subject: the service) |
+| `ext.media.sabnzbd.added` | info | `service`, `name`, `label`, `icon`, `title`, `sub?`, `body`, `fields?`, `footer?`, `poster_url?` | a download was queued (media helper; subject: the service) |
+| `ext.media.sabnzbd.unpacking` | info | `service`, `name`, `label`, `icon`, `title`, `sub?`, `body`, `fields?`, `footer?`, `poster_url?` | a download is being unpacked (media helper; subject: the service) |
+| `ext.media.sabnzbd.finished` | info | `service`, `name`, `label`, `icon`, `title`, `sub?`, `body`, `fields?`, `footer?`, `poster_url?` | a download finished (media helper; subject: the service) |
+| `ext.media.sabnzbd.failed` | warn | `service`, `name`, `label`, `icon`, `title`, `sub?`, `body`, `fields?`, `footer?`, `poster_url?` | a download failed (media helper; subject: the service) |
+| `ext.media.sabnzbd.queue-done` | info | `service`, `name`, `label`, `icon`, `title`, `sub?`, `body`, `fields?`, `footer?`, `poster_url?` | the download queue is empty (media helper; subject: the service) |
+| `ext.media.sabnzbd.disk-full` | error | `service`, `name`, `label`, `icon`, `title`, `sub?`, `body`, `fields?`, `footer?`, `poster_url?` | SABnzbd reports a full disk (media helper; subject: the service) |
+| `ext.media.sabnzbd.error` | warn | `service`, `name`, `label`, `icon`, `title`, `sub?`, `body`, `fields?`, `footer?`, `poster_url?` | SABnzbd reports an error (media helper; subject: the service) |
+| `ext.media.sabnzbd.warning` | info | `service`, `name`, `label`, `icon`, `title`, `sub?`, `body`, `fields?`, `footer?`, `poster_url?` | SABnzbd reports a warning (media helper; subject: the service) |
+| `ext.media.sabnzbd.test` | info | `service`, `name`, `label`, `icon`, `title`, `sub?`, `body`, `fields?`, `footer?`, `poster_url?` | the test message of SABnzbd (media helper; subject: the service) |
 
 <!-- END generated -->
 
