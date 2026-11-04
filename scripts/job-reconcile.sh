@@ -7,8 +7,9 @@
 set -uo pipefail
 here=$(cd "$(dirname "$0")" && pwd)
 . "$here/lib/ui.sh"
+. "$here/lib/job.sh"   # hs_job_record
 
-out=$(python3 "$here/job-record.py" reconcile) || warn "Some job records could not be checked"
+out=$(hs_job_record reconcile) || warn "Some job records could not be checked"
 [ -n "$out" ] || exit 0
 
 count=0; list=""

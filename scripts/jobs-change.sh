@@ -14,6 +14,7 @@
 # Test knobs: HS_JOBS (stand-in for jobs.sh), HS_SYSTEMCTL.
 set -euo pipefail
 here=$(dirname "$0")
+. "$here/lib/job.sh"   # hs_job_record
 jobs=${HS_JOBS:-$here/jobs.sh}
 systemctl=${HS_SYSTEMCTL:-systemctl}
 
@@ -50,7 +51,7 @@ case "$action" in
         safe=no ;;
     esac
     # job record (docs/adr/0004-job-record.md): a unit without one (a timer service) stops exactly as before
-    rec_id=$(python3 "$here/job-record.py" find-unit "$unit" 2>/dev/null) || rec_id="" ;;
+    rec_id=$(hs_job_record find-unit "$unit" 2>/dev/null) || rec_id="" ;;
   run)
     [ "$state" != running ] || refuse "$desc is running already."
     [ "$state" != unknown ] || refuse "There is no job called '$unit'."
@@ -63,7 +64,7 @@ if [ "$verb" = start ]; then
   if [ -n "$danger" ] && [ "$confirm" != stop ]; then refuse "type the word to confirm: stop"; fi
   # the record says cancelled before the unit (and the wrapper that would write the end) is killed; best effort
   if [ "$action" = stop ] && [ -n "$rec_id" ]; then
-    python3 "$here/job-record.py" cancel "$rec_id" --by "$who" --safe "$safe" 2>/dev/null || true
+    hs_job_record cancel "$rec_id" --by "$who" --safe "$safe" 2>/dev/null || true
   fi
   "${cmd[@]}" || refuse "systemctl failed"
   if [ "$action" = stop ]; then printf 'status\tdone\n'; else printf 'status\tstarted\nunit\t%s\n' "$unit"; fi

@@ -36,7 +36,7 @@ jobs:
             echo "$files" | grep -qvE '^(web/|docs/|tests/|\.claude/|\.github/ISSUE_TEMPLATE/)|\.md$' || nix=false
             echo "$files" | grep -qvE '^(web/|docs/|\.claude/|\.github/ISSUE_TEMPLATE/)|\.md$' || root=false
             # rust: the Cargo workspace, the scripts it stands in for, or this workflow
-            echo "$files" | grep -qE '^rust/|^\.github/workflows/ci\.yml$|^scripts/vault-change\.sh$|^tests/vault-change(-rust)?\.sh$|^tests/lib\.sh$|^scripts/lib/job\.sh$' || rust=false
+            echo "$files" | grep -qE '^rust/|^\.github/workflows/ci\.yml$|^scripts/vault-change\.sh$|^tests/vault-change(-rust)?\.sh$|^tests/lib\.sh$|^scripts/lib/job\.sh$|^scripts/job-record\.py$|^scripts/jobs-change\.sh$|^scripts/job-reconcile\.sh$|^tests/job-(record|reconcile)(-rust)?\.sh$|^tests/jobs-change\.sh$' || rust=false
           fi
           echo "nix=$nix" >> "$GITHUB_OUTPUT"
           echo "root=$root" >> "$GITHUB_OUTPUT"
@@ -63,6 +63,8 @@ jobs:
         run: |
           cargo build --locked
           HOBNIX_BIN=$PWD/target/debug/hobnix bash ../tests/vault-change-rust.sh
+      - name: tests/job-record.sh, job-reconcile.sh and jobs-change.sh against the binary, and python and Rust side by side (tests/job-record-rust.sh)
+        run: HOBNIX_BIN=$PWD/target/debug/hobnix bash ../tests/job-record-rust.sh
 
   scripts:
     needs: changes
