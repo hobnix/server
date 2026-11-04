@@ -100,6 +100,11 @@ has() { grep -q -- "$1" <<<"$out"; }
 run plan set syncEveryHours 6
 check_eq "plan: exit 0" 0 "$rc"
 has "^status${T}ok$" && has "^heading${T}set syncEveryHours$" && has "^command${T}hs sys config start set syncEveryHours 6$" && has "^note${T}.*hs rebuild" && has "^long${T}no$" && pass "plan lines" || fail "plan: $out"
+rm -f "$HS_STATE_DIR/last-rebuild-seconds"; run plan set syncEveryHours 6
+has "took about" && fail "plan names a rebuild time that was never measured: $out" || pass "plan: no rebuild time when none was recorded"
+printf '125\n' > "$HS_STATE_DIR/last-rebuild-seconds"; run plan set syncEveryHours 6
+has "^note${T}.*hs rebuild.* The last rebuild took about 3 min\.$" && pass "plan: the last rebuild time is named" || fail "rebuild time: $out"
+rm -f "$HS_STATE_DIR/last-rebuild-seconds"
 check_eq "plan changes nothing" "" "$(grep -c '^syncEveryHours = 6' "$HS_MACHINE_FILE" | sed 's/^0$//')"
 run plan set hostName other;           check_eq "a key that is not settable is refused" 1 "$rc"; has "^reason${T}" && pass "with a reason" || fail "reason: $out"
 run plan set nosuchkey 1;              check_eq "an unknown key is refused" 1 "$rc"

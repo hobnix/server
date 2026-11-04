@@ -203,6 +203,7 @@ failed_before=""
 health_before=""
 if rollback_enabled; then failed_before=$(failed_units); health_before=$(health_keys); fi
 # the build prints hundreds of lines; they matter only when it fails
+t_build=$(date +%s)
 SPIN_TAIL=60 spin "Building the system and switching to it (after big changes: many minutes)" nixos-rebuild switch || {
   if rollback_enabled; then
     # a failed build changes nothing; a switch that broke half way has already moved the running system
@@ -216,6 +217,9 @@ SPIN_TAIL=60 spin "Building the system and switching to it (after big changes: m
   exit 1
 }
 after=$(readlink -f "$cur_system")
+# how long the build took, so `hs sys config ... plan` can say "the last rebuild took about N min"
+{ printf '%s
+' "$(( $(date +%s) - t_build ))" > "${HS_STATE_DIR:-/var/lib/hs}/last-rebuild-seconds"; } 2>/dev/null || true
 move_bulk_disks
 
 if rollback_enabled; then

@@ -51,3 +51,24 @@ Issue: hobnix/server#252 (epic #121)
 - How long a rebuild takes is not measured. The "roughly how long" the issue asks for needs real timings from a server; the binary cache
   (#253) changes them.
 - Whether a `settings` option that a unit reads at start should restart the unit by itself or leave that to the user.
+
+## Candidates checked (2026-11-04): none moves now
+
+No option moves from `machine` to `settings` in this step. Each candidate was checked against the module that reads it:
+
+- `diskSpindownMinutes`: read in `capabilities/storage/module.nix` to write the standby timer's unit. Storage (disk power), and the unit would
+  have to read the value from a settings file. Not moved without a test on hardware.
+- `shareSnapshots`: switches the unit `hs-share-snapshots` on or off with `lib.mkIf`, so the unit itself is declarative. Storage (snapshots).
+- `syncEveryHours`: becomes the `startAt` of the SnapRAID sync timer, a unit file. Storage (parity sync).
+- `metricsDays`, `metricsMaxGB`: Prometheus flags `retentionTime` and the size cap in `capabilities/metrics/module.nix`. Moving them needs a
+  wrapper that reads the settings file and restarts Prometheus, and the size cap protects the system disk. Possible later, not safe to do
+  untested.
+
+Another finding of the same check: twelve options that are already `store = "settings"` are still read by `configuration.nix`
+(`backupNewShares`, `heartbeatUrl`, `icons`, `language`, `loginMessage`, `notifyUrl`, `proxyStatusUrl`, `vpsHost`, `webAccent`, `webTerminal`,
+`webTerminalIdleMinutes`, `webTerminalMaxHours`). They are turned into `/etc/hs/*` files or `HS_WEB_*` variables, so rule 3 does not hold for
+them yet. `tests/schema.sh` lists them as known violations (the list may only shrink) and fails for any new one. Taking them out of the Nix
+files is the next step, one option at a time, because the web service reads some of them from its environment.
+
+The rebuild duration: `hs rebuild` now writes the seconds of the last successful build to `/var/lib/hs/last-rebuild-seconds`, and a plan that
+needs a rebuild adds "The last rebuild took about N min." when that file exists. Nothing is shown before the first measured rebuild.
