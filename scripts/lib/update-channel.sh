@@ -70,7 +70,7 @@ uc_verify() {
     return 1
   fi
   # the signed object must carry the very name that was asked for (an old signed tag cannot be passed off under a newer name)
-  name=$(_uc_git "$repo" cat-file tag "$tag" 2>/dev/null | awk '$1 == "tag" { print $2; exit } NF == 0 { exit }' | tr -d '')
+  name=$(_uc_git "$repo" cat-file tag "$tag" 2>/dev/null | awk '$1 == "tag" { print $2; exit } NF == 0 { exit }' | tr -d '\r')
   if [ "$name" != "$tag" ]; then
     UC_VERIFY_OUT="the signed tag is named '${name:-?}', not '$tag'"
     return 1
