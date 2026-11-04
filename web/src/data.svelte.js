@@ -49,7 +49,7 @@ export function poll(path, ms, topic) {
     if (!p) return;
     const t = (typeof topic === 'function' ? topic() : topic) ?? live.topics[p];
     const liveOpen = !!t && live.open;
-    if (t) live.gen[t];   // a change of the topic re-runs this effect, which reads again
+    if (t) { live.gen[t]; live.resyncs; }   // a change of the topic (or a resync) re-runs this effect, which reads again
     if (cache.has(p)) { st.data = cache.get(p); st.error = null; st.loaded = true; }
     let alive = true;
     let timer;

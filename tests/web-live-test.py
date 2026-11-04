@@ -673,6 +673,120 @@ class Events(RedisBase):
         self.assertEqual(self.app.event_streams, 0)
 
 
+class Replay(RedisBase):
+    """Domain events on /api/events: ids, Last-Event-ID replay, resync (docs/adr/0005-events.md rules 6 and 7)."""
+
+    def setUp(self):
+        super().setUp()
+        import sqlite3
+        self.db = os.path.join(self.tmp, "state.db")
+        os.environ["HS_STATE_DB"] = self.db
+        c = sqlite3.connect(self.db)
+        c.execute("CREATE TABLE events (id INTEGER PRIMARY KEY AUTOINCREMENT, time INTEGER NOT NULL, kind TEXT NOT NULL, subject TEXT, text TEXT, "
+                  "source TEXT NOT NULL DEFAULT 'storage', level TEXT NOT NULL DEFAULT 'info', payload TEXT, v INTEGER NOT NULL DEFAULT 1)")
+        c.commit()
+        c.close()
+
+    def tearDown(self):
+        os.environ.pop("HS_STATE_DB", None)
+        super().tearDown()
+
+    def add(self, n=1, first=1):
+        import sqlite3
+        c = sqlite3.connect(self.db)
+        for i in range(n):
+            c.execute("INSERT INTO events (id, time, kind, subject, text, payload) VALUES (?, 1, 'new', 'd', 't', '{\"a\": 1}')", (first + i,))
+        c.commit()
+        c.close()
+
+    def frames(self, last, count):
+        c = http.client.HTTPConnection("127.0.0.1", self.port, timeout=5)
+        c.request("GET", "/api/events", headers=dict(self.ck, **{"Last-Event-ID": str(last)}))
+        r = c.getresponse()
+        out = []
+        try:
+            r.fp.readline()
+            r.fp.readline()
+            while len(out) < count:
+                ev = {}
+                while True:
+                    line = r.fp.readline().decode().rstrip("\n")
+                    if not line:
+                        break
+                    k, _, v = line.partition(": ")
+                    ev[k] = v
+                out.append(ev)
+        finally:
+            c.close()
+        return out
+
+    def test_reconnect_gets_the_rows_after_the_id(self):
+        self.add(5)
+        f = self.frames(2, 3)
+        self.assertEqual([x["id"] for x in f], ["3", "4", "5"])
+        self.assertEqual(f[0]["event"], "domain")
+        d = json.loads(f[0]["data"])
+        self.assertEqual((d["id"], d["kind"], d["subject"], d["payload"]), (3, "new", "d", {"a": 1}))
+
+    def test_up_to_date_gets_nothing_then_live_rows_without_repeats(self):
+        self.add(3)
+        c = http.client.HTTPConnection("127.0.0.1", self.port, timeout=5)
+        c.request("GET", "/api/events", headers=dict(self.ck, **{"Last-Event-ID": "3"}))
+        r = c.getresponse()
+        try:
+            r.fp.readline()
+            r.fp.readline()
+            for _ in range(100):
+                if self.app.events.queues:
+                    break
+                threading.Event().wait(0.02)
+            self.app.events.feed("domain", {"id": 4, "kind": "y"})
+            self.app.events.feed("domain", {"id": 4, "kind": "y"})      # a repeat: skipped
+            self.app.events.feed("domain", {"id": 5, "kind": "z"})
+            self.assertEqual(r.fp.readline(), b"id: 4\n")
+            self.assertEqual(r.fp.readline(), b"event: domain\n")
+            r.fp.readline()
+            r.fp.readline()
+            self.assertEqual(r.fp.readline(), b"id: 5\n")
+        finally:
+            c.close()
+
+    def test_an_id_before_the_oldest_row_resyncs(self):
+        self.add(3, first=10)
+        self.assertEqual(self.frames(5, 1)[0]["event"], "resync")
+
+    def test_an_id_after_the_newest_row_resyncs(self):
+        self.add(3)
+        self.assertEqual(self.frames(99, 1)[0]["event"], "resync")
+
+    def test_500_behind_replays_501_resyncs(self):
+        self.add(501)
+        self.assertEqual(self.frames(1, 1)[0]["event"], "domain")
+        self.add(1, first=502)
+        self.assertEqual(self.frames(1, 1)[0]["event"], "resync")
+
+    def test_the_watcher_feeds_new_rows(self):
+        self.add(2)
+        q = self.app.events.add()
+        self.app.events.poll_events()                                   # baseline
+        self.add(1, first=3)
+        self.app.events.poll_events()
+        item = q.get_nowait()
+        self.assertEqual((item[0], item[1]["id"]), ("domain", 3))
+        self.assertTrue(q.empty())
+
+    def test_a_full_queue_becomes_a_resync(self):
+        hub = ws.Events(self.cfg)
+        q = hub.add()
+        for i in range(300):
+            hub.feed("changed", "t", i)
+        items = []
+        while not q.empty():
+            items.append(q.get_nowait())
+        self.assertIn(("resync",), items)
+        self.assertLess(len(items), 256)
+
+
 class Counters(Base):
     """The change counters (table topics of state.db): the watcher feeds `changed` and clears the read cache, also in mode off."""
 

@@ -1905,12 +1905,13 @@ class RedisStore(StateStore):
 
 class Events:
     """The hub behind /api/events: one thread follows hs:v1:changed (mode redis) and hands every message to each open stream. A stream is a
-    queue of ("changed", topic, gen) | ("down",) | ("up",). feed() is also how tests push a message."""
+    queue of ("changed", topic, gen) | ("domain", row) | ("resync",) | ("down",) | ("up",). feed() is also how tests push a message."""
 
     def __init__(self, cfg):
         self.cfg, self.lock, self.queues = cfg, threading.Lock(), set()
         self.redis_up = False        # the Redis subscription holds: it delivers the live topics, the counters are then only the fallback
         self.counters = None         # topic -> gen as the watcher saw it last; None = not read yet (the first read is the baseline, no event)
+        self.last_event = None       # id of the newest event-log row the watcher saw; None = not read yet (the first read is the baseline)
         self.on_change = None        # App sets it: called once per round that saw a change made outside the web (clears the read cache)
 
     def add(self):
@@ -1930,7 +1931,16 @@ class Events:
             try:
                 q.put_nowait(item)
             except queue.Full:
-                pass         # the hub never blocks on a slow stream
+                # the hub never blocks on a slow stream; it drops what the stream holds and says so (ADR 0005 rule 7)
+                try:
+                    while True:
+                        q.get_nowait()
+                except queue.Empty:
+                    pass
+                try:
+                    q.put_nowait(("resync",))
+                except queue.Full:
+                    pass
 
     def start(self):
         threading.Thread(target=self._run, daemon=True).start()
@@ -1956,6 +1966,60 @@ class Events:
         except sqlite3.Error:
             return None
 
+    def _event_db(self):
+        return env("HS_STATE_DB", os.path.join(env("HS_STATE_DIR", "/var/lib/hs"), "state.db"))
+
+    def read_events(self, after, limit=None):
+        """-> the event-log rows with id > after (oldest first, dicts as the stream sends them); None when the log cannot be read now.
+        With limit: ("resync",) instead when the gap is not served (the id is older than the oldest kept row, newer than the newest, or more
+        than `limit` rows behind)."""
+        db = self._event_db()
+        if not os.path.exists(db):
+            return ("resync",) if limit is not None and after else []
+        try:
+            c = sqlite3.connect("file:%s?mode=ro" % db.replace("\\", "/"), uri=True, timeout=2)
+            try:
+                c.execute("PRAGMA query_only=1")
+                if limit is not None and after:
+                    lo, hi = c.execute("SELECT MIN(id), MAX(id) FROM events").fetchone()
+                    if hi is None:
+                        return []
+                    if after > hi or after + 1 < lo or c.execute("SELECT COUNT(*) FROM events WHERE id > ?", (after,)).fetchone()[0] > limit:
+                        return ("resync",)
+                rows = c.execute("SELECT id, time, source, kind, subject, level, text, payload FROM events WHERE id > ? ORDER BY id LIMIT ?",
+                                 (after, limit if limit is not None else 1000)).fetchall()
+            finally:
+                c.close()
+        except sqlite3.Error:
+            return None
+        out = []
+        for i, t, src, kind, subj, lvl, text, payload in rows:
+            try:
+                pl = json.loads(payload) if payload else None
+            except ValueError:
+                pl = None
+            out.append({"id": i, "time": t, "source": src, "kind": kind, "subject": subj or "", "level": lvl, "text": text or "", "payload": pl})
+        return out
+
+    def poll_events(self):
+        """One round: every new row of the event log becomes a `domain` item for the streams. The first read is the baseline (no item)."""
+        if self.last_event is None:
+            db = self._event_db()
+            if not os.path.exists(db):
+                return
+            try:
+                c = sqlite3.connect("file:%s?mode=ro" % db.replace("\\", "/"), uri=True, timeout=2)
+                try:
+                    self.last_event = c.execute("SELECT MAX(id) FROM events").fetchone()[0] or 0
+                finally:
+                    c.close()
+            except sqlite3.Error:
+                pass
+            return
+        for row in self.read_events(self.last_event) or []:
+            self.last_event = row["id"]
+            self.feed("domain", row)
+
     def poll_counters(self):
         """One round: every topic whose gen moved gets a `changed` (not while Redis delivers it); a change made outside the web (hs in a terminal, a
         timer) also clears the read cache. A `reads:<key>` counter is the collector keeping newer output: the event only, the cache stays."""
@@ -1978,6 +2042,10 @@ class Events:
                 self.poll_counters()
             except Exception:
                 pass          # the watcher must not die
+            try:
+                self.poll_events()
+            except Exception:
+                pass
             time.sleep(self.cfg.events_watch)
 
     def _run(self):
@@ -2378,7 +2446,8 @@ def make_handler(app):
 
         def _events(self):
             """Server-sent events, in every liveState mode: `changed` {topic, gen} when a change counter moved (Events.poll_counters) or, in mode
-            redis, the collector read a topic again; `down` / `up` when Redis goes or comes back. One thread per stream (at most cfg.events_max). The page reads the topic again when `changed` arrives."""
+            redis, the collector read a topic again; `domain` (id = event log id) per new log row, replayed after Last-Event-ID (up to 500, else `resync`,
+            also sent when a stream queue overflowed); `down` / `up` when Redis goes or comes back. One thread per stream (at most cfg.events_max). The page reads the topic again when `changed` arrives."""
             if not self._session():
                 return self._json(401, {"error": "not signed in"})
             if self.headers.get("Origin") and not self._same_origin():
@@ -2392,6 +2461,16 @@ def make_handler(app):
                 self.close_connection = True
                 self._headers(200, "text/event-stream", None, (("Cache-Control", "no-cache"), ("Connection", "close"), ("X-Accel-Buffering", "no")))
                 self.wfile.write(b"retry: 3000\n\n")
+                sent = 0                                                     # the newest log id this stream has sent (a live row up to it is a repeat)
+                last = (self.headers.get("Last-Event-ID") or "").strip()
+                if last.isdigit():
+                    rows = app.events.read_events(int(last), 500)
+                    if rows is None or rows == ("resync",):
+                        self.wfile.write(b"event: resync\ndata: {}\n\n")
+                    else:
+                        for row in rows:
+                            sent = row["id"]
+                            self.wfile.write(b"id: %d\nevent: domain\ndata: " % sent + json.dumps(row).encode() + b"\n\n")
                 self.wfile.flush()
                 t0 = time.time()
                 while time.time() - t0 < cfg.stream_hours * 3600:
@@ -2403,6 +2482,11 @@ def make_handler(app):
                         break                                               # signed out, expired or locked
                     if item is None:
                         self.wfile.write(b": ping\n\n")                      # keeps proxies from closing an idle stream
+                    elif item[0] == "domain":
+                        if item[1]["id"] <= sent:
+                            continue
+                        sent = item[1]["id"]
+                        self.wfile.write(b"id: %d\nevent: domain\ndata: " % sent + json.dumps(item[1]).encode() + b"\n\n")
                     elif item[0] == "changed":
                         self.wfile.write(b"event: changed\ndata: " + json.dumps({"topic": item[1], "gen": item[2]}).encode() + b"\n\n")
                     else:
