@@ -41,12 +41,15 @@ hs_job() {
   [ -z "${HS_JOB_RECORD:-}" ] || extra+=(-E "HS_JOB_RECORD=$HS_JOB_RECORD")
   systemd-run --quiet --unit="$unit" --description="$desc" \
     --property="OnFailure=hs-notify-failure@$unit.service" \
-    -E HS_CALLER=job -E "HS_LANG=${hs_lang:-en}" -E "PATH=$PATH" ${extra[@]+"${extra[@]}"} \
+    -E HS_CALLER=job -E "HS_JOB_UNIT=$unit" -E "HS_LANG=${hs_lang:-en}" -E "PATH=$PATH" ${extra[@]+"${extra[@]}"} \
     bash -c 'd=$1; shift   # $0 = scripts dir, $1 = description, the rest = the command
              . "$0/lib/job.sh"   # hs_job_record
              [ -z "${HS_JOB_ID:-}" ] || hs_job_record run "$HS_JOB_ID" 2>/dev/null || true
              "$@"; rc=$?
              [ -z "${HS_JOB_ID:-}" ] || hs_job_record finish "$HS_JOB_ID" "$rc" 2>/dev/null || true
+             if [ "$rc" -ne 0 ]; then   # event log (docs/adr/0005-events.md): best effort, the exit code stays
+               . "$0/lib/event.sh"; event_emit job.failed "${HS_JOB_UNIT:-job}" "$d failed (exit $rc)" --payload "{\"exit\":$rc}" || true
+             fi
              bash "$0/live.sh" refresh --all >/dev/null 2>&1 || true   # live state: read again (no-op without the capability)
              [ "$rc" -ne 0 ] || bash "$0/notify.sh" --category ok hs "$d finished" >/dev/null 2>&1
              exit "$rc"' "$here" "$desc" "$@" || {

@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
-# The live-state hooks: the dispatcher (scripts/lib/hs.sh) asks the collector for the group of a `changes` row after exit 0 (HS_LIVE_LOG records
-# the call instead of the socket), a failed change and a read ask for nothing; reads-collect.sh skips what has a topic when the live socket exists.
+# The live-state hooks: the dispatcher (scripts/lib/hs.sh) asks the collector for the group of a `changes` row after any exit code (HS_LIVE_LOG records
+# the call instead of the socket), a failed change asks too (rule 8 of docs/adr/0005-events.md), a read asks for nothing; reads-collect.sh skips what has a topic when the live socket exists.
 # shellcheck source=tests/lib.sh
 . "$(dirname "$0")/lib.sh"
 wp() { if command -v cygpath >/dev/null 2>&1; then cygpath -m "$1"; else echo "$1"; fi; }
@@ -26,8 +26,8 @@ out=$($HS zok a b); check_eq "a change: the script's output stays" "ran a b" "$o
 check_eq "a change that succeeds asks for its group" "@disks" "$(cat "$WORK/live.log")"
 : > "$WORK/live.log"; $HS zfail >/dev/null 2>&1; rc=$?
 check_eq "a failed change keeps its exit code" "3" "$rc"
-check_eq "...and asks for nothing" "0" "$(grep -c . "$WORK/live.log")"
-$HS zplain >/dev/null; check_eq "a change without topic: asks for @system" "@system" "$(cat "$WORK/live.log")"
+check_eq "...and still asks for its group (rule 8)" "@disks" "$(cat "$WORK/live.log")"
+: > "$WORK/live.log"; $HS zplain >/dev/null; check_eq "a change without topic: asks for @system" "@system" "$(cat "$WORK/live.log")"
 : > "$WORK/live.log"; $HS zread >/dev/null
 check_eq "a read asks for nothing" "0" "$(grep -c . "$WORK/live.log")"
 

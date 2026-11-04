@@ -129,9 +129,11 @@ in
     serviceConfig.Type = "oneshot";
     # on the snapraid layout also measure the shares, for the size column of the interface
     script = ''
-      bash ${scripts}/sync-shares.sh
-      bash ${scripts}/manage-shares.sh --measure >/dev/null
-      bash ${scripts}/live.sh refresh @shares
+      rc=0
+      bash ${scripts}/sync-shares.sh || rc=$?
+      bash ${scripts}/manage-shares.sh --measure >/dev/null || [ "$rc" -ne 0 ] || rc=$?
+      bash ${scripts}/live.sh refresh @shares   # also when a step failed
+      exit $rc
     '';
     startAt = "03:35";
     onFailure = notifyFailure;
