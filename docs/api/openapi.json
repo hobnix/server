@@ -7774,6 +7774,12 @@
      "class": "read",
      "rest": false
     },
+    "x-hs-web": {
+     "path": "/api/sys/release/show",
+     "kind": "tsv",
+     "ttl": 30,
+     "query": []
+    },
     "responses": {
      "0": {
       "description": "ok",
