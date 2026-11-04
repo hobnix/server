@@ -8,7 +8,7 @@ have jq || { skip "the lookup needs jq"; finish; exit 0; }
 export HS_LANG=en HS_PLAIN=1 HS_CALLER=test
 FAKE_FS=$WORK/fs; STATE=$WORK/state
 mkdir -p "$WORK/bin" "$STATE"
-export FAKE_FS
+export FAKE_FS HS_NOTIFY_CHANNELS_DIR=$WORK/channels
 # FAKE_CTS="radarr=10.0.0.5 arr=10.0.0.9": the containers that exist, with their address
 cat > "$WORK/bin/incus" <<'FAKE'
 #!/usr/bin/env bash
@@ -48,7 +48,7 @@ key sonarr/opt/sonarr/config/config.xml S-NEW
 out=$(FAKE_CTS="radarr=10.0.0.5 sonarr=10.0.0.6" conf lookup)
 check_eq "Radarr from its own container" "http://10.0.0.5:7878 R-NEW" "$(pick '"\(.radarr.url) \(.radarr.key)"' "$out")"
 check_eq "Sonarr from its own container" "http://10.0.0.6:8989 S-NEW" "$(pick '"\(.sonarr.url) \(.sonarr.key)"' "$out")"
-check_out "the push topic is still there" "^https://.*/hs-media-" pick .ntfy "$out"
+check_eq "the helper gets a spool folder and no address of ntfy or Matrix" "/media/.hs-events null null" "$(pick '"\(.spool) \(.ntfy) \(.hook)"' "$out")"
 
 echo "-- the older recipe arr"
 key arr/opt/arr/radarr/config.xml R-OLD
@@ -67,6 +67,26 @@ rm -rf "$FAKE_FS/radarr" "$FAKE_FS/sonarr" "$FAKE_FS/arr"
 key docker/opt/apps/radarr/config/config.xml R-DOCK
 out=$(FAKE_CTS="docker=10.0.0.7" conf lookup)
 check_eq "Radarr from the container docker" "http://10.0.0.7:7878 R-DOCK" "$(pick '"\(.radarr.url) \(.radarr.key)"' "$out")"
+
+echo "-- the Matrix hook is a channel of the server, not a setting of the container"
+printf 'secret: S3CRET
+' > "$STATE/matrix-hook"
+printf 'HOOK_PORT=8091
+HOOK_ROOM=films
+' > "$STATE/recipe-synapse.conf"
+out=$(FAKE_CTS="synapse=10.0.0.8" conf)
+check_eq "no hook address in the container file" "null" "$(pick .hook "$out")"
+check_eq "the channel is written for the provider matrix" "matrix http://10.0.0.8:8091/hook/S3CRET/films" "$(sed -n 's/^provider=//p;s/^url=//p' "$WORK/channels/matrix.conf" | paste -sd' ')"
+printf 'provider=matrix
+enabled=no
+minprio=high
+quiet=respect
+categories=status
+url=http://old/
+' > "$WORK/channels/matrix.conf"
+FAKE_CTS="synapse=10.0.0.8" conf >/dev/null
+check_eq "a channel the owner changed keeps its settings and gets the new address" "enabled=no minprio=high url=http://10.0.0.8:8091/hook/S3CRET/films" "$(grep -E '^(enabled|minprio|url)=' "$WORK/channels/matrix.conf" | paste -sd' ')"
+rm -f "$STATE/matrix-hook" "$WORK/channels/matrix.conf"
 
 echo "-- nothing to find, or not asked"
 out=$(FAKE_CTS="" conf lookup)

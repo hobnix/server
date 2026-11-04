@@ -109,13 +109,13 @@ media_backup() {   # media_backup <command inside the container, or "" for none>
   backup_with_dump media "$1"
 }
 
-# The addresses the helpers next to the film apps (hs-media-notify.py: the dedupe script, SABnzbd's
-# notification script) send to: the push topic of media_ntfy and, when `hs recipe matrix-hook` has run, the
-# webhook address of the Matrix hook. Written as JSON into <folder in the container>/hs-media-notify.json.
-# Run again by the matrix-hook recipe, so a hook installed later reaches containers that exist already.
-media_notify_conf() {   # media_notify_conf <container> <folder inside it> [lookup]: lookup adds the Radarr/Sonarr address and keys
-  local c=$1 dir=$2 lookup=${3:-} extra="" app a where port aip akey hookconf=$state/recipe-synapse.conf hook="" sec ip_s port room tmp
-  media_ntfy
+# The Matrix hook as a notification channel of the server (provider scripts/notify/matrix.sh): the helpers next to the film apps no longer
+# post to it, their events become messages through `hs notify` (scripts/event-notify.sh). Written when `hs recipe matrix-hook` has run; an
+# existing channel keeps what the owner set (enabled, minimum priority ...) and only gets the new address. Sets nothing; $hook_ok is "yes"
+# when the channel exists.
+media_matrix_channel() {
+  local sec ip_s port room hook="" hookconf=$state/recipe-synapse.conf conf
+  hook_ok=no
   if [ -s "$state/matrix-hook" ]; then      # a closed vault leaves a dangling link: no hook until it is open
     sec=$(awk '$1 == "secret:" { print $2; exit }' "$state/matrix-hook" 2>/dev/null || true)
     ip_s=$(address "${HS_SYNAPSE:-synapse}" 2>/dev/null || true)
@@ -123,6 +123,24 @@ media_notify_conf() {   # media_notify_conf <container> <folder inside it> [look
     room=$(sed -n 's/^HOOK_ROOM=//p' "$hookconf" 2>/dev/null | tail -n1 || true)
     [ -z "$sec" ] || [ -z "$ip_s" ] || hook="http://$ip_s:${port:-8090}/hook/$sec/${room:-media}"
   fi
+  if [ -z "$hook" ]; then [ -e "$(chan_dir)/matrix.conf" ] && hook_ok=yes; return 0; fi
+  if conf=$(chan_conf matrix 2>/dev/null) && [ -n "$conf" ]; then
+    printf '%s\n' "$conf" | grep -v '^url=' | { cat; printf 'url=%s\n' "$hook"; } | chan_write matrix
+  else
+    printf 'provider=matrix\nenabled=yes\nminprio=min\nquiet=respect\ncategories=alarm,status\nurl=%s\n' "$hook" | chan_write matrix
+  fi
+  hook_ok=yes
+}
+
+# What the helpers next to the film apps (hs-media-notify.py: the dedupe script, SABnzbd's notification script) need to know: the
+# spool folder they drop their events in (the server turns them into messages: scripts/event-notify.sh and scripts/lib/notify-rules.tsv;
+# the helper sends nothing and keeps no address) and, with $lookup, the Radarr/Sonarr address and keys. Written as JSON into
+# <folder in the container>/hs-media-notify.json. Run again by the matrix-hook recipe, so a hook installed later reaches the channels.
+media_notify_conf() {   # media_notify_conf <container> <folder inside it> [lookup]: lookup adds the Radarr/Sonarr address and keys
+  local c=$1 dir=$2 lookup=${3:-} extra="" app a where aip akey tmp hook_ok
+  . "$scripts/lib/channels.sh"
+  media_ntfy      # (the film apps keep their own topic; the helpers do not use it any more)
+  media_matrix_channel
   # Radarr and Sonarr each in a container of their own (recipes radarr, sonarr); an install of the older recipe arr
   # (both in the container arr) is asked when the new one is not there
   if [ -n "$lookup" ]; then
@@ -138,9 +156,9 @@ media_notify_conf() {   # media_notify_conf <container> <folder inside it> [look
     done
   fi
   tmp=$(mktemp)
-  printf '{"ntfy": "%s/%s"%s%s}\n' "$ntfy_server" "$ntfy_topic" "${hook:+, \"hook\": \"$hook\"}" "$extra" > "$tmp"
+  printf '{"spool": "/media/.hs-events"%s}\n' "$extra" > "$tmp"
   incus exec "$c" -- mkdir -p "$dir" </dev/null
   incus file push -q --mode "$([ -n "$lookup" ] && echo 0640 || echo 0644)" "$tmp" "$c$dir/hs-media-notify.json" && rm -f "$tmp"
-  if [ -n "$hook" ]; then ok "$(t "Messages from the helpers go to ntfy and to Matrix (%s)" "$c")"
-  else note "$(t "Messages from the helpers go to ntfy only (no Matrix hook yet: hs recipe matrix-hook, then run this recipe again)")"; fi
+  if [ "$hook_ok" = yes ]; then ok "$(t "Events from the helpers become messages through the notification channels, also in Matrix (%s)" "$c")"
+  else note "$(t "Events from the helpers become messages through the notification channels (no Matrix hook yet: hs recipe matrix-hook, then run this recipe again)")"; fi
 }

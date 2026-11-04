@@ -647,9 +647,10 @@ A rebuild would restart services while the encrypted disks are closed (Incus wou
 unknown kind '%s' (fast, shares, sensitive)	unbekannte Art '%s' (fast, shares, sensitive)
 unknown setting '%s'	unbekannte Einstellung '%s'
 upload cache on	Upload-Cache an
-usage: hs notify [--dry-run] [--category <name>] <title> <message> [priority]	Aufruf: hs notify [--dry-run] [--category <Name>] <Titel> <Nachricht> [Priorität]
+usage: hs notify [--dry-run] [--category <name>] [--payload-file <file>] <title> <message> [priority]	Aufruf: hs notify [--dry-run] [--category <Name>] [--payload-file <Datei>] <Titel> <Nachricht> [Priorität]
   priority   min, low, default, high or urgent (default: the category's)	  Priorität  min, low, default, high oder urgent (Standard: die der Kategorie)
   category   alarm, lock, problem, ok, start, stop, info or heartbeat: sets the icon (default: from the priority)	  Kategorie  alarm, lock, problem, ok, start, stop, info oder heartbeat: bestimmt das Symbol (Standard: aus der Priorität)
+  --payload-file  the JSON of an event: a channel that can draw it (Matrix card) uses it, the others ignore it	  --payload-file  das JSON eines Ereignisses: ein Kanal, der es zeichnen kann (Matrix-Karte), nutzt es, die anderen ignorieren es
   --dry-run  only print what would be sent	  --dry-run  nur anzeigen, was gesendet würde
 Would send to %s:	Würde senden an %s:
 No notifyUrl set, would only write to the journal:	Keine notifyUrl gesetzt, würde nur ins Journal schreiben:
@@ -1165,8 +1166,8 @@ User '%s' (%s)	Benutzer '%s' (%s)
 Waiting for %s to answer (the first start prepares its files)	Warten, bis %s antwortet (der erste Start bereitet seine Dateien vor)
 skipped (RECIPE_SKIP_STORAGE): the files stay inside the container	übersprungen (RECIPE_SKIP_STORAGE): die Dateien bleiben im Container
 Host name	Hostname
-Messages from the helpers go to ntfy and to Matrix (%s)	Meldungen der Helfer gehen an ntfy und an Matrix (%s)
-Messages from the helpers go to ntfy only (no Matrix hook yet: hs recipe matrix-hook, then run this recipe again)	Meldungen der Helfer gehen nur an ntfy (noch kein Matrix-Hook: hs recipe matrix-hook, danach dieses Rezept erneut starten)
+Events from the helpers become messages through the notification channels, also in Matrix (%s)	Ereignisse der Helfer werden über die Benachrichtigungskanäle zu Meldungen, auch in Matrix (%s)
+Events from the helpers become messages through the notification channels (no Matrix hook yet: hs recipe matrix-hook, then run this recipe again)	Ereignisse der Helfer werden über die Benachrichtigungskanäle zu Meldungen (noch kein Matrix-Hook: hs recipe matrix-hook, danach dieses Rezept erneut starten)
 usage: hs config sync [--check] | check | migrate	Aufruf: hs config sync [--check] | check | migrate
 There is a %s but no %s yet. Convert it with: hs config migrate	Es gibt eine %s, aber noch keine %s. Wandle sie um mit: hs config migrate
 Could not sync %s; nothing changed.	%s konnte nicht abgeglichen werden; nichts geändert.
