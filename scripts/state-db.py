@@ -11,6 +11,7 @@ Commands (machine readable output; scripts/state.sh makes the pretty version for
   emit <source>.<kind> <subject> [text] [--level info|warn|error] [--payload JSON]
                              the ONE writer of the event log (root; scripts/lib/event.sh, hs event emit); docs/adr/0005-events.md
   event-list [N] [--source S] [--after ID]  id time source kind subject level text payload (newest last; `-` for an empty field)
+  disk-events [N]            local time TAB plugged in|taken out TAB text (newest last); the old file disk-events is imported once
   smart <serial|dev>         the stored SMART readings of one disk
   problems                   key TAB text for health-check.sh (missing disks, worsening disks, a collector that stopped)
   deck-disks                 the 5 fields per disk the status document uses (name bytes kind role temp), from the last reading
@@ -100,7 +101,46 @@ def open_rw():
     c.executescript(SCHEMA)
     migrate_events(c)
     c.execute("PRAGMA user_version=2")
+    import_disk_events(c)
     return c
+
+
+DISK_EVENT_KINDS = {"plugged in": "plugged", "taken out": "removed"}
+
+
+def import_disk_events(c):
+    """One time: the lines of the old file /var/lib/hs/disk-events (time TAB label TAB text, local time) become rows of the event log
+    (source disk, kind plugged | removed | other). The file is renamed to disk-events.imported, not deleted. Rows that exist already are
+    skipped, so a crash between the commit and the rename imports nothing twice."""
+    src = os.path.join(STATE_DIR, "disk-events")
+    if not os.path.isfile(src):
+        return
+    try:
+        with open(src, encoding="utf-8", errors="replace") as f:
+            lines = f.read().splitlines()
+    except OSError:
+        return
+    with c:
+        for line in lines:
+            f = line.split("	", 2)
+            if len(f) < 2:
+                continue
+            try:
+                t = int(time.mktime(time.strptime(f[0].strip(), "%Y-%m-%d %H:%M")))
+            except ValueError:
+                continue
+            kind = DISK_EVENT_KINDS.get(f[1].strip(), "other")
+            text = one_line(f[2] if len(f) > 2 else "")
+            if kind == "other":
+                text = one_line(f[1] + ": " + text)
+            subject = text.split(",", 1)[0].split(":", 1)[0].strip()[:60]
+            if c.execute("SELECT 1 FROM events WHERE source='disk' AND time=? AND kind=? AND text=?", (t, kind, text)).fetchone():
+                continue
+            event(c, t, kind, subject, text, "disk", kind_level("disk", kind))
+    try:
+        os.replace(src, src + ".imported")
+    except OSError:
+        pass
 
 
 EVENT_COLS = (("source", "TEXT NOT NULL DEFAULT 'storage'"), ("level", "TEXT NOT NULL DEFAULT 'info'"),
@@ -591,6 +631,22 @@ def cmd_event_list(args):
     return 0
 
 
+def cmd_disk_events(args):
+    """disk-events [N]: local time TAB label (plugged in | taken out) TAB text, newest last; the Disk events panel and hs disk events."""
+    n = int(args[0]) if args and args[0].isdigit() else 30
+    c = open_ro()
+    if c is None:
+        return 0
+    try:
+        rows = c.execute("SELECT time, kind, text FROM events WHERE source='disk' ORDER BY id DESC LIMIT ?", (n,)).fetchall()
+    except sqlite3.Error:
+        return 0
+    names = {"plugged": "plugged in", "removed": "taken out"}
+    for t, kind, text in reversed(rows):
+        print("	".join((time.strftime("%Y-%m-%d %H:%M", time.localtime(t)), names.get(kind, kind), clean(text or "-"))))
+    return 0
+
+
 def find_disk(c, who):
     who = who.replace("/dev/", "")
     r = c.execute("SELECT serial, state, model FROM disks WHERE serial=? OR dev=? ORDER BY (serial=?) DESC, (state='missing') DESC",
@@ -964,6 +1020,8 @@ def main(argv):
         return cmd_events(args)
     if cmd == "emit":
         return cmd_emit(args)
+    if cmd == "disk-events":
+        return cmd_disk_events(args)
     if cmd == "event-list":
         return cmd_event_list(args)
     if cmd == "smart":

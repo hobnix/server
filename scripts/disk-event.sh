@@ -3,17 +3,18 @@
 # help.de: die zuletzt ein- oder ausgesteckten Platten (der Dienst dahinter protokolliert sie und schickt eine Push-Nachricht)
 # args: [log] | add|remove <kernel name> | seed
 # Called by udev through hs-disk-event@<action>-<name>.service when a disk appears or goes away (hs sys disk event ...). It
-# NEVER touches a disk: it describes it (size, model, serial, what is on it), writes a line to /var/lib/hs/disk-events and sends
+# NEVER touches a disk: it describes it (size, model, serial, what is on it), writes an event (disk.plugged, disk.removed) to the event log and sends
 # a push message. Adding a disk to a pool stays a deliberate step: hs pool <pool> add (or the Disks tab).
+# The old file /var/lib/hs/disk-events is not written any more: state-db.py imports it into the log once (then disk-events.imported).
 # Every disk it has seen is remembered in <state>/disks-seen/<name> (serial|description|member): an add event for a disk that is
 # known already (udev replays all of them at every boot and at every `hs rebuild`) is silent. The first run records the disks that
 # are there and says nothing. No push message in the first minutes after a boot (HS_BOOT_WINDOW). Push messages are never translated.
-# Test knobs: HS_STATE_DIR, HS_PROC_UPTIME, HS_BOOT_WINDOW, HS_UDEVADM, HS_LSBLK, HS_BLKID.
+# Test knobs: HS_STATE_DIR, HS_EVENT_NOROOT, HS_STATE_DB, HS_PROC_UPTIME, HS_BOOT_WINDOW, HS_UDEVADM, HS_LSBLK, HS_BLKID.
 set -euo pipefail
 here=$(dirname "$0")
+. "$here/lib/event.sh"
 state=${HS_STATE_DIR:-/var/lib/hs}
 seen=$state/disks-seen
-log=$state/disk-events
 lsblk_=${HS_LSBLK:-lsblk}
 blkid_=${HS_BLKID:-blkid}
 
@@ -57,10 +58,8 @@ seed() {   # remember the disks that are there, silently
   touch "$seen/.seeded"
 }
 
-event_log() {   # event_log <what> <text>
-  mkdir -p "$state"
-  printf '%s\t%s\t%s\n' "$(date '+%Y-%m-%d %H:%M')" "$1" "$2" >> "$log"
-  tail -n 200 "$log" > "$log.tmp" && mv "$log.tmp" "$log"
+event_log() {   # event_log <plugged|removed> <kernel name> <text>: a row in the event log (best effort)
+  event_emit "disk.$1" "$2" "$3"
 }
 
 # the state database learns about the change at once; so does the live state (no-op without the capability); never fails the service
@@ -79,8 +78,9 @@ push() {   # push <title> <text> <priority> <category>: never fails the service
 case "${1:-log}" in
   log)
     . "$here/lib/ui.sh"
-    if [ -s "$log" ]; then
-      { thead 'When' 'Event' 'Disk'; tail -n 30 "$log"; } | table
+    rows=$(python3 "$here/state-db.py" disk-events 30 2>/dev/null || true)
+    if [ -n "$rows" ]; then
+      { thead 'When' 'Event' 'Disk'; printf '%s\n' "$rows"; } | table
     else
       note "No disk was plugged in or taken out since this was set up."
     fi ;;
@@ -103,7 +103,7 @@ case "${1:-log}" in
         text=$(cut -d'|' -f2 <<<"$info")
         record "$name" "$info"
         echo "plugged in: $text"
-        event_log "plugged in" "$text"
+        event_log plugged "$name" "$text"
         collect_state
         push "$host: disk plugged in" "$text" default info ;;
       remove)
@@ -113,7 +113,7 @@ case "${1:-log}" in
         member=$(cut -d'|' -f3 <<<"$old")
         rm -f "$seen/$name"
         echo "taken out: $text"
-        event_log "taken out" "$text"
+        event_log removed "$name" "$text"
         collect_state
         if [ "$member" = yes ]; then
           push "$host: disk taken out" "$text. It belonged to a pool: see \`hs health\`." high alarm

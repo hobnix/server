@@ -8,7 +8,10 @@ unset HS_CALLER HS_GUIDED_TTY
 mkdir -p "$WORK/state"
 now=$(date +%s)
 printf 'last_try=%s\nstatus=ok\nlast_ok=%s\n' "$((now - 7200))" "$((now - 7200))" > "$WORK/state/backup.state"
+export HS_STATE_DB=$WORK/state/state.db
+command -v cygpath >/dev/null 2>&1 && HS_STATE_DB=$(cygpath -m "$HS_STATE_DB")
 printf '2026-10-07 14:56\tplugged in\tzd16, unknown model: empty\n2026-10-08 09:00\ttaken out\tsdz, X: empty\n' > "$WORK/state/disk-events"
+python3 "$SCRIPTS/state-db.py" emit job.ok trigger x   # opens the log for writing: imports the old file
 
 cat > "$WORK/unlock" <<'FAKE'
 #!/usr/bin/env bash

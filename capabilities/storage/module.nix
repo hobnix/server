@@ -249,7 +249,7 @@ in
   };
 
   # A disk was plugged in or taken out (started by the udev rule above). %i = "<action>-<kernel name>".
-  # scripts/disk-event.sh logs it to /var/lib/hs/disk-events and sends a push message; see: hs disk events
+  # scripts/disk-event.sh logs it to the event log (disk.plugged, disk.removed) and sends a push message; see: hs disk events
   systemd.services."hs-disk-event@" = {
     description = "Disk event: %i";
     path = [ "/run/current-system/sw" ];
