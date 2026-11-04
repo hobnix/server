@@ -136,6 +136,14 @@ Details: capabilities/live-state/NOTES.md.
 8 topics (`ct-list`, `ct-profiles`, `services-list|app|routes|local-routes|tiles|stats`), see capabilities/live-state/NOTES.md. `ct list` is read
 every 10 s (the pages polled 5 s) and refreshed by `@instances`/`@network` after a change. Not tested on hardware yet.
 
+## Last good data (2026-11-04)
+
+A failed read (non-zero exit without output, timeout, `hs sys` not startable) keeps the previous document: `out` and `ts` (the time of the last good
+read) stay, `err`/`ts_err` are set and `state` is `stale` (there was a good read) or `error` (never). A good read sets `state` `ok` and clears the
+error. The web answers with the old data and, additive, `X-HS-Stale` (time of the failure), `X-HS-State` and `X-HS-Last-Ok` (epoch seconds or `-`).
+Events `live.collector-failed` (once per change into error) and `live.collector-recovered` (docs/adr/0005-events.md). `hs sys live status`/`check`
+keep their shape. Not tested on hardware yet.
+
 ## Apps slice (2026-11-01)
 
 3 topics (`pkg-market`, `pkg-repos`, `recipes-list`), see capabilities/live-state/NOTES.md. `pkg.sh` refreshes them (and `parts-list`) after a

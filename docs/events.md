@@ -65,6 +65,8 @@ The payload is optional extra data for programs. Rules:
 | `disk.removed` | warn | none | a disk was taken out (udev; subject: the kernel name) |
 | `disk.other` | info | none | an old disk-events line with a label that is not known (import only) |
 | `storage.pool-fault` | warn | none | a ZFS pool or one of its devices has a fault (ZED zedlet; subject: the pool; level error when a device is faulted or unavailable) |
+| `live.collector-failed` | warn | none | a live-state read failed; the last good data stays served as stale (subject: the topic; once per change into error) |
+| `live.collector-recovered` | info | none | a live-state read works again after a failure (subject: the topic) |
 | `pkg.maintainerr.planned` | info | `service`, `name`, `label`, `icon`, `title`, `sub?`, `body`, `fields?`, `footer?`, `poster_url?` | a lower version of a film was found and is announced (media helper; subject: the service) |
 | `pkg.maintainerr.deleted` | info | `service`, `name`, `label`, `icon`, `title`, `sub?`, `body`, `fields?`, `footer?`, `poster_url?` | a lower version of a film was deleted (media helper; subject: the service) |
 | `pkg.maintainerr.test` | info | `service`, `name`, `label`, `icon`, `title`, `sub?`, `body`, `fields?`, `footer?`, `poster_url?` | the test message of Maintainerr (Script) (media helper; subject: the service) |

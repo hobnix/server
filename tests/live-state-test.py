@@ -108,6 +108,36 @@ class Collect(unittest.TestCase):
         self.assertGreaterEqual(d["ts_err"], d["ts"])
         self.assertEqual(len(st.published), 1)
 
+    def test_failing_collector_keeps_last_good_and_emits_once(self):
+        events = []
+        res = [(0, "good", ""), (1, "", "boom"), (1, "", "boom"), (124, "", "timeout after 90 s"), (0, "better", "")]
+        st = FakeResp()
+        c = lc.Collector(st, run=lambda w: res.pop(0), topic_rows=self.rows, emit=lambda *a: events.append(a))
+        key = "hs:v1:status"
+        c.collect("status", ["status"])
+        good = json.loads(st.data[key])
+        self.assertEqual(good["state"], "ok")
+        c.collect("status", ["status"])
+        d = json.loads(st.data[key])
+        self.assertEqual((d["state"], d["out"], d["ts"], d["gen"]), ("stale", "good", good["ts"], 1))
+        c.collect("status", ["status"])
+        c.collect("status", ["status"])
+        self.assertEqual([e[0] for e in events], ["live.collector-failed"])      # one event for three failed runs
+        self.assertEqual(events[0][1], "status")
+        self.assertTrue(c.collect("status", ["status"]))
+        d = json.loads(st.data[key])
+        self.assertEqual((d["state"], d["out"], d["err"], d["ts_err"]), ("ok", "better", None, None))
+        self.assertEqual([e[0] for e in events], ["live.collector-failed", "live.collector-recovered"])
+
+    def test_never_read_topic_is_error_not_stale(self):
+        events = []
+        c, st, _ = self.make([(3, "", "no")])
+        c.emit = lambda *a: events.append(a)
+        c.collect("status", ["status"])
+        d = json.loads(st.data["hs:v1:status"])
+        self.assertEqual((d["state"], d["ts"], d["out"]), ("error", None, ""))
+        self.assertEqual(len(events), 1)
+
     def test_locked_skip_runs_nothing(self):
         marker = os.path.join(tempfile.mkdtemp(), "locked")
         open(marker, "w").close()

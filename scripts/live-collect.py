@@ -1,7 +1,9 @@
 #!/usr/bin/env python3
 """Collector of the live state (service hs-live): one thread per topic in lib/live-topics.tsv runs `hs sys <words>` every <interval> seconds
 (or when hs:v1:refresh names it) and writes the raw text to Redis (hs:v1:<topic>), then publishes hs:v1:changed. The one writer.
-A failure without output keeps the old data and only sets err/ts_err. Redis down: retry every 5 s, never exit. Log goes to the journal."""
+A failure without output keeps the old data (ts stays the time of the last good read) and sets err/ts_err and state "stale" (there
+was a good read) or "error" (never); a good read sets state "ok". A change into error and the recovery each write one event (live.collector-failed,
+live.collector-recovered), not one per failed run. Redis down: retry every 5 s, never exit. Log goes to the journal."""
 import json
 import os
 import subprocess
@@ -31,11 +33,21 @@ def hs_run(words):
         return 127, "", str(e)
 
 
+def emit_event(kind, subject, text):
+    """Best effort: one line in the event log (state-db.py emit, the one writer; needs root, which hs-live is). Never raises."""
+    try:
+        subprocess.run([sys.executable, os.path.join(ls.HERE, "state-db.py"), "emit", kind, subject, text],
+                       capture_output=True, timeout=15)
+    except (OSError, subprocess.TimeoutExpired):
+        pass
+
+
 class Collector:
     RESCAN = 60.0         # seconds between looks at the extension packages that are on (their live reads)
     RESCAN_MIN = 3.0      # a refresh of an unknown ext- topic looks sooner, but not more often than this
 
-    def __init__(self, store, run=hs_run, topic_rows=None, connect=None, topic_info=None, ext_rows=None):
+    def __init__(self, store, run=hs_run, topic_rows=None, connect=None, topic_info=None, ext_rows=None, emit=emit_event):
+        self.emit = emit                         # (kind, subject, text) -> None; a test passes its own
         self.store = store                       # Resp (or a fake) for writing
         self.run = run
         self.rows = topic_rows if topic_rows is not None else ls.topics()
@@ -86,6 +98,14 @@ class Collector:
         with self.sem:
             rc, out, err = self.run(words)
         now = time.time()
+        ev = []
+        try:
+            return self._store(topic, rc, out, err, now, ev)
+        finally:
+            for kind, text in ev:      # outside the lock: writing an event must not hold the other topics back
+                self.emit(kind, topic, text)
+
+    def _store(self, topic, rc, out, err, now, ev):
         with self.lock:
             try:
                 raw = self.store.cmd("GET", ls.KEY % topic)
@@ -93,18 +113,22 @@ class Collector:
             except ValueError:
                 old = {}
             if rc == 0 or out:
+                if old.get("err"):
+                    ev.append(("live.collector-recovered", "live state '%s' reads again" % topic))
                 if old and old.get("rc") == rc and old.get("out") == out and old.get("err") is None:
                     # the same output as the last read: only the time moves (the data is still fresh); no new gen, no publish
                     old["ts"] = now
                     self.store.cmd("SET", ls.KEY % topic, json.dumps(old))
                     return False
                 gen = int(old.get("gen", 0)) + 1
-                doc = {"ts": now, "gen": gen, "rc": rc, "out": out, "err": None, "ts_err": None}
+                doc = {"ts": now, "gen": gen, "rc": rc, "out": out, "err": None, "ts_err": None, "state": "ok"}
                 self.store.cmd("SET", ls.KEY % topic, json.dumps(doc))
                 self.store.cmd("PUBLISH", ls.CHANGED, "%s %d" % (topic, gen))
                 return True
             doc = {"ts": old.get("ts"), "gen": old.get("gen", 0), "rc": old.get("rc", rc), "out": old.get("out", ""),
-                   "err": ls.clean(err or "no output"), "ts_err": now}
+                   "err": ls.clean(err or "no output"), "ts_err": now, "state": "stale" if old.get("ts") else "error"}
+            if not old.get("err"):      # the change into error, once; the runs that fail after it are only in the journal
+                ev.append(("live.collector-failed", "live state '%s' failed (rc %s): %s" % (topic, rc, doc["err"])))
             self.store.cmd("SET", ls.KEY % topic, json.dumps(doc))
             log("topic %s failed (rc %s): %s" % (topic, rc, doc["err"]))
             return False
