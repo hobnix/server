@@ -697,6 +697,17 @@ export interface SysOperations {
     exit: number;
     lines: string[][];
   };
+  "event.list": {
+    /** the event log: id, time (epoch seconds), source, kind, subject, level info|warn|error, text, payload (JSON or -); hs sys event list [N] [--source S] [--after ID] */
+    words: ["event", "list"];
+    path: "/event/list";
+    method: "get";
+    class: "read";
+    params: { };
+    stdin: "none";
+    exit: number;
+    lines: ([id: Field, time: Field, source: Field, kind: Field, subject: Field, level: "info" | "warn" | "error", text: Field, payload: Field])[];
+  };
   "expiry.list": {
     /** entries as name, date, days left, state (ok|soon|due|expired|invalid), how to renew */
     words: ["expiry", "list"];

@@ -1,0 +1,22 @@
+# kind	level	payload keys	meaning   (columns separated by a tab; "-" = none)
+# The machine form of the event catalogue (hobnix/server#145 owns the full list and the prose). A script may emit only kinds listed here
+# (tests/event-log.sh); extensions use the prefix ext.<name>. Level is the usual one: info, warn or error.
+storage.new	info	-	a disk was seen for the first time (plugged in)
+storage.back	info	-	a missing disk is back
+storage.missing	warn	-	a known disk is not there any more
+storage.worse	warn	-	SMART values of a disk grew within the watch window
+storage.forgotten	info	-	a missing disk was removed from the inventory on purpose
+storage.baseline	info	-	first reading of the daily SMART check for a disk
+storage.smart-reset	info	-	the SMART baseline of a disk was taken again
+storage.smart-watch	info	-	the daily SMART check rates a disk as watch
+storage.smart-failing	info	-	the daily SMART check rates a disk as failing
+storage.smart-healthy	info	-	the daily SMART check rates a disk as healthy again
+job.queued	info	-	a job was accepted and waits
+job.running	info	-	a job started
+job.ok	info	-	a job finished successfully
+job.failed	error	-	a job failed
+job.cancelled	info	-	a job was stopped on purpose
+job.interrupted	warn	-	a job was running when the server restarted
+notify.sent	info	-	a push message was delivered to a channel (subject: the channel)
+notify.held	info	-	a push message was held back (quiet hours)
+notify.failed	warn	-	a push message could not be delivered

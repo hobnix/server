@@ -140,7 +140,7 @@ def operation(r, shape, hit, ws):
     spec = hit[0] if hit else None
     words = r["words"]
     fixed = [w for w in words if not w.startswith("<")]
-    cls = "plan" if "plan" in fixed else "start" if "start" in fixed else         "change" if CHANGING & set(fixed) or "changes" in r["flags"] else "read"
+    cls = "plan" if "plan" in fixed else "start" if "start" in fixed else         "change" if (CHANGING - ({"event"} if "list" in fixed else set())) & set(fixed) or "changes" in r["flags"] else "read"
     params = [w[1:-1] for w in words if w.startswith("<")]
     op = {"operationId": ".".join(("by_" + w[1:-1]) if w.startswith("<") else w for w in words),
           "summary": r["help"] if r["help"] not in ("", "-") else script_help(r["script"]) or " ".join(words),

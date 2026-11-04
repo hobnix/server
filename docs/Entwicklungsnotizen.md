@@ -621,6 +621,7 @@ Per-feature history and implementation details moved out of CLAUDE.md so that ev
 
 ## Monitoring and status
 
+- Event log (2026-11-04, ADR 0005 rules 2 to 4, not run on the server): the state.db table `events` has `source`, `level`, `payload`, `v` (migrated in `open_rw`, user_version 2); `time` stays epoch seconds. `state-db.py emit <source>.<kind> <subject> [text] [--level L] [--payload JSON]` is the one writer (`hs event emit`, `event_emit` in scripts/lib/event.sh, best effort, rc 0); retention in `trim_events` (newest 5000, 90 days; tests HS_EVENT_KEEP / HS_EVENT_DAYS). Reader `event-list` (`hs event list`, `hs sys event list`). Kinds are registered in scripts/lib/event-kinds.tsv, tests/event-log.sh fails on an unregistered one. `events` / `events-json` are unchanged.
 - Outside view and hardware health (2026-10-08, not yet run on the server): `heartbeatUrl` in machine.toml (-> /etc/hs/heartbeat-url, `HS_HEARTBEAT_URL`) makes health-check.sh POST a
   priority-min "alive" to that ntfy topic at every real run; `vps/hs-watch.sh` (NOT under scripts/, no registry row: it runs on the VPS; the NixOS VPS (repo `proxyserver`, modules/watch.nix) carries a COPY as service+timer `ps-watch` with HEARTBEAT_URL_FILE /var/lib/proxyserver/heartbeat-url and ALERT_URL_FILE = its notify-url; elsewhere /etc/hs-watch.conf with HEARTBEAT_URL,
   ALERT_URL = the notifyUrl topic, SITES, MAX_AGE_MIN; state `HS_WATCH_STATE`; change both copies) polls `<topic>/json?poll=1&since=45m`, probes the public addresses (000 or 5xx = problem, 404 is fine) and alarms

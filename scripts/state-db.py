@@ -8,6 +8,9 @@ Commands (machine readable output; scripts/state.sh makes the pretty version for
   collect [--event]          read the disks (monitor.sh --disks + lsblk) and update disks / events / smart
   disks                      inventory, tab separated: serial model size dev state role pool first_seen last_seen worse note
   events [N]                 time kind subject text (newest last)
+  emit <source>.<kind> <subject> [text] [--level info|warn|error] [--payload JSON]
+                             the ONE writer of the event log (root; scripts/lib/event.sh, hs event emit); docs/adr/0005-events.md
+  event-list [N] [--source S] [--after ID]  id time source kind subject level text payload (newest last; `-` for an empty field)
   smart <serial|dev>         the stored SMART readings of one disk
   problems                   key TAB text for health-check.sh (missing disks, worsening disks, a collector that stopped)
   deck-disks                 the 5 fields per disk the status document uses (name bytes kind role temp), from the last reading
@@ -25,7 +28,8 @@ Commands (machine readable output; scripts/state.sh makes the pretty version for
 Environment (tests): HS_STATE_DB, HS_STATE_DIR, HS_MONITOR (command), HS_LSBLK, HS_LOCKED_MARKER, HS_NOW,
 HS_STATE_SMART_EVERY (seconds, default 900), HS_STATE_WORSE_DAYS (default 14), HS_DISK_HEALTH (the reading command),
 HS_SMART_FAIL_REALLOC (10), HS_SMART_FAIL_MEDIA (10), HS_SMART_WEAR_JUMP (3), HS_SMART_HOLD_DAYS (7), HS_SMART_WAKE_DAYS (6),
-HS_SMART_STALE (seconds, default 2*86400+3600).
+HS_SMART_STALE (seconds, default 2*86400+3600),
+HS_EVENT_KEEP (rows kept in the event log, default 5000), HS_EVENT_DAYS (age limit in days, default 90).
 """
 import json
 import os
@@ -41,7 +45,9 @@ HERE = os.path.dirname(os.path.abspath(__file__))
 SMART_EVERY = int(os.environ.get("HS_STATE_SMART_EVERY", "900"))
 WORSE_DAYS = int(os.environ.get("HS_STATE_WORSE_DAYS", "14"))
 STALE_S = int(os.environ.get("HS_STATE_STALE", "1800"))
-KEEP_EVENTS = 2000
+KEEP_EVENTS = int(os.environ.get("HS_EVENT_KEEP", "5000"))
+EVENT_DAYS = int(os.environ.get("HS_EVENT_DAYS", "90"))
+WARN_KINDS = ("worse", "missing")
 SMART_KEEP_DAYS = 400
 SMART_THIN_DAYS = 30
 # the daily SMART check (baseline): thresholds in one place
@@ -65,7 +71,8 @@ CREATE TABLE IF NOT EXISTS disks (
   state TEXT NOT NULL DEFAULT 'ok', note TEXT, worse INTEGER NOT NULL DEFAULT 0,
   temp INTEGER, kind TEXT);
 CREATE TABLE IF NOT EXISTS events (
-  id INTEGER PRIMARY KEY AUTOINCREMENT, time INTEGER NOT NULL, kind TEXT NOT NULL, subject TEXT, text TEXT);
+  id INTEGER PRIMARY KEY AUTOINCREMENT, time INTEGER NOT NULL, kind TEXT NOT NULL, subject TEXT, text TEXT,
+  source TEXT NOT NULL DEFAULT 'storage', level TEXT NOT NULL DEFAULT 'info', payload TEXT, v INTEGER NOT NULL DEFAULT 1);
 CREATE TABLE IF NOT EXISTS smart (
   time INTEGER NOT NULL, serial TEXT NOT NULL, realloc INTEGER, pending INTEGER, crc INTEGER, temp INTEGER, hours INTEGER);
 CREATE INDEX IF NOT EXISTS smart_serial ON smart (serial, time);
@@ -91,8 +98,33 @@ def open_rw():
     c.execute("PRAGMA journal_mode=WAL")
     c.execute("PRAGMA synchronous=NORMAL")
     c.executescript(SCHEMA)
-    c.execute("PRAGMA user_version=1")
+    migrate_events(c)
+    c.execute("PRAGMA user_version=2")
     return c
+
+
+EVENT_COLS = (("source", "TEXT NOT NULL DEFAULT 'storage'"), ("level", "TEXT NOT NULL DEFAULT 'info'"),
+              ("payload", "TEXT"), ("v", "INTEGER NOT NULL DEFAULT 1"))
+
+
+def migrate_events(c):
+    """Add the event log columns to an old table. Two writers may start at once: the check is made again inside BEGIN IMMEDIATE,
+    and the transaction ends here, so no write lock stays open."""
+    def missing():
+        have = {r[1] for r in c.execute("PRAGMA table_info(events)")}
+        return [(col, decl) for col, decl in EVENT_COLS if col not in have]
+    if not missing():
+        return
+    c.execute("BEGIN IMMEDIATE")
+    try:
+        for col, decl in missing():
+            c.execute("ALTER TABLE events ADD COLUMN %s %s" % (col, decl))
+            if col == "level":      # old rows: the two kinds that are bad news
+                c.execute("UPDATE events SET level='warn' WHERE kind IN (%s)" % ",".join("'%s'" % k for k in WARN_KINDS))
+        c.commit()
+    except sqlite3.Error:
+        c.rollback()
+        raise
 
 
 def open_ro():
@@ -165,8 +197,31 @@ def pool_of(role):
     return role
 
 
-def event(c, t, kind, subject, text):
-    c.execute("INSERT INTO events (time, kind, subject, text) VALUES (?,?,?,?)", (t, kind, subject, text))
+def event(c, t, kind, subject, text, source="storage", level=None, payload=None):
+    """The one INSERT into the event log. payload: a JSON text (an object) or None."""
+    if level is None:
+        level = "warn" if kind in WARN_KINDS else "info"
+    c.execute("INSERT INTO events (time, kind, subject, text, source, level, payload) VALUES (?,?,?,?,?,?,?)",
+              (t, kind, subject, text, source, level, payload))
+
+
+def kind_level(source, kind):
+    """The level a kind has in scripts/lib/event-kinds.tsv; info for a kind that is not listed."""
+    try:
+        with open(os.path.join(HERE, "lib", "event-kinds.tsv"), encoding="utf-8") as f:
+            for line in f:
+                p = line.rstrip("\n").split("\t")
+                if len(p) >= 2 and p[0] == "%s.%s" % (source, kind) and p[1] in ("info", "warn", "error"):
+                    return p[1]
+    except OSError:
+        pass
+    return "info"
+
+
+def trim_events(c, t):
+    """Retention in one place: the newest KEEP_EVENTS rows, nothing older than EVENT_DAYS (whichever removes more)."""
+    c.execute("DELETE FROM events WHERE id NOT IN (SELECT id FROM events ORDER BY id DESC LIMIT ?)", (KEEP_EVENTS,))
+    c.execute("DELETE FROM events WHERE time < ?", (t - EVENT_DAYS * 86400,))
 
 
 def label(model, serial):
@@ -250,7 +305,7 @@ def collect(args):
         c.execute("DELETE FROM smart WHERE time < ?", (t - SMART_KEEP_DAYS * 86400,))
         c.execute("DELETE FROM smart WHERE time < ? AND rowid NOT IN (SELECT MIN(rowid) FROM smart WHERE time < ? GROUP BY serial, time / 86400)",
                   (t - SMART_THIN_DAYS * 86400, t - SMART_THIN_DAYS * 86400))
-        c.execute("DELETE FROM events WHERE id NOT IN (SELECT id FROM events ORDER BY id DESC LIMIT ?)", (KEEP_EVENTS,))
+        trim_events(c, t)
         c.execute("INSERT OR REPLACE INTO meta VALUES ('collect_ok','1')")
         c.execute("INSERT OR REPLACE INTO meta VALUES ('collect_time',?)", (str(t),))
         c.execute("INSERT OR REPLACE INTO meta VALUES ('collect_try',?)", (str(t),))
@@ -464,9 +519,75 @@ def cmd_events(args):
     if c is None:
         return 0
     n = int(args[0]) if args and args[0].isdigit() else 30
-    rows = c.execute("SELECT time, kind, subject, text FROM events ORDER BY id DESC LIMIT ?", (n,)).fetchall()
+    rows = c.execute("SELECT time, kind, subject, text FROM events WHERE source='storage' ORDER BY id DESC LIMIT ?", (n,)).fetchall()
     for r in reversed(rows):
         print("\t".join(clean(x) for x in r))
+    return 0
+
+
+def one_line(s):
+    return re.sub(r"[\t\r\n]+", " ", s or "").strip()[:500]
+
+
+def cmd_emit(args):
+    """emit <source>.<kind> <subject> [text] [--level L] [--payload JSON]"""
+    pos, level, payload = [], None, None
+    i = 0
+    while i < len(args):
+        if args[i] == "--level" and i + 1 < len(args):
+            level = args[i + 1]; i += 2
+        elif args[i] == "--payload" and i + 1 < len(args):
+            payload = args[i + 1]; i += 2
+        else:
+            pos.append(args[i]); i += 1
+    if not pos or not re.fullmatch(r"[a-z0-9]+(\.[a-z0-9][a-z0-9-]*)+", pos[0]):
+        print("usage: emit <source>.<kind> <subject> [text] [--level info|warn|error] [--payload JSON]  (a kind is <source>.<kind>, lower case)",
+              file=sys.stderr)
+        return 2
+    source, kind = pos[0].split(".", 1)
+    if level not in (None, "info", "warn", "error"):
+        print("level is info, warn or error", file=sys.stderr)
+        return 2
+    if payload is not None:
+        try:
+            def no_const(name):
+                raise ValueError(name)       # NaN, Infinity: not JSON
+            ok = isinstance(json.loads(payload, parse_constant=no_const), dict)
+        except ValueError:
+            ok = False
+        payload = json.dumps(json.loads(payload), allow_nan=False, separators=(",", ":")) if ok else None
+    subject = one_line(pos[1]) if len(pos) > 1 else ""
+    text = one_line(pos[2]) if len(pos) > 2 else ""
+    c = open_rw()
+    t = now()
+    with c:
+        event(c, t, kind, subject, text, source, level or kind_level(source, kind), payload)
+        trim_events(c, t)
+    return 0
+
+
+def cmd_event_list(args):
+    c = open_ro()
+    if c is None:
+        return 0
+    n, source, after = 50, None, 0
+    i = 0
+    while i < len(args):
+        if args[i] == "--source" and i + 1 < len(args):
+            source = args[i + 1]; i += 2
+        elif args[i] == "--after" and i + 1 < len(args):
+            after = int(args[i + 1]) if args[i + 1].isdigit() else 0; i += 2
+        elif args[i].isdigit():
+            n = int(args[i]); i += 1
+        else:
+            i += 1
+    try:
+        rows = c.execute("SELECT id, time, source, kind, subject, level, text, payload FROM events WHERE id > ? AND (? IS NULL OR source = ?) "
+                         "ORDER BY id DESC LIMIT ?", (after, source, source, n)).fetchall()
+    except sqlite3.Error:
+        return 0
+    for r in reversed(rows):
+        print("	".join(clean(x) if x not in (None, "") else "-" for x in r))
     return 0
 
 
@@ -579,7 +700,7 @@ def cmd_disks_json():
 def cmd_events_json(args):
     c = open_ro()
     n = int(args[0]) if args and args[0].isdigit() else 50
-    rows = [] if c is None else c.execute("SELECT time, kind, subject, text FROM events ORDER BY id DESC LIMIT ?", (n,)).fetchall()
+    rows = [] if c is None else c.execute("SELECT time, kind, subject, text FROM events WHERE source='storage' ORDER BY id DESC LIMIT ?", (n,)).fetchall()
     print(json.dumps({"schema": 1, "events": [
         {"time": r[0], "kind": r[1], "id": mask(r[2]), "text": re.sub(r"S/N (\S+?)\)", lambda m: "S/N " + mask(m.group(1)) + ")", r[3] or "")}
         for r in rows]}, separators=(",", ":")))
@@ -841,6 +962,10 @@ def main(argv):
         return cmd_disks()
     if cmd == "events":
         return cmd_events(args)
+    if cmd == "emit":
+        return cmd_emit(args)
+    if cmd == "event-list":
+        return cmd_event_list(args)
     if cmd == "smart":
         return cmd_smart(args)
     if cmd == "problems":
