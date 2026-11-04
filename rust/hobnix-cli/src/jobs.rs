@@ -226,6 +226,10 @@ pub fn run(args: &[String]) -> Result<u8> {
             };
             store.cancel(id, p.opt("--by").unwrap_or(""), safe)?;
         }
+        "uncancel" => {
+            let p = parse(rest, &[])?;
+            store.uncancel(&exact::<1>(&p)?[0])?;
+        }
         "cancelled" => {
             let p = parse(rest, &[])?;
             if !store.is_cancelled(&exact::<1>(&p)?[0])? {

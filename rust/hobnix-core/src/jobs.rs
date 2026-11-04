@@ -738,6 +738,27 @@ impl Store {
         })
     }
 
+    /// `uncancel`: the stop of the unit failed after the record was marked cancelled; the job still runs, so the record says so again.
+    pub fn uncancel(&self, id: &str) -> Result<()> {
+        self.locked(id, || {
+            let mut rec = self.load(id)?;
+            if rec.state.as_deref() != Some("cancelled") || rec.exit.is_some() {
+                return Err(failed("job is not cancelled, or it ended already"));
+            }
+            rec.state = Some(
+                if rec.started.is_some() {
+                    "running"
+                } else {
+                    "queued"
+                }
+                .to_string(),
+            );
+            rec.ended = None;
+            rec.cancel = None;
+            self.save(&rec)
+        })
+    }
+
     /// `cancelled`: true when the record says cancelled.
     pub fn is_cancelled(&self, id: &str) -> Result<bool> {
         Ok(self.load(id)?.state.as_deref() == Some("cancelled"))
@@ -1029,6 +1050,20 @@ mod tests {
         let rec = s.load(&id).unwrap();
         assert_eq!(rec.state.as_deref(), Some("ok"));
         assert!(rec.error.is_none());
+    }
+
+    #[test]
+    fn uncancel_puts_the_record_back() {
+        let t = Tmp::new();
+        let s = t.store();
+        let id = mk(&s, "hs-job-un-0320");
+        s.run(&id).unwrap();
+        s.cancel(&id, "bob", true).unwrap();
+        s.uncancel(&id).unwrap();
+        let rec = s.load(&id).unwrap();
+        assert_eq!(rec.state.as_deref(), Some("running"));
+        assert!(rec.ended.is_none() && rec.cancel.is_none());
+        assert!(s.uncancel(&id).is_err());
     }
 
     #[test]
