@@ -187,4 +187,38 @@ cp -r "$SCRIPTS" "$copy/scripts"
 check "schema-gen loads the schema when there is no capabilities/ next to scripts/" env HS_SCHEMA="$ROOT/config/schema.toml" python3 "$copy/scripts/schema-gen.py" list
 rm -rf "$copy"
 
+echo "-- every option is rebuild (store machine) or live (store settings); a live option is never read by Nix (docs/adr/0002)"
+check "every option has a class" bash -c '[ -z "$($1 list | awk -F"\t" "\$6 != \"machine\" && \$6 != \"settings\"")" ]' _ "$GEN"
+bad_store=$(mktemp -d)
+sed '0,/^key = "hostName"/s//store = "elsewhere"\nkey = "hostName"/' "$ROOT/config/schema.toml" > "$bad_store/schema.toml"
+if HS_SCHEMA="$bad_store/schema.toml" python3 "$SCRIPTS/schema-gen.py" list >/dev/null 2>&1; then fail "a store that is neither machine nor settings was accepted"
+else pass "a store that is neither machine nor settings is refused"; fi
+rm -rf "$bad_store"
+# Known violations: live options that configuration.nix still reads (it turns them into /etc/hs files or HS_WEB_* variables, so a change
+# also needs a rebuild). Moving them out is open work on hobnix/server#252; the list may only shrink: a key that is clean is an error here.
+NIX_READS_LIVE="backupNewShares heartbeatUrl icons language loginMessage notifyUrl proxyStatusUrl vpsHost webAccent webTerminal webTerminalIdleMinutes webTerminalMaxHours"
+bad=$(python3 - "$ROOT" "$NIX_READS_LIVE" <<'PYEOF'
+import os, re, subprocess, sys
+root, known = sys.argv[1], set(sys.argv[2].split())
+out = subprocess.run(['python3', os.path.join(root, 'scripts', 'schema-gen.py'), 'list'], capture_output=True, text=True).stdout
+live = [l.split('\t')[0] for l in out.splitlines() if l.split('\t')[5] == 'settings']
+reads = set()
+for d, dirs, files in os.walk(root):
+    dirs[:] = [x for x in dirs if x not in ('.git', 'node_modules', '.work', 'web', '.claude')]
+    for f in files:
+        if not f.endswith('.nix') or (os.path.basename(d) == 'config' and f == 'defaults.nix'):
+            continue
+        for line in open(os.path.join(d, f), encoding='utf-8'):
+            code = line.split('#')[0]
+            for k in live:
+                if re.search(r'\bmachine\.%s\b|\bmachine \? %s\b' % (k, k), code):
+                    reads.add(k)
+for k in sorted(reads - known):
+    print('%s: a live option (store = "settings") is read by a Nix file' % k)
+for k in sorted(known - reads):
+    print('%s: no longer read by Nix, remove it from NIX_READS_LIVE' % k)
+PYEOF
+)
+if [ -z "$bad" ]; then pass "no live option is read by a Nix file, except the listed ones"; else fail "$bad"; fi
+
 finish
