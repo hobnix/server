@@ -147,7 +147,7 @@ def send(service, event, title, sub="", fields=(), footer="", poster_url=""):
     log = os.environ.get("HS_MEDIA_NOTIFY_LOG")
     if log:
         with open(log, "a") as f:
-            f.write(json.dumps(row) + "\n")
+            f.write(json.dumps({"service": service, "event": event, "title": title, "sub": sub, "fields": fields, "footer": footer, "poster_url": poster_url}) + chr(10))
         return
     spool = load_config().get("spool") or "/media/.hs-events"
     try:
