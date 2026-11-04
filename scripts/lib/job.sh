@@ -6,7 +6,7 @@
 # failure (hs-notify-failure@) and on success (notify.sh). Look: hs job running, hs job log <unit>.
 # hs_job_record ARGS...: the job record writer (docs/adr/0004-job-record.md). The Rust binary (hobnix job-record, HOBNIX_BIN or on PATH) does it
 # unless HS_JOB_RECORD=python, there is no binary or it does not know `job-record --probe`; then scripts/job-record.py does, exactly as before. Same words, same output, same exit codes.
-hs_job_record() {
+_hs_job_record_write() {
   # Decided once per shell: the binary must answer `job-record --probe`, an older build (after a git pull before the rebuild, or a rollback)
   # does not, and then the Python program writes the record as before.
   if [ -z "${_HS_JOB_RECORD_USE:-}" ]; then
@@ -18,6 +18,42 @@ hs_job_record() {
   else
     python3 "${BASH_SOURCE[0]%/*}/../job-record.py" "$@"
   fi
+}
+
+# hs_job_record: the writer above plus the event log (docs/adr/0005-events.md rule 9): a transition writes job.<state> with the job id as
+# subject, once it is in the record. One place for both writers. Best effort: a failed emit never changes the exit code or the output.
+# finish on a record that ended already (cancelled stays cancelled) emits nothing; cancel emits nothing here (jobs-change.sh emits job.cancelled after the stop worked).
+hs_job_record() {
+  local cmd=${1:-} out rc=0 id=${2:-} line text
+  case "$cmd" in
+    new|run|finish|reconcile|uncancel) ;;
+    *) _hs_job_record_write "$@"; return ;;
+  esac
+  if [ "$cmd" = finish ] && ! _hs_job_record_write get "$id" 2>/dev/null | grep -Eq '"state": *"(queued|running)"'; then
+    _hs_job_record_write "$@"; return   # already ended (a cancel stays cancelled): no second event
+  fi
+  out=$(_hs_job_record_write "$@") || rc=$?
+  if [ "$rc" -ne 0 ] && [ "$cmd" = uncancel ] && [ "$_HS_JOB_RECORD_USE" = rust ]; then   # an older binary does not know it: the Python writer does
+    out=$(python3 "${BASH_SOURCE[0]%/*}/../job-record.py" "$@") && rc=0
+  fi
+  [ -z "$out" ] || printf '%s
+' "$out"
+  [ "$rc" -eq 0 ] || return "$rc"
+  # shellcheck source=scripts/lib/event.sh
+  . "${BASH_SOURCE[0]%/*}/event.sh" 2>/dev/null || return 0
+  case "$cmd" in
+    new)  event_emit job.queued "$out" "job queued" || true ;;
+    run)  event_emit job.running "$id" "job started" || true ;;
+    finish)
+      if [ "${3:-1}" = 0 ]; then event_emit job.ok "$id" "job finished" || true
+      else event_emit job.failed "$id" "job failed (exit ${3:-1})" --payload "{\"exit\":${3:-1}}" || true; fi ;;
+    reconcile)
+      while IFS=$'	' read -r line _ text; do
+        [ -z "$line" ] || event_emit job.interrupted "$line" "${text:-job} did not finish" || true
+      done <<<"$out" ;;
+    uncancel) ;;
+  esac
+  return 0
 }
 
 hs_job() {
@@ -47,7 +83,7 @@ hs_job() {
              [ -z "${HS_JOB_ID:-}" ] || hs_job_record run "$HS_JOB_ID" 2>/dev/null || true
              "$@"; rc=$?
              [ -z "${HS_JOB_ID:-}" ] || hs_job_record finish "$HS_JOB_ID" "$rc" 2>/dev/null || true
-             if [ "$rc" -ne 0 ]; then   # event log (docs/adr/0005-events.md): best effort, the exit code stays
+             if [ "$rc" -ne 0 ] && [ -z "${HS_JOB_ID:-}" ]; then   # event log (docs/adr/0005-events.md): without a record nobody else writes job.failed; best effort
                . "$0/lib/event.sh"; event_emit job.failed "${HS_JOB_UNIT:-job}" "$d failed (exit $rc)" --payload "{\"exit\":$rc}" || true
              fi
              bash "$0/live.sh" refresh --all >/dev/null 2>&1 || true   # live state: read again (no-op without the capability)

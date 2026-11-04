@@ -102,5 +102,10 @@ bash "$here/scripts/job-reconcile.sh" >/dev/null 2>&1; rc=$?
 check "wrapper exits 0 with nothing to do" "0" "$rc"
 check "no second push" "1" "$(grep -c . "$T/pushes")"
 
+# events: an interrupted record writes job.interrupted with the id as subject
+mk 20200101-000010-evi-jjjj running hs-job-j 2020-01-01T00:00:01Z
+HS_EVENT_NOROOT=1 HS_STATE_DB="$T/ev.db" bash "$here/scripts/job-reconcile.sh" >/dev/null 2>&1
+check "job.interrupted is emitted with the id" "1" "$(HS_STATE_DB="$T/ev.db" python3 "$here/scripts/state-db.py" event-list 50 2>/dev/null | grep -c '20200101-000010-evi-jjjj')"
+
 [ "$fail" = 0 ] && echo "job-reconcile: all ok"
 exit "$fail"
