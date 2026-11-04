@@ -194,6 +194,27 @@ loginMessage = true'''
 
 [[item]]
 kind = "option"
+key = "updateChannel"
+page = "updates"
+type = "string"
+required = false
+settable = true
+secret = false
+store = "settings"
+default = '"stable"'
+choices = ["stable", "beta", "edge"]
+doc = '''
+# Which version `hs update` follows:
+#   "stable"  the newest signed release (default; the right one for every server that holds data)
+#   "beta"    the newest signed beta or release; for a second server or a test machine
+#   "edge"    the head of the development branch; only for a server whose data may be lost
+# Beta and edge can break things. Changing it moves nothing by itself: it takes effect at the next `hs update`,
+# which asks you to type the channel name when you switch to a newer one.'''
+value = '''
+updateChannel = "stable"'''
+
+[[item]]
+kind = "option"
 key = "webUi"
 type = "bool"
 required = false

@@ -71,6 +71,8 @@ case "$action" in
   update)
     [ ! -e "${HS_LOCKED_MARKER:-/run/hs/storage-locked}" ] || refuse "The storage is locked: unlock it first (hs unlock), an update would refuse."
     cmd=(bash "$update")
+    # a person clicked Update: that confirms the beta / edge channel (a timer does not come through here with the web's caller)
+    case "${HS_CALLER:-}" in web|ui) cmd+=(--yes) ;; esac
     # the preview is the plan; when it cannot even fetch, the update would fail too
     rc=0; pv=$(HS_PLAIN=1 HS_LANG=en bash "$preview" --no-build --max-age "${HS_PLAN_FETCH_AGE:-120}" </dev/null 2>&1) || rc=$?
     if [ "$rc" -ne 0 ]; then

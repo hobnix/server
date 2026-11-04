@@ -11,12 +11,16 @@
 # asked whether to rebuild now or stop to set them first. --yes rebuilds without asking, --stop-on-new stops without asking.
 # Nothing new (the same Git revision as the last rebuild, a clean checkout, machine.toml and hardware-configuration.nix as they were, no new
 # options): it says so and skips the rebuild (no push message either). --force rebuilds anyway; so does `hs rebuild`, which always builds.
-# No terminal (a job, a timer) rebuilds as before. Test knobs: HS_STATE_DIR, HS_MACHINE_FILE, HS_MACHINE_EXAMPLE, HS_GUIDED_TTY.
+# No terminal (a job, a timer) rebuilds as before. Channel (setting updateChannel, docs/PLAN-channels.md, lib/update-channel.sh): stable follows the
+# newest signed vX.Y.Z tag, beta also vX.Y.Z-beta.N, edge origin/develop; without a matching tag yet it follows the current branch as it always did.
+# Beta and edge never apply by themselves: without a terminal and without --yes they stop (exit 3); switching to a newer channel asks for its name.
+# Test knobs: HS_STATE_DIR, HS_MACHINE_FILE, HS_MACHINE_EXAMPLE, HS_GUIDED_TTY.
 set -euo pipefail
 . "$(dirname "$0")/lib/ui.sh"
 . "$(dirname "$0")/lib/live.sh"
 . "$(dirname "$0")/lib/locked.sh"
 . "$(dirname "$0")/lib/stamp.sh"
+. "$(dirname "$0")/lib/update-channel.sh"
 
 ask_new=auto; pass=(); force=false
 for a in "$@"; do
@@ -33,13 +37,64 @@ owner=$(stat -c %U "$repo")
 # -H: with root's HOME git would abort on the unreadable /root/.gitconfig.
 as_owner() { sudo -H -u "$owner" git -C "$repo" "$@"; }
 
+UC_OWNER=$owner
+
+# Channel: beta and edge are for servers whose data may be lost; they never apply by themselves
+channel=$(uc_channel)
+if [ "$channel" != stable ] && [ -z "${HS_UPDATE_YES:-}" ] && ! interactive; then
+  warn "$(t 'Update channel %s: skipped, because no person confirmed it (a terminal, or the Update button, or --yes). Nothing was changed.' "$channel")"
+  exit 3
+fi
+
 steps 2   # Update, then Rebuild (rebuild.sh continues the count)
 step "Update"
+if [ "$(uc_rank "$channel")" -gt "$(uc_rank "$(uc_last)")" ] && [ -z "${HS_UPDATE_YES:-}" ]; then
+  warn "$(t 'The channel %s can break things: use it only on a server whose data may be lost.' "$channel")"
+  [ "$(ask "$(t 'Type %s to switch to it' "$channel")")" = "$channel" ] || fail "$(t 'Not switched: the name did not match.')"
+fi
 old=$(as_owner rev-parse HEAD)
 # ConnectTimeout: a GitHub that cannot be reached fails in 20 s, not after the two minutes of ssh's own timeout (a web job looked hung)
-spin "Fetching the latest configuration" sudo -H -u "$owner" git -C "$repo" -c core.sshCommand="ssh -o BatchMode=yes -o ConnectTimeout=20" pull --ff-only || {
-  fail_fix "$(t "Could not fetch the configuration: GitHub not reachable, or local changes in %s that Git can't combine?" "$repo")" "git -C $repo status"
-}
+fetch_fail() { fail_fix "$(t "Could not fetch the configuration: GitHub not reachable, or local changes in %s that Git can't combine?" "$repo")" "git -C $repo status"; }
+spin "Fetching the latest configuration" sudo -H -u "$owner" git -C "$repo" -c core.sshCommand="ssh -o BatchMode=yes -o ConnectTimeout=20" fetch --tags --prune --force || fetch_fail
+IFS=$'	' read -r kind ref label < <(uc_target "$repo" "$channel")
+case "$kind" in
+  tag)
+    if ! uc_verify "$repo" "$ref"; then
+      fail_fix "$(t 'The signature of %s is not valid for a trusted release key: %s' "$ref" "$(head -n 1 <<<"${UC_VERIFY_OUT:-}")")" "git -C $repo tag -v $ref"
+    fi
+    target=$(as_owner rev-list -n 1 "$ref")
+    mine=$(as_owner rev-list --count "$old" --not --remotes --tags)   # commits that exist nowhere else: work of this server
+    if [ "$target" = "$old" ]; then
+      :   # already on the tag
+    elif [ "$mine" -gt 0 ]; then
+      fail_fix "$(t 'This checkout has %s local commit(s) that no remote has: moving to %s would leave them behind.' "$mine" "$ref")" "git -C $repo log --not --remotes --tags --oneline"
+    elif as_owner merge-base --is-ancestor "$target" "$old"; then
+      note "$(t '%s is already part of the installed version: no step back.' "$ref")"   # HEAD is ahead of the tag on the same line
+    else
+      as_owner checkout -q --detach "$ref" || fetch_fail
+    fi
+    ;;
+  branch)
+    cur=$(as_owner rev-parse --abbrev-ref HEAD)
+    if [ "$cur" != develop ] && [ "$cur" != HEAD ]; then
+      base=$(as_owner rev-parse --verify -q '@{u}' || echo origin/develop)
+      if [ "$(as_owner rev-list --count "$base..HEAD")" -gt 0 ]; then
+        fail_fix "$(t 'The checkout is on branch %s with local commits that are not upstream: edge would leave them behind.' "$cur")" "git -C $repo log $base..HEAD"
+      fi
+    fi
+    if [ "$cur" != develop ]; then
+      if as_owner rev-parse --verify -q refs/heads/develop >/dev/null; then as_owner checkout -q develop || fetch_fail
+      else as_owner checkout -q -b develop --track origin/develop || fetch_fail; fi
+    fi
+    as_owner merge -q --ff-only origin/develop || fetch_fail
+    ;;
+  *)
+    as_owner merge -q --ff-only '@{u}' || fetch_fail   # no tag yet: follow the current branch as before
+    note "$(t 'No release tag yet: following the current branch.')"
+    ;;
+esac
+uc_remember "$channel"
+note "$(t 'channel: %s (%s)' "$channel" "$label")"
 new=$(as_owner rev-parse HEAD)
 rev_now=$new
 live_refresh system-updates   # the pull is a fetch: the count of new changes starts again

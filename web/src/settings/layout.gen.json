@@ -20,6 +20,7 @@
   "keyMap": "general",
   "icons": "general",
   "loginMessage": "general",
+  "updateChannel": "updates",
   "webUi": "general",
   "webPort": "general",
   "webAccent": "general",

@@ -1,6 +1,10 @@
 # Plan: update channels Stable, Beta, Edge (draft, 2026-11-03)
 
-Status: design only, nothing built. Open questions at the end are for the owner. The branch model it rests on (`develop`, `main`, signed
+Status (2026-11-04): steps 1 to 3 are built for the core (setting `updateChannel`, scripts/lib/update-channel.sh, `hs update`, `hs update --preview`,
+tests/update-channel.sh), the operations guide has the section "Update channels". Not built yet: `hs pkg` on a channel, the web part (step 4),
+the installer ISO, the `beta` mode of `release.sh`, and the release key file `config/trusted-keys/server.allowed_signers` (the owner adds the
+real public key). Open questions 1 to 3 are still open; question 4 is built as proposed (a tag older than the installed version is refused).
+Open questions at the end are for the owner. The branch model it rests on (`develop`, `main`, signed
 tags) is in docs/dev-environment.md "Branches and releases".
 
 ## Problem

@@ -10,6 +10,7 @@
   keyMap = null;
   icons = "unicode";
   loginMessage = true;
+  updateChannel = "stable";
   webUi = false;
   webPort = 8480;
   webAccent = "#9184d9";

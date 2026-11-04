@@ -2084,3 +2084,15 @@ The share apps is mounted in Docker at %s.	Die Freigabe apps ist in Docker unter
 The share apps is not mounted in Docker at %s. Fix: hs docker enable	Die Freigabe apps ist in Docker nicht unter %s eingebunden. Abhilfe: hs docker enable
 hobnix: HOBNIX_BIN is not a program: %s	hobnix: HOBNIX_BIN ist kein Programm: %s
 hobnix: the Rust program for hs sys %s is missing (HOBNIX_BIN, or hobnix on the PATH)	hobnix: für hs sys %s fehlt das Rust-Programm (HOBNIX_BIN oder hobnix im PATH)
+The channel %s can break things: use it only on a server whose data may be lost.	Der Kanal %s kann etwas kaputt machen: nur für einen Server, dessen Daten verloren gehen dürfen.
+Type %s to switch to it	Tippe %s, um dorthin zu wechseln
+Not switched: the name did not match.	Nicht gewechselt: der Name stimmte nicht überein.
+The signature of %s is not valid for a trusted release key: %s	Die Signatur von %s gehört zu keinem vertrauten Release-Schlüssel: %s
+The checkout is on branch %s with local commits that are not upstream: edge would leave them behind.	Der Checkout ist auf dem Zweig %s mit lokalen Commits, die nicht im Upstream sind: edge ließe sie zurück.
+No release tag yet: following the current branch.	Noch kein Release-Tag: folgt dem aktuellen Zweig.
+channel: %s (%s)	Kanal: %s (%s)
+No release key is trusted for the core: %s is missing or empty, so no tag can be verified.	Für den Kern ist kein Release-Schlüssel hinterlegt: %s fehlt oder ist leer, daher lässt sich kein Tag prüfen.
+%s does not exist in this checkout, so there is nothing to compare with.	%s gibt es in diesem Checkout nicht, daher gibt es nichts zu vergleichen.
+%s is already part of the installed version: no step back.	%s ist schon Teil der installierten Version: kein Schritt zurück.
+This checkout has %s local commit(s) that no remote has: moving to %s would leave them behind.	Dieser Checkout hat %s lokale Commit(s), die kein Remote kennt: der Wechsel zu %s ließe sie zurück.
+Update channel %s: skipped, because no person confirmed it (a terminal, or the Update button, or --yes). Nothing was changed.	Update-Kanal %s: übersprungen, weil niemand es bestätigt hat (Terminal, Update-Knopf oder --yes). Nichts wurde geändert.
