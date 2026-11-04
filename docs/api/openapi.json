@@ -4375,6 +4375,154 @@
     }
    }
   },
+  "/jobs/record/{id}": {
+   "get": {
+    "operationId": "jobs.record.by_id",
+    "summary": "one job record as JSON (ADR 0004): state, step, progress, times, exit, error, result",
+    "x-hs-exit": true,
+    "x-hs-sys": {
+     "words": [
+      "jobs",
+      "record",
+      "<id>"
+     ],
+     "script": "jobs.sh",
+     "args": "--record {1}",
+     "class": "read",
+     "rest": false
+    },
+    "parameters": [
+     {
+      "name": "id",
+      "in": "path",
+      "required": true,
+      "schema": {
+       "type": "string"
+      }
+     }
+    ],
+    "x-hs-described": false,
+    "description": "One job record (docs/adr/0004-job-record.md): id, slug, description, source, initiator, unit, queued, started, ended, state, exit, step {n, of, text}, progress {done, total, unit}, error, result, cancel, version. Absent values are null.",
+    "responses": {
+     "0": {
+      "description": "ok",
+      "content": {
+       "application/json": {
+        "schema": {
+         "type": "string"
+        }
+       }
+      }
+     },
+     "default": {
+      "description": "failed; stderr says why, stdout may be empty"
+     }
+    }
+   }
+  },
+  "/jobs/records": {
+   "get": {
+    "operationId": "jobs.records",
+    "summary": "the job records, newest first, tab separated (hs sys jobs records [--state S] [N], N up to 500, default 50)",
+    "x-hs-exit": true,
+    "x-hs-sys": {
+     "words": [
+      "jobs",
+      "records"
+     ],
+     "script": "jobs.sh",
+     "args": "--records {rest}",
+     "class": "read",
+     "rest": true
+    },
+    "responses": {
+     "0": {
+      "description": "ok",
+      "content": {
+       "text/tab-separated-values": {
+        "schema": {
+         "type": "array",
+         "items": {
+          "type": "array",
+          "prefixItems": [
+           {
+            "$ref": "#/components/schemas/Field",
+            "title": "id"
+           },
+           {
+            "$ref": "#/components/schemas/Field",
+            "title": "slug"
+           },
+           {
+            "$ref": "#/components/schemas/Field",
+            "title": "description"
+           },
+           {
+            "$ref": "#/components/schemas/Field",
+            "title": "state",
+            "enum": [
+             "queued",
+             "running",
+             "ok",
+             "failed",
+             "cancelled",
+             "interrupted"
+            ]
+           },
+           {
+            "$ref": "#/components/schemas/Field",
+            "title": "queued"
+           },
+           {
+            "$ref": "#/components/schemas/Field",
+            "title": "started"
+           },
+           {
+            "$ref": "#/components/schemas/Field",
+            "title": "ended"
+           },
+           {
+            "$ref": "#/components/schemas/Field",
+            "title": "exit"
+           },
+           {
+            "$ref": "#/components/schemas/Field",
+            "title": "step_n"
+           },
+           {
+            "$ref": "#/components/schemas/Field",
+            "title": "step_of"
+           },
+           {
+            "$ref": "#/components/schemas/Field",
+            "title": "step_text"
+           },
+           {
+            "$ref": "#/components/schemas/Field",
+            "title": "progress_done"
+           },
+           {
+            "$ref": "#/components/schemas/Field",
+            "title": "progress_total"
+           },
+           {
+            "$ref": "#/components/schemas/Field",
+            "title": "progress_unit"
+           }
+          ],
+          "minItems": 14,
+          "maxItems": 14
+         }
+        }
+       }
+      }
+     },
+     "default": {
+      "description": "failed; stderr says why, stdout may be empty"
+     }
+    }
+   }
+  },
   "/jobs/running": {
    "get": {
     "operationId": "jobs.running",
