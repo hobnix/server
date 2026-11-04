@@ -230,6 +230,30 @@ sudo nixos-rebuild switch --rollback
 
 `hs update` and `hs rebuild` refuse while encrypted storage is locked.
 
+## Update channels
+
+By default `hs update` follows the newest signed release (`stable`). Two other channels exist for a second server or a test machine. Set one
+with `hs config set updateChannel beta`; it takes effect at the next `hs update` and moves nothing by itself.
+
+| Channel | `hs update` follows | For |
+| --- | --- | --- |
+| `stable` (default) | the newest signed `vX.Y.Z` tag | every server that holds data |
+| `beta` | the newest signed `vX.Y.Z-beta.N` or `vX.Y.Z` tag | a second server or a test machine |
+| `edge` | the head of the `develop` branch | a server whose data may be lost |
+
+```bash
+hs config set updateChannel beta
+sudo hs update
+```
+
+Switching to a newer channel (stable to beta, beta to edge) asks you to type the channel name. `hs update` and `hs update --preview` print the
+line `channel: <name> (<tag or branch>)`. Beta and edge never update by themselves: without a terminal and without `--yes` (a timer, for
+example) `hs update` stops with a note. A tag is checked against the release key in `config/trusted-keys/server.allowed_signers` and refused
+when the signature is missing or wrong; `hs update` never moves to a tag that is older than the installed version. Until the first release tag
+exists, every channel but edge follows the current branch as before.
+
+Not tested on hardware yet.
+
 ## See what changed after an update
 
 Every user-visible change ships with a short entry, so you can read what an update brought without reading commits.
