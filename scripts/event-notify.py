@@ -36,7 +36,7 @@ MAX_SPOOL = 200        # spool files taken per run and folder
 MAX_FILE = 8192        # bytes of one spool file
 CATEGORIES = {"alarm", "lock", "problem", "ok", "start", "stop", "info"}
 PRIORITIES = {"min", "low", "default", "high", "urgent"}
-SPOOL_KIND = re.compile(r"^ext\.media\.[a-z0-9]+\.[a-z0-9][a-z0-9-]{0,39}$")   # the only kinds a container may write
+SPOOL_KIND = re.compile(r"^pkg\.([a-z0-9]+)\.[a-z0-9][a-z0-9-]{0,39}$")   # the shape of the only kinds a container may write
 SPOOL_NAME = re.compile(r"^ev-[0-9]+-[0-9]+\.json$")
 SUBJECT = re.compile(r"^[A-Za-z0-9._-]{1,64}$")
 
@@ -146,12 +146,28 @@ def write_cursor(n):
 
 
 # ── the spool: events that a container left in a shared folder ──
+def spool_packages():
+    """The packages whose events a container may leave in the spool: the ones the core rules file has rules for (pkg.<package>.*).
+    The server controls that file; a container cannot add a name, so it cannot write pkg.someother.x."""
+    names = set()
+    try:
+        with open(os.environ.get("HS_NOTIFY_RULES") or os.path.join(HERE, "lib", "notify-rules.tsv"), encoding="utf-8") as f:
+            for line in f:
+                m = re.match(r"pkg\.([a-z0-9]+)\.", line)
+                if m:
+                    names.add(m.group(1))
+    except OSError:
+        pass
+    return names
+
+
 def clean_row(raw):
-    """(kind, subject, text, payload) of a spool file, or None. A container is not trusted: only ext.media. kinds, short flat values."""
+    """(kind, subject, text, payload) of a spool file, or None. A container is not trusted: only pkg.<package>. kinds of a package that the server lists (spool_packages), short flat values."""
     if not isinstance(raw, dict):
         return None
     kind, subject, text, payload = raw.get("kind"), raw.get("subject") or "", str(raw.get("text") or ""), raw.get("payload") or {}
-    if not isinstance(kind, str) or not SPOOL_KIND.match(kind) or not SUBJECT.match(str(subject)) or not isinstance(payload, dict):
+    m = SPOOL_KIND.match(kind) if isinstance(kind, str) else None
+    if not m or m.group(1) not in spool_packages() or not SUBJECT.match(str(subject)) or not isinstance(payload, dict):
         return None
     clean = {}
     for k, v in list(payload.items())[:20]:

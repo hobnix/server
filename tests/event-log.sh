@@ -78,7 +78,7 @@ bad=""
 used=$( { grep -rhoE '(event_emit|hs event emit|state-db\.py emit|db emit)[[:space:]]+"?[a-z0-9]+\.[a-z0-9.-]+' "$SCRIPTS" "$ROOT/capabilities" 2>/dev/null \
           | grep -v '^ *#' | sed -E 's/.*[[:space:]]"?//'; } | sort -u)
 for k in $used; do
-  case "$k" in ext.*) continue ;; esac
+  case "$k" in pkg.*) continue ;; esac   # a package ships its own kinds; the ones in the core file are the media helper's
   grep -q "^${k}	" "$KINDS" || bad="$bad $k"
 done
 check_eq "no unregistered kind" "" "$bad"

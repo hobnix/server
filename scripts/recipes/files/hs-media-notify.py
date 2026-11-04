@@ -5,7 +5,7 @@
   hs-media-notify.py <type> <title> <message>        SABnzbd's notification script (it calls a script like this)
 
 The event is a file in the spool folder (config key "spool", default /media/.hs-events: the share the container has mounted anyway).
-The server reads the folder (scripts/event-notify.sh), writes the event ext.media.<service>.<event> to its event log, and its
+The server reads the folder (scripts/event-notify.sh), writes the event pkg.<service>.<event> to its event log, and its
 notification rules (scripts/lib/notify-rules.tsv) decide who is told, in which channel and how. No address, topic or secret is kept here.
 
 Config (JSON, written by the recipes): {"spool": "/media/.hs-events", "radarr": {"url": "http://radarr:7878", "key": "..."}, "sonarr": {...}}.
@@ -33,7 +33,7 @@ HERE = os.path.dirname(os.path.abspath(__file__))
 NAMES = {"maintainerr": "Maintainerr (Script)", "sabnzbd": "Downloadarr"}
 
 # (service, event) -> (label, icon of the card). How loud an event is lives in scripts/lib/notify-rules.tsv.
-# An event name is the last part of the kind ext.media.<service>.<event>: lower case, digits and "-".
+# An event name is the last part of the kind pkg.<service>.<event>: lower case, digits and "-".
 EVENTS = {
     ("maintainerr", "planned"): ("Duplicate found", "warning"),
     ("maintainerr", "deleted"): ("Lower version deleted", "trash"),
@@ -142,7 +142,7 @@ def send(service, event, title, sub="", fields=(), footer="", poster_url=""):
     payload = {"service": service, "name": name, "label": label, "icon": icon, "title": title, "sub": sub,
                "body": markdown(service, label, title, sub, fields, footer),
                "fields": "\n".join("%s=%s" % kv for kv in fields), "footer": footer, "poster_url": poster_url}
-    row = {"kind": "ext.media.%s.%s" % (service, event), "subject": service, "text": "%s: %s" % (label, title),
+    row = {"kind": "pkg.%s.%s" % (service, event), "subject": service, "text": "%s: %s" % (label, title),
            "payload": {k: v for k, v in payload.items() if v != ""}}
     log = os.environ.get("HS_MEDIA_NOTIFY_LOG")
     if log:

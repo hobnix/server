@@ -6,7 +6,7 @@
 #   matrix.sh check                            exit 0, or 2 with the reason on stderr
 #   matrix.sh where                            outside | inside: the hook is a container of this server
 #   matrix.sh caps                             the message classes it can carry: alarm status
-# The payload is the one of the media events (ext.media.*: service, name, label, icon, title, sub, fields, footer, poster_url); the look of the
+# The payload is the one of the media events (pkg.<package>.*: service, name, label, icon, title, sub, fields, footer, poster_url); the look of the
 # card is in scripts/recipes/files/matrix-card/, the hook only draws what this sends. The channel is written by media_notify_conf (scripts/recipes/_media.sh).
 set -uo pipefail
 url=${CH_url:-}

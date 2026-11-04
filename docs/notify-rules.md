@@ -15,7 +15,7 @@ A new server starts at the newest row; history is not replayed. A crash can repe
 (`notify.failed`) and does not hold up the other rows.
 
 The helpers next to the film apps run in containers. They write each event as a small file into `.hs-events` in the share `media`;
-`hs-event-notify` takes only `ext.media.*` kinds from there, never follows links and drops anything else.
+`hs-event-notify` takes only `pkg.<package>.*` kinds from there, never follows links and drops anything else.
 
 ## Mute a kind or add a message
 
@@ -23,7 +23,7 @@ Rules are tab separated rows: kind (or glob), category, priority, title, message
 Put your own in `/var/lib/hs/notify-rules.d/10-own.tsv`; files there are read first, in name order, and the first match wins.
 
 ```bash
-printf 'ext.media.sabnzbd.queue-done\t-\t-\t-\t-\n' | sudo tee /var/lib/hs/notify-rules.d/10-own.tsv
+printf 'pkg.sabnzbd.queue-done\t-\t-\t-\t-\n' | sudo tee /var/lib/hs/notify-rules.d/10-own.tsv
 ```
 
 Category `-` means silent. In title and message, `{key}` is a payload key or one of `kind`, `subject`, `level`, `text`.

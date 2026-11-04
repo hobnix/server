@@ -32,7 +32,7 @@ Chosen by the owner on 2026-11-04 (questions 2, 4 and 1 of the plan, section 5).
    `source` from their kind and a null payload. Retention: newest 5000 rows and nothing older than 90 days, whichever removes more,
    applied on write.
 3. **Kinds are `<area>.<what>`**, lower case, registered in `scripts/lib/event-kinds.tsv` (core) with level, the payload keys and a one-line
-   meaning. Extensions use the prefix `ext.<name>.`. A test fails when a script emits a kind that is not registered. The catalogue itself
+   meaning. Packages (recipes and extensions) use the prefix `pkg.<package>.`. A test fails when a script emits a kind that is not registered. The catalogue itself
    is #145.
 4. **One writer.** `hs event emit <kind> <subject> [text] [--payload JSON]` (library function `event_emit` in `scripts/lib/event.sh` for
    scripts). Nothing else inserts rows. `state-db.py event()` calls it. `/var/lib/hs/disk-events` stops being written; its lines are
@@ -75,7 +75,7 @@ Chosen by the owner on 2026-11-04 (questions 2, 4 and 1 of the plan, section 5).
   only moves `ts`, no new `gen`, no publish.
 - **Three push paths** (question 7): `vps/hs-watch.sh` -> ntfy and `hs-media-notify.py` -> Matrix bypass notify.sh, channels and quiet
   hours. Moving them onto `notify.sh` is wanted but changes the edge VPS and a container recipe; its own issue.
-  Status: the media helper path is done (#296): `hs-media-notify.py` only emits `ext.media.*` events and `scripts/event-notify.sh` sends them through `notify.sh`; `vps/hs-watch.sh` stays.
+  Status: the media helper path is done (#296): `hs-media-notify.py` only emits `pkg.<package>.*` events and `scripts/event-notify.sh` sends them through `notify.sh`; `vps/hs-watch.sh` stays.
 - **Daemon watchers** (question 9): `incus monitor`, Docker events, ZED. Each would be an event source after this record; out of scope for
   0.1 unless the reliability epic (#159) asks for one.
 - **Per-user visibility** of events: the stream is admin only today; filtering by user needs a `visibility` column. Not needed yet.
