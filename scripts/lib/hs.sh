@@ -425,6 +425,7 @@ if [ -z "$row_script" ] || [ "$row_script" = "-" ]; then
   usage >&2
   exit 1
 fi
+typed="${*:1:$consumed}"
 shift "$consumed"
 legacy_guard
 row_command "$row_script" "$row_flags"
@@ -445,6 +446,8 @@ case ",$row_flags," in
     if "${run_cmd[@]}" ${cmd_args[@]+"${cmd_args[@]}"}; then rc=0; else rc=$?; fi
     # also after a failure: a half-done change leaves a changed state (docs/adr/0005-events.md, rule 8)
     live_refresh "@$grp"
+    # who did what: the words typed and the exit code, never the arguments after them (scripts/lib/audit.sh)
+    . "$here/audit.sh"; audit_record "$typed" "$rc" "$row_flags"
     case "$row_path" in "ext "*) w=${row_path#ext }; live_refresh "@ext-${w%% *}" ;; esac   # a package's own topics
     exit "$rc" ;;
 esac

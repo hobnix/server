@@ -48,6 +48,17 @@ export interface SysOperations {
     exit: 0 | 1 | 2;
     lines: ChangeLines;
   };
+  "audit": {
+    /** who did what: the commands that changed the server; id, time (epoch seconds), actor, result ok|failed, exit, command (hs sys audit [N]) */
+    words: ["audit"];
+    path: "/audit";
+    method: "get";
+    class: "read";
+    params: { };
+    stdin: "none";
+    exit: number;
+    lines: ([id: Field, time: Field, actor: Field, result: "ok" | "failed", exit: Field, command: Field])[];
+  };
   "backup.find.by_word": {
     /** files whose name contains a word, in every snapshot, as data: snapshot, time, path, type, bytes (at most 200; mounts the backup disk, can take a while) */
     words: ["backup", "find", "<word>"];
