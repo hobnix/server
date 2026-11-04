@@ -1,0 +1,21 @@
+# kind glob	category	priority	title	message   (columns separated by a tab)
+# Which events of the event log become a push message (scripts/event-notify.sh calls `hs notify` for the first row that matches).
+# kind      a kind or a glob over kinds ("pkg.sabnzbd.*"); the first matching row wins. Kinds that start with notify. never match.
+# category  the notify category (alarm lock problem ok start stop info), or "-": matched and silent (a way to mute a kind)
+# priority  min low default high urgent, or "-" for the default of the category
+# title, message   text with {key} places: a key of the payload, or kind, subject, level, text of the row; an unknown key is empty; a backslash and n is a new line
+# Drop-in files: every *.tsv in /var/lib/hs/notify-rules.d (HS_NOTIFY_RULES_DIR) is read first, in name order, so a package or the owner
+# can add rows or override one of these. docs/notify-rules.md. Not listed on purpose: job.failed (hs-notify-failure@ tells it) and
+# storage.pool-fault (scripts/zed-event.sh tells it), they would be told twice.
+pkg.maintainerr.planned	info	default	{name}: {label}	{body}
+pkg.maintainerr.deleted	info	default	{name}: {label}	{body}
+pkg.maintainerr.test	info	low	{name}: {label}	{body}
+pkg.sabnzbd.added	info	low	{name}: {label}	{body}
+pkg.sabnzbd.unpacking	info	min	{name}: {label}	{body}
+pkg.sabnzbd.finished	ok	default	{name}: {label}	{body}
+pkg.sabnzbd.failed	problem	high	{name}: {label}	{body}
+pkg.sabnzbd.queue-done	info	low	{name}: {label}	{body}
+pkg.sabnzbd.disk-full	alarm	urgent	{name}: {label}	{body}
+pkg.sabnzbd.error	problem	high	{name}: {label}	{body}
+pkg.sabnzbd.warning	problem	default	{name}: {label}	{body}
+pkg.sabnzbd.test	info	low	{name}: {label}	{body}

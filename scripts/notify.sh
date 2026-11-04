@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # help: send a push message to the address in machine.toml (notifyUrl); always written to the journal
 # help.de: schickt eine Nachricht aufs Handy an die Adresse aus machine.toml (notifyUrl); steht immer auch im Journal
-# args: [--dry-run] [--flush] [--category <name>] <title> <message> [priority]
+# args: [--dry-run] [--flush] [--category <name>] [--payload-file <file>] <title> <message> [priority]
 set -euo pipefail
 . "$(dirname "$0")/lib/i18n.sh"
 . "$(dirname "$0")/lib/ntfy.sh"
@@ -13,9 +13,10 @@ set -euo pipefail
 chan_need_root "$0" "$@"
 
 usage() {
-  say "usage: hs notify [--dry-run] [--category <name>] <title> <message> [priority]"
+  say "usage: hs notify [--dry-run] [--category <name>] [--payload-file <file>] <title> <message> [priority]"
   say "  priority   min, low, default, high or urgent (default: the category's)"
   say "  category   alarm, lock, problem, ok, start, stop, info or heartbeat: sets the icon (default: from the priority)"
+  say "  --payload-file  the JSON of an event: a channel that can draw it (Matrix card) uses it, the others ignore it"
   say "  --dry-run  only print what would be sent"
   say "  --flush    send what the quiet hours held back (no title or message)"
   exit 1
@@ -24,11 +25,13 @@ usage() {
 dry=false
 flush=false
 category=""
+payload_file=""
 args=()
 while [ $# -gt 0 ]; do
   case "$1" in
     --dry-run) dry=true; shift ;;
     --flush) flush=true; shift ;;
+    --payload-file) [ $# -ge 2 ] || usage; payload_file=$2; shift 2 ;;
     --category) [ $# -ge 2 ] || usage; category=$2; shift 2 ;;
     *) args+=("$1"); shift ;;
   esac
@@ -103,6 +106,7 @@ fi
 deliver() {
   local n err attempted=0 got=false told=()
   CHAN_CATEGORY=$3
+  CHAN_PAYLOAD_FILE=$payload_file   # providers that can draw the event use it; the digest has none
   for n in $(wanted_channels "$4" "${5:-all}" "${6:-$(chan_class "$3")}"); do
     chan_load "$n" || continue
     attempted=$((attempted + 1))
@@ -121,7 +125,7 @@ deliver() {
 
 # What the quiet hours held back goes out first, as ONE message, as soon as the window is over.
 flush_held() {
-  local text t b
+  local text t b payload_file=""   # the digest is not the card of the message that arrived now
   [ "$(route_held_count)" -gt 0 ] || return 0
   text=$(route_flush_text)
   t=${text%%$'\t'*}; b=${text#*$'\t'}

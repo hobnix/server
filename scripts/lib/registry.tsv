@@ -494,3 +494,4 @@ user	zed-event	zed-event.sh	-	-	-	nohelp,topic:disks,changes,capability:storage
 sys	sys release show	release-channel.sh	--show	the update channel and what the next update does, as key<TAB>value lines: channel, installed, offer (channel, ref or -, state) for each channel, then ref, state (none|unknown|current|kept|update) and signed (yes|no|-) of the current channel; reads fetched refs only	-
 sys	sys release plan <action>	release-change.sh	plan {1} {rest}	what switching the update channel would do, as data: status, plan lines (never asks; exit 0 ok, 1 refused: unknown channel, same channel, invalid tag signature); a newer channel adds a danger line and confirm_name	-
 sys	sys release start <action>	release-change.sh	start {1} {rest}	do it (hs sys release start channel <stable|beta|edge> [--confirm <channel>]; a newer channel needs its own name), answers status done	-
+user	event notify	event-notify.sh	-	-	-	nohelp,topic:system,changes
