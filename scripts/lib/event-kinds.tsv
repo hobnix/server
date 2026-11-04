@@ -14,7 +14,7 @@ storage.smart-healthy	info	-	the daily SMART check rates a disk as healthy again
 job.queued	info	-	a job was accepted and waits
 job.running	info	-	a job started
 job.ok	info	-	a job finished successfully
-job.failed	error	-	a job failed
+job.failed	error	exit	a job failed
 job.cancelled	info	-	a job was stopped on purpose
 job.interrupted	warn	-	a job was running when the server restarted
 notify.sent	info	-	a push message was delivered to a channel (subject: the channel)

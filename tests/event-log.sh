@@ -83,6 +83,10 @@ for k in $used; do
 done
 check_eq "no unregistered kind" "" "$bad"
 check_eq "kinds file has 4 columns" "" "$(grep -v '^#' "$KINDS" | awk -F'\t' 'NF != 4 {print $1}')"
+check_eq "kind names are <area>.<what>, lower case" "" "$(grep -v '^#' "$KINDS" | cut -f1 | grep -vE '^[a-z][a-z0-9]*(\.[a-z0-9][a-z0-9-]*)+$' || true)"
+check_eq "levels are info, warn or error" "" "$(grep -v '^#' "$KINDS" | awk -F'	' '$2 !~ /^(info|warn|error)$/ {print $1}')"
+check_eq "payload keys are - or snake_case words" "" "$(grep -v '^#' "$KINDS" | awk -F'	' '$3 != "-" && $3 !~ /^[a-z][a-z0-9_]*\??(,[a-z][a-z0-9_]*\??)*$/ {print $1}')"
+check_eq "no kind is listed twice" "" "$(grep -v '^#' "$KINDS" | cut -f1 | sort | uniq -d)"
 echo "-- other sources stay out of the disk events"
 export HS_STATE_DB=$(wp "$WORK/d/s.db")
 HS_NOW=50 sdb emit storage.new S1 "disk"

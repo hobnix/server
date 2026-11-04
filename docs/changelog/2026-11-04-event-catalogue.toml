@@ -1,0 +1,4 @@
+date  = "2026-11-04"
+type  = "feature"
+title = "Event catalogue: naming and payload rules for the event log"
+body  = """The event kinds, their levels and payload keys are written down in docs/events.md and checked by a test, so that every part of the system names events the same way."""
