@@ -195,8 +195,8 @@ if HS_SCHEMA="$bad_store/schema.toml" python3 "$SCRIPTS/schema-gen.py" list >/de
 else pass "a store that is neither machine nor settings is refused"; fi
 rm -rf "$bad_store"
 # Known violations: live options that configuration.nix still reads (it turns them into /etc/hs files or HS_WEB_* variables, so a change
-# also needs a rebuild). Moving them out is open work on hobnix/server#252; the list may only shrink: a key that is clean is an error here.
-NIX_READS_LIVE="backupNewShares heartbeatUrl icons language loginMessage notifyUrl proxyStatusUrl vpsHost webAccent webTerminal webTerminalIdleMinutes webTerminalMaxHours"
+# also needs a rebuild). The list is empty since hobnix/server#252; it must stay empty: a key that is clean is an error here.
+NIX_READS_LIVE=""
 bad=$(python3 - "$ROOT" "$NIX_READS_LIVE" <<'PYEOF'
 import os, re, subprocess, sys
 root, known = sys.argv[1], set(sys.argv[2].split())

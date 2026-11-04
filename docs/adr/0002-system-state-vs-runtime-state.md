@@ -72,3 +72,12 @@ files is the next step, one option at a time, because the web service reads some
 
 The rebuild duration: `hs rebuild` now writes the seconds of the last successful build to `/var/lib/hs/last-rebuild-seconds`, and a plan that
 needs a rebuild adds "The last rebuild took about N min." when that file exists. Nothing is shown before the first measured rebuild.
+
+### Update: no live option is read by Nix any more
+
+The twelve options (`backupNewShares`, `heartbeatUrl`, `icons`, `language`, `loginMessage`, `notifyUrl`, `proxyStatusUrl`, `vpsHost`,
+`webAccent`, `webTerminal`, `webTerminalIdleMinutes`, `webTerminalMaxHours`) are no longer read by `configuration.nix`: the `/etc/hs/*` files,
+the `HS_WEB_*` variables and the three assertions (language, proxyStatusUrl, vpsHost; the schema `choices`/`pattern` check them when set) are gone.
+Every reader already used `setting_get` / `runtime_setting` or `/var/lib/hs/notify-url` and `heartbeat-url`, and `hs config migrate-settings`
+(run by `hs update`) moves an old `machine.toml` line into the settings store. A rebuild without `hs update` no longer carries such a line over.
+`tests/schema.sh` now lists no exceptions, so rule 3 holds. Not tested on hardware yet.
