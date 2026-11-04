@@ -3056,6 +3056,90 @@
     }
    }
   },
+  "/event/list": {
+   "get": {
+    "operationId": "event.list",
+    "summary": "the event log: id, time (epoch seconds), source, kind, subject, level info|warn|error, text, payload (JSON or -); hs sys event list [N] [--source S] [--after ID]",
+    "x-hs-exit": true,
+    "x-hs-sys": {
+     "words": [
+      "event",
+      "list"
+     ],
+     "script": "event.sh",
+     "args": "list {rest}",
+     "class": "read",
+     "rest": true
+    },
+    "x-hs-web": {
+     "path": "/api/sys/event/list",
+     "kind": "tsv",
+     "ttl": 10,
+     "query": [
+      "n"
+     ]
+    },
+    "responses": {
+     "0": {
+      "description": "ok",
+      "content": {
+       "text/tab-separated-values": {
+        "schema": {
+         "type": "array",
+         "items": {
+          "type": "array",
+          "prefixItems": [
+           {
+            "$ref": "#/components/schemas/Field",
+            "title": "id"
+           },
+           {
+            "$ref": "#/components/schemas/Field",
+            "title": "time"
+           },
+           {
+            "$ref": "#/components/schemas/Field",
+            "title": "source"
+           },
+           {
+            "$ref": "#/components/schemas/Field",
+            "title": "kind"
+           },
+           {
+            "$ref": "#/components/schemas/Field",
+            "title": "subject"
+           },
+           {
+            "$ref": "#/components/schemas/Field",
+            "title": "level",
+            "enum": [
+             "info",
+             "warn",
+             "error"
+            ]
+           },
+           {
+            "$ref": "#/components/schemas/Field",
+            "title": "text"
+           },
+           {
+            "$ref": "#/components/schemas/Field",
+            "title": "payload"
+           }
+          ],
+          "minItems": 8,
+          "maxItems": 8
+         }
+        }
+       }
+      }
+     },
+     "default": {
+      "description": "failed; stderr says why, stdout may be empty"
+     }
+    }
+   }
+  },
   "/expiry/list": {
    "get": {
     "operationId": "expiry.list",

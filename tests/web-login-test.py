@@ -314,7 +314,7 @@ class Reads(Base):
         for words, spec in ws.READS.items():
             if words in PENDING_READS:
                 continue
-            self.assertFalse(changing & set(words), words)
+            self.assertFalse((changing - ({"event"} if "list" in words else set())) & set(words), words)
             key = words + tuple("<x>" for _ in spec.get("args", []))
             self.assertIn(key, rows, "%s is not a registry row" % (words,))
 

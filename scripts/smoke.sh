@@ -74,6 +74,8 @@ default_probes() {
     $'hs disk events\tdisk events\t0 1' \
     $'hs disk inventory\tdisk inventory\t0 1' \
     $'hs disk baseline\tdisk baseline\t0 1' \
+    $'hs event list\tevent list\t0' \
+    $'hs sys event list\tsys event list\t0' \
     $'hs pool bulk\tpool bulk\t0 1' \
     $'hs sys pool state\tsys pool state\t0' \
     $'hs sys parts pending\tsys parts pending\t0' \

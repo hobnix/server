@@ -751,6 +751,7 @@ READS = {
     ("reads", "status"): {"kind": "tsv", "ttl": 5},      # the Data page: what the collector keeps, how old, how long each read takes
     ("live", "status"): {"kind": "tsv", "ttl": 5, "topic": "live"},      # the Data page in live mode: the live topics themselves
     ("state", "events"): {"kind": "tsv", "ttl": 10, "query": {"n": (r"^[0-9]{1,4}$", "")}},
+    ("event", "list"): {"kind": "tsv", "ttl": 10, "query": {"n": (r"^[0-9]{1,4}$", "")}},      # the event log (docs/adr/0005-events.md)
     ("ct", "list"): {"kind": "tsv", "ttl": 5, "topic": "ct-list"},
     ("ct", "profiles"): {"kind": "tsv", "ttl": 30, "topic": "ct-profiles"},
     ("ct", "bindings"): {"kind": "tsv", "ttl": 10, "args": [NAME]},

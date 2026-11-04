@@ -17,6 +17,11 @@ kind = "tsv"
 records = { state = ["state"], exit = ["status"], line = ["text"], next = ["count"] }
 enums = { state = ["running", "ok", "failed", "unknown"] }
 
+["event list"]
+kind = "tsv"
+columns = ["id", "time", "source", "kind", "subject", "level", "text", "payload"]
+enums = { level = ["info", "warn", "error"] }
+
 ["ct list"]
 kind = "tsv"
 columns = ["name", "type", "state", "address", "ram", "cpu", "autostart", "mac_pinned", "docker", "disk", "snapshots",

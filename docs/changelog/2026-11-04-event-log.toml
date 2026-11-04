@@ -1,0 +1,4 @@
+date  = "2026-11-04"
+type  = "feature"
+title = "One event log for the server"
+body  = """The server now keeps one list of what happened (disks, later jobs and messages). Read it with `hs event list`. Scripts and extensions write to it through `hs event emit`. The newest 5000 entries from the last 90 days are kept."""

@@ -26,8 +26,8 @@ Chosen by the owner on 2026-11-04 (questions 2, 4 and 1 of the plan, section 5).
 
 1. **Two kinds, two mechanisms.** A domain event is a row in the event log (rule 2). An invalidation is a counter bump (rule 5) and is
    never kept as history. A source that is both writes both.
-2. **One event log: the state.db `events` table**, widened. Columns: `id` (integer, autoincrement, never reused), `time` (ISO 8601 UTC),
-   `source` (area, for example `storage`), `kind` (rule 3), `subject`, `level` (`info` | `warn` | `error`), `text` (one line, English
+2. **One event log: the state.db `events` table**, widened. Columns: `id` (integer, autoincrement, never reused), `time` (epoch seconds UTC; readers format it),
+   `source` (area, for example `storage`), `kind` (rule 3; stored as two columns, `source` and the rest of `<source>.<kind>`, so `storage.new` is source `storage`, kind `new`), `subject`, `level` (`info` | `warn` | `error`), `text` (one line, English
    key words only; the interface translates by `kind`), `payload` (JSON object or null), `v` (1). The old columns stay; old rows get
    `source` from their kind and a null payload. Retention: newest 5000 rows and nothing older than 90 days, whichever removes more,
    applied on write.
