@@ -5,7 +5,7 @@
 # Called by the zedlet /etc/zfs/zed.d/all-hobnix.sh (capabilities/storage/module.nix) for every ZFS event. Only a fault is written:
 # a vdev that changed to FAULTED, DEGRADED, UNAVAIL, REMOVED or OFFLINE-by-error (class resource.fs.zfs.statechange), an io_failure or a
 # data error (ereport.fs.zfs.io_failure, ereport.fs.zfs.data). It writes the event storage.pool-fault (subject: the pool) and refreshes
-# the live data of the disks group so Health shows it at once, not after the 15-minute check. It never touches a pool or a disk and
+# the live data of the disks group so Health shows it at once, then starts hs-health-check without blocking so the push is not 15 minutes late. It never touches a pool or a disk and
 # never fails (ZED must not stall). Test knobs: ZEVENT_CLASS, ZEVENT_POOL, ZEVENT_VDEV_PATH, ZEVENT_VDEV_STATE_STR, HS_EVENT_NOROOT, HS_STATE_DB.
 set -euo pipefail
 here=$(dirname "$0")
@@ -32,4 +32,9 @@ case "$state$class" in *FAULTED*|*UNAVAIL*|*io_failure*) level=error ;; esac
 event_emit storage.pool-fault "$pool" "ZFS pool $pool: $what" --level "$level" \
   --payload "{\"class\":\"$class\",\"vdev\":\"${vdev//\"/}\",\"state\":\"$state\"}"
 bash "$here/live.sh" refresh monitor-disks disk-inventory >/dev/null 2>&1 || true
+# The push: start the health check now (it dedupes, honours acks and uses every channel, so no second message comes 15 minutes later).
+# --no-block: ZED does not wait; a failure here is ignored.
+if command -v systemctl >/dev/null 2>&1; then
+  systemctl start --no-block hs-health-check.service >/dev/null 2>&1 || true
+fi
 exit 0
