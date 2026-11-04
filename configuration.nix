@@ -81,19 +81,13 @@ let
   nodeLines = map (k: ''restrict,command="/etc/nixos/scripts/node-remote.sh" ${k}'') machine.nodeKeys;
   # Read-only status document for a Stream Deck, a wall monitor, Home Assistant (machine.toml: deckApi, default false; hs sys deck)
   deckApi = machine.deckApi;
-  # Web interface (machine.toml: webUi, default false; webPort 8480; webAccent "#9184d9"; docs/PLAN-web-backend.md)
+  # Web interface (machine.toml: webUi, default false; webPort 8480; docs/PLAN-web-backend.md)
   webUi = machine.webUi;
   webPort = machine.webPort;
-  webAccent = machine.webAccent;
   # HTTPS through `tailscale serve` (machine.toml: webTailscale, default false): the page then listens on loopback only
   webTailscale = machine.webTailscale;
   # also reachable on the home network by address, plain HTTP (machine.toml: webLan, default true); only with webTailscale does turning it off close the LAN port
   webLan = machine.webLan;
-  # a terminal in the web interface (machine.toml: webTerminal, default false): HS_WEB_TERMINAL for hs-web, shell runs as adminuser
-  webTerminal = machine.webTerminal;
-  # how long a browser terminal connection may idle (minutes) / last (hours); the shell stays in tmux either way
-  webTerminalIdleMinutes = machine.webTerminalIdleMinutes;
-  webTerminalMaxHours = machine.webTerminalMaxHours;
   # Status document of the proxyserver for the web interface (machine.toml: proxyStatusUrl, default "" = off)
   proxyStatusUrl = machine.proxyStatusUrl;
   # Where the web interface runs `vps update` / `vps watch` over SSH (machine.toml: vpsHost, default "" = off); the work is scripts/vps-change.sh
@@ -232,9 +226,6 @@ in
     assertion = builtins.elem syncEveryHours [ 1 2 3 4 6 8 12 24 ];
     message = "machine.toml: syncEveryHours must be 1, 2, 3, 4, 6, 8, 12 or 24 (found ${toString syncEveryHours}).";
   } {
-    assertion = builtins.match "#[0-9a-fA-F]{6}" webAccent != null;
-    message = "machine.toml: webAccent must be a colour like \"#9184d9\" (found \"${webAccent}\").";
-  } {
     assertion = proxyStatusUrl == "" || builtins.match "https?://[^ ]+" proxyStatusUrl != null;
     message = "machine.toml: proxyStatusUrl must be empty or start with http:// or https:// (found \"${proxyStatusUrl}\").";
   } {
@@ -346,7 +337,6 @@ in
       HS_CALLER = "web";
       HS_WEB_PORT = toString webPort;
       HS_WEB_ROOT = "${hsWeb}";
-      HS_WEB_ACCENT = webAccent;
       HS_WEB_PROXY_URL = proxyStatusUrl;
       HS_WEB_VPS_HOST = vpsHost;
       HS_WEB_BIND = if webTailscale && !webLan then "127.0.0.1" else "";
@@ -355,9 +345,6 @@ in
       HS_WEB_WORKGROUP = if ad != null then ad.workgroup else "";
       HS_WEB_REALM = if ad != null then ad.realm else "";
       HS_WEB_LOCAL_USER = "adminuser";
-      HS_WEB_TERMINAL = if webTerminal then "1" else "";
-      HS_WEB_TERM_IDLE_MINUTES = toString webTerminalIdleMinutes;
-      HS_WEB_TERM_MAX_HOURS = toString webTerminalMaxHours;
       # PrivateTmp gives hs-web its own mount namespace: the unlock (vault mount) must run outside it, in a transient unit
       HS_WEB_UNLOCK_IN_UNIT = "1";
       HS_WEB_SESSION_FILE = "/run/hs-web/sessions.json";
