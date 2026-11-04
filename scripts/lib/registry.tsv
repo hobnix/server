@@ -488,3 +488,4 @@ user	docker registry remove	docker-registry-change.sh	remove {rest}	remove a reg
 sys	sys docker registries	docker-registry-change.sh	--list	the registry logins as host, user, state (ok|locked|missing), used_by (apps, comma; - when none or empty; no token is ever printed)	-	capability:docker
 sys	sys docker-registry plan <action>	docker-registry-change.sh	plan {1} {rest}	what adding or removing a registry login would do, as data: status, plan lines (never asks; exit 0 ok, 1 refused with a reason and a fix when the vault is closed)	-	changes,capability:docker
 sys	sys docker-registry start <action>	docker-registry-change.sh	start {1} {rest}	do it (hs sys docker-registry start add <host> --user <u> | remove <host> --confirm <host>); the token of add is the one stdin line	-	changes,capability:docker
+user	zed-event	zed-event.sh	-	-	-	nohelp,topic:disks,changes,capability:storage

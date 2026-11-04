@@ -262,6 +262,17 @@ in
     '';
   };
 
+  # ZFS fault events (hobnix/server#297): ZED (services.zfs.zed) runs this zedlet for every ZFS event; scripts/zed-event.sh writes a
+  # pool or device fault to the event log (storage.pool-fault) and refreshes the disks group, so Health shows it at once.
+  # This repo does not set services.zfs.zed itself; it relies on the NixOS default (zfs-zed runs when ZFS is in use). Not tested on hardware yet.
+  environment.etc."zfs/zed.d/all-hobnix.sh" = {
+    mode = "0755";
+    text = ''
+      #!/bin/sh
+      exec ${pkgs.bash}/bin/bash ${scripts}/zed-event.sh
+    '';
+  };
+
   # pciBind (machine.toml): a PCI device that stays without a driver after every boot. Seen on a 9300-16i HBA (two SAS3008
   # chips behind a PLX switch): the second chip (05:00.0) was never probed by mpt3sas, binding it by hand later worked. This
   # service attaches the listed devices early (before the pools are imported, the disks may sit behind them) and keeps a log
