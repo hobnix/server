@@ -49,8 +49,9 @@ From the audit of #129 (docs/PLAN-jobs.md has the older one):
 - Harder: the wrapper needs a JSON writer. Shell has no safe way to build JSON, so the helper calls `python3` (already required by the other
   scripts). Each job start costs one extra process.
 - The file manager keeps its own state files until its jobs move to this record; a bridge reads them into `progress` meanwhile.
-- The writer exists (`scripts/job-record.py`, used by `hs_job`, tests/job-record.sh). Follow-up work, not done by this record: the reconcile unit (#133), cancel states (#135),
+- The writer exists (`scripts/job-record.py`, used by `hs_job`, tests/job-record.sh). Follow-up work, not done by this record: cancel states (#135),
   the new read rows, the file manager bridge.
+- The reconcile at boot exists (`job-record.py reconcile`, `scripts/job-reconcile.sh`, service `hs-job-reconcile`, tests/job-reconcile.sh): it marks and tells, it never re-runs a job.
 
 ## Open points
 
