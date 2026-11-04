@@ -124,4 +124,47 @@ check "a failed start ends the record failed" "failed" "$(jf "$(basename "${f:-x
 out=$(run 'hs_job_step 1 2 x; hs_job_progress 1 2 y; echo fine')
 check "the helpers are no-ops without HS_JOB_ID" "fine" "$out"
 
+# cancellation (ADR 0004 decisions 3-5)
+export HS_JOBS_DIR="$T/cj"
+c1=$($W new --slug cj --desc "old" --unit hs-job-cj-100000 --initiator bob); sleep 1
+c2=$($W new --slug cj --desc "new" --unit hs-job-cj-100000 --initiator bob); sleep 1
+c3=$($W new --slug cj --desc "done" --unit hs-job-cj-100000 --initiator bob)
+$W run "$c1"; $W run "$c2"; $W run "$c3"; $W finish "$c3" 0
+check "find-unit picks the newest running record" "$c2" "$($W find-unit hs-job-cj-100000)"
+check "find-unit accepts the .service name" "$c2" "$($W find-unit hs-job-cj-100000.service)"
+$W find-unit hs-nothing 2>"$T/fu.err"; rc=$?
+check "find-unit without a record exits 1" "1" "$rc"
+check "find-unit says it in one line" "1" "$(wc -l <"$T/fu.err" | tr -d ' ')"
+$W cancel "$c2" --by alice --safe no
+check "cancel sets cancelled" "cancelled" "$(jf "$c2" state)"
+check "cancel sets ended" "1" "$(jf "$c2" ended | grep -c '^20')"
+check "cancel stores who" "alice" "$(jf "$c2" cancel.requested_by)"
+check "cancel stores safe false" "False" "$(jf "$c2" cancel.safe)"
+check "cancel stores the time" "1" "$(jf "$c2" cancel.at | grep -c '^20')"
+check "cancel has no error" "null" "$(jf "$c2" error)"
+check "find-unit now picks the older running record" "$c1" "$($W find-unit hs-job-cj-100000)"
+before=$(cat "$HS_JOBS_DIR/$c3.json")
+$W cancel "$c3" --by alice --safe yes 2>"$T/c.err"; rc=$?
+check "cancel of an ok record exits 1" "1" "$rc"
+check "cancel of an ok record changes nothing" "$before" "$(cat "$HS_JOBS_DIR/$c3.json")"
+check "the refusal is one line" "1" "$(wc -l <"$T/c.err" | tr -d ' ')"
+$W cancel "$c1" --safe yes
+check "an empty --by is null" "null" "$(jf "$c1" cancel.requested_by)"
+check "cancel stores safe true" "True" "$(jf "$c1" cancel.safe)"
+ended=$(jf "$c2" ended)
+$W finish "$c2" 143
+check "finish after cancel keeps cancelled" "cancelled" "$(jf "$c2" state)"
+check "finish after cancel stores exit" "143" "$(jf "$c2" exit)"
+check "finish after cancel keeps cancel" "alice" "$(jf "$c2" cancel.requested_by)"
+check "finish after cancel keeps ended" "$ended" "$(jf "$c2" ended)"
+check "cancelled exits 0 for a cancelled record" "0" "$($W cancelled "$c2"; echo $?)"
+check "cancelled exits 1 for an ok record" "1" "$($W cancelled "$c3"; echo $?)"
+cx=$($W new --slug cj --desc "cx" --unit hs-job-cj-200000); $W run "$cx"
+keep=(); for v in SYSTEMROOT WINDIR USERPROFILE LOCALAPPDATA APPDATA TEMP TMP HOME PATH; do [ -z "${!v:-}" ] || keep+=("$v=${!v}"); done
+hjc() { env -i ${keep[@]+"${keep[@]}"} "$@" bash -c ". '$here/scripts/lib/job.sh'; hs_job_cancelled; echo \$?"; }
+check "hs_job_cancelled is 1 without HS_JOB_ID" "1" "$(hjc HS_JOBS_DIR="$HS_JOBS_DIR")"
+check "hs_job_cancelled is 1 for a running job" "1" "$(hjc HS_JOBS_DIR="$HS_JOBS_DIR" HS_JOB_ID="$cx")"
+$W cancel "$cx" --by x --safe yes
+check "hs_job_cancelled is 0 for a cancelled job" "0" "$(hjc HS_JOBS_DIR="$HS_JOBS_DIR" HS_JOB_ID="$cx")"
+
 exit $fail

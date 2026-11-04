@@ -7,6 +7,8 @@ Never stores argv or environment, only the description the caller gives.
 
   new --slug S --desc D --unit U --source cli|web|timer|extension --initiator NAME
   run ID | step ID N OF TEXT | progress ID DONE TOTAL UNIT | finish ID EXIT | get ID
+  find-unit UNIT | cancel ID --by NAME --safe yes|no | cancelled ID (exit 0 when cancelled)
+  reconcile   mark queued/running records whose unit is gone as interrupted (boot); never re-runs anything
 """
 import argparse
 import contextlib
@@ -15,7 +17,9 @@ import json
 import os
 import random
 import re
+import shlex
 import string
+import subprocess
 import sys
 import time
 
@@ -201,12 +205,15 @@ def cmd_progress(a):
 def cmd_finish(a):
     with locked(a.id):
         rec = load(a.id)
-        rec["ended"] = now_iso()
         rec["exit"] = a.exit
-        if a.exit == 0:
+        if rec.get("state") == "cancelled":   # a cancel stays cancelled; the earlier end time and cancel block stay
+            rec["ended"] = rec.get("ended") or now_iso()
+        elif a.exit == 0:
+            rec["ended"] = now_iso()
             rec["state"] = "ok"
             rec["error"] = None
         else:
+            rec["ended"] = now_iso()
             rec["state"] = "failed"
             rec["error"] = {"category": "exit", "message": "exit status %d" % a.exit}
         save(rec)
@@ -221,10 +228,129 @@ def cmd_finish(a):
         pass
 
 
+def cmd_find_unit(a):
+    """Print the id of the newest queued/running record of a unit (highest id), else exit 1."""
+    try:
+        names = sorted((n[:-5] for n in os.listdir(jobs_dir()) if n.endswith(".json")), reverse=True)
+    except OSError:
+        names = []
+    for job_id in names:
+        try:
+            rec = load(job_id)
+        except Fail:
+            continue
+        # hs_job stores the unit without the .service suffix that systemctl and jobs-change.sh use
+        if rec.get("unit") in (a.unit, a.unit[:-8] if a.unit.endswith(".service") else a.unit) and rec.get("state") in ("queued", "running"):
+            sys.stdout.write(job_id + "\n")
+            return
+    raise Fail("no running job record for %s" % a.unit)
+
+
+def cmd_cancel(a):
+    with locked(a.id):
+        rec = load(a.id)
+        if rec.get("state") not in ("queued", "running"):
+            raise Fail("job already finished")
+        at = now_iso()
+        rec["state"] = "cancelled"
+        rec["ended"] = at
+        rec["error"] = None
+        rec["cancel"] = {"requested_by": a.by or None, "at": at, "safe": a.safe == "yes"}
+        save(rec)
+
+
+def cmd_cancelled(a):
+    if load(a.id).get("state") != "cancelled":
+        sys.exit(1)
+
+
 def cmd_get(a):
     load(a.id)
     with open(path_of(a.id), encoding="utf-8") as f:
         sys.stdout.write(f.read())
+
+
+def unit_alive(unit):
+    """True when systemd says the unit is active or activating; any other answer (or no systemctl) means it is gone."""
+    if not unit:
+        return False
+    try:
+        r = subprocess.run(shlex.split(os.environ.get("HS_SYSTEMCTL") or "systemctl") + ["is-active", unit],
+                           stdout=subprocess.PIPE, stderr=subprocess.DEVNULL, timeout=20)
+    except (OSError, subprocess.SubprocessError):
+        return False
+    return r.stdout.decode("utf-8", "replace").strip() in ("active", "activating")
+
+
+def boot_time():
+    """Boot time as a UTC datetime from /proc/uptime (knob HS_UPTIME_FILE), or None when unreadable."""
+    try:
+        with open(os.environ.get("HS_UPTIME_FILE") or "/proc/uptime") as f:
+            up = float(f.read().split()[0])
+    except (OSError, ValueError, IndexError):
+        return None
+    return datetime.datetime.now(datetime.timezone.utc) - datetime.timedelta(seconds=up)
+
+
+def parse_iso(s):
+    try:
+        return datetime.datetime.strptime(s, "%Y-%m-%dT%H:%M:%SZ").replace(tzinfo=datetime.timezone.utc)
+    except (TypeError, ValueError):
+        return None
+
+
+def one_line(s):
+    return re.sub(r"[\t\r\n]+", " ", str(s if s is not None else "")).strip() or "-"
+
+
+def cmd_reconcile(a):
+    """Mark records whose unit is gone as interrupted (after a restart). Never re-runs anything. Prints id, slug, description per record."""
+    d = jobs_dir()
+    try:
+        names = sorted(n for n in os.listdir(d) if n.endswith(".json"))
+    except OSError:
+        return
+    boot = boot_time()
+    bad = False
+    for n in names:
+        job_id = n[:-5]
+        try:
+            peek = load(job_id)   # no lock yet, so a finished record leaves no lock file behind
+            if peek.get("state") not in ("queued", "running"):
+                continue
+            with locked(job_id):
+                rec = load(job_id)
+                if rec.get("state") not in ("queued", "running"):
+                    continue
+                began = parse_iso(rec.get("started") or rec.get("queued"))
+                if boot is not None and began is not None and began >= boot:
+                    continue   # started after this boot (a job may be between its record and its unit): not a restart victim
+                if unit_alive(rec.get("unit")):
+                    continue
+                if boot is not None and began is not None and began < boot:
+                    rec["ended"] = boot.strftime("%Y-%m-%dT%H:%M:%SZ")
+                else:
+                    rec["ended"] = now_iso()
+                rec["state"] = "interrupted"
+                rec["exit"] = None
+                rec["error"] = {"category": "interrupted",
+                                "message": "the job did not finish; the server restarted or the unit stopped"}
+                save(rec)
+            for kind in ("step", "progress"):
+                try:
+                    os.unlink(stamp_path(job_id, kind))
+                except OSError:
+                    pass
+            try:
+                os.unlink(os.path.join(d, "%s.lock" % job_id))
+            except OSError:
+                pass
+            sys.stdout.write("%s\t%s\t%s\n" % (job_id, one_line(rec.get("slug")), one_line(rec.get("description"))))
+        except Fail as e:
+            sys.stderr.write("job-record: %s\n" % e)
+            bad = True
+    if bad:
+        sys.exit(1)
 
 
 def main():
@@ -244,6 +370,11 @@ def main():
     s.add_argument("total", type=int); s.add_argument("unit"); s.set_defaults(fn=cmd_progress)
     s = sub.add_parser("finish"); s.add_argument("id"); s.add_argument("exit", type=int); s.set_defaults(fn=cmd_finish)
     s = sub.add_parser("get"); s.add_argument("id"); s.set_defaults(fn=cmd_get)
+    s = sub.add_parser("reconcile"); s.set_defaults(fn=cmd_reconcile)
+    s = sub.add_parser("find-unit"); s.add_argument("unit"); s.set_defaults(fn=cmd_find_unit)
+    s = sub.add_parser("cancel"); s.add_argument("id"); s.add_argument("--by", default="")
+    s.add_argument("--safe", choices=("yes", "no"), required=True); s.set_defaults(fn=cmd_cancel)
+    s = sub.add_parser("cancelled"); s.add_argument("id"); s.set_defaults(fn=cmd_cancelled)
     try:
         a = p.parse_args()
     except SystemExit as e:

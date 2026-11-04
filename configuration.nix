@@ -650,6 +650,17 @@ in
     onFailure = notifyFailure;
   };
 
+  # After a restart, job records (ADR 0004) still queued or running whose unit is gone are marked
+  # interrupted and one push says so. Nothing is started again (scripts/job-reconcile.sh, #133).
+  systemd.services.hs-job-reconcile = {
+    description = "Mark jobs that a restart interrupted in the job record, push one message";
+    wantedBy = [ "multi-user.target" ];
+    before = [ "hs-web.service" ];   # the web interface then never shows a dead job as running
+    path = [ "/run/current-system/sw" pkgs.python3 ];
+    serviceConfig.Type = "oneshot";
+    script = "bash ${./scripts}/job-reconcile.sh";
+  };
+
   # Started by `onFailure` of the jobs above, e.g. hs-notify-failure@hs-mac.service
   # after hs-mac failed. %i is the part after the @: the name of the failed job.
   systemd.services."hs-notify-failure@" = {

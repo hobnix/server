@@ -39,7 +39,7 @@ hs_job() {
 }
 
 # Helpers a job calls to report to its record; no-ops outside a job (HS_JOB_ID unset). Best effort.
-#   hs_job_step N OF TEXT        hs_job_progress DONE TOTAL UNIT
+#   hs_job_step N OF TEXT        hs_job_progress DONE TOTAL UNIT        hs_job_cancelled (0 = stop cleanly now)
 hs_job_step() {
   [ -n "${HS_JOB_ID:-}" ] || return 0
   python3 "${BASH_SOURCE[0]%/*}/../job-record.py" step "$HS_JOB_ID" "$1" "$2" "$3" 2>/dev/null || true
@@ -47,4 +47,10 @@ hs_job_step() {
 hs_job_progress() {
   [ -n "${HS_JOB_ID:-}" ] || return 0
   python3 "${BASH_SOURCE[0]%/*}/../job-record.py" progress "$HS_JOB_ID" "$1" "$2" "$3" 2>/dev/null || true
+}
+# hs_job_cancelled: returns 0 when the job's record says cancelled (a long job polls it at a safe point and stops cleanly),
+# 1 otherwise and always 1 outside a job.
+hs_job_cancelled() {
+  [ -n "${HS_JOB_ID:-}" ] || return 1
+  python3 "${BASH_SOURCE[0]%/*}/../job-record.py" cancelled "$HS_JOB_ID" 2>/dev/null
 }

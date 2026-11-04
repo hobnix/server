@@ -6,6 +6,7 @@ user	cache-mover	cache-mover.sh	-	-	-	long,topic:shares,changes,capability:stora
 user	doctor	doctor.sh	-	-	-	topic:system,reads,cheat:trouble
 user	smoke	smoke.sh	{rest}	quick check that the commands work here: needed programs installed, read-only commands run (changes nothing)	schneller Test, ob die Befehle hier funktionieren: nötige Programme da, lesende Befehle laufen (ändert nichts)	topic:system,reads
 user	cheatsheet	cheatsheet.sh	{rest}	one-page German cheat sheet of the most useful commands (Markdown, to print)	Spickzettel auf einer Seite mit den wichtigsten Befehlen (Markdown, zum Ausdrucken)	topic:docs,reads
+user	jobs reconcile	job-reconcile.sh	-	-	-	nohelp,topic:system,changes
 user	timing	read-timing.sh	{rest}	how long the reads of the interface take (every tab loads through them), slowest first; needs root	wie lange die Lesezugriffe der Oberfläche dauern (jeder Reiter lädt damit), die langsamsten zuerst	nohelp,topic:system,reads
 user	motd	motd.sh	{rest}	three status lines: problems, last backup, system (also shown at SSH login)	drei Statuszeilen: Probleme, letztes Backup, System (erscheint auch beim SSH-Login)	topic:system,reads
 user	docs build	docs-build.sh	{rest}	build the documentation pages again (guides and command reference)	Dokumentationsseiten neu bauen (Anleitungen und Befehlsübersicht)	topic:docs,changes

@@ -38,15 +38,19 @@ fact() { awk -F'\t' -v k="$1" '$1 == k { print $2; exit }' <<<"$facts"; }
 state=$(fact state)
 desc=$(fact description); [ -n "$desc" ] || desc=$unit
 
-danger=""
+danger=""; safe=yes; rec_id=""
+who=${SUDO_USER:-${USER:-}}
 case "$action" in
   stop)
     [ "$state" = running ] || refuse "$desc is not running."
     cmd=("$systemctl" stop "$unit")
     case "$unit" in
       hs-job-pool-*|hs-job-system-sync-*|hs-job-system-scrub-*|hs-bulk-sync.service|hs-bulk-scrub.service|hs-job-backup-init*|hs-job-share-purge-*)
-        danger="Stopping '$desc' half way can leave a half-done change behind (a pool or disk in between, a parity out of date). Look at it afterwards." ;;
-    esac ;;
+        danger="Stopping '$desc' half way can leave a half-done change behind (a pool or disk in between, a parity out of date). Look at it afterwards."
+        safe=no ;;
+    esac
+    # job record (docs/adr/0004-job-record.md): a unit without one (a timer service) stops exactly as before
+    rec_id=$(python3 "$here/job-record.py" find-unit "$unit" 2>/dev/null) || rec_id="" ;;
   run)
     [ "$state" != running ] || refuse "$desc is running already."
     [ "$state" != unknown ] || refuse "There is no job called '$unit'."
@@ -57,6 +61,10 @@ esac
 
 if [ "$verb" = start ]; then
   if [ -n "$danger" ] && [ "$confirm" != stop ]; then refuse "type the word to confirm: stop"; fi
+  # the record says cancelled before the unit (and the wrapper that would write the end) is killed; best effort
+  if [ "$action" = stop ] && [ -n "$rec_id" ]; then
+    python3 "$here/job-record.py" cancel "$rec_id" --by "$who" --safe "$safe" 2>/dev/null || true
+  fi
   "${cmd[@]}" || refuse "systemctl failed"
   if [ "$action" = stop ]; then printf 'status\tdone\n'; else printf 'status\tstarted\nunit\t%s\n' "$unit"; fi
   exit 0
@@ -68,6 +76,7 @@ case "$action" in
     printf 'heading\tstop %s\n' "$desc"
     printf 'step\tstop the unit %s\n' "$unit"
     printf 'note\tWhat the job did already stays done.\n'
+    [ -z "$rec_id" ] || printf 'note\tThe job record will say cancelled by %s\n' "${who:-unknown}"
     case "$unit" in
       hs-job-system-sync-*|hs-job-system-scrub-*|hs-bulk-sync.service|hs-bulk-scrub.service) printf 'note\tThe next scheduled run does the work again from where the data is now.\n' ;;
     esac ;;
