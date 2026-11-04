@@ -1,0 +1,4 @@
+date  = "2026-11-04"
+type  = "change"
+title = "Open pages are no longer reloaded when a live read returns the same data"
+body  = """The live collector now bumps the generation and tells the web interface only when the output of a read differs from the last one (including a changed exit code or a recovered error). Identical reads only refresh the timestamp, so open pages stop re-fetching unchanged lists."""
