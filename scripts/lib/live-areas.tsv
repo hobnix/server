@@ -1,0 +1,31 @@
+# Change areas -> live-state group (read by scripts/web-serve.py AREA_GROUP). Columns, tab separated: area (first path segment of the area of
+# a web change), group (a registry `topic:` word that scripts/lib/live-topics.tsv column 6 lists). ext/<name> is not listed: it refreshes ext-<name>.
+# tests/refresh-groups.sh checks every group exists in live-topics.tsv. An unknown area refreshes everything.
+ct	instances
+recipes	instances
+docker	instances
+docker-app	instances
+docker-registry	instances
+pool	disks
+shares	shares
+fm	shares
+users	users
+admin	users
+dc	users
+backup	backup
+secrets	security
+ssh-key	security
+net	network
+routes	network
+gateway	network
+vps	network
+peers	network
+node	network
+jobs	jobs
+notify	system
+health	system
+expiry	system
+config	system
+system	system
+parts	system
+pkg	system

@@ -924,13 +924,20 @@ TEMP_NAME = r"^[a-z0-9][a-z0-9-]{0,31}$"                                      # 
 # the keys of the gateway steps (capabilities/gateway/capability.toml; scripts/gateway-setup.sh GW_KEYS); tests/gateway-setup.sh compares both
 GW_SET = (r"^(reverseProxy|gatewayTunnelPort|gatewayPublicHttps|gatewayPublicHttp|proxyDomains|gatewayDirectDomains|gatewayAcmeEmail|"
           r"gatewayAcmeStaging|gatewayAcmeChallenge|gatewayAcmeDnsProvider|gatewayUnknownHostLocal|gatewayUnknownHostPublic)=[A-Za-z0-9.,@_+-]{0,200}$")
-# the change area (first path segment of the area of a web change) -> the live-state group it refreshes (scripts/lib/live-topics.tsv); ext/<n> -> ext-<n>
-AREA_GROUP = {
-    "ct": "instances", "recipes": "instances", "docker": "instances", "docker-app": "instances", "docker-registry": "instances", "pool": "disks", "shares": "shares", "fm": "shares", "users": "users", "admin": "users", "dc": "users",
-    "backup": "backup", "secrets": "security", "ssh-key": "security", "net": "network", "routes": "network", "gateway": "network", "vps": "network",
-    "peers": "network", "node": "network", "jobs": "jobs", "notify": "system", "health": "system", "expiry": "system", "config": "system",
-    "system": "system", "parts": "system", "pkg": "system",
-}
+# the change area (first path segment of the area of a web change) -> the live-state group it refreshes: scripts/lib/live-areas.tsv; ext/<n> -> ext-<n>
+def _load_area_group():
+    path = os.path.join(os.path.dirname(os.path.abspath(__file__)), "lib", "live-areas.tsv")
+    out = {}
+    with open(path, encoding="utf-8") as f:
+        for line in f:
+            cols = line.rstrip("\n").split("\t")
+            if line.startswith("#") or len(cols) < 2:
+                continue
+            out[cols[0]] = cols[1]
+    return out
+
+
+AREA_GROUP = _load_area_group()
 
 
 def area_refresh(area):
