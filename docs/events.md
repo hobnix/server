@@ -77,6 +77,8 @@ The payload is optional extra data for programs. Rules:
 | `pkg.sabnzbd.error` | warn | `service`, `name`, `label`, `icon`, `title`, `sub?`, `body`, `fields?`, `footer?`, `poster_url?` | SABnzbd reports an error (media helper; subject: the service) |
 | `pkg.sabnzbd.warning` | info | `service`, `name`, `label`, `icon`, `title`, `sub?`, `body`, `fields?`, `footer?`, `poster_url?` | SABnzbd reports a warning (media helper; subject: the service) |
 | `pkg.sabnzbd.test` | info | `service`, `name`, `label`, `icon`, `title`, `sub?`, `body`, `fields?`, `footer?`, `poster_url?` | the test message of SABnzbd (media helper; subject: the service) |
+| `audit.ok` | info | `actor`, `exit` | a command that changes the system finished with exit 0 (hs dispatcher; subject: the words typed, never the arguments after them) |
+| `audit.failed` | warn | `actor`, `exit` | a command that changes the system failed (hs dispatcher; subject: the words typed, never the arguments after them) |
 
 <!-- END generated -->
 
