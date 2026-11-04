@@ -761,6 +761,7 @@ READS = {
     ("jobs", "running"): {"kind": "tsv", "ttl": 3, "topic": "jobs-running"},
     ("jobs", "tail"): {"kind": "tsv", "ttl": 0, "args": [UNIT], "query": {"from": (r"^[0-9]{1,7}$", "")}},
     ("system", "updates"): {"kind": "tsv", "ttl": 30, "topic": "system-updates"},
+    ("release", "show"): {"kind": "tsv", "ttl": 30},        # the update channel and what the next update does (release-channel.sh)
     ("ssh-key", "list"): {"kind": "tsv", "ttl": 30, "topic": "ssh-keys"},
     ("node", "list"): {"kind": "tsv", "ttl": 15, "topic": "node-list"},
     ("node", "show"): {"kind": "tsv", "ttl": 15, "args": [NAME]},
@@ -1104,6 +1105,8 @@ CHANGES = {
                [r"^remove$", r"^[A-Za-z0-9][A-Za-z0-9 ._()-]{0,60}$"]],
     # acknowledge a health problem, take it back, lift the pause of the bulk jobs (health-change.sh checks the id against the listed problems)
     "health": [[r"^(ack|unack)$", r"^[A-Za-z0-9][A-Za-z0-9:._ ()-]{0,100}$"], [r"^resume$"]],
+    # switching the update channel (release-change.sh): a newer channel needs its own name as the confirmation
+    "release": [[r"^channel$", r"^(stable|beta|edge)$"]],
     "system": [[r"^(sync|scrub|update|gc|rollback|reboot|shutdown)$"],
                [r"^(sync|scrub)$", r"^--pool$", POOL]],
     # the gateway setup (gateway-setup.sh): all changed keys as --set key=value (may repeat); the typed port comes as --confirm

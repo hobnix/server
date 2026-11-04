@@ -1,8 +1,11 @@
 # Plan: update channels Stable, Beta, Edge (draft, 2026-11-03)
 
 Status (2026-11-04): steps 1 to 3 are built for the core (setting `updateChannel`, scripts/lib/update-channel.sh, `hs update`, `hs update --preview`,
-tests/update-channel.sh), the operations guide has the section "Update channels". Not built yet: `hs pkg` on a channel, the web part (step 4),
-the installer ISO, the `beta` mode of `release.sh`, and the release key file `config/trusted-keys/server.allowed_signers` (the owner adds the
+tests/update-channel.sh), the operations guide has the section "Update channels". Step 4 is built as the Settings page "Releases" (2026-11-04,
+issue #286: `hs sys release show|plan|start`, scripts/release-channel.sh, scripts/release-change.sh; the plan checks the tag signature from
+the tags already fetched and asks for the channel name when the channel is newer). Decision 2026-11-04: when the new channel is older than the
+installed version, the server stays on the installed version until the channel catches up; a downgrade is out of scope for now, and the page
+says so. Not built yet: `hs pkg` on a channel, the installer ISO, the `beta` mode of `release.sh`, and the release key file `config/trusted-keys/server.allowed_signers` (the owner adds the
 real public key). Open questions 1 to 3 are still open; question 4 is built as proposed (a tag older than the installed version is refused).
 Open questions at the end are for the owner. The branch model it rests on (`develop`, `main`, signed
 tags) is in docs/dev-environment.md "Branches and releases".

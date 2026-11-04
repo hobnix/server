@@ -252,6 +252,13 @@ example) `hs update` stops with a note. A tag is checked against the release key
 when the signature is missing or wrong; `hs update` never moves to a tag that is older than the installed version. Until the first release tag
 exists, every channel but edge follows the current branch as before.
 
+In the web interface the page Settings, Releases shows the three channels side by side, marks the current one and shows the version the next
+update would install. Choosing a channel opens a plan: it checks the tag signature, says whether an update is waiting and, for a newer
+channel, asks you to type the channel name. The same through the command line: `hs sys release plan channel beta` and
+`hs sys release start channel beta --confirm beta`. Moving to an older channel (edge to beta, beta to stable) never downgrades: the server
+stays on the installed version until the channel catches up, and the plan says so. The switch itself installs nothing; the Update button on
+Settings, Updates does.
+
 Not tested on hardware yet.
 
 ## See what changed after an update

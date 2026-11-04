@@ -1663,6 +1663,44 @@ export interface SysOperations {
     exit: number;
     lines: string;
   };
+  "release.plan.by_action": {
+    /** what switching the update channel would do, as data: status, plan lines (never asks; exit 0 ok, 1 refused: unknown channel, same channel, invalid tag signature); a newer channel adds a danger line and confirm_name */
+    words: ["release", "plan", "<action>"];
+    path: "/release/plan/{action}";
+    method: "post";
+    class: "plan";
+    params: { action: string; };
+    stdin: "none";
+    exit: 0 | 1 | 2;
+    lines: ChangeLines;
+  };
+  "release.show": {
+    /** the update channel and what the next update does, as key<TAB>value lines: channel, installed, offer (channel, ref or -, state) for each channel, then ref, state (none|unknown|current|kept|update) and signed (yes|no|-) of the current channel; reads fetched refs only */
+    words: ["release", "show"];
+    path: "/release/show";
+    method: "get";
+    class: "read";
+    params: { };
+    stdin: "none";
+    exit: number;
+    lines: ([tag: "channel", channel: Field]
+      | [tag: "installed", version: Field]
+      | [tag: "offer", channel: Field, ref: Field, state: "none" | "unknown" | "current" | "kept" | "update"]
+      | [tag: "ref", ref: Field]
+      | [tag: "state", state: "none" | "unknown" | "current" | "kept" | "update"]
+      | [tag: "signed", signed: "yes" | "no" | "-"])[];
+  };
+  "release.start.by_action": {
+    /** do it (hs sys release start channel <stable|beta|edge> [--confirm <channel>]; a newer channel needs its own name), answers status done */
+    words: ["release", "start", "<action>"];
+    path: "/release/start/{action}";
+    method: "post";
+    class: "start";
+    params: { action: string; };
+    stdin: "none";
+    exit: 0 | 1 | 2;
+    lines: ChangeLines;
+  };
   "remote.list": {
     /** offers and mounts, tab separated: kind, peer, share, host or login, state */
     words: ["remote", "list"];
