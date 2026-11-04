@@ -94,7 +94,7 @@ Per-feature history and implementation details moved out of CLAUDE.md so that ev
 
 - Hot-plugged disks (scripts/disk-event.sh, tests/disk-event.sh): a udev rule in configuration.nix (`ACTION=="add|remove"`, `DEVTYPE=="disk"`, not loop/ram/zram/sr/dm/md/nbd)
   starts `hs-disk-event@<action>-<kernel name>.service` (`hs sys disk event <action> <name>`), which describes the disk (size, model, serial, what is on it: empty, data, ZFS
-  labels, array member), appends a line to /var/lib/hs/disk-events (`hs disk events` shows it) and sends a push message; a removed pool member is high priority. It NEVER
+  labels, array member), emits an event into the event log (disk.plugged / disk.removed; `hs disk events` shows it; the old file /var/lib/hs/disk-events is imported once and no longer written) and sends a push message; a removed pool member is high priority. It NEVER
   touches a disk: adding one stays `hs pool <pool> add` / the Disks tab. Every disk it has seen is in /var/lib/hs/disks-seen/<name> (serial|description|member): udev replays
   all add events at every boot and every `hs rebuild`, those are silent; the first run only seeds; no push message within 5 minutes after a boot (still logged). The Disks tab
   does not watch for disks: it reads when opened, `r` reloads (in the free-disk step `r` reads the free disks again). A SATA port without hot-plug support needs a SCSI rescan.

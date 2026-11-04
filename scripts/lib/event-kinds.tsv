@@ -20,3 +20,6 @@ job.interrupted	warn	-	a job was running when the server restarted
 notify.sent	info	-	a push message was delivered to a channel (subject: the channel)
 notify.held	info	-	a push message was held back (quiet hours)
 notify.failed	warn	-	a push message could not be delivered
+disk.plugged	info	-	a disk was plugged in (udev; subject: the kernel name)
+disk.removed	warn	-	a disk was taken out (udev; subject: the kernel name)
+disk.other	info	-	an old disk-events line with a label that is not known (import only)
