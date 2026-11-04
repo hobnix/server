@@ -17,6 +17,15 @@ kind = "tsv"
 records = { state = ["state"], exit = ["status"], line = ["text"], next = ["count"] }
 enums = { state = ["running", "ok", "failed", "unknown"] }
 
+["jobs record <id>"]
+kind = "json"
+note = "One job record (docs/adr/0004-job-record.md): id, slug, description, source, initiator, unit, queued, started, ended, state, exit, step {n, of, text}, progress {done, total, unit}, error, result, cancel, version. Absent values are null."
+
+["jobs records"]
+kind = "tsv"
+columns = ["id", "slug", "description", "state", "queued", "started", "ended", "exit", "step_n", "step_of", "step_text", "progress_done", "progress_total", "progress_unit"]
+enums = { state = ["queued", "running", "ok", "failed", "cancelled", "interrupted"] }
+
 ["event list"]
 kind = "tsv"
 columns = ["id", "time", "source", "kind", "subject", "level", "text", "payload"]

@@ -983,6 +983,28 @@ export interface SysOperations {
     exit: 0 | 1 | 2;
     lines: ChangeLines;
   };
+  "jobs.record.by_id": {
+    /** one job record as JSON (ADR 0004): state, step, progress, times, exit, error, result */
+    words: ["jobs", "record", "<id>"];
+    path: "/jobs/record/{id}";
+    method: "get";
+    class: "read";
+    params: { id: string; };
+    stdin: "none";
+    exit: number;
+    lines: unknown;
+  };
+  "jobs.records": {
+    /** the job records, newest first, tab separated (hs sys jobs records [--state S] [N], N up to 500, default 50) */
+    words: ["jobs", "records"];
+    path: "/jobs/records";
+    method: "get";
+    class: "read";
+    params: { };
+    stdin: "none";
+    exit: number;
+    lines: ([id: Field, slug: Field, description: Field, state: "queued" | "running" | "ok" | "failed" | "cancelled" | "interrupted", queued: Field, started: Field, ended: Field, exit: Field, step_n: Field, step_of: Field, step_text: Field, progress_done: Field, progress_total: Field, progress_unit: Field])[];
+  };
   "jobs.running": {
     /** background jobs that are running now */
     words: ["jobs", "running"];
