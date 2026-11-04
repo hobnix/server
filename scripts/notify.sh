@@ -8,6 +8,7 @@ set -euo pipefail
 . "$(dirname "$0")/lib/setting.sh"
 . "$(dirname "$0")/lib/notify-route.sh"
 . "$(dirname "$0")/lib/channels.sh"
+. "$(dirname "$0")/lib/event.sh"
 # the channel files are root only (0600): a caller that cannot read them goes through sudo
 chan_need_root "$0" "$@"
 
@@ -107,7 +108,9 @@ deliver() {
     attempted=$((attempted + 1))
     # the provider's own error (e.g. "429 Too Many Requests") goes to the journal, not to the terminal of `hs update`
     if err=$(chan_run "${CH[provider]}" send "$4" "$1" "$2" 2>&1); then got=true; told+=("$n"); chan_result_set "$n" ok
+      event_emit notify.sent "$n" "$1"
     else chan_result_set "$n" failed "${err:-no answer}"
+      event_emit notify.failed "$n" "$1: ${err:-no answer}"
       logger -t hs-notify -- "could not send '$1' to channel $n: ${err//$'
 '/ }" 2>/dev/null || true; fi
   done
@@ -142,6 +145,7 @@ if [ "$class" = heartbeat ]; then
 fi
 if $hold; then
   route_hold "$title" "$message" "$priority" "$category" || true
+  event_emit notify.held "$category" "$title"   # subject: the category (a held message has no channel yet)
   deliver "$title" "$message" "$category" "$priority" ignore || true   # channels that ignore the quiet hours get it now
   exit 0
 fi
