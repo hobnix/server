@@ -133,6 +133,73 @@
     }
    }
   },
+  "/audit": {
+   "get": {
+    "operationId": "audit",
+    "summary": "who did what: the commands that changed the server; id, time (epoch seconds), actor, result ok|failed, exit, command (hs sys audit [N])",
+    "x-hs-exit": true,
+    "x-hs-sys": {
+     "words": [
+      "audit"
+     ],
+     "script": "audit.sh",
+     "args": "{rest}",
+     "class": "read",
+     "rest": true
+    },
+    "description": "Who did what: one line per command that changed the system, newest last. command is the words typed, never the arguments after them.",
+    "responses": {
+     "0": {
+      "description": "ok",
+      "content": {
+       "text/tab-separated-values": {
+        "schema": {
+         "type": "array",
+         "items": {
+          "type": "array",
+          "prefixItems": [
+           {
+            "$ref": "#/components/schemas/Field",
+            "title": "id"
+           },
+           {
+            "$ref": "#/components/schemas/Field",
+            "title": "time"
+           },
+           {
+            "$ref": "#/components/schemas/Field",
+            "title": "actor"
+           },
+           {
+            "$ref": "#/components/schemas/Field",
+            "title": "result",
+            "enum": [
+             "ok",
+             "failed"
+            ]
+           },
+           {
+            "$ref": "#/components/schemas/Field",
+            "title": "exit"
+           },
+           {
+            "$ref": "#/components/schemas/Field",
+            "title": "command"
+           }
+          ],
+          "minItems": 6,
+          "maxItems": 6
+         }
+        }
+       }
+      }
+     },
+     "default": {
+      "description": "failed; stderr says why, stdout may be empty"
+     }
+    }
+   }
+  },
   "/backup/find/{word}": {
    "get": {
     "operationId": "backup.find.by_word",

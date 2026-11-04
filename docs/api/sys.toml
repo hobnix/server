@@ -26,6 +26,12 @@ kind = "tsv"
 columns = ["id", "slug", "description", "state", "queued", "started", "ended", "exit", "step_n", "step_of", "step_text", "progress_done", "progress_total", "progress_unit"]
 enums = { state = ["queued", "running", "ok", "failed", "cancelled", "interrupted"] }
 
+["audit"]
+kind = "tsv"
+columns = ["id", "time", "actor", "result", "exit", "command"]
+enums = { result = ["ok", "failed"] }
+note = "Who did what: one line per command that changed the system, newest last. command is the words typed, never the arguments after them."
+
 ["event list"]
 kind = "tsv"
 columns = ["id", "time", "source", "kind", "subject", "level", "text", "payload"]

@@ -258,8 +258,10 @@ sys	sys state disks-json	state.sh	disks-json	the disk inventory as JSON with mas
 sys	sys state events-json	state.sh	events-json {rest}	the latest disk events as JSON with masked serials (what the status endpoint serves at /events)	-
 sys	sys state history	state.sh	history {rest}	the last 24 hours (one median per hour) as the status document shows them (JSON)	-
 sys	sys state history-record	state.sh	history-record {rest}	add one reading (time rx tx cpu_total cpu_idle mem_total mem_available gpu uptime) to the last 24 hours; the status service does	-
+user	audit	audit.sh	{rest}	-	-	topic:system,reads
 user	event list	event.sh	list {rest}	what happened on the server, newest last (hs event list [N] [--source S] [--after ID])	was auf dem Server passiert ist, das Neueste zuletzt (hs event list [N] [--source S] [--after ID])	topic:system,reads
 user	event emit	event.sh	emit {rest}	write one entry to the event log (root): hs event emit <source.kind> <subject> [text] [--level info|warn|error] [--payload JSON]	einen Eintrag ins Ereignisprotokoll schreiben (root): hs event emit <Quelle.Art> <Betreff> [Text] [--level info|warn|error] [--payload JSON]	topic:system,changes
+sys	sys audit	audit.sh	{rest}	who did what: the commands that changed the server; id, time (epoch seconds), actor, result ok|failed, exit, command (hs sys audit [N])	-
 sys	sys event list	event.sh	list {rest}	the event log: id, time (epoch seconds), source, kind, subject, level info|warn|error, text, payload (JSON or -); hs sys event list [N] [--source S] [--after ID]	-
 sys	sys temp-disk raw	temp-disk.sh	raw	disks that can be mounted as temp disk	-
 sys	sys cache state	share-cache.sh	--state	upload cache state per share	-

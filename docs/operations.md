@@ -37,6 +37,18 @@ Two more checks that change nothing:
 `hs ports` lists the open ports of the server and of each container and warns when an administration page is behind the reverse proxy.
 The health check itself runs every 15 minutes by a timer; it is the only thing that raises an alarm.
 
+## See who did what
+
+```bash
+hs audit
+```
+
+Every command that changes the server leaves one line in the event log: who ran it (the user who used `sudo`, or `web`, `timer`, `job`),
+when, whether it worked, and the words that were typed to find the command, for example `share add`. `hs audit 100` shows the last 100.
+Nothing that was typed after those words is kept, so a password or a key given as an argument never reaches the log. Reading commands,
+the timers' own hooks and the event log itself are not recorded. The lines are kept as long as the rest of the event log. Not tested on
+hardware yet.
+
 ## Get push messages
 
 The server sends a message when its list of problems **changes**, not every 15 minutes. The route is ntfy: a service that passes messages

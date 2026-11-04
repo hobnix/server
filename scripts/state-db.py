@@ -11,6 +11,7 @@ Commands (machine readable output; scripts/state.sh makes the pretty version for
   emit <source>.<kind> <subject> [text] [--level info|warn|error] [--payload JSON]
                              the ONE writer of the event log (root; scripts/lib/event.sh, hs event emit); docs/adr/0005-events.md
   event-list [N] [--source S] [--after ID]  id time source kind subject level text payload (newest last; `-` for an empty field)
+  audit-list [N]            id time actor result exit command (the audit.* events, newest last; hs audit, hs sys audit)
   disk-events [N]            local time TAB plugged in|taken out TAB text (newest last); the old file disk-events is imported once
   smart <serial|dev>         the stored SMART readings of one disk
   problems                   key TAB text for health-check.sh (missing disks, worsening disks, a collector that stopped)
@@ -633,6 +634,28 @@ def cmd_event_list(args):
     return 0
 
 
+def cmd_audit_list(args):
+    """audit-list [N]: id TAB time TAB actor TAB result (ok|failed) TAB exit TAB command, from the audit.* events, newest last."""
+    n = int(args[0]) if args and args[0].isdigit() else 50
+    c = open_ro()
+    if c is None:
+        return 0
+    try:
+        rows = c.execute("SELECT id, time, kind, subject, payload FROM events WHERE source = 'audit' ORDER BY id DESC LIMIT ?", (n,)).fetchall()
+    except sqlite3.Error:
+        return 0
+    for i, t, kind, subject, payload in reversed(rows):
+        try:
+            p = json.loads(payload) if payload else {}
+        except ValueError:
+            p = {}
+        if not isinstance(p, dict):
+            p = {}
+        print("	".join(clean(x) if x not in (None, "") else "-" for x in
+                        (i, t, p.get("actor"), "ok" if kind == "ok" else "failed", p.get("exit"), subject)))
+    return 0
+
+
 def cmd_disk_events(args):
     """disk-events [N]: local time TAB label (plugged in | taken out) TAB text, newest last; the Disk events panel and hs disk events."""
     n = int(args[0]) if args and args[0].isdigit() else 30
@@ -1071,6 +1094,8 @@ def main(argv):
         return cmd_events(args)
     if cmd == "emit":
         return cmd_emit(args)
+    if cmd == "audit-list":
+        return cmd_audit_list(args)
     if cmd == "disk-events":
         return cmd_disk_events(args)
     if cmd == "event-list":

@@ -75,6 +75,8 @@ default_probes() {
     $'hs disk inventory\tdisk inventory\t0 1' \
     $'hs disk baseline\tdisk baseline\t0 1' \
     $'hs event list\tevent list\t0' \
+    $'hs audit\taudit\t0' \
+    $'hs sys audit\tsys audit\t0' \
     $'hs sys event list\tsys event list\t0' \
     $'hs sys jobs records\tsys jobs records\t0' \
     $'hs pool bulk\tpool bulk\t0 1' \
