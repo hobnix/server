@@ -243,6 +243,7 @@ class RedisMode(RedisBase):
         s, d, r = self.req("GET", "/api/sys/status", headers=self.ck)
         self.assertEqual(s, 200)
         self.assertTrue(r.getheader("X-HS-Stale"))
+        self.assertEqual((r.getheader("X-HS-State"), bool(int(r.getheader("X-HS-Last-Ok")))), ("stale", True))
         self.redis.keys["hs:v1:status"] = doc(age=5, err="old", ts_err=time.time() - 60)
         self.assertIsNone(self.req("GET", "/api/sys/status", headers=self.ck)[2].getheader("X-HS-Stale"))
 

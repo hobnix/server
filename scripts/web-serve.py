@@ -1890,7 +1890,9 @@ class RedisStore(StateStore):
         more = ()
         try:
             if doc.get("err") and float(doc.get("ts_err") or 0) > ts:
-                more = (("X-HS-Stale", str(int(float(doc["ts_err"])))),)
+                more = (("X-HS-Stale", str(int(float(doc["ts_err"])))),
+                        ("X-HS-State", "stale" if ts else "error"),      # additive: stale = last good data served, error = never read
+                        ("X-HS-Last-Ok", str(int(ts)) if ts else "-"))
         except (TypeError, ValueError):
             pass
         return code, obj, max(0.0, time.time() - ts), more
