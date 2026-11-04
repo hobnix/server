@@ -58,7 +58,7 @@ case "$cmd" in
       done <<<"$keys"; } | table ;;
   get)
     [ $# -eq 1 ] || usage
-    [ -n "$(spec "$1")" ] || fail "$(t "'%s' is not a key hs config handles." "$1")"
+    [ -n "$(spec "$1")" ] || is_setting "$1" || fail "$(t "'%s' is not a key hs config handles." "$1")"
     v=$(current "$1"); echo "${v:-(not set)}" ;;
   set)
     dry=false; args=()

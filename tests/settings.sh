@@ -94,6 +94,7 @@ check_eq "no moved option is reported any more" "0" "$($SYNC check 2>&1 | grep -
 echo "-- hs config set for a runtime setting the table does not list"
 $CFG set vpsHost proxy.example.net >/dev/null 2>&1
 check_eq "vpsHost goes to its file" "proxy.example.net" "$(cat "$HS_STATE_DIR/settings/vpsHost")"
+check_eq "hs config get reads a runtime setting the table does not list" "proxy.example.net" "$($CFG get vpsHost 2>&1)"
 check_out "a bad host is refused" "must be a host name" $CFG set vpsHost "a b;c"
 check_out "a bad URL is refused" "must be an http" $CFG set proxyStatusUrl ftp://x
 check_out "a number below the minimum is refused" "or more" $CFG set webTerminalMaxHours 0
