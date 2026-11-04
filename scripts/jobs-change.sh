@@ -62,11 +62,19 @@ esac
 
 if [ "$verb" = start ]; then
   if [ -n "$danger" ] && [ "$confirm" != stop ]; then refuse "type the word to confirm: stop"; fi
-  # the record says cancelled before the unit (and the wrapper that would write the end) is killed; best effort
+  # the record says cancelled before the unit (and the wrapper that would write the end) is killed; best effort.
+  # If the stop fails the job still runs: the record goes back (uncancel) and no event is written (#135).
+  marked=""
   if [ "$action" = stop ] && [ -n "$rec_id" ]; then
-    hs_job_record cancel "$rec_id" --by "$who" --safe "$safe" 2>/dev/null || true
+    hs_job_record cancel "$rec_id" --by "$who" --safe "$safe" 2>/dev/null && marked=yes
   fi
-  "${cmd[@]}" || refuse "systemctl failed"
+  if ! "${cmd[@]}"; then
+    [ -z "$marked" ] || hs_job_record uncancel "$rec_id" 2>/dev/null || true
+    refuse "systemctl failed"
+  fi
+  if [ -n "$marked" ]; then   # event log (docs/adr/0005-events.md rule 9): best effort
+    . "$here/lib/event.sh"; event_emit job.cancelled "$rec_id" "job stopped by ${who:-unknown}" || true
+  fi
   if [ "$action" = stop ]; then printf 'status\tdone\n'; else printf 'status\tstarted\nunit\t%s\n' "$unit"; fi
   exit 0
 fi

@@ -259,6 +259,18 @@ def cmd_cancel(a):
         save(rec)
 
 
+def cmd_uncancel(a):
+    """The stop of the unit failed after the record was marked cancelled: the job still runs, so the record says running again."""
+    with locked(a.id):
+        rec = load(a.id)
+        if rec.get("state") != "cancelled" or rec.get("exit") is not None:
+            raise Fail("job is not cancelled, or it ended already")
+        rec["state"] = "running" if rec.get("started") else "queued"
+        rec["ended"] = None
+        rec["cancel"] = None
+        save(rec)
+
+
 def cmd_cancelled(a):
     if load(a.id).get("state") != "cancelled":
         sys.exit(1)
@@ -374,6 +386,7 @@ def main():
     s = sub.add_parser("find-unit"); s.add_argument("unit"); s.set_defaults(fn=cmd_find_unit)
     s = sub.add_parser("cancel"); s.add_argument("id"); s.add_argument("--by", default="")
     s.add_argument("--safe", choices=("yes", "no"), required=True); s.set_defaults(fn=cmd_cancel)
+    s = sub.add_parser("uncancel"); s.add_argument("id"); s.set_defaults(fn=cmd_uncancel)
     s = sub.add_parser("cancelled"); s.add_argument("id"); s.set_defaults(fn=cmd_cancelled)
     try:
         a = p.parse_args()

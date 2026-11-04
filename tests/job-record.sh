@@ -178,4 +178,29 @@ HOBNIX_BIN="$T/oldbin/hobnix" run 'hs_job oldbin "old binary job" -- bash -c "ex
 f=$(ls "$HS_JOBS_DIR"/*-oldbin-*.json 2>/dev/null | head -n1); rid=$(basename "${f:-x}" .json)
 check "an old binary falls back to the Python writer" "ok" "$(jf "$rid" state)"
 
+# events (docs/adr/0005-events.md rule 9): hs_job_record writes job.<state> after the record changed; finish after a cancel adds none
+export HS_EVENT_NOROOT=1 HS_STATE_DB="$T/ev.db" HS_JOB_RECORD=python HS_JOBS_DIR="$T/jobs"
+hr() { bash -c ". '$here/scripts/lib/job.sh'; hs_job_record \"\$@\"" _ "$@"; }
+evs() { python3 "$here/scripts/state-db.py" event-list 50 2>/dev/null; }
+eid=$(hr new --slug ev --desc "event job" --unit hs-job-ev-1 --source cli)
+hr run "$eid"; hr finish "$eid" 0
+check "queued, running and ok are emitted with the id as subject" "3" "$(evs | grep -c "$eid")"
+check "job.queued" "1" "$(evs | grep "$eid" | grep -c 'job.queued')"
+check "job.ok" "1" "$(evs | grep "$eid" | grep -c 'job.ok')"
+fid=$(hr new --slug evf --desc "bad job" --unit hs-job-evf-1 --source cli); hr run "$fid"; hr finish "$fid" 7
+check "job.failed is emitted" "1" "$(evs | grep "$fid" | grep -c 'job.failed')"
+hr finish "$fid" 1
+check "a second finish emits nothing" "1" "$(evs | grep "$fid" | grep -c 'job.failed')"
+cid=$(hr new --slug evc --desc "stopped job" --unit hs-job-evc-1 --source cli); hr run "$cid"
+hr cancel "$cid" --by alice --safe yes; hr finish "$cid" 143
+check "finish after cancel keeps cancelled" "cancelled" "$(jf "$cid" state)"
+check "finish after cancel emits no event" "0" "$(evs | grep "$cid" | grep -c 'job.failed')"
+hr uncancel "$cid" 2>/dev/null; check "uncancel on a finished cancel is refused" "cancelled" "$(jf "$cid" state)"
+uid=$(hr new --slug evu --desc "kept job" --unit hs-job-evu-1 --source cli); hr run "$uid"
+hr cancel "$uid" --by alice --safe yes; hr uncancel "$uid"
+check "uncancel puts running back" "running" "$(jf "$uid" state)"
+check "uncancel clears the cancel block and ended" "null null" "$(jf "$uid" cancel) $(jf "$uid" ended)"
+BAD_EV=$(HS_STATE_DB=/nonexistent/x/ev.db hr new --slug evb --desc "no log" --unit hs-job-evb-1 --source cli >/dev/null; echo "rc=$?")
+check "an unwritable event log changes nothing for the job" "1" "$(grep -c 'rc=0' <<<"$BAD_EV")"
+
 exit $fail
