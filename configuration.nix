@@ -166,6 +166,11 @@ in
   # controller's ports above 5 would not show up: remove this line then (or move the cable to ports 0-5).
   boot.kernelParams = lib.optionals isHome [ "ahci.mask_port_map=0000:02:00.0=0x3f" ];
   nix.gc = { automatic = true; dates = "weekly"; options = "--delete-older-than 30d"; };
+  # Pre-built packages from the project's cache (config/binary-cache.nix). Only an extra source: if it is unreachable or empty, Nix builds locally.
+  nix.settings = let c = import ./config/binary-cache.nix; in lib.mkIf (c.name != "" && c.publicKey != "") {
+    substituters = [ "https://${c.name}.cachix.org" ];
+    trusted-public-keys = [ c.publicKey ];
+  };
 
   boot.supportedFilesystems = lib.optionals hasStorage [ "zfs" "ntfs" "exfat" "cifs" ];   # ntfs/exfat: read disks from Windows (hs disk temp); cifs: shares of other homeservers (hs remote)
   console = lib.mkIf (keyMap != null) { inherit keyMap; };

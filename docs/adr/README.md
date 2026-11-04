@@ -22,3 +22,4 @@ Issue: hobnix/server#<n>
 | --- | --- | --- |
 | [0001](0001-rust-strangler.md) | Rust grows behind the `hs sys` contract, one command group at a time | Proposed |
 | [0002](0002-system-state-vs-runtime-state.md) | `store` in the schema separates declarative state (rebuild) from runtime state (at once) | Proposed |
+| [0003](0003-binary-cache.md) | CI fills a Cachix binary cache; hosts use it as an optional extra source | Proposed |
