@@ -11123,6 +11123,39 @@
      }
     }
    }
+  },
+  "/zed/event": {
+   "post": {
+    "operationId": "zed.event",
+    "summary": "a ZFS event from ZED (zedlet all-hobnix.sh, env ZEVENT_*): a pool fault goes to the event log, the disks group is refreshed",
+    "x-hs-exit": true,
+    "x-hs-sys": {
+     "words": [
+      "zed",
+      "event"
+     ],
+     "script": "zed-event.sh",
+     "args": "-",
+     "class": "change",
+     "rest": false
+    },
+    "x-hs-described": false,
+    "responses": {
+     "0": {
+      "description": "ok",
+      "content": {
+       "text/plain": {
+        "schema": {
+         "type": "string"
+        }
+       }
+      }
+     },
+     "default": {
+      "description": "failed; stderr says why, stdout may be empty"
+     }
+    }
+   }
   }
  },
  "components": {

@@ -2532,6 +2532,17 @@ export interface SysOperations {
     exit: 0 | 1 | 2;
     lines: ChangeLines;
   };
+  "zed.event": {
+    /** a ZFS event from ZED (zedlet all-hobnix.sh, env ZEVENT_*): a pool fault goes to the event log, the disks group is refreshed */
+    words: ["zed", "event"];
+    path: "/zed/event";
+    method: "post";
+    class: "change";
+    params: { };
+    stdin: "none";
+    exit: number;
+    lines: string;
+  };
 }
 
 export type SysOperationId = keyof SysOperations;

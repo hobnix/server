@@ -23,3 +23,4 @@ notify.failed	warn	-	a push message could not be delivered
 disk.plugged	info	-	a disk was plugged in (udev; subject: the kernel name)
 disk.removed	warn	-	a disk was taken out (udev; subject: the kernel name)
 disk.other	info	-	an old disk-events line with a label that is not known (import only)
+storage.pool-fault	warn	-	a ZFS pool or one of its devices has a fault (ZED zedlet; subject: the pool; level error when a device is faulted or unavailable)
