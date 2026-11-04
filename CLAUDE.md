@@ -16,7 +16,8 @@ hobnix/extensions (docs/PLAN-packages.md); the core fetches them with `hs pkg`.
 - **Generated files are never edited by hand:** config/defaults.nix, scripts/lib/config-keys.sh, scripts/lib/capabilities.tsv,
   machine.toml.example. Edit config/schema.toml, then `python3 scripts/schema-gen.py write`. Also generated: docs/api/openapi.json (from registry.tsv and
   docs/api/sys.toml: `python3 scripts/openapi-gen.py write` in the same commit as a new or changed `sys` row), and web/src/api/sys.gen.d.ts (TypeScript types from openapi.json:
-  `python3 scripts/openapi-ts-gen.py write` in the same commit as an openapi.json change).
+  `python3 scripts/openapi-ts-gen.py write` in the same commit as an openapi.json change), and the kinds table in docs/events.md (from
+  scripts/lib/event-kinds.tsv: `python3 scripts/events-doc-gen.py write`).
 - **A new script needs a row** in scripts/lib/registry.tsv (tests/commands.sh); a new `reads` command needs a probe in scripts/smoke.sh; a new
   recipe needs packages/<name>/package.toml and ends with `docs_hint`; a user-visible change adds a docs/changelog entry.
 - **Secrets** are read only through scripts/lib/secret.sh and never go through argv or the environment.

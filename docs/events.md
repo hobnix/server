@@ -38,11 +38,34 @@ The payload is optional extra data for programs. Rules:
 
 ## Today
 
-| Area | Kinds | Subject | Payload |
+<!-- BEGIN generated from scripts/lib/event-kinds.tsv (python3 scripts/events-doc-gen.py write) -->
+
+| Kind | Level | Payload keys | Meaning |
 | --- | --- | --- | --- |
-| `storage` | new, back, missing, worse, forgotten, baseline, smart-reset, smart-watch, smart-failing, smart-healthy | the disk serial | none |
-| `job` | queued, running, ok, failed, cancelled, interrupted | the job id | `failed`: `exit` |
-| `notify` | sent, held, failed | the channel (`held`: the category) | none |
-| `disk` | plugged, removed, other | the kernel name | none |
+| `storage.new` | info | none | a disk was seen for the first time (plugged in) |
+| `storage.back` | info | none | a missing disk is back |
+| `storage.missing` | warn | none | a known disk is not there any more |
+| `storage.worse` | warn | none | SMART values of a disk grew within the watch window |
+| `storage.forgotten` | info | none | a missing disk was removed from the inventory on purpose |
+| `storage.baseline` | info | none | first reading of the daily SMART check for a disk |
+| `storage.smart-reset` | info | none | the SMART baseline of a disk was taken again |
+| `storage.smart-watch` | info | none | the daily SMART check rates a disk as watch |
+| `storage.smart-failing` | info | none | the daily SMART check rates a disk as failing |
+| `storage.smart-healthy` | info | none | the daily SMART check rates a disk as healthy again |
+| `job.queued` | info | none | a job was accepted and waits |
+| `job.running` | info | none | a job started |
+| `job.ok` | info | none | a job finished successfully |
+| `job.failed` | error | `exit` | a job failed |
+| `job.cancelled` | info | none | a job was stopped on purpose |
+| `job.interrupted` | warn | none | a job was running when the server restarted |
+| `notify.sent` | info | none | a push message was delivered to a channel (subject: the channel) |
+| `notify.held` | info | none | a push message was held back (quiet hours) |
+| `notify.failed` | warn | none | a push message could not be delivered |
+| `disk.plugged` | info | none | a disk was plugged in (udev; subject: the kernel name) |
+| `disk.removed` | warn | none | a disk was taken out (udev; subject: the kernel name) |
+| `disk.other` | info | none | an old disk-events line with a label that is not known (import only) |
+| `storage.pool-fault` | warn | none | a ZFS pool or one of its devices has a fault (ZED zedlet; subject: the pool; level error when a device is faulted or unavailable) |
+
+<!-- END generated -->
 
 Not tested on hardware yet.
