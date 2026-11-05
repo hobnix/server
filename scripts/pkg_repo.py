@@ -30,6 +30,24 @@ import tarfile
 import tomllib
 
 TAG = re.compile(r"^v(0|[1-9]\d*)\.(0|[1-9]\d*)\.(0|[1-9]\d*)$")
+BETA_TAG = re.compile(r"^v(0|[1-9]\d*)\.(0|[1-9]\d*)\.(0|[1-9]\d*)-beta\.([1-9]\d*)$")
+
+
+def tag_key(t):
+    """semver order of a release tag: v1.4.0-beta.2 < v1.4.0"""
+    m = TAG.match(t) or BETA_TAG.match(t)
+    g = m.groups()
+    return (int(g[0]), int(g[1]), int(g[2]), 1, 0) if len(g) == 3 else (int(g[0]), int(g[1]), int(g[2]), 0, int(g[3]))
+
+
+def beta_allowed(state):
+    """the setting updateChannel is beta or edge (docs/PLAN-channels.md: packages have no edge, edge counts as beta)"""
+    d = os.environ.get("HS_SETTINGS_DIR") or os.path.join(os.path.dirname(state), "settings")
+    try:
+        with open(os.path.join(d, "updateChannel"), encoding="utf-8") as f:
+            return f.read().strip() in ("beta", "edge")
+    except OSError:
+        return False
 REPO_NAME = re.compile(r"^[a-z][a-z0-9-]{0,40}$")
 
 
@@ -138,7 +156,8 @@ class Repos:
         if not os.path.isdir(d):
             return []
         out = git("tag", "--list", "v*", cwd=d).decode().split()
-        return sorted((t for t in out if TAG.match(t)), key=lambda t: tuple(int(x) for x in t[1:].split(".")), reverse=True)
+        beta = beta_allowed(self.state)
+        return sorted((t for t in out if TAG.match(t) or (beta and BETA_TAG.match(t))), key=tag_key, reverse=True)
 
     def verified_tag(self, r):
         """the newest release tag whose signature verifies, as (tag, commit); Refused with the reason when there is none"""
@@ -300,7 +319,11 @@ class Repos:
         have = self.recorded(name)
         r_name, entry, tag, commit = self.choose_installed(name, have["repo"])
         self.check_entry(name, entry, r_name)
-        if commit == have.get("commit") or not self.pkg.semver_key(entry["version"]) > self.pkg.semver_key(have["version"]):
+        if commit == have.get("commit"):
+            return None
+        ev, hv, ht = self.pkg.semver_key(entry["version"]), self.pkg.semver_key(have["version"]), have.get("tag", "")
+        # same version under a newer tag: a beta that became the release
+        if not (ev > hv or (ev == hv and (TAG.match(ht) or BETA_TAG.match(ht)) and tag_key(tag) > tag_key(ht))):
             return None
         d = self.clone_dir(r_name)
         # no recorded commit (see recorded): show the whole new package against the empty tree
