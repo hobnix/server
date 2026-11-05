@@ -273,6 +273,10 @@ channel, asks you to type the channel name. The same through the command line: `
 stays on the installed version until the channel catches up, and the plan says so. The switch itself installs nothing; the Update button on
 Settings, Updates does.
 
+Apps and extensions from the package repositories follow the same setting through `hs pkg`: on `stable` only `vX.Y.Z` tags count, on `beta` the
+newest signed `vX.Y.Z-beta.N` or `vX.Y.Z` tag counts. `edge` counts as `beta` for packages, because packages are only ever taken from a signed
+tag, never from a branch head. Every tag is still checked against the repository's key.
+
 Not tested on hardware yet.
 
 ## See what changed after an update

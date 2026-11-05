@@ -152,4 +152,22 @@ check "a repository package can be removed" $PKG remove demo
 check "and its folder is gone" test ! -e "$HS_STATE_DIR/packages/current/demo"
 check "remove refuses a built-in" bash -c "! $PKG remove fixapp 2>/dev/null"
 check "a repository can be removed" $PKG repo remove test
+echo "-- channels: beta tags count only on beta and edge, and v5.0.0 beats v5.0.0-beta.2"
+cd "$R"
+release v5.0.0-beta.1 5.0.0 "$WORK/good"
+release v5.0.0-beta.2 5.0.0 "$WORK/good"
+cd "$ROOT"
+$PKG repo add chan "$R" --key "$WORK/signers"
+export HS_SETTINGS_DIR=$WORK/settings; mkdir -p "$HS_SETTINGS_DIR"
+check_out "stable ignores beta tags" "^chan${tab}v3[.]0[.]0" $PKG fetch chan
+printf 'beta\n' > "$HS_SETTINGS_DIR/updateChannel"
+check_out "beta takes the newest beta tag" "^chan${tab}v5[.]0[.]0-beta[.]2" $PKG fetch chan
+printf 'edge\n' > "$HS_SETTINGS_DIR/updateChannel"
+check_out "edge counts as beta for packages" "^chan${tab}v5[.]0[.]0-beta[.]2" $PKG fetch chan
+cd "$R"; release v5.0.0 5.0.0 "$WORK/good"; cd "$ROOT"
+check_out "the release beats its betas" "^chan${tab}v5[.]0[.]0${tab}" $PKG fetch chan
+printf 'stable\n' > "$HS_SETTINGS_DIR/updateChannel"
+unset HS_SETTINGS_DIR
+$PKG repo remove chan
+
 finish
