@@ -27,7 +27,7 @@ mode=${1:-quick}
 HELPERS=" lib lib-poolfakes lib-standins run run-all "
 all_tests() { local f n; for f in tests/*.sh; do n=$(basename "$f" .sh); case "$HELPERS" in *" $n "*) continue ;; esac; echo "$n"; done; }
 needs_root() { grep -q 'need_root' "tests/$1.sh"; }
-is_external() { [ "$1" = zfs-vm ]; }
+is_external() { [ "$1" = zfs-vm ] || [ "$1" = rebuild-vm ]; }
 quick_tests() { local n; while read -r n; do needs_root "$n" || is_external "$n" || echo "$n"; done < <(all_tests); }
 root_tests() { local n; while read -r n; do ! needs_root "$n" || echo "$n"; done < <(all_tests); }
 
@@ -84,7 +84,7 @@ run_list() {   # run_list <env or ""> name...
 }
 
 case "$mode" in
-  list) echo "quick: $(quick_tests | paste -sd' ')"; echo "root:  $(root_tests | paste -sd' ')"; echo "vm:    zfs-vm" ;;
+  list) echo "quick: $(quick_tests | paste -sd' ')"; echo "root:  $(root_tests | paste -sd' ')"; echo "vm:    zfs-vm rebuild-vm" ;;
   quick)
     if [ $# -gt 0 ]; then names=("$@"); else mapfile -t names < <(quick_tests); fi
     run_list "" "${names[@]}" ;;
@@ -109,7 +109,7 @@ case "$mode" in
       sudo -n true 2>/dev/null || { echo "sudo needs a password: see docs/dev-environment.md (passwordless sudo for this machine only)"; exit 2; }
       exec sudo -n env HS_TEST_ROOT=1 HS_T_LOG="$log" "$0" root "${names[@]}"
     fi ;;
-  vm) run_list "HS_TEST_VM=1" zfs-vm ;;
+  vm) run_list "HS_TEST_VM=1" zfs-vm rebuild-vm ;;
   wsl)
     # Windows only: copy this tree into the Debian WSL (ext4, fast; one-time setup: scripts/dev/wsl-setup.sh) and run the same runner there.
     # `t wsl changed` works out the test names here (the copy has no .git) and runs them there. Distro: T_WSL_DISTRO (default Debian).

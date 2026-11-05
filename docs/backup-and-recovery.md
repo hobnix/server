@@ -338,7 +338,10 @@ Once a year, rehearse in a throwaway VM: a virtual machine with the NixOS instal
 disk (a copy of the repository, or a fresh `hs backup init` with test data). Do Case A (disk with a vault partition, clone the
 repository, host files with restic, a new `hardware-configuration.nix`, `nixos-install`, boot order, `hs vault init`, the password by
 hand, `sudo hs unlock`, `hs rebuild`, pools). Then Case B: empty the data disks, add the pool, restore the shares and compare
-checksums. This is the part nobody has run on real hardware yet. Write down what did not match this guide and report it.
+checksums. This is the part nobody has run on real hardware yet.
+
+The repository has a partial rehearsal, `tests/rebuild-vm.sh` (`scripts/dev/t vm`): a clean VM gets only the backup volume and the passphrase and
+must bring back the host files and the shares with the same checksums. It does not cover the reinstall, boot, vault or pools. Not tested on hardware yet: it has not been run. Write down what did not match this guide and report it.
 
 ## Check that it worked
 - `hs backup status` shows a snapshot from last night and enough free space on the backup disk.
