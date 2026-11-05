@@ -9,7 +9,9 @@ Brought up to date with main at #346 on 2026-10-27 (merged: #323 to #340, #346).
 1. [~] CI on pull requests only (action minutes ran out when every push ran): `ci.yml` runs on `pull_request`, `v*` tags and by hand,
    with `concurrency` cancelling older runs (2026-10-27). Then find out which tests are red and fix them; run the root/udev tests
    (`tests/pool.sh`, `pool-encrypted.sh`, `adopt.sh`, the share tests that mount pools; `tests/lib.sh` sets `HS_DISKS_ROOT=/mnt/bulk`).
-   2026-11-01: `t quick` in WSL ran 182 tests, 5 were red (i18n, machine-toml, notify-channel, smoke, system) and are fixed, not committed yet; root and VM tests still not run.
+   2026-11-01: `t quick` in WSL ran 182 tests, 5 were red (i18n, machine-toml, notify-channel, smoke, system); the fixes were never committed and are on no branch.
+   2026-11-05 (Debian 13, 2 CPUs, no root): those 5 tests were re-run alone with `jq`, `column`, `shellcheck` on the PATH and are green (smoke and system on the first run, the other three with `T_TIMEOUT=1500`; i18n and notify-channel passed again on the plain `/tmp`). So no code change was needed. They are slow here: the default 280 s per test is too short for i18n, machine-toml and notify-channel.
+   A full `t quick` was NOT finished: the runs were stopped after about 60 of 233 tests. Without `column` and `jq` many tests fail for that reason alone; `/tmp` is a 1.9 GB tmpfs, so `disk-move` and `disk-recover` (10 GiB free-space rule) failed, and `backup-drill-ct`, `event-notify` had red checks that were not looked at. `t root` and `t vm` were NOT run: no sudo, no loop devices, no qemu.
    Known WSL-only failures: one check of `tests/monitor.sh` (reads the real `/dev/sde`), two of `tests/update-preview.sh` (`nix-build`).
 2. [?] Work through the guides on the real server (steps marked "Not tested on hardware yet.") in blocks (first `hs rebuild` with `webUi = true`, a click-through of
    every web page, vault, backup, `hs ports`, `hs update --preview`, `hs sys health next`, a full boot cycle, `homeserver reboot`).
