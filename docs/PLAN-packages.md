@@ -59,6 +59,12 @@ label = "..."
 type = "text"                         # text | secret | choice
 default = ""
 
+[[events]]                            # optional: events the package provides (docs/events.md, hobnix/server#313)
+kind = "failed"                       # the event pkg.arr.failed; level, label, meaning, notify ...
+level = "warn"
+label = "Download failed"
+meaning = "a download failed"
+
 [web.page]                            # unchanged from docs/PLAN-extensions.md; a recipe may use it now
 ...
 ```
@@ -123,6 +129,7 @@ Moving recipes out of the repository turns `scripts/recipes/_lib.sh`, `scripts/l
 - level 4: a package may bring a `sys ext <name> boot` row that `hs-ext-boot.service` runs at boot (docs/PLAN-extensions.md, "At boot");
 - level 5: a recipe may declare `# runs: lxc docker vm` (manifest `runs = [...]`, default `lxc`); with more than one word the recipe dialog asks `RUNS` (docs/PLAN-docker-instances.md, phase 6);
 - level 6: a recipe that runs in Docker keeps its files in `APP_DIR` (`apps/recipes/<app>` in the share apps, or the legacy `/opt/apps/<app>` when the app is there already); `child_compose` writes there (docs/PLAN-docker-instances.md, Decision 13);
+- level 7: a package may declare its events in `[[events]]` (docs/events.md, hobnix/server#313);
 - `requires_core` names the lowest level a package works with; the core refuses a package that needs more;
 - core tests run every package of the default repositories against the current core (see "Compatibility").
 

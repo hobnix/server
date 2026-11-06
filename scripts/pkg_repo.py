@@ -17,6 +17,7 @@ State, all under <state>/packages (root-owned on the server):
     current/<name>/       the installed package (read-only copy of the folder at the tag; the loaders read this folder)
     previous/<name>@<commit>/   the one before, kept for a rollback until the next update
     installed.toml        version, repo, commit and tag of every applied package
+    ../pkg-events/<name>.tsv   the events the package declares (written on install, removed with it)
 The two default repositories come from config/package-repos.toml; their allowed signers from config/trusted-keys/<name>.allowed_signers.
 """
 import io
@@ -269,6 +270,10 @@ class Repos:
         if m.get("name") != name or m.get("version") != entry["version"]:
             shutil.rmtree(tmp, ignore_errors=True)
             raise Refused("%s: package.toml (name %s, version %s) does not match the index (%s)" % (name, m.get("name"), m.get("version"), entry["version"]))
+        ev = self.pkg.pkg_events.manifest_problems(name, m.get("events", []))
+        if ev:
+            shutil.rmtree(tmp, ignore_errors=True)
+            raise Refused("%s: package.toml [[events]]: %s" % (name, ev[0]))
         old = self.pkg.installed().get(name, {})
         if os.path.isdir(cur):
             prev = os.path.join(self.state, "previous")
@@ -283,6 +288,10 @@ class Repos:
         if "applied" in old:
             data[name]["applied"] = old["applied"]
         self.pkg.save_installed(data)
+        try:
+            self.pkg.pkg_events.write(name, m.get("events") or [])
+        except OSError as e:
+            print("%s: its events were not installed: %s" % (name, e), file=sys.stderr)
         return entry["version"], r_name, tag
 
     @staticmethod
@@ -310,6 +319,7 @@ class Repos:
         if not os.path.isdir(cur):
             raise Refused("%s was not installed from a repository" % name)
         self.rm(cur)
+        self.pkg.pkg_events.remove(name)
         data.pop(name, None)
         self.pkg.save_installed(data)
 

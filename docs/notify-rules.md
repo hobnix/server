@@ -17,9 +17,17 @@ A new server starts at the newest row; history is not replayed. A crash can repe
 The helpers next to the film apps run in containers. They write each event as a small file into `.hs-events` in the share `media`;
 `hs-event-notify` takes only `pkg.<package>.*` kinds from there, never follows links and drops anything else.
 
+## Rules a package brings
+
+A package may declare its events in `package.toml` `[[events]]` (docs/events.md); a `notify` in an event is the default rule of that kind.
+`hs pkg` installs it to `/var/lib/hs/pkg-events/<package>.tsv`. The media helper's rules are a copy in `scripts/lib/pkg-events/` until the
+recipes ship them. The order is: your drop-in files, then the packages (by package name), then the core file; the first match wins. So a row in
+`/var/lib/hs/notify-rules.d/` with category `-` mutes a package's kind (see below). A container may leave only events of packages that have
+a declaration; any other `pkg.` kind in the spool is dropped.
+
 ## Mute a kind or add a message
 
-Rules are tab separated rows: kind (or glob), category, priority, title, message. The core rows are in `scripts/lib/notify-rules.tsv`.
+Rules are tab separated rows: kind (or glob), category, priority, title, message. The core rows are in `scripts/lib/notify-rules.tsv`; the rows of the apps come from their declarations (section "Rules a package brings").
 Put your own in `/var/lib/hs/notify-rules.d/10-own.tsv`; files there are read first, in name order, and the first match wins.
 
 ```bash
