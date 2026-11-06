@@ -103,3 +103,20 @@ words `a-z0-9-` only, topic at most 100 characters, no duplicate topic across pa
 declaration), no `live` with `args`. `live_state.topics()` and `topic_info()` append these rows (only for the default file, so tests with their own path
 are unaffected). The collector rescans every 60 s, and at once when a refresh names an unknown `ext-` topic; a removed topic stops and its key is
 deleted. The web interface takes the capability from the read itself (the topic is not in `live-topics.tsv`), and a package that is switched off has no read at all in the web interface (it is gone within 3 s, the collector stops the topic within 60 s). A web change in the area `ext/<n>` wakes `@ext-<n>`. Output is stored in Redis as printed: a read must print no secret.
+
+## Docker watcher (2026-11-06, #155)
+
+`DockerWatch` in `scripts/live-collect.py` is one thread of hs-live. It runs
+`incus exec docker -- docker events --format '{{json .}}' --filter type=container --filter type=network --filter type=volume`
+(`HS_INCUS` is honoured) and asks for the group `@docker` (the topics `docker-list` and `docker-apps`) with a direct `refresh`, no Redis round trip.
+
+- Coalescing: a refresh when 1 s passed without a new event, at the latest 5 s after the first event of a burst. Pending events are flushed when the stream ends.
+- The poll of the two topics is 300 s now; it is the safety net when the watcher is down.
+- Reconnect with back-off 1, 2, 5, 10, 30, 60 s (the last repeats; reset after a connection that was up). A connection is up after one event line or 3 s alive. Every up connection after the first asks for one refresh.
+- Logging: one journal line when an outage starts (`docker events down (<reason>), retrying with back-off`), one when it is over (`docker events back`). No state.db event kind, journal only: `journalctl -u hs-live | grep 'docker events'`.
+- Capability gate: with `docker` off there is no process; the thread checks again every 60 s.
+- Tests replace the whole command with `HS_LIVE_DOCKER_EVENTS` (a command line).
+- Open: whether a real `incus exec` without a terminal needs `--force-noninteractive` (or `-T`) to avoid a pty is not verified; check `incus exec --help` on hardware.
+- `@docker` also wakes the `any` topics; accepted.
+
+Not tested on hardware yet.

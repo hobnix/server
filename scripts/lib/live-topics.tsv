@@ -76,5 +76,5 @@ dc-state	dc state	600	skip	ad	users,security,instances,system	-
 backup-state	backup state	30	run	backup	backup,any	-
 backup-overview	backup overview	60	skip	backup	backup,shares,instances,disks,system	-
 backup-shares	backup shares	60	skip	backup	backup,shares,instances,disks,system	-
-docker-list	docker list	30	skip	docker	instances,system	-
-docker-apps	docker apps	30	skip	docker	instances,system	-
+docker-list	docker list	300	skip	docker	instances,system,docker	-
+docker-apps	docker apps	300	skip	docker	instances,system,docker	-

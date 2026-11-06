@@ -78,6 +78,7 @@ Chosen by the owner on 2026-11-04 (questions 2, 4 and 1 of the plan, section 5).
   Status: the media helper path is done (#296): `hs-media-notify.py` only emits `pkg.<package>.*` events and `scripts/event-notify.sh` sends them through `notify.sh`; `vps/hs-watch.sh` stays.
 - **Daemon watchers** (question 9): `incus monitor`, Docker events, ZED. Each would be an event source after this record; out of scope for
   0.1 unless the reliability epic (#159) asks for one.
+  Status: Docker events are done (#155): a thread in hs-live asks for @docker; incus monitor and ZED are open.
 - **Per-user visibility** of events: the stream is admin only today; filtering by user needs a `visibility` column. Not needed yet.
 - **Deck export**: `hs-deck-status` re-publishes events from state.db every 10 s; it keeps working on the widened table and should read
   `source` and `level` later.

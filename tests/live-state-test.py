@@ -5,9 +5,11 @@ import io
 import json
 import os
 import re
+import shlex
 import socket
 import tempfile
 import threading
+import time
 import unittest
 import unittest.mock
 
@@ -433,8 +435,8 @@ ID_TOPICS = {
     'backup-state': (['backup', 'state'], 30, 'run', 'backup', {'backup', 'any'}),
     'backup-overview': (['backup', 'overview'], 60, 'skip', 'backup', {'backup', 'shares', 'instances', 'disks', 'system'}),
     'backup-shares': (['backup', 'shares'], 60, 'skip', 'backup', {'backup', 'shares', 'instances', 'disks', 'system'}),
-    'docker-list': (['docker', 'list'], 30, 'skip', 'docker', {'instances', 'system'}),
-    'docker-apps': (['docker', 'apps'], 30, 'skip', 'docker', {'instances', 'system'}),
+    'docker-list': (['docker', 'list'], 300, 'skip', 'docker', {'instances', 'system', 'docker'}),
+    'docker-apps': (['docker', 'apps'], 300, 'skip', 'docker', {'instances', 'system', 'docker'}),
 }
 
 
@@ -944,6 +946,134 @@ class ExtLive(unittest.TestCase):
         self.package(self.DECL + 'live = 30\nneeds = "ct-list"\n')
         self.assertEqual(self.ext(), [])
         self.assertEqual(hs_ext.ext_declarations(), [])
+
+
+FAKE_EVENTS = r"""
+import sys, time
+mode, counter = sys.argv[1], sys.argv[2]
+try:
+    n = int(open(counter).read())
+except OSError:
+    n = 0
+n += 1
+open(counter, "w").write(str(n))
+def out(t):
+    print(t, flush=True)
+if mode == "start":
+    out('{"Type":"container","Action":"start"}')
+    time.sleep(30)
+elif mode == "burst":
+    for i in range(50):
+        out('{"Type":"%s","Action":"a%d"}' % (["container", "network", "volume"][i % 3], i))
+    time.sleep(30)
+elif mode == "restart":
+    if n == 1:
+        out('{"Type":"container","Action":"start"}')
+        time.sleep(0.1)
+        sys.exit(1)
+    if n in (2, 3):
+        out("Error: cannot connect to the Docker daemon")
+        sys.exit(1)
+    time.sleep(30)
+elif mode == "late":
+    if n == 1:
+        out("Error: cannot connect to the Docker daemon")
+        sys.exit(1)
+    time.sleep(30)
+"""
+
+
+class DockerEvents(unittest.TestCase):
+    def setUp(self):
+        self.tmp = tempfile.TemporaryDirectory()
+        self.addCleanup(self.tmp.cleanup)
+        self.fake = os.path.join(self.tmp.name, "fake.py")
+        self.counter = os.path.join(self.tmp.name, "count")
+        with open(self.fake, "w") as f:
+            f.write(FAKE_EVENTS)
+        self.calls, self.logs, self.watchers = [], [], []
+
+    def tearDown(self):
+        for w, t in self.watchers:
+            w.stop.set()
+            t.join(10)
+
+    def runs(self):
+        try:
+            return int(open(self.counter).read())
+        except (OSError, ValueError):
+            return 0
+
+    def make(self, mode, cap=True):
+        cmd = "%s %s %s %s" % (shlex.quote(sys.executable), shlex.quote(self.fake), mode, shlex.quote(self.counter))
+        p = unittest.mock.patch.dict(os.environ, {"HS_LIVE_DOCKER_EVENTS": cmd})
+        p.start()
+        self.addCleanup(p.stop)
+        w = lc.DockerWatch(refresh=self.calls.append, stop=threading.Event(), cap=lambda: cap, logf=self.logs.append)
+        w.COALESCE, w.MAX_WAIT, w.STABLE, w.BACKOFF, w.CAP_CHECK = 0.2, 1.0, 3.0, (0.05, 0.1), 0.05   # STABLE far above the start time of a fake
+        t = threading.Thread(target=w.run, daemon=True)
+        self.watchers.append((w, t))
+        t.start()
+        return w
+
+    def wait_for(self, pred, timeout=30):
+        end = time.monotonic() + timeout
+        while time.monotonic() < end:
+            if pred():
+                return True
+            time.sleep(0.05)
+        return pred()
+
+    def test_start_event_asks_for_one_refresh(self):
+        self.make("start")
+        self.assertTrue(self.wait_for(lambda: self.calls))
+        time.sleep(0.5)
+        self.assertEqual(self.calls, ["@docker"])
+        self.assertEqual(self.logs, [])
+
+    def test_burst_is_coalesced(self):
+        self.make("burst")
+        self.assertTrue(self.wait_for(lambda: self.calls))
+        time.sleep(0.6)
+        self.assertEqual(self.calls, ["@docker"])
+
+    def test_daemon_restart_reconnects_once_and_refreshes(self):
+        self.make("restart")
+        self.assertTrue(self.wait_for(lambda: self.runs() >= 4 and len(self.calls) >= 2))
+        time.sleep(0.6)
+        self.assertEqual(self.calls, ["@docker", "@docker"])
+        down = [l for l in self.logs if "docker events down" in l]
+        self.assertEqual(len(down), 1)
+        self.assertIn("down", down[0])
+        self.assertEqual(len([l for l in self.logs if "docker events back" in l]), 1)
+
+    def test_first_connect_after_failures_refreshes(self):
+        self.make("late")
+        self.assertTrue(self.wait_for(lambda: self.calls))
+        self.assertEqual(self.calls, ["@docker"])
+        self.assertEqual(len([l for l in self.logs if "docker events down" in l]), 1)
+        self.assertEqual(len([l for l in self.logs if "docker events back" in l]), 1)
+
+    def test_capability_off_runs_nothing(self):
+        self.make("start", cap=False)
+        time.sleep(0.4)
+        self.assertFalse(os.path.exists(self.counter))
+        self.assertEqual(self.calls, [])
+        self.assertEqual(self.logs, [])
+
+    def test_default_command(self):
+        env = {k: v for k, v in os.environ.items() if k != "HS_LIVE_DOCKER_EVENTS"}
+        env["HS_INCUS"] = "/x/incus"
+        with unittest.mock.patch.dict(os.environ, env, clear=True):
+            cmd = lc.docker_events_cmd()
+        self.assertEqual(cmd[:5], ["/x/incus", "exec", "docker", "--", "docker"])
+        self.assertIn("type=volume", cmd)
+        self.assertIn("event=die", cmd)
+        self.assertFalse([c for c in cmd if c.startswith("event=exec") or c == "event=health_status"])
+
+    def test_docker_group_wakes_the_docker_topics(self):
+        got = {t for t, i in ls.topic_info().items() if "docker" in i["groups"]}
+        self.assertEqual(got, {"docker-list", "docker-apps"})
 
 
 if __name__ == "__main__":

@@ -5,10 +5,13 @@ A failure without output keeps the old data (ts stays the time of the last good 
 was a good read) or "error" (never); a good read sets state "ok". A change into error and the recovery each write one event (live.collector-failed,
 live.collector-recovered), not one per failed run. Redis down: retry every 5 s, never exit. Log goes to the journal.
 A topic can name topics it needs (lib/live-topics.tsv column 7): when one of them gets a new gen, one wave thread reads the dependents once, in
-dependency order (a burst of changes is one wave); a wave never reads a topic sooner than HS_LIVE_MIN_GAP seconds (default 5) after its last read."""
+dependency order (a burst of changes is one wave); a wave never reads a topic sooner than HS_LIVE_MIN_GAP seconds (default 5) after its last read.
+DockerWatch follows the Docker event stream of the container docker and asks for @docker (#155)."""
 import json
 import math
 import os
+import queue
+import shlex
 import subprocess
 import sys
 import threading
@@ -45,11 +48,134 @@ def emit_event(kind, subject, text):
         pass
 
 
+# real lifecycle actions only: no exec_* and health_status (one set per healthcheck run and container)
+DOCKER_ACTIONS = ("create", "start", "stop", "die", "destroy", "kill", "pause", "unpause", "rename", "update", "remove", "oom",
+                  "connect", "disconnect", "mount", "unmount")
+
+
+def docker_events_cmd():
+    """The command that streams Docker events of the container `docker`; HS_LIVE_DOCKER_EVENTS (a command line) replaces it in tests."""
+    o = os.environ.get("HS_LIVE_DOCKER_EVENTS")
+    if o:
+        return shlex.split(o)
+    return [os.environ.get("HS_INCUS") or "incus", "exec", "docker", "--", "docker", "events", "--format", "{{json .}}",
+            "--filter", "type=container", "--filter", "type=network", "--filter", "type=volume"] + [
+        x for e in DOCKER_ACTIONS for x in ("--filter", "event=" + e)]
+
+
+class DockerWatch:
+    """One thread: follows `docker events` and asks for one refresh of the group docker per burst (coalesced). The 300 s poll of the
+    docker topics stays the safety net. Reconnects with back-off; an outage is logged once (start and end), not per retry; capability
+    docker off = no process. Not tested on hardware yet."""
+    GROUP = "@docker"
+    COALESCE = 1.0
+    MAX_WAIT = 5.0
+    STABLE = 3.0
+    BACKOFF = (1, 2, 5, 10, 30, 60)
+    CAP_CHECK = 60.0
+
+    def __init__(self, refresh, stop, cap=None, cmd=None, logf=None):
+        self.refresh = refresh                     # (topic) -> None, Collector.refresh
+        self.stop = stop                           # threading.Event of the collector
+        self.cap = cap or (lambda: ls.cap_on("docker"))
+        self.cmd = cmd or docker_events_cmd
+        self.log = logf or log
+        self.down = False                          # in an outage (its start was logged)
+        self.fails = 0                             # failed connections in a row (back-off index)
+
+    def _reader(self, proc, q):
+        try:
+            for line in proc.stdout:
+                q.put(line)
+        except (OSError, ValueError):
+            pass
+        q.put(None)
+
+    def _mark_up(self):
+        if self.down:
+            self.log("docker events back")
+        self.down, self.fails = False, 0
+
+    def follow(self, reconnected):
+        """One connection. -> (up, reason): up = it printed an event, or it is still alive after STABLE seconds without any error text; reason = why it ended."""
+        try:
+            proc = subprocess.Popen(self.cmd(), stdout=subprocess.PIPE, stderr=subprocess.STDOUT, stdin=subprocess.DEVNULL,
+                                    text=True, bufsize=1)
+        except OSError as e:
+            return False, str(e)
+        q = queue.Queue()
+        threading.Thread(target=self._reader, args=(proc, q), daemon=True).start()
+        start = time.monotonic()
+        up, first, last, msg = False, None, None, ""
+        try:
+            while not self.stop.is_set():
+                now = time.monotonic()
+                due = []
+                if first is not None:
+                    due.append(min(last + self.COALESCE, first + self.MAX_WAIT))
+                if not up:
+                    due.append(start + self.STABLE)
+                timeout = min(max(0.0, min(due) - now), 1.0) if due else 1.0   # at most 1 s, so a stop is seen
+                try:
+                    line = q.get(timeout=timeout)
+                except queue.Empty:
+                    now = time.monotonic()
+                    if not up and now >= start + self.STABLE and not msg and proc.poll() is None:
+                        up = True            # alive, no error text: an idle healthy stream (a hang that stays silent counts too)
+                        self._mark_up()
+                        if reconnected:              # one full refresh after a reconnect, through the coalescer
+                            first = first or now
+                            last = now
+                    if first is not None and now >= min(last + self.COALESCE, first + self.MAX_WAIT):
+                        self.refresh(self.GROUP)
+                        first = last = None
+                    continue
+                if line is None:
+                    break                            # the stream ended (daemon or container gone, incus error)
+                if not line.lstrip().startswith("{"):
+                    msg = ls.clean(line.strip()) or msg      # an error text of incus or docker, not an event
+                    continue
+                now = time.monotonic()
+                if not up:
+                    up = True
+                    self._mark_up()
+                first = first or now
+                last = now
+        finally:
+            if proc.poll() is None:
+                proc.terminate()
+                try:
+                    proc.wait(timeout=5)
+                except subprocess.TimeoutExpired:
+                    proc.kill()
+                    proc.wait()
+        if first is not None:
+            self.refresh(self.GROUP)                 # flush what came before the end
+        return up, msg or "exit %s" % proc.returncode
+
+    def run(self):
+        ever_up = False
+        while not self.stop.is_set():
+            if not self.cap():
+                self.stop.wait(self.CAP_CHECK)       # capability docker off: no process
+                continue
+            up, reason = self.follow(reconnected=ever_up or self.fails > 0)   # earlier failed connects: events before this one were missed
+            if self.stop.is_set():
+                break
+            ever_up = ever_up or up
+            if not self.down:                        # once per outage; the failed retries after it log nothing
+                self.log("docker events down (%s), retrying with back-off" % reason)
+                self.down = True
+            self.stop.wait(self.BACKOFF[min(self.fails, len(self.BACKOFF) - 1)])
+            self.fails += 1
+
+
 class Collector:
     RESCAN = 60.0         # seconds between looks at the extension packages that are on (their live reads)
     RESCAN_MIN = 3.0      # a refresh of an unknown ext- topic looks sooner, but not more often than this
 
-    def __init__(self, store, run=hs_run, topic_rows=None, connect=None, topic_info=None, ext_rows=None, emit=emit_event, topic_needs=None):
+    def __init__(self, store, run=hs_run, topic_rows=None, connect=None, topic_info=None, ext_rows=None, emit=emit_event, topic_needs=None, watchers=None):
+        self.watchers = watchers                 # objects with .run(); None = the default DockerWatch
         self.emit = emit                         # (kind, subject, text) -> None; a test passes its own
         self.store = store                       # Resp (or a fake) for writing
         self.run = run
@@ -312,6 +438,8 @@ class Collector:
         threading.Thread(target=self.watch, daemon=True).start()
         threading.Thread(target=self.waves, daemon=True).start()
         self.rescan()      # once now: a missing needs target is in the journal from the start
+        for w in (self.watchers if self.watchers is not None else [DockerWatch(self.refresh, self.stop)]):
+            threading.Thread(target=w.run, daemon=True).start()
 
 
 def main():
