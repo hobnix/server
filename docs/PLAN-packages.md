@@ -182,6 +182,7 @@ to run as a timer (nothing written except stamps it reads).
 | `hs pkg enable <name>` / `disable <name>` | what `hs ext enable/disable` does today (capabilities overlay) |
 | `hs pkg repo add\|remove\|list` | repositories |
 | `hs pkg convert <old>` | one-off: old recipe header or capability folder to `package.toml` |
+| `hs pkg new <name> --template recipe\|extension [--dir <path>]` | start a package that passes the checks in a checkout of a package repository (built 2026-11-06, #265; a capability template waits for #238) |
 | `hs recipe <name> ...`, `hs ext <name> ...` | unchanged for users: still how a recipe is run and an extension's commands are called; the namespace rule from docs/PLAN-extensions.md stays |
 
 Machine-readable twins: `hs sys pkg list|updates|repos|plan|start` with the same plan-then-start pattern as other web changes. The web page

@@ -1,0 +1,5 @@
+date  = "2026-11-06"
+type  = "feature"
+title = "hs pkg new starts a recipe or extension package that passes the checks"
+docs  = "containers-and-apps#write-a-package-of-your-own"
+body  = """hs pkg new <name> --template recipe|extension writes the package folder and its index.toml entry into a checkout of a package repository. It never overwrites an existing package."""
