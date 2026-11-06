@@ -1,0 +1,4 @@
+date  = "2026-11-06"
+type  = "fix"
+title = "Start, Stop, Lock, Unlock and similar buttons keep their spinner while the job runs"
+body  = """The spinner on a button that starts a job used to disappear when the state it changes (a container running, a user locked) showed up before the job was finished. It now stays until the job is done."""

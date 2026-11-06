@@ -121,7 +121,7 @@ the Storage > Files page, entry points from Disks, Pools and Shares.
 
 ## Later / ideas
 
-- Web buttons, full consistency: `ui/Button.svelte` is used by every button that opens a plan or awaits a request (sweep of 2026-11-02). Left on `<button class="btn">` (~190): navigation, tabs, close and cancel, buttons that open a form dialog (`openCreate`), the file manager (web/src/files, pages/Files), Login, Docs, data-driven GenericPage actions, PageState "Try again". Convert them, then add a check to tests that fails on a bare `class="btn` outside ui/Button.svelte. Busy keys that depend on live state (Start/Stop, Lock/Unlock, Automatic) stop showing busy if a poll flips the state while the job runs. Not tested in a browser yet.
+- Web buttons: every `<button class="btn">` is `ui/Button.svelte` now (check: tests/web-buttons.sh), except the file manager (web/src/files, pages/Files): its handlers return promises, so a Button would turn busy on every click; give them an explicit busy state first. Not tested in a browser yet.
 - Immutable offline copy: a rotating second backup disk with a swap reminder (tied to `hs expiry`).
 - Mobile-friendly web UI; a read-only status page per family member.
 - Quiet hours / fan schedule (`hs fans`).
