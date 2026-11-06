@@ -13,6 +13,8 @@ EXT_WORD = re.compile(r"^[a-z0-9][a-z0-9-]{0,30}$")      # a word of a live read
 LIVE_MIN, LIVE_MAX = 10, 3600
 LIVE_LOCKED = ("run", "skip")
 TOPIC_MAX = 100
+NEEDS_MAX = 8
+TOPIC_NAME = re.compile(r"^[a-z0-9][a-z0-9-]{0,99}$")
 
 
 def env(name, default):
@@ -136,9 +138,21 @@ def _pattern(p):
     return p
 
 
+def core_topics():
+    """the topic names of the core table (column 1 of live-topics.tsv); not live_state.topics, which calls into this module"""
+    path = env("HS_LIVE_TOPICS", os.path.join(os.path.dirname(os.path.abspath(__file__)), "lib", "live-topics.tsv"))
+    try:
+        with open(path, encoding="utf-8") as f:
+            return {line.split("\t")[0] for line in f if line.strip() and not line.lstrip().startswith("#")}
+    except OSError:
+        return set()
+
+
 def ext_read(name, rd, rows, caps=None):
     """Validate one [[web.reads]] entry of the package `name` against the sys rows of its commands.tsv -> (words, spec). Raises ValueError/KeyError/TypeError.
-    `live = <seconds>` (10..3600, only without args) opts the read in to a live-state topic ext-<name>-<words joined by '-'; `locked = "run"|"skip"` (default skip)."""
+    `live = <seconds>` (10..3600, only without args) opts the read in to a live-state topic ext-<name>-<words joined by '-'; `locked = "run"|"skip"` (default skip).
+    `needs = [<core topic>, ...]` (1..8, only with live): a new gen of one of them re-reads this topic in a wave (scripts/live-collect.py); ext_declarations
+    switches the live topic off when a name is not a core topic."""
     words = tuple(["ext", name] + str(rd["words"]).split())
     args = [_pattern(a) for a in rd.get("args", [])]
     if rd["kind"] not in EXT_KINDS or not isinstance(rd["ttl"], int) or not 0 <= rd["ttl"] <= 3600 or len(words) < 3:
@@ -165,6 +179,14 @@ def ext_read(name, rd, rows, caps=None):
         # the capability that must be on (a recipe package has none: it is on once applied; the rescan drops it when it goes)
         caps = capabilities() if caps is None else caps
         spec.update({"topic": topic, "live": live, "locked": locked, "cap": name if name in caps else None})
+    if "needs" in rd:
+        needs = rd["needs"]
+        if "live" not in rd:
+            raise ValueError("needs only with live")
+        if (not isinstance(needs, list) or not 1 <= len(needs) <= NEEDS_MAX
+                or not all(isinstance(n, str) and TOPIC_NAME.match(n) for n in needs)):
+            raise ValueError("needs must be a list of up to 8 topic names")
+        spec["needs"] = sorted(set(needs))
     return words, spec
 
 
@@ -214,7 +236,7 @@ def ext_declarations(log=None):
     anything wrong adds nothing (the reason goes to `log(text)`), and a live topic name that an earlier package already has drops the later package.
     The one rule for the web interface (ext_load_web) and the live-state collector (ext_live_rows), so they always agree on what is registered."""
     import tomllib
-    out, taken, caps = [], set(), capabilities()
+    out, taken, caps, core = [], set(), capabilities(), core_topics()
     for name, d in ext_packages():
         try:
             web = ext_manifest(d).get("web", {})
@@ -228,6 +250,13 @@ def ext_declarations(log=None):
                 if t and (t in taken or any(v.get("topic") == t for v in r_new.values())):
                     raise ValueError("a live topic name is used twice")
                 r_new[words] = spec
+            for spec in r_new.values():
+                missing = [t for t in spec.get("needs", ()) if t not in core]
+                if missing:      # the read stays a plain direct read; the same rule for the web interface and the collector
+                    if log:
+                        log("extension %s: live topic %s off (needs unknown topic %s)" % (name, spec["topic"], ", ".join(missing)))
+                    for k in ("topic", "live", "locked", "cap", "needs"):
+                        spec.pop(k, None)
             for ch in web.get("changes", []):
                 if "patterns" in ch:
                     c_new.append([_pattern(p) for p in ch["patterns"]])
@@ -267,13 +296,15 @@ def ext_load_web():
     return reads, changes, pages
 
 
-def ext_live_rows():
+def ext_live_rows(log=None):
     """-> (rows, info) of the live reads of the packages whose whole declaration is good: rows are (topic, words list, seconds, lock mode) like
     live_state.topics(), info is {topic: {"cap": name|None, "groups": {"ext-<name>"}}}."""
     rows, info = [], {}
-    for name, r_new, _, _ in ext_declarations():
+    for name, r_new, _, _ in ext_declarations(log):
         for words, spec in r_new.items():
             if "topic" in spec:
                 rows.append((spec["topic"], list(words), spec["live"], spec["locked"]))
                 info[spec["topic"]] = {"cap": spec["cap"], "groups": {"ext-" + name}}
+                if spec.get("needs"):
+                    info[spec["topic"]]["needs"] = tuple(spec["needs"])
     return rows, info

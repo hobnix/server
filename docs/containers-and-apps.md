@@ -320,6 +320,31 @@ hs pkg repo add <name> <url> --key <allowed-signers-file>
 for the command line, and a repository without signatures lets its owner run code on your server.) Extensions are switched on and off with `hs ext enable <name>`
 and `hs ext disable <name>`, and `hs ext list` shows them.
 
+## Write a package of your own
+
+A package is a folder in a checkout of a package repository: `recipes/<name>/` in hobnix/recipes, `extensions/<name>/` in
+hobnix/extensions, or the same layout in a repository of your own. `hs pkg new` writes one that passes the checks as it is. Run it inside
+the checkout (or name it with `--dir <path>`):
+
+```bash
+hs pkg new my-app --template recipe --title "My app: what it does"
+```
+
+A recipe gets `package.toml`, `run.sh` (creates the container `my-app` and runs one step in it), `guide.md` and `i18n/de.tsv`. An
+extension (`--template extension`) gets `package.toml`, `capability.toml` with one web read, `commands.tsv` with `hs ext <name> list` and
+its data twin `hs sys ext <name> list`, `list.sh`, `NOTES.md`, `guide.md` and `i18n/de.tsv`. Both get an entry in `index.toml` with the
+version `0.1.0`. The command never overwrites: a folder or an index entry with the same name stops it. A template for capabilities follows
+with the service extensions.
+
+Replace the example step or command with your own, keep the header lines of `run.sh` and `package.toml` in step, then check the package
+(`<core>` is the checkout of the core, `/etc/nixos` on a server):
+
+```bash
+python3 -I <core>/scripts/pkg.py repo-check .
+```
+
+The repository's CONTRIBUTING.md has the rest: versions, branches, releases. Not tested on hardware yet.
+
 ## Apps in Docker (the Docker page)
 
 When the capability `docker` is on, the locked container `docker` holds apps that are

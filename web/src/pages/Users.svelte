@@ -53,14 +53,14 @@
 
 <PageHeader title="Users" crumb="Identity" sub="The accounts of the domain. Locking or deleting shows a plan first.">
   {#snippet actions()}
-    <button class="btn" use:tip={'The SSH keys that may log in as adminuser'} onclick={() => openCreate(SshKeys)}><i class="ph ph-key"></i>SSH keys</button>
-    <button use:tip={'Create a user'} class="btn btn-primary" onclick={() => openCreate(NewUser)}><i class="ph ph-plus"></i>New user</button>
+    <Button tooltip={'The SSH keys that may log in as adminuser'} onclick={() => openCreate(SshKeys)}><i class="ph ph-key"></i>SSH keys</Button>
+    <Button variant="primary" tooltip={'Create a user'} onclick={() => openCreate(NewUser)}><i class="ph ph-plus"></i>New user</Button>
   {/snippet}
 </PageHeader>
 
 <PageState loading={!list.loaded} error={list.error?.message} hasData={list.data != null} empty={list.loaded && !users.length}
            emptyIcon="user" emptyTitle="No users" emptyText="The domain controller (dc1) may be down, or the storage is locked. Otherwise add the first user.">
-  {#snippet emptyAction()}<button use:tip={'Create a user'} class="btn btn-primary" onclick={() => openCreate(NewUser)}><i class="ph ph-plus"></i>New user</button>{/snippet}
+  {#snippet emptyAction()}<Button variant="primary" tooltip={'Create a user'} onclick={() => openCreate(NewUser)}><i class="ph ph-plus"></i>New user</Button>{/snippet}
   <Split open={!!sel}>
     {#snippet list()}
       <div class="card" style="padding:0">
@@ -94,12 +94,12 @@
             {/if}
           {/snippet}
           {#snippet actions()}
-            <button class="btn" use:tip={'Change the full name, email and description'} onclick={() => openCreate(EditUser, { user: sel.name })}><i class="ph ph-pencil-simple"></i>Edit</button>
-            <button use:tip={'Set a new password for this user'} class="btn" onclick={() => openCreate(SetPassword, { user: sel.name })}><i class="ph ph-password"></i>Password</button>
-            <button use:tip={'Choose the groups of this user'} class="btn" onclick={() => openCreate(Membership, { subject: 'user', name: sel.name, have: sel.groups, options: groupNames })}><i class="ph ph-users-three"></i>Groups</button>
-            <Button variant="ghost" icon={sel.enabled ? 'lock' : 'lock-open'} disabled={isAdmin} busy={jobRunning('users', [sel.name, sel.enabled ? 'lock' : 'unlock'])} busyLabel={sel.enabled ? 'Locking…' : 'Unlocking…'} tooltip={isAdmin ? 'Administrator cannot be locked' : sel.enabled ? 'Lock the account (shows the plan first)' : 'Unlock the account (shows the plan first)'}
+            <Button tooltip={'Change the full name, email and description'} onclick={() => openCreate(EditUser, { user: sel.name })}><i class="ph ph-pencil-simple"></i>Edit</Button>
+            <Button tooltip={'Set a new password for this user'} onclick={() => openCreate(SetPassword, { user: sel.name })}><i class="ph ph-password"></i>Password</Button>
+            <Button tooltip={'Choose the groups of this user'} onclick={() => openCreate(Membership, { subject: 'user', name: sel.name, have: sel.groups, options: groupNames })}><i class="ph ph-users-three"></i>Groups</Button>
+            <Button variant="ghost" icon={sel.enabled ? 'lock' : 'lock-open'} disabled={isAdmin} busy={(jobRunning('users', [sel.name, 'lock']) || jobRunning('users', [sel.name, 'unlock']))} busyLabel={sel.enabled ? 'Locking…' : 'Unlocking…'} tooltip={isAdmin ? 'Administrator cannot be locked' : sel.enabled ? 'Lock the account (shows the plan first)' : 'Unlock the account (shows the plan first)'}
               onclick={() => openPlan('users', [sel.name, sel.enabled ? 'lock' : 'unlock'], `${sel.enabled ? 'Lock' : 'Unlock'} ${sel.name}`)}>{sel.enabled ? 'Lock' : 'Unlock'}</Button>
-            <Button variant="ghost" class="danger" icon="trash" disabled={isAdmin} busy={jobRunning('users', [sel.name, 'user-delete'])} busyLabel="Deleting…" tooltip={isAdmin ? 'Administrator cannot be deleted' : 'Delete the user (cannot be undone; you type the name)'}
+            <Button variant="ghost" class="users-danger" icon="trash" disabled={isAdmin} busy={jobRunning('users', [sel.name, 'user-delete'])} busyLabel="Deleting…" tooltip={isAdmin ? 'Administrator cannot be deleted' : 'Delete the user (cannot be undone; you type the name)'}
               onclick={() => openPlan('users', [sel.name, 'user-delete'], `Delete ${sel.name}`)}>Delete</Button>
           {/snippet}
         </Drawer>
@@ -112,7 +112,7 @@
   .muted { color: var(--fg-3); font-size: 12.5px; }
   .tags { display: flex; gap: 4px; flex-wrap: wrap; }
   .st { display: inline-flex; align-items: center; gap: 6px; }
-  .danger { color: var(--bad); }
+  :global(.btn.users-danger) { color: var(--bad); }
   .note { margin: 0; padding: 10px 16px; font-size: 12.5px; color: var(--fg-3); }
   .table { font-size: 12.5px; }
   .link-btn { all: unset; cursor: pointer; color: var(--accent); }

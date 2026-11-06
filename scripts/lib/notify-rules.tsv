@@ -7,15 +7,4 @@
 # Drop-in files: every *.tsv in /var/lib/hs/notify-rules.d (HS_NOTIFY_RULES_DIR) is read first, in name order, so a package or the owner
 # can add rows or override one of these. docs/notify-rules.md. Not listed on purpose: job.failed (hs-notify-failure@ tells it) and
 # storage.pool-fault (scripts/zed-event.sh tells it), they would be told twice.
-pkg.maintainerr.planned	info	default	{name}: {label}	{body}
-pkg.maintainerr.deleted	info	default	{name}: {label}	{body}
-pkg.maintainerr.test	info	low	{name}: {label}	{body}
-pkg.sabnzbd.added	info	low	{name}: {label}	{body}
-pkg.sabnzbd.unpacking	info	min	{name}: {label}	{body}
-pkg.sabnzbd.finished	ok	default	{name}: {label}	{body}
-pkg.sabnzbd.failed	problem	high	{name}: {label}	{body}
-pkg.sabnzbd.queue-done	info	low	{name}: {label}	{body}
-pkg.sabnzbd.disk-full	alarm	urgent	{name}: {label}	{body}
-pkg.sabnzbd.error	problem	high	{name}: {label}	{body}
-pkg.sabnzbd.warning	problem	default	{name}: {label}	{body}
-pkg.sabnzbd.test	info	low	{name}: {label}	{body}
+# Rules a package brings come from its declaration (/var/lib/hs/pkg-events/<package>.tsv, or scripts/lib/pkg-events/ for the media helper until the recipes ship it), read after the drop-in files and before this file.

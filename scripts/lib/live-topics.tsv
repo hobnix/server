@@ -7,72 +7,74 @@
 # Columns 5 and 6: cap = the capability that must be on for the topic to run (`-` = always; a topic whose cap is off is not run and has no
 # document); groups = comma list of change areas (registry `topic:` words, ext-<name>) whose change wakes the topic, `-` = none. A refresh
 # `@<group>` wakes every topic that lists the group or the group `any`; `*` wakes all.
+# Column 7: needs = comma list of topics (column 1 of this file) whose new gen re-reads this topic in a wave
+# (scripts/live-collect.py), `-` = none. Checked by tests/live-state-test.py (unknown topic, self reference, cycle fail).
 # Lock mode: mounted-pool/Samba reads skip while locked (they need services that are down); lock-aware reads run so the UI can show
 # the defined locked state. Unlock refreshes all topics immediately.
-status	status	15	run	-	any
-live	live status	5	run	-	any
-monitor-disks	monitor disks	15	run	-	disks
-disk-health	disk-health list	30	run	-	disks
-disk-inventory	state disks	30	run	-	disks
-disk-marks	disk marks	15	run	-	disks
-pool-info-bulk	pool info bulk	15	skip	-	disks
-pool-info-fast	pool info fast	15	skip	-	disks
-pool-members-bulk	pool members bulk	15	skip	-	disks
-pool-members-fast	pool members fast	15	skip	-	disks
-pool-state-bulk	pool state bulk	10	run	-	disks
-pool-state-fast	pool state fast	10	run	-	disks
-shares-overview	shares overview	30	skip	-	shares
-shares-deleted	shares deleted	60	skip	-	shares
-shares-principals	shares principals	60	skip	-	shares
-encryption	encryption list	30	run	-	security
-vault-list	vault list	60	run	-	security
-vault-usage	vault usage	30	run	-	security
-vault-uses	vault uses	60	run	-	security
-state-history	state history	30	run	-	disks
-fm-locations	fm locations	15	run	-	shares
-temp-disks	temp-disk raw	30	run	-	disks,shares
-deck	deck	5	run	-	any
-jobs-running	jobs running	10	run	-	any,jobs
-jobs-list	jobs list	30	run	-	jobs,system
-health-next	health next	30	run	-	any
-health-list	health list	60	run	-	system
-hardware	hardware	15	run	-	system
-ups	ups status	30	run	-	system
-system-updates	system updates	60	skip	-	system
-system-config	system config	300	run	-	system,network
-setup-list	setup list	30	run	-	any
-config-list	config list	60	run	-	system,network,security,backup
-parts-list	parts list	60	run	-	system,network
-node-list	node list	30	run	-	network,system
-ssh-keys	ssh-key list	60	run	-	security
-expiry	expiry list	300	run	-	system
-notify-channels	notify channels	60	run	notifications	system
-notify-providers	notify providers	3600	run	notifications	-
-ct-list	ct list	10	skip	incus	instances,shares,network
-ct-profiles	ct profiles	120	skip	incus	instances,network,system
-services-list	services list	30	skip	-	instances,network
-services-app	services app	30	skip	-	instances,network
-services-routes	services routes	30	skip	-	instances,network
-services-local-routes	services local-routes	30	skip	gateway	instances,network,system
-services-tiles	services tiles	60	skip	dashboard	instances,network
-services-stats	services stats	30	skip	dashboard	network
-pkg-market	pkg market	120	skip	-	system,instances
-pkg-repos	pkg repos	300	run	-	system
-recipes-list	recipes list	60	skip	incus	instances,system
-recipes-versions	recipes versions	60	skip	-	instances,system
-gateway-status	gateway status	60	skip	gateway	network,instances,system
-gateway-routes	gateway routes	60	skip	gateway	network,instances,system
-gateway-health	gateway health	300	skip	gateway	network,instances,system
-dns-list	dns list	300	skip	ad	network,instances,system
-unifi-networks	unifi networks	300	skip	network	network,system
-unifi-clients	unifi clients	60	skip	network	network,instances,system
-ports-list	ports list	120	skip	-	network,instances,system
-remote-list	remote list	60	skip	-	network,shares,system
-users-list	users list	60	skip	ad	users,shares,instances,system
-users-groups	users groups	60	skip	ad	users,shares,instances,system
-dc-state	dc state	600	skip	ad	users,security,instances,system
-backup-state	backup state	30	run	backup	backup,any
-backup-overview	backup overview	60	skip	backup	backup,shares,instances,disks,system
-backup-shares	backup shares	60	skip	backup	backup,shares,instances,disks,system
-docker-list	docker list	30	skip	docker	instances,system
-docker-apps	docker apps	30	skip	docker	instances,system
+status	status	15	run	-	any	-
+live	live status	5	run	-	any	-
+monitor-disks	monitor disks	15	run	-	disks	-
+disk-health	disk-health list	30	run	-	disks	-
+disk-inventory	state disks	30	run	-	disks	-
+disk-marks	disk marks	15	run	-	disks	-
+pool-info-bulk	pool info bulk	15	skip	-	disks	-
+pool-info-fast	pool info fast	15	skip	-	disks	-
+pool-members-bulk	pool members bulk	15	skip	-	disks	-
+pool-members-fast	pool members fast	15	skip	-	disks	-
+pool-state-bulk	pool state bulk	10	run	-	disks	-
+pool-state-fast	pool state fast	10	run	-	disks	-
+shares-overview	shares overview	30	skip	-	shares	-
+shares-deleted	shares deleted	60	skip	-	shares	-
+shares-principals	shares principals	60	skip	-	shares	-
+encryption	encryption list	30	run	-	security	-
+vault-list	vault list	60	run	-	security	-
+vault-usage	vault usage	30	run	-	security	-
+vault-uses	vault uses	60	run	-	security	-
+state-history	state history	30	run	-	disks	-
+fm-locations	fm locations	15	run	-	shares	-
+temp-disks	temp-disk raw	30	run	-	disks,shares	-
+deck	deck	5	run	-	any	-
+jobs-running	jobs running	10	run	-	any,jobs	-
+jobs-list	jobs list	30	run	-	jobs,system	-
+health-next	health next	30	run	-	any	-
+health-list	health list	60	run	-	system	-
+hardware	hardware	15	run	-	system	-
+ups	ups status	30	run	-	system	-
+system-updates	system updates	60	skip	-	system	-
+system-config	system config	300	run	-	system,network	-
+setup-list	setup list	30	run	-	any	-
+config-list	config list	60	run	-	system,network,security,backup	-
+parts-list	parts list	60	run	-	system,network	-
+node-list	node list	30	run	-	network,system	-
+ssh-keys	ssh-key list	60	run	-	security	-
+expiry	expiry list	300	run	-	system	-
+notify-channels	notify channels	60	run	notifications	system	-
+notify-providers	notify providers	3600	run	notifications	-	-
+ct-list	ct list	10	skip	incus	instances,shares,network	-
+ct-profiles	ct profiles	120	skip	incus	instances,network,system	-
+services-list	services list	30	skip	-	instances,network	ct-list
+services-app	services app	30	skip	-	instances,network	ct-list
+services-routes	services routes	30	skip	-	instances,network	services-list
+services-local-routes	services local-routes	30	skip	gateway	instances,network,system	services-list
+services-tiles	services tiles	60	skip	dashboard	instances,network	services-list
+services-stats	services stats	30	skip	dashboard	network	-
+pkg-market	pkg market	120	skip	-	system,instances	-
+pkg-repos	pkg repos	300	run	-	system	-
+recipes-list	recipes list	60	skip	incus	instances,system	-
+recipes-versions	recipes versions	60	skip	-	instances,system	-
+gateway-status	gateway status	60	skip	gateway	network,instances,system	-
+gateway-routes	gateway routes	60	skip	gateway	network,instances,system	-
+gateway-health	gateway health	300	skip	gateway	network,instances,system	-
+dns-list	dns list	300	skip	ad	network,instances,system	-
+unifi-networks	unifi networks	300	skip	network	network,system	-
+unifi-clients	unifi clients	60	skip	network	network,instances,system	-
+ports-list	ports list	120	skip	-	network,instances,system	-
+remote-list	remote list	60	skip	-	network,shares,system	-
+users-list	users list	60	skip	ad	users,shares,instances,system	-
+users-groups	users groups	60	skip	ad	users,shares,instances,system	-
+dc-state	dc state	600	skip	ad	users,security,instances,system	-
+backup-state	backup state	30	run	backup	backup,any	-
+backup-overview	backup overview	60	skip	backup	backup,shares,instances,disks,system	-
+backup-shares	backup shares	60	skip	backup	backup,shares,instances,disks,system	-
+docker-list	docker list	30	skip	docker	instances,system	-
+docker-apps	docker apps	30	skip	docker	instances,system	-

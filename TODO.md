@@ -9,7 +9,9 @@ Brought up to date with main at #346 on 2026-10-27 (merged: #323 to #340, #346).
 1. [~] CI on pull requests only (action minutes ran out when every push ran): `ci.yml` runs on `pull_request`, `v*` tags and by hand,
    with `concurrency` cancelling older runs (2026-10-27). Then find out which tests are red and fix them; run the root/udev tests
    (`tests/pool.sh`, `pool-encrypted.sh`, `adopt.sh`, the share tests that mount pools; `tests/lib.sh` sets `HS_DISKS_ROOT=/mnt/bulk`).
-   2026-11-01: `t quick` in WSL ran 182 tests, 5 were red (i18n, machine-toml, notify-channel, smoke, system) and are fixed, not committed yet; root and VM tests still not run.
+   2026-11-01: `t quick` in WSL ran 182 tests, 5 were red (i18n, machine-toml, notify-channel, smoke, system); the fixes were never committed and are on no branch.
+   2026-11-05 (Debian 13, 2 CPUs, no root): those 5 tests were re-run alone with `jq`, `column`, `shellcheck` on the PATH and are green (smoke and system on the first run, the other three with `T_TIMEOUT=1500`; i18n and notify-channel passed again on the plain `/tmp`). So no code change was needed. They are slow here: the default 280 s per test is too short for i18n, machine-toml and notify-channel.
+   A full `t quick` was NOT finished: the runs were stopped after about 60 of 233 tests. Without `column` and `jq` many tests fail for that reason alone; `/tmp` is a 1.9 GB tmpfs, so `disk-move` and `disk-recover` (10 GiB free-space rule) failed, and `backup-drill-ct`, `event-notify` had red checks that were not looked at. `t root` and `t vm` were NOT run: no sudo, no loop devices, no qemu.
    Known WSL-only failures: one check of `tests/monitor.sh` (reads the real `/dev/sde`), two of `tests/update-preview.sh` (`nix-build`).
 2. [?] Work through the guides on the real server (steps marked "Not tested on hardware yet.") in blocks (first `hs rebuild` with `webUi = true`, a click-through of
    every web page, vault, backup, `hs ports`, `hs update --preview`, `hs sys health next`, a full boot cycle, `homeserver reboot`).
@@ -121,7 +123,7 @@ the Storage > Files page, entry points from Disks, Pools and Shares.
 
 ## Later / ideas
 
-- Web buttons, full consistency: `ui/Button.svelte` is used by every button that opens a plan or awaits a request (sweep of 2026-11-02). Left on `<button class="btn">` (~190): navigation, tabs, close and cancel, buttons that open a form dialog (`openCreate`), the file manager (web/src/files, pages/Files), Login, Docs, data-driven GenericPage actions, PageState "Try again". Convert them, then add a check to tests that fails on a bare `class="btn` outside ui/Button.svelte. Busy keys that depend on live state (Start/Stop, Lock/Unlock, Automatic) stop showing busy if a poll flips the state while the job runs. Not tested in a browser yet.
+- Web buttons: every `<button class="btn">` is `ui/Button.svelte` now (check: tests/web-buttons.sh), except the file manager (web/src/files, pages/Files): its handlers return promises, so a Button would turn busy on every click; give them an explicit busy state first. Not tested in a browser yet.
 - Immutable offline copy: a rotating second backup disk with a swap reminder (tied to `hs expiry`).
 - Mobile-friendly web UI; a read-only status page per family member.
 - Quiet hours / fan schedule (`hs fans`).

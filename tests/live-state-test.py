@@ -158,6 +158,131 @@ class Collect(unittest.TestCase):
         self.assertTrue(c.events["status"].is_set())
 
 
+class Needs(unittest.TestCase):
+    """dependency graph and waves (#153)"""
+
+    def make(self, edges, run=None, names=None):
+        names = names or sorted({k for k in edges} | {n for v in edges.values() for n in v})
+        rows = [(n, [n], 30, "run") for n in names]
+        calls = []
+        count = {}
+
+        def default(words):
+            count[words[0]] = count.get(words[0], 0) + 1
+            return 0, "%s %d\n" % (words[0], count[words[0]]), ""
+        inner = run or default
+
+        def wrapped(words):
+            calls.append(words[0])
+            return inner(words)
+        c = lc.Collector(FakeResp(), run=wrapped, topic_rows=rows, topic_info={n: {"cap": None, "groups": set()} for n in names},
+                         topic_needs=edges)
+        c.min_gap = 0
+        return c, calls
+
+    def test_real_table_is_clean(self):
+        own = os.path.join(scripts, "lib", "live-topics.tsv")
+        self.assertEqual(ls.graph(ls.topic_needs(own), {t[0] for t in ls.topics(own)})[2], [])
+        self.assertEqual(ls.topic_needs(own)["services-routes"], ("services-list",))
+        self.assertEqual(ls.topic_needs(own)["status"], ())
+
+    def test_graph_rejects(self):
+        order, clean, problems = ls.graph({"a": ("nosuch",), "b": ("b",)}, {"a", "b"})
+        self.assertEqual(sorted(problems), ["topic a needs unknown topic nosuch", "topic b needs itself"])
+        self.assertEqual((clean["a"], clean["b"], order), ((), (), ["a", "b"]))
+        order, clean, problems = ls.graph({"a": ("b",), "b": ("a",), "c": ("a",), "d": ()}, {"a", "b", "c", "d"})
+        self.assertEqual(problems, ["dependency cycle among: a, b, c"])
+        self.assertEqual(clean, {"a": (), "b": (), "c": (), "d": ()})
+        self.assertEqual(sorted(order), ["a", "b", "c", "d"])
+
+    def test_chain(self):
+        c, calls = self.make({"b": ("a",), "c": ("b",)})
+        self.assertEqual(c.wave({"a"}), ["b", "c"])
+        self.assertEqual(calls, ["b", "c"])
+
+    def test_diamond_reads_d_once_and_last(self):
+        c, calls = self.make({"b": ("a",), "c": ("a",), "d": ("b", "c")})
+        self.assertEqual(c.wave({"a"}), ["b", "c", "d"])
+        self.assertEqual(calls.count("d"), 1)
+        self.assertEqual(calls[-1], "d")
+
+    def test_only_a_new_gen_spreads(self):
+        c, calls = self.make({"b": ("a",), "c": ("b",)}, run=lambda w: (0, "same\n", ""))
+        self.assertTrue(c.collect("b", ["b"]))
+        self.assertFalse(c.collect("b", ["b"]))        # identical read: no new gen
+        calls.clear()
+        self.assertEqual(c.wave({"a"}), ["b"])         # b read, identical, so c is not read
+        c.changed("x")
+        self.assertEqual(c.pending, set())
+        c.changed("a")
+        self.assertEqual(c.pending, {"a"})
+
+    def test_loop_does_not_queue_on_identical_read(self):
+        c, _ = self.make({"b": ("a",)}, run=lambda w: (0, "same\n", ""))
+        c.collect("a", ["a"])
+        seen = []
+        c.changed = seen.append
+        t = threading.Thread(target=c.loop, args=("a", ["a"], 60, "run"), daemon=True)
+        t.start()
+        import time
+        time.sleep(0.3)
+        c.stop.set()
+        c.events["a"].set()
+        t.join(2)
+        self.assertEqual(seen, [])
+
+    def test_error_in_a_changes_nothing(self):
+        outs = [(0, "ok\n", ""), (1, "", "boom")]
+        c, calls = self.make({"b": ("a",)}, run=lambda w: outs.pop(0) if w[0] == "a" else (0, "b\n", ""))
+        c.collect("b", ["b"])
+        before = c.store.data["hs:v1:b"]
+        self.assertTrue(c.collect("a", ["a"]))
+        self.assertFalse(c.collect("a", ["a"]))        # failed: not a new gen, no wave
+        self.assertEqual(c.store.data["hs:v1:b"], before)
+        self.assertEqual(json.loads(c.store.data["hs:v1:b"])["state"], "ok")
+
+    def test_error_in_b_inside_a_wave(self):
+        state = {"n": 0}
+
+        def run(w):
+            if w[0] == "b":
+                state["n"] += 1
+                return (0, "good\n", "") if state["n"] == 1 else (1, "", "boom")
+            return 0, "c\n", ""
+        c, calls = self.make({"b": ("a",), "c": ("b",)}, run=run)
+        self.assertEqual(c.wave({"a"}), ["b", "c"])
+        calls.clear()
+        self.assertEqual(c.wave({"a"}), ["b"])
+        doc = json.loads(c.store.data["hs:v1:b"])
+        self.assertEqual((doc["state"], doc["out"]), ("stale", "good\n"))
+
+    def test_min_gap_waits_and_a_burst_is_one_wave(self):
+        import time
+        c, calls = self.make({"b": ("a",)})
+        c.min_gap = 0.2
+        c.last_read["b"] = time.time()
+        t0 = time.time()
+        self.assertEqual(c.wave({"a"}), ["b"])
+        self.assertGreaterEqual(time.time() - t0, 0.15)
+        c.changed("a")
+        c.changed("a")
+        self.assertEqual(c.pending, {"a"})
+
+    def test_bad_min_gap_env(self):
+        for v, want in (("x", 5.0), ("-1", 5.0), ("0", 0.0), ("2.5", 2.5)):
+            with unittest.mock.patch.dict(os.environ, {"HS_LIVE_MIN_GAP": v}):
+                c = lc.Collector(FakeResp(), topic_rows=[], topic_info={}, topic_needs={})
+            self.assertEqual(c.min_gap, want)
+
+    def test_group_refresh_still_works(self):
+        rows = [("a", ["a"], 30, "run"), ("b", ["b"], 30, "run")]
+        info = {"a": {"cap": None, "groups": {"disks"}}, "b": {"cap": None, "groups": {"shares"}}}
+        c = lc.Collector(FakeResp(), run=lambda w: (0, "x", ""), topic_rows=rows, topic_info=info, topic_needs={"b": ("a",)})
+        c.refresh("@disks")
+        self.assertTrue(c.events["a"].is_set())
+        self.assertFalse(c.events["b"].is_set())
+
+
 class Reconnect(unittest.TestCase):
     def test_old_store_is_closed_before_the_new_one(self):
         closed, fresh = [], FakeResp()
@@ -550,7 +675,8 @@ class Cli(unittest.TestCase):
         self.assertEqual(len(lines), 67)
         status = [l for l in lines if l.startswith("status\t")][0].split("\t")
         live = [l for l in lines if l.startswith("live\t")][0].split("\t")
-        self.assertEqual(len(status), 7)
+        self.assertEqual(len(status), 8)
+        self.assertEqual(status[7], "-")
         self.assertEqual((status[0], status[1], status[3], status[4], status[5], status[6]), ("status", "15", "4", "0", "-", "-"))
         self.assertIn(int(status[2]), (7, 8))
         self.assertEqual((live[0], live[1], live[3], live[4], live[5], live[6]), ("live", "5", "0", "-", "-", "-"))
@@ -559,7 +685,11 @@ class Cli(unittest.TestCase):
     def test_status_without_data(self):
         out = io.StringIO()
         ls.cli_status(FakeResp(), out)
-        lines = sorted(out.getvalue().rstrip("\n").split("\n"))
+        raw = out.getvalue().rstrip("\n").split("\n")
+        self.assertTrue(all(len(l.split("\t")) == 8 for l in raw))
+        by = {l.split("\t")[0]: l.split("\t")[7] for l in raw}
+        self.assertEqual((by["services-routes"], by["status"]), ("services-list", "-"))
+        lines = sorted("\t".join(l.split("\t")[:7]) for l in raw)
         old = ['disk-health	30	-1	0	-	-	-', 'disk-inventory	30	-1	0	-	-	-', 'disk-marks	15	-1	0	-	-	-', 'encryption	30	-1	0	-	-	-', 'fm-locations	15	-1	0	-	-	-', 'live	5	-1	0	-	-	-', 'monitor-disks	15	-1	0	-	-	-', 'pool-info-bulk	15	-1	0	-	-	-', 'pool-info-fast	15	-1	0	-	-	-', 'pool-members-bulk	15	-1	0	-	-	-', 'pool-members-fast	15	-1	0	-	-	-', 'pool-state-bulk	10	-1	0	-	-	-', 'pool-state-fast	10	-1	0	-	-	-', 'shares-deleted	60	-1	0	-	-	-', 'shares-overview	30	-1	0	-	-	-', 'shares-principals	60	-1	0	-	-	-', 'state-history	30	-1	0	-	-	-', 'status	15	-1	0	-	-	-', 'temp-disks	30	-1	0	-	-	-', 'vault-list	60	-1	0	-	-	-', 'vault-usage	30	-1	0	-	-	-', 'vault-uses	60	-1	0	-	-	-']
         self.assertEqual(lines, sorted(old + ["%s	%s	-1	0	-	-	-" % (t, iv) for t, iv in SYSTEM_TOPICS.items()] + ["%s	%s	-1	0	-	-	-" % (t, v[1]) for t, v in INSTANCE_TOPICS.items()] + ["%s	%s	-1	0	-	-	-" % (t, v[1]) for t, v in APP_TOPICS.items()] + ["%s	%s	-1	0	-	-	-" % (t, v[1]) for t, v in NET_TOPICS.items()] + ["%s	%s	-1	0	-	-	-" % (t, v[1]) for t, v in ID_TOPICS.items()]))
 
@@ -860,6 +990,41 @@ class ExtLive(unittest.TestCase):
         c.refresh("ext-demo-list")
         self.assertEqual(started, ["ext-demo-list"])
         self.assertTrue(c.events["ext-demo-list"].is_set())
+
+    def test_rescan_follows_a_changed_needs_alone(self):
+        decl = self.DECL + 'live = 30\nneeds = ["%s"]\n'
+        self.package(decl % "ct-list")
+        c = lc.Collector(FakeResp(), run=lambda w: (0, "x", ""),
+                         topic_rows=[("ct-list", ["ct"], 15, "run"), ("services-list", ["s"], 15, "run")],
+                         topic_info={}, topic_needs={}, ext_rows=ls.ext_live)
+        c._spawn = lambda *r: None
+        c.rescan()
+        self.assertEqual(c.needs["ext-demo-list"], ("ct-list",))
+        self.package(decl % "services-list")
+        c.rescan()
+        self.assertEqual(c.needs["ext-demo-list"], ("services-list",))
+
+    def test_needs_of_an_extension_read(self):
+        self.package(self.DECL + 'live = 30\nneeds = ["ct-list"]\n')
+        self.assertEqual([r[0] for r in self.ext()], ["ext-demo-list"])
+        self.assertEqual(ls.topic_info()["ext-demo-list"]["needs"], ("ct-list",))
+        self.assertEqual(ls.topic_needs()["ext-demo-list"], ("ct-list",))
+
+    def test_unknown_needs_target_switches_the_topic_off(self):
+        self.package(self.DECL + 'live = 30\nneeds = ["nosuch"]\n')
+        got = []
+        self.assertEqual(self.ext(), [])
+        reads = hs_ext.ext_declarations(got.append)[0][1]
+        self.assertNotIn("topic", reads[("ext", "demo", "list")])
+        self.assertIn("extension demo: live topic ext-demo-list off (needs unknown topic nosuch)", got)
+        self.assertIn(("ext", "demo", "list"), hs_ext.ext_load_web()[0])
+
+    def test_bad_needs_drops_the_package(self):
+        self.package(self.DECL + 'needs = ["ct-list"]\n')
+        self.assertEqual(hs_ext.ext_declarations(), [])
+        self.package(self.DECL + 'live = 30\nneeds = "ct-list"\n')
+        self.assertEqual(self.ext(), [])
+        self.assertEqual(hs_ext.ext_declarations(), [])
 
 
 if __name__ == "__main__":

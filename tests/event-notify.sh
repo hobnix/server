@@ -6,8 +6,9 @@
 command -v python3 >/dev/null || { echo "python3 missing: skipped"; exit 0; }
 wp() { if command -v cygpath >/dev/null 2>&1; then cygpath -m "$1"; else echo "$1"; fi; }
 export HS_PLAIN=1 HS_LANG=en HS_CALLER=test
-mkdir -p "$WORK/st" "$WORK/rules.d" "$WORK/spool"
+mkdir -p "$WORK/st" "$WORK/rules.d" "$WORK/spool" "$WORK/pe"
 export HS_STATE_DIR=$(wp "$WORK/st") HS_STATE_DB=$(wp "$WORK/st/state.db") HS_NOTIFY_RULES_DIR=$(wp "$WORK/rules.d")
+export HS_PKG_EVENTS_DIR=$(wp "$WORK/pe")   # empty: the transition copy of the core is read
 NLOG=$WORK/notify.log
 cat > "$WORK/notify-stub" <<'EOF'
 #!/usr/bin/env bash
@@ -31,7 +32,7 @@ echo "-- the rules file is valid"
 R=$SCRIPTS/lib/notify-rules.tsv
 check_eq "5 columns per rule" "" "$(grep -v '^#' "$R" | awk -F'\t' 'NF != 5 {print $1}')"
 check_eq "categories and priorities are known" "" "$(grep -v '^#' "$R" | awk -F'\t' '$2 !~ /^(alarm|lock|problem|ok|start|stop|info|-)$/ || $3 !~ /^(min|low|default|high|urgent|-)$/ {print $1}')"
-check_eq "every media kind has a rule" "" "$(for k in $(grep -o '^pkg\.[a-z.-]*' "$SCRIPTS/lib/event-kinds.tsv"); do python3 "$EN" match "$k" >/dev/null || echo "$k"; done)"
+check_eq "every media kind has a rule" "" "$(for k in $(cut -f1 "$SCRIPTS"/lib/pkg-events/*.tsv | grep '^pkg\.'); do python3 "$EN" match "$k" >/dev/null || echo "$k"; done)"
 python3 "$EN" match job.failed >/dev/null; rc1=$?
 python3 "$EN" match storage.pool-fault >/dev/null; rc2=$?
 check_eq "job.failed and storage.pool-fault are told elsewhere: no rule" "1/1" "$rc1/$rc2"
@@ -47,7 +48,7 @@ echo "-- a matching row sends one message with the payload"
 emit pkg.sabnzbd.failed sabnzbd "Download failed: X" --payload '{"name":"Downloadarr","label":"Download failed","body":"**X**","title":"X"}'
 run
 check_eq "one call" "1" "$(lines)"
-check_eq "category, priority, title, message, payload" 'problem|high|Downloadarr: Download failed|**X**|{"name": "Downloadarr", "label": "Download failed", "body": "**X**", "title": "X"}' "$(tail -n1 "$NLOG")"
+check_eq "category, priority, title, message, payload" 'problem|high|Downloadarr: Download failed|**X**|{"name": "Downloadarr", "label": "Download failed", "body": "**X**", "title": "X", "icon": "warning-octagon"}' "$(tail -n1 "$NLOG")"
 check_eq "the cursor moved" "3" "$(cursor)"
 run
 check_eq "a second run sends nothing again" "1" "$(lines)"
@@ -130,4 +131,8 @@ before=$(lines)
 HS_EVENT_SPOOL=$(wp "$SP") bash "$SCRIPTS/event-notify.sh" 2>/dev/null
 check_eq "it became a message" "$((before + 1))" "$(lines)"
 check_eq "title and category" "info|default|Maintainerr (Script): Duplicate found" "$(tail -n1 "$NLOG" | cut -d'|' -f1-3)"
+echo "-- label and icon are filled in from the declaration"
+emit pkg.sabnzbd.finished sabnzbd "done" --payload '{"name":"N","body":"B"}'
+run
+check_eq "the title has the label of the declaration" "N: Download finished" "$(tail -n1 "$NLOG" | cut -d'|' -f3)"
 finish

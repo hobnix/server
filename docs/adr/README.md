@@ -25,3 +25,6 @@ Issue: hobnix/server#<n>
 | [0004](0004-job-record.md) | One JSON file per job in /var/lib/hs/jobs, written by the hs_job wrapper | Proposed |
 | [0003](0003-binary-cache.md) | CI fills a Cachix binary cache; hosts use it as an optional extra source | Proposed |
 | [0005](0005-events.md) | Domain events in one log (state.db `events`), invalidations as counters, the stream replays domain events | Proposed |
+| [0006](0006-api-in-front-of-cli.md) | The `hs sys` contract is the API; the web interface is a client of it | Proposed |
+| [0007](0007-branches-and-releases.md) | `develop` for work, `main` for releases, signed tags | Proposed |
+| [0008](0008-capabilities-and-packages.md) | Capabilities with a contract; apps and optional parts are signed packages in their own repositories | Proposed |

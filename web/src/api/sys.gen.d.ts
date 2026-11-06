@@ -1119,7 +1119,7 @@ export interface SysOperations {
     lines: string;
   };
   "live.status": {
-    /** every live-state topic: topic, interval, age in seconds (-1 = none), generation, exit code, error, error time */
+    /** every live-state topic: topic, interval, age in seconds (-1 = none), generation, exit code, error, error time, needs (comma list of topics, - = none) */
     words: ["live", "status"];
     path: "/live/status";
     method: "get";
