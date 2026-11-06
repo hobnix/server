@@ -42,6 +42,7 @@ Docs page shows them under *Apps* and *Extensions*.
 | [PLAN-channels](PLAN-channels.md) | Update channels Stable, Beta, Edge on top of develop and main |
 | [PLAN-docker-instances](PLAN-docker-instances.md) | Docker as a capability: locked instances, child apps, recipes with `runs` |
 | [PLAN-selfservice](PLAN-selfservice.md) | Self-service password change for domain users |
+| [roadmap](roadmap.md) | Milestones and open work, a snapshot of the GitHub project board and TODO.md |
 | [Architecture decisions](adr/README.md) | Decision records (ADRs), starting with Rust behind the `hs sys` contract |
 | [CLI-DESIGN](CLI-DESIGN.md) | The look of every `hs` command |
 | [Entwicklungsnotizen](Entwicklungsnotizen.md) | Per-feature design notes (grouped by topic) |
