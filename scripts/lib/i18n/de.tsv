@@ -2104,3 +2104,25 @@ The event was not written (usage: hs event emit <source.kind> <subject> [text] [
 Unknown event command: %s. Use: hs event list | hs event emit ...	Unbekannter Event-Befehl: %s. Nutze: hs event list | hs event emit ...
 Nothing recorded yet. Commands that change the server are listed here.	Noch nichts aufgezeichnet. Befehle, die den Server ändern, erscheinen hier.
 Who	Wer
+                                             <file>.before-restore-<time>); --with-state also /var/lib/hs	                                             <Datei>.before-restore-<Zeit>); --with-state auch /var/lib/hs
+                                             put machine.toml and machine.nix of a host snapshot back on this running	                                             machine.toml und machine.nix eines Host-Schnappschusses auf diesem laufenden
+                                             server (plan first, you type the file name, the old file is kept as	                                             Server zurückspielen (erst der Plan, du tippst den Dateinamen, die alte Datei bleibt als
+       hs backup config                      the host snapshots and which settings files each holds	       hs backup config                      die Host-Schnappschüsse und welche Einstellungsdateien jeder enthält
+       hs backup config restore [<snapshot|latest>] [--with-state] [--dry-run]	       hs backup config restore [<Schnappschuss|latest>] [--with-state] [--dry-run]
+Already identical: nothing to put back (%s file(s) compared).	Schon identisch: nichts zurückzuspielen (%s Datei(en) verglichen).
+Apply the settings with: hs rebuild	Einstellungen anwenden mit: hs rebuild
+Could not read the snapshots.	Die Schnappschüsse konnten nicht gelesen werden.
+Could not restore the settings from snapshot %s. Is there a host snapshot? (hs backup config)	Die Einstellungen aus Schnappschuss %s ließen sich nicht zurückholen. Gibt es einen Host-Schnappschuss? (hs backup config)
+Host snapshots (the settings of this server)	Host-Schnappschüsse (die Einstellungen dieses Servers)
+Identical	Identisch
+Never touched: hardware-configuration.nix, SSH host keys, Samba, disks, pools, network.	Wird nie angefasst: hardware-configuration.nix, SSH-Host-Schlüssel, Samba, Platten, Pools, Netzwerk.
+Not restored on purpose (they describe this disk set or the backup itself): %s	Absichtlich nicht zurückgespielt (sie beschreiben diese Plattengruppe oder das Backup selbst): %s
+Put them back with: hs backup config restore --dry-run	Zurückspielen mit: hs backup config restore --dry-run
+Reading the host snapshot %s	Host-Schnappschuss %s wird gelesen
+Restored %s	%s zurückgespielt
+That snapshot holds no machine.toml. Look at the list: hs backup config	Dieser Schnappschuss enthält keine machine.toml. Schau in die Liste: hs backup config
+The old files were kept as <file>.before-restore-%s.	Die alten Dateien blieben als <Datei>.before-restore-%s erhalten.
+This replaces settings files. Run it in a terminal, or add --yes after looking at --dry-run.	Das ersetzt Einstellungsdateien. Starte es in einem Terminal oder füge --yes hinzu, nachdem du --dry-run angesehen hast.
+File	Datei
+Settings files	Einstellungsdateien
+%s is a link into the vault, skipped	%s ist ein Link in den Tresor, übersprungen

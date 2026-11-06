@@ -82,6 +82,40 @@ sudo hs backup browse
 sudo hs backup browse --off
 ```
 
+## Back up and restore only the settings
+The host snapshot (tag `host`, made by every `hs backup now`) holds `machine.toml`, `machine.nix`, `hardware-configuration.nix`, `/var/lib/hs`,
+the SSH host keys and the Samba secrets. To get just your settings back on a running server, for example after a bad edit, use
+`hs backup config`. Not tested on hardware yet.
+
+1. **List the host snapshots.** Each line shows which settings files that snapshot holds.
+
+   ```bash
+   hs backup config
+   ```
+
+2. **Look at the plan.** `--dry-run` compares the snapshot with the live files and prints `new` or `changed` per file, never the contents.
+   Nothing is changed. `latest` is the default; you can name a snapshot id instead.
+
+   ```bash
+   sudo hs backup config restore --dry-run
+   ```
+
+3. **Put the files back.** You type the file name `machine.toml` to confirm. Every file that is replaced is first copied to
+   `<file>.before-restore-<date>-<time>` next to it. Without a terminal the command refuses unless you add `--yes`.
+
+   ```bash
+   sudo hs backup config restore
+   ```
+
+4. **Apply the settings.** The command does not rebuild for you.
+
+   ```bash
+   sudo hs rebuild
+   ```
+
+It never touches `hardware-configuration.nix`, the SSH host keys, Samba, disks, pools or the network. `--with-state` also puts back the
+files of `/var/lib/hs`, except the backup password and the files that describe this server's disks (`disks`, `vault-uuid`, `luks-uuids`).
+
 ## Give space back
 When the backup disk is full, or a run ended with "no space left":
 
@@ -205,7 +239,7 @@ a small partition for the vault, so a new one is built the same way, and the ser
    git clone <your-repository> /mnt/etc/nixos
    ```
 
-4. **Mount the backup disk and restore the host files.** There is no `hs` yet, so use restic directly. A snapshot with the tag `host`
+4. **Mount the backup disk and restore the host files.** There is no `hs` yet, so use restic directly. (On a server that is already running, `hs backup config restore` replaces this manual copy for `machine.toml` and `machine.nix`.) A snapshot with the tag `host`
    must be listed.
 
    ```bash
