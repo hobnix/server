@@ -42,7 +42,7 @@ Other entries that are not topics: the web read cache (`ttl`, `X-HS-Age`, per re
 4. **No expiry.** A dead collector (or a stopped topic thread) leaves a document that looks valid; only `live check` raises `live:stale:`.
 5. **Two stores with different shapes.** `reads` has no `gen`, no error time, no status; the Data page has to special-case both.
 6. **Flat dependencies.** Groups wake topics (`@disks`), but a topic cannot depend on another topic (for example `services-routes` on `ct-list`);
-   dependents run on their own interval. Needs the graph of #153.
+   dependents run on their own interval. Needs the graph of #153. Addressed by #153.
 7. **Polling where an event exists.** `docker-list` and `docker-apps` poll every 30 s; Docker has an event stream (#155).
 8. **No inspector.** `hs sys live status` is the only view, in a terminal; the Data page lists reads and intervals, not status or errors (#157).
 

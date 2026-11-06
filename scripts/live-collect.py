@@ -3,8 +3,11 @@
 (or when hs:v1:refresh names it) and writes the raw text to Redis (hs:v1:<topic>), then publishes hs:v1:changed. The one writer.
 A failure without output keeps the old data (ts stays the time of the last good read) and sets err/ts_err and state "stale" (there
 was a good read) or "error" (never); a good read sets state "ok". A change into error and the recovery each write one event (live.collector-failed,
-live.collector-recovered), not one per failed run. Redis down: retry every 5 s, never exit. Log goes to the journal."""
+live.collector-recovered), not one per failed run. Redis down: retry every 5 s, never exit. Log goes to the journal.
+A topic can name topics it needs (lib/live-topics.tsv column 7): when one of them gets a new gen, one wave thread reads the dependents once, in
+dependency order (a burst of changes is one wave); a wave never reads a topic sooner than HS_LIVE_MIN_GAP seconds (default 5) after its last read."""
 import json
+import math
 import os
 import subprocess
 import sys
@@ -46,7 +49,7 @@ class Collector:
     RESCAN = 60.0         # seconds between looks at the extension packages that are on (their live reads)
     RESCAN_MIN = 3.0      # a refresh of an unknown ext- topic looks sooner, but not more often than this
 
-    def __init__(self, store, run=hs_run, topic_rows=None, connect=None, topic_info=None, ext_rows=None, emit=emit_event):
+    def __init__(self, store, run=hs_run, topic_rows=None, connect=None, topic_info=None, ext_rows=None, emit=emit_event, topic_needs=None):
         self.emit = emit                         # (kind, subject, text) -> None; a test passes its own
         self.store = store                       # Resp (or a fake) for writing
         self.run = run
@@ -65,6 +68,34 @@ class Collector:
         except ValueError:
             n = 4
         self.sem = threading.BoundedSemaphore(n if n >= 1 else 4)   # at most N reads at once
+        self.needs_src = dict(topic_needs if topic_needs is not None else ls.topic_needs())
+        try:
+            gap = float(os.environ.get("HS_LIVE_MIN_GAP", "5"))
+        except ValueError:
+            gap = 5.0
+        self.min_gap = gap if math.isfinite(gap) and gap >= 0 else 5.0      # inf and NaN fall back
+        self.pending = set()                     # changed topics that wait for the next wave
+        self.wcond = threading.Condition()
+        self.last_read = {}                      # topic -> time of its last read (by its thread or a wave)
+        self.busy = {}                           # topic -> lock: one read of a topic at a time
+        self._said = set()
+        for p in self._regraph():
+            self.say(p)
+
+    def _regraph(self):
+        """Order and clean needs of the topics now in rows (init, or with tlock held). -> problem texts."""
+        known = {r[0] for r in self.rows}
+        self.order, self.needs, problems = ls.graph(self.needs_src, known)
+        self.needed = {n for ts in self.needs.values() for n in ts}
+        return problems
+
+    def say(self, msg):
+        """a journal line, once per distinct text (a rescan finds the same problem every minute)"""
+        if len(self._said) > 1000:
+            self._said.clear()
+        if msg not in self._said:
+            self._said.add(msg)
+            log(msg)
 
     def locked(self):
         return os.path.exists(os.environ.get("HS_LOCKED_MARKER", "/run/hs/storage-locked"))
@@ -95,15 +126,19 @@ class Collector:
             return False
         if not ls.cap_on((self.info.get(topic) or {}).get("cap")):
             return False      # the capability is off: no read, no document
-        with self.sem:
-            rc, out, err = self.run(words)
-        now = time.time()
-        ev = []
-        try:
-            return self._store(topic, rc, out, err, now, ev)
-        finally:
-            for kind, text in ev:      # outside the lock: writing an event must not hold the other topics back
-                self.emit(kind, topic, text)
+        with self.tlock:
+            busy = self.busy.setdefault(topic, threading.Lock())
+        with busy:      # a wave and the topic's own thread never read the same topic at once
+            with self.sem:
+                rc, out, err = self.run(words)
+            now = time.time()
+            self.last_read[topic] = now
+            ev = []
+            try:
+                return self._store(topic, rc, out, err, now, ev)
+            finally:
+                for kind, text in ev:      # outside the lock: writing an event must not hold the other topics back
+                    self.emit(kind, topic, text)
 
     def _store(self, topic, rc, out, err, now, ev):
         with self.lock:
@@ -133,11 +168,57 @@ class Collector:
             log("topic %s failed (rc %s): %s" % (topic, rc, doc["err"]))
             return False
 
+    def changed(self, topic):
+        """A topic got a new gen: queue it when another topic needs it (the wave thread takes the whole set at once)."""
+        with self.tlock:
+            if topic not in self.needed:
+                return
+        with self.wcond:
+            self.pending.add(topic)
+            self.wcond.notify()
+
+    def wave(self, roots):
+        """Read the topics that need a changed one, once each, in dependency order (a topic after all it needs). Only a new gen spreads further:
+        a failed or identical read does not. -> the topics read."""
+        with self.tlock:
+            order, needs, rows = list(self.order), dict(self.needs), {r[0]: r for r in self.rows}
+        changed, ran = set(roots), []
+        for t in order:
+            if self.stop.is_set():
+                break
+            if t not in rows or not changed.intersection(needs.get(t, ())):
+                continue
+            with self.tlock:
+                if t not in self.events:          # an extension topic went away
+                    continue
+            wait = self.last_read.get(t, 0) + self.min_gap - time.time()
+            if wait > 0:
+                self.stop.wait(wait)
+            ran.append(t)
+            if self.collect(t, rows[t][1], rows[t][3]):
+                changed.add(t)
+        log("wave %s -> %s" % (", ".join(sorted(roots)), ", ".join(ran) or "no topic"))
+        return ran
+
+    def waves(self):
+        """The one wave thread."""
+        while not self.stop.is_set():
+            with self.wcond:
+                if not self.pending:
+                    self.wcond.wait(1.0)
+                roots, self.pending = self.pending, set()
+            if roots:
+                try:
+                    self.wave(roots)
+                except OSError as e:
+                    log("wave stopped, redis down (%s)" % e)
+
     def loop(self, topic, words, interval, mode):
         ev, mine = self.events[topic], self.stops[topic]
         while not self.stop.is_set() and not mine.is_set():
             try:
-                self.collect(topic, words, mode)
+                if self.collect(topic, words, mode):
+                    self.changed(topic)
             except OSError as e:
                 log("redis down (%s), retry in 5 s" % e)
                 self.stop.wait(5)
@@ -166,7 +247,7 @@ class Collector:
                 return False
             self.last_scan = now
         try:
-            rows, info = self.ext_rows()
+            rows, info = self.ext_rows(log=self.say)
         except Exception as e:      # a broken package must not stop the collector
             log("extension scan failed (%s)" % e)
             return False
@@ -180,14 +261,23 @@ class Collector:
                     self.events[t].set()
                     del self.events[t], self.stops[t]
                     self.info.pop(t, None)
+                    self.needs_src.pop(t, None)
+                    self.busy.pop(t, None)
                     self.rows = [r for r in self.rows if r[0] != t]
                     gone.append(t)
             for t, r in want.items():
                 if t not in self.events:
                     self.events[t], self.stops[t] = threading.Event(), threading.Event()
                     self.info[t] = info.get(t) or {"cap": None, "groups": set()}
+                    self.needs_src[t] = tuple((info.get(t) or {}).get("needs", ()))
                     self.rows.append(r)
                     start.append(r)
+            for t in want:      # a changed `needs` alone does not restart the topic
+                if t in self.events:
+                    self.needs_src[t] = tuple((info.get(t) or {}).get("needs", ()))
+            problems = self._regraph()
+        for p in problems:
+            self.say(p)
         for t in gone:
             log("topic %s stopped" % t)
             try:
@@ -220,6 +310,8 @@ class Collector:
             self._spawn(topic, words, interval, mode)
         threading.Thread(target=self.listen, daemon=True).start()
         threading.Thread(target=self.watch, daemon=True).start()
+        threading.Thread(target=self.waves, daemon=True).start()
+        self.rescan()      # once now: a missing needs target is in the journal from the start
 
 
 def main():

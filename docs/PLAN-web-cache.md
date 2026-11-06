@@ -144,6 +144,19 @@ error. The web answers with the old data and, additive, `X-HS-Stale` (time of th
 Events `live.collector-failed` (once per change into error) and `live.collector-recovered` (docs/adr/0005-events.md). `hs sys live status`/`check`
 keep their shape. Not tested on hardware yet.
 
+## Dependencies (2026-11-06, #153)
+
+`lib/live-topics.tsv` column 7 `needs` lists the topics whose new `gen` re-reads this topic (`-` = none); today `services-list` and `services-app` need
+`ct-list`, and `services-routes`, `services-local-routes` and `services-tiles` need `services-list`. One wave thread takes all queued changed topics at once
+(a burst is one wave) and walks the topological order of the graph (`live_state.graph`) once: each dependent is read at most once, after everything it needs.
+Only a new `gen` starts or spreads a wave: a failed read keeps the old document (see Last good data) and its dependents are not read; an identical read
+spreads nothing. A wave never reads a topic sooner than `HS_LIVE_MIN_GAP` seconds (default 5) after its last read, it waits. That is also the cost bound for a
+topic whose output changes on every read (for example `ct list` with usage columns): its dependents are then read about every gap, not faster; drop the edge
+if that is too costly (`journalctl -u hs-live | grep wave`). Wave reads are sequential, so a slow dependent delays the rest of its wave. A cycle, a self
+reference or an unknown target is cut and logged once; `tests/live-state-test.py` fails on any of them in the core table. An extension read may `needs` core
+topics only; with an unknown name its live topic is off (the read stays direct) and the journal says so. `hs sys live status` has `needs` as new last
+field 8 (comma list or `-`). Off mode has no propagation. Not tested on hardware yet.
+
 ## Apps slice (2026-11-01)
 
 3 topics (`pkg-market`, `pkg-repos`, `recipes-list`), see capabilities/live-state/NOTES.md. `pkg.sh` refreshes them (and `parts-list`) after a
