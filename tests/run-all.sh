@@ -25,6 +25,7 @@ bash_bin=${HS_TEST_BASH:-bash}
 # name -> why it is not run by default | the env switch that enables it.
 declare -A EXTERNAL=(
   [zfs-vm]="needs Incus with KVM and the internet (a throwaway VM)|HS_TEST_VM"
+  [rebuild-vm]="needs Incus with KVM and the internet (two throwaway VMs)|HS_TEST_VM"
 )
 HELPERS=" lib lib-poolfakes lib-standins run run-all "
 
