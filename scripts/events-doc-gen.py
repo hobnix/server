@@ -6,13 +6,24 @@
 
 The text between the markers is generated: never edit it by hand. Python stdlib only.
 """
+import importlib.util
 import os
 import sys
 
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+
+def _load_pkg_events():
+    spec = importlib.util.spec_from_file_location("pkg_events", os.path.join(ROOT, "scripts", "lib", "pkg_events.py"))
+    mod = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(mod)
+    return mod
+
+
+pkg_events = _load_pkg_events()
 TSV = os.path.join(ROOT, "scripts", "lib", "event-kinds.tsv")
 DOC = os.path.join(ROOT, "docs", "events.md")
 BEGIN = "<!-- BEGIN generated from scripts/lib/event-kinds.tsv (python3 scripts/events-doc-gen.py write) -->"
+BEGIN_PKG = "<!-- BEGIN package events generated from scripts/lib/pkg-events (python3 scripts/events-doc-gen.py write) -->"
 END = "<!-- END generated -->"
 
 
@@ -31,11 +42,24 @@ def table(path):
     return "\n".join(rows)
 
 
-def render(text, path):
-    a, b = text.find(BEGIN), text.find(END)
-    if a < 0 or b < a:
-        raise SystemExit("error: docs/events.md has no BEGIN/END markers")
-    return text[:a] + BEGIN + "\n\n" + table(path) + "\n\n" + text[b:]
+def pkg_table(d):
+    rows = ["| Kind | Level | Payload keys | Meaning | Push message |", "| --- | --- | --- | --- | --- |"]
+    for name in sorted(os.listdir(d)) if os.path.isdir(d) else []:
+        if not name.endswith(".tsv"):
+            continue
+        for r in pkg_events.read_file(os.path.join(d, name), name[:-4]):
+            keys = "none" if r["payload"] == "-" else ", ".join("`%s`" % k for k in r["payload"].split(","))
+            push = "none" if r["category"] == "-" else "%s, %s" % (r["category"], "default" if r["priority"] == "-" else r["priority"])
+            rows.append("| `%s` | %s | %s | %s | %s |" % (r["kind"], r["level"], keys, r["meaning"].replace("|", "\\|"), push))
+    return "\n".join(rows)
+
+
+def render(text, begin, body):
+    a = text.find(begin)
+    b = text.find(END, a) if a >= 0 else -1
+    if a < 0 or b < 0:
+        raise SystemExit("error: docs/events.md has no BEGIN/END markers for %s" % begin[:40])
+    return text[:a] + begin + "\n\n" + body + "\n\n" + text[b:]
 
 
 def main(argv):
@@ -46,7 +70,8 @@ def main(argv):
     tsv = argv[argv.index("--tsv") + 1] if "--tsv" in argv else TSV
     with open(DOC, encoding="utf-8", newline="") as f:
         have = f.read()
-    want = render(have, tsv)
+    pdir = argv[argv.index("--pkg-dir") + 1] if "--pkg-dir" in argv else pkg_events.CORE_DIR
+    want = render(render(have, BEGIN, table(tsv)), BEGIN_PKG, pkg_table(pdir))
     if cmd == "write":
         with open(DOC, "w", encoding="utf-8", newline="\n") as f:
             f.write(want)

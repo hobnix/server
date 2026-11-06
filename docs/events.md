@@ -4,7 +4,7 @@ The names, levels and payloads of the events that scripts write to the event log
 
 ## The list
 
-The one list is `scripts/lib/event-kinds.tsv`: one line per kind with the columns `kind`, `level`, `payload keys` and `meaning`. A script may emit
+The one list of core kinds is `scripts/lib/event-kinds.tsv`: one line per kind with the columns `kind`, `level`, `payload keys` and `meaning`. A script may emit
 only a kind that is listed there (`tests/event-log.sh` fails otherwise). Add the line in the same change that adds the `event_emit`.
 
 ## Names
@@ -12,7 +12,7 @@ only a kind that is listed there (`tests/event-log.sh` fails otherwise). Add the
 - A kind is `<area>.<what>`, lower case, digits and `-` only: `storage.missing`, `job.failed`, `notify.held`. The area is the part before the first dot
   and is stored as `source`.
 - The name says what happened, in the past tense or as a state (`missing`, `failed`, `held`), not what to do.
-- A package (a recipe or an extension) uses the prefix `pkg.<package>.`, for example `pkg.photos.indexed`. These kinds are not required in the core file; the core lists only those of the media helper that it ships (`pkg.sabnzbd.*`, `pkg.maintainerr.*`).
+- A package (a recipe or an extension) uses the prefix `pkg.<package>.`, for example `pkg.photos.indexed`. A package declares its kinds in `package.toml` `[[events]]` (see "Package events" below); the core file lists core kinds only.
 - A kind is never renamed after a release, because stored rows and the web interface refer to it. Add a new kind and stop emitting the old one.
 
 ## Level
@@ -67,20 +67,61 @@ The payload is optional extra data for programs. Rules:
 | `storage.pool-fault` | warn | none | a ZFS pool or one of its devices has a fault (ZED zedlet; subject: the pool; level error when a device is faulted or unavailable) |
 | `live.collector-failed` | warn | none | a live-state read failed; the last good data stays served as stale (subject: the topic; once per change into error) |
 | `live.collector-recovered` | info | none | a live-state read works again after a failure (subject: the topic) |
-| `pkg.maintainerr.planned` | info | `service`, `name`, `label`, `icon`, `title`, `sub?`, `body`, `fields?`, `footer?`, `poster_url?` | a lower version of a film was found and is announced (media helper; subject: the service) |
-| `pkg.maintainerr.deleted` | info | `service`, `name`, `label`, `icon`, `title`, `sub?`, `body`, `fields?`, `footer?`, `poster_url?` | a lower version of a film was deleted (media helper; subject: the service) |
-| `pkg.maintainerr.test` | info | `service`, `name`, `label`, `icon`, `title`, `sub?`, `body`, `fields?`, `footer?`, `poster_url?` | the test message of Maintainerr (Script) (media helper; subject: the service) |
-| `pkg.sabnzbd.added` | info | `service`, `name`, `label`, `icon`, `title`, `sub?`, `body`, `fields?`, `footer?`, `poster_url?` | a download was queued (media helper; subject: the service) |
-| `pkg.sabnzbd.unpacking` | info | `service`, `name`, `label`, `icon`, `title`, `sub?`, `body`, `fields?`, `footer?`, `poster_url?` | a download is being unpacked (media helper; subject: the service) |
-| `pkg.sabnzbd.finished` | info | `service`, `name`, `label`, `icon`, `title`, `sub?`, `body`, `fields?`, `footer?`, `poster_url?` | a download finished (media helper; subject: the service) |
-| `pkg.sabnzbd.failed` | warn | `service`, `name`, `label`, `icon`, `title`, `sub?`, `body`, `fields?`, `footer?`, `poster_url?` | a download failed (media helper; subject: the service) |
-| `pkg.sabnzbd.queue-done` | info | `service`, `name`, `label`, `icon`, `title`, `sub?`, `body`, `fields?`, `footer?`, `poster_url?` | the download queue is empty (media helper; subject: the service) |
-| `pkg.sabnzbd.disk-full` | error | `service`, `name`, `label`, `icon`, `title`, `sub?`, `body`, `fields?`, `footer?`, `poster_url?` | SABnzbd reports a full disk (media helper; subject: the service) |
-| `pkg.sabnzbd.error` | warn | `service`, `name`, `label`, `icon`, `title`, `sub?`, `body`, `fields?`, `footer?`, `poster_url?` | SABnzbd reports an error (media helper; subject: the service) |
-| `pkg.sabnzbd.warning` | info | `service`, `name`, `label`, `icon`, `title`, `sub?`, `body`, `fields?`, `footer?`, `poster_url?` | SABnzbd reports a warning (media helper; subject: the service) |
-| `pkg.sabnzbd.test` | info | `service`, `name`, `label`, `icon`, `title`, `sub?`, `body`, `fields?`, `footer?`, `poster_url?` | the test message of SABnzbd (media helper; subject: the service) |
 | `audit.ok` | info | `actor`, `exit` | a command that changes the system finished with exit 0 (hs dispatcher; subject: the words typed, never the arguments after them) |
 | `audit.failed` | warn | `actor`, `exit` | a command that changes the system failed (hs dispatcher; subject: the words typed, never the arguments after them) |
+
+<!-- END generated -->
+
+## Package events (when installed)
+
+A package (recipe or extension) may declare the events it provides in `package.toml`. The kind is written without the prefix: `kind = "failed"`
+of the package `sabnzbd` is the event `pkg.sabnzbd.failed`.
+
+```toml
+[[events]]
+kind    = "failed"                 # required; ^[a-z0-9][a-z0-9-]{0,39}$ (no dots); full kind pkg.<name>.failed
+level   = "warn"                   # required; info | warn | error
+label   = "Download failed"        # required; 1..60 chars, one line, no tab, not "-"
+icon    = "warning-octagon"        # optional; ^[a-z0-9-]{1,40}$ (Phosphor icon name)
+meaning = "a download failed (subject: the service)"   # required; 1..200 chars, one line, no tab, not "-"
+payload = ["service", "name", "sub?"]   # optional; keys ^[a-z][a-z0-9_]{0,31}\??$, no duplicates
+notify  = { category = "problem", priority = "high", title = "{name}: {label}", message = "{body}" }   # optional default rule
+```
+
+`notify`: `category` is required (alarm, lock, problem, ok, start, stop or info), `priority` is optional (min, low, default, high, urgent), `title`
+and `message` are required (1..300 chars, one line; write a line break as the two characters `\n`). Unknown keys, a kind twice and a bad value
+are problems: `hs pkg` refuses to install such a package, and `python3 scripts/pkg.py validate` and `repo-check` report them.
+
+`hs pkg` writes the declaration to `/var/lib/hs/pkg-events/<package>.tsv` (10 tab-separated columns, `-` = empty; see
+`scripts/lib/pkg_events.py`) and deletes it when the package is removed or a version declares no events. Four readers use it:
+
+- the level of an event (`scripts/state-db.py`),
+- the notification rules (`scripts/event-notify.py`; order: your drop-ins, the packages by name, the core file; see docs/notify-rules.md),
+- the spool allowlist (a container may leave only events of packages that have a declaration),
+- the catalogue below (core copy only).
+
+If an event has no `label` or `icon` in its payload, the notification fills them in from the declaration.
+
+Transition: the events of the media helper (`pkg.sabnzbd.*`, `pkg.maintainerr.*`) are kept as a copy in the same format in
+`scripts/lib/pkg-events/` until hobnix/recipes declares them. An installed file of the same package replaces the copy completely.
+The table is generated from that folder:
+
+<!-- BEGIN package events generated from scripts/lib/pkg-events (python3 scripts/events-doc-gen.py write) -->
+
+| Kind | Level | Payload keys | Meaning | Push message |
+| --- | --- | --- | --- | --- |
+| `pkg.maintainerr.planned` | info | `service`, `name`, `label`, `icon`, `title`, `sub?`, `body`, `fields?`, `footer?`, `poster_url?` | a lower version of a film was found and is announced (media helper; subject: the service) | info, default |
+| `pkg.maintainerr.deleted` | info | `service`, `name`, `label`, `icon`, `title`, `sub?`, `body`, `fields?`, `footer?`, `poster_url?` | a lower version of a film was deleted (media helper; subject: the service) | info, default |
+| `pkg.maintainerr.test` | info | `service`, `name`, `label`, `icon`, `title`, `sub?`, `body`, `fields?`, `footer?`, `poster_url?` | the test message of Maintainerr (Script) (media helper; subject: the service) | info, low |
+| `pkg.sabnzbd.added` | info | `service`, `name`, `label`, `icon`, `title`, `sub?`, `body`, `fields?`, `footer?`, `poster_url?` | a download was queued (media helper; subject: the service) | info, low |
+| `pkg.sabnzbd.unpacking` | info | `service`, `name`, `label`, `icon`, `title`, `sub?`, `body`, `fields?`, `footer?`, `poster_url?` | a download is being unpacked (media helper; subject: the service) | info, min |
+| `pkg.sabnzbd.finished` | info | `service`, `name`, `label`, `icon`, `title`, `sub?`, `body`, `fields?`, `footer?`, `poster_url?` | a download finished (media helper; subject: the service) | ok, default |
+| `pkg.sabnzbd.failed` | warn | `service`, `name`, `label`, `icon`, `title`, `sub?`, `body`, `fields?`, `footer?`, `poster_url?` | a download failed (media helper; subject: the service) | problem, high |
+| `pkg.sabnzbd.queue-done` | info | `service`, `name`, `label`, `icon`, `title`, `sub?`, `body`, `fields?`, `footer?`, `poster_url?` | the download queue is empty (media helper; subject: the service) | info, low |
+| `pkg.sabnzbd.disk-full` | error | `service`, `name`, `label`, `icon`, `title`, `sub?`, `body`, `fields?`, `footer?`, `poster_url?` | SABnzbd reports a full disk (media helper; subject: the service) | alarm, urgent |
+| `pkg.sabnzbd.error` | warn | `service`, `name`, `label`, `icon`, `title`, `sub?`, `body`, `fields?`, `footer?`, `poster_url?` | SABnzbd reports an error (media helper; subject: the service) | problem, high |
+| `pkg.sabnzbd.warning` | info | `service`, `name`, `label`, `icon`, `title`, `sub?`, `body`, `fields?`, `footer?`, `poster_url?` | SABnzbd reports a warning (media helper; subject: the service) | problem, default |
+| `pkg.sabnzbd.test` | info | `service`, `name`, `label`, `icon`, `title`, `sub?`, `body`, `fields?`, `footer?`, `poster_url?` | the test message of SABnzbd (media helper; subject: the service) | info, low |
 
 <!-- END generated -->
 

@@ -6,7 +6,7 @@
 
 The event is a file in the spool folder (config key "spool", default /media/.hs-events: the share the container has mounted anyway).
 The server reads the folder (scripts/event-notify.sh), writes the event pkg.<service>.<event> to its event log, and its
-notification rules (scripts/lib/notify-rules.tsv) decide who is told, in which channel and how. No address, topic or secret is kept here.
+notification rules (the package's `[[events]]`; scripts/lib/pkg-events/ until the recipes ship it) decide who is told, in which channel and how. No address, topic or secret is kept here.
 
 Config (JSON, written by the recipes): {"spool": "/media/.hs-events", "radarr": {"url": "http://radarr:7878", "key": "..."}, "sonarr": {...}}.
 Each may be missing; radarr/sonarr only serve the lookup that turns a release name into a title, year and poster for the Downloadarr
@@ -32,7 +32,7 @@ HERE = os.path.dirname(os.path.abspath(__file__))
 # Maintainerr itself (if it ever posts) must be told apart in the history of ntfy and Matrix.
 NAMES = {"maintainerr": "Maintainerr (Script)", "sabnzbd": "Downloadarr"}
 
-# (service, event) -> (label, icon of the card). How loud an event is lives in scripts/lib/notify-rules.tsv.
+# (service, event) -> (label, icon of the card). How loud an event is and its rule live in the package's `[[events]]` (scripts/lib/pkg-events/ until the recipes ship it).
 # An event name is the last part of the kind pkg.<service>.<event>: lower case, digits and "-".
 EVENTS = {
     ("maintainerr", "planned"): ("Duplicate found", "warning"),

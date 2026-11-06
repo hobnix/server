@@ -1,7 +1,7 @@
 # shellcheck shell=bash
 # The one way a script writes to the event log (docs/adr/0005-events.md, rule 4): event_emit <source.kind> <subject> [text] [--level L] [--payload JSON]
 # Runs `state-db.py emit` (the one writer, needs root). Best effort: not root, no python, a failing write: it returns 0 and says nothing
-# (one line through ui.sh `warn` when HS_EVENT_VERBOSE=1). A kind has to be listed in scripts/lib/event-kinds.tsv (tests/event-log.sh checks it).
+# (one line through ui.sh `warn` when HS_EVENT_VERBOSE=1). A kind has to be listed in scripts/lib/event-kinds.tsv (core kinds; pkg.* kinds are declared by the package; tests/event-log.sh checks it).
 # Test knobs: HS_EVENT_NOROOT=1 (do not require root), HS_PYTHON, HS_STATE_DB.
 
 event_emit() {

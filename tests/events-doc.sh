@@ -14,4 +14,11 @@ printf 'x.new\tinfo\t-\ta test kind\n' >>"$tmp"
 if $GEN check --tsv "$tmp" >/dev/null 2>&1; then fail "a tsv row missing in docs/events.md was not noticed"; else pass "a stale table is detected"; fi
 rm -f "$tmp"
 
+echo "-- a new package event makes it stale"
+pd=$(mktemp -d)
+cp "$SCRIPTS"/lib/pkg-events/*.tsv "$pd/"
+printf 'pkg.sabnzbd.extra\tinfo\t-\tExtra\t-\ta test event\t-\t-\t-\t-\n' >>"$pd/sabnzbd.tsv"
+if $GEN check --pkg-dir "$pd" >/dev/null 2>&1; then fail "a pkg-events row missing in docs/events.md was not noticed"; else pass "a stale package table is detected"; fi
+rm -rf "$pd"
+
 finish
