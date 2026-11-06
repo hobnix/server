@@ -35,6 +35,17 @@ the loaders, `scripts/lib/api-level`) belongs here, and its pull request says wh
   the format is in `docs/changelog/README.md`. CI only warns when a pull request touches the core without an entry.
 - Commit messages say what changed and why in a line or two. Stage files by name.
 
+## Community
+
+- Everyone who takes part follows the [code of conduct](CODE_OF_CONDUCT.md).
+- **Discussions** (https://github.com/hobnix/server/discussions) are for questions, "how do I", show-and-tell and early ideas that are not yet
+  a change. An issue is for something that can be built or fixed. A Discussion that turns into work becomes an issue, and the issue links back.
+- **Good first issues** carry the label `good first issue`. We label an issue that way only when it names the files to touch, says what
+  done looks like (a command and its output, or a test that passes) and needs no change to storage, the network or the firewall. Typical
+  ones: a docs fix, a missing line in a guide, a test for an existing command, a translation, a small `hs` message. If you want one, say so
+  in a comment before you start so two people do not do the same work; a maintainer answers with where to look. Ask there if the issue is
+  unclear: an unclear good first issue is our mistake.
+
 ## Reporting a problem
 
 Bugs and ideas: an issue with the template. A vulnerability: not an issue, see `SECURITY.md`.
