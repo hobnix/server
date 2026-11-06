@@ -37,4 +37,4 @@ the loaders, `scripts/lib/api-level`) belongs here, and its pull request says wh
 
 ## Reporting a problem
 
-Bugs and ideas: an issue with the template. A vulnerability: not an issue, see `SECURITY.md`.
+Bugs, features, architecture proposals, spikes and documentation problems: an issue with the matching template (`.github/ISSUE_TEMPLATE`). A vulnerability: not an issue, see `SECURITY.md`.
