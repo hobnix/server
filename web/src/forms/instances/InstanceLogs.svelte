@@ -1,4 +1,5 @@
 <script>
+  import Button from '../../ui/Button.svelte';
   // The last lines of an instance's journal (`hs sys ct logs <ct> [lines]`, read only), in a window over the page.
   import { poll } from '../../data.svelte.js';
   import { ui } from '../../ui.svelte.js';
@@ -33,7 +34,7 @@
         </select>
       </label>
       <label class="opt"><input type="checkbox" bind:checked={follow} />Follow</label>
-      <button class="btn btn-secondary" onclick={close}>Close</button>
+      <Button onclick={close}>Close</Button>
     </div>
     <div class="log" bind:this={box}>
       {#if logs.error && !logs.data}

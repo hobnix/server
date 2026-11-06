@@ -1,5 +1,4 @@
 <script>
-  import { tip } from '../../ui/tooltip.svelte.js';
   // The key of one node and the line its owner has to put on that server (hs sys node keyline <name>: only the PUBLIC half). Shows what is missing
   // when there is no key yet, with the button that makes it. `name` is the node. Used in the Nodes drawer and on the Summary of a node that never answered.
   import { poll, rows } from '../../data.svelte.js';
@@ -33,7 +32,7 @@
     <div class="muted">The owner of {name} puts this line into: <b>{info.file}</b>. Then {name} answers status requests from this server, and nothing else.</div>
     <pre class="line">{info.line}</pre>
     <div class="row">
-      <button use:tip={'Copy the line to the clipboard'} class="btn sm" onclick={copy}><i class="ph ph-{copied ? 'check' : 'copy'}"></i>{copied ? 'Copied' : 'Copy the line'}</button>
+      <Button size="sm" tooltip={'Copy the line to the clipboard'} onclick={() => { copy(); }}><i class="ph ph-{copied ? 'check' : 'copy'}"></i>{copied ? 'Copied' : 'Copy the line'}</Button>
       {#if canChange}<Button variant="ghost" size="sm" icon="arrows-clockwise" busy={jobRunning('node', ['key', name, '--new'])} tooltip={'Replace the key: the old line stops working'} onclick={() => openPlan('node', ['key', name, '--new'], `New key for ${name}`)}>New key…</Button>{/if}
     </div>
   </div>

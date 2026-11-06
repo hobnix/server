@@ -49,13 +49,13 @@
 <PageHeader title="Groups" crumb="Identity" sub="Who is in which group, and which shares a group is entered on.">
   {#snippet actions()}
     <Button icon="arrows-clockwise" busy={jobRunning('users', ['all', 'flush'])} busyLabel="Flushing…" tooltip={'Make the file server forget cached users and groups'} onclick={() => openPlan('users', ['all', 'flush'], 'Flush caches')}>Flush caches</Button>
-    <button use:tip={'Create a group of users'} class="btn btn-primary" onclick={() => openCreate(NewGroup, { existing: groups.map((g) => g.name) })}><i class="ph ph-plus"></i>New group</button>
+    <Button variant="primary" tooltip={'Create a group of users'} onclick={() => openCreate(NewGroup, { existing: groups.map((g) => g.name) })}><i class="ph ph-plus"></i>New group</Button>
   {/snippet}
 </PageHeader>
 
 <PageState loading={!list.loaded} error={list.error?.message} hasData={list.data != null} empty={list.loaded && !groups.length}
            emptyIcon="users-four" emptyTitle="No groups" emptyText="The domain controller (dc1) may be down, or the storage is locked. Otherwise add the first group.">
-  {#snippet emptyAction()}<button use:tip={'Create a group of users'} class="btn btn-primary" onclick={() => openCreate(NewGroup, { existing: [] })}><i class="ph ph-plus"></i>New group</button>{/snippet}
+  {#snippet emptyAction()}<Button variant="primary" tooltip={'Create a group of users'} onclick={() => openCreate(NewGroup, { existing: [] })}><i class="ph ph-plus"></i>New group</Button>{/snippet}
   <Split open={!!sel}>
     {#snippet list()}
       <div class="card" style="padding:0">
@@ -87,11 +87,9 @@
             {/if}
           {/snippet}
           {#snippet actions()}
-            <button class="btn" disabled={builtin(sel.name)} use:tip={builtin(sel.name) ? 'A built-in group cannot be edited' : 'Change the description'}
-              onclick={() => openCreate(EditGroup, { name: sel.name })}><i class="ph ph-pencil-simple"></i>Edit</button>
-            <button class="btn" disabled={sel.name.toLowerCase() === 'domain users'} use:tip={'Choose the members'}
-              onclick={() => openCreate(Membership, { subject: 'group', name: sel.name, have: sel.members, options: userNames })}><i class="ph ph-user-plus"></i>Members</button>
-            <Button variant="ghost" class="danger" icon="trash" disabled={builtin(sel.name)} busy={jobRunning('users', [sel.name, 'group-delete'])} busyLabel="Deleting…" tooltip={builtin(sel.name) ? 'A built-in group cannot be deleted' : 'Delete the group (cannot be undone; you type the name)'}
+            <Button disabled={builtin(sel.name)} tooltip={builtin(sel.name) ? 'A built-in group cannot be edited' : 'Change the description'} onclick={() => openCreate(EditGroup, { name: sel.name })}><i class="ph ph-pencil-simple"></i>Edit</Button>
+            <Button disabled={sel.name.toLowerCase() === 'domain users'} tooltip={'Choose the members'} onclick={() => openCreate(Membership, { subject: 'group', name: sel.name, have: sel.members, options: userNames })}><i class="ph ph-user-plus"></i>Members</Button>
+            <Button variant="ghost" class="groups-danger" icon="trash" disabled={builtin(sel.name)} busy={jobRunning('users', [sel.name, 'group-delete'])} busyLabel="Deleting…" tooltip={builtin(sel.name) ? 'A built-in group cannot be deleted' : 'Delete the group (cannot be undone; you type the name)'}
               onclick={() => openPlan('users', [sel.name, 'group-delete'], `Delete ${sel.name}`)}>Delete</Button>
           {/snippet}
         </Drawer>
@@ -102,7 +100,7 @@
 
 <style>
   .muted { color: var(--fg-3); font-size: 12.5px; }
-  .danger { color: var(--bad); }
+  :global(.btn.groups-danger) { color: var(--bad); }
   .note { margin: 0; padding: 10px 16px; font-size: 12.5px; color: var(--fg-3); }
   .table { font-size: 12.5px; }
   .link-btn { all: unset; cursor: pointer; color: var(--accent); }

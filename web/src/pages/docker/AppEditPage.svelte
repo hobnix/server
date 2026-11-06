@@ -274,7 +274,7 @@
 {#if idWarn}<Banner tone="warn">{idWarn}</Banner>{/if}
 {#if changedDisk || diskMoved}
   <Banner tone="warn">This app changed on disk since you opened it. Reload shows the new files; your edits here are lost.
-    {#snippet action()}<button class="btn sm" onclick={load}>Reload</button>{/snippet}
+    {#snippet action()}<Button size="sm" onclick={() => { load(); }}>Reload</Button>{/snippet}
   </Banner>
 {/if}
 {#each banner as b}<Banner tone={b.level === 'error' ? 'bad' : 'warn'}>{b.text}</Banner>{/each}

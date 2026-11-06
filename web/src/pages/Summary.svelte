@@ -133,12 +133,12 @@
 
   {#if !locked && setupOpen}
     <Banner tone="warn" icon="list-checks">Finish the setup: {setupOpen} item{setupOpen === 1 ? '' : 's'} still open.
-      {#snippet action()}<button use:tip={'Open the first-run checklist'} class="btn sm" onclick={() => go('/setup')}>Open Setup<i class="ph ph-arrow-right"></i></button>{/snippet}
+      {#snippet action()}<Button size="sm" tooltip={'Open the first-run checklist'} onclick={() => go('/setup')}>Open Setup<i class="ph ph-arrow-right"></i></Button>{/snippet}
     </Banner>
   {/if}
   {#if changes.count}
     <Banner tone="info" icon="sparkle">{changes.count} change{changes.count === 1 ? '' : 's'} since your last visit.
-      {#snippet action()}<button use:tip={'See what the last update brought'} class="btn sm" onclick={() => go('/operations/whats-new')}>Show<i class="ph ph-arrow-right"></i></button>{/snippet}
+      {#snippet action()}<Button size="sm" tooltip={'See what the last update brought'} onclick={() => go('/operations/whats-new')}>Show<i class="ph ph-arrow-right"></i></Button>{/snippet}
     </Banner>
   {/if}
   {#if ui.features.live && !live.open}

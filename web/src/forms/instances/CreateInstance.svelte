@@ -1,5 +1,5 @@
 <script>
-  import { tip } from '../../ui/tooltip.svelte.js';
+  import Button from '../../ui/Button.svelte';
   // New instance: `hs sys ct plan|start <name> create [--type container|docker|vm] [--ram MB] [--cpu N] [--disk GB] [--address ip] [--profile name] [--bind kind:name:/path[:ro] ...]`
   import CreateDialog from '../../shell/CreateDialog.svelte';
   import { poll, rows } from '../../data.svelte.js';
@@ -82,11 +82,11 @@
           <input class="input" aria-label="Name" list="ci-shares" bind:value={b.name} placeholder={b.kind === 'fast' ? 'volume' : 'share'} autocomplete="off" spellcheck="false" />
           <input class="input" aria-label="Path inside" bind:value={b.path} placeholder="/media" autocomplete="off" spellcheck="false" />
           <label class="chk"><input type="checkbox" bind:checked={b.ro} />ro</label>
-          <button use:tip={'Remove this binding'} type="button" class="btn btn-ghost btn-icon" aria-label="Remove this binding" onclick={() => dropBind(b.id)}><i class="ph ph-x"></i></button>
+          <Button variant="ghost" class="btn-icon" tooltip={'Remove this binding'} type="button" aria-label="Remove this binding" onclick={() => dropBind(b.id)}><i class="ph ph-x"></i></Button>
         </div>
       {/each}
       <datalist id="ci-shares">{#each shareNames as n}<option value={n}></option>{/each}</datalist>
-      <div><button type="button" class="btn btn-ghost sm" onclick={addBind}><i class="ph ph-plus"></i>Bind storage</button></div>
+      <div><Button variant="ghost" size="sm" class="createinstance-sm" type="button" onclick={addBind}><i class="ph ph-plus"></i>Bind storage</Button></div>
       {#if binds.length && !bindsOk}<div class="hint bad">Each binding needs a different name and an absolute path without "..".</div>{/if}
       {#if vmBulk}<div class="hint bad">Share folders cannot go into a virtual machine; use a fast volume, or mount the Samba share inside it.</div>{/if}
     </div>
@@ -102,5 +102,5 @@
   .opt { color: var(--color-neutral-500); }
   .brow { display: grid; grid-template-columns: 120px minmax(0, 1fr) minmax(0, 1fr) auto auto; gap: 6px; align-items: center; margin-bottom: 6px; }
   .chk { display: flex; align-items: center; gap: 4px; font-size: 12.5px; accent-color: var(--color-accent); }
-  .sm { font-size: 12px; }
+  :global(.btn.createinstance-sm) { font-size: 12px; }
 </style>

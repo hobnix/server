@@ -59,7 +59,7 @@
       {#if part}
         <StatusDot state={tag.state} label={tag.label} />
         {#if hasSteps}<Button tooltip={advanced ? 'Back to the status and the setup' : 'Every key of this part as plain fields'} onclick={() => (advanced = !advanced)}>{advanced ? 'Back' : 'Advanced'}</Button>{/if}
-        <Button busy={jobRunning('parts', [part.on || part.pending ? 'disable' : 'enable', part.name])} busyLabel="Switching…" disabled={!part.canSwitch} tooltip={!part.canSwitch ? 'This part cannot be switched here' : part.on || part.pending ? 'Switch this part off (shows the plan)' : 'Switch this part on (shows the plan)'} onclick={() => flip(part)}>{part.on || part.pending ? 'Switch off…' : 'Switch on…'}</Button>
+        <Button busy={(jobRunning('parts', ['disable', part.name]) || jobRunning('parts', ['enable', part.name]))} busyLabel="Switching…" disabled={!part.canSwitch} tooltip={!part.canSwitch ? 'This part cannot be switched here' : part.on || part.pending ? 'Switch this part off (shows the plan)' : 'Switch this part on (shows the plan)'} onclick={() => flip(part)}>{part.on || part.pending ? 'Switch off…' : 'Switch on…'}</Button>
       {:else if !partList.loaded}
         <span class="muted">Loading…</span>
       {/if}

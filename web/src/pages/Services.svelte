@@ -72,7 +72,7 @@
 
 <PageHeader title="Services" crumb="{ui.host} › Instances" sub="What the reverse proxy publishes, and what each service wants. Public means reachable from the internet; admin pages never are.">
   {#snippet actions()}
-    <button use:tip={'Describe a service so the proxy can route it'} class="btn btn-primary" onclick={() => describe()}><i class="ph ph-plus"></i>Describe a service…</button>
+    <Button variant="primary" tooltip={'Describe a service so the proxy can route it'} onclick={() => describe()}><i class="ph ph-plus"></i>Describe a service…</Button>
     <Button icon="check-circle" disabled={noProxy || !todo || (routesJob && !jobRunning('routes', ['apply']))} busy={jobRunning('routes', ['apply'])} busyLabel="Applying…" tooltip={todo ? 'Make the routes the services want' : 'The proxy already matches the services'} onpointerenter={() => prefetchPlan('routes', ['apply'])} onfocus={() => prefetchPlan('routes', ['apply'])} onclick={() => openPlan('routes', ['apply'], 'Apply the routes')}>Apply{todo ? ` (${todo})` : ''}…</Button>
     <Button variant="ghost" icon="hand-grabbing" disabled={noProxy || !handmade || (routesJob && !jobRunning('routes', ['adopt']))} busy={jobRunning('routes', ['adopt'])} busyLabel="Adopting…" tooltip={'Let hs manage routes that were made by hand'} onclick={() => openPlan('routes', ['adopt'], 'Adopt routes')}>Adopt…</Button>
     <Button variant="ghost" icon="download-simple" disabled={noProxy || (routesJob && !jobRunning('routes', ['import']))} busy={jobRunning('routes', ['import'])} busyLabel="Importing…" tooltip={'Describe the routes of the proxy as services'} onclick={() => openPlan('routes', ['import'], 'Import services')}>Import…</Button>
@@ -99,7 +99,7 @@
 
 <PageState loading={!svc.loaded} error={svc.error?.message} hasData={svc.data != null} empty={svc.loaded && !svc.error && !services.length}
            emptyIcon="arrows-split" emptyTitle="No services yet" emptyText="Import the routes of the proxy, or run a recipe: it describes its own service.">
-  {#snippet emptyAction()}<button use:tip={'Describe a service so the proxy can route it'} class="btn btn-primary" onclick={() => describe()}><i class="ph ph-plus"></i>Describe a service…</button>{/snippet}
+  {#snippet emptyAction()}<Button variant="primary" tooltip={'Describe a service so the proxy can route it'} onclick={() => describe()}><i class="ph ph-plus"></i>Describe a service…</Button>{/snippet}
   <div class="card tc">
     <div class="sh">Services</div>
     <Table id="services" {columns} rows={services} key="name" loading={!svc.loaded} empty="No services.">
@@ -112,7 +112,7 @@
         {:else if col.key === 'exposure'}<span class="tag {s.exposure === 'public-ok' ? 'tag-accent' : 'tag-neutral'}">{s.exposure}</span>
         {:else if col.key === 'names'}<span class="c">{dash(s.names)}</span>
         {:else if col.key === 'wants'}<span class="c">{dash(s.wants)}</span>
-        {:else}<button class="btn btn-ghost btn-icon rm" use:tip={`Change ${s.name}`} aria-label="Change {s.name}" onclick={() => describe({ edit: s.name })}><i class="ph ph-pencil-simple"></i></button><button class="btn btn-ghost btn-icon rm" use:tip={`Forget the description of ${s.name} (its routes stay)`} aria-label="Forget {s.name}" onclick={() => openPlan('routes', ['remove', s.name], 'Forget ' + s.name)}><i class="ph ph-x"></i></button>{/if}
+        {:else}<Button variant="ghost" class="btn-icon services-rm" tooltip={`Change ${s.name}`} aria-label="Change {s.name}" onclick={() => describe({ edit: s.name })}><i class="ph ph-pencil-simple"></i></Button><Button variant="ghost" class="btn-icon services-rm" tooltip={`Forget the description of ${s.name} (its routes stay)`} aria-label="Forget {s.name}" onclick={() => openPlan('routes', ['remove', s.name], 'Forget ' + s.name)}><i class="ph ph-x"></i></Button>{/if}
       {/snippet}
     </Table>
   </div>
@@ -157,5 +157,5 @@
   .acts { display: flex; gap: 8px; margin: 8px 0; }
   .muted { font-size: 12px; color: var(--fg-3); }
   .c { color: var(--fg-2); }
-  .rm { width: 28px; min-height: 28px; color: var(--fg-3); }
+  :global(.btn.services-rm) { width: 28px; min-height: 28px; color: var(--fg-3); }
 </style>
