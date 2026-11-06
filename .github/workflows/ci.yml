@@ -92,7 +92,7 @@ jobs:
           cut -d: -f4- /tmp/pool-shellcheck.txt | sort | uniq -c | sort -rn | head -10
       - name: Tests that need no root (every tests/*.sh; tests/run-all.sh lists them, root tests are skipped here)
         run: |
-          sudo apt-get install -y -qq jq python3-pil
+          sudo apt-get update -qq && sudo apt-get install -y -qq jq python3-pil
           HS_TEST_CI=1 bash tests/run-all.sh --jobs 2
 
   # The default package repositories at their latest main, checked against this core: manifests, indexes and their own tests. A core change
