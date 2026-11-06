@@ -32,6 +32,20 @@ const de = {
   'The next update installs {ref}.': 'Das nächste Update installiert {ref}.', '{ref} is not fetched yet: the next update looks for it.': '{ref} ist noch nicht geholt: das nächste Update sucht danach.',
   'There is no release tag for this channel yet: the next update follows the current branch.': 'Für diesen Kanal gibt es noch kein Release-Tag: das nächste Update folgt dem aktuellen Zweig.',
   'Moving to an older channel keeps the installed version: the server does not go back, it waits until the channel catches up.': 'Der Wechsel zu einem älteren Kanal behält die installierte Version: der Server geht nicht zurück, er wartet, bis der Kanal aufgeholt hat.',
+  // Live state (pages/LiveState.svelte)
+  'Live state': 'Live-Zustand', Topic: 'Thema', Source: 'Quelle', TTL: 'Gültigkeit', Age: 'Alter', Gen: 'Gen', Exit: 'Exit-Code', Error: 'Fehler',
+  Capability: 'Funktion', Needs: 'Braucht', Refresh: 'Neu lesen', Raw: 'Rohdaten', extension: 'Erweiterung', Stored: 'Gespeichert',
+  'Every live-state topic, what is stored for it, and its last error.': 'Jedes Live-Zustand-Thema, was dafür gespeichert ist und der letzte Fehler.',
+  'Live state is off. Turn on the capability live-state under Settings > Capabilities to see its topics here.': 'Live-Zustand ist aus. Schalte die Funktion live-state unter Einstellungen > Funktionen ein, um die Themen hier zu sehen.',
+  'The live state service is down. The table shows the last data; polling every 5 s until it comes back. Check': 'Der Live-Zustand-Dienst ist aus. Die Tabelle zeigt die letzten Daten; alle 5 s wird neu gelesen, bis er zurück ist. Prüfe',
+  'Live state is starting; the first reading should arrive in a few seconds.': 'Live-Zustand startet; die erste Messung sollte in ein paar Sekunden da sein.',
+  'Live updates are paused; polling every 5 s until the stream reconnects.': 'Live-Updates pausieren; alle 5 s wird neu gelesen, bis die Verbindung zurück ist.',
+  'The live topics could not be read.': 'Die Live-Themen konnten nicht gelesen werden.', 'No live topics are configured.': 'Es sind keine Live-Themen eingerichtet.',
+  'The refresh was refused:': 'Das Neulesen wurde abgelehnt:',
+  'The stored output could not be read.': 'Die gespeicherte Ausgabe konnte nicht gelesen werden.',
+  'Nothing is stored for this topic yet.': 'Für dieses Thema ist noch nichts gespeichert.',
+  'Shows the first 64 KiB of {n} bytes.': 'Zeigt die ersten 64 KiB von {n} Bytes.',
+  'shows the same on the command line.': 'zeigt dasselbe auf der Kommandozeile.',
 };
 
 export const tr = (s) => (lang.code === 'de' && typeof s === 'string' ? (de[s] ?? s) : s);

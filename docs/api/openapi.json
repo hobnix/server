@@ -4947,6 +4947,97 @@
     }
    }
   },
+  "/live/inspect": {
+   "get": {
+    "operationId": "live.inspect",
+    "summary": "every live-state topic as JSON for the inspector page: words, interval, lock, origin, capability, groups, age, gen, exit code, error, error time, bytes (needs, status, ttl only when known)",
+    "x-hs-exit": true,
+    "x-hs-sys": {
+     "words": [
+      "live",
+      "inspect"
+     ],
+     "script": "live.sh",
+     "args": "inspect",
+     "class": "read",
+     "rest": false
+    },
+    "x-hs-web": {
+     "path": "/api/sys/live/inspect",
+     "kind": "json",
+     "ttl": 0,
+     "query": []
+    },
+    "x-hs-described": false,
+    "description": "{now, topics: [{topic, words[], interval, lock (run|skip), origin (core|extension), cap (null = always), cap_on, groups[], age (null = never read), gen, rc, err, ts_err, bytes}]}. Optional per topic, only when known: needs[] (#153), status, ttl, source (#322).",
+    "responses": {
+     "0": {
+      "description": "ok",
+      "content": {
+       "application/json": {
+        "schema": {
+         "type": "string"
+        }
+       }
+      }
+     },
+     "default": {
+      "description": "failed; stderr says why, stdout may be empty"
+     }
+    }
+   }
+  },
+  "/live/raw/{topic}": {
+   "get": {
+    "operationId": "live.raw.by_topic",
+    "summary": "the stored document of one live-state topic as JSON, the output capped at 64 KiB",
+    "x-hs-exit": true,
+    "x-hs-sys": {
+     "words": [
+      "live",
+      "raw",
+      "<topic>"
+     ],
+     "script": "live.sh",
+     "args": "raw {1}",
+     "class": "read",
+     "rest": false
+    },
+    "x-hs-web": {
+     "path": "/api/sys/live/raw/<topic>",
+     "kind": "json",
+     "ttl": 0,
+     "query": []
+    },
+    "parameters": [
+     {
+      "name": "topic",
+      "in": "path",
+      "required": true,
+      "schema": {
+       "type": "string"
+      }
+     }
+    ],
+    "x-hs-described": false,
+    "description": "{topic, stored (false = no document), ts, gen, rc, err, ts_err, bytes (full size), truncated, out (at most 65536 bytes)}. Exit 2: unknown topic.",
+    "responses": {
+     "0": {
+      "description": "ok",
+      "content": {
+       "application/json": {
+        "schema": {
+         "type": "string"
+        }
+       }
+      }
+     },
+     "default": {
+      "description": "failed; stderr says why, stdout may be empty"
+     }
+    }
+   }
+  },
   "/live/refresh": {
    "get": {
     "operationId": "live.refresh",

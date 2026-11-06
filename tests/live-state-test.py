@@ -613,6 +613,87 @@ class Cli(unittest.TestCase):
         self.assertEqual(live[3], "3")      # the generation that existed before this collection
         self.assertEqual(st.published, [])  # status does not publish refreshes
 
+    # --- inspect / raw (the Live state page)
+    def inspect(self, st, caps=None):
+        out = io.StringIO()
+        with unittest.mock.patch.object(ls, "cap_on", lambda n: True if caps is None else caps.get(n, True)):
+            rc = ls.cli_inspect(st, out)
+        return rc, (json.loads(out.getvalue()) if out.getvalue() else None)
+
+    def test_inspect_shape(self):
+        import time
+        st = FakeResp()
+        st.data["hs:v1:status"] = json.dumps({"ts": time.time() - 5, "gen": 4, "rc": 0, "out": "abc", "err": None, "ts_err": None})
+        rc, doc = self.inspect(st)
+        self.assertEqual(rc, 0)
+        self.assertEqual(len(doc["topics"]), len(ls.topics()))
+        base = {"topic", "words", "interval", "lock", "origin", "cap", "cap_on", "groups", "age", "gen", "rc", "err", "ts_err", "bytes"}
+        for e in doc["topics"]:
+            self.assertEqual(set(e) & base, base)
+            self.assertNotIn("needs", e)
+            self.assertNotIn("status", e)
+            self.assertNotIn("ttl", e)
+            self.assertEqual(e["origin"], "core")
+        by = {e["topic"]: e for e in doc["topics"]}
+        self.assertEqual((by["status"]["gen"], by["status"]["rc"], by["status"]["bytes"], by["status"]["interval"]), (4, 0, 3, 15))
+        self.assertIn(by["status"]["age"], (5, 6))
+        self.assertIsNone(by["live"]["age"])
+        self.assertIsNone(by["live"]["bytes"])
+
+    def test_inspect_cap_off(self):
+        topics = [t for t in ls.topic_info().items() if t[1]["cap"]]
+        if not topics:
+            self.skipTest("no topic with a capability")
+        t, i = topics[0]
+        rc, doc = self.inspect(FakeResp(), {i["cap"]: False})
+        self.assertFalse({e["topic"]: e for e in doc["topics"]}[t]["cap_on"])
+
+    def test_inspect_passes_doc_extras(self):
+        st = FakeResp()
+        st.data["hs:v1:status"] = json.dumps({"ts": 1, "gen": 1, "rc": 0, "out": "x", "status": "ok", "ttl": 45, "source": {"a": 1}})
+        rc, doc = self.inspect(st)
+        e = {e["topic"]: e for e in doc["topics"]}["status"]
+        self.assertEqual((e["status"], e["ttl"]), ("ok", 45))
+        self.assertNotIn("source", e)
+
+    def test_inspect_extension_topic(self):
+        row = ("ext-demo-list", ["ext", "demo", "list"], 30, "run")
+        with unittest.mock.patch.object(ls, "ext_live", lambda: ([row], {"ext-demo-list": {"cap": None, "groups": {"ext-demo"}}})):
+            rc, doc = self.inspect(FakeResp())
+        e = {e["topic"]: e for e in doc["topics"]}["ext-demo-list"]
+        self.assertEqual((e["origin"], e["groups"]), ("extension", ["ext-demo"]))
+        with unittest.mock.patch.object(ls, "ext_live", lambda: ([], {})):
+            rc, doc = self.inspect(FakeResp())
+        self.assertNotIn("ext-demo-list", {e["topic"] for e in doc["topics"]})
+
+    def test_inspect_down(self):
+        class Dead:
+            def cmd(self, *a):
+                raise OSError("gone")
+        rc, doc = self.inspect(Dead())
+        self.assertEqual(rc, 1)
+
+    def raw(self, args, st):
+        out = io.StringIO()
+        rc = ls.cli_raw(args, st, out)
+        return rc, (json.loads(out.getvalue()) if out.getvalue() else None)
+
+    def test_raw_caps_size(self):
+        st = FakeResp()
+        st.data["hs:v1:status"] = json.dumps({"ts": 1, "gen": 2, "rc": 0, "out": "x" * 100000, "err": None, "ts_err": None})
+        rc, d = self.raw(["status"], st)
+        self.assertEqual(rc, 0)
+        self.assertEqual((d["stored"], d["bytes"], d["truncated"], len(d["out"]), d["gen"]), (True, 100000, True, 65536, 2))
+
+    def test_raw_unknown_topic(self):
+        self.assertEqual(self.raw(["nope"], FakeResp())[0], 2)
+        self.assertEqual(self.raw([], FakeResp())[0], 2)
+        self.assertEqual(self.raw(["status", "live"], FakeResp())[0], 2)
+
+    def test_raw_not_stored(self):
+        rc, d = self.raw(["status"], FakeResp())
+        self.assertEqual((rc, d), (0, {"topic": "status", "stored": False}))
+
 
 @unittest.skipUnless(hasattr(socket, "AF_UNIX"), "no AF_UNIX")
 class Wire(unittest.TestCase):

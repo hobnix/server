@@ -144,6 +144,8 @@ error. The web answers with the old data and, additive, `X-HS-Stale` (time of th
 Events `live.collector-failed` (once per change into error) and `live.collector-recovered` (docs/adr/0005-events.md). `hs sys live status`/`check`
 keep their shape. Not tested on hardware yet.
 
+Inspector page (Monitoring > Live state): `hs sys live inspect` (one JSON document, named keys), `hs sys live raw <topic>` (stored output, capped at 64 KiB) and `POST /api/live/refresh {topic}` (the same `hs:v1:refresh` message as `?fresh=1`). Not tested on hardware yet.
+
 ## Apps slice (2026-11-01)
 
 3 topics (`pkg-market`, `pkg-repos`, `recipes-list`), see capabilities/live-state/NOTES.md. `pkg.sh` refreshes them (and `parts-list`) after a

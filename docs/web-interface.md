@@ -214,6 +214,20 @@ The Users and Backup pages follow the same rule: the user and group lists, the d
 shares and instances with their backup switch come from Redis and update after a user, share, instance or backup change. One user's or group's details,
 the snapshots and the file search of the backup stay direct (they open the backup disk). Not tested on hardware yet.
 
+## Inspect the live state
+
+When live state is on, one page lists every topic the collector reads and what is stored for it.
+
+1. Open Monitoring > Live state. The same list as text: `sudo hs sys live inspect`.
+2. Read a row: Source is the `hs sys` command the topic runs, Every is how often it is read, State is `fresh`, `stale`, `failing`, `never`,
+   `pending` or `off` (its capability is off), Age is the time since the last good reading, Gen counts the readings, Exit and Error are the
+   last failure with its time, Capability, Groups and (when known) Needs say when it is read and which changes wake it.
+3. Press Refresh on a row to ask the collector to read that topic now. The row updates by itself a moment later.
+4. Press Raw to see the stored output of the topic: the first 64 KiB, and how many bytes there are in total.
+
+Topics of extensions appear with an "extension" tag and come and go with their package. With the capability `live-state` off the page only
+says so. The page updates over the same stream as the others and polls every 5 seconds while the stream is down. Not tested on hardware yet.
+
 ## Check that it worked
 
 - Open the page and sign in; the summary shows your server and its disks.

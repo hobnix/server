@@ -123,6 +123,11 @@ class OffMode(Base):
     def test_the_status_read_has_a_topic(self):
         self.assertEqual(ws.READS[("status",)]["topic"], "status")
 
+    def test_live_refresh_is_409_in_mode_off(self):
+        csrf = json.loads(self.req("GET", "/api/session", headers=self.ck)[1])["csrf"]
+        r = self.req("POST", "/api/live/refresh", {"topic": "status"}, dict(self.ck, **{"X-CSRF-Token": csrf}))
+        self.assertEqual(r[0], 409)
+
     def test_the_live_status_read_has_a_topic(self):
         self.assertEqual(ws.READS[("live", "status")]["topic"], "live")
 
@@ -334,6 +339,31 @@ class RedisMode(RedisBase):
         self.assertEqual(self.redis.published, [])
         self.assertEqual(self.req("POST", "/api/start", {"area": "ct", "args": ["web1", "restart"]}, ch)[0], 200)
         self.assertEqual(self.redis.published, [("hs:v1:refresh", "@instances")])
+
+    def test_inspect_and_raw_reads_are_never_cached(self):
+        self.assertEqual(ws.READS[("live", "inspect")]["ttl"], 0)
+        self.assertNotIn("topic", ws.READS[("live", "inspect")])
+        self.assertEqual(ws.READS[("live", "raw")]["ttl"], 0)
+        self.assertTrue(ws.READS[("live", "raw")]["args"])
+
+    def test_inspect_with_redis_down_is_503(self):
+        self.redis.down = True
+        for path in ("/api/sys/live/inspect", "/api/sys/live/raw/status"):
+            s, d, r = self.req("GET", path, headers=self.ck)
+            self.assertEqual((s, json.loads(d)["error"]), (503, "state service down"))
+        self.assertEqual(self.fake.calls, [])
+
+    def test_live_refresh_checks(self):
+        body = {"topic": "status"}
+        ch = dict(self.ck, **{"X-CSRF-Token": self.csrf()})
+        self.assertEqual(self.req("POST", "/api/live/refresh", body)[0], 401)
+        self.assertEqual(self.req("POST", "/api/live/refresh", body, dict(self.ck, **{"X-CSRF-Token": "bad"}))[0], 403)
+        self.assertEqual(self.req("POST", "/api/live/refresh", body, dict(ch, Origin="http://evil.example"))[0], 403)
+        self.assertEqual(self.req("POST", "/api/live/refresh", {"topic": "no-such-topic"}, ch)[0], 400)
+        self.assertEqual(self.req("POST", "/api/live/refresh", {"topic": 5}, ch)[0], 400)
+        self.assertEqual(self.redis.published, [])
+        self.assertEqual(self.req("POST", "/api/live/refresh", body, ch)[0], 200)
+        self.assertEqual(self.redis.published, [("hs:v1:refresh", "status")])
 
     def test_login_facts_read_the_stored_status(self):
         self.redis.keys["hs:v1:status"] = doc("instances\t3\t4\n")

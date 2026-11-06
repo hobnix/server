@@ -52,5 +52,11 @@ const paths = [...nav.matchAll(/path: '(\/[^']*)'/g)].map((m) => m[1]);
 const missing = paths.filter((p) => !routes.includes(`'${p}':`) && p !== '/');
 eq('every tree path has a route', missing, []);
 
+// the Live state page: a route, a nav entry behind the capability, and its one read only with live state on
+eq('live-state has a route', routes.includes("'/monitoring/live-state': LiveState"), true);
+eq('the Live state nav entry carries the capability', /path: '\/monitoring\/live-state', capability: 'live-state'/.test(nav), true);
+eq('the Live state read, live on', readsFor('/monitoring/live-state', [], true), ['/api/sys/live/inspect']);
+eq('the Live state page reads nothing, live off', readsFor('/monitoring/live-state', [], false), []);
+
 console.log(`  -> ${ok} ok, ${bad} failed`);
 process.exit(bad ? 1 : 0);

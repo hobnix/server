@@ -129,7 +129,7 @@
         {/snippet}
       </Table>
     </div>
-    <div class="muted">These are the live-state topics in Redis. The <code>live</code> row describes the previous collection by design. <code>hs sys live status</code> shows the same on the command line.</div>
+    <div class="muted">These are the live-state topics in Redis. The <code>live</code> row describes the previous collection by design. <code>hs sys live status</code> shows the same on the command line. <button class="link-btn" onclick={() => go('/monitoring/live-state')}>Live state</button> has the details per topic.</div>
   {/if}
 </div>
 

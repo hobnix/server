@@ -9,6 +9,7 @@ This file is the whole HTTP side of the entry page:
   POST /api/logout
   GET  /api/changes/seen   the revision this user has seen in What's new ({rev}, "" = never); session needed
   POST /api/changes/seen   {rev: 40 hex}: remember it for the signed-in user (web-changes-seen.json in the state folder); session + CSRF
+  POST /api/live/refresh   {topic}: ask the live collector to read that topic again (mode redis; 409 otherwise); session + CSRF
   GET  /api/sys/...   a read-only `hs sys` call from the allowlist READS below (session needed), e.g. /api/sys/ct/list
   GET  /api/sys/jobs/stream/<unit>  the same job journal as `sys jobs tail`, as server-sent events (one JSON {rows} per look, `event: end` when the unit ended), session needed
   GET  /api/events    server-sent events `changed` ({topic, gen}) in every mode (a watcher reads the table `topics` of state.db once a second; Redis, when on, is the fast path), `down`/`up` when Redis goes; session, same Origin
@@ -751,6 +752,8 @@ READS = {
     ("state", "disks"): {"kind": "tsv", "ttl": 15, "topic": "disk-inventory"},
     ("reads", "status"): {"kind": "tsv", "ttl": 5},      # the Data page: what the collector keeps, how old, how long each read takes
     ("live", "status"): {"kind": "tsv", "ttl": 5, "topic": "live"},      # the Data page in live mode: the live topics themselves
+    ("live", "inspect"): {"kind": "json", "ttl": 0, "redis": True},      # the Live state page; ttl 0: never cached nor warmed, re-read on each change of topic live
+    ("live", "raw"): {"kind": "json", "ttl": 0, "redis": True, "args": [NAME]},      # one topic's stored output for the Live state page (capped in live_state.py)
     ("state", "events"): {"kind": "tsv", "ttl": 10, "query": {"n": (r"^[0-9]{1,4}$", "")}},
     ("event", "list"): {"kind": "tsv", "ttl": 10, "query": {"n": (r"^[0-9]{1,4}$", "")}},      # the event log (docs/adr/0005-events.md)
     ("ct", "list"): {"kind": "tsv", "ttl": 5, "topic": "ct-list"},
@@ -1862,6 +1865,15 @@ class RedisStore(StateStore):
 
     def get(self, spec, argv, key, fresh=False):
         topic = spec.get("topic")
+        if spec.get("redis") and not topic:      # a direct read that needs Redis (the Live state page): Redis down is 503 like for a topic read
+            try:
+                r = ls.Resp(self.cfg.live_socket, timeout=1.0)
+                try:
+                    r.cmd("PING")
+                finally:
+                    r.close()
+            except OSError:
+                return 503, {"error": "state service down", "hint": "systemctl status redis-hobnix hs-live"}, None, ()
         cap = spec["cap"] if "cap" in spec else self.caps.get(topic)      # an extension read names its own capability (None = a recipe package)
         if not topic or not ls.cap_on(cap):      # no topic, or its capability is off (the collector never writes it): the direct read
             return self.off.get(spec, argv, key, fresh=fresh)
@@ -2547,7 +2559,7 @@ def make_handler(app):
         def do_POST(self):
             path = urllib.parse.urlsplit(self.path).path
             raw = self._read(FM_SELECTION_BYTES + 8192 if path in ("/api/plan", "/api/start") else 4096)      # a file manager selection can be long
-            if path not in ("/api/login", "/api/logout", "/api/plan", "/api/start", "/api/unlock", "/api/terminal", "/api/changes/seen"):
+            if path not in ("/api/login", "/api/logout", "/api/plan", "/api/start", "/api/unlock", "/api/terminal", "/api/changes/seen", "/api/live/refresh"):
                 return self._json(404, {"error": "unknown"})
             if not self._same_origin():
                 return self._json(403, {"error": "origin"})
@@ -2560,6 +2572,8 @@ def make_handler(app):
                 return self._terminal_ticket(body)
             if path == "/api/changes/seen":
                 return self._changes_seen(body)
+            if path == "/api/live/refresh":
+                return self._live_refresh(body)
             if path in ("/api/plan", "/api/start"):
                 return self._change(path[len("/api/"):], body)
             if path == "/api/logout":
@@ -2581,6 +2595,21 @@ def make_handler(app):
                 return self._json(400, {"error": "That revision is not allowed."})
             app.changes_seen.set(s["user"], rev)
             print("web changes seen: %s" % s["user"], flush=True)
+            return self._json(200, {"ok": True})
+
+        def _live_refresh(self, body):
+            s = self._session()
+            if not s:
+                return self._json(401, {"error": "not signed in"})
+            if not secrets.compare_digest(self.headers.get("X-CSRF-Token", ""), s["csrf"]):
+                return self._json(403, {"error": "csrf"})
+            if cfg.live != "redis":
+                return self._json(409, {"error": "live state is off"})
+            topic = body.get("topic")
+            if not isinstance(topic, str) or not re.fullmatch(NAME, topic) or topic not in {t[0] for t in ls.topics()}:
+                return self._json(400, {"error": "That topic is not known."})
+            app.store.request(topic)      # the same message ?fresh=1 sends
+            print("web live refresh: %s %s" % (re.sub(r"[^A-Za-z0-9._@-]", "_", str(s["user"])), topic), flush=True)
             return self._json(200, {"ok": True})
 
         def _change(self, verb, body):
