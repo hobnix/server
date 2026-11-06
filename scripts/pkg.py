@@ -9,6 +9,7 @@
   pkg.py record <name> [--applied]                         remember the tree's version as installed (installed.toml); --applied: a run applied it
   pkg.py applied                                           name, version the last successful run applied
   pkg.py api                                               the API level of the core helpers
+  pkg.py new <name> --template recipe|extension [--dir <path>]  start a package in a checkout of a package repository (pkg_new.py)
 
 Repositories (docs/PLAN-packages.md, "Repositories" and "Trust"); the git work is `git`, signatures are SSH signatures on release tags:
   pkg.py repo list                                         name, url, signed|unsigned, default|added
@@ -350,6 +351,11 @@ def main(argv):
         mod = importlib.util.module_from_spec(spec)
         spec.loader.exec_module(mod)
         return mod.run(MAIN, cmd, rest)
+    elif cmd == "new":
+        spec = importlib.util.spec_from_file_location("pkg_new", os.path.join(HERE, "pkg_new.py"))
+        mod = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(mod)
+        return mod.run(MAIN, rest)
     elif cmd == "repo-check":
         p = repo_check(rest[0] if rest else ".")
         for t in p:

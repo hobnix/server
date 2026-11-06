@@ -1695,7 +1695,18 @@ Your previous %s is kept as %s.before-recipe	Dein bisheriges %s bleibt als %s.be
 attr: v	attr: v
 unknown visibility '%s' (visible, hidden)	unbekannte Sichtbarkeit '%s' (visible, hidden)
 usage: hs net setup [--address <url>] [--stdin]   store the router address and the API key (--stdin: the key is the first line on standard input)	Aufruf: hs net setup [--address <URL>] [--stdin]   Adresse des Routers und API-Schlüssel speichern (--stdin: der Schlüssel ist die erste Zeile der Standardeingabe)
-usage: hs pkg list [--all] [--kind recipe|extension] | updates | validate | fetch | available | install | update | remove | repo	Aufruf: hs pkg list [--all] [--kind recipe|extension] | updates | validate | fetch | available | install | update | remove | repo
+usage: hs pkg list [--all] [--kind recipe|extension] | updates | validate | new | fetch | available | install | update | remove | repo	Aufruf: hs pkg list [--all] [--kind recipe|extension] | updates | validate | new | fetch | available | install | update | remove | repo
+usage: hs pkg new <name> --template recipe|extension [--dir <path>] [--title <text>] [--title-de <text>]	Aufruf: hs pkg new <Name> --template recipe|extension [--dir <Pfad>] [--title <Text>] [--title-de <Text>]
+Unknown template %s: use recipe or extension (a capability template waits for the service extensions, issue #238).	Unbekannte Vorlage %s: recipe oder extension verwenden (eine Vorlage für Fähigkeiten kommt mit den Dienst-Erweiterungen, Issue #238).
+The name %s is not allowed: lower case letters, digits and -, starting with a letter, at most 41 characters, and not list, enable or disable.	Der Name %s ist nicht erlaubt: Kleinbuchstaben, Ziffern und -, mit einem Buchstaben am Anfang, höchstens 41 Zeichen, und nicht list, enable oder disable.
+A title is one line of at most 100 characters, without spaces at its ends.	Ein Titel ist eine Zeile mit höchstens 100 Zeichen, ohne Leerzeichen am Anfang oder Ende.
+%s is not a checkout of a package repository: it needs index.toml and the folder recipes/ (recipe) or extensions/ (extension). Use --dir <path>.	%s ist kein Checkout eines Paket-Repositorys: Es braucht index.toml und den Ordner recipes/ (Rezept) oder extensions/ (Erweiterung). --dir <Pfad> verwenden.
+There is a package %s already (its folder or its index.toml entry); nothing was changed.	Es gibt schon ein Paket %s (seinen Ordner oder seinen Eintrag in index.toml); nichts wurde geändert.
+The package could not be written (%s); nothing was left behind.	Das Paket konnte nicht geschrieben werden (%s); nichts ist liegen geblieben.
+New package %s	Neues Paket %s
+Folder	Ordner
+Added %s to %s	%s in %s eingetragen
+It passes the checks as it is. Replace the example step or command with your own, then check again:	Es besteht die Prüfungen so, wie es ist. Den Beispielschritt oder -befehl durch einen eigenen ersetzen und dann erneut prüfen:
 usage: hs pkg repo add <name> <url> (--key <allowed_signers file> | --unsigned) [--confirm-name <name>]	Aufruf: hs pkg repo add <Name> <URL> (--key <allowed_signers-Datei> | --unsigned) [--confirm-name <Name>]
 usage: hs pkg repo list | add <name> <url> (--key <file> | --unsigned) | remove <name>	Aufruf: hs pkg repo list | add <Name> <URL> (--key <Datei> | --unsigned) | remove <Name>
 usage: hs share cleanup [--dry-run] [--yes]	Aufruf: hs share cleanup [--dry-run] [--yes]
