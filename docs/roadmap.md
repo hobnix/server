@@ -200,6 +200,6 @@ Not done yet:
 
 ## How to take part
 
-- Pick an issue with the label `good first issue` ([CONTRIBUTING.md](../CONTRIBUTING.md)), or ask in a Discussion.
+- Pick an issue with the label `good first issue` ([CONTRIBUTING.md](https://github.com/hobnix/server/blob/develop/CONTRIBUTING.md)), or ask in a Discussion.
 - A change to storage, the network or the firewall is discussed in an issue before it is built.
 - Decisions that are hard to undo are written down as records: [Architecture decisions](adr/README.md).
