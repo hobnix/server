@@ -78,10 +78,11 @@ bad=""
 used=$( { grep -rhoE '(event_emit|hs event emit|state-db\.py emit|db emit)[[:space:]]+"?[a-z0-9]+\.[a-z0-9.-]+' "$SCRIPTS" "$ROOT/capabilities" 2>/dev/null \
           | grep -v '^ *#' | sed -E 's/.*[[:space:]]"?//'; } | sort -u)
 for k in $used; do
-  case "$k" in pkg.*) continue ;; esac   # a package ships its own kinds; the ones in the core file are the media helper's
+  case "$k" in pkg.*) continue ;; esac   # a package declares its own kinds in package.toml [[events]]; the core file lists core kinds only
   grep -q "^${k}	" "$KINDS" || bad="$bad $k"
 done
 check_eq "no unregistered kind" "" "$bad"
+check_eq "the core file lists core kinds only" "0" "$(grep -c '^pkg\.' "$KINDS")"
 check_eq "kinds file has 4 columns" "" "$(grep -v '^#' "$KINDS" | awk -F'\t' 'NF != 4 {print $1}')"
 check_eq "kind names are <area>.<what>, lower case" "" "$(grep -v '^#' "$KINDS" | cut -f1 | grep -vE '^[a-z][a-z0-9]*(\.[a-z0-9][a-z0-9-]*)+$' || true)"
 check_eq "levels are info, warn or error" "" "$(grep -v '^#' "$KINDS" | awk -F'	' '$2 !~ /^(info|warn|error)$/ {print $1}')"

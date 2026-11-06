@@ -87,6 +87,13 @@ for `backup-state` because a plugged or removed backup disk flips its `disk` key
 and exits 1 with its usage text, so the READS entry (no argument) can never answer. No page in web/src calls it (only the WARM list does); it needs a
 design (one row per share) before it can become a topic. Reported, not changed.
 
+## Dependencies (2026-11-06, #153)
+
+Dependencies (#153): `live-topics.tsv` column 7 `needs` = topics whose new gen re-reads this one in a wave (one thread, dependency order, once per topic).
+Only a new gen spreads; a failed read keeps the data and spreads nothing. A wave never reads a topic sooner than `HS_LIVE_MIN_GAP` s (5) after its last read.
+An extension read may `needs` core topics only; an unknown name switches its live topic off and logs one line. `hs sys live status` field 8 = needs.
+Not tested on hardware yet.
+
 ## Extension reads (2026-11-01)
 
 A package manifest can opt a `[[web.reads]]` entry without `args` in with `live = 10..3600` (docs/PLAN-extensions.md): topic `ext-<name>-<words joined

@@ -9,6 +9,7 @@
   pkg.py record <name> [--applied]                         remember the tree's version as installed (installed.toml); --applied: a run applied it
   pkg.py applied                                           name, version the last successful run applied
   pkg.py api                                               the API level of the core helpers
+  pkg.py new <name> --template recipe|extension [--dir <path>]  start a package in a checkout of a package repository (pkg_new.py)
 
 Repositories (docs/PLAN-packages.md, "Repositories" and "Trust"); the git work is `git`, signatures are SSH signatures on release tags:
   pkg.py repo list                                         name, url, signed|unsigned, default|added
@@ -22,7 +23,8 @@ Repositories (docs/PLAN-packages.md, "Repositories" and "Trust"); the git work i
   pkg.py remove <name>                                     forget an installed repository package (a recipe's container is never touched)
 
 Manifests: packages/<name>/package.toml (a recipe: its script is run.sh beside it) and
-capabilities/<name>/package.toml (an extension). Knobs for tests: HS_PACKAGES_ROOT (the checkout), HS_STATE_DIR (installed.toml).
+capabilities/<name>/package.toml (an extension). [[events]] of a manifest -> <state>/pkg-events/<name>.tsv (scripts/lib/pkg_events.py).
+Knobs for tests: HS_PACKAGES_ROOT (the checkout), HS_STATE_DIR (installed.toml), HS_PKG_EVENTS_DIR (the installed events).
 """
 import json
 import os
@@ -36,6 +38,16 @@ import importlib.util
 import tomllib
 
 HERE = os.path.dirname(os.path.abspath(__file__))
+
+
+def _load_pkg_events():
+    spec = importlib.util.spec_from_file_location("pkg_events", os.path.join(HERE, "lib", "pkg_events.py"))
+    mod = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(mod)
+    return mod
+
+
+pkg_events = _load_pkg_events()
 KINDS = ("recipe", "extension")
 AUDIENCES = ("generic", "personal")
 NEEDS = ("docker", "share", "tailscale")
@@ -250,6 +262,8 @@ def problems():
         else:
             if not os.path.isfile(os.path.join(os.path.dirname(path), "capability.toml")):
                 bad("an extension needs its capability.toml beside package.toml")
+        for t in pkg_events.manifest_problems(n, m.get("events", [])):
+            bad(t)
     return out
 
 
@@ -289,6 +303,7 @@ def repo_check(folder):
             out.append(f"{name}: requires_core {e.get('requires_core')!r} is not usable at API level {level}")
         if not SEMVER.match(str(e.get("version", ""))):
             out.append(f"{name}: version is not semver")
+        out += [f"{name}: {t}" for t in pkg_events.manifest_problems(name, m.get("events", []))]
     for sub in ("recipes", "extensions"):
         d = os.path.join(folder, sub)
         if os.path.isdir(d):
@@ -350,6 +365,11 @@ def main(argv):
         mod = importlib.util.module_from_spec(spec)
         spec.loader.exec_module(mod)
         return mod.run(MAIN, cmd, rest)
+    elif cmd == "new":
+        spec = importlib.util.spec_from_file_location("pkg_new", os.path.join(HERE, "pkg_new.py"))
+        mod = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(mod)
+        return mod.run(MAIN, rest)
     elif cmd == "repo-check":
         p = repo_check(rest[0] if rest else ".")
         for t in p:

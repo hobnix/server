@@ -206,7 +206,7 @@
 {:else if tab === 'router'}
   <div class="card" style="padding:12px 14px;gap:8px">
     <div class="ch"><b>Router</b><span class="sub">UniFi · networks and DHCP ranges</span>
-      <button class="btn btn-primary sm" style="margin-left:auto" use:tip={'Store the address and the API key of the UniFi router'} onclick={() => openCreate(RouterSetup)}><i class="ph ph-plugs-connected"></i>{routerOk ? 'Change router…' : 'Connect router…'}</button></div>
+      <Button variant="primary" size="sm" style="margin-left:auto" tooltip={'Store the address and the API key of the UniFi router'} onclick={() => openCreate(RouterSetup)}><i class="ph ph-plugs-connected"></i>{routerOk ? 'Change router…' : 'Connect router…'}</Button></div>
     {#if routerOff && !routerOk}
       <Banner tone="info">The router could not be asked: UniFi is not set up on this server, or the key is wrong. Connect it to see the networks and to keep the instance addresses in step.</Banner>
     {/if}
@@ -223,8 +223,8 @@
 {:else}
   <div class="card" style="padding:12px 14px;gap:8px">
     <div class="ch"><b>Remote shares</b><span class="sub">between homeservers: a peer connection, not a share of this server</span>
-      <button class="btn btn-ghost sm" style="margin-left:auto" use:tip={'Mount a share of another homeserver, read only'} onclick={() => openCreate(PeerMount)}><i class="ph ph-plus"></i>Mount a share…</button>
-      <button class="btn btn-ghost sm" use:tip={'Let another homeserver read one of your shares'} onclick={() => openCreate(PeerOffer, { ondone: (r) => (offered = r) })}><i class="ph ph-share-network"></i>Give access…</button></div>
+      <Button variant="ghost" size="sm" style="margin-left:auto" tooltip={'Mount a share of another homeserver, read only'} onclick={() => openCreate(PeerMount)}><i class="ph ph-plus"></i>Mount a share…</Button>
+      <Button variant="ghost" size="sm" tooltip={'Let another homeserver read one of your shares'} onclick={() => openCreate(PeerOffer, { ondone: (r) => (offered = r) })}><i class="ph ph-share-network"></i>Give access…</Button></div>
     <Table id="remote-shares" columns={remoteCols} rows={rem} compact loading={!remote.loaded} empty={remote.error ? 'Remote shares could not be read.' : 'No shares with other servers.'}>
       {#snippet cell(r, col)}
         {#if col.key === 'kind'}<span class="tag tag-neutral">{kindWord(r.kind)}</span>
@@ -232,10 +232,10 @@
         {:else if col.key === 'share'}<span class="kd">{r.share}</span>
         {:else if col.key === 'state'}<StatusDot state={remDot(r.state)} label={r.state} />
         {:else}<span style="white-space:nowrap">{#if r.kind === 'mount'}
-                <button class="btn btn-ghost sm" use:tip={`Give an instance the shares of ${r.peer}, or take them away`} onclick={() => openCreate(PeerAttach, { peer: r.peer, instances: cts.map((c) => c.name) })}>Instance…</button>
+                <Button variant="ghost" size="sm" tooltip={`Give an instance the shares of ${r.peer}, or take them away`} onclick={() => openCreate(PeerAttach, { peer: r.peer, instances: cts.map((c) => c.name) })}>Instance…</Button>
                 <Button variant="ghost" size="sm" busy={jobRunning('peers', ['remove', r.peer, r.share])} tooltip={`Stop using ${r.share} of ${r.peer}`} onclick={() => openPlan('peers', ['remove', r.peer, r.share], 'Stop using ' + r.peer + ' / ' + r.share)}>Remove…</Button>
               {:else}
-                <button class="btn btn-ghost sm" use:tip={`Make a new password for ${r.peer}`} onclick={() => openCreate(PeerOffer, { peer: r.peer, share: r.share, newpw: true, ondone: (o) => (offered = o) })}>New password…</button>
+                <Button variant="ghost" size="sm" tooltip={`Make a new password for ${r.peer}`} onclick={() => openCreate(PeerOffer, { peer: r.peer, share: r.share, newpw: true, ondone: (o) => (offered = o) })}>New password…</Button>
                 <Button variant="ghost" size="sm" busy={jobRunning('peers', ['revoke', r.peer, r.share])} tooltip={`Take the access to ${r.share} away from ${r.peer}`} onclick={() => openPlan('peers', ['revoke', r.peer, r.share], 'Take back the access of ' + r.peer)}>Revoke…</Button>
               {/if}</span>{/if}
       {/snippet}

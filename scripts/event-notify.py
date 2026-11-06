@@ -8,6 +8,8 @@
 The publisher (a script, a helper in a container) only writes events; this file only reads them and matches rules. Neither knows the other.
 Rules are rows of scripts/lib/notify-rules.tsv and of the *.tsv files in the drop-in folder (they come first): kind glob, category,
 priority, title template, message template; the first row that matches a kind wins; category `-` = matched and silent.
+Between the two come the rules a package brings: the `notify` of its [[events]] (/var/lib/hs/pkg-events/<package>.tsv, or the transition
+copy in scripts/lib/pkg-events/), by package name. Order: drop-ins, packages, core file.
 
 Cursor ($HS_STATE_DIR/event-notify.cursor): the id of the last row that was dealt with. It is written after EVERY row, once its notify call
 returned, so a crash between the call and the write repeats at most that one message (at-least-once, never a hole). A notify call
@@ -16,9 +18,10 @@ row hold up all the others, and a channel that could not be reached is already a
 starts at the newest row: history is never replayed. Rows of the source `notify` are never read as triggers (no loop).
 
 Test knobs: HS_STATE_DIR, HS_STATE_DB, HS_NOTIFY_CMD (default: bash <scripts>/notify.sh), HS_NOTIFY_RULES (core file), HS_NOTIFY_RULES_DIR,
-HS_PYTHON.
+HS_PKG_EVENTS_DIR, HS_PYTHON.
 """
 import fnmatch
+import importlib.util
 import json
 import os
 import re
@@ -31,12 +34,22 @@ import time
 HERE = os.path.dirname(os.path.abspath(__file__))
 PY = os.environ.get("HS_PYTHON") or sys.executable or "python3"
 STATE_DB = os.path.join(HERE, "state-db.py")
+
+
+def _load_pkg_events():
+    spec = importlib.util.spec_from_file_location("pkg_events", os.path.join(HERE, "lib", "pkg_events.py"))
+    mod = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(mod)
+    return mod
+
+
+pkg_events = _load_pkg_events()
 BATCH = 500            # rows read per run; a longer backlog is taken in the next run
 MAX_SPOOL = 200        # spool files taken per run and folder
 MAX_FILE = 8192        # bytes of one spool file
 CATEGORIES = {"alarm", "lock", "problem", "ok", "start", "stop", "info"}
 PRIORITIES = {"min", "low", "default", "high", "urgent"}
-SPOOL_KIND = re.compile(r"^pkg\.([a-z0-9]+)\.[a-z0-9][a-z0-9-]{0,39}$")   # the shape of the only kinds a container may write
+SPOOL_KIND = re.compile(r"^pkg\.([a-z][a-z0-9-]{0,40})\.[a-z0-9][a-z0-9-]{0,39}$")   # the shape of the only kinds a container may write
 SPOOL_NAME = re.compile(r"^ev-[0-9]+-[0-9]+\.json$")
 SUBJECT = re.compile(r"^[A-Za-z0-9._-]{1,64}$")
 
@@ -62,9 +75,9 @@ def rule_files():
     return files + [os.environ.get("HS_NOTIFY_RULES") or os.path.join(HERE, "lib", "notify-rules.tsv")]
 
 
-def load_rules():
+def read_rule_files(paths):
     rules = []
-    for path in rule_files():
+    for path in paths:
         try:
             with open(path, encoding="utf-8") as f:
                 lines = f.read().splitlines()
@@ -79,6 +92,21 @@ def load_rules():
                 continue
             rules.append(c[:5])
     return rules
+
+
+def package_rules():
+    """The default rules the packages declare (notify in [[events]]), by package name."""
+    rules = []
+    for _, rows in sorted(pkg_events.declarations().items()):
+        for r in rows:
+            if r["category"] != "-" and r["category"] in CATEGORIES and r["priority"] in PRIORITIES | {"-"}:
+                rules.append([r["kind"], r["category"], r["priority"], r["title"], r["message"]])
+    return rules
+
+
+def load_rules():
+    files = rule_files()
+    return read_rule_files(files[:-1]) + package_rules() + read_rule_files(files[-1:])
 
 
 def find_rule(rules, kind):
@@ -147,18 +175,9 @@ def write_cursor(n):
 
 # ── the spool: events that a container left in a shared folder ──
 def spool_packages():
-    """The packages whose events a container may leave in the spool: the ones the core rules file has rules for (pkg.<package>.*).
-    The server controls that file; a container cannot add a name, so it cannot write pkg.someother.x."""
-    names = set()
-    try:
-        with open(os.environ.get("HS_NOTIFY_RULES") or os.path.join(HERE, "lib", "notify-rules.tsv"), encoding="utf-8") as f:
-            for line in f:
-                m = re.match(r"pkg\.([a-z0-9]+)\.", line)
-                if m:
-                    names.add(m.group(1))
-    except OSError:
-        pass
-    return names
+    """The packages whose events a container may leave in the spool: the ones that have a declaration file (installed or the core's
+    transition copy). Only root writes those (`hs pkg` from a signed package, or the core); a container cannot add a name."""
+    return set(pkg_events.declarations())
 
 
 def clean_row(raw):
@@ -236,6 +255,12 @@ def ingest(folder):
 # ── run ──
 def notify(row, rule):
     _, category, priority, title_tpl, msg_tpl = rule
+    if row["kind"].startswith("pkg."):
+        decl = pkg_events.find(row["kind"])
+        if decl:
+            for k in ("label", "icon"):
+                if decl[k] != "-" and k not in row["payload"]:
+                    row["payload"][k] = decl[k]
     values = dict(row["payload"], kind=row["kind"], subject=row["subject"], level=row["level"], text=row["text"])
     cmd = shlex.split(os.environ.get("HS_NOTIFY_CMD") or "bash %s" % shlex.quote(os.path.join(HERE, "notify.sh")))
     cmd += ["--category", category]

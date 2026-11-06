@@ -1,5 +1,6 @@
 <script>
   import { tip } from '../ui/tooltip.svelte.js';
+  import Button from '../ui/Button.svelte';
   // One block of a GenericPage (see GenericPage.svelte for the whole declaration). Not used on its own except by the drawer of a table, which renders
   // its inner blocks with this component and the selected row as `row` (the context of `{field}` templates).
   import GenBlock from './GenBlock.svelte';
@@ -72,8 +73,8 @@
     {#if a.href}
       <a class="btn sm {a.danger ? 'btn-ghost' : 'btn-secondary'}" href={tpl(a.href, r)} download={a.download ? tpl(a.download, r) : undefined} use:tip={a.title ? tpl(a.title, r) : undefined}><i class="ph ph-{a.icon || 'download-simple'}"></i>{a.label}</a>
     {:else}
-      <button class="btn sm {a.primary ? 'btn-primary' : a.danger ? 'btn-ghost' : 'btn-secondary'}" class:icon={a.iconOnly} use:tip={a.title ? tpl(a.title, r) : a.label} aria-label={a.iconOnly ? tpl(a.title ?? a.label, r) : undefined}
-              onclick={(e) => { e.stopPropagation(); run(a, r); }}>{#if a.icon}<i class="ph ph-{a.icon}"></i>{/if}{#if !a.iconOnly}{a.label}{/if}</button>
+      <Button variant={a.primary ? 'primary' : a.danger ? 'ghost' : 'secondary'} size="sm" class={a.iconOnly ? 'genblock-icon' : ''} tooltip={a.title ? tpl(a.title, r) : a.label} aria-label={a.iconOnly ? tpl(a.title ?? a.label, r) : undefined}
+              onclick={(e) => { e.stopPropagation(); run(a, r); }}>{#if a.icon}<i class="ph ph-{a.icon}"></i>{/if}{#if !a.iconOnly}{a.label}{/if}</Button>
     {/if}
   {/each}
 {/snippet}
@@ -188,7 +189,7 @@
   .gh { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; font-size: 14px; }
   .grow { flex: 1; }
   .acts { display: inline-flex; gap: 6px; align-items: center; }
-  .btn.icon { width: 30px; padding: 0; justify-content: center; }
+  :global(.btn.genblock-icon) { width: 30px; padding: 0; justify-content: center; }
   .txt { display: inline-flex; align-items: center; gap: 7px; }
   .txt i { color: var(--fg-3); }
   .mono { font: 12px var(--mono); color: var(--fg-2); }

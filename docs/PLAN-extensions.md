@@ -69,6 +69,7 @@ ttl = 30                 # seconds the answer is reused
 args = ['^[a-z]{1,8}$']  # optional: one pattern per value the row takes (a <x> in its path)
 live = 30                # optional (10..3600, not with args): keep the answer in the live state, see below
 locked = "skip"          # with live: "skip" (default, not read while the storage is locked) or "run"
+needs = ["ct-list"]      # optional, only with live: core topics whose new gen re-reads this one
 
 [[web.changes]]          # POST /api/plan and /api/start with area "ext/<name>"
 patterns = ['^go$', '^[a-z]{1,8}$']          # an exact shape: one pattern per argument
@@ -86,6 +87,8 @@ package is on, with these checks. If any check fails the whole declaration of th
 - patterns are compiled and limited in length; kinds and ttl are range-checked; flags look like `--word`;
 - `live` is a whole number of seconds from 10 to 3600, only on a read without `args`; `locked` is `run` or `skip`; every word of such a read is
   `a-z`, `0-9` or `-` (it becomes part of a topic name, at most 100 characters) and the topic name must not be used by another read or package;
+- `needs` (only with `live`) is a list of 1 to 8 names of core topics (`scripts/lib/live-topics.tsv`); a name that is not a core topic switches the live
+  topic of that read off (it stays a direct read) and logs one line; an extension topic can never be needed, so no cycle can involve one;
 - reads always land under `ext/<name>/...` and changes under the area `ext/<name>`: a manifest cannot name a core read or another package.
 
 **Live reads (opt-in).** Without `live` a read is run by the web interface as before. With `live = <seconds>` and the live state on (`liveState`,

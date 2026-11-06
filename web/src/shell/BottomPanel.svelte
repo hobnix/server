@@ -1,5 +1,4 @@
 <script>
-  import { tip } from '../ui/tooltip.svelte.js';
   import Button from '../ui/Button.svelte';
   import { onDestroy } from 'svelte';
   import { poll, rows } from '../data.svelte.js';
@@ -122,9 +121,9 @@
     {/each}
     <span style="flex:1"></span>
     <span class="tag tag-neutral" style="padding:1px 8px;margin-right:8px">all nodes</span>
-    <button use:tip={open ? 'Collapse the panel' : 'Expand the panel'} class="btn btn-ghost btn-icon" style="width:26px;height:26px;color:var(--color-neutral-400)" onclick={() => (ui.panel.open = !open)} aria-label={open ? 'Collapse' : 'Expand'}>
+    <Button variant="ghost" class="btn-icon" tooltip={open ? 'Collapse the panel' : 'Expand the panel'} style="width:26px;height:26px;color:var(--color-neutral-400)" onclick={() => (ui.panel.open = !open)} aria-label={open ? 'Collapse' : 'Expand'}>
       <i class="ph ph-caret-{open ? 'down' : 'up'}"></i>
-    </button>
+    </Button>
   </div>
 
   {#if open}
@@ -201,7 +200,7 @@
         </table></div>
       {:else if report}
         <div class="bar rbar">
-          <button use:tip={'Back to the list of reports'} class="btn btn-ghost" style="font-size:12px;padding:2px 6px" onclick={() => (report = null)}><i class="ph ph-caret-left"></i>Reports</button>
+          <Button variant="ghost" tooltip={'Back to the list of reports'} style="font-size:12px;padding:2px 6px" onclick={() => (report = null)}><i class="ph ph-caret-left"></i>Reports</Button>
           <span style="font-weight:500">{report.name}</span>
           <code style="font-size:11px;color:var(--color-neutral-500)">{report.cmd}</code>
         </div>

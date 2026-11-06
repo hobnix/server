@@ -100,19 +100,19 @@
 
 <div class="page">
   <PageHeader title="Notifications" crumb="{ui.host} / Monitoring" sub="Where messages go, and which kinds each place gets.">
-    {#snippet actions()}<button use:tip={!prov.loaded ? 'Loading the providers' : 'Add a push channel'} class="btn btn-primary" disabled={!prov.loaded} onclick={add}><i class="ph ph-plus"></i>Add channel</button>{/snippet}
+    {#snippet actions()}<Button variant="primary" tooltip={!prov.loaded ? 'Loading the providers' : 'Add a push channel'} disabled={!prov.loaded} onclick={add}><i class="ph ph-plus"></i>Add channel</Button>{/snippet}
   </PageHeader>
 
   {#if noOutside}
     <Banner tone="warn">No enabled channel outside this server carries alarms. While the storage is locked this server is down, and you will not hear about it. Add a channel on a service that is not on this server (the public ntfy.sh, or email).
-      {#snippet action()}<button use:tip={!prov.loaded ? 'Loading the providers' : 'Add a push channel'} class="btn sm" disabled={!prov.loaded} onclick={add}>Add channel</button>{/snippet}
+      {#snippet action()}<Button size="sm" tooltip={!prov.loaded ? 'Loading the providers' : 'Add a push channel'} disabled={!prov.loaded} onclick={add}>Add channel</Button>{/snippet}
     </Banner>
   {/if}
   {#if msg}<Banner tone={msgBad ? 'bad' : 'ok'}>{msg}</Banner>{/if}
 
   <PageState loading={!list.loaded} error={list.error?.message ?? ''} hasData={list.data != null} empty={list.loaded && !items.length}
              emptyIcon="bell" emptyTitle="No channel yet" emptyText="Add a channel to hear about problems. ntfy needs only a long random topic address (a secret you type once; it is never shown again).">
-    {#snippet emptyAction()}<button use:tip={!prov.loaded ? 'Loading the providers' : 'Add a push channel'} class="btn btn-primary" disabled={!prov.loaded} onclick={add}><i class="ph ph-plus"></i>Add channel</button>{/snippet}
+    {#snippet emptyAction()}<Button variant="primary" tooltip={!prov.loaded ? 'Loading the providers' : 'Add a push channel'} disabled={!prov.loaded} onclick={add}><i class="ph ph-plus"></i>Add channel</Button>{/snippet}
 
     <div class="card mat">
       <Table id="notify" {columns} rows={items} key="name">
@@ -128,7 +128,7 @@
           {:else if col.key === 'act'}
             <span class="acts">
               <Button variant="ghost" size="sm" disabled={!!busy && busy !== i.name + 'test'} busy={busy === i.name + 'test'} busyLabel="Sending…" tooltip={busy ? 'Another test is running' : 'Send one test message to this channel'} onclick={() => test(i)}>Send test</Button>
-              <button class="btn btn-ghost btn-icon" aria-label="Edit {i.name}" use:tip={'Edit'} onclick={() => edit(i)}><i class="ph ph-pencil-simple"></i></button>
+              <Button variant="ghost" class="btn-icon" aria-label="Edit {i.name}" tooltip={'Edit'} onclick={() => edit(i)}><i class="ph ph-pencil-simple"></i></Button>
               <Button variant="ghost" class="btn-icon" icon="trash" busy={jobRunning('notify', ['remove', i.name])} aria-label="Remove {i.name}" tooltip={'Remove'} onclick={() => openPlan('notify', ['remove', i.name], 'Remove ' + i.name)} />
             </span>
           {:else}
@@ -147,7 +147,7 @@
           {/each}
           <div class="meta">Last send: {i.last.result ? `${i.last.result === 'ok' ? 'sent' : 'failed'} ${i.last.when}${i.last.reason ? ` (${i.last.reason})` : ''}` : 'never'}</div>
           <div class="meta">Lowest priority {i.minprio} · quiet hours {i.quiet === 'ignore' ? 'ignored' : 'respected'} · {i.outside === 'outside' ? 'outside this server' : 'on this server'}</div>
-          <div class="acts"><Button size="sm" disabled={!!busy && busy !== i.name + 'test'} busy={busy === i.name + 'test'} busyLabel="Sending…" tooltip={busy ? 'Another test is running' : 'Send one test message to this channel'} onclick={() => test(i)}>Send test</Button><button use:tip={'Change this channel'} class="btn btn-ghost sm" onclick={() => edit(i)}>Edit</button><Button variant="ghost" size="sm" busy={jobRunning('notify', ['remove', i.name])} tooltip={'Remove this channel: no messages go there any more'} onclick={() => openPlan('notify', ['remove', i.name], 'Remove ' + i.name)}>Remove</Button></div>
+          <div class="acts"><Button size="sm" disabled={!!busy && busy !== i.name + 'test'} busy={busy === i.name + 'test'} busyLabel="Sending…" tooltip={busy ? 'Another test is running' : 'Send one test message to this channel'} onclick={() => test(i)}>Send test</Button><Button variant="ghost" size="sm" tooltip={'Change this channel'} onclick={() => edit(i)}>Edit</Button><Button variant="ghost" size="sm" busy={jobRunning('notify', ['remove', i.name])} tooltip={'Remove this channel: no messages go there any more'} onclick={() => openPlan('notify', ['remove', i.name], 'Remove ' + i.name)}>Remove</Button></div>
         </div>
       {/each}
     </div>

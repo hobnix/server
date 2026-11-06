@@ -107,7 +107,7 @@
 <PageHeader title="Shares" crumb="Storage" sub={measured ? `Sizes measured ${measured}.` : 'Network shares, who may use them and what has been kept of them.'}>
   {#snippet actions()}
     {#if hasCache}<Button icon="arrow-line-down" busy={jobRunning('admin', ['cache-mover'])} busyLabel="Emptying…" disabled={locked} tooltip={'Move the uploaded files from the SSD cache to the disks now'} onclick={() => openPlan('admin', ['cache-mover'], 'Empty the upload cache')}>Empty cache</Button>{/if}
-    <button use:tip={locked ? 'Storage is locked' : 'Create a share'} class="btn btn-primary" disabled={locked} onclick={() => openCreate(NewShare)}><i class="ph ph-plus"></i>New share</button>
+    <Button variant="primary" tooltip={locked ? 'Storage is locked' : 'Create a share'} disabled={locked} onclick={() => openCreate(NewShare)}><i class="ph ph-plus"></i>New share</Button>
   {/snippet}
 </PageHeader>
 
@@ -147,7 +147,7 @@
 {:else}
   <PageState loading={!overview.loaded} hasData={overview.data != null} error={overview.error?.message ?? ''} empty={overview.loaded && !shares.length} emptyIcon="folders"
              emptyTitle={pool === 'all' ? 'No shares yet' : `No shares on ${pool}`} emptyText={pool === 'fast' ? 'Fast holds the instances’ own volumes; network shares live on bulk.' : 'A share is a folder that Windows and Linux computers on the network can open.'}>
-    {#snippet emptyAction()}<button use:tip={locked ? 'Storage is locked' : 'Create a share'} class="btn btn-primary" disabled={locked} onclick={() => openCreate(NewShare)}><i class="ph ph-plus"></i>New share</button>{/snippet}
+    {#snippet emptyAction()}<Button variant="primary" tooltip={locked ? 'Storage is locked' : 'Create a share'} disabled={locked} onclick={() => openCreate(NewShare)}><i class="ph ph-plus"></i>New share</Button>{/snippet}
     <Split open={!!sel}>
       {#snippet list()}
         <div class="card gap">
@@ -180,7 +180,7 @@
                 <div class="pad">
                   {#if mountedBy(sel).length}
                     <div class="sh"><b>Mounted by</b></div>
-                    <div class="links">{#each mountedBy(sel) as m}<button use:tip={`Open the instance ${m.name}`} class="btn sm" onclick={() => openInstance(m.name)}><i class="ph ph-cube"></i>{m.text}</button>{/each}</div>
+                    <div class="links">{#each mountedBy(sel) as m}<Button size="sm" tooltip={`Open the instance ${m.name}`} onclick={() => openInstance(m.name)}><i class="ph ph-cube"></i>{m.text}</Button>{/each}</div>
                   {:else}<p class="mute">No instance mounts this {sel.volume ? 'volume' : 'share'}.</p>{/if}
                   {#if sel.volume}<p class="mute">An instance volume belongs to its instance: change it there.</p>{:else if sel.kind !== 'other'}
                     <p class="mute">Whether it is in the backup is set on <button class="link-btn" onclick={() => go('/protection/backup')}>Backup</button>.</p>
@@ -196,7 +196,7 @@
                     </div>
                   </div>
                   <div class="sh sp"><b>Permissions</b><span class="mute">apply at the next connection</span><span class="grow"></span>
-                    <button use:tip={locked ? 'Storage is locked' : 'Give a user or group access to this share'} class="btn sm" disabled={locked} onclick={() => openCreate(AddAccess, { share: sel.name, taken: entries.map((e) => e.sid) })}><i class="ph ph-plus"></i>Add</button></div>
+                    <Button size="sm" tooltip={locked ? 'Storage is locked' : 'Give a user or group access to this share'} disabled={locked} onclick={() => openCreate(AddAccess, { share: sel.name, taken: entries.map((e) => e.sid) })}><i class="ph ph-plus"></i>Add</Button></div>
                   {#each entries as e (e.sid)}
                     <div class="arow2">
                       <span class="nm"><i class="ph {e.type === 'group' ? 'ph-users-three' : 'ph-user'}"></i>{e.name}</span>
@@ -230,19 +230,19 @@
               {/if}
             {/snippet}
             {#snippet actions()}
-              {#if !sel.volume}<button class="btn sm" disabled={locked} use:tip={locked ? 'Storage is locked' : 'Look at the files of this share in the file manager'} onclick={() => go(filesLink({ left: `share:${sel.name}` }))}><i class="ph ph-folder-open"></i>Browse</button>{/if}
+              {#if !sel.volume}<Button size="sm" disabled={locked} tooltip={locked ? 'Storage is locked' : 'Look at the files of this share in the file manager'} onclick={() => go(filesLink({ left: `share:${sel.name}` }))}><i class="ph ph-folder-open"></i>Browse</Button>{/if}
               {#if editable(sel)}
                 {#if tab === 'snap' && isZfs(sel)}
                   <Button size="sm" icon="camera" busy={jobRunning('shares', [sel.name, 'snapshot'])} disabled={locked} tooltip={locked ? 'Storage is locked' : 'Take a snapshot of this share now'} onclick={() => openPlan('shares', [sel.name, 'snapshot'], `Snapshot ${sel.name}`)}>Snapshot now</Button>
-                  <Button size="sm" icon="clock-clockwise" busy={jobRunning('shares', [sel.name, 'auto', '--to', auto ? 'off' : 'on'])} disabled={locked || !hist.loaded || hist.error} tooltip={locked ? 'Storage is locked' : !hist.loaded || hist.error ? 'The snapshot list is not available' : auto ? 'Stop the nightly snapshots' : 'Take a snapshot every night'} onclick={() => toggle('auto', auto ? 'off' : 'on')}>Automatic {auto ? 'off' : 'on'}</Button>
+                  <Button size="sm" icon="clock-clockwise" busy={(jobRunning('shares', [sel.name, 'auto', '--to', 'off']) || jobRunning('shares', [sel.name, 'auto', '--to', 'on']))} disabled={locked || !hist.loaded || hist.error} tooltip={locked ? 'Storage is locked' : !hist.loaded || hist.error ? 'The snapshot list is not available' : auto ? 'Stop the nightly snapshots' : 'Take a snapshot every night'} onclick={() => toggle('auto', auto ? 'off' : 'on')}>Automatic {auto ? 'off' : 'on'}</Button>
                   <Button size="sm" icon="arrow-u-up-left" busy={jobRunning('shares', [sel.name, 'rollback', '--snapshot', newest?.name])} disabled={locked || !newest} tooltip={newest ? `Roll back to ${newest.name}` : 'No snapshot to roll back to'} onclick={() => openPlan('shares', [sel.name, 'rollback', '--snapshot', newest.name], `Roll back ${sel.name}`)}>Roll back</Button>
                 {:else if tab === 'hist'}
-                  <button use:tip={locked ? 'Storage is locked' : 'Bring files back from the backup'} class="btn sm" disabled={locked} onclick={() => openCreate(RestoreShare, { share: sel.name })}><i class="ph ph-arrow-counter-clockwise"></i>Restore from backup…</button>
+                  <Button size="sm" tooltip={locked ? 'Storage is locked' : 'Bring files back from the backup'} disabled={locked} onclick={() => openCreate(RestoreShare, { share: sel.name })}><i class="ph ph-arrow-counter-clockwise"></i>Restore from backup…</Button>
                 {:else}
-                  {#if sel.kind === 'shares' && (sel.cache === 'on' || sel.cache === 'off')}<Button size="sm" icon="lightning" busy={jobRunning('shares', [sel.name, 'cache', '--to', sel.cache === 'on' ? 'off' : 'on'])} disabled={locked} tooltip={locked ? 'Storage is locked' : sel.cache === 'on' ? 'Upload straight to the disks, not the SSD cache' : 'Upload to the SSD cache first, move to the disks later'} onclick={() => toggle('cache', sel.cache === 'on' ? 'off' : 'on')}>Cache {sel.cache === 'on' ? 'off' : 'on'}</Button>{/if}
-                  <button use:tip={locked ? 'Storage is locked' : 'Change the name of this share'} class="btn sm" disabled={locked} onclick={() => openCreate(RenameShare, { share: sel.name })}><i class="ph ph-pencil-simple"></i>Rename…</button>
+                  {#if sel.kind === 'shares' && (sel.cache === 'on' || sel.cache === 'off')}<Button size="sm" icon="lightning" busy={(jobRunning('shares', [sel.name, 'cache', '--to', 'off']) || jobRunning('shares', [sel.name, 'cache', '--to', 'on']))} disabled={locked} tooltip={locked ? 'Storage is locked' : sel.cache === 'on' ? 'Upload straight to the disks, not the SSD cache' : 'Upload to the SSD cache first, move to the disks later'} onclick={() => toggle('cache', sel.cache === 'on' ? 'off' : 'on')}>Cache {sel.cache === 'on' ? 'off' : 'on'}</Button>{/if}
+                  <Button size="sm" tooltip={locked ? 'Storage is locked' : 'Change the name of this share'} disabled={locked} onclick={() => openCreate(RenameShare, { share: sel.name })}><i class="ph ph-pencil-simple"></i>Rename…</Button>
                   <Button size="sm" icon="wrench" busy={jobRunning('shares', [sel.name, 'repair'])} busyLabel="Repairing…" disabled={locked} tooltip={'Hand the files of this share to adminuser again'} onclick={() => openPlan('shares', [sel.name, 'repair'], `Repair ${sel.name}`)}>Repair</Button>
-                  <button use:tip={locked ? 'Storage is locked' : 'Remove this share (the plan shows what happens to its files)'} class="btn sm btn-danger" disabled={locked} onclick={() => openCreate(DeleteShare, { share: sel.name })}><i class="ph ph-trash-simple"></i>Delete…</button>
+                  <Button variant="danger" size="sm" tooltip={locked ? 'Storage is locked' : 'Remove this share (the plan shows what happens to its files)'} disabled={locked} onclick={() => openCreate(DeleteShare, { share: sel.name })}><i class="ph ph-trash-simple"></i>Delete…</Button>
                 {/if}
               {/if}
             {/snippet}

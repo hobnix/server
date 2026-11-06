@@ -1,13 +1,15 @@
 #!/usr/bin/env bash
 # help: packages (recipes and extensions): list them with their version, see which have an update, check the manifests
 # help.de: Pakete (Rezepte und Erweiterungen): mit Version auflisten, Updates sehen, die Manifeste prüfen
-# args: --market | --repos | list [--all] [--kind recipe|extension] | updates | validate | fetch | available | install <name> | update <name> | remove <name> | repo list|add|remove | --list
+# args: --market | --repos | list [--all] [--kind recipe|extension] | updates | validate | new <name> --template recipe|extension [--dir <path>] | fetch | available | install <name> | update <name> | remove <name> | repo list|add|remove | --list
 # A package is a recipe (packages/<name>/package.toml) or an extension (capabilities/<name>/package.toml) with a semver `version`
 # (docs/PLAN-packages.md). This is step 1: the manifests of this repository only; repositories and `install` come later.
 #   list        name, kind, version in the tree, version last applied here, who it is for; personal ones only with --all
 #   --list      the same as data (hs sys pkg list): name, kind, version, installed (- = never), audience, title; every package
 #   updates     the packages whose version in the tree is newer than the one last applied (`hs recipe <name>` applies a recipe)
 #   validate    check every manifest (and that a recipe's header lines agree); lists the problems, exit 1 when there are any
+#   new <name> --template recipe|extension [--dir <path>] [--title <text>] [--title-de <text>]   write a package that passes the checks into a
+#               checkout of a package repository (recipes/<name> or extensions/<name>, plus its index.toml entry); never overwrites (pkg_new.py)
 #   repo list|add|remove   the package repositories: the two defaults (config/package-repos.toml) and the ones a person added. Adding one
 #                          shows the address and the signer key(s) and asks to TYPE the repository's name (--confirm-name <name> without a terminal);
 #                          releases must be signed (--key <allowed_signers file>); --unsigned is marked everywhere and asks twice
@@ -47,6 +49,29 @@ case "${1:-list}" in
       while IFS=$'\t' read -r n p; do warn "$n: $p"; done <<<"$out"
       exit 1
     fi ;;
+  new)
+    shift
+    name=${1:-}
+    rc=0; out=$(py new "$@") || rc=$?
+    if [ "$rc" -ne 0 ]; then
+      line=$(sed -n 's/^error\t//p' <<<"$out"); code=${line%%$'\t'*}; detail=${line#*$'\t'}
+      case "$code" in
+        usage) say "usage: hs pkg new <name> --template recipe|extension [--dir <path>] [--title <text>] [--title-de <text>]"; exit 1 ;;
+        template) fail "$(t 'Unknown template %s: use recipe or extension (a capability template waits for the service extensions, issue #238).' "$detail")" ;;
+        name) fail "$(t 'The name %s is not allowed: lower case letters, digits and -, starting with a letter, at most 41 characters, and not list, enable or disable.' "$detail")" ;;
+        title) fail "$(t 'A title is one line of at most 100 characters, without spaces at its ends.')" ;;
+        notrepo) fail "$(t '%s is not a checkout of a package repository: it needs index.toml and the folder recipes/ (recipe) or extensions/ (extension). Use --dir <path>.' "$detail")" ;;
+        exists) fail "$(t 'There is a package %s already (its folder or its index.toml entry); nothing was changed.' "$detail")" ;;
+        *) fail "$(t 'The package could not be written (%s); nothing was left behind.' "$detail")" ;;
+      esac
+    fi
+    folder=$(sed -n 's/^folder\t//p' <<<"$out"); name=$(basename "$folder"); index=$(sed -n 's/^index\t//p' <<<"$out")
+    step "$(t 'New package %s' "$name")"
+    kv "$(t 'Folder')" "$folder"
+    while IFS= read -r f; do ok "$(t 'Created %s' "$f")"; done < <(sed -n 's/^file\t//p' <<<"$out")
+    ok "$(t 'Added %s to %s' "$name" "$index")"
+    note "$(t 'It passes the checks as it is. Replace the example step or command with your own, then check again:')"
+    next_step "python3 -I $here/pkg.py repo-check $(dirname "$index")" ;;
   fetch)
     shift
     trap 'live_refresh pkg-market pkg-repos recipes-list recipes-versions parts-list' EXIT
@@ -110,5 +135,5 @@ case "${1:-list}" in
       remove) shift; pkg_changed; py repo remove "${1:-}" && ok "$(t 'Repository removed.')" ;;
       *) say "usage: hs pkg repo list | add <name> <url> (--key <file> | --unsigned) | remove <name>"; exit 1 ;;
     esac ;;
-  *) say "usage: hs pkg list [--all] [--kind recipe|extension] | updates | validate | fetch | available | install | update | remove | repo"; exit 1 ;;
+  *) say "usage: hs pkg list [--all] [--kind recipe|extension] | updates | validate | new | fetch | available | install | update | remove | repo"; exit 1 ;;
 esac

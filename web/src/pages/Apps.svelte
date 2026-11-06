@@ -153,7 +153,7 @@
            emptyIcon="package" emptyTitle="No recipes" emptyText="This server has no app recipes." retry={() => refresh(['/api/sys/recipes/list'])}>
   <div class="bar">
     {#each [['all', 'All'], ['installed', 'Installed'], ['todo', 'Not installed']] as [k, l]}
-      <button class="btn sm {show === k ? 'btn-primary' : 'btn-ghost'}" onclick={() => (show = k)}>{l}</button>
+      <Button variant={show === k ? 'primary' : 'ghost'} size="sm" onclick={() => (show = k)}>{l}</Button>
     {/each}
     <input class="input find" bind:value={q} placeholder="Search apps" aria-label="Search apps" autocomplete="off" />
   </div>
@@ -163,7 +163,7 @@
       <span class="bulk-count">{selected.size} selected</span>
       <Button size="sm" variant={canInstall ? 'primary' : 'ghost'} disabled={!canInstall || bulkBusy} onclick={() => runBulk('install')}>Install selected</Button>
       <Button size="sm" variant={canUpdate ? 'primary' : 'ghost'} disabled={!canUpdate || bulkBusy} onclick={() => runBulk('update')}>Update selected</Button>
-      <button class="btn btn-ghost sm" disabled={bulkBusy} onclick={() => (selected = new Set())}>Clear selection</button>
+      <Button variant="ghost" size="sm" disabled={bulkBusy} onclick={() => (selected = new Set())}>Clear selection</Button>
     </div>
   {/if}
 
@@ -175,7 +175,7 @@
           <input type="checkbox" checked={selected.has(a.name)} onchange={(e) => toggle(a.name, e.target.checked)} aria-label="Select {a.name}" />
         {:else if col.key === 'go'}
           {@const act = appAction(a)}
-          <button class="btn sm go {act.primary ? 'btn-primary' : ''}" disabled={a.state === 'parked'} use:tip={act.tip} onclick={() => run(a)}><i class="ph ph-{act.icon}"></i>{act.label}</button>
+          <Button variant={act.primary ? 'primary' : 'secondary'} size="sm" class="apps-go" disabled={a.state === 'parked'} tooltip={act.tip} onclick={() => run(a)}><i class="ph ph-{act.icon}"></i>{act.label}</Button>
         {:else if col.key === 'ver'}
           {#if a.applied !== '-' && (a.avail === '-' || a.avail === a.applied)}
             <span class="vr">{a.applied}</span>
@@ -193,7 +193,7 @@
         {:else if col.key === 'state'}
           <StatusDot state={on ? 'ok' : a.state === 'partly' ? 'warn' : 'off'} label={a.state} />
         {:else}
-          <button class="btn btn-ghost btn-icon" disabled={!hasService(a)} use:tip={hasService(a) ? 'Services: local and public access' : a.cts ? 'No service is described yet: Update the app to describe it' : 'Install the app first'} aria-label="Services of {a.name}" onclick={() => services(a)}><i class="ph ph-globe-hemisphere-west"></i></button>
+          <Button variant="ghost" class="btn-icon" disabled={!hasService(a)} tooltip={hasService(a) ? 'Services: local and public access' : a.cts ? 'No service is described yet: Update the app to describe it' : 'Install the app first'} aria-label="Services of {a.name}" onclick={() => services(a)}><i class="ph ph-globe-hemisphere-west"></i></Button>
           <Button variant="ghost" class="btn-icon" icon={copied === a.name ? 'check' : 'terminal-window'} tooltip={copied === a.name ? 'Copied' : 'Copy the terminal command: hs recipe ' + a.name} aria-label="Copy hs recipe {a.name}" onclick={() => copy(a.name)} />
         {/if}
       {/snippet}
@@ -210,7 +210,7 @@
         {#each bulkOpen.items as a}<li>{a.name} <span class="bulk-note">({a.state})</span></li>{/each}
       </ul>
       <div class="bulk-foot">
-        <button class="btn" onclick={cancelBulk}>Cancel</button>
+        <Button onclick={cancelBulk}>Cancel</Button>
         <Button variant="primary" disabled={bulkBusy} onclick={confirmBulk}>Start {bulkOpen.items.length} job{bulkOpen.items.length === 1 ? '' : 's'}</Button>
       </div>
     </div>
@@ -227,7 +227,7 @@
         {/each}
       </ul>
       <div class="bulk-foot">
-        <button class="btn btn-primary" onclick={dismissSummary}>Done</button>
+        <Button variant="primary" onclick={dismissSummary}>Done</Button>
       </div>
     </div>
   </div>
@@ -241,7 +241,7 @@
   .nm.hl { outline: 2px solid var(--accent); outline-offset: 3px; }
   .ds { font-size: 12.5px; color: var(--fg-3); }
   .in { font-size: 12px; color: var(--fg-2); }
-  .go { min-width: 96px; }
+  :global(.btn.apps-go) { min-width: 96px; }
   .vr { font: 500 12.5px var(--mono); }
   .vr.dim { color: var(--fg-3); }
   .vnew { color: var(--accent-ink); }

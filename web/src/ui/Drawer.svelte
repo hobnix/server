@@ -1,4 +1,5 @@
 <script>
+  import Button from './Button.svelte';
   // The side drawer of a list page: header (name, chip, state, close), optional tabs, a body, an action row. 400 px wide next to the list
   // (put it in a <Split>); full screen on a phone (up to 860 px). Esc closes it when the focus is inside.
   //   <Drawer title={row.name} chip="zfs" state="ok" stateLabel="online" tabs={[{ id: 'info', label: 'Info' }, { id: 'snap', label: 'Snapshots' }]} bind:tab onclose={() => (sel = null)}>
@@ -22,7 +23,7 @@
       {#if state}<StatusDot {state} label={stateLabel} />{/if}
       {@render header?.()}
     </div>
-    {#if onclose}<button class="btn btn-ghost btn-icon sq" aria-label="Close" onclick={onclose}><i class="ph ph-x"></i></button>{/if}
+    {#if onclose}<Button variant="ghost" class="btn-icon drawer-sq" aria-label="Close" onclick={onclose}><i class="ph ph-x"></i></Button>{/if}
   </div>
   {#if tabs.length}
     <div class="stabs" role="tablist">
@@ -40,7 +41,7 @@
   .sdh { display: flex; align-items: center; gap: 10px; padding: 14px 16px; border-bottom: 1px solid var(--line); }
   .ttl { flex: 1; min-width: 0; display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
   .nm { font-size: 15px; font-weight: 600; letter-spacing: -0.01em; overflow: hidden; text-overflow: ellipsis; }
-  .sq { width: 30px; min-height: 30px; }
+  :global(.btn.drawer-sq) { width: 30px; min-height: 30px; }
   .stabs { display: flex; gap: 2px; padding: 0 10px; border-bottom: 1px solid var(--line); overflow-x: auto; overflow-y: hidden; }
   .stab { position: relative; flex: none; height: 38px; padding: 0 12px; border: 0; background: none; color: var(--fg-2); font-weight: 500; }
   .stab:hover, .stab.on { color: var(--fg); }

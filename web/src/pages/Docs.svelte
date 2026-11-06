@@ -1,4 +1,5 @@
 <script>
+  import Button from '../ui/Button.svelte';
   import { tip } from '../ui/tooltip.svelte.js';
   // The guides: a navigation (language, search, groups with their pages), the page rendered from Markdown, an outline of the page and
   // previous / next. Everything comes from /api/docs/* (capability docs; PageFrame handles "switched off").
@@ -235,7 +236,7 @@
     {#if indexError}
       <Banner tone={indexError.retry ? 'bad' : 'info'}>
         {indexError.text}
-        {#snippet action()}{#if indexError.retry}<button use:tip={'Read the list of guides again'} class="btn sm" onclick={indexError.retry}><i class="ph ph-arrow-clockwise"></i>Try again</button>{/if}{/snippet}
+        {#snippet action()}{#if indexError.retry}<Button size="sm" tooltip={'Read the list of guides again'} onclick={indexError.retry}><i class="ph ph-arrow-clockwise"></i>Try again</Button>{/if}{/snippet}
       </Banner>
     {:else if !index}
       <div class="sheet"><Skeleton lines={9} height={14} gap={14} /></div>
@@ -257,7 +258,7 @@
           </ul>
         {:else if hits}
           <EmptyState icon="magnifying-glass" title="No guide mentions that" text="Try a shorter word, or the name of a command.">
-            {#snippet action()}<button use:tip={'Leave the search and show the guide'} class="btn" onclick={clear}>Back to the guide</button>{/snippet}
+            {#snippet action()}<Button tooltip={'Leave the search and show the guide'} onclick={clear}>Back to the guide</Button>{/snippet}
           </EmptyState>
         {:else}
           <Skeleton lines={4} height={44} />
@@ -267,12 +268,12 @@
       <section class="sheet">
         {#if pageError.status === 404}
           <EmptyState icon="file-dashed" title="This guide does not exist" text="The link may be from an older version of the guides. Pick a page in the list.">
-            {#snippet action()}<button class="btn" onclick={() => open(lang, firstPage(index, lang))}>Go to the start page</button>{/snippet}
+            {#snippet action()}<Button onclick={() => open(lang, firstPage(index, lang))}>Go to the start page</Button>{/snippet}
           </EmptyState>
         {:else}
           <Banner tone="bad">
             This page could not be read: {pageError.text}
-            {#snippet action()}<button use:tip={'Read this guide again'} class="btn sm" onclick={() => tries++}><i class="ph ph-arrow-clockwise"></i>Try again</button>{/snippet}
+            {#snippet action()}<Button size="sm" tooltip={'Read this guide again'} onclick={() => tries++}><i class="ph ph-arrow-clockwise"></i>Try again</Button>{/snippet}
           </Banner>
         {/if}
       </section>
