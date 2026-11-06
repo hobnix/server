@@ -1,4 +1,5 @@
 <script>
+  import Button from './ui/Button.svelte';
   import { tip } from './ui/tooltip.svelte.js';
   import { onMount } from 'svelte';
   import { hello, login } from './api.js';
@@ -130,7 +131,7 @@
             {#if realm === 'domain'}{t({ en: 'Use the account you use for the file shares. Only members of Domain Admins can sign in.', de: 'Das Konto, das du für die Freigaben nutzt. Nur Mitglieder von Domain Admins können sich anmelden.' })}
             {:else}{t({ en: 'The built-in administrator of this server. Works while storage is locked.', de: 'Der eingebaute Administrator dieses Servers. Geht auch bei gesperrtem Speicher.' })}{/if}
           </p>
-          <button class="btn btn-primary" type="submit" disabled={busy || !user || !password}><i class="ph ph-sign-in"></i>{busy ? t({ en: 'Signing in…', de: 'Anmelden…' }) : t({ en: 'Sign in', de: 'Anmelden' })}</button>
+          <Button variant="primary" class="login-submit" type="submit" disabled={busy || !user || !password}><i class="ph ph-sign-in"></i>{busy ? t({ en: 'Signing in…', de: 'Anmelden…' }) : t({ en: 'Sign in', de: 'Anmelden' })}</Button>
         </form>
       </div>
     </div>
@@ -172,7 +173,7 @@
   .eye { position: absolute; right: 2px; top: 2px; width: 34px; height: 34px; display: grid; place-items: center; border: 0; background: none; color: var(--fg-3); padding: 0; }
   .eye:hover { color: var(--fg); }
   .hint { margin: 0; color: var(--fg-3); font-size: 12.5px; }
-  .btn-primary { height: 38px; }
+  :global(.btn.login-submit) { height: 38px; }
   .foot { display: flex; gap: 8px; justify-content: center; color: var(--fg-3); font-size: 12px; }
   @media (max-width: 860px) {
     .login { grid-template-columns: minmax(0, 1fr); }

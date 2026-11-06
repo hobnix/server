@@ -1,5 +1,5 @@
 <script>
-  import { tip } from '../ui/tooltip.svelte.js';
+  import Button from '../ui/Button.svelte';
   // The create dialog (design: "Create dialog", 960 px, form on the left, live plan on the right). A form component renders it with its own fields:
   //
   //   <CreateDialog title="New share" area="shares" args={() => [...] | null} stdin={() => password} onclose={...} ondone={...}>
@@ -128,10 +128,10 @@
       </div>
 
       <div class="dialog-actions" style="margin-top:0">
-        <button class="btn btn-secondary" onclick={onclose}>Cancel</button>
-        <button use:tip={canStart ? '' : asking ? 'Waiting for the plan' : p?.confirm_name && confirm !== p.confirm_name ? 'Type the name to confirm first' : busy ? 'Starting' : 'Fill in the form first'} class="btn {danger ? 'btn-danger' : 'btn-primary'}" disabled={!canStart} onclick={go}>
+        <Button onclick={onclose}>Cancel</Button>
+        <Button variant={danger ? 'danger' : 'primary'} tooltip={canStart ? '' : asking ? 'Waiting for the plan' : p?.confirm_name && confirm !== p.confirm_name ? 'Type the name to confirm first' : busy ? 'Starting' : 'Fill in the form first'} disabled={!canStart} onclick={() => { go(); }}>
           <i class="ph ph-play"></i>{busy ? 'Starting…' : 'Start'}
-        </button>
+        </Button>
       </div>
     </div>
   </div>
@@ -148,6 +148,6 @@
   .needs { margin: 0 0 8px; padding-left: 18px; font-size: 13px; color: var(--color-neutral-200); }
   .refused { display: flex; gap: 8px; align-items: flex-start; font-size: 13px; color: var(--st-bad); }
   .cmd { display: block; font-size: 12px; padding: 10px 12px; margin-top: 10px; border-radius: var(--r); background: var(--color-surface); color: var(--color-neutral-300); overflow-x: auto; white-space: nowrap; }
-  .btn:disabled { opacity: 0.45; cursor: default; }
+  .dialog :global(.btn:disabled) { opacity: 0.45; cursor: default; }
   @media (max-width: 800px) { .dialog.wide { grid-template-columns: minmax(0, 1fr); grid-template-rows: minmax(0, 1fr) minmax(0, 1fr); } }
 </style>
