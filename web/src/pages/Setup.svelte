@@ -1,5 +1,4 @@
 <script>
-  import { tip } from '../ui/tooltip.svelte.js';
   import { poll, rows } from '../data.svelte.js';
   import { go } from '../route.svelte.js';
   import { openPlan, jobRunning, ui } from '../ui.svelte.js';
@@ -39,7 +38,7 @@
           {#if !s.done && s.cmd !== '-'}<div class="how">or in a terminal: <code>{s.cmd}</code></div>{/if}
         </div>
         {#if s.page && s.page !== '-'}
-          <button use:tip={s.done ? 'Open the page of this step again' : 'Open the page where this step is done'} class="btn {s.done ? 'btn-ghost' : 'btn-secondary'} b13" onclick={() => go(s.page)}>{s.done ? 'Open' : 'Set up'}<i class="ph ph-arrow-right"></i></button>
+          <Button variant={s.done ? 'ghost' : 'secondary'} class="b13" tooltip={s.done ? 'Open the page of this step again' : 'Open the page where this step is done'} onclick={() => go(s.page)}>{s.done ? 'Open' : 'Set up'}<i class="ph ph-arrow-right"></i></Button>
         {/if}
       </div>
     {/each}

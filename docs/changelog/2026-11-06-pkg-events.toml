@@ -1,0 +1,5 @@
+date  = "2026-11-06"
+type  = "feature"
+title = "Apps declare their own events and notification rules"
+body  = """An app or extension can now list the events it provides in its package.toml, with level, label and an optional default push message. hs pkg installs the list, and the event log and the notification rules read it; your own rules in notify-rules.d still come first and can mute any of them. The media helper's events are kept as a built-in copy until the app package ships them. Not tested on hardware yet."""
+docs  = "notify-rules#rules-a-package-brings"

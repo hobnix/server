@@ -249,7 +249,8 @@ def event(c, t, kind, subject, text, source="storage", level=None, payload=None)
 
 
 def kind_level(source, kind):
-    """The level a kind has in scripts/lib/event-kinds.tsv; info for a kind that is not listed."""
+    """The level a kind has in scripts/lib/event-kinds.tsv; for pkg.* kinds the level its package declares (scripts/lib/pkg_events.py);
+    info for a kind that is not listed."""
     try:
         with open(os.path.join(HERE, "lib", "event-kinds.tsv"), encoding="utf-8") as f:
             for line in f:
@@ -258,6 +259,17 @@ def kind_level(source, kind):
                     return p[1]
     except OSError:
         pass
+    if source == "pkg":
+        try:
+            import importlib.util
+            spec = importlib.util.spec_from_file_location("pkg_events", os.path.join(HERE, "lib", "pkg_events.py"))
+            mod = importlib.util.module_from_spec(spec)
+            spec.loader.exec_module(mod)
+            r = mod.find("pkg." + kind)
+            if r:
+                return r["level"]
+        except Exception:
+            pass
     return "info"
 
 

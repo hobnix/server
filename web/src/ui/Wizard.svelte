@@ -1,4 +1,5 @@
 <script>
+  import Button from './Button.svelte';
   // Wizard: the frame of one question per screen. It knows no capability and no draft; the page puts the answer in `children`.
   //   index (0-based), total      "Step 1 of 3" and the bar (hidden while `advanced`)
   //   question, help              the heading and the grey line under it
@@ -24,7 +25,7 @@
   {#if help}<div class="help">{help}</div>{/if}
   <div class="main">{@render children?.()}</div>
   <div class="foot">
-    <button type="button" class="btn btn-primary" disabled={!canNext} onclick={onnext}>{primary}</button>
+    <Button variant="primary" type="button" disabled={!canNext} onclick={onnext}>{primary}</Button>
   </div>
 </div>
 

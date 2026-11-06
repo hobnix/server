@@ -5,9 +5,11 @@ the value of hs:v1:<topic> is JSON {"ts", "gen", "rc", "out", "err", "ts_err"}. 
 hs:v1:refresh ("<topic>" or "*").
   python3 live_state.py refresh <topic>|@<group>...|--all   ask the collector to read again (exit 0 always); @<group> = every topic of
                                                      that change area (and of `any`), see live-topics.tsv columns 5 and 6
-  python3 live_state.py status                       topic, interval, age (-1 none), gen, rc, err or -, ts_err or -
+  python3 live_state.py status                       topic, interval, age (-1 none), gen, rc, err or -, ts_err or -, needs (comma list or -;
+                                                     the 8th field, since #153, see live-topics.tsv column 7)
   python3 live_state.py check                        problems: live:down / live:stale:<topic> TAB text (exit 1 when there are some)
 """
+import heapq
 import json
 import os
 import socket
@@ -110,11 +112,11 @@ class Resp:
                 yield m[1], m[2]
 
 
-def ext_live():
+def ext_live(log=None):
     """(rows, info) of the live reads that extension packages declare (scripts/hs_ext.py); nothing when that cannot be read"""
     try:
         import hs_ext
-        return hs_ext.ext_live_rows()
+        return hs_ext.ext_live_rows(log)
     except Exception:       # a broken package must never take the core topics down
         return [], {}
 
@@ -160,6 +162,64 @@ def topic_info(path=None):
         for t, i in ext_live()[1].items():
             info.setdefault(t, i)
     return info
+
+
+def topic_needs(path=None):
+    """{topic: tuple of topics} from column 7 of live-topics.tsv (whose new gen re-reads the topic in a wave); extensions add theirs for the real file."""
+    own = path is not None
+    path = path or os.path.join(HERE, "lib", "live-topics.tsv")
+    out = {}
+    with open(path, encoding="utf-8") as f:
+        for line in f:
+            line = line.rstrip("\n")
+            if not line.strip() or line.lstrip().startswith("#"):
+                continue
+            c = line.split("\t")
+            if len(c) < 3:
+                continue
+            out[c[0]] = tuple(n for n in (x.strip() for x in (c[6].split(",") if len(c) > 6 else [])) if n and n != "-")
+    if not own:
+        for t, i in ext_live()[1].items():
+            out.setdefault(t, tuple(i.get("needs", ())))
+    return out
+
+
+def graph(needs, known):
+    """-> (order, clean, problems): every known topic in dependency order (a topic after those it needs, ties by name), the needs without unknown
+    targets, self references and cycles, and the text of each problem. Pure."""
+    problems, clean = [], {}
+    for t in sorted(known):
+        keep = set()
+        for n in needs.get(t, ()):
+            if n == t:
+                problems.append("topic %s needs itself" % t)
+            elif n not in known:
+                problems.append("topic %s needs unknown topic %s" % (t, n))
+            else:
+                keep.add(n)
+        clean[t] = tuple(sorted(keep))
+    users = {t: [] for t in clean}
+    left = {t: len(ns) for t, ns in clean.items()}
+    for t, ns in clean.items():
+        for n in ns:
+            users[n].append(t)
+    heap = [t for t, k in left.items() if k == 0]
+    heapq.heapify(heap)
+    order = []
+    while heap:
+        t = heapq.heappop(heap)
+        order.append(t)
+        for u in users[t]:
+            left[u] -= 1
+            if left[u] == 0:
+                heapq.heappush(heap, u)
+    stuck = sorted(t for t in clean if t not in set(order))
+    if stuck:
+        problems.append("dependency cycle among: %s" % ", ".join(stuck))
+        for t in stuck:
+            clean[t] = ()
+        order += stuck
+    return order, clean, problems
 
 
 _CAP_CACHE = {}
@@ -219,13 +279,14 @@ def cli_status(conn=None, out=None):
     try:
         r = conn or Resp(timeout=2.0)
         now = time.time()
+        needs = topic_needs()
         for topic, _, interval, _ in topics():
             d = _doc(r, topic) or {}
             age = int(now - d["ts"]) if d.get("ts") else -1
             err = clean(d.get("err") or "-")
             ts_err = str(int(d["ts_err"])) if d.get("ts_err") else "-"
-            out.write("%s\t%d\t%d\t%s\t%s\t%s\t%s\n" % (
-                topic, interval, age, d.get("gen", 0), d.get("rc", "-"), err, ts_err))
+            out.write("%s\t%d\t%d\t%s\t%s\t%s\t%s\t%s\n" % (
+                topic, interval, age, d.get("gen", 0), d.get("rc", "-"), err, ts_err, ",".join(needs.get(topic, ())) or "-"))
     except OSError as e:
         sys.stderr.write("live state failed: %s\n" % e)
         return 1

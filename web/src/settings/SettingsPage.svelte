@@ -2,7 +2,6 @@
   // One subpage of Settings, chosen by the address (/settings/<page>): General, Network and DNS, Storage, Backups, Users and access, Updates,
   // Advanced. The fields come from layout.gen.json (generated from `page` in config/schema.toml); Advanced lists every key. General also holds
   // Appearance and the Nodes card, Updates the version and the update actions, Advanced the Check button.
-  import { tip } from '../ui/tooltip.svelte.js';
   import { poll, rows } from '../data.svelte.js';
   import { get, prefetchPlan } from '../api.js';
   import { route, go } from '../route.svelte.js';
@@ -76,7 +75,7 @@
       {#if page === 'updates' && utag}<StatusDot state={utag.state} label={utag.label} />{/if}
       {#if core}<Button tooltip={advanced ? 'Back to the guided questions' : 'Every key of this page as plain fields'} onclick={() => (advanced = !advanced)}>{advanced ? 'Back' : 'Advanced'}</Button>{/if}
       {#if page === 'advanced'}
-        <Button class="b13" icon="check-square" busy={chkBusy} busyLabel="Checking…" tooltip={chkBusy ? 'A check is running' : 'Look for typos and missing values in machine.toml'} onclick={runCheck}>Check</Button>
+        <Button class="settingspage-b13" icon="check-square" busy={chkBusy} busyLabel="Checking…" tooltip={chkBusy ? 'A check is running' : 'Look for typos and missing values in machine.toml'} onclick={runCheck}>Check</Button>
       {/if}
     {/snippet}
   </PageHeader>
@@ -87,7 +86,7 @@
         <i class="ph ph-{chkError || chk.rc !== 0 ? 'warning-circle' : 'check-circle'}" style="color:{chkError || chk.rc !== 0 ? 'var(--st-bad)' : 'var(--st-ok)'}"></i>
         <span>{chkError ? 'The check could not run.' : chk.rc === 0 ? 'machine.toml is fine' : 'machine.toml has problems'}</span>
         <span style="flex:1"></span>
-        <button use:tip={'Close the result'} class="btn btn-ghost btn-icon x" aria-label="Close" onclick={() => { chk = null; chkError = ''; }}><i class="ph ph-x"></i></button>
+        <Button variant="ghost" class="btn-icon settingspage-x" tooltip={'Close the result'} aria-label="Close" onclick={() => { chk = null; chkError = ''; }}><i class="ph ph-x"></i></Button>
       </div>
       <pre>{chkError || chk.text.trim()}</pre>
     </div>
@@ -102,8 +101,8 @@
         <div class="kv"><span>Last looked</span><span>{fetched}</span></div>
         <p class="hp2">{updates.loaded ? (behind > 0 ? `${behind} new change${behind === 1 ? '' : 's'} upstream.` : 'Up to date as of the last look.') : 'Loading…'}</p>
         <div class="acts">
-          <Button variant="primary" class="b13" icon="arrow-circle-up" busy={jobRunning('system', ['update'])} busyLabel="Updating…" tooltip={'Update the server (snapshots first; shows the plan)'} disabled={!!deck?.data?.locked} onpointerenter={() => prefetchPlan('system', ['update'])} onfocus={() => prefetchPlan('system', ['update'])} onclick={() => openPlan('system', ['update'], 'Update')}>Update…</Button>
-          <button use:tip={'Read what is new, change by change'} class="btn b13" onclick={() => go('/operations/whats-new')}><i class="ph ph-sparkle"></i>What's new</button>
+          <Button variant="primary" class="settingspage-b13" icon="arrow-circle-up" busy={jobRunning('system', ['update'])} busyLabel="Updating…" tooltip={'Update the server (snapshots first; shows the plan)'} disabled={!!deck?.data?.locked} onpointerenter={() => prefetchPlan('system', ['update'])} onfocus={() => prefetchPlan('system', ['update'])} onclick={() => openPlan('system', ['update'], 'Update')}>Update…</Button>
+          <Button class="settingspage-b13" tooltip={'Read what is new, change by change'} onclick={() => go('/operations/whats-new')}><i class="ph ph-sparkle"></i>What's new</Button>
         </div>
       </div>
       <div class="card sec">
@@ -127,7 +126,7 @@
       <div class="card sec" id="nodes">
         <div class="st">Nodes</div>
         <p class="hp2">The other servers this one looks at: {rows(nodeList).length} on the list. Adding, removing and the keys are on the Nodes page.</p>
-        <button use:tip={'Open the list of servers'} class="btn sm" style="align-self:flex-start" onclick={() => go('/nodes')}><i class="ph ph-hard-drives"></i>Open Nodes</button>
+        <Button size="sm" tooltip={'Open the list of servers'} style="align-self:flex-start" onclick={() => go('/nodes')}><i class="ph ph-hard-drives"></i>Open Nodes</Button>
       </div>
     </div>
   {/if}
@@ -135,7 +134,7 @@
 
 <style>
   .page { display: flex; flex-direction: column; gap: 14px; }
-  .b13 { font-size: 13px; }
+  :global(.btn.settingspage-b13) { font-size: 13px; }
   .hp2 { margin: 0; font-size: 12.5px; color: var(--color-neutral-500); }
   .cols { column-width: 400px; column-gap: 14px; }
   .sec { padding: 14px 16px; gap: 10px; break-inside: avoid; margin-bottom: 14px; }
@@ -146,7 +145,7 @@
   .res { padding: 12px 14px; gap: 8px; }
   .res.bad { box-shadow: inset 0 0 0 1px var(--st-bad); }
   .rh { display: flex; align-items: center; gap: 8px; font-size: 13px; font-weight: 500; }
-  .x { width: 26px; height: 26px; color: var(--color-neutral-400); }
+  :global(.btn.settingspage-x) { width: 26px; height: 26px; color: var(--color-neutral-400); }
   pre { margin: 0; font-size: 12px; white-space: pre-wrap; color: var(--color-neutral-300); font-family: var(--font-mono, ui-monospace, monospace); }
   .muted { font-size: 12px; color: var(--fg-3); }
 </style>

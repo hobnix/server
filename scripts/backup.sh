@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # help: back up shares, chosen containers, the domain controller and the host config with restic to the disk labelled "backup"
 # help.de: sichert Freigaben, ausgewählte Container, den Domänencontroller und die Server-Einstellungen mit restic auf die Platte mit dem Etikett "backup"
-# args: [--state | --shares | --snapshots | status | now | list | find <name> | restore <snapshot|latest> <path> | browse [--off] | verify | drill [N] | drill ct [<name>] | report | offsite set <repo>|now|off | init [<device>] | <share> on|off | ct <name> on|off] [--dry-run]
+# args: [--state | --shares | --snapshots | status | now | list | find <name> | restore <snapshot|latest> <path> | config [restore [<snapshot|latest>] [--with-state]] | browse [--off] | verify | drill [N] | drill ct [<name>] | report | offsite set <repo>|now|off | init [<device>] | <share> on|off | ct <name> on|off] [--dry-run]
 set -euo pipefail
 . "$(dirname "$0")/lib/ui.sh"
 . "$(dirname "$0")/lib/dc.sh"
@@ -22,6 +22,11 @@ usage: hs backup [status]                    what is in the backup, last run, sp
        hs backup restore <snapshot|latest> <path> [--tag T] [--to DIR]
                                              restore one file or folder, by default
                                              into /bulk/shares/restored (never over the live copy)
+       hs backup config                      the host snapshots and which settings files each holds
+       hs backup config restore [<snapshot|latest>] [--with-state] [--dry-run]
+                                             put machine.toml and machine.nix of a host snapshot back on this running
+                                             server (plan first, you type the file name, the old file is kept as
+                                             <file>.before-restore-<time>); --with-state also /var/lib/hs
        hs backup browse [--off]              show the whole backup read-only as share "backup-browse"
        hs backup verify                      check part of the stored data
        hs backup prune [--dry-run]           give space back now: delete leftovers of a run that ran out of space, apply the
@@ -875,6 +880,122 @@ cmd_restore() {
   ok "$(t 'Restored into %s (the full original path is recreated below it).' "$to")"
 }
 
+# ── The settings only: hs backup config [restore] ──
+# What the host snapshot holds of the settings: the files under $NIXOS_DIR (the paths are the original ones in the snapshot).
+# hardware-configuration.nix, SSH host keys, Samba secrets, disks and networks are never put back by this command.
+NIXOS_DIR=${HS_NIXOS_DIR:-/etc/nixos}
+CONFIG_FILES=(machine.toml machine.nix)
+# Files of $STATE that describe THIS disk set or the backup itself: never restored, even with --with-state.
+state_skip() {  # state_skip <path relative to $STATE>
+  case "$1" in
+    restic-password|vault-uuid|luks-uuids|disks|disks/*|.config-restore.*|*.before-restore-*) return 0 ;;
+  esac
+  return 1
+}
+
+cmd_config_list() {
+  need_repo
+  local snaps id time f held
+  snaps=$(R snapshots --tag host --json) || die "$(t 'Could not read the snapshots.')"
+  step "$(t 'Host snapshots (the settings of this server)')"
+  {
+    thead 'Snapshot' 'When' 'Settings files'
+    while IFS=$'\t' read -r id time; do
+      [ -n "$id" ] || continue
+      held=""
+      for f in "${CONFIG_FILES[@]}"; do
+        if R ls "$id" "$NIXOS_DIR/$f" 2>/dev/null | grep -qxF "$NIXOS_DIR/$f"; then held+="${held:+, }$f"; fi
+      done
+      printf '%s\t%s\t%s\n' "$id" "$time" "${held:--}"
+    done < <(jq -r '.[] | [.id[0:8], (.time[0:16] | sub("T"; " "))] | @tsv' <<<"$snaps")
+  } | table
+  note "$(t 'Put them back with: hs backup config restore --dry-run')"
+}
+
+cmd_config_restore() {
+  local snap=latest with_state=false a
+  for a in "$@"; do
+    case "$a" in
+      --with-state) with_state=true ;;
+      -*) usage ;;
+      *)  snap=$a ;;
+    esac
+  done
+  need_repo
+  local tmp
+  mkdir -p "$STATE"
+  tmp=$(mktemp -d "$STATE/.config-restore.XXXX")
+  CFG_TMP=$tmp
+  trap 'rm -rf "$CFG_TMP"; cleanup' EXIT
+  local inc=() f
+  for f in "${CONFIG_FILES[@]}"; do inc+=(--include "$NIXOS_DIR/$f"); done
+  $with_state && inc+=(--include "$STATE")
+  step "$(t 'Reading the host snapshot %s' "$snap")"
+  R restore "$snap" --tag host --target "$tmp" "${inc[@]}" >/dev/null || die "$(t 'Could not restore the settings from snapshot %s. Is there a host snapshot? (hs backup config)' "$snap")"
+  [ -f "$tmp$NIXOS_DIR/machine.toml" ] || die "$(t 'That snapshot holds no machine.toml. Look at the list: hs backup config')"
+
+  # The plan: per file new | changed | same. Only names, never contents.
+  local rows=() live rel state same=0 changed=0 skipped=()
+  for f in "${CONFIG_FILES[@]}"; do
+    [ -f "$tmp$NIXOS_DIR/$f" ] || continue
+    rows+=("$NIXOS_DIR/$f")
+  done
+  if $with_state && [ -d "$tmp$STATE" ]; then
+    while IFS= read -r -d '' f; do
+      rel=${f#"$tmp$STATE/"}
+      if state_skip "$rel"; then skipped+=("$rel"); continue; fi
+      rows+=("$STATE/$rel")
+    done < <(find "$tmp$STATE" -type f -print0 | sort -z)
+  fi
+  local plan=()
+  for f in "${rows[@]}"; do
+    live=$f
+    if [ ! -e "$live" ]; then state=new
+    elif cmp -s "$tmp$f" "$live"; then state=same
+    else state=changed; fi
+    case "$state" in same) same=$((same + 1)) ;; *) plan+=("$state"$'\t'"$f"); changed=$((changed + 1)) ;; esac
+  done
+  step "$(t 'Plan')"
+  if [ "$changed" -eq 0 ]; then
+    ok "$(t 'Already identical: nothing to put back (%s file(s) compared).' "$same")"
+    return 0
+  fi
+  { thead 'State' 'File'; printf '%s\n' "${plan[@]}"; } | table
+  kv "Identical" "$same"
+  if [ "${#skipped[@]}" -gt 0 ]; then
+    note "$(t 'Not restored on purpose (they describe this disk set or the backup itself): %s' "$(IFS=,; echo "${skipped[*]}")")"
+  fi
+  note "$(t 'Never touched: hardware-configuration.nix, SSH host keys, Samba, disks, pools, network.')"
+  if $dry; then note "(dry run, nothing changed)"; return 0; fi
+
+  if [ -z "${HS_BACKUP_YES:-}" ]; then
+    [ -t 0 ] || die "$(t 'This replaces settings files. Run it in a terminal, or add --yes after looking at --dry-run.')"
+    confirm_name "machine.toml" "the file" || die "cancelled"
+  fi
+
+  local stamp
+  stamp=$(date +%Y%m%d-%H%M%S)
+  for f in "${rows[@]}"; do
+    cmp -s "$tmp$f" "$f" 2>/dev/null && continue
+    # a link into the vault: writing through it would overwrite the secret itself
+    if [ -L "$f" ]; then warn "$(t '%s is a link into the vault, skipped' "$f")"; continue; fi
+    if [ -e "$f" ]; then cp -a "$f" "$f.before-restore-$stamp"; fi
+    mkdir -p "$(dirname "$f")"
+    cp -a "$tmp$f" "$f"
+    ok "$(t 'Restored %s' "$f")"
+  done
+  note "$(t 'The old files were kept as <file>.before-restore-%s.' "$stamp")"
+  note "$(t 'Apply the settings with: hs rebuild')"
+}
+
+cmd_config() {
+  case "${1:-}" in
+    "")      cmd_config_list ;;
+    restore) shift; cmd_config_restore "$@" ;;
+    *)       usage ;;
+  esac
+}
+
 cmd_browse() {
   need_repo
   if [ "${1:-}" = --off ]; then
@@ -1129,6 +1250,7 @@ case "$cmd" in
   list)    cmd_list ;;
   find)    cmd_find "$@" ;;
   restore) cmd_restore "$@" ;;
+  config)  cmd_config "$@" ;;
   browse)  cmd_browse "$@" ;;
   verify)  cmd_verify ;;
   prune)   cmd_prune ;;

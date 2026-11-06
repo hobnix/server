@@ -1,5 +1,5 @@
 <script>
-  import { tip } from '../ui/tooltip.svelte.js';
+  import Button from '../ui/Button.svelte';
   // The page of an extension package at /extensions/<name>: the package's own [web.page] declaration (capabilities/<name>/capability.toml; the server
   // sends it in the session answer, features.extensions, only while the package is on), drawn by GenericPage. The declaration names its reads by their
   // words ("list"); here they become the paths of the generic read API (/api/sys/ext/<name>/list).
@@ -34,6 +34,6 @@
   {#key name}<GenericPage {spec} {forms} />{/key}
 {:else}
   <div class="card"><EmptyState tone="info" icon="power" title="This extension is switched off" text="It is not part of this server's configuration, so there is nothing to show. Switch it on with hs ext enable, or in Settings.">
-    {#snippet action()}<button use:tip={'Open the settings page'} class="btn" onclick={() => go('/settings/capabilities')}><i class="ph ph-sliders"></i>Open Settings</button>{/snippet}
+    {#snippet action()}<Button tooltip={'Open the settings page'} onclick={() => go('/settings/capabilities')}><i class="ph ph-sliders"></i>Open Settings</Button>{/snippet}
   </EmptyState></div>
 {/if}

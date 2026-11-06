@@ -100,6 +100,7 @@ default_probes() {
     $'hs backup status\tbackup status\t0' \
     $'hs backup list\tbackup list\t0 1' \
     $'hs backup find\tbackup find machine.toml\t0 1' \
+    $'hs backup config\tbackup config\t0 1' \
     $'hs system info\tsystem info\t0' \
     $'hs secrets\tsecrets\t0' \
     $'hs cleanup\tcleanup\t0' \

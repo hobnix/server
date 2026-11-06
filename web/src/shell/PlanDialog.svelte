@@ -1,5 +1,5 @@
 <script>
-  import { tip } from '../ui/tooltip.svelte.js';
+  import Button from '../ui/Button.svelte';
   import { onMount } from 'svelte';
   import { plan as askPlan, start as doStart } from '../api.js';
   import { ui, track, trackDone, showTab } from '../ui.svelte.js';
@@ -94,14 +94,14 @@
     {/if}
     <div class="dfoot">
       <span class="note">{allowed ? 'Nothing has run yet. The result appears under Jobs.' : ''}</span>
-      <button class="btn" onclick={close}>{allowed ? 'Cancel' : 'Close'}</button>
+      <Button onclick={close}>{allowed ? 'Cancel' : 'Close'}</Button>
       {#if !allowed && (p?.reason?.includes('changed meanwhile') || startError.includes('changed meanwhile')) && dialog.onReload}
-        <button class="btn btn-primary" onclick={() => { const cb = dialog.onReload; close(); cb(); }}>Reload</button>
+        <Button variant="primary" onclick={() => { const cb = dialog.onReload; close(); cb(); }}>Reload</Button>
       {/if}
       {#if allowed}
-        <button use:tip={canStart ? '' : p.confirm_name && confirm !== p.confirm_name ? 'Type the name to confirm first' : busy ? 'Starting' : 'This change cannot be started now'} class="btn {danger ? 'btn-danger' : 'btn-primary'}" disabled={!canStart} onclick={go}>
+        <Button variant={danger ? 'danger' : 'primary'} tooltip={canStart ? '' : p.confirm_name && confirm !== p.confirm_name ? 'Type the name to confirm first' : busy ? 'Starting' : 'This change cannot be started now'} disabled={!canStart} onclick={() => { go(); }}>
           <i class="ph ph-play"></i>{busy ? 'Starting…' : 'Start job'}
-        </button>
+        </Button>
       {/if}
     </div>
   </div>

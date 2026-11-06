@@ -33,7 +33,7 @@ Chosen by the owner on 2026-11-04 (questions 2, 4 and 1 of the plan, section 5).
    applied on write.
 3. **Kinds are `<area>.<what>`**, lower case, registered in `scripts/lib/event-kinds.tsv` (core) with level, the payload keys and a one-line
    meaning. Packages (recipes and extensions) use the prefix `pkg.<package>.`. A test fails when a script emits a kind that is not registered. The catalogue itself
-   is #145.
+   is #145. Since #313 a package declares its kinds in `package.toml` `[[events]]`; `hs pkg` installs them to /var/lib/hs/pkg-events/<package>.tsv, and the core file lists core kinds only.
 4. **One writer.** `hs event emit <kind> <subject> [text] [--payload JSON]` (library function `event_emit` in `scripts/lib/event.sh` for
    scripts). Nothing else inserts rows. `state-db.py event()` calls it. `/var/lib/hs/disk-events` stops being written; its lines are
    imported once and the Disk events panel reads the log. Emitting never fails the caller (best effort, rc 0, one warning line).
