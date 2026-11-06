@@ -1,5 +1,5 @@
 <script>
-  import { tip } from '../../ui/tooltip.svelte.js';
+  import Button from '../../ui/Button.svelte';
   // What the other server types after "Give access": shown once, in this browser tab only (nothing is stored; closing it forgets the password).
   let { offer, onclose } = $props();
 
@@ -24,17 +24,17 @@
       <div class="lede">They are asked for this password. <b>It is shown only now</b> and is not kept anywhere on this server in a form you can read again.</div>
       <pre class="code pw">{s.password}</pre>
       <div class="dialog-actions">
-        <button use:tip={'Copy the password to the clipboard'} class="btn btn-ghost" onclick={() => copy('pw', s.password)}><i class="ph ph-copy"></i>{copied === 'pw' ? 'Copied' : 'Copy password'}</button>
-        <button use:tip={'Copy the command to the clipboard'} class="btn btn-ghost" onclick={() => copy('cmd', line)}><i class="ph ph-copy"></i>{copied === 'cmd' ? 'Copied' : 'Copy command'}</button>
+        <Button variant="ghost" tooltip={'Copy the password to the clipboard'} onclick={() => { copy('pw', s.password); }}><i class="ph ph-copy"></i>{copied === 'pw' ? 'Copied' : 'Copy password'}</Button>
+        <Button variant="ghost" tooltip={'Copy the command to the clipboard'} onclick={() => { copy('cmd', line); }}><i class="ph ph-copy"></i>{copied === 'cmd' ? 'Copied' : 'Copy command'}</Button>
         <span style="flex:1"></span>
-        <button class="btn btn-primary" onclick={onclose}>I have noted it</button>
+        <Button variant="primary" onclick={onclose}>I have noted it</Button>
       </div>
     {:else}
       <div class="lede">The login existed already, so its password stays as it was. “New password…” on the row makes another one.</div>
       <div class="dialog-actions">
-        <button use:tip={'Copy the command to the clipboard'} class="btn btn-ghost" onclick={() => copy('cmd', line)}><i class="ph ph-copy"></i>{copied === 'cmd' ? 'Copied' : 'Copy command'}</button>
+        <Button variant="ghost" tooltip={'Copy the command to the clipboard'} onclick={() => { copy('cmd', line); }}><i class="ph ph-copy"></i>{copied === 'cmd' ? 'Copied' : 'Copy command'}</Button>
         <span style="flex:1"></span>
-        <button class="btn btn-primary" onclick={onclose}>Close</button>
+        <Button variant="primary" onclick={onclose}>Close</Button>
       </div>
     {/if}
     <div class="hint">Take the access away again with “Revoke…” on the row.</div>

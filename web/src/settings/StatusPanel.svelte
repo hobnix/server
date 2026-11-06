@@ -1,4 +1,5 @@
 <script>
+  import Button from '../ui/Button.svelte';
   // The status block of a capability page: the rows of a `sys` read named by [settings] status in the capability manifest. One line per check:
   // id, state, detail, reason. A row is `id state fix detail reason` (a `-` is empty). Nothing here names a capability.
   import StatusDot from '../ui/StatusDot.svelte';
@@ -27,7 +28,7 @@
         <span class="id mono">{r.id}</span>
         <span class="reason">{r.reason}</span>
         {#if r.detail !== '-'}<Chip>{r.detail}</Chip>{/if}
-        {#if r.fix !== '-'}<button class="btn" onclick={() => fixIt(r.fix)}>Fix…</button>{/if}
+        {#if r.fix !== '-'}<Button onclick={() => fixIt(r.fix)}>Fix…</Button>{/if}
       </div>
     {/each}
   {:else if st.error}

@@ -1,4 +1,5 @@
 <script>
+  import Button from '../ui/Button.svelte';
   import { tip } from '../ui/tooltip.svelte.js';
   // A shell in a window over the page (a tmux session on the server: closing or popping out only detaches, the next one reattaches): the host (like an SSH login as adminuser) or inside one instance. The keys go to the server
   // over one WebSocket (binary frames for data, a small JSON text frame for the size); a one-use ticket opens it (POST /api/terminal).
@@ -128,9 +129,9 @@
       <span class="dot {state === 'open' ? 'ok' : state === 'connecting' ? 'warn' : 'bad'}" use:tip={state}></span>
       <div id="tt" class="dialog-title" style="flex:1">{page ? 'Disconnected' : `Terminal · ${title || target}`}</div>
       {#if note}<span class="note">{note}</span>{/if}
-      {#if state === 'closed'}<button use:tip={'Open a new connection to the same shell'} class="btn btn-secondary" onclick={reconnect}><i class="ph ph-plugs-connected"></i>Reconnect</button>{/if}
-      {#if !page}<button class="btn btn-secondary" onclick={popout} use:tip={'Open this terminal in a window of its own (the same session)'}><i class="ph ph-arrow-square-out"></i>Popout</button>{/if}
-      {#if !page}<button use:tip={'Close this window (the shell keeps running)'} class="btn btn-secondary" onclick={close}>Close</button>{/if}
+      {#if state === 'closed'}<Button tooltip={'Open a new connection to the same shell'} onclick={reconnect}><i class="ph ph-plugs-connected"></i>Reconnect</Button>{/if}
+      {#if !page}<Button onclick={popout} tooltip={'Open this terminal in a window of its own (the same session)'}><i class="ph ph-arrow-square-out"></i>Popout</Button>{/if}
+      {#if !page}<Button tooltip={'Close this window (the shell keeps running)'} onclick={close}>Close</Button>{/if}
     </div>
     {/if}
     <div class="term" class:full={page} bind:this={box}></div>

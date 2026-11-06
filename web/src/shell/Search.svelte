@@ -1,5 +1,5 @@
 <script>
-  import { tip } from '../ui/tooltip.svelte.js';
+  import Button from '../ui/Button.svelte';
   // Jump-to search of the top bar. Client side only: the lists are the reads the pages already use, fetched when the box gets focus.
   import { mainTree, vpsTree, visible } from '../nav.js';
   import { ui } from '../ui.svelte.js';
@@ -145,7 +145,7 @@
 <svelte:window onkeydown={slash} />
 
 <div class="search" class:expanded>
-  <button class="btn btn-ghost icon" aria-label="Search" use:tip={'Search'} onclick={showInput}><i class="ph ph-magnifying-glass" style="font-size:16px"></i></button>
+  <Button variant="ghost" class="search-icon" aria-label="Search" tooltip={'Search'} onclick={showInput}><i class="ph ph-magnifying-glass" style="font-size:16px"></i></Button>
   <div class="field">
     <i class="ph ph-magnifying-glass"></i>
     <input class="input" bind:this={input} bind:value={q} type="text" placeholder="Search shares, instances, users…" aria-label="Search" autocomplete="off" spellcheck="false"
@@ -175,7 +175,7 @@
   .field { position: relative; }
   .field > i { position: absolute; left: 10px; top: 9px; color: var(--color-neutral-500); pointer-events: none; }
   .field .input { min-height: 30px; padding: 4px 10px 4px 30px; font-size: 13px; background: var(--color-bg); }
-  .icon { display: none; padding: 5px 6px; }
+  :global(.btn.search-icon) { display: none; padding: 5px 6px; }
   .drop { position: absolute; top: calc(100% + 6px); left: 0; width: max(100%, 320px); max-height: 60vh; overflow: auto; padding: 4px; background: var(--color-surface); display: flex; flex-direction: column; z-index: 50; }
   .gh { padding: 8px 8px 3px; font-size: 11px; font-weight: 500; text-transform: uppercase; letter-spacing: 0.04em; color: var(--color-neutral-500); }
   .opt { display: flex; align-items: center; gap: 8px; padding: 5px 8px; border-radius: var(--r); font-size: 12.5px; cursor: pointer; min-width: 0; }
@@ -188,9 +188,9 @@
   /* narrow: an icon; a tap spreads the input over the whole bar */
   @media (max-width: 900px) {
     .search { width: auto; }
-    .icon { display: inline-flex; }
+    :global(.btn.search-icon) { display: inline-flex; }
     .field { display: none; }
-    .search.expanded .icon { display: none; }
+    .search.expanded :global(.btn.search-icon) { display: none; }
     .search.expanded .field { display: block; position: fixed; z-index: 55; top: 8px; left: 10px; right: 10px; }
     .search.expanded .drop { width: 100%; }
   }
