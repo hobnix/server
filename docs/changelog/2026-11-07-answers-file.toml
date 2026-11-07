@@ -1,0 +1,5 @@
+date  = "2026-11-07"
+type  = "feature"
+title = "hs installer check-answers checks an answers file for unattended installs"
+docs  = "install#answers-file-for-unattended-installs"
+body  = """The answers file is a TOML file (version 1) that maps to the hs-install options. hs installer check-answers <file> lists errors and warnings: unknown keys, a wrong value, a disk that is not confirmed, an inline secret. hs-install does not read the file yet."""
