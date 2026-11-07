@@ -205,7 +205,8 @@ for tool in $tools; do
   if command -v "$tool" >/dev/null 2>&1; then continue; fi
   users=$(grep -lwE -- "$tool" "$here"/*.sh "$here"/recipes/*.sh "$here"/../packages/*/run.sh 2>/dev/null | while read -r f; do
     [ "$(basename "$f")" != smoke.sh ] || continue
-    grep -v '^[[:space:]]*#' "$f" | grep -qwE -- "$tool" && basename "$f" .sh
+    # no -q: an early exit of grep would give the writer SIGPIPE, and pipefail then fails the test
+    grep -v '^[[:space:]]*#' "$f" | grep -wE -- "$tool" >/dev/null && basename "$f" .sh
   done | sort -u | head -n 6 | paste -sd' ' -)
   [ -n "$users" ] || continue
   result tool "$tool" fail "$(t 'not installed; used by: %s' "$users")"

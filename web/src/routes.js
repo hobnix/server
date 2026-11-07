@@ -31,6 +31,7 @@ import Certificates from './pages/Certificates.svelte';
 import Notifications from './pages/Notifications.svelte';
 import WhatsNew from './pages/WhatsNew.svelte';
 import Data from './pages/Data.svelte';
+import LiveState from './pages/LiveState.svelte';
 import Section from './pages/Section.svelte';
 import Proxy from './pages/Proxy.svelte';
 import ProxyPorts from './pages/ProxyPorts.svelte';
@@ -74,6 +75,7 @@ export const routes = {
   '/operations/notifications': Notifications,
   '/operations/whats-new': WhatsNew,
   '/monitoring/diagnostics': Data,
+  '/monitoring/live-state': LiveState,
   '/docs': Docs,
   '/setup': Setup,
   '/settings': Section,

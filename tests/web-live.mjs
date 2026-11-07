@@ -1,6 +1,6 @@
 // The poll timing of the live stream (web/src/polldelay.js): no timer while a topic read follows the stream, the plain interval otherwise.
 import { nextDelay } from '../web/src/polldelay.js';
-import { parseLiveRows } from '../web/src/livestatus.js';
+import { parseLiveRows, parseInspect } from '../web/src/livestatus.js';
 import { poolTopic } from '../web/src/pages/storage/pool.js';
 
 let ok = 0, bad = 0;
@@ -42,6 +42,18 @@ const eight = parseLiveRows([['services-list', '30', '5', '2', '0', '-', '-', 'c
 check('live rows: eight fields parse needs', eight.length === 2 && eight[0].needs.length === 1 && eight[0].needs[0] === 'ct-list' && eight[1].needs.length === 0);
 check('live rows: seven fields give no needs', parsed[0].needs.length === 0);
 check('live rows: malformed rows are dropped', parseLiveRows([['only', 'five', 'fields', 'here', 'x']], now).length === 0);
+const ins = (o) => ({ topic: 't', words: ['a'], interval: 5, lock: 'run', origin: 'core', cap: null, cap_on: true, groups: [], age: 1, gen: 1, rc: 0, err: null, ts_err: null, bytes: 1, ...o });
+const pi = (o, now = 1000) => parseInspect({ now, topics: [ins(o)] });
+check('inspect: fresh', pi({}).rows[0].state === 'fresh');
+check('inspect: never and pending', pi({ age: null, err: 'x' }).rows[0].state === 'never' && pi({ age: null }).rows[0].state === 'pending');
+check('inspect: stale', pi({ age: 16 }).rows[0].state === 'stale');
+check('inspect: failing by exit code and by newer error', pi({ rc: 2 }).rows[0].state === 'failing' && pi({ age: 10, err: 'x', ts_err: 995 }).rows[0].state === 'failing');
+check('inspect: capability off wins', pi({ cap_on: false, age: null }).rows[0].state === 'off');
+check('inspect: doc status wins', pi({ status: 'error', cap_on: true }).rows[0].state === 'error');
+check('inspect: has.needs only with the key', !pi({}).has.needs && pi({ needs: ['a', 'b'] }).has.needs && pi({ needs: ['a', 'b'] }).rows[0].needs.join(', ') === 'a, b');
+check('inspect: has.status and has.ttl', pi({ status: 'ok', ttl: 45 }).has.status && pi({ ttl: 45 }).has.ttl && !pi({}).has.ttl && !pi({ ttl: null }).has.ttl);
+check('inspect: garbage gives no rows', parseInspect(null).rows.length === 0 && parseInspect({ topics: 5 }).rows.length === 0 && parseInspect({ topics: [null, {}, { topic: 3 }] }).rows.length === 0);
+check('inspect: unknown keys are kept', pi({ extra: 1 }).rows[0].extra === 1);
 check('poolTopic kinds', poolTopic('info', 'bulk') === 'pool-info-bulk' && poolTopic('members', 'fast') === 'pool-members-fast' && poolTopic('state', 'bulk') === 'pool-state-bulk');
 check('poolTopic rejects bad args', poolTopic('info', 'other') === undefined && poolTopic('disks', 'bulk') === undefined && poolTopic('info', 'fast') === 'pool-info-fast');
 check('storage topic, live open: no timer', nextDelay('shares-overview', true, 30000) === null);

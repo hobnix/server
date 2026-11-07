@@ -31,3 +31,40 @@ export function parseLiveRows(rows, nowSec) {
       return { topic, every, age, gen, rc, err, tsErr, state, needs };
     });
 }
+
+// The Live state page: the named-key document of `hs sys live inspect` ({now, topics: [...]}). Optional keys (needs, status, ttl, source) are
+// only there when the server knows them; `has` says which optional columns to show.
+/**
+ * @param {any} doc
+ * @param {number} [nowSec]
+ */
+export function parseInspect(doc, nowSec) {
+  void nowSec;
+  const list = Array.isArray(doc?.topics) ? doc.topics : [];
+  const rows = list
+    .filter((t) => t && typeof t.topic === 'string')
+    .map((t) => {
+      const age = typeof t.age === 'number' ? t.age : null;
+      const rc = typeof t.rc === 'number' ? t.rc : null;
+      const err = t.err ? String(t.err) : null;
+      const tsErr = typeof t.ts_err === 'number' ? t.ts_err : null;
+      const every = Number(t.interval);
+      const storedTs = age !== null && typeof doc.now === 'number' ? doc.now - age : null;
+      let state = 'fresh';
+      if (typeof t.status === 'string') state = t.status;
+      else if (t.cap_on === false) state = 'off';
+      else if (age === null) state = err ? 'never' : 'pending';
+      else if (age > 3 * every) state = 'stale';
+      else if ((rc !== null && rc !== 0) || (err && tsErr !== null && storedTs !== null && tsErr > storedTs)) state = 'failing';
+      return { ...t, every, age, rc, err, tsErr, gen: Number(t.gen) || 0, words: Array.isArray(t.words) ? t.words : [],
+               groups: Array.isArray(t.groups) ? t.groups : [], state };
+    });
+  return {
+    rows,
+    has: {
+      needs: rows.some((r) => Array.isArray(r.needs)),
+      status: rows.some((r) => typeof r.status === 'string'),
+      ttl: rows.some((r) => r.ttl !== undefined && r.ttl !== null),
+    },
+  };
+}

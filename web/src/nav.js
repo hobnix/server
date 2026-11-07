@@ -35,6 +35,7 @@ export const tree = [
       { label: 'Monitoring', icon: 'gauge', path: '/monitoring', children: [
         { label: 'Hardware', icon: 'cpu', path: '/monitoring/hardware' },
         { label: 'Diagnostics', icon: 'stethoscope', path: '/monitoring/diagnostics' },
+        { label: 'Live state', icon: 'pulse', path: '/monitoring/live-state', capability: 'live-state' },
       ] },
       { label: 'Protection', icon: 'shield', path: '/protection', children: [
         { label: 'Backup', icon: 'cloud-arrow-up', path: '/protection/backup' },

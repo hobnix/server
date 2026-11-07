@@ -1085,6 +1085,28 @@ export interface SysOperations {
     exit: number;
     lines: string;
   };
+  "live.inspect": {
+    /** every live-state topic as JSON for the inspector page: words, interval, lock, origin, capability, groups, age, gen, exit code, error, error time, bytes (needs, status, ttl only when known) */
+    words: ["live", "inspect"];
+    path: "/live/inspect";
+    method: "get";
+    class: "read";
+    params: { };
+    stdin: "none";
+    exit: number;
+    lines: unknown;
+  };
+  "live.raw.by_topic": {
+    /** the stored document of one live-state topic as JSON, the output capped at 64 KiB */
+    words: ["live", "raw", "<topic>"];
+    path: "/live/raw/{topic}";
+    method: "get";
+    class: "read";
+    params: { topic: string; };
+    stdin: "none";
+    exit: number;
+    lines: unknown;
+  };
   "live.refresh": {
     /** ask the live-state collector to read these topics again now (--all: every topic); returns at once */
     words: ["live", "refresh"];

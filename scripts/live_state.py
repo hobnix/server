@@ -7,6 +7,8 @@ hs:v1:refresh ("<topic>" or "*").
                                                      that change area (and of `any`), see live-topics.tsv columns 5 and 6
   python3 live_state.py status                       topic, interval, age (-1 none), gen, rc, err or -, ts_err or -, needs (comma list or -;
                                                      the 8th field, since #153, see live-topics.tsv column 7)
+  python3 live_state.py inspect   JSON: every topic with words, interval, lock, cap, groups and its stored state (the inspector page)
+  python3 live_state.py raw <topic>   JSON: the stored document of one topic, out capped at RAW_MAX bytes (exit 2: unknown topic)
   python3 live_state.py check                        problems: live:down / live:stale:<topic> TAB text (exit 1 when there are some)
 """
 import heapq
@@ -19,6 +21,7 @@ import threading
 import time
 
 KEY = "hs:v1:%s"
+RAW_MAX = 65536
 CHANGED = "hs:v1:changed"
 REFRESH = "hs:v1:refresh"
 HERE = os.path.dirname(os.path.abspath(__file__))
@@ -293,6 +296,77 @@ def cli_status(conn=None, out=None):
     return 0
 
 
+def cli_inspect(conn=None, out=None):
+    out = out or sys.stdout
+    r = None
+    try:
+        core = {t[0] for t in topics(os.path.join(HERE, "lib", "live-topics.tsv"))}
+        info = topic_info()
+        rows = topics()
+        caps = {}
+        for t in rows:
+            c = info.get(t[0], {}).get("cap")
+            if c is not None and c not in caps:
+                caps[c] = cap_on(c)
+        r = conn or Resp(timeout=2.0)
+        now = time.time()
+        entries = []
+        for topic, words, interval, lock in rows:
+            d = _doc(r, topic) or {}
+            i = info.get(topic, {})
+            e = {"topic": topic, "words": words, "interval": interval, "lock": lock,
+                 "origin": "core" if topic in core else "extension",
+                 "cap": i.get("cap"), "cap_on": caps.get(i.get("cap"), True), "groups": sorted(i.get("groups") or ()),
+                 "age": int(now - d["ts"]) if d.get("ts") else None, "gen": int(d.get("gen") or 0),
+                 "rc": d.get("rc") if isinstance(d.get("rc"), int) else None,
+                 "err": clean(d["err"]) if d.get("err") else None,
+                 "ts_err": int(d["ts_err"]) if d.get("ts_err") else None,
+                 "bytes": len(str(d.get("out") or "").encode()) if d else None}
+            # #339 needs, #322 status/ttl/source: present only when those are in
+            if i.get("needs") is not None:
+                e["needs"] = sorted(i["needs"])
+            for k in ("status", "ttl", "source"):
+                if k in d and isinstance(d[k], (str, int, float)) and not isinstance(d[k], bool):
+                    e[k] = d[k]
+            entries.append(e)
+        out.write(json.dumps({"now": int(now), "topics": entries}, sort_keys=True) + "\n")
+    except OSError as e:
+        sys.stderr.write("live state failed: %s\n" % e)
+        return 1
+    finally:
+        if r is not None and conn is None:
+            r.close()
+    return 0
+
+
+def cli_raw(args, conn=None, out=None):
+    out = out or sys.stdout
+    r = None
+    try:
+        if len(args) != 1 or args[0] not in {t[0] for t in topics()}:
+            sys.stderr.write("unknown live topic\n")
+            return 2
+        topic = args[0]
+        r = conn or Resp(timeout=2.0)
+        d = _doc(r, topic)
+        if d is None:
+            res = {"topic": topic, "stored": False}
+        else:
+            b = str(d.get("out") or "").encode()
+            res = {"topic": topic, "stored": True, "ts": d.get("ts"), "gen": d.get("gen"), "rc": d.get("rc"),
+                   "err": clean(d["err"], 2000) if d.get("err") else None, "ts_err": d.get("ts_err"),
+                   "bytes": len(b), "truncated": len(b) > RAW_MAX,
+                   "out": b[:RAW_MAX].decode("utf-8", "ignore")}
+        out.write(json.dumps(res, sort_keys=True) + "\n")
+    except OSError as e:
+        sys.stderr.write("live state failed: %s\n" % e)
+        return 1
+    finally:
+        if r is not None and conn is None:
+            r.close()
+    return 0
+
+
 def cli_check(conn=None, out=None):
     out = out or sys.stdout
     try:
@@ -324,7 +398,7 @@ def cli_check(conn=None, out=None):
 
 def main(argv):
     if not argv:
-        sys.stderr.write("usage: live_state.py refresh <topic>...|--all | status | check\n")
+        sys.stderr.write("usage: live_state.py refresh <topic>...|--all | status | check | inspect | raw <topic>\n")
         return 2
     if argv[0] == "refresh":
         return cli_refresh(argv[1:])
@@ -332,6 +406,10 @@ def main(argv):
         return cli_status()
     if argv[0] == "check":
         return cli_check()
+    if argv[0] == "inspect":
+        return cli_inspect()
+    if argv[0] == "raw":
+        return cli_raw(argv[1:])
     sys.stderr.write("unknown command %s\n" % argv[0])
     return 2
 

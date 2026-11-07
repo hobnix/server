@@ -56,3 +56,11 @@ enums = { "lock.state" = ["pool-change", "free", "busy", "unknown"], "paused.sta
 kind = "tsv"
 records = { channel = ["channel"], installed = ["version"], offer = ["channel", "ref", "state"], ref = ["ref"], state = ["state"], signed = ["signed"] }
 enums = { "offer.state" = ["none", "unknown", "current", "kept", "update"], "state.state" = ["none", "unknown", "current", "kept", "update"], "signed.signed" = ["yes", "no", "-"] }
+
+["live inspect"]
+kind = "json"
+note = "{now, topics: [{topic, words[], interval, lock (run|skip), origin (core|extension), cap (null = always), cap_on, groups[], age (null = never read), gen, rc, err, ts_err, bytes}]}. Optional per topic, only when known: needs[] (#153), status, ttl, source (#322)."
+
+["live raw <topic>"]
+kind = "json"
+note = "{topic, stored (false = no document), ts, gen, rc, err, ts_err, bytes (full size), truncated, out (at most 65536 bytes)}. Exit 2: unknown topic."
