@@ -6,7 +6,8 @@ hs:v1:refresh ("<topic>" or "*").
   python3 live_state.py refresh <topic>|@<group>...|--all   ask the collector to read again (exit 0 always); @<group> = every topic of
                                                      that change area (and of `any`), see live-topics.tsv columns 5 and 6
   python3 live_state.py status                       topic, interval, age (-1 none), gen, rc, err or -, ts_err or -, needs (comma list or -;
-                                                     the 8th field, since #153, see live-topics.tsv column 7)
+                                                     the 8th field, since #153, see live-topics.tsv column 7), status (fresh|stale|error|expired
+                                                     or -; the 9th field, since #322, status_of)
   python3 live_state.py inspect   JSON: every topic with words, interval, lock, cap, groups and its stored state (the inspector page)
   python3 live_state.py raw <topic>   JSON: the stored document of one topic, out capped at RAW_MAX bytes (exit 2: unknown topic)
   python3 live_state.py check                        problems: live:down / live:stale:<topic> TAB text (exit 1 when there are some)
@@ -160,7 +161,15 @@ def topic_info(path=None):
                 continue
             cap = c[4] if len(c) > 4 and c[4] not in ("", "-") else None
             groups = {g for g in (c[5].split(",") if len(c) > 5 else []) if g and g != "-"}
+            ttl = None
+            if len(c) > 7 and c[7] not in ("", "-"):
+                try:
+                    ttl = int(c[7]) if int(c[7]) > 0 else None
+                except ValueError:
+                    ttl = None
             info[c[0]] = {"cap": cap, "groups": groups}
+            if ttl:
+                info[c[0]]["ttl"] = ttl
     if not own:
         for t, i in ext_live()[1].items():
             info.setdefault(t, i)
@@ -265,6 +274,40 @@ def _doc(r, topic):
         return None
 
 
+def status_of(doc, interval, now=None):
+    """The one status of a live entry: fresh, stale, error or expired. ttl = doc["ttl"], else 3 x interval.
+    error = the last try failed and there is no good data inside the ttl (never read, or older than the ttl); stale = the last try failed but the
+    last good data is still inside the ttl; expired = no failed try but the data is older than the ttl (the collector is not running);
+    fresh = good data inside the ttl. An expired entry is still served (last good data), only marked. Old documents without ttl still work."""
+    now = time.time() if now is None else now
+    doc = doc or {}
+    try:
+        ttl = float(doc.get("ttl") or 0) or 3 * interval
+    except (TypeError, ValueError):
+        ttl = 3 * interval
+    try:
+        ts = float(doc.get("ts") or 0)
+        ts_err = float(doc.get("ts_err") or 0)
+    except (TypeError, ValueError):
+        return "error"
+    failed = bool(doc.get("err")) and ts_err > ts
+    if not ts:
+        return "error"
+    inside = now - ts <= ttl
+    if failed:
+        return "stale" if inside else "error"
+    return "fresh" if inside else "expired"
+
+
+def _ttl(doc, interval, info=None):
+    """seconds an entry counts as fresh: the document's own ttl, else the topic's override (live-topics.tsv column 8), else 3 x interval"""
+    try:
+        t = float((doc or {}).get("ttl") or 0)
+    except (TypeError, ValueError):
+        t = 0
+    return t or float((info or {}).get("ttl") or 0) or 3 * interval
+
+
 def cli_refresh(args, conn=None):
     try:
         names = [t[0] for t in topics()] if "--all" in args else [a for a in args]
@@ -283,13 +326,15 @@ def cli_status(conn=None, out=None):
         r = conn or Resp(timeout=2.0)
         now = time.time()
         needs = topic_needs()
+        info = topic_info()
         for topic, _, interval, _ in topics():
             d = _doc(r, topic) or {}
             age = int(now - d["ts"]) if d.get("ts") else -1
             err = clean(d.get("err") or "-")
             ts_err = str(int(d["ts_err"])) if d.get("ts_err") else "-"
-            out.write("%s\t%d\t%d\t%s\t%s\t%s\t%s\t%s\n" % (
-                topic, interval, age, d.get("gen", 0), d.get("rc", "-"), err, ts_err, ",".join(needs.get(topic, ())) or "-"))
+            out.write("%s\t%d\t%d\t%s\t%s\t%s\t%s\t%s\t%s\n" % (
+                topic, interval, age, d.get("gen", 0), d.get("rc", "-"), err, ts_err, ",".join(needs.get(topic, ())) or "-",
+                status_of(dict(d, ttl=_ttl(d, interval, info.get(topic))), interval, now) if d else "-"))
     except OSError as e:
         sys.stderr.write("live state failed: %s\n" % e)
         return 1
@@ -325,9 +370,11 @@ def cli_inspect(conn=None, out=None):
             # #339 needs, #322 status/ttl/source: present only when those are in
             if i.get("needs") is not None:
                 e["needs"] = sorted(i["needs"])
-            for k in ("status", "ttl", "source"):
-                if k in d and isinstance(d[k], (str, int, float)) and not isinstance(d[k], bool):
-                    e[k] = d[k]
+            if d:
+                e["status"] = status_of(dict(d, ttl=_ttl(d, interval, i)), interval, now)
+                e["ttl"] = int(_ttl(d, interval, i))
+                if isinstance(d.get("src"), str):
+                    e["source"] = d["src"]
             entries.append(e)
         out.write(json.dumps({"now": int(now), "topics": entries}, sort_keys=True) + "\n")
     except OSError as e:
@@ -385,10 +432,10 @@ def cli_check(conn=None, out=None):
                     problems.append(("live:never:" + topic, "live state '%s' has never been read: %s. Details: systemctl status hs-live" % (
                         topic, clean(d["err"]))))
                 continue
-            age = now - d["ts"]
-            if age > 3 * interval:
-                problems.append(("live:stale:" + topic, "live state '%s' is %d s old (read every %d s). Details: systemctl status hs-live" % (
-                    topic, age, interval)))
+            st = status_of(dict(d, ttl=_ttl(d, interval, info.get(topic))), interval, now)
+            if st in ("expired", "error"):
+                problems.append(("live:stale:" + topic, "live state '%s' is %s (%d s old, read every %d s). Details: systemctl status hs-live" % (
+                    topic, st, now - d["ts"], interval)))
     except OSError as e:
         problems = [("live:down", "the live state service is down (%s). Details: systemctl status redis-hobnix hs-live" % e)]
     for k, t in problems:

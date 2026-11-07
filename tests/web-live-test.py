@@ -249,8 +249,19 @@ class RedisMode(RedisBase):
         self.assertEqual(s, 200)
         self.assertTrue(r.getheader("X-HS-Stale"))
         self.assertEqual((r.getheader("X-HS-State"), bool(int(r.getheader("X-HS-Last-Ok")))), ("stale", True))
+        self.assertEqual((r.getheader("X-HS-Topic"), r.getheader("X-HS-Error")), ("status", "boom"))
         self.redis.keys["hs:v1:status"] = doc(age=5, err="old", ts_err=time.time() - 60)
         self.assertIsNone(self.req("GET", "/api/sys/status", headers=self.ck)[2].getheader("X-HS-Stale"))
+
+    def test_status_header(self):
+        import time
+        k = "hs:v1:status"
+        want = [(doc(age=3), "fresh"), (doc(age=60, err="boom", ts_err=time.time() - 5, ttl=100), "stale"),
+                (doc(age=500, err="boom", ts_err=time.time() - 5), "error"), (doc(age=500), "expired")]
+        for d, st in want:
+            self.redis.keys[k] = d
+            s, _, r = self.req("GET", "/api/sys/status", headers=self.ck)
+            self.assertEqual((s, r.getheader("X-HS-Status")), (200, st))      # an expired entry is still served
 
     def test_fresh_waits_for_a_new_gen(self):
         self.redis.keys["hs:v1:status"] = doc("old\n", gen=1)

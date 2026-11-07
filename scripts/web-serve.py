@@ -1849,6 +1849,10 @@ class RedisStore(StateStore):
             self.caps = {t: i["cap"] for t, i in ls.topic_info().items()}      # topic -> the capability it needs (None = always)
         except OSError:
             self.caps = {}
+        try:
+            self.ivals = {t[0]: t[2] for t in ls.topics()}      # topic -> interval, for status_of of an old document without ttl
+        except OSError:
+            self.ivals = {}
 
     def _doc(self, topic):
         """-> the stored document or None (key missing); OSError when Redis does not answer"""
@@ -1899,12 +1903,14 @@ class RedisStore(StateStore):
             code, obj = Reads._shape(spec, int(doc.get("rc") or 0), str(doc.get("out") or ""))
         except (TypeError, ValueError):
             return 502, {"error": "The stored answer is not readable."}, None, ()
-        more = ()
+        more = (("X-HS-Status", ls.status_of(doc, self.ivals.get(topic, 60), time.time())),)      # fresh|stale|error|expired (#322); expired is still served
         try:
             if doc.get("err") and float(doc.get("ts_err") or 0) > ts:
-                more = (("X-HS-Stale", str(int(float(doc["ts_err"])))),
-                        ("X-HS-State", "stale" if ts else "error"),      # additive: stale = last good data served, error = never read
-                        ("X-HS-Last-Ok", str(int(ts)) if ts else "-"))
+                more += (("X-HS-Stale", str(int(float(doc["ts_err"])))),
+                         ("X-HS-State", "stale" if ts else "error"),      # additive: stale = last good data served, error = never read
+                         ("X-HS-Last-Ok", str(int(ts)) if ts else "-"),
+                         ("X-HS-Topic", topic),      # for the tooltip of the top bar (#323): which read, and its last error line (printable ASCII)
+                         ("X-HS-Error", ls.clean(doc["err"], 160).encode("ascii", "replace").decode()))
         except (TypeError, ValueError):
             pass
         return code, obj, max(0.0, time.time() - ts), more
