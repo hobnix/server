@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Reference runner of the command-extension protocol, version 1 (docs/adr/0009-extension-command-protocol.md). Python stdlib only.
+"""Reference runner of the command-extension protocol, version 1 (docs/adr/0010-extension-command-protocol.md). Python stdlib only.
 
 The core side of one call: start the extension process, send ONE request line on its stdin, read JSON lines from its stdout until the
 `result` line, enforce the timeout and the cancellation rules, and map the outcome to an exit code. It is NOT wired into `hs ext` yet

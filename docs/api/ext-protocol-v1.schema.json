@@ -2,7 +2,7 @@
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "https://github.com/hobnix/server/docs/api/ext-protocol-v1.schema.json",
   "title": "Hobnix command-extension protocol, version 1",
-  "description": "One call = one process. The core writes one `request` line to the extension's stdin and closes it. The extension writes JSON Lines to stdout: any number of progress, log and event messages, then exactly one `result`, then exits. Specified in docs/adr/0009-extension-command-protocol.md; reference runner scripts/lib/ext_proto.py.",
+  "description": "One call = one process. The core writes one `request` line to the extension's stdin and closes it. The extension writes JSON Lines to stdout: any number of progress, log and event messages, then exactly one `result`, then exits. Specified in docs/adr/0010-extension-command-protocol.md; reference runner scripts/lib/ext_proto.py.",
   "oneOf": [
     { "$ref": "#/$defs/request" },
     { "$ref": "#/$defs/fromExtension" }

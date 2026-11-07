@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""A test extension that speaks the command protocol v1 (docs/adr/0009). The first word of the request's command picks the behaviour."""
+"""A test extension that speaks the command protocol v1 (docs/adr/0010). The first word of the request's command picks the behaviour."""
 import json
 import signal
 import sys

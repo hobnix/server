@@ -1,4 +1,4 @@
-# 0009: Command extensions speak versioned JSON over stdin/stdout
+# 0010: Command extensions speak versioned JSON over stdin/stdout
 
 Status: Proposed
 Issue: hobnix/server#237 (epic #197). Service extensions are #238, permissions #239; neither is decided here.

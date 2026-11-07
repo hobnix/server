@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# The command-extension protocol v1 (docs/adr/0009-extension-command-protocol.md): the reference runner scripts/lib/ext_proto.py against a test
+# The command-extension protocol v1 (docs/adr/0010-extension-command-protocol.md): the reference runner scripts/lib/ext_proto.py against a test
 # extension that speaks it (tests/fixtures/ext-proto/ext.py): result, failure, timeout, cancellation (SIGTERM, grace, SIGKILL), protocol
 # violations, and the JSON schema file. No root, python3 only.
 # shellcheck source=tests/lib.sh
