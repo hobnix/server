@@ -28,3 +28,4 @@ Issue: hobnix/server#<n>
 | [0006](0006-api-in-front-of-cli.md) | The `hs sys` contract is the API; the web interface is a client of it | Proposed |
 | [0007](0007-branches-and-releases.md) | `develop` for work, `main` for releases, signed tags | Proposed |
 | [0008](0008-capabilities-and-packages.md) | Capabilities with a contract; apps and optional parts are signed packages in their own repositories | Proposed |
+| [0011](0011-cluster-state-and-partitions.md) | One owner per object, cached read-only copies, a partition degrades to stale (no consensus) | Proposed |
