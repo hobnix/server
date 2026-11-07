@@ -28,4 +28,4 @@ Issue: hobnix/server#<n>
 | [0006](0006-api-in-front-of-cli.md) | The `hs sys` contract is the API; the web interface is a client of it | Proposed |
 | [0007](0007-branches-and-releases.md) | `develop` for work, `main` for releases, signed tags | Proposed |
 | [0008](0008-capabilities-and-packages.md) | Capabilities with a contract; apps and optional parts are signed packages in their own repositories | Proposed |
-| [0012](0012-extension-permissions.md) | Extension permissions: declare and disclose first, confine services next (options; nothing enforced yet) | Proposed |
+| [0014](0014-extension-permissions.md) | Extension permissions: declare and disclose first, confine services next (options; nothing enforced yet) | Proposed |

@@ -1,4 +1,4 @@
-# 0012: Extension permissions: declare and disclose first, confine services next
+# 0014: Extension permissions: declare and disclose first, confine services next
 
 Status: Proposed (nothing is built; the owner's decisions below are open)
 Issue: hobnix/server#239 (epic #197). Related: ADR 0010 (command protocol, #237), ADR 0011 (service lifecycle, #238); both Proposed in their own pull requests.
