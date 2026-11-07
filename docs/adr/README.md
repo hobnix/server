@@ -29,4 +29,5 @@ Issue: hobnix/server#<n>
 | [0007](0007-branches-and-releases.md) | `develop` for work, `main` for releases, signed tags | Proposed |
 | [0008](0008-capabilities-and-packages.md) | Capabilities with a contract; apps and optional parts are signed packages in their own repositories | Proposed |
 | [0009](0009-capability-as-package-kind.md) | A capability is a third package kind; a short list stays in the core | Proposed |
+| [0010](0010-extension-command-protocol.md) | Command extensions speak versioned JSON lines over stdin/stdout, with a timeout and SIGTERM cancel | Proposed |
 | [0011](0011-extension-service-lifecycle.md) | Service extensions: one supervised process, JSON lines both ways, events delivered at least once | Proposed |
