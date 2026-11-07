@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# The service-extension lifecycle v1 (docs/adr/0010-extension-service-lifecycle.md): the reference supervisor scripts/lib/ext_service.py against a test
+# The service-extension lifecycle v1 (docs/adr/0011-extension-service-lifecycle.md): the reference supervisor scripts/lib/ext_service.py against a test
 # service (tests/fixtures/ext-service/svc.py): init and ready, delivery of subscribed events with acks and a cursor, health and heartbeat,
 # shutdown, SIGTERM/SIGKILL, a start timeout, protocol errors, and the schema file. No root, python3 only.
 # shellcheck source=tests/lib.sh
@@ -62,6 +62,20 @@ go garbagefirst 5 --health-interval 1
 check_eq "garbage before ready is a protocol error" "1 protocol_error" "$rc $(final 'd["code"]')"
 go earlyack 5 --health-interval 1
 check_eq "a message before ready is a protocol error" "1 protocol_error" "$rc $(final 'd["code"]')"
+go longline 5 --health-interval 1
+check_eq "a line over 1 MiB is a protocol error" "1 protocol_error" "$rc $(final 'd["code"]')"
+# a deaf service with many large events must not freeze the supervisor: the stop still comes
+BIG=$WORK/big.jsonl; python3 -I -c '
+import json
+for i in range(1, 301):
+    print(json.dumps({"id": i, "time": 1, "source": "job", "kind": "failed", "subject": "s", "level": "info", "text": "t", "payload": {"p": "x" * 4000}}))' > "$BIG"
+s=$SECONDS; go deaf 2 --subscribe 'job.*' --events "$BIG" --health-interval 1
+check_eq "a service that stops reading does not block the stop" "0 stopped" "$rc $(final 'd["state"]')"
+[ $((SECONDS - s)) -le 12 ] && pass "...in time" || fail "the stop took $((SECONDS - s)) s"
+rc=0; $RUN run --name fixsvc --cursor /nonexistent/dir/c --subscribe 'job.*' --events "$EV" --health-interval 1 -- python3 -I "$SVC" good >/dev/null 2>&1 || rc=$?
+check_eq "an error in the supervisor itself is not silent" 1 "$([ "$rc" -ne 0 ] && echo 1 || echo 0)"
+sleep 0.5
+if left=$(pgrep -af "^python3 -I $SVC good"); [ -n "$left" ]; then fail "the service is left running after a supervisor error: $left"; else pass "...and the service is not left running"; fi
 s=$SECONDS; go slowready 30 --ready-timeout 1
 check_eq "no ready in time: exit 75" "75 start_timeout" "$rc $(final 'd["code"]')"
 [ $((SECONDS - s)) -le 6 ] && pass "the start timeout stops the process" || fail "start timeout took $((SECONDS - s)) s"

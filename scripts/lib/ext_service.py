@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Reference supervisor of ONE service extension, protocol version 1 (docs/adr/0010-extension-service-lifecycle.md). Python stdlib only.
+"""Reference supervisor of ONE service extension, protocol version 1 (docs/adr/0011-extension-service-lifecycle.md). Python stdlib only.
 
 It is the bridge a unit would run (`hs ext svc-run <name>`, not built yet): start the service process, send `init`, wait for `ready`,
 deliver the events the service subscribed to from the event log with at-least-once acks and a cursor file, watch the heartbeat, and stop the
@@ -28,6 +28,7 @@ import time
 
 VERSION = 1
 MAX_LINE = 1 << 20
+MAX_SNAPSHOT = 256 << 10
 WINDOW = 100                    # events sent but not yet acknowledged, at most
 KIND = re.compile(r"^pkg\.[a-z][a-z0-9-]*\.[a-z][a-z0-9-]*$")
 STATES = ("starting", "running", "degraded", "stopping", "stopped", "failed")
@@ -41,16 +42,23 @@ def check_message(m):
     t = m.get("type")
     if t not in FROM_SERVICE:
         return f"unknown type {t!r}"
-    if t == "health" and (not isinstance(m.get("ok"), bool) or not isinstance(m.get("text", ""), str)):
-        return "health needs ok (boolean)"
+    if t == "health" and (not isinstance(m.get("ok"), bool) or not isinstance(m.get("text", ""), str)
+                              or len(m.get("text", "")) > 200):
+        return "health needs ok (boolean) and text of at most 200 characters"
     if t == "ack" and (isinstance(m.get("id"), bool) or not isinstance(m.get("id"), int) or m["id"] < 1):
         return "ack needs id (a positive integer)"
-    if t == "log" and (m.get("level") not in ("debug", "info", "warn", "error") or not isinstance(m.get("text"), str)):
-        return "log needs level and text"
+    if t == "log" and (m.get("level") not in ("debug", "info", "warn", "error") or not isinstance(m.get("text"), str)
+                            or len(m["text"]) > 1000):
+        return "log needs level and text of at most 1000 characters"
     if t == "emit" and (not isinstance(m.get("kind"), str) or not KIND.match(m["kind"]) or not isinstance(m.get("subject"), str)):
         return "emit needs kind (pkg.<package>.<what>) and subject"
+    if t == "emit" and (m.get("level", "info") not in ("info", "warn", "error") or not isinstance(m.get("payload", {}), dict)
+                        or not isinstance(m.get("text", ""), str)):
+        return "emit.level is info|warn|error, payload an object, text a string"
     if t == "snapshot" and (not isinstance(m.get("topic"), str) or not re.match(r"^[a-z0-9-]{1,60}$", m["topic"]) or "data" not in m):
         return "snapshot needs topic (a-z, 0-9, -) and data"
+    if t == "snapshot" and len(json.dumps(m["data"])) > MAX_SNAPSHOT:
+        return "snapshot data is larger than 256 KiB"
     return None
 
 
@@ -105,19 +113,33 @@ def supervise(prog, name, subscribe=(), fetch=None, cursor_file=None, ready_time
     lines = queue.Queue()
 
     def reader():
-        for raw in proc.stdout:
-            lines.put(raw)
-            if len(raw) > MAX_LINE:
+        while True:
+            raw = proc.stdout.readline(MAX_LINE + 1)
+            if not raw:
                 break
+            if len(raw) > MAX_LINE:          # no newline within the limit
+                lines.put(b"\x00toolong")
+                return
+            lines.put(raw)
         lines.put(None)
     threading.Thread(target=reader, daemon=True).start()
 
+    outbox = queue.Queue()
+
+    def writer():   # a service that stops reading must not freeze the loop, the heartbeat check or the stop
+        while True:
+            b = outbox.get()
+            if b is None:
+                return
+            try:
+                proc.stdin.write(b)
+                proc.stdin.flush()
+            except (BrokenPipeError, OSError, ValueError):
+                return
+    threading.Thread(target=writer, daemon=True).start()
+
     def send(m):
-        try:
-            proc.stdin.write((json.dumps({"v": VERSION, **m}, separators=(",", ":")) + "\n").encode())
-            proc.stdin.flush()
-        except (BrokenPipeError, OSError, ValueError):
-            pass
+        outbox.put((json.dumps({"v": VERSION, **m}, separators=(",", ":")) + "\n").encode())
     send({"type": "init", "name": name, "lang": lang, "subscribe": list(subscribe), "health_interval": health_interval})
 
     cursor = read_cursor(cursor_file) if cursor_file else 0
@@ -128,81 +150,87 @@ def supervise(prog, name, subscribe=(), fetch=None, cursor_file=None, ready_time
     t0 = time.monotonic()
     last_health = t0
     result = None
-    while result is None:
-        if stop.is_set():
-            result = ("stopped", "stopped", "stopped on request")
-            break
-        try:
-            raw = lines.get(timeout=0.05)
-        except queue.Empty:
-            raw = b""
-        now = time.monotonic()
-        if raw is None:
-            result = ("failed", "exited", f"the service ended (exit {proc.poll()})")
-            break
-        if raw.strip():
+    try:
+        while result is None:
+            if stop.is_set():
+                result = ("stopped", "stopped", "stopped on request")
+                break
             try:
-                m = json.loads(raw)
-            except ValueError:
-                m = None
-            why = check_message(m) if m is not None else "stdout line is not JSON"
-            if why:
-                result = ("failed", "protocol_error", why)
+                raw = lines.get(timeout=0.05)
+            except queue.Empty:
+                raw = b""
+            now = time.monotonic()
+            if raw is None:
+                result = ("failed", "exited", f"the service ended (exit {proc.poll()})")
                 break
-            t = m["type"]
-            if t == "ready":
-                if not ready:
-                    ready = True
-                    last_health = now
-                    set_state("running")
-            elif not ready:
-                result = ("failed", "protocol_error", f"{t} before ready")
+            if raw == b"\x00toolong":
+                result = ("failed", "protocol_error", "a line is longer than 1 MiB")
                 break
-            elif t == "health":
-                last_health = now
-                set_state("running" if m["ok"] else "degraded", m.get("text", ""))
-            elif t == "ack":
-                if m["id"] in inflight:
-                    acked.add(m["id"])
-                    while inflight and inflight[0] in acked:
-                        cursor = inflight.pop(0)
-                        acked.discard(cursor)
-                        if cursor_file:
-                            write_cursor(cursor_file, cursor)
-                else:
-                    result = ("failed", "protocol_error", f"ack of {m['id']}, which was not sent")
+            if raw.strip():
+                try:
+                    m = json.loads(raw)
+                except ValueError:
+                    m = None
+                why = check_message(m) if m is not None else "stdout line is not JSON"
+                if why:
+                    result = ("failed", "protocol_error", why)
                     break
-            elif on_message:
-                on_message(m)
-        if not ready:
-            if now - t0 > ready_timeout:
-                result = ("failed", "start_timeout", f"no ready within {ready_timeout:g} s")
-            continue
-        if now - last_health > health_interval * missed:
-            set_state("degraded", "heartbeat missed")
-        if subscribe and fetch and len(inflight) < WINDOW:
-            for r in fetch(sent, WINDOW - len(inflight)):
-                sent = r["id"]
-                if any(fnmatch.fnmatchcase(f"{r['source']}.{r['kind']}", g) for g in subscribe):
-                    inflight.append(r["id"])
-                    send({"type": "event", **{k: r.get(k) for k in ("id", "time", "source", "kind", "subject", "level", "text", "payload")}})
-        if not inflight and sent > cursor:   # everything up to `sent` was acknowledged or not wanted: the cursor moves
-            cursor = sent
-            if cursor_file:
-                write_cursor(cursor_file, cursor)
+                t = m["type"]
+                if t == "ready":
+                    if not ready:
+                        ready = True
+                        last_health = now
+                        set_state("running")
+                elif not ready:
+                    result = ("failed", "protocol_error", f"{t} before ready")
+                    break
+                elif t == "health":
+                    last_health = now
+                    set_state("running" if m["ok"] else "degraded", m.get("text", ""))
+                elif t == "ack":
+                    if m["id"] in inflight:
+                        acked.add(m["id"])
+                        while inflight and inflight[0] in acked:
+                            cursor = inflight.pop(0)
+                            acked.discard(cursor)
+                            if cursor_file:
+                                write_cursor(cursor_file, cursor)
+                    else:
+                        result = ("failed", "protocol_error", f"ack of {m['id']}, which was not sent")
+                        break
+                elif on_message:
+                    on_message(m)
+            if not ready:
+                if now - t0 > ready_timeout:
+                    result = ("failed", "start_timeout", f"no ready within {ready_timeout:g} s")
+                continue
+            if now - last_health > health_interval * missed:
+                set_state("degraded", "heartbeat missed")
+            if subscribe and fetch and len(inflight) < WINDOW:
+                for r in fetch(sent, WINDOW - len(inflight)):
+                    sent = r["id"]
+                    if any(fnmatch.fnmatchcase(f"{r['source']}.{r['kind']}", g) for g in subscribe):
+                        inflight.append(r["id"])
+                        send({"type": "event", **{k: r.get(k) for k in ("id", "time", "source", "kind", "subject", "level", "text", "payload")}})
+            if not inflight and sent > cursor:   # everything up to `sent` was acknowledged or not wanted: the cursor moves
+                cursor = sent
+                if cursor_file:
+                    write_cursor(cursor_file, cursor)
+    except BaseException:   # an error here (a cursor file that cannot be written) must not leave the service running
+        try:
+            os.killpg(proc.pid, signal.SIGKILL)
+        except (ProcessLookupError, PermissionError):
+            pass
+        raise
     final_state, code, reason = result
     if final_state == "stopped":
         set_state("stopping")
         send({"type": "shutdown", "grace_ms": int(grace * 1000)})
         try:
-            proc.stdin.close()
-        except OSError:
-            pass
-        try:
             proc.wait(timeout=grace)       # the service ends by itself after `shutdown`
         except subprocess.TimeoutExpired:
             pass
-    for sig, wait in ((signal.SIGTERM, 2.0), (signal.SIGKILL, 0)):   # a service still alive gets SIGTERM, then SIGKILL, as a command (ADR 0009)
+    for sig, wait in ((signal.SIGTERM, 2.0), (signal.SIGKILL, 0)):   # a service still alive gets SIGTERM, then SIGKILL, as a command (ADR 0010)
         if proc.poll() is not None:
             break
         try:

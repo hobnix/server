@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""A test service extension (docs/adr/0010). argv[1] picks the behaviour; every message of the core is appended to $SVC_LOG."""
+"""A test service extension (docs/adr/0011). argv[1] picks the behaviour; every message of the core is appended to $SVC_LOG."""
 import json
 import os
 import queue
@@ -37,6 +37,11 @@ if mode == "crash":
 if mode == "badmsg":
     time.sleep(0.3)
     sys.stdout.write("garbage\n"); sys.stdout.flush()
+    time.sleep(60)
+if mode == "longline":
+    sys.stdout.write("x" * (2 << 20)); sys.stdout.flush()
+    time.sleep(60)
+if mode == "deaf":           # stops reading stdin while events pile up
     time.sleep(60)
 if mode == "ackbad":
     say(type="ack", id=99)
