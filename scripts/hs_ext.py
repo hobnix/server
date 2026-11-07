@@ -50,20 +50,21 @@ def capabilities():
     except OSError:
         pass
     tsv = env("HS_CAPABILITIES_TSV", os.path.join(os.path.dirname(os.path.abspath(__file__)), "lib", "capabilities.tsv"))
-    try:
-        with open(tsv, encoding="utf-8") as f:
-            for line in f:
-                if line.startswith("#") or not line.strip():
-                    continue
-                cols = line.rstrip("\n").split("\t")
-                for key in (cols[1].split(",") if len(cols) > 1 else []):
-                    v = runtime_setting(key)
-                    if v is None and key in legacy:
-                        v = env(legacy[key], "")
-                    if (v or "") not in ("", "false", "0"):
-                        on.add(cols[0])
-    except OSError:
-        pass
+    for path in (tsv, env("HS_CAPABILITIES_TSV_OVERLAY", os.path.join(state, "generated", "capabilities.tsv"))):   # core rows, then installed packages
+        try:
+            with open(path, encoding="utf-8") as f:
+                for line in f:
+                    if line.startswith("#") or not line.strip():
+                        continue
+                    cols = line.rstrip("\n").split("\t")
+                    for key in (cols[1].split(",") if len(cols) > 1 else []):
+                        v = runtime_setting(key)
+                        if v is None and key in legacy:
+                            v = env(legacy[key], "")
+                        if (v or "") not in ("", "false", "0"):
+                            on.add(cols[0])
+        except OSError:
+            pass
     try:           # `hs ext disable <package>` wins over everything above
         with open(os.path.join(state, "capabilities-off"), encoding="utf-8") as f:
             on -= {line.strip() for line in f if line.strip()}
