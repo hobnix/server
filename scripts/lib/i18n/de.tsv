@@ -2137,6 +2137,41 @@ This replaces settings files. Run it in a terminal, or add --yes after looking a
 File	Datei
 Settings files	Einstellungsdateien
 %s is a link into the vault, skipped	%s ist ein Link in den Tresor, übersprungen
+Usage: hs docker import <compose-file|-> --name <app> [--env-file <file>] [--dry-run] [--yes --confirm <app>] [--allow-risky] [--job]	Aufruf: hs docker import <Compose-Datei|-> --name <App> [--env-file <Datei>] [--dry-run] [--yes --confirm <App>] [--allow-risky] [--job]
+The app name is not valid: lower case letters, digits, - and _.	Der App-Name ist ungültig: Kleinbuchstaben, Ziffern, - und _.
+Cannot read the compose file: %s	Die Compose-Datei kann nicht gelesen werden: %s
+The compose file is empty.	Die Compose-Datei ist leer.
+Cannot read the env file: %s	Die Env-Datei kann nicht gelesen werden: %s
+Docker is not on or not running (hs docker enable).	Docker ist nicht eingeschaltet oder läuft nicht (hs docker enable).
+The compose file or env file is not valid.	Die Compose- oder env-Datei ist ungültig.
+Line numbers named in the error: %s	Zeilennummern in der Fehlermeldung: %s
+The compose file could not be read.	Die Compose-Datei konnte nicht gelesen werden.
+%s: %s (%s)	%s: %s (%s)
+Import plan for %s	Importplan für %s
+app folder	App-Ordner
+Services	Dienste
+Volumes	Volumes
+Networks	Netzwerke
+Environment (names only)	Umgebung (nur Namen)
+Not imported or not tested	Nicht importiert oder nicht getestet
+Dangerous settings	Gefährliche Einstellungen
+Checks of Docker	Prüfungen von Docker
+refused: %s	abgelehnt: %s
+error: %s (%s)	Fehler: %s (%s)
+Refused: %s settings can never be imported. Nothing was changed.	Abgelehnt: %s Einstellungen lassen sich nie importieren. Nichts wurde geändert.
+Refused: %s problems stop the import. Fix the compose file. Nothing was changed.	Abgelehnt: %s Probleme stoppen den Import. Die Compose-Datei korrigieren. Nichts wurde geändert.
+Refused: the file asks for %s dangerous settings. Nothing was changed.	Abgelehnt: die Datei verlangt %s gefährliche Einstellungen. Nichts wurde geändert.
+To import it anyway, look at every line above and add --allow-risky.	Um sie trotzdem zu importieren, jede Zeile oben ansehen und --allow-risky angeben.
+--allow-risky: you accept the dangerous settings above.	--allow-risky: du nimmst die gefährlichen Einstellungen oben in Kauf.
+%s keys are not imported or not tested; they stay in the file as they are.	%s Schlüssel werden nicht importiert oder sind nicht getestet; sie bleiben unverändert in der Datei.
+Preview only (--dry-run): nothing was changed.	Nur Vorschau (--dry-run): nichts wurde geändert.
+--yes needs --confirm %s.	--yes braucht --confirm %s.
+This needs a terminal: nothing is imported without the typed name. Use --yes --confirm %s.	Das braucht ein Terminal: ohne den getippten Namen wird nichts importiert. --yes --confirm %s verwenden.
+app	App
+Importing %s	%s wird importiert
+The import failed. Nothing was started.	Der Import ist fehlgeschlagen. Nichts wurde gestartet.
+The app %s was created and started.	Die App %s wurde angelegt und gestartet.
+Unknown option: %s	Unbekannte Option: %s
 '%s' %s.	'%s' %s.
 needs core API level %s, this server has %s (hs update first)	braucht die Core-API-Stufe %s, dieser Server hat %s (erst hs update)
 needs the capability '%s', which is off	braucht die Fähigkeit '%s', die aus ist
