@@ -266,7 +266,15 @@ class Collector:
                 for kind, text in ev:      # outside the lock: writing an event must not hold the other topics back
                     self.emit(kind, topic, text)
 
+    def _meta(self, topic):
+        """(src, ttl) of a topic for its document: the words of the read and the seconds it counts as fresh (live-topics.tsv column 8, else 3 x interval)"""
+        for r in self.rows:
+            if r[0] == topic:
+                return " ".join(r[1]), (self.info.get(topic) or {}).get("ttl") or 3 * r[2]
+        return None, None
+
     def _store(self, topic, rc, out, err, now, ev):
+        src, ttl = self._meta(topic)
         with self.lock:
             try:
                 raw = self.store.cmd("GET", ls.KEY % topic)
@@ -279,15 +287,18 @@ class Collector:
                 if old and old.get("rc") == rc and old.get("out") == out and old.get("err") is None:
                     # the same output as the last read: only the time moves (the data is still fresh); no new gen, no publish
                     old["ts"] = now
+                    old["src"], old["ttl"] = src, ttl      # a document from before #322 gets them here, nothing else moves
                     self.store.cmd("SET", ls.KEY % topic, json.dumps(old))
                     return False
                 gen = int(old.get("gen", 0)) + 1
-                doc = {"ts": now, "gen": gen, "rc": rc, "out": out, "err": None, "ts_err": None, "state": "ok"}
+                doc = {"ts": now, "gen": gen, "rc": rc, "out": out, "err": None, "ts_err": None, "state": "ok",
+                       "src": src, "ttl": ttl}
                 self.store.cmd("SET", ls.KEY % topic, json.dumps(doc))
                 self.store.cmd("PUBLISH", ls.CHANGED, "%s %d" % (topic, gen))
                 return True
             doc = {"ts": old.get("ts"), "gen": old.get("gen", 0), "rc": old.get("rc", rc), "out": old.get("out", ""),
-                   "err": ls.clean(err or "no output"), "ts_err": now, "state": "stale" if old.get("ts") else "error"}
+                   "err": ls.clean(err or "no output"), "ts_err": now, "state": "stale" if old.get("ts") else "error",
+                   "src": src, "ttl": ttl}
             if not old.get("err"):      # the change into error, once; the runs that fail after it are only in the journal
                 ev.append(("live.collector-failed", "live state '%s' failed (rc %s): %s" % (topic, rc, doc["err"])))
             self.store.cmd("SET", ls.KEY % topic, json.dumps(doc))

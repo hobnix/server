@@ -99,6 +99,27 @@ class Collect(unittest.TestCase):
         self.assertTrue(c.collect("status", ["status"]))
         self.assertEqual(json.loads(st.data["hs:v1:status"])["rc"], 1)
 
+    def test_document_has_src_and_ttl(self):
+        c, st, _ = self.make([(0, "a", ""), (0, "a", ""), (2, "", "x")])
+        c.collect("status", ["status"])
+        d = json.loads(st.data["hs:v1:status"])
+        self.assertEqual((d["src"], d["ttl"]), ("status", 45))      # 3 x interval 15
+        c.info = {"status": {"ttl": 600}}
+        c.collect("status", ["status"])       # identical read: only ts moves (and a ttl change shows)
+        d2 = json.loads(st.data["hs:v1:status"])
+        self.assertEqual((d2["gen"], d2["out"], d2["ttl"]), (1, "a", 600))
+        c.collect("status", ["status"])
+        d3 = json.loads(st.data["hs:v1:status"])
+        self.assertEqual((d3["src"], d3["ttl"], d3["out"]), ("status", 600, "a"))      # a failed read keeps them
+
+    def test_identical_read_of_old_document_only_moves_ts(self):
+        c, st, _ = self.make([(0, "a", "")])
+        st.data["hs:v1:status"] = json.dumps({"ts": 1.0, "gen": 3, "rc": 0, "out": "a", "err": None, "ts_err": None, "state": "ok"})
+        self.assertFalse(c.collect("status", ["status"]))
+        d = json.loads(st.data["hs:v1:status"])
+        self.assertEqual((d["gen"], d["out"], st.published), (3, "a", []))
+        self.assertGreater(d["ts"], 1.0)
+
     def test_failure_keeps_data_and_sets_err(self):
         c, st, _ = self.make([(0, "good", ""), (2, "", "x" * 300)])
         c.collect("status", ["status"])
@@ -677,8 +698,10 @@ class Cli(unittest.TestCase):
         self.assertEqual(len(lines), 67)
         status = [l for l in lines if l.startswith("status\t")][0].split("\t")
         live = [l for l in lines if l.startswith("live\t")][0].split("\t")
-        self.assertEqual(len(status), 8)
+        self.assertEqual(len(status), 9)
         self.assertEqual(status[7], "-")
+        self.assertEqual(status[8], "fresh")
+        self.assertEqual(live[8], "-")      # no document: no status
         self.assertEqual((status[0], status[1], status[3], status[4], status[5], status[6]), ("status", "15", "4", "0", "-", "-"))
         self.assertIn(int(status[2]), (7, 8))
         self.assertEqual((live[0], live[1], live[3], live[4], live[5], live[6]), ("live", "5", "0", "-", "-", "-"))
@@ -688,12 +711,37 @@ class Cli(unittest.TestCase):
         out = io.StringIO()
         ls.cli_status(FakeResp(), out)
         raw = out.getvalue().rstrip("\n").split("\n")
-        self.assertTrue(all(len(l.split("\t")) == 8 for l in raw))
+        self.assertTrue(all(len(l.split("\t")) == 9 for l in raw))
         by = {l.split("\t")[0]: l.split("\t")[7] for l in raw}
         self.assertEqual((by["services-routes"], by["status"]), ("services-list", "-"))
+        self.assertTrue(all(l.split("\t")[8] == "-" for l in raw))
         lines = sorted("\t".join(l.split("\t")[:7]) for l in raw)
         old = ['disk-health	30	-1	0	-	-	-', 'disk-inventory	30	-1	0	-	-	-', 'disk-marks	15	-1	0	-	-	-', 'encryption	30	-1	0	-	-	-', 'fm-locations	15	-1	0	-	-	-', 'live	5	-1	0	-	-	-', 'monitor-disks	15	-1	0	-	-	-', 'pool-info-bulk	15	-1	0	-	-	-', 'pool-info-fast	15	-1	0	-	-	-', 'pool-members-bulk	15	-1	0	-	-	-', 'pool-members-fast	15	-1	0	-	-	-', 'pool-state-bulk	10	-1	0	-	-	-', 'pool-state-fast	10	-1	0	-	-	-', 'shares-deleted	60	-1	0	-	-	-', 'shares-overview	30	-1	0	-	-	-', 'shares-principals	60	-1	0	-	-	-', 'state-history	30	-1	0	-	-	-', 'status	15	-1	0	-	-	-', 'temp-disks	30	-1	0	-	-	-', 'vault-list	60	-1	0	-	-	-', 'vault-usage	30	-1	0	-	-	-', 'vault-uses	60	-1	0	-	-	-']
         self.assertEqual(lines, sorted(old + ["%s	%s	-1	0	-	-	-" % (t, iv) for t, iv in SYSTEM_TOPICS.items()] + ["%s	%s	-1	0	-	-	-" % (t, v[1]) for t, v in INSTANCE_TOPICS.items()] + ["%s	%s	-1	0	-	-	-" % (t, v[1]) for t, v in APP_TOPICS.items()] + ["%s	%s	-1	0	-	-	-" % (t, v[1]) for t, v in NET_TOPICS.items()] + ["%s	%s	-1	0	-	-	-" % (t, v[1]) for t, v in ID_TOPICS.items()]))
+
+    def test_status_of(self):
+        n = 1000.0
+        f = lambda d, iv=10: ls.status_of(d, iv, n)       # noqa: E731
+        self.assertEqual(f({"ts": n - 5}), "fresh")
+        self.assertEqual(f({"ts": n - 30}), "fresh")          # no ttl in the document: 3 x interval, the edge counts as fresh
+        self.assertEqual(f({"ts": n - 31}), "expired")
+        self.assertEqual(f({"ts": n - 31, "ttl": 60}), "fresh")      # the document's ttl wins
+        self.assertEqual(f({"ts": n - 5, "err": "x", "ts_err": n - 1}), "stale")
+        self.assertEqual(f({"ts": n - 50, "err": "x", "ts_err": n - 1}), "error")
+        self.assertEqual(f({"ts": None, "err": "x", "ts_err": n - 1}), "error")
+        self.assertEqual(f({"ts": n - 5, "err": "old", "ts_err": n - 9}), "fresh")      # a later good read cleared the failure
+        self.assertEqual(f({}), "error")
+        self.assertEqual(f({"ts": "junk"}), "error")
+
+    def test_ttl_override_and_status_field(self):
+        import time
+        out = io.StringIO()
+        st = self.fake(time.time() - 100)
+        ls.cli_status(st, out)
+        self.assertEqual([l for l in out.getvalue().split("\n") if l.startswith("status\t")][0].split("\t")[8], "expired")
+        self.assertEqual(ls._ttl({}, 15, {"ttl": 600}), 600)
+        self.assertEqual(ls._ttl({"ttl": 20}, 15, {"ttl": 600}), 20)
+        self.assertEqual(ls._ttl({}, 15, None), 45)
 
     def test_check_fresh_stale_down(self):
         import time
@@ -763,8 +811,8 @@ class Cli(unittest.TestCase):
         for e in doc["topics"]:
             self.assertEqual(set(e) & base, base)
             self.assertNotIn("needs", e)
-            self.assertNotIn("status", e)
-            self.assertNotIn("ttl", e)
+            self.assertEqual("status" in e, e["topic"] == "status")      # status/ttl only when there is a document (#322)
+            self.assertEqual("ttl" in e, e["topic"] == "status")
             self.assertEqual(e["origin"], "core")
         by = {e["topic"]: e for e in doc["topics"]}
         self.assertEqual((by["status"]["gen"], by["status"]["rc"], by["status"]["bytes"], by["status"]["interval"]), (4, 0, 3, 15))
@@ -782,11 +830,10 @@ class Cli(unittest.TestCase):
 
     def test_inspect_passes_doc_extras(self):
         st = FakeResp()
-        st.data["hs:v1:status"] = json.dumps({"ts": 1, "gen": 1, "rc": 0, "out": "x", "status": "ok", "ttl": 45, "source": {"a": 1}})
+        st.data["hs:v1:status"] = json.dumps({"ts": 1, "gen": 1, "rc": 0, "out": "x", "src": "status", "ttl": 45, "source": {"a": 1}})
         rc, doc = self.inspect(st)
         e = {e["topic"]: e for e in doc["topics"]}["status"]
-        self.assertEqual((e["status"], e["ttl"]), ("ok", 45))
-        self.assertNotIn("source", e)
+        self.assertEqual((e["status"], e["ttl"], e["source"]), ("expired", 45, "status"))      # ts 1 is long past the ttl
 
     def test_inspect_extension_topic(self):
         row = ("ext-demo-list", ["ext", "demo", "list"], 30, "run")
