@@ -120,4 +120,27 @@ EOF
 check_eq "the file and the implied one" "metrics vps" "$web"
 check_eq "the shell agrees" "metrics vps" "$(capability_list | tr '\n' ' ' | sed 's/ $//')"
 
+echo "-- capability packages installed on the machine (schema-gen.py overlay)"
+PK=$WORK/packages; OUT=$WORK/generated; mkdir -p "$PK/hello" "$PK/other"
+printf 'name = "hello"\ntitle = "Hello"\nimplied_by = ["helloHost"]\n' > "$PK/hello/capability.toml"
+printf 'name = "other"\ntitle = "Other"\n' > "$PK/other/capability.toml"
+check_eq "list shows the package rows" "hello	helloHost	Hello|other		Other" "$($GEN overlay list --packages "$PK" | paste -sd'|')"
+check "check says stale before the first write" bash -c '! python3 "$1/schema-gen.py" overlay check --packages "$2" --out "$3" >/dev/null' _ "$SCRIPTS" "$PK" "$OUT"
+check "write makes the file" $GEN overlay write --packages "$PK" --out "$OUT"
+check "check is clean after write" $GEN overlay check --packages "$PK" --out "$OUT"
+check "the checkout's capabilities.tsv is not touched" bash -c '! grep -q "^hello" "$1/lib/capabilities.tsv"' _ "$SCRIPTS"
+export HS_CAPABILITIES_TSV_OVERLAY=$OUT/capabilities.tsv
+: > "$HS_CAPABILITIES_FILE"
+check "off while the implying setting is unset" bash -c '. "$1/lib/capability.sh"; ! capability_on hello' _ "$SCRIPTS"
+setting_set helloHost 1.2.3.4
+check "on when the setting of a package is set" capability_on hello
+check_eq "capability_list names it" "hello vps" "$(capability_list | tr '\n' ' ' | sed 's/ $//')"
+setting_unset helloHost
+unset HS_CAPABILITIES_TSV_OVERLAY
+mkdir -p "$PK/metrics"; printf 'name = "metrics"\ntitle = "x"\n' > "$PK/metrics/capability.toml"
+check "a package named like a core capability is refused" bash -c '! python3 "$1/schema-gen.py" overlay list --packages "$2" >/dev/null 2>&1' _ "$SCRIPTS" "$PK"
+rm -r "$PK/metrics"
+printf 'name = "wrong"\n' > "$PK/other/capability.toml"
+check "a manifest whose name differs from its folder is refused" bash -c '! python3 "$1/schema-gen.py" overlay list --packages "$2" >/dev/null 2>&1' _ "$SCRIPTS" "$PK"
+
 finish
