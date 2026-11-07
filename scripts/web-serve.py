@@ -1908,7 +1908,9 @@ class RedisStore(StateStore):
             if doc.get("err") and float(doc.get("ts_err") or 0) > ts:
                 more += (("X-HS-Stale", str(int(float(doc["ts_err"])))),
                          ("X-HS-State", "stale" if ts else "error"),      # additive: stale = last good data served, error = never read
-                         ("X-HS-Last-Ok", str(int(ts)) if ts else "-"))
+                         ("X-HS-Last-Ok", str(int(ts)) if ts else "-"),
+                         ("X-HS-Topic", topic),      # for the tooltip of the top bar (#323): which read, and its last error line (printable ASCII)
+                         ("X-HS-Error", ls.clean(doc["err"], 160).encode("ascii", "replace").decode()))
         except (TypeError, ValueError):
             pass
         return code, obj, max(0.0, time.time() - ts), more

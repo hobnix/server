@@ -162,6 +162,11 @@ field 9 (`-` = no document); `live inspect` gets `status`, `ttl`, `source`; the 
 stay). `hs sys live check` reports `expired` and `error` as `live:stale:<topic>`. An identical read still moves only `ts` (an older document gets `src`
 and `ttl` then). Not tested on hardware yet.
 
+Web (#323): `web/src/api.js` keeps `X-HS-Status` per read (`stateOf(path)`, next to `ageOf`); for a failing read the server also sends `X-HS-Topic` and
+`X-HS-Error` (one printable ASCII line). `shell/Fresh.svelte` shows the worst status of the page's reads (`web/src/freshstate.js`): `error` and `expired`
+in words with the time of the last good read, `stale` in the warning colour; the tooltip names topic and error line. The page keeps its last data.
+Web build and type check not run (no node on the dev machine). Not tested on hardware yet.
+
 ## Dependencies (2026-11-06, #153)
 
 `lib/live-topics.tsv` column 7 `needs` lists the topics whose new `gen` re-reads this topic (`-` = none); today `services-list` and `services-app` need
