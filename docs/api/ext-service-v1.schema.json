@@ -1,0 +1,128 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/hobnix/server/docs/api/ext-service-v1.schema.json",
+  "title": "Hobnix service-extension protocol, version 1",
+  "description": "One long-running process per service extension. Both directions are JSON Lines: the core writes to the service's stdin (which stays open), the service writes to stdout. Same framing and `v` rules as docs/api/ext-protocol-v1.schema.json. Specified in docs/adr/0010-extension-service-lifecycle.md; reference supervisor scripts/lib/ext_service.py.",
+  "oneOf": [
+    { "$ref": "#/$defs/fromCore" },
+    { "$ref": "#/$defs/fromService" }
+  ],
+  "$defs": {
+    "fromCore": {
+      "oneOf": [
+        { "$ref": "#/$defs/init" },
+        { "$ref": "#/$defs/event" },
+        { "$ref": "#/$defs/shutdown" }
+      ]
+    },
+    "init": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["v", "type", "name", "lang", "subscribe", "health_interval"],
+      "properties": {
+        "v": { "const": 1 },
+        "type": { "const": "init" },
+        "name": { "type": "string", "pattern": "^[a-z][a-z0-9-]{0,40}$" },
+        "lang": { "enum": ["en", "de"] },
+        "subscribe": { "type": "array", "items": { "type": "string" }, "description": "event kind globs from the manifest, e.g. job.* ; empty for a pure collector" },
+        "health_interval": { "type": "number", "minimum": 1, "description": "seconds between `health` messages the core expects at most" }
+      }
+    },
+    "event": {
+      "type": "object",
+      "description": "One row of the event log (docs/adr/0005-events.md), delivered at least once, in id order. Answer with an `ack`.",
+      "required": ["v", "type", "id", "time", "source", "kind", "subject", "level"],
+      "properties": {
+        "v": { "const": 1 },
+        "type": { "const": "event" },
+        "id": { "type": "integer", "minimum": 1 },
+        "time": { "type": "integer" },
+        "source": { "type": "string" },
+        "kind": { "type": "string" },
+        "subject": { "type": "string" },
+        "level": { "enum": ["info", "warn", "error"] },
+        "text": { "type": ["string", "null"] },
+        "payload": { "type": ["object", "null"] }
+      }
+    },
+    "shutdown": {
+      "type": "object",
+      "required": ["v", "type", "grace_ms"],
+      "properties": {
+        "v": { "const": 1 },
+        "type": { "const": "shutdown" },
+        "grace_ms": { "type": "integer", "minimum": 0, "description": "after this the core sends SIGTERM, then SIGKILL" }
+      }
+    },
+    "fromService": {
+      "oneOf": [
+        { "$ref": "#/$defs/ready" },
+        { "$ref": "#/$defs/health" },
+        { "$ref": "#/$defs/ack" },
+        { "$ref": "#/$defs/log" },
+        { "$ref": "#/$defs/emit" },
+        { "$ref": "#/$defs/snapshot" }
+      ]
+    },
+    "ready": {
+      "type": "object",
+      "description": "The first message, after init is read and the service can work. Nothing but ready may come before it.",
+      "required": ["v", "type"],
+      "properties": { "v": { "const": 1 }, "type": { "const": "ready" } }
+    },
+    "health": {
+      "type": "object",
+      "required": ["v", "type", "ok"],
+      "properties": {
+        "v": { "const": 1 },
+        "type": { "const": "health" },
+        "ok": { "type": "boolean" },
+        "text": { "type": "string", "maxLength": 200 }
+      }
+    },
+    "ack": {
+      "type": "object",
+      "required": ["v", "type", "id"],
+      "properties": { "v": { "const": 1 }, "type": { "const": "ack" }, "id": { "type": "integer", "minimum": 1 } }
+    },
+    "log": {
+      "type": "object",
+      "required": ["v", "type", "level", "text"],
+      "properties": {
+        "v": { "const": 1 },
+        "type": { "const": "log" },
+        "level": { "enum": ["debug", "info", "warn", "error"] },
+        "text": { "type": "string", "maxLength": 1000 }
+      }
+    },
+    "emit": {
+      "type": "object",
+      "description": "Asks the core to write one entry to the event log with `hs event emit`; the kind must be declared in the package's [[events]].",
+      "required": ["v", "type", "kind", "subject"],
+      "properties": {
+        "v": { "const": 1 },
+        "type": { "const": "emit" },
+        "kind": { "type": "string", "pattern": "^pkg\\.[a-z][a-z0-9-]*\\.[a-z][a-z0-9-]*$" },
+        "subject": { "type": "string" },
+        "text": { "type": "string" },
+        "level": { "enum": ["info", "warn", "error"] },
+        "payload": { "type": "object" }
+      }
+    },
+    "snapshot": {
+      "type": "object",
+      "description": "The newest state of a collector: the core keeps it as the live topic ext-<name>-<topic> (docs/PLAN-extensions.md, live reads). Replaces the previous one.",
+      "required": ["v", "type", "topic", "data"],
+      "properties": {
+        "v": { "const": 1 },
+        "type": { "const": "snapshot" },
+        "topic": { "type": "string", "pattern": "^[a-z0-9-]{1,60}$" },
+        "data": {}
+      }
+    },
+    "state": {
+      "description": "The lifecycle state the core shows (hs ext status, web interface). Decided by the core, never sent by the service.",
+      "enum": ["starting", "running", "degraded", "stopping", "stopped", "failed"]
+    }
+  }
+}
