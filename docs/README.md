@@ -11,6 +11,7 @@ listed there and below, or `tests/docs.sh` complains. Guides follow [GUIDE-TEMPL
 | [Containers and apps](containers-and-apps.md) | Containers and VMs, fixed addresses, snapshots, recipes and packages |
 | [Users and shares](users-and-shares.md) | The domain, users and groups, shares and their permissions |
 | [Storage and disks](storage-and-disks.md) | ZFS and SnapRAID pools, adding and replacing disks, disk health, moving from Unraid |
+| [Disk failures](disk-failures.md) | What to check and do, case by case, when a disk or a pool fails |
 | [Encryption and vault](encryption-and-vault.md) | One passphrase, the vault, encrypted disks, unlocking |
 | [Backup and recovery](backup-and-recovery.md) | Backups, restoring, snapshots, rebuilding a server |
 | [Web interface](web-interface.md) | Turning it on, signing in, pages, terminal, appearance |
