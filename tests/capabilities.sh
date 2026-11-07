@@ -28,6 +28,7 @@ for n in names:
     pdir = 'reverse-proxy' if n == 'gateway' else n   # the gateway proxy is the local slot of the reverse proxy: its variant lives beside zoraxy.sh
     for v in m.get('variants', []):
         if not os.path.exists(os.path.join(root, 'scripts', 'providers', pdir, v + '.sh')): print('%s: variant %s has no scripts/providers/%s/%s.sh' % (n, v, pdir, v))
+    if 'requires_core' in m and not re.fullmatch(r'>=[0-9]+', str(m['requires_core'])): print('%s: requires_core must look like ">=1"' % n)
     if 'extension' in m and not isinstance(m['extension'], bool): print('%s: extension must be true or false' % n)
     if m.get('extension') and not os.path.exists(os.path.join(cdir, n, 'commands.tsv')): print('%s: an extension package needs a commands.tsv' % n)
     if os.path.exists(os.path.join(cdir, n, 'commands.tsv')) and not m.get('extension'): print('%s: commands.tsv without extension = true' % n)

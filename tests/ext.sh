@@ -172,4 +172,20 @@ echo "-- the boot unit"
 unit=$(grep -h -A9 'systemd.services.hs-ext-boot' "$ROOT/configuration.nix")
 check "hs-ext-boot runs ext.sh boot" grep -q 'ext.sh boot' <<<"$unit"
 
+echo "-- compatibility: requires and requires_core (#235)"
+mkdir -p "$PK/needy" "$PK/future"
+manifest needy 'requires = ["demo"]'; manifest future 'requires_core = ">=999"'
+sed -i 's/^requires = \[\]$//' "$PK/needy/capability.toml"
+printf 'user\text needy x\t@/x.sh\t-\tx\tx\ttopic:system,reads\n' > "$PK/needy/commands.tsv"; printf 'user\text future x\t@/x.sh\t-\tx\tx\ttopic:system,reads\n' > "$PK/future/commands.tsv"
+$HS ext disable demo >/dev/null 2>&1
+check_out "a package whose requirement is off is refused" "needs the capability 'demo'" $HS ext enable needy
+check_eq "and stays off" "off" "$($HS sys ext list | awk -F'\t' '$1 == "needy" { print $2 }')"
+$HS ext enable demo >/dev/null 2>&1
+check "with the requirement on it switches on" $HS ext enable needy
+check_out "the requirement cannot be switched off under it" "needy needs it" $HS ext disable demo
+check_eq "demo is still on" "on" "$($HS sys ext list | awk -F'\t' '$1 == "demo" { print $2 }')"
+$HS ext disable needy >/dev/null 2>&1
+check "after the dependent is off it can go" $HS ext disable demo
+check_out "a package that needs a newer core is refused" "needs core API level 999" $HS ext enable future
+
 finish
