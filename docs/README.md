@@ -11,6 +11,7 @@ listed there and below, or `tests/docs.sh` complains. Guides follow [GUIDE-TEMPL
 | [Containers and apps](containers-and-apps.md) | Containers and VMs, fixed addresses, snapshots, recipes and packages |
 | [Users and shares](users-and-shares.md) | The domain, users and groups, shares and their permissions |
 | [Storage and disks](storage-and-disks.md) | ZFS and SnapRAID pools, adding and replacing disks, disk health, moving from Unraid |
+| [Disk failures](disk-failures.md) | What to check and do, case by case, when a disk or a pool fails |
 | [Encryption and vault](encryption-and-vault.md) | One passphrase, the vault, encrypted disks, unlocking |
 | [Backup and recovery](backup-and-recovery.md) | Backups, restoring, snapshots, rebuilding a server |
 | [Web interface](web-interface.md) | Turning it on, signing in, pages, terminal, appearance |
@@ -32,6 +33,7 @@ Docs page shows them under *Apps* and *Extensions*.
 | [PLAN-modular-core](PLAN-modular-core.md) | The option schema, capabilities and roles |
 | [PLAN-extensions](PLAN-extensions.md) | Extension packages: commands and web pages |
 | [PLAN-packages](PLAN-packages.md) | Recipes and extensions as packages, repositories, signed releases |
+| [PLAN-capabilities-on-machine](PLAN-capabilities-on-machine.md) | Derived files of an installed capability package |
 | [PLAN-web-backend](PLAN-web-backend.md) | The web interface backend |
 | [PLAN-disk-health](PLAN-disk-health.md) | Daily SMART baseline, and a disk and pool checklist |
 | [PLAN-events](PLAN-events.md) | Event sources, consumers and delivery (audit #141 for the event architecture) |
