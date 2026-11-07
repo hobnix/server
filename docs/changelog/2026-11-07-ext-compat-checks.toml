@@ -1,0 +1,4 @@
+date  = "2026-11-07"
+type  = "change"
+title = "Optional parts check what they need before they switch on or off"
+body  = """`hs ext enable` refuses a part whose required capability is off or that needs a newer core. `hs ext disable` refuses while another part that is on needs it."""
