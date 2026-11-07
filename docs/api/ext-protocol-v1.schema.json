@@ -1,0 +1,97 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/hobnix/server/docs/api/ext-protocol-v1.schema.json",
+  "title": "Hobnix command-extension protocol, version 1",
+  "description": "One call = one process. The core writes one `request` line to the extension's stdin and closes it. The extension writes JSON Lines to stdout: any number of progress, log and event messages, then exactly one `result`, then exits. Specified in docs/adr/0010-extension-command-protocol.md; reference runner scripts/lib/ext_proto.py.",
+  "oneOf": [
+    { "$ref": "#/$defs/request" },
+    { "$ref": "#/$defs/fromExtension" }
+  ],
+  "$defs": {
+    "request": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["v", "type", "id", "command", "argv", "lang", "caller", "timeout_ms"],
+      "properties": {
+        "v": { "const": 1 },
+        "type": { "const": "request" },
+        "id": { "type": "string", "pattern": "^[0-9a-f]{16}$", "description": "one id per call, for logs" },
+        "command": { "type": "array", "minItems": 1, "items": { "type": "string", "pattern": "^[a-z0-9][a-z0-9-]*$" }, "description": "the command words after `hs ext <name>`" },
+        "argv": { "type": "array", "items": { "type": "string" }, "description": "the arguments after the command words; never a secret" },
+        "lang": { "enum": ["en", "de"] },
+        "caller": { "enum": ["cli", "web", "boot"] },
+        "timeout_ms": { "type": "integer", "minimum": 1000, "maximum": 3600000, "description": "the limit the core enforces; a hint to the extension, not a promise" }
+      }
+    },
+    "fromExtension": {
+      "oneOf": [
+        { "$ref": "#/$defs/progress" },
+        { "$ref": "#/$defs/log" },
+        { "$ref": "#/$defs/event" },
+        { "$ref": "#/$defs/result" }
+      ]
+    },
+    "progress": {
+      "type": "object",
+      "required": ["v", "type"],
+      "properties": {
+        "v": { "const": 1 },
+        "type": { "const": "progress" },
+        "fraction": { "type": "number", "minimum": 0, "maximum": 1 },
+        "text": { "type": "string", "maxLength": 200 }
+      }
+    },
+    "log": {
+      "type": "object",
+      "required": ["v", "type", "level", "text"],
+      "properties": {
+        "v": { "const": 1 },
+        "type": { "const": "log" },
+        "level": { "enum": ["debug", "info", "warn", "error"] },
+        "text": { "type": "string", "maxLength": 1000 }
+      }
+    },
+    "event": {
+      "type": "object",
+      "description": "Asks the core to write one entry to the event log (docs/adr/0005-events.md). The core checks the kind against the package's [[events]] and writes it with `hs event emit`; the extension never writes the log itself.",
+      "required": ["v", "type", "kind", "subject"],
+      "properties": {
+        "v": { "const": 1 },
+        "type": { "const": "event" },
+        "kind": { "type": "string", "pattern": "^pkg\\.[a-z][a-z0-9-]*\\.[a-z][a-z0-9-]*$" },
+        "subject": { "type": "string" },
+        "text": { "type": "string" },
+        "level": { "enum": ["info", "warn", "error"] },
+        "payload": { "type": "object" }
+      }
+    },
+    "result": {
+      "type": "object",
+      "required": ["v", "type", "ok"],
+      "properties": {
+        "v": { "const": 1 },
+        "type": { "const": "result" },
+        "ok": { "type": "boolean" },
+        "data": { "description": "any JSON value; its shape belongs to the command" },
+        "text": { "type": "string", "description": "what a person at a terminal is shown" },
+        "error": { "$ref": "#/$defs/error" }
+      },
+      "if": { "properties": { "ok": { "const": false } } },
+      "then": { "required": ["error"] },
+      "else": { "not": { "required": ["error"] } }
+    },
+    "error": {
+      "type": "object",
+      "required": ["code", "message"],
+      "properties": {
+        "code": { "$ref": "#/$defs/errorCode" },
+        "message": { "type": "string", "description": "one line, English; the interface translates by code" },
+        "supported": { "type": "array", "items": { "type": "integer" }, "description": "with unsupported_version: the versions the extension speaks" }
+      }
+    },
+    "errorCode": {
+      "description": "failed, not_found, bad_request, unsupported_version and cancelled come from the extension; timeout and protocol_error are only ever decided by the core.",
+      "enum": ["failed", "not_found", "bad_request", "unsupported_version", "cancelled", "timeout", "protocol_error"]
+    }
+  }
+}
