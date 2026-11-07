@@ -32,6 +32,11 @@ const de = {
   'The next update installs {ref}.': 'Das nächste Update installiert {ref}.', '{ref} is not fetched yet: the next update looks for it.': '{ref} ist noch nicht geholt: das nächste Update sucht danach.',
   'There is no release tag for this channel yet: the next update follows the current branch.': 'Für diesen Kanal gibt es noch kein Release-Tag: das nächste Update folgt dem aktuellen Zweig.',
   'Moving to an older channel keeps the installed version: the server does not go back, it waits until the channel catches up.': 'Der Wechsel zu einem älteren Kanal behält die installierte Version: der Server geht nicht zurück, er wartet, bis der Kanal aufgeholt hat.',
+  // Top bar: status of the data on a page (shell/Fresh.svelte, #323). Error, Topic and 'Waiting for the first answer' are used here too.
+  Expired: 'Abgelaufen', 'last good': 'zuletzt gut vor', 'Waiting for the first answer': 'Warte auf die erste Antwort',
+  'The last read failed; the data is from the last good read.': 'Das letzte Lesen ist fehlgeschlagen; die Daten stammen vom letzten guten Lesen.',
+  'Reading failed; the data is from the last good read.': 'Das Lesen ist fehlgeschlagen; die Daten stammen vom letzten guten Lesen.',
+  'The data was not read again in time.': 'Die Daten wurden nicht rechtzeitig neu gelesen.',
   // Live state (pages/LiveState.svelte)
   'Live state': 'Live-Zustand', Topic: 'Thema', Source: 'Quelle', TTL: 'Gültigkeit', Age: 'Alter', Gen: 'Gen', Exit: 'Exit-Code', Error: 'Fehler',
   Capability: 'Funktion', Needs: 'Braucht', Refresh: 'Neu lesen', Raw: 'Rohdaten', extension: 'Erweiterung', Stored: 'Gespeichert',

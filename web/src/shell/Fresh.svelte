@@ -7,7 +7,9 @@
   import { route, go } from '../route.svelte.js';
   import { readsFor } from '../readsfor.js';
   import { ui } from '../ui.svelte.js';
-  import { ageOf, refresh, sync } from '../data.svelte.js';
+  import { ageOf, stateOf, refresh, sync } from '../data.svelte.js';
+  import { worst } from '../freshstate.js';
+  import { tr } from '../i18n.js';
 
   let now = $state(Date.now());
   $effect(() => {
@@ -24,13 +26,28 @@
   });
 
   const words = (s) => (s < 5 ? 'now' : s < 90 ? `${Math.round(s)} s` : s < 5400 ? `${Math.round(s / 60)} min` : `${Math.round(s / 3600)} h`);
-  const tone = $derived(age === null ? '' : age > 600 ? 'bad' : age > 120 ? 'warn' : '');
+  // the status the server reported (X-HS-Status): error and expired are said in words, with the time of the last good read; the data on the page stays
+  const st = $derived.by(() => {
+    now;
+    return worst(paths.map(stateOf));
+  });
+  const failing = $derived(st.status === 'error' || st.status === 'expired');
+  const tone = $derived(failing ? 'bad' : st.status === 'stale' ? 'warn' : age === null ? '' : age > 600 ? 'bad' : age > 120 ? 'warn' : '');
+  const label = $derived(
+    failing ? `${tr(st.status === 'error' ? 'Error' : 'Expired')}${st.lastOk ? ` · ${tr('last good')} ${words((now - st.lastOk) / 1000)}` : ''}` : age === null ? '…' : words(age),
+  );
+  const tooltip = $derived.by(() => {
+    if (age === null) return tr('Waiting for the first answer');
+    if (st.status === 'fresh') return `The oldest data on this page is ${words(age)} old. The server keeps the slow reads up to date in the background.`;
+    const what = { stale: 'The last read failed; the data is from the last good read.', error: 'Reading failed; the data is from the last good read.', expired: 'The data was not read again in time.' }[st.status];
+    return [tr(what), st.topics.length ? `${tr('Topic')}: ${st.topics.join(', ')}` : '', st.error ? `${tr('Error')}: ${st.error}` : ''].filter(Boolean).join('\n');
+  });
 </script>
 
 {#if paths.length}
-  <span class="fresh {tone}" use:tip={age === null ? 'Waiting for the first answer' : `The oldest data on this page is ${words(age)} old. The server keeps the slow reads up to date in the background.`}>
+  <span class="fresh {tone}" data-status={st.status} use:tip={tooltip}>
     <span class="age">
-      <i class="ph ph-clock"></i><span class="lbl">{age === null ? '…' : words(age)}</span>
+      <i class="ph {failing ? 'ph-warning' : 'ph-clock'}"></i><span class="lbl" class:word={failing}>{label}</span>
     </span>
     <button class="ib" disabled={sync.busy} aria-label="Read this page again now" use:tip={'Read this page again now, not from the kept copy'} onclick={() => refresh(paths)}>
       <i class="ph ph-arrow-clockwise" class:spin={sync.busy}></i>
@@ -49,6 +66,6 @@
   .ib { width: 28px; height: 28px; display: grid; place-items: center; border: 1px solid transparent; border-radius: var(--r); background: none; color: inherit; padding: 0; }
   .ib:hover { background: var(--panel-2); border-color: var(--line); }
   .ib:disabled { opacity: 0.5; }
-  @media (max-width: 900px) { .lbl, .hide-s { display: none; } }
+  @media (max-width: 900px) { .lbl:not(.word), .hide-s { display: none; } }
   @media (max-width: 700px) { .age { display: none; } }
 </style>

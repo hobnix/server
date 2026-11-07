@@ -2172,3 +2172,7 @@ Importing %s	%s wird importiert
 The import failed. Nothing was started.	Der Import ist fehlgeschlagen. Nichts wurde gestartet.
 The app %s was created and started.	Die App %s wurde angelegt und gestartet.
 Unknown option: %s	Unbekannte Option: %s
+'%s' %s.	'%s' %s.
+needs core API level %s, this server has %s (hs update first)	braucht die Core-API-Stufe %s, dieser Server hat %s (erst hs update)
+needs the capability '%s', which is off	braucht die Fähigkeit '%s', die aus ist
+'%s' cannot be switched off: %s needs it.	'%s' lässt sich nicht ausschalten: %s braucht es.
