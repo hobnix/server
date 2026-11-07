@@ -1,0 +1,5 @@
+date  = "2026-11-07"
+type  = "feature"
+title = "A new guide says what to do, case by case, when a disk or a pool fails"
+docs  = "disk-failures"
+body  = """Disk failures covers a degraded ZFS pool, a disk that is gone, a failed SnapRAID data or parity disk, scrub errors on both layouts and a ZFS pool that does not import: what to check first, the command, and what not to do. Not tested on hardware yet."""

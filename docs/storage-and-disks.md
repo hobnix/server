@@ -382,10 +382,11 @@ With SnapRAID use the backup: `hs share <share> restore` brings files back ([Bac
 | a command says a disk is in use | a program still uses it; nothing was changed | `fuser -vm /var/lib/hs/disks/data-04` shows which |
 | a disk is `MISSING` | gone or unplugged | plug it in, or replace it |
 | files are missing in `/bulk` | a disk is detached or in recovery | `hs pool bulk` shows `detached` or `recovery`; `attach` or `recover-finish` |
-| `DEGRADED` pool | a ZFS disk failed | replace the disk |
+| `DEGRADED` pool | a ZFS disk failed | [Disk failures](disk-failures.md) |
 | `hs pool bulk add` does not offer a disk | it is the system disk, already in a pool, or has a signature | check `lsblk`; a disk with foreign data is offered only with a warning, never select one you want to keep |
 
 ## Next
+- [Disk failures](disk-failures.md): what to do when a disk or a pool fails.
 - [Users and shares](users-and-shares.md): who may use which share.
 - [Encryption and vault](encryption-and-vault.md): one passphrase for every disk.
 - [Backup and recovery](backup-and-recovery.md): the second copy.

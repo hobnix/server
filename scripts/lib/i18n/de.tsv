@@ -2144,3 +2144,7 @@ the file cannot be read	die Datei kann nicht gelesen werden
 the answers file has errors; nothing was changed	die Antwortdatei hat Fehler; nichts wurde verändert
 the answers file is valid	die Antwortdatei ist gültig
 hs-install does not read it yet	hs-install liest sie noch nicht
+'%s' %s.	'%s' %s.
+needs core API level %s, this server has %s (hs update first)	braucht die Core-API-Stufe %s, dieser Server hat %s (erst hs update)
+needs the capability '%s', which is off	braucht die Fähigkeit '%s', die aus ist
+'%s' cannot be switched off: %s needs it.	'%s' lässt sich nicht ausschalten: %s braucht es.
