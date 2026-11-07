@@ -28,3 +28,4 @@ Issue: hobnix/server#<n>
 | [0006](0006-api-in-front-of-cli.md) | The `hs sys` contract is the API; the web interface is a client of it | Proposed |
 | [0007](0007-branches-and-releases.md) | `develop` for work, `main` for releases, signed tags | Proposed |
 | [0008](0008-capabilities-and-packages.md) | Capabilities with a contract; apps and optional parts are signed packages in their own repositories | Proposed |
+| [0009](0009-capability-as-package-kind.md) | A capability is a third package kind; a short list stays in the core | Proposed |
