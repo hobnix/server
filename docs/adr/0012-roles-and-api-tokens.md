@@ -1,4 +1,4 @@
-# 0010: Roles and API tokens: viewer, app manager, admin
+# 0012: Roles and API tokens: viewer, app manager, admin
 
 Status: Proposed
 Issue: hobnix/server#257 (part of #195). The owner decides; nothing here is built.
@@ -73,7 +73,7 @@ There is one verifier (the web server on the node). Signed tokens solve a proble
    that `scripts/openapi-gen.py` reads and copies into `docs/api/openapi.json` as `x-hs-role`). A test fails when a row in `registry.tsv` has
    no role field and is not on the explicit admin list, and when a row that runs a change (`plan`, `start`) is marked `viewer`. A new row cannot
    ship without a decision. Reads that expose a secret or a key are `admin` even though they change nothing: `vault`, `secrets`, `unlock`,
-   `ssh-key list`, `node keyline`, `users details`. Initial assignment by group (of 235 rows: 118 `viewer`, 11 `app-manager`, 106 `admin`) (the full list of all rows is in `docs/adr/0010-roles-sys-rows.tsv`, generated from this rule and from the verbs below; the owner reviews it with the record):
+   `ssh-key list`, `node keyline`, `users details`. Initial assignment by group (of 235 rows: 118 `viewer`, 11 `app-manager`, 106 `admin`) (the full list of all rows is in `docs/adr/0012-roles-sys-rows.tsv`, generated from this rule and from the verbs below; the owner reviews it with the record):
 
    | Group of rows | Read | Change |
    | --- | --- | --- |
