@@ -144,6 +144,29 @@ error. The web answers with the old data and, additive, `X-HS-Stale` (time of th
 Events `live.collector-failed` (once per change into error) and `live.collector-recovered` (docs/adr/0005-events.md). `hs sys live status`/`check`
 keep their shape. Not tested on hardware yet.
 
+## Entry status, source and ttl (2026-11-07, #322)
+
+A document gains `src` (the words of the read, e.g. `services list`) and `ttl` (seconds it counts as fresh): the topic's own override (`lib/live-topics.tsv`
+column 8, `-` or empty = none) else 3 x interval. Documents from before still read: without `ttl` the status uses 3 x interval. One function,
+`live_state.status_of(doc, interval, now)`, returns the status; `hs sys live status`/`check`/`inspect` and the web use it, the other thresholds are gone:
+
+| status | meaning |
+|---|---|
+| `fresh` | good data inside its ttl, last try did not fail |
+| `stale` | the last try failed, the last good data is still inside the ttl |
+| `error` | the last try failed and there is no good data inside the ttl (never read, or older) |
+| `expired` | no failed try, but the data is older than the ttl (the collector does not run) |
+
+No Redis `EXPIRE`: an expired or failing entry is still served with its last good data, only marked. `hs sys live status` has the status as new last
+field 9 (`-` = no document); `live inspect` gets `status`, `ttl`, `source`; the web answers `X-HS-Status` next to `X-HS-Age` (`X-HS-Stale`/`X-HS-State`
+stay). `hs sys live check` reports `expired` and `error` as `live:stale:<topic>`. An identical read still moves only `ts` (an older document gets `src`
+and `ttl` then). Not tested on hardware yet.
+
+Web (#323): `web/src/api.js` keeps `X-HS-Status` per read (`stateOf(path)`, next to `ageOf`); for a failing read the server also sends `X-HS-Topic` and
+`X-HS-Error` (one printable ASCII line). `shell/Fresh.svelte` shows the worst status of the page's reads (`web/src/freshstate.js`): `error` and `expired`
+in words with the time of the last good read, `stale` in the warning colour; the tooltip names topic and error line. The page keeps its last data.
+Web build and type check not run (no node on the dev machine). Not tested on hardware yet.
+
 ## Dependencies (2026-11-06, #153)
 
 `lib/live-topics.tsv` column 7 `needs` lists the topics whose new `gen` re-reads this topic (`-` = none); today `services-list` and `services-app` need
