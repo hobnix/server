@@ -1,0 +1,5 @@
+date  = "2026-11-07"
+type  = "feature"
+title = "hs docker import brings a compose file into Docker after a plan"
+docs  = "containers-and-apps#import-a-compose-file"
+body  = """hs docker import <compose-file> --name <app> lists services, ports, volumes and every setting that cannot be imported, and starts nothing before you type the app name. The Docker socket, privileged containers and system folders are never imported; other risky settings need --allow-risky."""

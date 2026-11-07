@@ -472,6 +472,31 @@ stop it in Arcane. Remove Arcane later with `hs ct arcane delete`.
 
 Not tested on hardware yet.
 
+### Import a compose file
+
+Take a `docker-compose.yml` from the internet or from another server and make it an app of Docker:
+
+```bash
+hs docker import ./docker-compose.yml --name myapp --env-file ./.env --dry-run
+hs docker import ./docker-compose.yml --name myapp --env-file ./.env
+```
+
+Use `-` instead of the file name to read the compose file from standard input (then confirm with `--yes --confirm myapp`). The plan comes
+first and always: the services and images, the published ports, the volumes (a bind mount inside the app folder is fine), the networks,
+the **names** of the environment variables (never their values) and every key hobnix does not import or has not tested ("not
+imported/untested": it stays in the file as it is, it is never dropped silently). Named volumes cannot be mapped: change them to a
+`./data/<name>` bind mount. Nothing starts before you type the name of the app (`--yes --confirm <app>` in a script); `--dry-run`
+prints the plan only (exit 0 when the import would be allowed, 1 when it is refused).
+
+Some settings are dangerous. Never imported, even with `--allow-risky`: the Docker socket (`docker.sock`), `privileged: true` and a
+bind mount of `/`, `/etc`, `/proc`, `/sys` or `/boot`. Imported only with `--allow-risky` and the typed name: `network_mode: host`,
+`pid`/`ipc: host`, `cap_add` of `SYS_ADMIN`, `NET_ADMIN` or `ALL`, devices other than `/dev/dri`, a bind mount outside the app folder,
+`security_opt` with `unconfined` and `userns_mode: host`. The app is created in the same way as one made in the web editor
+(`apps/stacks/<name>`), which checks the file once more; `--job` runs the start in the background. This is a command only: the web
+interface has the editor for the same job.
+
+Not tested on hardware yet.
+
 ### Move the apps of an older server into the share apps
 
 Apps made before the share `apps` existed live in `/opt/apps` inside Docker. Move them once:

@@ -265,3 +265,11 @@ move would reuse.
 ## Still open
 
 - A transcode test in Docker for Jellyfin, Tdarr and Immich.
+
+## Import of a compose file (#264)
+
+`hs docker import <compose-file|-> --name <app>` (scripts/docker-import.sh) analyses `docker compose config --format json` (run in the
+container; scripts/lib/docker_import.py, stdlib only), prints the plan and applies it through the one existing route
+(`docker-app-change.sh start <app> app-save --rev new`, which checks again). Levels: `refuse` (docker.sock, privileged, host path
+`/ /etc /proc /sys /boot`) never imports, `risky` needs `--allow-risky` and the typed name, `error` (named volumes, a port without a host
+port) stops. Keys outside the allow-list are listed as "not imported/untested". CLI only by decision: no `hs sys` row, no web route.
