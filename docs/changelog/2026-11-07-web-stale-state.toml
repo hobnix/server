@@ -1,0 +1,4 @@
+date  = "2026-11-07"
+type  = "feature"
+title = "The top bar says when data could not be read"
+body  = """When a value could not be read, or was not read again in time, the top bar of the web interface now says Error or Expired in words with the time of the last good read, and the tooltip names the read and its last error line. The page keeps showing the last good data. Not tested on hardware yet."""

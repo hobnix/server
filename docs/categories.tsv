@@ -5,6 +5,7 @@ en	Guides	install
 en	Guides	containers-and-apps
 en	Guides	users-and-shares
 en	Guides	storage-and-disks
+en	Guides	disk-failures
 en	Guides	encryption-and-vault
 en	Guides	backup-and-recovery
 en	Guides	web-interface
@@ -15,6 +16,7 @@ en	Contributing	GUIDE-TEMPLATE
 en	Contributing	PLAN-modular-core
 en	Contributing	PLAN-extensions
 en	Contributing	PLAN-packages
+en	Contributing	PLAN-capabilities-on-machine
 en	Contributing	PLAN-web-backend
 en	Contributing	PLAN-disk-health
 en	Contributing	PLAN-events

@@ -3,7 +3,7 @@
 import { get } from './api.js';
 import { live } from './live.svelte.js';
 import { nextDelay } from './polldelay.js';
-export { ageOf } from './api.js';
+export { ageOf, stateOf } from './api.js';
 
 // The last answer per path, for the whole session: a page revisited (or the tree's counts) shows it at once and then reads again.
 const cache = new Map();

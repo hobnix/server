@@ -1,0 +1,4 @@
+date  = "2026-11-07"
+type  = "feature"
+title = "One status for every live value"
+body  = """Live values now carry where they came from and how long they count as fresh. A value is fresh, stale (the last read failed), error or expired (not read for too long). hs sys live status shows the status as a new last column, and old values past their time are marked instead of dropped. Not tested on hardware yet."""

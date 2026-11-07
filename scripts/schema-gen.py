@@ -8,6 +8,11 @@
   schema-gen.py settings   key<TAB>legacy file in /etc/hs (or empty), for every option with store = "settings"
   schema-gen.py defaults   key<TAB>nix expression, for every option that has a default
   schema-gen.py pages      key<TAB>page, in file order (the settings page each option is shown on, besides Advanced)
+  schema-gen.py overlay [write|check|list] [--packages DIR] [--out DIR]
+                           the same kind of derived file for the capability packages installed on a machine (docs/PLAN-capabilities-on-machine.md):
+                           reads DIR/<name>/capability.toml (default $HS_PACKAGES_DIR or /var/lib/hs/packages/current) and writes
+                           capabilities.tsv into OUT (default $HS_STATE_DIR/generated or /var/lib/hs/generated); a package named like a core
+                           capability is refused. Never touches the checkout. `list` prints the rows without writing.
   schema-gen.py rule KEY   type<TAB>choices<TAB>min<TAB>pattern<TAB>hint of one option (what hs sys config set checks); exit 1 if unknown
 
 Derived files (never edit them by hand):
@@ -244,6 +249,66 @@ def render_caps_tsv(items):
     return '\n'.join(rows) + '\n'
 
 
+def overlay_rows(pkgdir):
+    """Rows of the installed capability packages for the overlay capabilities.tsv (same columns as the core file). A package whose manifest is
+    wrong, or that shares its name with a core capability (the core wins, nothing is shadowed), makes the whole run fail with the reason."""
+    core = set(manifests())
+    rows = []
+    if os.path.isdir(pkgdir):
+        for name in sorted(os.listdir(pkgdir)):
+            f = os.path.join(pkgdir, name, 'capability.toml')
+            if not os.path.isfile(f):
+                continue
+            try:
+                with open(f, 'rb') as fh:
+                    m = tomllib.load(fh)
+            except (tomllib.TOMLDecodeError, OSError) as e:
+                die('%s: %s' % (f, e))
+            if m.get('name') != name:
+                die('%s: name must be %s' % (f, name))
+            if name in core:
+                die('%s: %s is a core capability; a package may not shadow it' % (f, name))
+            imp = m.get('implied_by', [])
+            if not isinstance(imp, list) or not all(isinstance(x, str) and re.fullmatch(r'[A-Za-z][A-Za-z0-9]*', x) for x in imp):
+                die('%s: implied_by must be a list of setting names' % f)
+            rows.append('\t'.join([name, ','.join(imp), str(m.get('title', name)).replace('\t', ' ')]))
+    return rows
+
+
+def render_overlay_tsv(pkgdir):
+    return '\n'.join(['# GENERATED on this machine by `schema-gen.py overlay` from the installed capability packages: never edit.',
+                      '# name<TAB>implied_by (runtime settings that switch it on, comma separated)<TAB>title'] + overlay_rows(pkgdir)) + '\n'
+
+
+def overlay_main(rest):
+    def opt(flag, default):
+        return rest[rest.index(flag) + 1] if flag in rest and rest.index(flag) + 1 < len(rest) else default
+    pkgdir = opt('--packages', os.environ.get('HS_PACKAGES_DIR') or '/var/lib/hs/packages/current')
+    out = opt('--out', os.path.join(os.environ.get('HS_STATE_DIR') or '/var/lib/hs', 'generated'))
+    mode = rest[0] if rest and not rest[0].startswith('--') else 'write'
+    want = render_overlay_tsv(pkgdir)
+    if mode == 'list':
+        print(''.join(l for l in want.splitlines(True) if not l.startswith('#')), end='')
+        return 0
+    path = os.path.join(out, 'capabilities.tsv')
+    stale = not os.path.exists(path) or read(path) != want
+    if mode == 'check':
+        if stale:
+            print('stale (run: python3 scripts/schema-gen.py overlay write):\n  ' + path)
+        return 1 if stale else 0
+    if mode != 'write':
+        print('overlay: write, check or list', file=sys.stderr)
+        return 2
+    if stale:
+        os.makedirs(out, exist_ok=True)
+        tmp = path + '.tmp'
+        with open(tmp, 'w', encoding='utf-8', newline='\n') as f:
+            f.write(want)
+        os.replace(tmp, path)
+        print('wrote ' + path)
+    return 0
+
+
 def read(path):
     with open(path, 'rb') as f:
         return f.read().decode('utf-8').replace('\r\n', '\n')
@@ -476,6 +541,8 @@ def main(argv):
     if hasattr(sys.stdout, 'reconfigure'):
         sys.stdout.reconfigure(newline='\n', encoding='utf-8')   # lines for scripts, also on Windows
     cmd = argv[1] if len(argv) > 1 else ''
+    if cmd == 'overlay':
+        return overlay_main(argv[2:])
     items = load()
     if cmd in ('write', 'check'):
         stale = []

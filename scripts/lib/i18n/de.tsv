@@ -2137,3 +2137,7 @@ This replaces settings files. Run it in a terminal, or add --yes after looking a
 File	Datei
 Settings files	Einstellungsdateien
 %s is a link into the vault, skipped	%s ist ein Link in den Tresor, übersprungen
+'%s' %s.	'%s' %s.
+needs core API level %s, this server has %s (hs update first)	braucht die Core-API-Stufe %s, dieser Server hat %s (erst hs update)
+needs the capability '%s', which is off	braucht die Fähigkeit '%s', die aus ist
+'%s' cannot be switched off: %s needs it.	'%s' lässt sich nicht ausschalten: %s braucht es.
