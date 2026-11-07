@@ -1,4 +1,4 @@
-# 0011: Cluster state and behaviour during a network partition
+# 0013: Cluster state and behaviour during a network partition
 
 Status: Proposed
 Issue: hobnix/server#256 (part of #203). The owner decides; nothing here is built beyond what the Context lists.
