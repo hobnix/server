@@ -1,0 +1,3 @@
+date  = "2026-11-08"
+type  = "feature"
+title = "Packages can declare the permissions they need; hs ext list and hs pkg update show them (not enforced yet)"

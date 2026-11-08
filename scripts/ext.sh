@@ -42,6 +42,11 @@ manifest_list() {   # manifest_list <dir> <key>: the names of a one-line array `
   [ -f "$f" ] || f=$1/package.toml
   sed -n "s/^$2[[:space:]]*=[[:space:]]*\[\(.*\)\][[:space:]]*\$/\1/p" "$f" | head -n1 | tr ',' '\n' | tr -d ' "'"'"'' | sed '/^$/d'
 }
+perms_of() {   # perms_of <name>: the declared permissions, comma separated; "not declared" when the manifest has none (ADR 0014: shown, not enforced)
+  local out
+  out=$(python3 "$here/pkg.py" perms "$1" 2>/dev/null) || out=-
+  if [ "$out" = "-" ]; then t "not declared"; else printf '%s' "$out" | paste -sd, - | sed 's/,/, /g'; fi
+}
 core_level() { cat "$here/lib/api-level" 2>/dev/null || echo 0; }
 compat_problem() {   # compat_problem <name> <dir>: prints why the package cannot be switched on (a capability it requires is off, or it needs a newer core); nothing when fine
   local r need
@@ -110,10 +115,11 @@ cmd_list() {   # people list
     d=$(ext_package_dir "$n") || continue
     [ -f "$d/capability.toml" ] || continue
     if ext_package_on "$n"; then st=on; else st=off; fi
-    rows+="$n"$'\t'"$st"$'\t'"$(n_commands "$n")"$'\t'"$(title_of "$d")"$'\n'
+    rows+="$n"$'\t'"$st"$'\t'"$(n_commands "$n")"$'\t'"$(title_of "$d")"$'\t'"$(perms_of "$n")"$'\n'
   done < <(ext_package_names)
   if [ -z "$rows" ]; then note "No extension packages on this server."; return 0; fi
-  { thead 'Package' 'State' 'Commands' 'What it is'; printf '%s' "$rows"; } | table
+  { thead 'Package' 'State' 'Commands' 'What it is' 'Permissions it declares'; printf '%s' "$rows"; } | table
+  note "$(t "Permissions are what a package says it needs. They are not enforced: every command runs as root, so install only packages you trust.")"
   next_step "hs ext enable <package>"
 }
 

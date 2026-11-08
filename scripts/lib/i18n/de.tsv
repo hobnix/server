@@ -2183,3 +2183,6 @@ Unknown option: %s	Unbekannte Option: %s
 needs core API level %s, this server has %s (hs update first)	braucht die Core-API-Stufe %s, dieser Server hat %s (erst hs update)
 needs the capability '%s', which is off	braucht die Fähigkeit '%s', die aus ist
 '%s' cannot be switched off: %s needs it.	'%s' lässt sich nicht ausschalten: %s braucht es.
+not declared	nicht angegeben
+Permissions it declares	Erklärte Berechtigungen
+Permissions are what a package says it needs. They are not enforced: every command runs as root, so install only packages you trust.	Berechtigungen sind das, was ein Paket nach eigener Angabe braucht. Sie werden nicht erzwungen: jeder Befehl läuft als root, installiere also nur Pakete, denen du vertraust.
