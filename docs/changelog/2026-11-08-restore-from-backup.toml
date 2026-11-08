@@ -1,0 +1,5 @@
+date  = "2026-11-08"
+type  = "feature"
+title = "The installer can restore a server from its backup disk and password"
+docs  = "install#restore-from-a-backup"
+body  = """hs-install now offers Restore from backup next to New install, and hs-restore starts it directly. It mounts the backup disk read-only, opens the restic repository with the backup password, shows a plan (--dry-run stops there), asks you to type the name of the new system disk, and installs with the machine.toml, the state folder and the SSH host keys of a host snapshot. The answers file takes restore.backup_device, restore.snapshot and secrets.backup_passphrase_file. Pools, vault, shares and containers still follow by hand. UNVERIFIED: not tested on hardware; only the reading of the backup and the files are tested with a fake restic."""

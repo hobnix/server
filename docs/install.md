@@ -62,6 +62,8 @@ disk is erased**, and you confirm by typing its name. Every question has an opti
 `--hostname`, `--key-file`, `--timezone`, `--preset`). It installs the base system, writes `machine.toml` with a generated `hostId` and
 applies the preset. Reboot, remove the stick, and continue with [First start](#first-start).
 
+To bring back a dead server from its backup instead, see [Restore from a backup](#restore-from-a-backup).
+
 ### Option B: install by hand
 
 Not tested on hardware yet.
@@ -411,7 +413,7 @@ scripts is `hs sys setup list`.
 
 ## Answers file for unattended installs
 
-Not wired into hs-install yet. Not tested on hardware yet.
+Not wired into hs-install yet; `hs-restore` reads the restore keys (see Restore from a backup). Not tested on hardware yet.
 
 An answers file holds the answers to the questions of `hs-install` in one TOML file, so a later unattended install can run without them.
 `hs-install` does not read the file yet; today only the check exists. A key you leave out is asked later, so a partial file is fine.
@@ -453,6 +455,9 @@ admin_password_file = "/run/keys/adminuser-pw"
 | `ssh.key` | `--key` | a public SSH key; exactly one of `ssh.key` and `ssh.key_file` |
 | `ssh.key_file` | `--key-file` | an absolute path to a public key file |
 | `secrets.admin_password_file` | none | an absolute path to a regular file, mode 600 or stricter, not empty |
+| `secrets.backup_passphrase_file` | `hs-restore --password-file` | same rules as `admin_password_file`; the backup password for [Restore from a backup](#restore-from-a-backup) |
+| `restore.backup_device` | `hs-restore --backup-device` | a device name such as `sdb1` (the partition of the backup disk) |
+| `restore.snapshot` | `hs-restore --snapshot` | `latest` or a snapshot id (8 to 64 hex digits) |
 
 **Secrets are never written into the file.** A key that looks like a secret (password, passphrase, token, secret, key) with a value in
 the file is an error; give the path of a file instead (`<name>_file`). The check looks at that file's mode and size only: it never reads
@@ -466,6 +471,66 @@ hs installer check-answers answers.toml
 
 The command lists every problem with its key and exits 0 when there are no errors, 1 when there are errors and 2 when the file cannot
 be read or is not valid TOML. It changes nothing.
+
+## Restore from a backup
+
+**UNVERIFIED: not tested on hardware.** Not tested on hardware yet. The reading of the backup, the plan and the files laid over the new
+configuration are covered by `tests/install-restore.sh` with a fake `restic` and no disk. Partitioning, mounting the backup disk, the
+real restic repository, `nixos-install` with the restored settings and the ISO itself have never run. Use the checklist below on a spare
+machine first.
+
+Use this when the system disk (or the whole host) is dead and you have the backup disk and the backup password. It automates
+[Case A of the recovery guide](backup-and-recovery.md#case-a-the-system-disk-is-gone-the-data-disks-are-fine) up to the first boot.
+Case B (data pools) and Case C (the backup disk is gone too) stay manual.
+
+Boot the installer stick in UEFI mode and connect the backup disk (the one labelled `backup`). Then run:
+
+```bash
+sudo hs-install
+```
+
+With no options it asks **New install** or **Restore from backup**. The restore can also be started directly:
+
+```bash
+sudo hs-restore --dry-run
+```
+
+It mounts the backup disk **read-only**, asks for the backup password (no echo; or `--password-file <file>`), lists the host snapshots and
+reads the settings of one (`latest` unless you pass `--snapshot`). It then shows the plan: the backup, the snapshot, the new system disk
+(erased), the server name, role, time zone and SSH key taken from the restored `machine.toml`, and the files that come back.
+`--dry-run` stops there and changes nothing. Without it you type the **name of the system disk** to continue; an unattended run needs
+`--disk <name> --confirm-disk <same name>`. The data disks and the backup disk are never touched; the backup disk is refused as a target.
+
+After the confirmation the normal installer runs with the restored settings: the same disk layout and `nixos-install` as a new install, and
+it asks for the password of `adminuser`. What comes back from the host snapshot:
+
+- `/etc/nixos/machine.toml` (and `machine.nix` if there is one), including the old `hostId`, so the ZFS pools can be imported
+- the state folder `/var/lib/hs`, except `restic-password` and the `disks/` folder; links into the vault are not copied
+- the SSH host keys, so your computers do not warn about a new server
+
+`hardware-configuration.nix` is generated again for the new machine and never taken from the backup. These are **not** restored by the
+installer: the backup password (put it into the new vault by hand), the vault itself, the pools, shares and containers. After the first
+boot, continue with step 8 of Case A: `sudo hs rebuild`, `sudo hs vault init ...`, import the pools, `sudo hs unlock`, then
+`sudo hs backup restore` for the shares (Case B).
+
+Known gaps: the installer's disk layout has no vault partition (Case A creates one; make it by hand or point `hs vault init` at another
+disk); a BIOS-only machine only works for the `edge` role, as in a new install; the `adminuser` password file of the answers file is not
+read yet; a restored `machine.toml` that names hardware of the old machine (`nic`) needs a look after the first boot.
+
+The answers file (format above) may carry `[restore]` and `secrets.backup_passphrase_file`: `hs-restore --answers answers.toml`.
+
+### Checklist for the first real run
+
+Not tested on hardware yet. Do it on a spare machine or a VM with a copy of a real backup disk, and write down every difference.
+
+- [ ] The stick boots and `hs-install` offers New install and Restore from backup.
+- [ ] `hs-restore --dry-run` finds the disk labelled `backup`, mounts it read-only (`findmnt` shows `ro`), accepts the password and lists the snapshots.
+- [ ] A wrong password is refused with nothing changed.
+- [ ] The plan names the right new disk, the right server name and the files above; it lists no `restic-password`.
+- [ ] A different name than the disk's cancels; the backup disk is refused as a target.
+- [ ] The restore runs to the end; the backup disk can be unmounted afterwards and was not written to.
+- [ ] The new system boots, `ssh adminuser@<name>` works with the old key and without a host-key warning.
+- [ ] `/etc/nixos/machine.toml` is the backed-up one; `hs rebuild` works; the pools import with the old `hostId`.
 
 ## Check that it worked
 

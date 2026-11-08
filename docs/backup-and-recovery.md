@@ -213,6 +213,9 @@ Not tested on hardware yet: a complete reinstall onto an empty disk with data fr
 and the shares is replayed by the repository's test suite.
 
 ### Case A: the system disk is gone, the data disks are fine
+The installer can do steps 2 to 6 for you: `hs-install` on the stick, "Restore from backup" ([Restore from a backup](install.md#restore-from-a-backup)).
+Not tested on hardware yet. The manual steps below stay the reference.
+
 This is the common case. The pools and their data are untouched. The system disk is plain (GPT with an EFI partition and an ext4 root) plus
 a small partition for the vault, so a new one is built the same way, and the server then boots to SSH and is unlocked with `hs unlock`.
 
