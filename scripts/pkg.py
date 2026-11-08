@@ -9,6 +9,7 @@
   pkg.py record <name> [--applied]                         remember the tree's version as installed (installed.toml); --applied: a run applied it
   pkg.py applied                                           name, version the last successful run applied
   pkg.py api                                               the API level of the core helpers
+  pkg.py perms <name>                                      the permissions the package declares, one per line; "-" when it declares none (ADR 0014: declared, not enforced)
   pkg.py new <name> --template recipe|extension [--dir <path>]  start a package in a checkout of a package repository (pkg_new.py)
 
 Repositories (docs/PLAN-packages.md, "Repositories" and "Trust"); the git work is `git`, signatures are SSH signatures on release tags:
@@ -19,7 +20,7 @@ Repositories (docs/PLAN-packages.md, "Repositories" and "Trust"); the git work i
   pkg.py available                                         packages in the repositories (cache): repo, name, kind, version, installed
   pkg.py market                                            everything installable as data: name, kind, repo, version, installed, state (new|current|update|orphan), core, audience, title
   pkg.py install <name> [--repo <repo>]                    fetch the package at the verified tag into <state>/packages/current/<name>
-  pkg.py update <name> [--yes]                             show the diff to the installed commit, ask, install the new tag
+  pkg.py update <name> [--yes] [--accept-permissions]     show the diff and the permissions, ask, install the new tag; NEW permissions need the typed name (or the flag)
   pkg.py remove <name>                                     forget an installed repository package (a recipe's container is never touched)
 
 Manifests: packages/<name>/package.toml (a recipe: its script is run.sh beside it) and
@@ -48,6 +49,25 @@ def _load_pkg_events():
 
 
 pkg_events = _load_pkg_events()
+
+
+def _load_pkg_perms():
+    spec = importlib.util.spec_from_file_location("pkg_perms", os.path.join(HERE, "lib", "pkg_perms.py"))
+    mod = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(mod)
+    return mod
+
+
+pkg_perms = _load_pkg_perms()
+
+
+def capability_toml(folder):
+    """The parsed capability.toml beside a package.toml (an extension's [[web.*]] live there), {} when absent or invalid."""
+    try:
+        with open(os.path.join(folder, "capability.toml"), "rb") as f:
+            return tomllib.load(f)
+    except (OSError, tomllib.TOMLDecodeError):
+        return {}
 KINDS = ("recipe", "extension")
 AUDIENCES = ("generic", "personal")
 NEEDS = ("docker", "share", "tailscale")
@@ -264,6 +284,8 @@ def problems():
                 bad("an extension needs its capability.toml beside package.toml")
         for t in pkg_events.manifest_problems(n, m.get("events", [])):
             bad(t)
+        for t in pkg_perms.manifest_problems(n, m, capability_toml(os.path.dirname(path))):
+            bad("permissions: " + t)
     return out
 
 
@@ -304,6 +326,7 @@ def repo_check(folder):
         if not SEMVER.match(str(e.get("version", ""))):
             out.append(f"{name}: version is not semver")
         out += [f"{name}: {t}" for t in pkg_events.manifest_problems(name, m.get("events", []))]
+        out += [f"{name}: permissions: {t}" for t in pkg_perms.manifest_problems(name, m, capability_toml(os.path.join(folder, path)))]
     for sub in ("recipes", "extensions"):
         d = os.path.join(folder, sub)
         if os.path.isdir(d):
@@ -370,6 +393,13 @@ def main(argv):
         mod = importlib.util.module_from_spec(spec)
         spec.loader.exec_module(mod)
         return mod.run(MAIN, rest)
+    elif cmd == "perms":
+        found = [m for _, m in manifests() if m.get("name") == (rest[0] if rest else "")]
+        if not found:
+            print("unknown package", file=sys.stderr)
+            return 1
+        for x in pkg_perms.of(found[0]) or ["-"]:
+            print(x)
     elif cmd == "repo-check":
         p = repo_check(rest[0] if rest else ".")
         for t in p:

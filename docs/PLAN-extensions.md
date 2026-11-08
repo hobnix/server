@@ -164,6 +164,10 @@ hanging package never stops the others. API level 4 (scripts/lib/api-level).
 - A package that reads its own scripts with `@/file` runs files from the checkout in /etc/nixos, which is owned by adminuser, not from the
   immutable Nix store. adminuser can already sudo, but this is why the pilot packages keep their scripts in `scripts/` and why a pinned location
   (below) matters.
+- A package may declare `permissions` in package.toml (ADR 0014, step 1; vocabulary in scripts/lib/pkg_perms.py). They are **disclosed, not enforced**:
+  the core checks that they are well formed and cover what the manifest uses ([[events]] needs `events.emit`, [[web.reads]] `web.read`, ...), shows them in
+  `hs ext list`, `hs pkg install` and `hs pkg update`, and an update that ADDS a permission needs the typed package name (or `--accept-permissions`; the web
+  interface's update button does not pass it, so it refuses and says to run it in a terminal). Confinement of commands (ADR 0014 steps 2 and 3) is not built. Not tested on hardware yet.
 - The web interface gets only what the manifest declares, and only through the allowlist checks above. A package cannot add a page, a route,
   a header or a script to the browser; it cannot reach a core read or change. Admin pages stay without a public route (CLAUDE.md).
 - Switching a package on is a change of the server's configuration: it needs a person at `hs ext enable` (root) or a machine.toml edit.

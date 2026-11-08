@@ -278,6 +278,10 @@ class Repos:
         if ev:
             shutil.rmtree(tmp, ignore_errors=True)
             raise Refused("%s: package.toml [[events]]: %s" % (name, ev[0]))
+        pm = self.pkg.pkg_perms.manifest_problems(name, m, self.pkg.capability_toml(tmp))
+        if pm:
+            shutil.rmtree(tmp, ignore_errors=True)
+            raise Refused("%s: package.toml permissions: %s" % (name, pm[0]))
         old = self.pkg.installed().get(name, {})
         if os.path.isdir(cur):
             prev = os.path.join(self.state, "previous")
@@ -296,7 +300,23 @@ class Repos:
             self.pkg.pkg_events.write(name, m.get("events") or [])
         except OSError as e:
             print("%s: its events were not installed: %s" % (name, e), file=sys.stderr)
+        self.last_permissions = self.pkg.pkg_perms.of(m)
         return entry["version"], r_name, tag
+
+    def installed_permissions(self, name):
+        """The permissions of the installed copy (None = not declared, or not installed)."""
+        try:
+            with open(os.path.join(self.state, "current", name, "package.toml"), "rb") as f:
+                return self.pkg.pkg_perms.of(tomllib.load(f))
+        except (OSError, tomllib.TOMLDecodeError):
+            return None
+
+    def new_permissions(self, name, commit):
+        """The permissions the release `commit` declares: (declared list or None, the ones the installed copy lacks)."""
+        r_name, entry, _, _ = self.choose_installed(name, self.recorded(name)["repo"])
+        raw = git("show", "%s:%s/package.toml" % (commit, entry["path"]), cwd=self.clone_dir(r_name))
+        new = self.pkg.pkg_perms.of(tomllib.loads(raw.decode("utf-8", "replace")))
+        return new, self.pkg.pkg_perms.added(self.installed_permissions(name), new)
 
     @staticmethod
     def rm(path):
@@ -435,6 +455,7 @@ def run(pkg, cmd, rest):
             repo = rest[rest.index("--repo") + 1] if "--repo" in rest else None
             v, r_name, tag = R.install(rest[0], repo)
             print("%s %s from %s (%s)" % (rest[0], v, r_name, tag))
+            print("permissions it declares (not enforced, it runs as root): %s" % pkg.pkg_perms.describe(R.last_permissions))
         elif cmd == "update":
             res = R.diff(rest[0])
             if res is None:
@@ -442,7 +463,16 @@ def run(pkg, cmd, rest):
                 return 0
             old, tag, commit, text = res
             print(text)
-            if "--yes" not in rest:
+            new, fresh = R.new_permissions(rest[0], commit)
+            print("permissions it declares (not enforced, it runs as root): %s" % pkg.pkg_perms.describe(new))
+            if fresh:
+                print("NEW permissions compared with the installed version: %s" % ", ".join(fresh))
+                if "--accept-permissions" not in rest:
+                    if not sys.stdin.isatty():
+                        raise Refused("this update asks for new permissions: read them above and run again with --accept-permissions")
+                    if input("Type the package name %s to accept them: " % rest[0]).strip() != rest[0]:
+                        raise Refused("not installed: the new permissions were not accepted")
+            if "--yes" not in rest and not (fresh and sys.stdin.isatty()):
                 if not sys.stdin.isatty():
                     raise Refused("an update changes code that runs as root: read the diff above and run again with --yes")
                 if input("Install %s? [y/N] " % tag).strip().lower() not in ("y", "yes"):
