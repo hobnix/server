@@ -23,6 +23,43 @@ hs health
 hs disk list
 ```
 
+## Let `hs` walk you through it
+When a pool degrades, a pool disk goes missing or SMART rates a disk BAD, the alert (every channel, webhook included) ends with a line that points here. The
+guided workflow reads what the pool, SMART and share commands already know and shows it in one place: what happened, which disk to pull, which shares and
+apps are affected, where you are in the steps and the next safe step. It changes nothing by itself.
+
+```bash
+hs storage incident
+```
+
+In the web interface the same is **Storage > Incident**. Both work for ZFS and SnapRAID pools.
+
+Steps, in order:
+1. **Understand.** Read the report. A member that is not `ONLINE` is named with its model and serial number; a disk that is already gone says there is
+   nothing to pull.
+2. **Pause the apps that write (optional).** Apps that write to an affected share can be frozen until the rebuild is done. This is only suggested, never
+   done on its own. You see the plan and are asked first; **Resume** (or `hs storage incident resume`) lets them continue.
+
+   ```bash
+   hs storage incident pause
+   ```
+3. **Pull the failed disk and plug in the new one.** Check the serial number on the label before you pull anything; never go by `/dev/sdX`. The page
+   notices the new disk once it is at least as large as the old one.
+4. **Replace the disk.** **All data on the new disk is erased.** The command shows the plan and you type the name of the disk that is replaced; for a SnapRAID
+   array the work runs as a background job.
+
+   ```bash
+   hs storage incident replace
+   ```
+5. **Wait for the rebuild.** The ZFS resilver shows its percentage and the time left; a SnapRAID replacement is a job (`hs job follow`). Do not pull or unplug
+   any disk until it is done.
+
+The workflow refuses to replace the healthy half of a mirror whose partner has already failed: until the resilver ends it holds the only copy. A disk
+that only fails SMART while its pool is still `ONLINE` is reported too, so you can replace it before it dies.
+
+Not tested on hardware yet. The logic was tested against recorded command output only (`tests/storage-incident.sh`); no real degraded pool, resilver or
+SnapRAID rebuild was run.
+
 ## A ZFS pool is `DEGRADED`
 A disk of a mirror failed. The pool works and every file is still on the other disk. Find the failed disk (`FAULTED`, `UNAVAIL` or
 `REMOVED`):

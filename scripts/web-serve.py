@@ -747,6 +747,7 @@ READS = {
                           "topic": {"bulk": "pool-members-bulk", "fast": "pool-members-fast"}},
     ("pool", "state"): {"kind": "tsv", "ttl": 10, "query": {"pool": (NAME, "")},
                         "topic": {"bulk": "pool-state-bulk", "fast": "pool-state-fast"}},     # bulk lock, health-check pause, last scrub / parity sync (lock, paused, scrub <pool>, sync bulk)
+    ("incident", "state"): {"kind": "tsv", "ttl": 10},     # the storage incident workflow (scripts/storage-incident.sh --state)
     ("pool", "disks"): {"kind": "tsv", "ttl": 15, "query": {"role": (r"^adopt$", "--role")}},
     ("disk-health", "list"): {"kind": "tsv", "ttl": 30, "topic": "disk-health"},
     ("state", "disks"): {"kind": "tsv", "ttl": 15, "topic": "disk-inventory"},
@@ -984,6 +985,8 @@ CHANGES = {
              # convert: a SnapRAID data disk is emptied and formatted again (--fs, --encrypt); ZFS has nothing to convert, so only bulk
              {"fixed": [r"^bulk$", r"^convert$", r"^--member$", DISKID],
               "opts": {"--fs": (FSTYPE, False), "--encrypt": (None, False), "--discard": (None, False)}, "stdin": True}],
+    # the storage incident workflow: freeze the apps that write to an affected share, thaw them again (storage-incident.sh plan|start)
+    "incident": [[r"^(pause|resume)$"]],
     "disk": [[DISKID, r"^test$", r"^(short|long)$"],
              # wipe: erase a disk that belongs to nothing (disk-change.sh refuses a mounted, pool, array or backup disk); red, the disk name is typed
              [DISKID, r"^wipe$"],

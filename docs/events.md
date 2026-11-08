@@ -65,6 +65,9 @@ The payload is optional extra data for programs. Rules:
 | `disk.removed` | warn | none | a disk was taken out (udev; subject: the kernel name) |
 | `disk.other` | info | none | an old disk-events line with a label that is not known (import only) |
 | `storage.pool-fault` | warn | none | a ZFS pool or one of its devices has a fault (ZED zedlet; subject: the pool; level error when a device is faulted or unavailable) |
+| `storage.incident-replace` | info | none | a guided replace of a failed disk was started from the incident workflow (subject: the pool) |
+| `storage.incident-pause` | info | none | an app was paused because of a storage incident (subject: the instance) |
+| `storage.incident-resume` | info | none | an app paused for a storage incident was resumed (subject: the instance) |
 | `live.collector-failed` | warn | none | a live-state read failed; the last good data stays served as stale (subject: the topic; once per change into error) |
 | `live.collector-recovered` | info | none | a live-state read works again after a failure (subject: the topic) |
 | `audit.ok` | info | `actor`, `exit` | a command that changes the system finished with exit 0 (hs dispatcher; subject: the words typed, never the arguments after them) |

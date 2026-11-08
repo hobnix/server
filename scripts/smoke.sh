@@ -81,6 +81,8 @@ default_probes() {
     $'hs sys jobs records\tsys jobs records\t0' \
     $'hs pool bulk\tpool bulk\t0 1' \
     $'hs sys pool state\tsys pool state\t0' \
+    $'hs storage incident\tstorage incident\t0 1' \
+    $'hs sys incident state\tsys incident state\t0 1' \
     $'hs sys parts pending\tsys parts pending\t0' \
     $'hs sys net nics\tsys net nics\t0' \
     $'hs sys fm locations\tsys fm locations\t0 1' \

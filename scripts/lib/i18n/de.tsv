@@ -2183,3 +2183,53 @@ Unknown option: %s	Unbekannte Option: %s
 needs core API level %s, this server has %s (hs update first)	braucht die Core-API-Stufe %s, dieser Server hat %s (erst hs update)
 needs the capability '%s', which is off	braucht die Fähigkeit '%s', die aus ist
 '%s' cannot be switched off: %s needs it.	'%s' lässt sich nicht ausschalten: %s braucht es.
+usage: hs storage incident                 what is wrong with the storage and what to do next (reads only)	Aufruf: hs storage incident                 was mit dem Speicher los ist und was als Nächstes zu tun ist (nur lesend)
+       hs storage incident pause [--yes] [<instance>...]   freeze the apps that write to an affected share	       hs storage incident pause [--yes] [<Instanz>...]   die Apps einfrieren, die auf eine betroffene Freigabe schreiben
+       hs storage incident replace [--pool <pool>] [--member <name>] [--disk <by-id name>] [--dry-run]	       hs storage incident replace [--pool <Pool>] [--member <Name>] [--disk <by-id-Name>] [--dry-run]
+       hs storage incident resume                          thaw them again	       hs storage incident resume                          sie wieder auftauen
+%s is the only good copy of its mirror right now. Replace the failed disk %s first, not this one.	%s ist gerade die einzige gute Kopie seines Spiegels. Tausche zuerst die defekte Platte %s, nicht diese.
+%s of %s is gone: there is nothing to pull. Plug in its replacement.	%s von %s ist weg: es gibt nichts zu ziehen. Steck den Ersatz ein.
+A replacement is already running in %s. Wait for it to finish.	In %s läuft schon ein Austausch. Warte, bis er fertig ist.
+Affected apps	Betroffene Apps
+Affected shares	Betroffene Freigaben
+Could not pause %s.	%s konnte nicht pausiert werden.
+Could not resume %s.	%s konnte nicht fortgesetzt werden.
+Freeze %s (incus pause). It keeps its memory and carries on after: hs storage incident resume	%s einfrieren (incus pause). Es behält seinen Speicher und läuft danach weiter: hs storage incident resume
+Next you see the plan and type the name of the disk. The copy runs in the background; this page follows it.	Als Nächstes siehst du den Plan und tippst den Namen der Platte. Das Kopieren läuft im Hintergrund.
+No disk to replace was found in %s. Say which: --member <name>	In %s wurde keine Platte zum Tauschen gefunden. Sag welche: --member <Name>
+No disk to replace was found. Say which: --pool <pool> --member <name>	Es wurde keine Platte zum Tauschen gefunden. Sag welche: --pool <Pool> --member <Name>
+No free disk that is large enough was found. Plug the new disk in, then run this again.	Keine freie Platte gefunden, die groß genug ist. Steck die neue Platte ein und starte das noch einmal.
+No new disk showed up. Plug it in, then run this again.	Es ist keine neue Platte aufgetaucht. Steck sie ein und starte das noch einmal.
+No running app writes to an affected share: nothing to pause.	Keine laufende App schreibt auf eine betroffene Freigabe: nichts zu pausieren.
+No storage incident: every pool and every disk looks fine.	Kein Speichervorfall: jeder Pool und jede Platte sieht gut aus.
+Nothing is deleted or changed on any disk.	Auf keiner Platte wird etwas gelöscht oder geändert.
+Nothing was paused by hs storage incident.	hs storage incident hat nichts pausiert.
+Nothing was paused.	Es wurde nichts pausiert.
+Only running apps that write to an affected share can be paused here.	Hier lassen sich nur laufende Apps pausieren, die auf eine betroffene Freigabe schreiben.
+Pause these apps now?	Diese Apps jetzt pausieren?
+Paused by you: %s. Lift it with: hs storage incident resume	Von dir pausiert: %s. Aufheben mit: hs storage incident resume
+Paused: %s	Pausiert: %s
+Pull %s (%s) only after the replacement is planned. Check the serial number on the label, never go by /dev/sdX alone.	Zieh %s (%s) erst, wenn der Austausch geplant ist. Prüfe die Seriennummer auf dem Etikett, verlass dich nie allein auf /dev/sdX.
+Replace	Tauschen
+Replacement running	Austausch läuft
+Steps	Schritte
+Suggestion: pause the apps that write to the pool until the rebuild is done: hs storage incident pause	Vorschlag: die Apps pausieren, die auf den Pool schreiben, bis der Wiederaufbau fertig ist: hs storage incident pause
+The disk to pull	Die Platte zum Ziehen
+The new disk: %s	Die neue Platte: %s
+The paused apps run again.	Die pausierten Apps laufen wieder.
+There is no storage incident: nothing to pause.	Es gibt keinen Speichervorfall: nichts zu pausieren.
+There is no storage incident: nothing to replace.	Es gibt keinen Speichervorfall: nichts zu tauschen.
+Waiting for the new disk (at least as large as the old one). Plug it in now. Ctrl-C stops.	Warte auf die neue Platte (mindestens so groß wie die alte). Steck sie jetzt ein. Strg-C bricht ab.
+What happened	Was passiert ist
+%s (%s): files on the missing disk are not reachable	%s (%s): die Dateien auf der fehlenden Platte sind nicht erreichbar
+%s (%s): readable, but without redundancy right now	%s (%s): lesbar, aber gerade ohne Redundanz
+%s (%s): lives on this pool	%s (%s): liegt auf diesem Pool
+%s (%s): uses share %s	%s (%s): nutzt die Freigabe %s
+, writes to it	, schreibt darauf
+now	jetzt
+optional	optional
+Understand what failed	Verstehen, was ausgefallen ist
+Pause the apps that write to the pool	Die Apps pausieren, die auf den Pool schreiben
+Pull the failed disk and plug in the new one	Die defekte Platte ziehen und die neue einstecken
+Replace the disk (you type its name)	Die Platte tauschen (du tippst ihren Namen)
+Wait for the rebuild, then check the result	Auf den Wiederaufbau warten, dann das Ergebnis prüfen

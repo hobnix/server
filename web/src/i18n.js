@@ -51,6 +51,8 @@ const de = {
   'Nothing is stored for this topic yet.': 'Für dieses Thema ist noch nichts gespeichert.',
   'Shows the first 64 KiB of {n} bytes.': 'Zeigt die ersten 64 KiB von {n} Bytes.',
   'shows the same on the command line.': 'zeigt dasselbe auf der Kommandozeile.',
+  // Storage > Incident (pages/storage/Incident.svelte)
+  Incident: 'Vorfall',
 };
 
 export const tr = (s) => (lang.code === 'de' && typeof s === 'string' ? (de[s] ?? s) : s);
