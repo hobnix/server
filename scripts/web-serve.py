@@ -63,6 +63,7 @@ import urllib.request
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 import web_terminal as wt      # the in-browser terminal (WebSocket, tickets, pty shell)
 import live_state as ls        # live state: the RESP client for Redis (mode redis)
+import first_run as fr         # first-run flag and the one-time console token (docs/adr/0022-first-run-console-token.md)
 from hs_ext import (env, runtime_setting, capabilities, applied_recipes, ext_roots, ext_sys_rows, ext_packages, ext_manifest,  # noqa: F401,E402
                     ext_read, ext_load_web, EXT_NAME, EXT_KINDS, EXT_BLOCKS)
 
@@ -279,6 +280,8 @@ class Config:
         self.ntlm_auth = env("HS_WEB_NTLM_AUTH", "ntlm_auth")
         self.wbinfo = env("HS_WEB_WBINFO", "wbinfo")
         self.chkpwd = env("HS_WEB_CHKPWD", "/run/wrappers/bin/unix_chkpwd")
+        self.chpasswd = env("HS_WEB_CHPASSWD", "chpasswd")           # first setup only: sets the local admin's password (line "user:password" on stdin)
+        self.first_run_file = env("HS_FIRST_RUN_FILE", os.path.join(env("HS_STATE_DIR", "/var/lib/hs"), "first-run.json"))   # "" = no first-run setup
         self.hs = env("HS_WEB_HS", "hs")
         self.idle = int(env("HS_WEB_IDLE_MINUTES", "480")) * 60
         self.max_age = int(env("HS_WEB_MAX_HOURS", "12")) * 3600
@@ -534,6 +537,11 @@ class Auth:
         if not password:
             return False
         rc, _ = _run([self.cfg.chkpwd, user, "nonull"], stdin=password.encode() + b"\0")
+        return rc == 0
+
+    def set_local_password(self, user, password):
+        """First setup only. chpasswd reads "user:password" from stdin (never an argument); True when it accepted."""
+        rc, _ = _run([self.cfg.chpasswd], stdin=("%s:%s\n" % (user, password)).encode())
         return rc == 0
 
 
@@ -2175,6 +2183,7 @@ class App:
         self.sessions, self.throttle, self.facts, self.reads = Sessions(self.cfg), Throttle(), Facts(self.cfg), Reads(self.cfg)
         self.plans = Plans(self.cfg.plan_ttl)
         self.changes_seen = ChangesSeen(self.cfg)
+        self.first_run = fr.FirstRun(self.cfg.first_run_file)
         self.reads.on_clear = self.plans.clear
         self.store = RedisStore(self.cfg, self.reads) if self.cfg.live == "redis" else OffStore(self.reads)
         self.events = Events(self.cfg)       # main() starts the counter watcher always and the Redis subscription in mode redis
@@ -2542,6 +2551,7 @@ def make_handler(app):
                 "locked": locked,
                 "domain": {"available": domain and not locked, "workgroup": cfg.workgroup, "realm": cfg.realm} if domain else None,
                 "local_user": cfg.local_user,
+                "setup": {"open": bool(cfg.first_run_file) and app.first_run.is_open()},      # only whether; never when it expires or what is in the file
             }
 
         def _hello(self):
@@ -2577,7 +2587,7 @@ def make_handler(app):
         def do_POST(self):
             path = urllib.parse.urlsplit(self.path).path
             raw = self._read(FM_SELECTION_BYTES + 8192 if path in ("/api/plan", "/api/start") else 4096)      # a file manager selection can be long
-            if path not in ("/api/login", "/api/logout", "/api/plan", "/api/start", "/api/unlock", "/api/terminal", "/api/changes/seen", "/api/live/refresh"):
+            if path not in ("/api/login", "/api/logout", "/api/plan", "/api/start", "/api/unlock", "/api/terminal", "/api/changes/seen", "/api/live/refresh", "/api/setup"):
                 return self._json(404, {"error": "unknown"})
             if not self._same_origin():
                 return self._json(403, {"error": "origin"})
@@ -2586,6 +2596,8 @@ def make_handler(app):
                 return self._json(400, {"error": "need a JSON body"})
             if path == "/api/unlock":
                 return self._unlock(body)
+            if path == "/api/setup":
+                return self._setup(body)
             if path == "/api/terminal":
                 return self._terminal_ticket(body)
             if path == "/api/changes/seen":
@@ -2780,6 +2792,52 @@ def make_handler(app):
                 app.throttle.ok(*keys)
             print("web unlock: %s from %s: %s" % (s["user"], ip, status), flush=True)   # never the passphrase or the script output
             self._json(200 if status == "ok" else 422 if status == "failed" else 409, {"status": status, "reason": reason})
+
+        def _setup(self, body):
+            """First setup (ADR 0022): the one-time console token + a new password for the local admin. No session needed (there is no account
+            yet); LAN addresses only; the token is checked, the password set and the token consumed under one lock, then the person is signed in."""
+            if not cfg.first_run_file:
+                return self._json(404, {"error": "unknown"})
+            token, password = body.get("token"), body.get("password")
+            if not isinstance(token, str) or not isinstance(password, str):
+                return self._json(400, {"error": "Enter the code from the console and a new password."})
+            ip = self._client()
+            if not private_client(ip):
+                print("web setup refused: not a home network address (%s)" % ip, flush=True)
+                return self._json(403, {"error": "The setup answers only on the home network."})
+            keys = ("setup-ip:" + ip, "setup")
+            wait = app.throttle.wait(*keys)
+            if wait:
+                return self._json(429, {"error": "Too many tries. Wait %d seconds." % wait, "retry_after": wait}, (("Retry-After", str(wait)),))
+            problem = fr.password_problem(password)
+            if problem:
+                return self._json(400, {"error": problem})
+            if not app.first_run.is_open() and app.first_run.status()["state"] == "none":
+                return self._json(404, {"error": "unknown"})
+            result, user = app.first_run.redeem(token, lambda: cfg.local_user if app.auth.set_local_password(cfg.local_user, password) else None)
+            if result == fr.OK:
+                app.throttle.ok(*keys)
+                locked = app.auth.storage_locked()
+                st = app.sessions.create(user, "local", ip)
+                app.warmer.wake.set()
+                s = app.sessions.get(st, locked)
+                print("web setup done: %s from %s" % (user, ip), flush=True)      # never the token or the password
+                return self._json(200, {"user": user, "realm": "local", "csrf": s["csrf"], "features": features(cfg)}, (self._cookie(st, cfg.max_age),))
+            if result in (fr.BAD, fr.BURNED):
+                app.throttle.failed(*keys)
+                time.sleep(cfg.fail_delay)
+                print("web setup refused: wrong code from %s" % ip, flush=True)
+                if result == fr.BURNED:
+                    return self._json(403, {"error": "That code is used up. On the server console run `hs setup-code issue` for a new one."})
+                return self._json(401, {"error": "That code is not right."})
+            if result == fr.EXPIRED:
+                return self._json(403, {"error": "That code has expired. On the server console run `hs setup-code issue` for a new one."})
+            if result == fr.DONE:
+                return self._json(409, {"error": "The setup is already done. Sign in."})
+            if result == fr.FAILED:
+                print("web setup: the password could not be set", flush=True)
+                return self._json(500, {"error": "The password could not be set. See the server log."})
+            return self._json(404, {"error": "unknown"})
 
         def _login(self, body):
             realm, user, password = body.get("realm"), body.get("user"), body.get("password")
