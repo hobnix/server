@@ -961,6 +961,50 @@ export interface SysOperations {
     exit: 0 | 1 | 2;
     lines: ChangeLines;
   };
+  "incident.plan.by_action": {
+    /** what pausing the writing apps (pause) or letting them run again (resume) would do, as data (never asks; exit 1 = refused) */
+    words: ["incident", "plan", "<action>"];
+    path: "/incident/plan/{action}";
+    method: "post";
+    class: "plan";
+    params: { action: string; };
+    stdin: "none";
+    exit: 0 | 1 | 2;
+    lines: ChangeLines;
+  };
+  "incident.start.by_action": {
+    /** do it: hs sys incident start pause|resume (status done) */
+    words: ["incident", "start", "<action>"];
+    path: "/incident/start/{action}";
+    method: "post";
+    class: "start";
+    params: { action: string; };
+    stdin: "none";
+    exit: 0 | 1 | 2;
+    lines: ChangeLines;
+  };
+  "incident.state": {
+    /** the storage incident as lines: incident, member, target, share, app, progress, paused, free, phase, step, next (or one ok line); for the Incident page */
+    words: ["incident", "state"];
+    path: "/incident/state";
+    method: "get";
+    class: "read";
+    params: { };
+    stdin: "none";
+    exit: number;
+    lines: ([tag: "ok", scope: Field, text: Field]
+      | [tag: "incident", id: Field, pool: Field, kind: "pool-degraded" | "member-down" | "disk-failing", severity: "warn" | "error", text: Field]
+      | [tag: "member", pool: Field, name: Field, state: Field, group: Field, disk: Field, why: Field]
+      | [tag: "target", pool: Field, member: Field, dev: Field, disk: Field]
+      | [tag: "share", pool: Field, name: Field, path: Field, impact: "unavailable" | "at-risk"]
+      | [tag: "app", pool: Field, name: Field, state: Field, via: Field, writes: "yes" | "no"]
+      | [tag: "progress", pool: Field, kind: "resilver" | "rebuild", percent: Field, text: Field]
+      | [tag: "paused", paused: "yes" | "no", instances: Field]
+      | [tag: "free", disk: Field, bytes: Field, role: Field]
+      | [tag: "phase", pool: Field, phase: "detect" | "ready" | "running"]
+      | [tag: "step", n: Field, state: "done" | "now" | "todo" | "optional", title: Field]
+      | [tag: "next", command: Field, text: Field])[];
+  };
   "jobs.list": {
     /** timers and services with next and last run */
     words: ["jobs", "list"];

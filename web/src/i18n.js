@@ -65,6 +65,8 @@ const de = {
   'read only': 'nur lesen', 'another server, read only': 'anderer Server, nur lesen',
   'Enter an image such as nginx:alpine or ghcr.io/owner/app:1.2.': 'Ein Image eintragen, zum Beispiel nginx:alpine oder ghcr.io/owner/app:1.2.',
   'The app name is lower case letters, digits, - and _, up to 41 characters.': 'Der App-Name besteht aus Kleinbuchstaben, Ziffern, - und _, bis zu 41 Zeichen.',
+  // Storage > Incident (pages/storage/Incident.svelte)
+  Incident: 'Vorfall',
 };
 
 export const tr = (s) => (lang.code === 'de' && typeof s === 'string' ? (de[s] ?? s) : s);

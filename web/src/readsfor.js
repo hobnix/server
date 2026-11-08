@@ -56,6 +56,7 @@ export function readsFor(path, extPages = [], liveOn = false) {
     case '/storage/encryption': return [`${A}encryption/list`, `${A}status`];
     case '/storage/vault': return [`${A}status`, `${A}vault/list`, `${A}vault/usage`, `${A}vault/uses`];
     case '/storage/pools': return [`${A}pool/info?pool=bulk`, `${A}pool/info?pool=fast`, `${A}monitor/disks`];
+    case '/storage/incident': return [`${A}incident/state`, `${A}pool/disks`];
     case '/storage/disks': case '/storage/unassigned': return DISKS;
     case '/storage/shares': return SHARES;
     case '/storage/files': return [`${A}fm/locations`];
