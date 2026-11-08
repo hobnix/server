@@ -37,6 +37,13 @@ const de = {
   'The last read failed; the data is from the last good read.': 'Das letzte Lesen ist fehlgeschlagen; die Daten stammen vom letzten guten Lesen.',
   'Reading failed; the data is from the last good read.': 'Das Lesen ist fehlgeschlagen; die Daten stammen vom letzten guten Lesen.',
   'The data was not read again in time.': 'Die Daten wurden nicht rechtzeitig neu gelesen.',
+  // Graphical VM console (shell/VmConsole.svelte, ADR 0019)
+  Console: 'Konsole', Reconnect: 'Neu verbinden', Received: 'Empfangen',
+  'Open a new connection to the same console': 'Eine neue Verbindung zur selben Konsole öffnen',
+  'Close this window (the virtual machine keeps running)': 'Dieses Fenster schließen (die virtuelle Maschine läuft weiter)',
+  'The connection to the console works, but the picture cannot be shown yet: the viewer is not bundled with this version. Use the Incus console on the server meanwhile.': 'Die Verbindung zur Konsole funktioniert, aber das Bild kann noch nicht angezeigt werden: der Betrachter ist in dieser Version nicht enthalten. Nutze solange die Incus-Konsole auf dem Server.',
+  'Closed after 30 minutes without input.': 'Nach 30 Minuten ohne Eingabe geschlossen.', 'Closed after the 8 hour limit.': 'Nach dem Limit von 8 Stunden geschlossen.',
+  'Your web session ended.': 'Deine Websitzung ist beendet.', 'The connection dropped.': 'Die Verbindung ist abgebrochen.', 'The console could not be opened.': 'Die Konsole konnte nicht geöffnet werden.',
   // Live state (pages/LiveState.svelte)
   'Live state': 'Live-Zustand', Topic: 'Thema', Source: 'Quelle', TTL: 'Gültigkeit', Age: 'Alter', Gen: 'Gen', Exit: 'Exit-Code', Error: 'Fehler',
   Capability: 'Funktion', Needs: 'Braucht', Refresh: 'Neu lesen', Raw: 'Rohdaten', extension: 'Erweiterung', Stored: 'Gespeichert',

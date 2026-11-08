@@ -7,6 +7,7 @@
   import { openPlan, openCreate, jobRunning, ui } from '../ui.svelte.js';
   import { route } from '../route.svelte.js';
   import Terminal from '../shell/Terminal.svelte';
+  import VmConsole from '../shell/VmConsole.svelte';
   import CreateInstance from '../forms/instances/CreateInstance.svelte';
   import InstanceSettings from '../forms/instances/InstanceSettings.svelte';
   import BindStorage from '../forms/instances/BindStorage.svelte';
@@ -219,6 +220,7 @@
             <Button size="sm" icon="arrow-clockwise" busy={jobRunning('ct', [sel.name, 'restart'])} busyLabel="Restarting…" tooltip={'Stop and start this instance again'} onclick={(e) => plan(e, sel, 'restart')}>Restart</Button>
             <Button size="sm" icon="arrows-clockwise" busy={jobRunning('ct', [sel.name, 'update'])} busyLabel="Updating…" tooltip={'Snapshot the instance, then update the software inside'} onclick={() => openPlan('ct', [sel.name, 'update'], `Update ${sel.name}`)}>Update</Button>
             <Button size="sm" disabled={!ui.features.terminal || !isRunning(sel)} tooltip={!ui.features.terminal ? 'Switch on webTerminal in machine.toml' : isRunning(sel) ? 'A shell inside the instance' : 'The instance is not running'} onclick={() => openCreate(Terminal, { target: sel.name, title: sel.name })}><i class="ph ph-terminal-window"></i>Terminal</Button>
+            {#if isVm(sel)}<Button size="sm" disabled={!ui.features.terminal || !isRunning(sel)} tooltip={!ui.features.terminal ? 'Switch on webTerminal in machine.toml' : isRunning(sel) ? 'The screen of the virtual machine' : 'The instance is not running'} onclick={() => openCreate(VmConsole, { target: sel.name, title: sel.name })}><i class="ph ph-monitor"></i>Console</Button>{/if}
             <Button size="sm" tooltip={'Change memory, CPU, storage and other settings'} onclick={() => openCreate(InstanceSettings, { ct: sel })}><i class="ph ph-sliders"></i>Settings</Button>
             {#if !sel.owner}<Button variant="danger" size="sm" icon="trash" busy={jobRunning('ct', [sel.name, 'delete'])} busyLabel="Deleting…" tooltip={'Delete the instance (the plan asks for its name)'} onclick={() => openPlan('ct', [sel.name, 'delete'], `Delete ${sel.name}`)}>Delete</Button>{/if}
           {/snippet}
