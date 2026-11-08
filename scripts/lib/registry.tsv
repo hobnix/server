@@ -298,6 +298,7 @@ sys	sys node plan <action>	node-change.sh	plan {1} {rest}	what adding, removing 
 sys	sys net nics	net-nics.sh	--list	the physical network cards: name, link (up|down), MAC (- = none), current (yes = the nic of machine.toml; listed first)	-
 sys	sys parts list	parts.sh	--list	the optional parts (capabilities) of this server, one per line: name, on|off, extension|part, nix (yes = needs a rebuild), switch (yes = machine.toml switches it), title	-
 sys	sys parts pending	parts.sh	--pending	the parts the next hs rebuild changes, one per line: name, on (switched on in machine.toml, not built yet) or off (taken out of machine.toml, still running); empty: nothing waits	-
+sys	sys rebuild pending	pending-rebuild.sh	--list	the machine.toml changes that wait for one hs rebuild, one per line: key, the value the running system was built with, the value now (- = not set); empty: nothing waits or no copy was kept yet	-
 sys	sys parts plan <action>	part-change.sh	plan {1} {rest}	what switching a part on or off would do, as data: status, plan lines (never asks; exit 0 ok, 1 refused; off with a NixOS module is red)	-
 sys	sys parts start <action>	part-change.sh	start {1} {rest}	switch a part on or off (hs sys parts start enable|disable <part>): an extension without a module at once, any other part with the next rebuild	-
 sys	sys node start <action>	node-change.sh	start {1} {rest}	add, remove or make the key of a node (hs sys node start add <name> <host> [--kind K] [--port N] | remove <name> | key <name> [--new]); changes nothing on the other server	-
@@ -358,8 +359,8 @@ sys	sys health plan <action>	health-change.sh	plan {1} {rest}	what acknowledging
 sys	sys health start <action>	health-change.sh	start {1} {rest}	do it (hs sys health start ack <id> | unack <id> | resume), answers status done	-
 sys	sys deck	deck-status.sh	-	one JSON document with the numbers for a status display (network and cpu counters, pools, disks, backup, problems, instances)	-
 sys	sys status	overview-status.sh	-	the facts the Overview shows: backup age, encryption, parity sync and scrub, upload cache, disk health, instances, hottest disk, last disk event	-
-sys	sys system plan <action>	system-change.sh	plan {1} {rest}	what updating the parity, a scrub, an update, a rollback or a garbage collection would do, as data: status, plan lines (never asks; exit 2 = something is missing)	-
-sys	sys system start <action>	system-change.sh	start {1} {rest}	do it as a background job (hs sys system start sync | scrub --pool <pool> | update | rollback --confirm rollback | gc --days <N>)	-
+sys	sys system plan <action>	system-change.sh	plan {1} {rest}	what updating the parity, a scrub, an update, a rebuild, a rollback or a garbage collection would do, as data: status, plan lines (never asks; exit 2 = something is missing)	-
+sys	sys system start <action>	system-change.sh	start {1} {rest}	do it as a background job (hs sys system start sync | scrub --pool <pool> | update | rebuild | rollback --confirm rollback | gc --days <N>)	-
 sys	sys system doctor	doctor.sh	-	the doctor's report as plain text (read only)	-
 sys	sys system cleanup	cleanup.sh	-	the cleanup report as plain text (read only, changes nothing)	-
 sys	sys system updates	system-updates.sh	-	how many new commits the checkout is behind its upstream, from refs already fetched (read only, fetches nothing): rows behind, ahead, upstream, fetched	-

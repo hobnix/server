@@ -28,6 +28,7 @@ here=$(dirname "$0")
 . "$here/lib/setting.sh"
 . "$here/lib/capability.sh"
 . "$here/lib/nic.sh"
+. "$here/lib/effect.sh"
 . "$here/lib/config-keys.sh"
 
 refuse() { printf 'status\trefused\nreason\t%s\n' "$1"; exit 1; }
@@ -165,14 +166,6 @@ check_key() {
 }
 
 # xline <kind> <text>: appends one plan line to extra
-# " The last rebuild took about N min." from $HS_STATE_DIR/last-rebuild-seconds (written by rebuild.sh); nothing when it was never measured
-rebuild_took() {
-  local f=${HS_STATE_DIR:-/var/lib/hs}/last-rebuild-seconds sec
-  sec=$(cat "$f" 2>/dev/null) || return 0
-  case $sec in ''|*[!0-9]*) return 0 ;; esac
-  printf ' The last rebuild took about %s min.' "$(( (sec + 59) / 60 ))"
-}
-
 xline() { extra="$extra$1"$'\t'"$2"$'\n'; }
 
 # check_extra <key> <value>: the per-key rules; refuses, or appends plan lines (warn/danger/confirm_name/note) to extra
@@ -272,8 +265,8 @@ if [ "$action" = apply ]; then
     for s in "${steps[@]}"; do printf '%s\n' "$s"; done
     [ -z "$extra" ] || printf '%s' "$extra"
     printf 'command\ths sys config start apply%s\n' "$cmd"
-    if [ "$n_machine" -gt 0 ]; then printf 'note\tThe machine.toml changes take effect with hs rebuild; the old file is kept as machine.toml.before-config.%s\n' "$(rebuild_took)"
-    else printf 'note\tThis setting takes effect at once; no rebuild is needed.\n'; fi
+    if [ "$n_machine" -gt 0 ]; then printf 'note\t%s\nnote\tThe old file is kept as machine.toml.before-config.\n' "$(effect_rebuild)"
+    else printf 'note\t%s\n' "$(effect_now)"; fi
     printf 'long\tno\n'
     exit 0
   fi
@@ -345,7 +338,7 @@ if [ "$store" = settings ]; then
     printf 'command\ths sys config start set %s %s\n' "$key" "$(shq "$value")"
   fi
   [ -z "$extra" ] || printf '%s' "$extra"
-  printf 'note\tThis setting takes effect at once; no rebuild is needed.\n'
+  printf 'note\t%s\n' "$(effect_now)"
   printf 'long\tno\n'
   exit 0
 fi
@@ -377,6 +370,6 @@ else
   printf 'command\ths sys config start set %s %s\n' "$key" "$(shq "$value")"
 fi
 printf 'step\tcheck machine.toml afterwards and put the old file back if the check fails\n'
-printf 'note\tThe change takes effect with hs rebuild; the old file is kept as machine.toml.before-config.%s\n' "$(rebuild_took)"
+printf 'note\t%s\nnote\tThe old file is kept as machine.toml.before-config.\n' "$(effect_rebuild)"
 printf 'long\tno\n'
 exit 0

@@ -36,10 +36,10 @@ export function tokenize(text) {
 const q = (s) => JSON.stringify(String(s));
 // compose reads $ in the file: a literal $ is written $$
 const dd = (s) => s.replace(/\$/g, () => '$$');
-const cq = (s) => dd(q(s));
+export const cq = (s) => dd(q(s));
 const cj = (a) => dd(JSON.stringify(a));
 const plain = (s) => /^[A-Za-z0-9_./-][A-Za-z0-9_./:-]*$/.test(s) && !/^(true|false|yes|no|null|on|off|~)$/i.test(s) && !/^[0-9.]+$/.test(s);
-const scalar = (s) => (plain(s) ? s : cq(s));
+export const scalar = (s) => (plain(s) ? s : cq(s));
 const BOOL = new Set(['d', 'detach', 'rm', 'init', 'privileged', 'i', 'interactive', 't', 'tty', 'it', 'read-only', 'sig-proxy', 'oom-kill-disable', 'q', 'quiet']);
 const IGNORED = new Set(['d', 'detach', 'rm', 'sig-proxy', 'q', 'quiet']);
 const WITH_VALUE = new Set(['name', 'p', 'publish', 'v', 'volume', 'mount', 'e', 'env', 'env-file', 'restart', 'network', 'net', 'u', 'user', 'w', 'workdir',
@@ -74,14 +74,14 @@ function mountOf(spec, notes) {
   return `${hostPath(pwd(src))}:${dst}${on('readonly') || on('ro') ? ':ro' : ''}`;
 }
 
-function envLine(k, v) {
+export function envLine(k, v) {
   if (!/[\s#"'$\\]/.test(v)) return `${k}=${v}`;
   // single quotes keep a $ literal in a .env file; with a ' inside, double quotes and \$
   if (!v.includes("'") && !/[\r\n]/.test(v)) return `${k}='${v}'`;
   return `${k}=${q(v).replace(/\$/g, '\\$')}`;
 }
 
-function nameFrom(image) {
+export function nameFrom(image) {
   const base = image.split('@')[0].split('/').pop().split(':')[0].toLowerCase().replace(/[^a-z0-9_-]+/g, '-').replace(/^[^a-z0-9]+/, '');
   return base.slice(0, 41) || 'app';
 }

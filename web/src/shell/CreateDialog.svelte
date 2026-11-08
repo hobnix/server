@@ -11,7 +11,8 @@
   // comes back: allowed / needs input / refused. Start is enabled only for the plan of the current form. A password or a
   // passphrase is returned by `stdin` (one line): it is sent in the request body for the server to put on the command's standard input, never in `args`.
   import { plan as askPlan, start as doStart } from '../api.js';
-  import { ui, track, showTab } from '../ui.svelte.js';
+  import { ui, track, showTab, openSaved } from '../ui.svelte.js';
+  import { offersRebuild } from './effect.js';
   import PlanSteps from './PlanSteps.svelte';
   import Skeleton from '../ui/Skeleton.svelte';
 
@@ -72,8 +73,10 @@
         onclose();
         ondone(r);
       } else if (r.status === 'done') {
+        const offer = area !== 'system' && offersRebuild(p.steps);
         onclose();
         ondone(r);
+        if (offer) openSaved(title);
       } else {
         startError = r.reason || 'The server did not start it.';
       }
