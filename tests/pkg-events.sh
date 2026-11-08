@@ -66,6 +66,15 @@ check_eq "an installed file replaces the copy" "info" "$(level pkg.sabnzbd.faile
 if python3 "$EN" match pkg.sabnzbd.finished >/dev/null 2>&1; then fail "no fallback to the copy per kind"; else pass "no fallback to the copy per kind"; fi
 rm -f "$WORK/pe/sabnzbd.tsv"
 
+echo "-- hs event kinds"
+KINDS="bash $SCRIPTS/event.sh kinds"
+check "kinds lists a core kind" bash -c "$KINDS | grep -q '^job.ok${tab}info'"
+printf 'pkg.evapp.boom\terror\tname\tBoom\t-\tit broke\t-\t-\t-\t-\n' > "$WORK/pe/evapp.tsv"
+check "kinds lists an installed package kind with its package" bash -c "$KINDS | grep -q '^pkg.evapp.boom${tab}error${tab}name${tab}it broke${tab}evapp\$'"
+check_eq "kinds --package lists only that package" "1" "$($KINDS --package evapp | wc -l | tr -d ' ')"
+if bash $SCRIPTS/event.sh kinds --bogus >/dev/null 2>&1; then fail "kinds rejects a bad flag"; else pass "kinds rejects a bad flag"; fi
+rm -f "$WORK/pe/evapp.tsv"
+
 echo "-- the copy is well formed"
 n=$(cat "$SCRIPTS"/lib/pkg-events/*.tsv | grep -cv '^#\|^$')
 m=$(python3 -I -c '

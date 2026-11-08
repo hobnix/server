@@ -11,6 +11,7 @@ Commands (machine readable output; scripts/state.sh makes the pretty version for
   emit <source>.<kind> <subject> [text] [--level info|warn|error] [--payload JSON]
                              the ONE writer of the event log (root; scripts/lib/event.sh, hs event emit); docs/adr/0005-events.md
   event-list [N] [--source S] [--after ID]  id time source kind subject level text payload (newest last; `-` for an empty field)
+  event-kinds [--package P]  kind level payload keys meaning origin: the core kinds, then the kinds installed packages declare (origin core or the package; hs event kinds)
   audit-list [N]            id time actor result exit command (the audit.* events, newest last; hs audit, hs sys audit)
   disk-events [N]            local time TAB plugged in|taken out TAB text (newest last); the old file disk-events is imported once
   smart <serial|dev>         the stored SMART readings of one disk
@@ -295,6 +296,36 @@ def kind_level(source, kind):
         except Exception:
             pass
     return "info"
+
+
+def cmd_event_kinds(args):
+    """Core kinds (event-kinds.tsv) and the declared kinds of the packages (pkg_events.declarations()); tab separated, `-` = empty."""
+    only = None
+    if args[:1] == ["--package"] and len(args) == 2:
+        only = args[1]
+    elif args:
+        print("usage: event-kinds [--package P]", file=sys.stderr)
+        return 2
+    rows = []
+    if only is None:
+        try:
+            with open(os.path.join(HERE, "lib", "event-kinds.tsv"), encoding="utf-8") as f:
+                for line in f:
+                    p = line.rstrip("\n").split("\t")
+                    if len(p) >= 4 and not line.startswith("#"):
+                        rows.append([p[0], p[1], p[2], p[3], "core"])
+        except OSError:
+            pass
+    import importlib.util
+    spec = importlib.util.spec_from_file_location("pkg_events", os.path.join(HERE, "lib", "pkg_events.py"))
+    mod = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(mod)
+    for name, recs in sorted(mod.declarations().items()):
+        if only is None or only == name:
+            rows += [[r["kind"], r["level"], r["payload"], r["meaning"], name] for r in recs]
+    for r in rows:
+        print("\t".join(x or "-" for x in r))
+    return 0
 
 
 def trim_events(c, t):
@@ -1192,6 +1223,8 @@ def main(argv):
         return cmd_events(args)
     if cmd == "emit":
         return cmd_emit(args)
+    if cmd == "event-kinds":
+        return cmd_event_kinds(args)
     if cmd == "audit-list":
         return cmd_audit_list(args)
     if cmd == "disk-events":
