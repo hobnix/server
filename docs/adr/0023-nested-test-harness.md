@@ -1,4 +1,4 @@
-# 0019: Hobnix-in-Hobnix test harness: nested instances from the ISO
+# 0023: Hobnix-in-Hobnix test harness: nested instances from the ISO
 
 Status: Proposed
 Issue: hobnix/server#262 (part of #199). Builds on #185 (answers file format), #163 / TODO A5 (rebuild rehearsal) and #175 (ISO boot check).

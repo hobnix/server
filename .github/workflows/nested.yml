@@ -1,4 +1,4 @@
-# Hobnix-in-Hobnix (issue #262, docs/adr/0019-nested-test-harness.md): boot the installer ISO in a nested Incus VM, install unattended,
+# Hobnix-in-Hobnix (issue #262, docs/adr/0023-nested-test-harness.md): boot the installer ISO in a nested Incus VM, install unattended,
 # boot the installed system. Manual only (workflow_dispatch): it is NOT part of ci.yml and gates nothing.
 # UNVERIFIED: this job has never run. Expect to fix the Incus setup on the runner on the first attempt.
 # Exit code 3 of the harness means "this runner cannot do nested virtualization": the job then ends green with a notice and the

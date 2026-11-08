@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Logic of the nested test harness (scripts/dev/nested.sh, docs/adr/0019-nested-test-harness.md, issue #262).
+"""Logic of the nested test harness (scripts/dev/nested.sh, docs/adr/0023-nested-test-harness.md, issue #262).
 
 Everything here that does not need virtualization is a plain function so tests/nested-test.py can run it without Incus or KVM:
   preflight   can this machine run nested VMs at all?                     (exit 0 yes, 3 no)

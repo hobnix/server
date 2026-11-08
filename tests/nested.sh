@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # scripts/dev/nested.sh and scripts/dev/nested_lib.py (issue #262): the logic of the nested harness with a fake console and a fake incus.
-# No root, no KVM, no Incus, no ISO. The harness itself (a real nested VM) is UNVERIFIED: see docs/adr/0019-nested-test-harness.md.
+# No root, no KVM, no Incus, no ISO. The harness itself (a real nested VM) is UNVERIFIED: see docs/adr/0023-nested-test-harness.md.
 # shellcheck source=tests/lib.sh
 . "$(dirname "$0")/lib.sh"
 if ! have python3; then skip "python3 missing"; finish; exit 0; fi
