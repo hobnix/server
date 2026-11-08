@@ -5,6 +5,7 @@ import { candidates, unknownKeys } from '../web/src/editor/schema.js';
 import { locate } from '../web/src/editor/yamlpath.js';
 import { mapFindings, pathOf, hasErrors } from '../web/src/editor/findings.js';
 import { convert, tokenize } from '../web/src/editor/dockerrun.js';
+import { generate, problems, volumeEntry, suggestName, emptyDraft, setHandoff, takeHandoff } from '../web/src/editor/wizard.js';
 import { lintCompose, lintEnv, lintVars, userMismatch, varsUsed, hostPort, normalizeEol } from '../web/src/editor/lint.js';
 
 let ok = 0, bad = 0;
@@ -199,6 +200,28 @@ check('dockerrun: the compose output has no secret outside the env text', !conve
   check('user: nothing mapped -> none', userMismatch(o('0:0'), '').length === 0 && userMismatch(null, '1000:100').length === 0);
   const f = lintCompose(o('0:0'), { mapped: '1000:100' }, 'x').filter((x) => x.path.includes('user'));
   check('user: lintCompose gives a warn at services.a.user', f.length === 1 && f[0].level === 'warn' && f[0].path.join('.') === 'services.a.user');
+}
+
+// ── the guided wizard (editor/wizard.js) ──
+{
+  const d = { ...emptyDraft(), name: 'web', image: 'nginx:alpine', ports: [{ host: '8080', container: '80', proto: 'tcp' }, { host: '5353', container: '53', proto: 'udp' }],
+    volumes: [{ kind: 'share', share: 'media', sub: 'tv', cpath: '/data', ro: true }, { kind: 'folder', share: '', sub: '', cpath: '/config', ro: false }],
+    env: [{ key: 'TZ', value: 'Europe/Vienna' }, { key: 'DB_PASSWORD', value: 'a b$c' }] };
+  const g = generate(d);
+  check('wizard: compose is what a person writes', g.compose === 'services:\n  web:\n    image: nginx:alpine\n    ports:\n      - "8080:80"\n      - "5353:53/udp"\n    volumes:\n      - "/shares/media/tv:/data:ro"\n      - "./data/config:/config"\n    env_file: .env\n    restart: unless-stopped\n', g.compose);
+  check('wizard: every variable is in .env, a $ is single-quoted', g.env === "TZ=Europe/Vienna\nDB_PASSWORD='a b$c'\n", g.env);
+  check('wizard: its ports pass the lint of the editor', lintCompose({ services: { web: { image: 'nginx:alpine', ports: ['8080:80', '5353:53/udp'] } } }, { schema, isNew: true, apps: [], ct: [], containers: [], mounts: [] }, 'web').every((f) => f.level !== 'error'));
+  check('wizard: no variable, no env_file; restart no writes no restart', !generate({ ...emptyDraft(), name: 'a', image: 'x', restart: 'no' }).compose.includes('env_file') && !generate({ ...emptyDraft(), name: 'a', image: 'x', restart: 'no' }).compose.includes('restart'));
+  check('wizard: a mounted share uses the path docker sees', volumeEntry({ kind: 'share', share: 'media', sub: '', cpath: '/d' }, [{ share: 'media', path: '/mnt/media', ro: false }]) === '/mnt/media:/d');
+  check('wizard: a remote share is read only', volumeEntry({ kind: 'share', share: 'remote:nas', sub: '', cpath: '/d' }) === '/shares/nas:/d:ro');
+  check('wizard: the image step needs an image and a valid name', problems('image', { image: '', name: 'a' }).length === 1 && problems('image', { image: 'a b', name: 'A' }).length === 2 && problems('image', { image: 'ghcr.io/o/a:1', name: 'a' }).length === 0);
+  check('wizard: ports are 1-65535 and not twice', problems('ports', { ports: [{ host: '0', container: '80' }] }).length === 1 && problems('ports', { ports: [{ host: '80', container: '80', proto: 'tcp' }, { host: '80', container: '81', proto: 'tcp' }] }).length === 1 && problems('ports', { ports: [{ host: '80', container: '80', proto: 'tcp' }, { host: '80', container: '81', proto: 'udp' }] }).length === 0);
+  check('wizard: storage needs a path inside the app and a share', problems('storage', { volumes: [{ kind: 'share', share: '', sub: '', cpath: 'data' }] }).length === 2 && problems('storage', { volumes: [{ kind: 'folder', sub: '../x', cpath: '/d' }] }).length === 1);
+  check('wizard: variable names are checked', problems('env', { env: [{ key: '1A', value: '' }, { key: 'A', value: 'x\ny' }] }).length === 2);
+  check('wizard: name suggested from the image', suggestName('ghcr.io/o/My_App:1') === 'my_app' && suggestName('') === '');
+  check('wizard: a variable value with $ stays out of the compose text', !generate(d).compose.includes('b$c'));
+  setHandoff({ name: 'a', compose: 'c', env: 'e' });
+  check('wizard: the hand-over is taken once', takeHandoff().name === 'a' && takeHandoff() === null);
 }
 
 console.log(`-- ${ok} ok, ${bad} failed`);

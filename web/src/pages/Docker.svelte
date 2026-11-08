@@ -74,7 +74,7 @@
       {#snippet action()}<a class="btn" href={url('/settings/capabilities/docker')}>Open Docker settings</a>{/snippet}
     </EmptyState>
   {:else}
-    <div class="toolbar"><Button size="sm" icon="plus" onclick={() => go('/instances/docker/new')}>New app</Button></div>
+    <div class="toolbar"><Button size="sm" icon="plus" onclick={() => go('/instances/docker/new')}>New app</Button> <Button size="sm" icon="magic-wand" onclick={() => go('/instances/docker/wizard')}>Guided</Button></div>
     <Split open={!!sel}>
       {#snippet list()}
         <div class="card" style="padding:0">

@@ -51,6 +51,20 @@ const de = {
   'Nothing is stored for this topic yet.': 'Für dieses Thema ist noch nichts gespeichert.',
   'Shows the first 64 KiB of {n} bytes.': 'Zeigt die ersten 64 KiB von {n} Bytes.',
   'shows the same on the command line.': 'zeigt dasselbe auf der Kommandozeile.',
+  // Docker wizard (pages/docker/AppWizardPage.svelte, #263)
+  'Open in editor': 'Im Editor öffnen', Guided: 'Geführt', Image: 'Image', Restart: 'Neustart', Remove: 'Entfernen', value: 'Wert', Value: 'Wert', '(empty)': '(leer)',
+  'Which image should run?': 'Welches Image soll laufen?', 'Which ports should the app listen on?': 'Auf welchen Ports soll die App erreichbar sein?',
+  'Which folders should the app keep?': 'Welche Ordner soll die App behalten?', 'Which settings does the app need?': 'Welche Einstellungen braucht die App?', 'Is this what you want?': 'Ist das so gewünscht?',
+  'The image from a registry, with its tag, for example nginx:alpine. The name is the folder of the app in /opt/apps.': 'Das Image aus einer Registry samt Tag, zum Beispiel nginx:alpine. Der Name ist der Ordner der App in /opt/apps.',
+  'The number on the left is the one on this server, the right one is inside the app. Skip this step for an app with no web page or port.': 'Links steht die Nummer auf diesem Server, rechts die in der App. Ohne Webseite oder Port diesen Schritt überspringen.',
+  'A share keeps the files where the backups and the other apps see them. Without one the data lives in a folder next to the compose file.': 'Eine Freigabe hält die Dateien dort, wo Datensicherung und andere Apps sie sehen. Ohne Freigabe liegen die Daten in einem Ordner neben der Compose-Datei.',
+  'Each setting is a NAME and a value, written to the .env text. Passwords stay there, never in the compose file.': 'Jede Einstellung ist ein NAME und ein Wert und steht im .env-Text. Passwörter bleiben dort, nie in der Compose-Datei.',
+  'This is the text the editor opens with. Nothing is saved or started yet: you can still change every line there.': 'Mit diesem Text öffnet der Editor. Noch wird nichts gespeichert oder gestartet: jede Zeile lässt sich dort noch ändern.',
+  'Port on this server': 'Port auf diesem Server', 'Port inside the app': 'Port in der App', 'Add a port': 'Port hinzufügen', 'Add a folder': 'Ordner hinzufügen', 'Add a setting': 'Einstellung hinzufügen',
+  'A share': 'Eine Freigabe', 'A folder of the app': 'Ein Ordner der App', Share: 'Freigabe', 'subfolder (optional)': 'Unterordner (optional)', Subfolder: 'Unterordner', 'Path inside the app': 'Pfad in der App',
+  'read only': 'nur lesen', 'another server, read only': 'anderer Server, nur lesen',
+  'Enter an image such as nginx:alpine or ghcr.io/owner/app:1.2.': 'Ein Image eintragen, zum Beispiel nginx:alpine oder ghcr.io/owner/app:1.2.',
+  'The app name is lower case letters, digits, - and _, up to 41 characters.': 'Der App-Name besteht aus Kleinbuchstaben, Ziffern, - und _, bis zu 41 Zeichen.',
 };
 
 export const tr = (s) => (lang.code === 'de' && typeof s === 'string' ? (de[s] ?? s) : s);
