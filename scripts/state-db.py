@@ -23,7 +23,8 @@ Commands (machine readable output; scripts/state.sh makes the pretty version for
   usage <key> [days]         the readings of the last N days (default 60): time TAB used TAB size, oldest first (scripts/forecast.py reads them)
   read-get <key>             the kept output (nothing and exit 1 when there is none)
   topic-bump <topic|@group|--all>...  count one change up in the table `topics` (docs/adr/0005-events.md rule 5): live_refresh and the collector call it
-  reads                      key TAB age in seconds TAB milliseconds the read took TAB exit code TAB bytes, oldest first
+  read-fail <key> --err TEXT [--ms N] [--rc N]  a run with no output: keeps the old output, records err and ts_err (#324)
+  reads                      key TAB age in seconds (-1 = never read well) TAB milliseconds TAB exit code TAB bytes TAB status TAB gen TAB err TAB err age, oldest first
   baseline-run               the daily SMART check: read every disk through disk-health.sh --readings, compare with the stored reading,
                              update the table baseline (docs/PLAN-disk-health.md)
   baseline                   machine line per disk: serial dev kind level since last_read first_read wwn realloc pending uncorr crc
@@ -86,7 +87,8 @@ CREATE TABLE IF NOT EXISTS samples (
 -- the output of the slow `hs sys ...` reads, written by the collector (scripts/reads-collect.sh) and served by the web interface instead of running the script
 CREATE TABLE IF NOT EXISTS topics (topic TEXT PRIMARY KEY, gen INTEGER NOT NULL DEFAULT 0, time INTEGER NOT NULL DEFAULT 0);
 CREATE TABLE IF NOT EXISTS reads (
-  key TEXT PRIMARY KEY, payload TEXT NOT NULL, updated INTEGER NOT NULL, ms INTEGER, rc INTEGER NOT NULL DEFAULT 0);
+  key TEXT PRIMARY KEY, payload TEXT NOT NULL, updated INTEGER NOT NULL, ms INTEGER, rc INTEGER NOT NULL DEFAULT 0,
+  gen INTEGER NOT NULL DEFAULT 0, err TEXT, ts_err INTEGER, ttl INTEGER);
 -- fill levels for the capacity forecast (scripts/forecast.py, health-check.sh): one reading per hour and key
 CREATE TABLE IF NOT EXISTS usage (
   time INTEGER NOT NULL, key TEXT NOT NULL, used INTEGER NOT NULL, size INTEGER NOT NULL);
@@ -103,6 +105,7 @@ def open_rw():
     c.execute("PRAGMA synchronous=NORMAL")
     c.executescript(SCHEMA)
     migrate_events(c)
+    migrate_reads(c)
     c.execute("PRAGMA user_version=2")
     import_disk_events(c)
     return c
@@ -148,6 +151,27 @@ def import_disk_events(c):
 
 EVENT_COLS = (("source", "TEXT NOT NULL DEFAULT 'storage'"), ("level", "TEXT NOT NULL DEFAULT 'info'"),
               ("payload", "TEXT"), ("v", "INTEGER NOT NULL DEFAULT 1"))
+
+
+READS_COLS = (("gen", "INTEGER NOT NULL DEFAULT 0"), ("err", "TEXT"), ("ts_err", "INTEGER"), ("ttl", "INTEGER"))
+
+
+def migrate_reads(c):
+    """Bring an old `reads` table to the live entry shape (gen, err, ts_err, ttl; docs/PLAN-web-cache.md "Reads table", #324). Same pattern as
+    migrate_events: checked again inside BEGIN IMMEDIATE because two writers may start at once. Old rows keep payload, updated, ms and rc."""
+    def missing():
+        have = {r[1] for r in c.execute("PRAGMA table_info(reads)")}
+        return [(col, decl) for col, decl in READS_COLS if col not in have]
+    if not missing():
+        return
+    c.execute("BEGIN IMMEDIATE")
+    try:
+        for col, decl in missing():
+            c.execute("ALTER TABLE reads ADD COLUMN %s %s" % (col, decl))
+        c.commit()
+    except sqlite3.Error:
+        c.rollback()
+        raise
 
 
 def migrate_events(c):
@@ -981,23 +1005,35 @@ def cmd_usage(args):
     return 0
 
 
-def cmd_read_put(args):
-    """read-put <key> [--ms N] [--rc N]: the payload is standard input. A key is the words of the read ("monitor disks")."""
-    key, ms, rc = "", None, 0
+def _read_args(args, usage):
+    """key, ms, rc, err from the words after read-put / read-fail"""
+    key, ms, rc, err = "", None, 0, None
     i = 0
     while i < len(args):
         if args[i] == "--ms" and i + 1 < len(args):
             ms = int(args[i + 1]); i += 2
         elif args[i] == "--rc" and i + 1 < len(args):
             rc = int(args[i + 1]); i += 2
+        elif args[i] == "--err" and i + 1 < len(args):
+            err = args[i + 1]; i += 2
         elif not key:
             key = args[i]; i += 1
         else:
-            print("usage: read-put <key> [--ms N] [--rc N]", file=sys.stderr)
-            return 1
+            print(usage, file=sys.stderr)
+            return None
     if not re.fullmatch(r"[a-z0-9-]+( [a-z0-9-]+){0,3}", key or ""):
         print("a key is the words of a read, like: monitor disks", file=sys.stderr)
+        return None
+    return key, ms, rc, err
+
+
+def cmd_read_put(args):
+    """read-put <key> [--ms N] [--rc N]: the payload is standard input. A key is the words of the read ("monitor disks").
+    A new payload counts gen up; a successful put clears err and ts_err (the entry shape of the live state, live_state.status_of)."""
+    parsed = _read_args(args, "usage: read-put <key> [--ms N] [--rc N]")
+    if parsed is None:
         return 1
+    key, ms, rc, _ = parsed
     payload = sys.stdin.read()
     if len(payload) > 4_000_000:
         print("the output is too big to keep", file=sys.stderr)
@@ -1005,11 +1041,31 @@ def cmd_read_put(args):
     c = open_rw()
     with c:
         old = c.execute("SELECT payload FROM reads WHERE key = ?", (key,)).fetchone()
-        if old is None or old[0] != payload:
+        changed = old is None or old[0] != payload
+        if changed:
             bump(c, ["reads:" + key])      # the collector read something new: the browser may read it again
-        c.execute("INSERT INTO reads (key, payload, updated, ms, rc) VALUES (?, ?, ?, ?, ?) "
-                  "ON CONFLICT(key) DO UPDATE SET payload = excluded.payload, updated = excluded.updated, ms = excluded.ms, rc = excluded.rc",
-                  (key, payload, now(), ms, rc))
+        c.execute("INSERT INTO reads (key, payload, updated, ms, rc, gen) VALUES (?, ?, ?, ?, ?, 1) "
+                  "ON CONFLICT(key) DO UPDATE SET payload = excluded.payload, updated = excluded.updated, ms = excluded.ms, rc = excluded.rc, "
+                  "gen = reads.gen + ?, err = NULL, ts_err = NULL",
+                  (key, payload, now(), ms, rc, 1 if changed else 0))
+    return 0
+
+
+def cmd_read_fail(args):
+    """read-fail <key> --err TEXT [--ms N] [--rc N]: a run that gave no output. The kept payload and its time stay; err, ts_err, rc and ms record the
+    failure, so status_of says `stale` while the old output is inside its ttl and `error` after. With no row yet an empty one is made (updated 0 =
+    never read well). Does not count gen up and bumps no topic: nothing the browser could read changed."""
+    parsed = _read_args(args, "usage: read-fail <key> --err TEXT [--ms N] [--rc N]")
+    if parsed is None:
+        return 1
+    key, ms, rc, err = parsed
+    text = " ".join(("".join(ch if ch.isprintable() else " " for ch in (err or "no output")))[:200].split()) or "no output"
+    c = open_rw()
+    t = now()
+    with c:
+        c.execute("INSERT INTO reads (key, payload, updated, ms, rc, gen, err, ts_err) VALUES (?, '', 0, ?, ?, 0, ?, ?) "
+                  "ON CONFLICT(key) DO UPDATE SET ms = excluded.ms, rc = excluded.rc, err = excluded.err, ts_err = excluded.ts_err",
+                  (key, ms, rc, text, t))
     return 0
 
 
@@ -1073,15 +1129,45 @@ def cmd_read_get(args):
     return 0
 
 
+def _read_intervals():
+    """key -> seconds from the list the collector works through (HS_COLLECTED_FILE, default scripts/lib/collected-reads.tsv)"""
+    path = os.environ.get("HS_COLLECTED_FILE") or os.path.join(os.path.dirname(os.path.abspath(__file__)), "lib", "collected-reads.tsv")
+    out = {}
+    try:
+        with open(path, encoding="utf-8") as f:
+            for line in f:
+                parts = line.rstrip("\n").split("\t")
+                if parts[0] and not parts[0].startswith("#"):
+                    out[parts[0]] = int(parts[1]) if len(parts) > 1 and parts[1].isdigit() else 30
+    except OSError:
+        pass
+    return out
+
+
 def cmd_reads():
+    """key TAB age TAB ms TAB rc TAB bytes TAB status TAB gen TAB err TAB err-age; since #324 the last four (the entry shape of the live state).
+    age -1 = never read well (no good output yet); status = live_state.status_of of the row (fresh|stale|error|expired); err and err-age `-` when the
+    last run was fine. An old database that is not migrated yet gives the first five columns and `-` for the rest."""
     c = open_ro()
     if c is None:
         return 0
+    import live_state
+    every = _read_intervals()
+    t = now()
     try:
-        for key, updated, ms, rc, size in c.execute("SELECT key, updated, ms, rc, length(payload) FROM reads ORDER BY updated"):
-            print("%s\t%d\t%s\t%d\t%d" % (key, max(0, now() - updated), "-" if ms is None else ms, rc, size))
+        rows = c.execute("SELECT key, updated, ms, rc, length(payload), gen, err, ts_err, ttl FROM reads ORDER BY updated").fetchall()
     except sqlite3.Error:
-        pass
+        try:
+            rows = [r + (0, None, None, None) for r in c.execute("SELECT key, updated, ms, rc, length(payload) FROM reads ORDER BY updated")]
+        except sqlite3.Error:
+            return 0
+    for key, updated, ms, rc, size, gen, err, ts_err, ttl in rows:
+        doc = {"ts": updated, "err": err, "ts_err": ts_err, "ttl": ttl}
+        status = live_state.status_of(doc, every.get(key, 30), t)
+        age = max(0, t - updated) if updated else -1
+        print("%s\t%d\t%s\t%d\t%d\t%s\t%d\t%s\t%s" % (
+            key, age, "-" if ms is None else ms, rc, size, status, gen or 0,
+            err or "-", "-" if not err or ts_err is None else max(0, t - ts_err)))
     return 0
 
 
@@ -1138,6 +1224,8 @@ def main(argv):
         return cmd_read_put(args)
     if cmd == "topic-bump":
         return cmd_topic_bump(args)
+    if cmd == "read-fail":
+        return cmd_read_fail(args)
     if cmd == "read-get":
         return cmd_read_get(args)
     if cmd == "reads":

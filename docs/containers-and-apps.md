@@ -497,6 +497,19 @@ interface has the editor for the same job.
 
 Not tested on hardware yet.
 
+### Create an app with the guided wizard
+
+On the Docker page press **Guided** (or **Guided** on the New app page). The wizard asks one question per screen, in the same frame as the
+other wizards: the image and the app name, the ports, the folders (a share, or a folder next to the compose file), and the settings
+(variables). The last screen shows the `docker-compose.yml` and the `.env` it wrote, as plain text, and **Open in editor** opens the
+usual New app editor on exactly that text. The wizard adds nothing you did not answer: a published port is one line under `ports:`, a
+folder one line under `volumes:`, every variable one line in `.env` that the service reads with `env_file: .env` (a password never
+lands in the compose file). It saves and starts nothing; the editor's Test, Save and Apply do, and its completion for shares and for the variables in `.env` works on
+the handed-over text as on any other. A share that Docker does not see yet is named on the last screen: **Bind share** in the editor shows
+the plan for it. The text is passed to the editor in memory only, never kept in the browser's storage.
+
+Not tested on hardware yet. The text it writes is checked by the tests of the generator (`tests/web-docker-editor.mjs`); the page itself was not run in a browser.
+
 ### Move the apps of an older server into the share apps
 
 Apps made before the share `apps` existed live in `/opt/apps` inside Docker. Move them once:

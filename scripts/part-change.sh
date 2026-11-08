@@ -12,6 +12,7 @@
 set -euo pipefail
 here=$(cd "$(dirname "$0")" && pwd)
 . "$here/lib/machine.sh"
+. "$here/lib/effect.sh"
 ext=${HS_EXT:-$here/ext.sh}
 parts=${HS_PARTS:-$here/parts.sh}
 
@@ -70,13 +71,15 @@ fi
 if [ "$pend" = yes ]; then
   printf 'note	It was not built yet: nothing stops.
 '
+  printf 'note\t%s\n' "$(effect_rebuild)"
 elif [ "$nix" = yes ]; then
-  printf 'warn\t%s brings a NixOS module: the change takes effect with the next hs rebuild.\n' "$name"
+  printf 'warn\t%s brings a NixOS module: the change needs a rebuild.\n' "$name"
+  printf 'note\t%s\n' "$(effect_rebuild)"
   if [ "$action" = disable ]; then
     printf 'danger\tIts services stop at the next rebuild.\nconfirm_name\t%s\n' "$name"
   fi
 else
-  printf 'note\tNo rebuild is needed: the pages and commands of %s appear or go away at once.\n' "$name"
+  printf 'note\t%s The pages and commands of %s appear or go away at once.\n' "$(effect_now)" "$name"
 fi
 if [ "$kind" = extension ]; then printf 'command\ths ext %s %s\n' "$action" "$name"; else printf 'command\tmachine.toml: capabilities %s %s\n' "$action" "$name"; fi
 printf 'long\tno\n'

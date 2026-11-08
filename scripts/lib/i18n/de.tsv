@@ -2233,3 +2233,6 @@ Pause the apps that write to the pool	Die Apps pausieren, die auf den Pool schre
 Pull the failed disk and plug in the new one	Die defekte Platte ziehen und die neue einstecken
 Replace the disk (you type its name)	Die Platte tauschen (du tippst ihren Namen)
 Wait for the rebuild, then check the result	Auf den Wiederaufbau warten, dann das Ergebnis prüfen
+This takes effect with hs rebuild.	Das gilt nach: hs rebuild.
+A rebuild takes several minutes; none has been timed on this server yet.	Ein Rebuild dauert mehrere Minuten; auf diesem Server wurde noch keiner gemessen.
+The last rebuild took about %s min.	Der letzte Rebuild dauerte etwa %s Min.

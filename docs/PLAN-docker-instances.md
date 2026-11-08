@@ -273,3 +273,11 @@ container; scripts/lib/docker_import.py, stdlib only), prints the plan and appli
 (`docker-app-change.sh start <app> app-save --rev new`, which checks again). Levels: `refuse` (docker.sock, privileged, host path
 `/ /etc /proc /sys /boot`) never imports, `risky` needs `--allow-risky` and the typed name, `error` (named volumes, a port without a host
 port) stops. Keys outside the allow-list are listed as "not imported/untested". CLI only by decision: no `hs sys` row, no web route.
+
+## Guided wizard (#263)
+
+`/instances/docker/wizard` (web/src/pages/docker/AppWizardPage.svelte, frame ui/Wizard.svelte): image + name, ports, folders, variables,
+review. All logic is web/src/editor/wizard.js (pure; `generate(draft, mounts)` gives `{ name, compose, env }` in the shape of the
+`docker run` converter: variables only in `.env`, `env_file: .env`; no named volumes, a folder is `./data/<x>`, a share `/shares/<share>/...` or
+the mount path Docker reports). The hand-over is `setHandoff`/`takeHandoff` (memory only, once): AppEditPage reads it when it loads `/instances/docker/new`
+and counts the text as not saved. Completion for shares and `${VAR}` is the editor's own; the wizard has no second implementation. No new `hs sys` row, no backend change.

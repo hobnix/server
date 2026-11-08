@@ -84,6 +84,7 @@ default_probes() {
     $'hs storage incident\tstorage incident\t0 1' \
     $'hs sys incident state\tsys incident state\t0 1' \
     $'hs sys parts pending\tsys parts pending\t0' \
+    $'hs sys rebuild pending\tsys rebuild pending\t0' \
     $'hs sys net nics\tsys net nics\t0' \
     $'hs sys fm locations\tsys fm locations\t0 1' \
     $'hs user list\tuser list\t0' \
