@@ -30,3 +30,4 @@ Issue: hobnix/server#<n>
 | [0008](0008-capabilities-and-packages.md) | Capabilities with a contract; apps and optional parts are signed packages in their own repositories | Proposed |
 | [0009](0009-capability-as-package-kind.md) | A capability is a third package kind; a short list stays in the core | Proposed |
 | [0010](0010-extension-command-protocol.md) | Command extensions speak versioned JSON lines over stdin/stdout, with a timeout and SIGTERM cancel | Proposed |
+| [0012](0012-roles-and-api-tokens.md) | Three roles (viewer, app manager, admin) checked in the web server; API tokens belong to a person | Proposed |
