@@ -118,6 +118,24 @@ string topics. `poll` accepts a topic function; shell scripts call `live_refresh
 Not built: the instances and services pages (they keep their polls and have no topic), the homeserver-deck, retiring the old collector (`reads-collect.sh`, the `reads` table).
 Retirement stays future work until no served read uses `Reads.collected`.
 
+## Reads table: reshape now, retire later (2026-11-08, #324)
+
+**Decision: keep the table for now and bring it to the live entry shape; retire it when `liveState = "redis"` is the default for homeservers.**
+Why: `liveState` is `off` by default (config/schema.toml) and the Redis default is neither decided nor proven on hardware, so every server that has
+not turned it on still serves its 31 slow reads from state.db `reads` (ADR 0002: the table is runtime state, rebuildable, the collector fills it again).
+Dropping it now would make those servers run every read per request again. Reshaping is small and gives the Data page one status for both modes.
+The ADRs (0002 system state vs runtime state, 0005 events) say only that runtime state may be rebuilt and that "changed" must mean "different"; neither
+asks for the table to go before Redis is the default. So: option A now, option B (migration that drops `reads`, removes `reads-collect.sh` and the
+off-mode half of the Data page) in the change that flips the default.
+
+Built: columns `gen` (counts up when the output changed), `err`, `ts_err` and `ttl` (nullable; a migration in `state-db.py migrate_reads`, run when the
+database is opened for writing; old rows keep their values, an unmigrated database is still listed). `updated` is the good-data time (`ts`). A run with no
+output keeps the old output and `updated` and records `err`/`ts_err`/`rc` (`state-db.py read-fail`, called by `reads-collect.sh`); a run with output (also
+with a non-zero exit) still replaces the output, as before. `live_state.status_of` works on a row (`ts` = `updated`, interval = the line of
+`collected-reads.tsv`): fresh, stale (failed, old data inside the ttl), error (failed or never read well) or expired (collector not running).
+`state-db.py reads` and `hs sys reads status` get four more fields at the end (status, gen, err, error age; the first six are unchanged), the Data page
+shows the status column in both modes. Not tested on hardware yet.
+
 ## Refresh base (2026-11-01)
 
 Built, not run on hardware: topic columns `cap` and `groups`, group refresh (`@<group>`, `any`), bounded parallel reads (`HS_LIVE_PARALLEL`),
