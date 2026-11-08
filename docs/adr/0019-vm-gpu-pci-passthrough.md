@@ -1,4 +1,4 @@
-# 0018: VM hardware step: detect first, pass through second, bridge by default
+# 0019: VM hardware step: detect first, pass through second, bridge by default
 
 Status: Proposed
 Issue: hobnix/server#260 (research). Written without a machine that has a second GPU or an enabled IOMMU: every statement about real behaviour

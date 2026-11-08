@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""IOMMU group listing for the VM hardware step (docs/adr/0018-vm-gpu-pci-passthrough.md). Pure parsing of /sys; changes nothing.
+"""IOMMU group listing for the VM hardware step (docs/adr/0019-vm-gpu-pci-passthrough.md). Pure parsing of /sys; changes nothing.
 
   iommu.py groups    prints one tab-separated row per PCI device that sits in an IOMMU group:
                        group<TAB>address<TAB>class<TAB>vendor:device<TAB>driver<TAB>boot  (empty field is "-"; boot is 1 or 0)
