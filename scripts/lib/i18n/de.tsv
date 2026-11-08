@@ -2186,3 +2186,6 @@ needs the capability '%s', which is off	braucht die Fähigkeit '%s', die aus ist
 not declared	nicht angegeben
 Permissions it declares	Erklärte Berechtigungen
 Permissions are what a package says it needs. They are not enforced: every command runs as root, so install only packages you trust.	Berechtigungen sind das, was ein Paket nach eigener Angabe braucht. Sie werden nicht erzwungen: jeder Befehl läuft als root, installiere also nur Pakete, denen du vertraust.
+This takes effect with hs rebuild.	Das gilt nach: hs rebuild.
+A rebuild takes several minutes; none has been timed on this server yet.	Ein Rebuild dauert mehrere Minuten; auf diesem Server wurde noch keiner gemessen.
+The last rebuild took about %s min.	Der letzte Rebuild dauerte etwa %s Min.

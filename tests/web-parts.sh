@@ -36,9 +36,9 @@ check_eq "no empty field" "" "$(L | awk -F'\t' 'NF != 6 { print } { for (i = 1; 
 
 echo "-- plans"
 run plan enable games
-has '^status	ok$' && has 'No rebuild is needed' && has '^command	hs ext enable games$' && ! has '^confirm_name' && pass "an extension: no rebuild, nothing typed" || fail "enable games: $out"
+has '^status	ok$' && has 'no rebuild is needed' && has '^command	hs ext enable games$' && ! has '^confirm_name' && pass "an extension: no rebuild, nothing typed" || fail "enable games: $out"
 run plan disable metrics
-has "^confirm_name${T}metrics\$" && has '^danger' && has 'next hs rebuild' && pass "off with a module is red" || fail "disable metrics: $out"
+has "^confirm_name${T}metrics\$" && has '^danger' && has 'takes effect with hs rebuild' && pass "off with a module is red" || fail "disable metrics: $out"
 run plan enable metrics;      check_eq "on already: refused" 1 "$rc"
 run plan disable games;       check_eq "off already: refused" 1 "$rc"
 run plan enable edge-mail;    check_eq "an edge part is refused" 1 "$rc"

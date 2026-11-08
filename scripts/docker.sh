@@ -37,6 +37,7 @@ here=$(cd "$(dirname "$0")" && pwd)
 . "$here/lib/instance.sh"
 . "$here/lib/capability.sh"
 . "$here/lib/job.sh"
+. "$here/lib/effect.sh"
 . "$here/lib/docker-apps.sh"
 . "$here/lib/sharepath.sh"
 CT=docker
@@ -512,6 +513,7 @@ cmd_enable() {
   MANAGER=$manager
   read -r MEM CPUS < <(size_of "$size")
   plan_enable
+  effect_say now
   if [ "$dry" = 1 ]; then return 0; fi
   if [ "$yes" = 0 ]; then
     interactive || fail "$(t 'This needs a terminal or --yes.')"

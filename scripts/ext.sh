@@ -20,6 +20,7 @@ here=$(cd "$(dirname "$0")" && pwd)
 . "$here/lib/ui.sh"
 . "$here/lib/machine.sh"
 . "$here/lib/registry-load.sh"
+. "$here/lib/effect.sh"
 state=${HS_STATE_DIR:-/var/lib/hs}
 lang=${HS_LANG:-$(setting_get language 2>/dev/null || echo en)}
 
@@ -144,6 +145,7 @@ cmd_enable() {
   if [ -n "$why" ]; then fail_fix "$(t "'%s' %s." "$n" "$why")" "hs ext list"; fi
   mapfile -t cur < <(caps_list)
   for x in ${cur[@]+"${cur[@]}"}; do [ "$x" != "$n" ] || found=1; done
+  if has_nix "$d"; then effect_say rebuild; else effect_say now; fi
   if [ "$found" = 0 ]; then caps_write ${cur[@]+"${cur[@]}"} "$n"; fi
   if has_nix "$d"; then
     ok "$(t "Extension '%s' is in machine.toml." "$n")"
@@ -166,6 +168,7 @@ cmd_disable() {
   if [ -n "$deps" ]; then fail_fix "$(t "'%s' cannot be switched off: %s needs it." "$n" "$deps")" "hs ext disable ${deps%% *}"; fi
   mapfile -t cur < <(caps_list)
   for x in ${cur[@]+"${cur[@]}"}; do [ "$x" = "$n" ] || keep+=("$x"); done
+  if has_nix "$d"; then effect_say rebuild; else effect_say now; fi
   if [ ${#keep[@]} -ne ${#cur[@]} ]; then caps_write ${keep[@]+"${keep[@]}"}; fi
   if has_nix "$d"; then
     ok "$(t "Extension '%s' is out of machine.toml." "$n")"

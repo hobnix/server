@@ -21,6 +21,7 @@
   import { lintCompose, lintEnv, lintVars, envNames, normalizeEol } from '../../editor/lint.js';
   import { mapFindings } from '../../editor/findings.js';
   import { convert } from '../../editor/dockerrun.js';
+  import { takeHandoff } from '../../editor/wizard.js';
 
   const NEW = '/instances/docker/new';
   const PREFIX = '/instances/docker/app/';
@@ -117,15 +118,19 @@
     changedDisk = false;
     revFresh = false;
     try {
+      let handed = false;
       if (isNew) {
         rev = 'new'; managed = 'web'; envTooBig = false;
-        compose = template; env = '';
+        // from the guided wizard: its text, once (in memory only, the .env may hold secrets); else the template
+        const h = takeHandoff();
+        if (h) { name = h.name; handed = true; }
+        compose = h ? h.compose : template; env = h ? h.env : '';
       } else {
         const d = await get(`/api/sys/docker/app/${encodeURIComponent(app)}`);
         rev = d.rev; managed = d.managed; envTooBig = !!d.envTooBig;
         compose = normalizeEol(d.compose); env = normalizeEol(d.envText);
       }
-      saved = { compose, env };
+      saved = handed ? { compose: '', env: '' } : { compose, env };   // handed-over text counts as not saved yet
       if (!isNew) await refresh([`/api/sys/docker/rev/${encodeURIComponent(app)}`]);   // the poll must not compare with the revision from before this load
       revFresh = true;
       if (editors) {
@@ -286,6 +291,7 @@
     <label class="namef">Name
       <input class="input" bind:value={name} placeholder="my-app" autocapitalize="off" autocorrect="off" spellcheck="false" />
     </label>
+    <Button icon="magic-wand" disabled={loading} tooltip="Answer a few questions instead; the text comes back here" onclick={() => go('/instances/docker/wizard')}>Guided</Button>
     <Button icon="terminal-window" disabled={loading || !editors} tooltip="Paste a docker run command and turn it into a compose file" onclick={() => { runOpen = !runOpen; }}>From docker run</Button>
   </div>
   {#if runOpen}
