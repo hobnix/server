@@ -1,6 +1,7 @@
 <script>
   // The ISO library (issue #259): install images for virtual machines. Reads `hs sys iso list`; adding is the create dialog (forms/instances/IsoAdd.svelte,
   // a background job), removing is a plan that asks for the name (hs sys iso plan remove <name>).
+  import { tip } from '../ui/tooltip.svelte.js';
   import PageHeader from '../shell/PageHeader.svelte';
   import PageState from '../shell/PageState.svelte';
   import Table from '../shell/Table.svelte';
@@ -41,9 +42,9 @@
       {#snippet cell(i, col)}
         {#if col.key === 'name'}<span class="nm"><i class="ph ph-disc"></i>{i.name}</span>
         {:else if col.key === 'size'}{bytes(i.size)}
-        {:else if col.key === 'sum'}<span class="mono" title="{i.algo}:{i.hash}">{i.algo}:{i.hash.slice(0, 12)}…</span>
+        {:else if col.key === 'sum'}<span class="mono" use:tip={`${i.algo}:${i.hash}`}>{i.algo}:{i.hash.slice(0, 12)}…</span>
         {:else if col.key === 'checked'}{#if i.checked}<Chip title="The checksum matched the one that was given">verified</Chip>{:else}<Chip tone="warn" title="No checksum was given: compare the one shown with the download page">not checked</Chip>{/if}
-        {:else if col.key === 'source'}<span class="src" title={i.source}>{i.source}</span>
+        {:else if col.key === 'source'}<span class="src" use:tip={i.source}>{i.source}</span>
         {:else if col.key === 'used'}{i.used || '–'}
         {:else}<Button variant="ghost" class="btn-icon iso-rm" icon="trash" aria-label="Remove {i.name}" tooltip={i.used ? `Attached to ${i.used}` : `Remove ${i.name} from the library`} disabled={!!i.used} busy={jobRunning('iso', ['remove', i.name])} onclick={() => openPlan('iso', ['remove', i.name], 'Remove ' + i.name)}></Button>{/if}
       {/snippet}
