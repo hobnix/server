@@ -1110,7 +1110,7 @@ CHANGES = {
     "health": [[r"^(ack|unack)$", r"^[A-Za-z0-9][A-Za-z0-9:._ ()-]{0,100}$"], [r"^resume$"]],
     # switching the update channel (release-change.sh): a newer channel needs its own name as the confirmation
     "release": [[r"^channel$", r"^(stable|beta|edge)$"]],
-    "system": [[r"^(sync|scrub|update|gc|rollback|reboot|shutdown)$"],
+    "system": [[r"^(sync|scrub|update|rebuild|gc|rollback|reboot|shutdown)$"],
                [r"^(sync|scrub)$", r"^--pool$", POOL]],
     # the gateway setup (gateway-setup.sh): all changed keys as --set key=value (may repeat); the typed port comes as --confirm
     "gateway": [{"fixed": [r"^setup$"], "opts": {"--set": (GW_SET, True)}}],

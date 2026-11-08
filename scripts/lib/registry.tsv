@@ -358,8 +358,8 @@ sys	sys health plan <action>	health-change.sh	plan {1} {rest}	what acknowledging
 sys	sys health start <action>	health-change.sh	start {1} {rest}	do it (hs sys health start ack <id> | unack <id> | resume), answers status done	-
 sys	sys deck	deck-status.sh	-	one JSON document with the numbers for a status display (network and cpu counters, pools, disks, backup, problems, instances)	-
 sys	sys status	overview-status.sh	-	the facts the Overview shows: backup age, encryption, parity sync and scrub, upload cache, disk health, instances, hottest disk, last disk event	-
-sys	sys system plan <action>	system-change.sh	plan {1} {rest}	what updating the parity, a scrub, an update, a rollback or a garbage collection would do, as data: status, plan lines (never asks; exit 2 = something is missing)	-
-sys	sys system start <action>	system-change.sh	start {1} {rest}	do it as a background job (hs sys system start sync | scrub --pool <pool> | update | rollback --confirm rollback | gc --days <N>)	-
+sys	sys system plan <action>	system-change.sh	plan {1} {rest}	what updating the parity, a scrub, an update, a rebuild, a rollback or a garbage collection would do, as data: status, plan lines (never asks; exit 2 = something is missing)	-
+sys	sys system start <action>	system-change.sh	start {1} {rest}	do it as a background job (hs sys system start sync | scrub --pool <pool> | update | rebuild | rollback --confirm rollback | gc --days <N>)	-
 sys	sys system doctor	doctor.sh	-	the doctor's report as plain text (read only)	-
 sys	sys system cleanup	cleanup.sh	-	the cleanup report as plain text (read only, changes nothing)	-
 sys	sys system updates	system-updates.sh	-	how many new commits the checkout is behind its upstream, from refs already fetched (read only, fetches nothing): rows behind, ahead, upstream, fetched	-

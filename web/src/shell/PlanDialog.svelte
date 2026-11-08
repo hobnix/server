@@ -2,7 +2,8 @@
   import Button from '../ui/Button.svelte';
   import { onMount } from 'svelte';
   import { plan as askPlan, start as doStart } from '../api.js';
-  import { ui, track, trackDone, showTab } from '../ui.svelte.js';
+  import { ui, track, trackDone, showTab, openPlan } from '../ui.svelte.js';
+  import { offersRebuild, effectOf } from './effect.js';
   import { jobKey } from '../jobkey.js';
   import PlanSteps from './PlanSteps.svelte';
   import Halftone from './Halftone.svelte';
@@ -16,13 +17,16 @@
   let confirm = $state('');
   let busy = $state(false);
   let startError = $state('');
+  let saved = $state(!!dialog.saved);   // a change was written and waits for a rebuild: say so, offer "Rebuild now" (no plan is asked)
 
+  const savedText = $derived(effectOf(p?.steps)?.text ?? 'This takes effect with hs rebuild.');
   const danger = $derived(!!p?.steps.some((s) => s[0] === 'danger'));
   const allowed = $derived(p?.status === 'ok');
   const canStart = $derived(allowed && !busy && (!p.confirm_name || confirm === p.confirm_name));
   const kicker = $derived(p && !allowed ? 'Plan · refused' : danger ? 'Plan · danger' : 'Plan');
 
   onMount(() => {
+    if (saved) return;
     let open = true;       // the answer may be one a button already asked for (prefetchPlan): it is not cancelled with the dialog
     askPlan(dialog.area, dialog.args, undefined, undefined, undefined, dialog.document)
       .then((r) => { if (open) p = r; }, (e) => { if (open) loadError = e.message; });
@@ -43,7 +47,7 @@
       } else if (r.status === 'done') {
         trackDone(dialog.title || p.heading, p.steps ?? []);
         showTab('tasks');
-        close();
+        if (dialog.area !== 'system' && offersRebuild(p.steps)) saved = true; else close();
       } else {
         startError = r.reason || 'The server did not start it.';
       }
@@ -68,10 +72,13 @@
         <span class="grow"></span>
         <Chip kind="strong">{ui.host}</Chip>
       </div>
-      <h3 id="pdt">{p?.heading || dialog.title || 'Plan'}</h3>
+      <h3 id="pdt">{saved ? 'Saved' : p?.heading || dialog.title || 'Plan'}</h3>
     </div>
     <div class="dbody">
-      {#if loadError}
+      {#if saved}
+        <PlanSteps steps={[['note', savedText]]} />
+        <div class="lede">The server runs as before until it is rebuilt.</div>
+      {:else if loadError}
         <div class="refused"><i class="ph ph-warning-circle"></i>{loadError}</div>
       {:else if !p}
         <Skeleton lines={3} />
@@ -86,12 +93,19 @@
       {/if}
       {#if startError}<div class="refused"><i class="ph ph-warning-circle"></i>{startError}</div>{/if}
     </div>
-    {#if allowed && p.confirm_name}
+    {#if !saved && allowed && p.confirm_name}
       <div class="confirm">
         <label for="cf">Type <code>{p.confirm_name}</code> to confirm</label>
         <input id="cf" class="input" bind:value={confirm} placeholder={p.confirm_name} autocomplete="off" spellcheck="false" />
       </div>
     {/if}
+    {#if saved}
+    <div class="dfoot">
+      <span class="note"></span>
+      <Button onclick={close}>Later</Button>
+      <Button variant="primary" onclick={() => { close(); openPlan('system', ['rebuild'], 'Rebuild now'); }}><i class="ph ph-hammer"></i>Rebuild now…</Button>
+    </div>
+    {:else}
     <div class="dfoot">
       <span class="note">{allowed ? 'Nothing has run yet. The result appears under Jobs.' : ''}</span>
       <Button onclick={close}>{allowed ? 'Cancel' : 'Close'}</Button>
@@ -104,6 +118,7 @@
         </Button>
       {/if}
     </div>
+    {/if}
   </div>
 </div>
 

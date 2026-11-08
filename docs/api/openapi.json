@@ -10508,7 +10508,7 @@
   "/system/plan/{action}": {
    "post": {
     "operationId": "system.plan.by_action",
-    "summary": "what updating the parity, a scrub, an update, a rollback or a garbage collection would do, as data: status, plan lines (never asks; exit 2 = something is missing)",
+    "summary": "what updating the parity, a scrub, an update, a rebuild, a rollback or a garbage collection would do, as data: status, plan lines (never asks; exit 2 = something is missing)",
     "x-hs-exit": true,
     "x-hs-sys": {
      "words": [
@@ -10607,7 +10607,7 @@
   "/system/start/{action}": {
    "post": {
     "operationId": "system.start.by_action",
-    "summary": "do it as a background job (hs sys system start sync | scrub --pool <pool> | update | rollback --confirm rollback | gc --days <N>)",
+    "summary": "do it as a background job (hs sys system start sync | scrub --pool <pool> | update | rebuild | rollback --confirm rollback | gc --days <N>)",
     "x-hs-exit": true,
     "x-hs-sys": {
      "words": [

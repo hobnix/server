@@ -2340,7 +2340,7 @@ export interface SysOperations {
     lines: string;
   };
   "system.plan.by_action": {
-    /** what updating the parity, a scrub, an update, a rollback or a garbage collection would do, as data: status, plan lines (never asks; exit 2 = something is missing) */
+    /** what updating the parity, a scrub, an update, a rebuild, a rollback or a garbage collection would do, as data: status, plan lines (never asks; exit 2 = something is missing) */
     words: ["system", "plan", "<action>"];
     path: "/system/plan/{action}";
     method: "post";
@@ -2362,7 +2362,7 @@ export interface SysOperations {
     lines: string;
   };
   "system.start.by_action": {
-    /** do it as a background job (hs sys system start sync | scrub --pool <pool> | update | rollback --confirm rollback | gc --days <N>) */
+    /** do it as a background job (hs sys system start sync | scrub --pool <pool> | update | rebuild | rollback --confirm rollback | gc --days <N>) */
     words: ["system", "start", "<action>"];
     path: "/system/start/{action}";
     method: "post";
