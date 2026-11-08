@@ -34,3 +34,4 @@ Issue: hobnix/server#<n>
 | [0012](0012-roles-and-api-tokens.md) | Three roles (viewer, app manager, admin) checked in the web server; API tokens belong to a person | Proposed |
 | [0013](0013-cluster-state-and-partitions.md) | One owner per object, cached read-only copies, a partition degrades to stale (no consensus) | Proposed |
 | [0014](0014-extension-permissions.md) | Extension permissions: declare and disclose first, confine services next (options; nothing enforced yet) | Proposed |
+| [0017](0017-capabilities-repository-and-channels.md) | hobnix/capabilities: vendored `module.nix` (pure evaluation), overlay on the machine, CI across repositories, wizard step, channels, release flow | Proposed |
