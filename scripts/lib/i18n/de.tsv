@@ -375,7 +375,6 @@ Which share?	Welche Freigabe?
 Which snapshot?	Welcher Schnappschuss?
 Which snapshot? (latest, or an id from: hs backup list)	Welcher Schnappschuss? (latest, oder eine ID aus: hs backup list)
 Which user inside the instance writes there? (esc = none)	Welcher Benutzer in der Instanz schreibt dort? (Esc = keiner)
-usage: hs ct add [--kind empty|docker|vm] [--name <n>] [--ram MB] [--cpu N] [--disk GB] [--ip <address>] [--profile <vlan>] [--yes]	Aufruf: hs ct add [--kind empty|docker|vm] [--name <n>] [--ram MB] [--cpu N] [--disk GB] [--ip <Adresse>] [--profile <vlan>] [--yes]
 usage: hs share <share> restore [<folder or file inside the share>] [--snapshot <id|latest>] [--yes]	Aufruf: hs share <Freigabe> restore [<Ordner oder Datei in der Freigabe>] [--snapshot <ID|latest>] [--yes]
        hs system gc [days] [--yes]   delete generations older than <days> (default 30) and free the space	       hs system gc [Tage] [--yes]   Generationen löschen, die älter als <Tage> sind (Standard 30), und Platz freigeben
 %s: %s self-test started	%s: %s-Selbsttest gestartet
@@ -2183,3 +2182,18 @@ Unknown option: %s	Unbekannte Option: %s
 needs core API level %s, this server has %s (hs update first)	braucht die Core-API-Stufe %s, dieser Server hat %s (erst hs update)
 needs the capability '%s', which is off	braucht die Fähigkeit '%s', die aus ist
 '%s' cannot be switched off: %s needs it.	'%s' lässt sich nicht ausschalten: %s braucht es.
+'%s' is removed from the library.	'%s' ist aus der Bibliothek entfernt.
+Checked	Geprüft
+Checksum	Prüfsumme
+Give the checksum from the download page (--checksum <hex>), or --no-checksum to only see the computed one.	Gib die Prüfsumme von der Download-Seite an (--checksum <hex>), oder --no-checksum, um nur die berechnete zu sehen.
+Missing: %s	Es fehlt: %s
+Not confirmed: nothing was removed.	Nicht bestätigt: es wurde nichts entfernt.
+The library is empty. Add an image: hs iso add <file-or-url> --checksum <sha256>	Die Bibliothek ist leer. Abbild hinzufügen: hs iso add <Datei-oder-URL> --checksum <sha256>
+The image is being added as a background job: %s	Das Abbild wird als Hintergrundjob hinzugefügt: %s
+usage: hs iso [list] | add <file-or-url> [--name <name.iso>] (--checksum <sha256|sha512> | --no-checksum) | remove <name>	Aufruf: hs iso [list] | add <Datei-oder-URL> [--name <Name.iso>] (--checksum <sha256|sha512> | --no-checksum) | remove <Name>
+Used by	Verwendet von
+There is no image called '%s' in the ISO library.	Es gibt kein Abbild namens '%s' in der ISO-Bibliothek.
+An installer image (ISO) is for a virtual machine only.	Ein Installationsabbild (ISO) gibt es nur für eine virtuelle Maschine.
+usage: hs ct add [--kind empty|docker|vm] [--name <n>] [--ram MB] [--cpu N] [--disk GB] [--ip <address>] [--profile <vlan>] [--pool <incus pool>] [--iso <name.iso>] [--yes]	Aufruf: hs ct add [--kind empty|docker|vm] [--name <n>] [--ram MB] [--cpu N] [--disk GB] [--ip <Adresse>] [--profile <vlan>] [--pool <Incus-Pool>] [--iso <Name.iso>] [--yes]
+The image '%s' does not exist.	Das Abbild '%s' gibt es nicht.
+There is no storage pool called '%s'. Known: %s	Es gibt keinen Speicherpool namens '%s'. Bekannt: %s

@@ -19,6 +19,7 @@ import CapsOverview from './settings/CapsOverview.svelte';
 import CapabilitySettings from './settings/CapabilitySettings.svelte';
 import Setup from './pages/Setup.svelte';
 import Expiry from './pages/Expiry.svelte';
+import IsoLibrary from './pages/IsoLibrary.svelte';
 import Extension from './pages/Extension.svelte';
 import Apps from './pages/Apps.svelte';
 import Marketplace from './pages/Marketplace.svelte';
@@ -66,6 +67,7 @@ export const routes = {
   '/protection/backup': Backup,
   '/operations/health': Health,
   '/protection/expiry': Expiry,
+  '/instances/iso': IsoLibrary,
   '/instances/apps': Apps,
   '/marketplace': Marketplace,
   '/instances/services': Services,

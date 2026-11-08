@@ -52,8 +52,8 @@ say otherwise, because a VM reserves them:
 hs ct add --kind vm --name <name>
 ```
 
-More options: `--cpu <n>`, `--disk <GB>`, `--ip <address>` and `--profile <vlan>` to join a network other than the default (the one with
-`default = true` in `machine.toml`). Every new instance starts again after a reboot of the server and has its MAC address pinned.
+More options: `--cpu <n>`, `--disk <GB>`, `--ip <address>`, `--profile <vlan>` to join a network other than the default (the one with
+`default = true` in `machine.toml`) and `--pool <name>` to put the disk on another Incus storage pool (see "Choose where the disk lives" below). Every new instance starts again after a reboot of the server and has its MAC address pinned.
 Check it:
 
 ```bash
@@ -66,6 +66,93 @@ inside:
 ```bash
 hs ct <name> exec ping -c 2 1.1.1.1
 ```
+
+## ISO images for virtual machines
+
+A VM that installs its system itself (Windows, another Linux, a firewall) starts from an installer image, an `.iso` file. The ISO library is
+one folder on the server where these images are kept, checked and listed. Add an image from a file that is already on the server (a share,
+a bulk folder) or from a URL. The checksum from the download page is part of the command, because it is what tells you the file is the one
+the publisher made:
+
+```bash
+hs iso add https://example.org/debian-13-netinst.iso --checksum <sha256-from-the-download-page>
+```
+
+Not tested on hardware yet.
+
+A local file works the same way (an absolute path; it is copied into the library):
+
+```bash
+hs iso add /bulk/data-01/shares/isos/debian-13-netinst.iso --checksum <sha256>
+```
+
+The copy or download runs as a background job (`hs job follow <unit>`). Before the image appears in the list, hobnix checks that it is an
+ISO 9660 image and compares its SHA-256 or SHA-512 (64 or 128 hex characters) with the one you gave. A wrong checksum deletes the file and
+fails the job; the journal shows the expected and the computed checksum. Stopping the job removes the partial file. A plain `http://`
+address works but warns: the download can be changed on the way, so prefer `https://`.
+
+When the publisher gives no checksum, say so explicitly. The job then prints the computed SHA-256 so you can compare it by hand, and the
+image is listed as not checked:
+
+```bash
+hs iso add <file-or-url> --no-checksum
+```
+
+List and remove images:
+
+```bash
+hs iso
+hs iso remove <name.iso>
+```
+
+Removing asks you to type the name, and is refused while a VM has the image attached. In the web interface the same is under Instances >
+ISO images. The folder is the setting `isoDir` (default `/var/lib/hs/iso`); put it on a share or a bulk disk when you keep many images:
+
+```bash
+hs config set isoDir /bulk/data-01/isos
+```
+
+Images already in the old folder are not moved. Do not point `isoDir` at a folder that is unmounted at boot.
+
+### Create in the web interface
+
+Instances > Create is one guided flow for every kind (container, Docker, virtual machine). Its steps are: name and kind, resources (memory,
+CPU, disk), where the disk lives, the install image (virtual machines only), and network and storage. The panel on the right shows the plan
+after every change, with the exact commands, and Start is possible as soon as the plan is allowed. Not tested on hardware yet.
+
+### Choose where the disk lives
+
+Every Incus storage pool can hold the disk of a new instance. The pools and their free space are listed by:
+
+```bash
+hs sys ct pools
+```
+
+The default pool is the fast one (the SSD). A pool on the bulk disks only appears when someone created an Incus pool there; hobnix does not
+create one for you. A disk that does not fit the free space of the pool is refused in the plan. Choose the pool when you create:
+
+```bash
+hs ct add --kind vm --name <name> --disk 100 --pool <pool>
+```
+
+Not tested on hardware yet.
+
+### Install a virtual machine from an ISO image
+
+With an image from the ISO library (above) the VM is created empty and boots from the image, so you can install any system on it:
+
+```bash
+hs ct add --kind vm --name <name> --disk 60 --iso <name.iso>
+```
+
+The image is attached read only as the device `install`. After the installation remove it so the VM boots from its own disk:
+
+```bash
+incus config device remove <name> install
+```
+
+An image that was added without a checksum still works, but the plan warns about it. Some systems need Secure Boot off
+(`incus config set <name> security.secureboot=false`); hobnix does not change that for you. Not tested on hardware yet.
 
 ## Give it a fixed address
 

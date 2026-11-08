@@ -38,6 +38,7 @@
   "siteName": "network",
   "incusUi": "network",
   "incusInternalSubnet": "cap:incus",
+  "isoDir": "cap:incus",
   "sshOverIp": "access",
   "tailscaleRouter": "cap:tailscale",
   "bulkType": "storage",

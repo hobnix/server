@@ -14,7 +14,7 @@ nip=${HS_NET_IP:-$here/net-ip.sh}
 incus=${HS_INCUS:-incus}
 
 usage() {
-  say "usage: hs ct add [--kind empty|docker|vm] [--name <n>] [--ram MB] [--cpu N] [--disk GB] [--ip <address>] [--profile <vlan>] [--yes]"
+  say "usage: hs ct add [--kind empty|docker|vm] [--name <n>] [--ram MB] [--cpu N] [--disk GB] [--ip <address>] [--profile <vlan>] [--pool <incus pool>] [--iso <name.iso>] [--yes]"
   say "       hs ct <ct> edit [--ram MB|none] [--cpu N|none] [--disk GB] [--autostart yes|no] [--docker yes|no] [--yes]"
   say "       hs ct <ct> snapshot [label]            (without a label: a menu)"
   say "       hs ct <ct> storage [--kind fast|shares|sensitive] [--source <share>] [--name <n>] [--path </x>] [--readonly] [--as uid:gid] [--yes]"
@@ -38,11 +38,12 @@ verb=${1:-}; [ $# -eq 0 ] || shift
 case "$verb" in
 # ───────────────────────────────────────────────────────────────────────────── add
 add)
-  kind=""; name=""; ram=""; cpu=""; disk=""; ip=""; profile=""; yes=false
+  kind=""; name=""; ram=""; cpu=""; disk=""; ip=""; profile=""; pool=""; isoname=""; yes=false
   while [ $# -gt 0 ]; do
     case "$1" in
       --kind) kind=$2; shift 2 ;; --name) name=$2; shift 2 ;; --ram) ram=$2; shift 2 ;; --cpu) cpu=$2; shift 2 ;;
       --disk) disk=$2; shift 2 ;; --ip) ip=$2; shift 2 ;; --profile) profile=$2; shift 2 ;; --yes) yes=true; shift ;;
+      --pool) pool=$2; shift 2 ;; --iso) isoname=$2; shift 2 ;;     # disk placement and an installer image of the ISO library (hs iso)
       --docker) kind=docker; shift ;; --vm) kind=vm; shift ;;          # the old manage-ct form
       -*) usage ;;
       *) name=$1; shift ;;                                              # hs ct add <name> ...
@@ -64,6 +65,11 @@ add)
   if [ -z "$cpu" ] && interactive; then cpu=$(ask "CPU cores (empty = no limit):" ""); fi
   if [ -z "$disk" ] && interactive; then disk=$(ask "Disk size in GB (empty = default):" ""); fi
   if [ -z "$ip" ] && interactive; then ip=$(ask "Fixed address (empty = later):" ""); fi
+  if [ -n "$isoname" ]; then
+    [ "$kind" = vm ] || fail "An installer image (ISO) is for a virtual machine only."
+    . "$here/lib/iso.sh"
+    iso_valid_name "$isoname" && [ -f "$(iso_dir)/$isoname" ] || fail_fix "$(t "There is no image called '%s' in the ISO library." "$isoname")" "hs iso"
+  fi
   args=(--create "$name" --ram "$ram")
   [ "$kind" = docker ] && args+=(--docker)
   [ "$kind" = vm ] && args+=(--vm)
@@ -71,6 +77,8 @@ add)
   [ -z "$disk" ] || args+=(--disk "$disk")
   [ -z "$ip" ] || args+=(--ip "$ip")
   [ -z "$profile" ] || args+=(--profile "$profile")
+  [ -z "$pool" ] || args+=(--pool "$pool")
+  [ -z "$isoname" ] || args+=(--iso "$(iso_dir)/$isoname")
   run_plan "$yes" bash "$mct" "${args[@]}"
   note "$(t 'Next time without questions: hs ct add --kind %s --name %s --ram %s' "$kind" "$name" "$ram")" ;;
 

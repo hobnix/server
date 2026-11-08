@@ -1,0 +1,5 @@
+date  = "2026-11-08"
+type  = "feature"
+title = "ISO library: add install images from a file or URL, checked against a checksum"
+docs  = "containers-and-apps#iso-images-for-virtual-machines"
+body  = """`hs iso add <file-or-url> --checksum <sha256|sha512>` copies or downloads an image as a background job and verifies it before it shows up; a wrong checksum deletes it. Without a checksum the computed one is shown. Also under Instances > ISO images in the web interface. The folder is the setting isoDir."""

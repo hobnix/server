@@ -279,6 +279,17 @@ export interface SysOperations {
     exit: 0 | 1 | 2;
     lines: ChangeLines;
   };
+  "ct.pools": {
+    /** the Incus storage pools to put a disk on: name, driver, kind (fast|bulk|other), free bytes, total bytes, source (- when unknown) */
+    words: ["ct", "pools"];
+    path: "/ct/pools";
+    method: "get";
+    class: "read";
+    params: { };
+    stdin: "none";
+    exit: number;
+    lines: string[][];
+  };
   "ct.profiles": {
     /** network profiles an instance can be created on: name, network, description */
     words: ["ct", "profiles"];
@@ -954,6 +965,50 @@ export interface SysOperations {
     /** do it (hs sys health start ack <id> | unack <id> | resume), answers status done */
     words: ["health", "start", "<action>"];
     path: "/health/start/{action}";
+    method: "post";
+    class: "start";
+    params: { action: string; };
+    stdin: "none";
+    exit: 0 | 1 | 2;
+    lines: ChangeLines;
+  };
+  "iso.dir": {
+    /** the folder of the library (setting isoDir) */
+    words: ["iso", "dir"];
+    path: "/iso/dir";
+    method: "get";
+    class: "read";
+    params: { };
+    stdin: "none";
+    exit: number;
+    lines: string;
+  };
+  "iso.list": {
+    /** images as name, bytes, algo, checksum, checked (yes|no), source, added, used by (instances or -) */
+    words: ["iso", "list"];
+    path: "/iso/list";
+    method: "get";
+    class: "read";
+    params: { };
+    stdin: "none";
+    exit: number;
+    lines: string[][];
+  };
+  "iso.plan.by_action": {
+    /** what adding or removing an image would do, as data: status, plan lines (never asks; exit 2 = the checksum is missing) */
+    words: ["iso", "plan", "<action>"];
+    path: "/iso/plan/{action}";
+    method: "post";
+    class: "plan";
+    params: { action: string; };
+    stdin: "none";
+    exit: 0 | 1 | 2;
+    lines: ChangeLines;
+  };
+  "iso.start.by_action": {
+    /** do it (hs sys iso start add <file-or-url> (--checksum <hex> | --no-checksum) [--name <n>] | remove <name> --confirm <n>); add answers status started and the unit, remove status done */
+    words: ["iso", "start", "<action>"];
+    path: "/iso/start/{action}";
     method: "post";
     class: "start";
     params: { action: string; };
