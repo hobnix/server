@@ -9,6 +9,7 @@
   pkg.py record <name> [--applied]                         remember the tree's version as installed (installed.toml); --applied: a run applied it
   pkg.py applied                                           name, version the last successful run applied
   pkg.py api                                               the API level of the core helpers
+  pkg.py perms-check <folder> [name]                       exit 1 and the reasons when the declared permissions do not cover what the package uses (hs ext enable refuses it)
   pkg.py perms <name>                                      the permissions the package declares, one per line; "-" when it declares none (ADR 0014: declared, not enforced)
   pkg.py new <name> --template recipe|extension [--dir <path>]  start a package in a checkout of a package repository (pkg_new.py)
 
@@ -400,6 +401,14 @@ def main(argv):
             return 1
         for x in pkg_perms.of(found[0]) or ["-"]:
             print(x)
+    elif cmd == "perms-check":      # perms-check <folder> [name]: what the declared permissions do not cover (exit 1), used by hs ext enable (ADR 0014)
+        if not rest:
+            print("usage: pkg.py perms-check <folder> [name]", file=sys.stderr)
+            return 2
+        p = pkg_perms.folder_problems(rest[1] if len(rest) > 1 else os.path.basename(os.path.abspath(rest[0])), rest[0])
+        for t in p:
+            print(t)
+        return 1 if p else 0
     elif cmd == "repo-check":
         p = repo_check(rest[0] if rest else ".")
         for t in p:

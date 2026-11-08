@@ -90,6 +90,33 @@ def manifest_problems(name, m, web=None):
     return out
 
 
+def folder_problems(name, folder):
+    """ENFORCEMENT (ADR 0014 step 1b): [text] when the package in `folder` declares `permissions` that do not cover what its manifests use.
+    The loaders call this at run time (web reads/changes/pages and the live collector skip such a package) and `hs ext enable` refuses it, so a
+    manifest edited after install, or a package that skipped the install check, cannot use more than it declared. A package without
+    `permissions` is not checked (existing packages). Nothing here confines a command: it still runs as root."""
+    import os
+    import tomllib
+    try:
+        with open(os.path.join(folder, "package.toml"), "rb") as f:
+            m = tomllib.load(f)
+    except OSError:
+        return []
+    except tomllib.TOMLDecodeError as e:
+        return ["package.toml is not valid TOML (%s)" % e]
+    if "permissions" not in m:
+        return []
+    web = {}
+    try:
+        with open(os.path.join(folder, "capability.toml"), "rb") as f:
+            web = tomllib.load(f)
+    except OSError:
+        pass
+    except tomllib.TOMLDecodeError as e:
+        return ["capability.toml is not valid TOML (%s)" % e]
+    return manifest_problems(name, m, web)
+
+
 def _glob(g, k):
     return re.match("^" + re.escape(g).replace(r"\*", ".*") + "$", k) is not None
 

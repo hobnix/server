@@ -122,6 +122,14 @@ def ext_packages():
     return out
 
 
+def _perms_module():
+    import importlib.util
+    spec = importlib.util.spec_from_file_location("pkg_perms", os.path.join(os.path.dirname(os.path.abspath(__file__)), "lib", "pkg_perms.py"))
+    mod = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(mod)
+    return mod
+
+
 def ext_manifest(d):
     """the parsed capability.toml of a package folder (a recipe package: package.toml); OSError / TOMLDecodeError when it is missing or wrong"""
     import tomllib
@@ -238,8 +246,12 @@ def ext_declarations(log=None):
     The one rule for the web interface (ext_load_web) and the live-state collector (ext_live_rows), so they always agree on what is registered."""
     import tomllib
     out, taken, caps, core = [], set(), capabilities(), core_topics()
+    perms = _perms_module()
     for name, d in ext_packages():
         try:
+            bad = perms.folder_problems(name, d)      # ADR 0014: a package may not use more than its `permissions` cover
+            if bad:
+                raise ValueError("permissions: " + "; ".join(bad))
             web = ext_manifest(d).get("web", {})
             if not web:
                 continue        # a capability without a [web] declaration (most of them) has nothing to register and no commands.tsv
