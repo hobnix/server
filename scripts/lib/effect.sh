@@ -25,7 +25,7 @@ effect_rebuild() { printf 'This takes effect with hs rebuild.%s' "$(rebuild_took
 effect_say() {
   local sec f=${HS_STATE_DIR:-/var/lib/hs}/last-rebuild-seconds
   case "$1" in
-    now) note "$(t 'This takes effect at once; no rebuild is needed.')" ;;
+    now) note "$(t 'It takes effect at once; no rebuild is needed.')" ;;
     rebuild)
       note "$(t 'This takes effect with hs rebuild.')"
       sec=$(cat "$f" 2>/dev/null) || sec=""
