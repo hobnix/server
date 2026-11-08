@@ -54,7 +54,7 @@ check_eq "health-check.sh refreshes the health topics" "yes" "$(hook health-chec
 check_eq "update.sh refreshes system-updates after the pull" "yes" "$(hook update.sh 'system-updates')"
 check_eq "update-preview.sh refreshes system-updates after the fetch" "yes" "$(hook update-preview.sh 'system-updates')"
 check_eq "pkg.sh refreshes the package topics after a fetch" "yes" "$(hook pkg.sh 'pkg-market pkg-repos recipes-list recipes-versions parts-list')"
-check_eq "...and after install, remove, update and repo add|remove (pkg_changed)" "4" "$(grep -cE 'pkg_changed(;|$)' "$SCRIPTS/pkg.sh")"
+check_eq "...and after install, remove, update and repo add|remove (pkg_changed)" "5" "$(grep -cE 'pkg_changed(;|$)' "$SCRIPTS/pkg.sh")"
 mkdir -p "$WORK/pkgstate"
 : > "$WORK/live.log"
 HS_STATE_DIR=$(wp "$WORK/pkgstate") bash "$SCRIPTS/pkg.sh" repo remove nope >/dev/null 2>&1

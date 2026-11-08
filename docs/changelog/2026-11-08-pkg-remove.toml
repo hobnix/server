@@ -1,0 +1,4 @@
+date  = "2026-11-08"
+type  = "feature"
+title = "Remove an installed package safely"
+body  = """`hs pkg remove <name>` refuses while the package is switched on or another package that is on needs it, shows what goes and what stays (containers and data are never deleted), and asks you to type the name. `--dry-run` only shows the plan. `hs pkg install` and `hs pkg update` also refuse a package whose own manifest needs a newer core than this server has."""
