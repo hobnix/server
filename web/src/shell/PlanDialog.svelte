@@ -77,7 +77,7 @@
     <div class="dbody">
       {#if saved}
         <PlanSteps steps={[['note', savedText]]} />
-        <div class="lede">The server runs as before until it is rebuilt.</div>
+        <div class="lede">The server runs as before until it is rebuilt. Later changes queue up with this one: a banner on every page lists them, and one rebuild applies them all.</div>
       {:else if loadError}
         <div class="refused"><i class="ph ph-warning-circle"></i>{loadError}</div>
       {:else if !p}

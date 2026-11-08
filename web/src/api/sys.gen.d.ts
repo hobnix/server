@@ -1630,6 +1630,17 @@ export interface SysOperations {
     exit: number;
     lines: string[][];
   };
+  "rebuild.pending": {
+    /** the machine.toml changes that wait for one hs rebuild, one per line: key, the value the running system was built with, the value now (- = not set); empty: nothing waits or no copy was kept yet */
+    words: ["rebuild", "pending"];
+    path: "/rebuild/pending";
+    method: "get";
+    class: "read";
+    params: { };
+    stdin: "none";
+    exit: number;
+    lines: string[][];
+  };
   "recipes.asks.by_recipe": {
     /** the questions a recipe wants answered before it runs, as data: key, label, kind (text|secret|choice:a,b), default, pattern, when (- when empty); the last row is input and form|terminal|none */
     words: ["recipes", "asks", "<recipe>"];
