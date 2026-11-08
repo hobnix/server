@@ -1,0 +1,15 @@
+import { readFileSync } from 'node:fs';
+import { pendingItems, describe, headline } from '../web/src/shell/pending.js';
+let bad = 0;
+const check = (n, c) => { if (c) console.log(`  ok    ${n}`); else { bad++; console.log(`  FAIL  ${n}`); } };
+const items = pendingItems([['syncEveryHours', '12', '6'], ['gpu', '"nvidia"', '-'], ['smbAllow', '-', '["a"]'], []]);
+check('an empty row is dropped', items.length === 3);
+check('changed value', describe(items[0]) === 'syncEveryHours: 12 → 6');
+check('removed option', describe(items[1]).includes('taken out'));
+check('new option', describe(items[2]).includes('set to'));
+check('headline, one and many', headline(1) === '1 change waits for a rebuild' && headline(3) === '3 changes wait for one rebuild');
+check('no rows, no items', pendingItems(undefined).length === 0);
+const read = (p) => readFileSync(new URL(`../web/src/${p}`, import.meta.url), 'utf8');
+check('the banner is in the frame of every page of this node', read('shell/PageFrame.svelte').includes('<PendingRebuild'));
+check('the banner offers one Rebuild now for all of them', read('shell/PendingRebuild.svelte').includes("openPlan('system', ['rebuild']"));
+process.exit(bad ? 1 : 0);
