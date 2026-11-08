@@ -38,7 +38,7 @@ check_eq "a second put replaces the first" "second" "$($S read-get "monitor disk
 check_eq "reads lists key, age, ms, rc, bytes, status, gen, err, err age" "monitor disks${T}0${T}90${T}0${T}7${T}fresh${T}2${T}-${T}-" "$($S reads | sed 's/\t[0-9]*\t90/\t0\t90/')"
 printf 'second\n' | $S read-put "monitor disks" --ms 90
 check_eq "the same output again does not count gen up" "2" "$($S reads | awk -F'\t' '{ print $7 }')"
-$S read-fail "monitor disks" --ms 5 --rc 3 --err "exit 3, no output"
+HS_NOW=$(( $(date +%s) + 5 )) $S read-fail "monitor disks" --ms 5 --rc 3 --err "exit 3, no output"
 check_eq "a failed run keeps the old output" "second" "$($S read-get "monitor disks")"
 check_eq "...records the error, the exit code and keeps gen" "stale${T}2${T}exit 3, no output${T}3" "$($S reads | awk -F'\t' '{ print $6 "\t" $7 "\t" $8 "\t" $4 }')"
 printf 'third\n' | $S read-put "monitor disks" --ms 90
