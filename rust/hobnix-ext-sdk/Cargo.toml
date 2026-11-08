@@ -1,0 +1,11 @@
+[package]
+name = "hobnix-ext-sdk"
+description = "Rust SDK for Hobnix extensions: the extension side of the command protocol (ADR 0010) and the service protocol (ADR 0011)"
+version.workspace = true
+edition.workspace = true
+publish.workspace = true
+license.workspace = true
+
+[dependencies]
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"

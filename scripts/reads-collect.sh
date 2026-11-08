@@ -9,7 +9,8 @@
 # the scripts itself again (what it always did). The timer hs-reads-collect starts this every 15 s while webUi is on; the storage locked: nothing runs.
 #   --all    ignore the intervals and read everything now
 #   --list   only print what would be read (key, interval, age of the kept output)
-#   --status the same with what the web interface shows on its Data page: key, interval, age (-1 = never kept), milliseconds, exit code, bytes
+#   --status the same with what the web interface shows on its Data page: key, interval, age (-1 = never kept), milliseconds, exit code, bytes,
+#            and since #324 the entry shape of the live state: status (fresh|stale|error|expired), gen, err (- = none), error age in seconds
 # In Redis mode (the socket of the live state exists) a read that has a topic in scripts/lib/live-topics.tsv is skipped: hs-live keeps it.
 # Test knobs: HS_LIVE_SOCKET, HS_LIVE_TOPICS, HS_COLLECTED_FILE (the list), HS_BIN (stand-in for the hs dispatcher), HS_STATE_SH (stand-in for state.sh), HS_LOCKED_MARKER, HS_NOW.
 set -euo pipefail
@@ -25,8 +26,10 @@ done
 [ -f "$list" ] || exit 0
 if ! $only_list && [ -e "${HS_LOCKED_MARKER:-/run/hs/storage-locked}" ]; then exit 0; fi   # the reads need the storage; the old output stays
 
-declare -A age=() took=() code=() size=()
-while IFS=$'\t' read -r k a ms rc bytes _; do [ -z "$k" ] || { age[$k]=$a; took[$k]=${ms:--}; code[$k]=${rc:--}; size[$k]=${bytes:--}; }; done < <(bash "$state" reads 2>/dev/null || true)
+declare -A age=() took=() code=() size=() stat=() gens=() errs=() errage=()
+while IFS=$'\t' read -r k a ms rc bytes st gn er ea _; do
+  [ -z "$k" ] || { age[$k]=$a; took[$k]=${ms:--}; code[$k]=${rc:--}; size[$k]=${bytes:--}; stat[$k]=${st:--}; gens[$k]=${gn:--}; errs[$k]=${er:--}; errage[$k]=${ea:--}; }
+done < <(bash "$state" reads 2>/dev/null || true)
 
 # Redis mode (the live socket exists): a read that has a live-state topic is kept by hs-live, not here
 declare -A live=()
@@ -41,7 +44,7 @@ while IFS=$'\t' read -r key every _; do
   [[ -n "$key" && "$key" != \#* ]] || continue
   [[ "$every" =~ ^[0-9]+$ ]] || every=30
   have=${age[$key]:--1}
-  if $status; then printf '%s\t%s\t%s\t%s\t%s\t%s\n' "$key" "$every" "$have" "${took[$key]:--}" "${code[$key]:--}" "${size[$key]:--}"; continue; fi
+  if $status; then printf '%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\n' "$key" "$every" "$have" "${took[$key]:--}" "${code[$key]:--}" "${size[$key]:--}" "${stat[$key]:-error}" "${gens[$key]:-0}" "${errs[$key]:--}" "${errage[$key]:--}"; continue; fi
   if $only_list; then printf '%s\t%s\t%s\n' "$key" "$every" "$have"; continue; fi
   if [ -n "${live[$key]:-}" ]; then continue; fi
   if ! $all && [ "$have" -ge 0 ] && [ "$have" -lt "$every" ]; then continue; fi
@@ -49,7 +52,11 @@ while IFS=$'\t' read -r key every _; do
   # shellcheck disable=SC2086
   out=$(HS_CALLER=ui timeout 90 bash "$hsbin" sys $key 2>/dev/null </dev/null) || rc=$?
   t1=$(now_ms)
-  # a failed read with no output keeps the older output (and says nothing): the web interface falls back to running it
-  if [ "$rc" -ne 0 ] && [ -z "$out" ]; then continue; fi
+  # a failed read with no output keeps the older output and records the failure (err, ts_err: state-db.py read-fail, status stale or error);
+  # the web interface then falls back to running the read itself
+  if [ "$rc" -ne 0 ] && [ -z "$out" ]; then
+    bash "$state" read-fail "$key" --ms $((t1 - t0)) --rc "$rc" --err "exit $rc, no output" || true
+    continue
+  fi
   printf '%s' "$out" | bash "$state" read-put "$key" --ms $((t1 - t0)) --rc "$rc" || true
 done < "$list"

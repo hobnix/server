@@ -1,13 +1,15 @@
 #!/usr/bin/env bash
 # help: do something to the whole server without asking anything: what would happen (plan), then do it as a background job (start)
 # help.de: etwas mit dem ganzen Server tun, ohne etwas zu fragen: was passieren würde (plan), dann als Hintergrundjob ausführen (start)
-# args: plan|start <sync|scrub|update|rollback|gc|reboot|shutdown> [--pool <pool>] [--days <N>] [--confirm <word>]
+# args: plan|start <sync|scrub|update|rebuild|rollback|gc|reboot|shutdown> [--pool <pool>] [--days <N>] [--confirm <word>]
 # System command (hs sys system plan|start): for the interface, timers and tests. It never asks and prints plain key<TAB>value lines like
 # pool-change.sh and ct-change.sh.
 #   sync                 SnapRAID layout: update the parity now (bulk-sync.sh); on ZFS there is nothing to sync
 #   scrub --pool <pool>  SnapRAID bulk: check part of the data against the parity (bulk-sync.sh --scrub); a ZFS pool: zpool scrub <pool>
 #   update               pull the configuration from Git and rebuild (update.sh); the plan is the preview (update-preview.sh --no-build): the new
 #                        commits, the diffstat, new machine.toml options, a checkout that would stop the update; refused while the storage is locked
+#   rebuild              apply the configuration in /etc/nixos without pulling (rebuild.sh): what "takes effect with hs rebuild" means; the plan names the
+#                        last measured duration; refused while the storage is locked
 #   rollback             switch back to the previous generation (nixos-rebuild switch --rollback); RED: the word `rollback` is typed
 #   gc [--days <N>]      delete the generations older than N days (default 30) and free the space (system.sh gc N --yes)
 #   reboot | shutdown    power.sh reboot|shutdown --yes, started 5 seconds later by a systemd timer so the answer still reaches the caller; RED: the word
@@ -23,6 +25,8 @@ set -euo pipefail
 here=$(dirname "$0")
 bulk_sync=${HS_BULK_SYNC:-$here/bulk-sync.sh}
 update=${HS_UPDATE:-$here/update.sh}
+rebuild=${HS_REBUILD:-$here/rebuild.sh}
+. "$here/lib/effect.sh"
 preview=${HS_UPDATE_PREVIEW:-$here/update-preview.sh}
 system=${HS_SYSTEM:-$here/system.sh}
 power=${HS_POWER:-$here/power.sh}
@@ -34,8 +38,8 @@ bulk_type=$(cat "${HS_BULK_TYPE_FILE:-/etc/hs/bulk-type}" 2>/dev/null || echo zf
 refuse() { printf 'status\trefused\nreason\t%s\n' "$1"; exit 1; }
 
 verb=${1:-}; action=${2:-}
-case "$verb" in plan|start) ;; *) echo "usage: system-change.sh plan|start <sync|scrub|update|rollback|gc|reboot|shutdown> [options]" >&2; exit 1 ;; esac
-case "$action" in sync|scrub|update|rollback|gc|reboot|shutdown) ;; *) refuse "unknown action (sync, scrub, update, rollback, gc, reboot or shutdown)" ;; esac
+case "$verb" in plan|start) ;; *) echo "usage: system-change.sh plan|start <sync|scrub|update|rebuild|rollback|gc|reboot|shutdown> [options]" >&2; exit 1 ;; esac
+case "$action" in sync|scrub|update|rebuild|rollback|gc|reboot|shutdown) ;; *) refuse "unknown action (sync, scrub, update, rebuild, rollback, gc, reboot or shutdown)" ;; esac
 shift 2
 pool="" days=30
 while [ $# -gt 0 ]; do
@@ -80,6 +84,9 @@ case "$action" in
       printf '%s\n' "$pv" | sed -e 's/^[[:space:]]*//' -e 's/^✗ *//' -e 's/^! *//' | awk 'NF { print "reason\t" $0 }'
       exit 1
     fi ;;
+  rebuild)
+    [ ! -e "${HS_LOCKED_MARKER:-/run/hs/storage-locked}" ] || refuse "The storage is locked: unlock it first (hs unlock), a rebuild would refuse."
+    cmd=(bash "$rebuild") ;;
   rollback) cmd=("nixos-rebuild" switch --rollback) ;;
   gc) cmd=(bash "$system" gc "$days" --yes) ;;
   reboot|shutdown)
@@ -115,7 +122,7 @@ if [ "$verb" = start ]; then
       exit 0 ;;
   esac
   . "$here/lib/job.sh"
-  desc="hs pool ${pool:-bulk} $action"; case "$action" in update) desc="hs system update" ;; rollback) desc="hs system rollback" ;; gc) desc="hs system gc $days" ;; esac
+  desc="hs pool ${pool:-bulk} $action"; case "$action" in update) desc="hs system update" ;; rebuild) desc="hs rebuild" ;; rollback) desc="hs system rollback" ;; gc) desc="hs system gc $days" ;; esac
   unit=$(hs_job "system-$action-${pool:-all}" "$desc" -- "${cmd[@]}") || refuse "the job could not be started"
   printf 'status\tstarted\nunit\t%s\n' "$unit"
   exit 0
@@ -150,6 +157,12 @@ case "$action" in
       /^  [!✗] / { t = $0; sub(/^  [!✗] /, "", t); print "warn\t" t; next }
       /^  ✓ / { t = $0; sub(/^  ✓ /, "", t); print "note\t" t; next }
       { t = $0; sub(/^[ \t]+/, "", t); print "text\t" t }'
+    printf 'note\tThis job runs the rebuild.%s\n' "$(rebuild_took)"
+    printf 'note\tThe rebuild builds the new system first; a build that fails changes nothing. Services whose files changed restart.\n' ;;
+  rebuild)
+    printf 'heading\trebuild the server\n'
+    printf 'step\tbuild the system from /etc/nixos (machine.toml and the configuration as they are now) and switch to it\n'
+    printf 'note\tThis job runs the rebuild.%s\n' "$(rebuild_took)"
     printf 'note\tThe rebuild builds the new system first; a build that fails changes nothing. Services whose files changed restart.\n' ;;
   rollback)
     gens=$(ls -1 "$profiles" 2>/dev/null | grep -E '^system-[0-9]+-link$' | sort -t- -k2 -n -r | head -n 3 | paste -sd, - | sed 's/,/, /g' || true)

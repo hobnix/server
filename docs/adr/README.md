@@ -21,7 +21,7 @@ Issue: hobnix/server#<n>
 | Record | Decision | Status |
 | --- | --- | --- |
 | [0001](0001-rust-strangler.md) | Rust grows behind the `hs sys` contract, one command group at a time | Proposed |
-| [0002](0002-system-state-vs-runtime-state.md) | `store` in the schema separates declarative state (rebuild) from runtime state (at once) | Proposed |
+| [0002](0002-system-state-vs-runtime-state.md) | `store` in the schema separates declarative state (rebuild) from runtime state (at once) | Accepted (2026-11-08) |
 | [0003](0003-binary-cache.md) | CI fills a Cachix binary cache; hosts use it as an optional extra source | Proposed |
 | [0004](0004-job-record.md) | One JSON file per job in /var/lib/hs/jobs, written by the hs_job wrapper | Proposed |
 | [0005](0005-events.md) | Domain events in one log (state.db `events`), invalidations as counters, the stream replays domain events | Proposed |
@@ -34,3 +34,5 @@ Issue: hobnix/server#<n>
 | [0012](0012-roles-and-api-tokens.md) | Three roles (viewer, app manager, admin) checked in the web server; API tokens belong to a person | Proposed |
 | [0013](0013-cluster-state-and-partitions.md) | One owner per object, cached read-only copies, a partition degrades to stale (no consensus) | Proposed |
 | [0014](0014-extension-permissions.md) | Extension permissions: declare and disclose first, confine services next (options; nothing enforced yet) | Proposed |
+| [0015](0015-wasm-runtime-for-extensions.md) | WebAssembly for extension scripts: defer; keep the extension protocol transport-neutral | Proposed |
+| [0016](0016-isolating-package-web-components.md) | Package UI stays declarative; third-party code, if ever allowed, runs in a sandboxed iframe | Proposed |

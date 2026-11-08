@@ -14,6 +14,7 @@ set -euo pipefail
 here=$(dirname "$0")
 . "$here/lib/ui.sh"
 . "$here/lib/update-channel.sh"
+. "$here/lib/effect.sh"
 
 refuse() { printf 'status\trefused\nreason\t%s\n' "$1"; exit 1; }
 
@@ -76,5 +77,6 @@ if [ -n "$danger" ]; then
   printf 'danger\t%s\n' "$danger"
   printf 'confirm_name\t%s\n' "$new"
 fi
+printf 'note\t%s Nothing is rebuilt by this step.\n' "$(effect_now)"
 printf 'command\ths config set updateChannel %s\n' "$new"
 printf 'long\tno\n'

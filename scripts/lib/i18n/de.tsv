@@ -2197,3 +2197,6 @@ An installer image (ISO) is for a virtual machine only.	Ein Installationsabbild 
 usage: hs ct add [--kind empty|docker|vm] [--name <n>] [--ram MB] [--cpu N] [--disk GB] [--ip <address>] [--profile <vlan>] [--pool <incus pool>] [--iso <name.iso>] [--yes]	Aufruf: hs ct add [--kind empty|docker|vm] [--name <n>] [--ram MB] [--cpu N] [--disk GB] [--ip <Adresse>] [--profile <vlan>] [--pool <Incus-Pool>] [--iso <Name.iso>] [--yes]
 The image '%s' does not exist.	Das Abbild '%s' gibt es nicht.
 There is no storage pool called '%s'. Known: %s	Es gibt keinen Speicherpool namens '%s'. Bekannt: %s
+This takes effect with hs rebuild.	Das gilt nach: hs rebuild.
+A rebuild takes several minutes; none has been timed on this server yet.	Ein Rebuild dauert mehrere Minuten; auf diesem Server wurde noch keiner gemessen.
+The last rebuild took about %s min.	Der letzte Rebuild dauerte etwa %s Min.

@@ -25,7 +25,7 @@ case "\$*" in
 esac
 STUB
 chmod +x "$WORK/hs-stub"
-printf '# comment\nct list\t10\nshares overview\t30\nbad read\t10\nhalf read\t10\n' > "$WORK/list.tsv"
+printf '# comment\nct list\t300\nshares overview\t300\nbad read\t300\nhalf read\t300\n' > "$WORK/list.tsv"
 export HS_COLLECTED_FILE=$WORK/list.tsv HS_BIN=$WORK/hs-stub
 C="bash $SCRIPTS/reads-collect.sh"
 
@@ -35,7 +35,33 @@ check_eq "read-get gives the output back" "hello${T}world" "$($S read-get "monit
 $S read-get nothing >/dev/null 2>&1; check_eq "no output: exit 1" 1 "$?"
 printf 'second\n' | $S read-put "monitor disks" --ms 90
 check_eq "a second put replaces the first" "second" "$($S read-get "monitor disks")"
-check_eq "reads lists key, age, ms, rc, bytes" "monitor disks${T}0${T}90${T}0${T}7" "$($S reads | sed 's/\t[0-9]*\t90/\t0\t90/')"
+check_eq "reads lists key, age, ms, rc, bytes, status, gen, err, err age" "monitor disks${T}0${T}90${T}0${T}7${T}fresh${T}2${T}-${T}-" "$($S reads | sed 's/\t[0-9]*\t90/\t0\t90/')"
+printf 'second\n' | $S read-put "monitor disks" --ms 90
+check_eq "the same output again does not count gen up" "2" "$($S reads | awk -F'\t' '{ print $7 }')"
+HS_NOW=$(( $(date +%s) + 5 )) $S read-fail "monitor disks" --ms 5 --rc 3 --err "exit 3, no output"
+check_eq "a failed run keeps the old output" "second" "$($S read-get "monitor disks")"
+check_eq "...records the error, the exit code and keeps gen" "stale${T}2${T}exit 3, no output${T}3" "$($S reads | awk -F'\t' '{ print $6 "\t" $7 "\t" $8 "\t" $4 }')"
+printf 'third\n' | $S read-put "monitor disks" --ms 90
+check_eq "a good run clears the error and counts gen" "fresh${T}3${T}-" "$($S reads | awk -F'\t' '{ print $6 "\t" $7 "\t" $8 }')"
+$S read-fail "never read" --rc 1 --err "$(printf 'a\tb\nc')"
+check_eq "a failed first run: age -1, status error, one clean line" "never read${T}-1${T}-${T}1${T}0${T}error${T}0${T}a b c" "$($S reads | awk -F'\t' '$1 == "never read" { print $1 "\t" $2 "\t" $3 "\t" $4 "\t" $5 "\t" $6 "\t" $7 "\t" $8 }')"
+$S read-fail "Bad;Key" --err x >/dev/null 2>&1; check_eq "read-fail refuses an odd key" 1 "$?"
+printf 'x' | $S read-put "never read"
+check_eq "a row made by a failed run takes a good put" "fresh${T}1" "$($S reads | awk -F'\t' '$1 == "never read" { print $6 "\t" $7 }')"
+echo "-- migration of an old table"
+OLD=$WORK/old-state; mkdir -p "$OLD"
+python3 - "$OLD/state.db" <<'PY'
+import sqlite3, sys
+c = sqlite3.connect(sys.argv[1])
+c.execute("CREATE TABLE disks (serial TEXT PRIMARY KEY)")
+c.execute("CREATE TABLE reads (key TEXT PRIMARY KEY, payload TEXT NOT NULL, updated INTEGER NOT NULL, ms INTEGER, rc INTEGER NOT NULL DEFAULT 0)")
+c.execute("INSERT INTO reads VALUES ('ct list', 'old', 1, 7, 0)")
+c.commit()
+PY
+check_eq "an unmigrated database still lists its rows (status from the old columns)" "ct list${T}expired${T}0" "$(HS_STATE_DIR=$(wp "$OLD") $S reads | awk -F'\t' '{ print $1 "\t" $6 "\t" $7 }')"
+printf 'new' | HS_STATE_DIR=$(wp "$OLD") $S read-put "ct list"
+check_eq "the first write migrates: old row kept, new columns there, gen counted" "ct list${T}fresh${T}1" "$(HS_STATE_DIR=$(wp "$OLD") $S reads | awk -F'\t' '{ print $1 "\t" $6 "\t" $7 }')"
+
 printf 'x' | $S read-put "Bad;Key" >/dev/null 2>&1; check_eq "a key with odd characters is refused" 1 "$?"
 printf 'x' | $S read-put "a b c d e" >/dev/null 2>&1; check_eq "a key of five words is refused" 1 "$?"
 
@@ -46,7 +72,8 @@ ct list
 half read
 shares overview" "$(sort "$CALLS")"
 check_eq "the output is kept" "out of ct list${T}x" "$($S read-get "ct list")"
-check_eq "a failed read without output is not kept" 1 "$($S read-get "bad read" >/dev/null 2>&1; echo $?)"
+check_eq "a failed read without output keeps no output" "" "$($S read-get "bad read")"
+check_eq "...but the failure is recorded (status error, exit code, text)" "error${T}3${T}exit 3, no output" "$($S reads | awk -F'\t' '$1 == "bad read" { print $6 "\t" $4 "\t" $8 }')"
 check_eq "a failed read with output is kept, with its exit code" "partial" "$($S read-get "half read")"
 check_eq "...and the exit code is in the list" "1" "$($S reads | awk -F'\t' '$1 == "half read" { print $4 }')"
 : > "$CALLS"; $C
@@ -56,13 +83,14 @@ check_eq "--all reads everything again" "4" "$(grep -c . "$CALLS")"
 
 echo "-- --list"
 out=$($C --list)
-check_out "names the key, the interval and the age" "^ct list${T}10${T}[0-9]" echo "$out"
-check_out "a read that was never kept has age -1" "^bad read${T}10${T}-1" echo "$out"
+check_out "names the key, the interval and the age" "^ct list${T}300${T}[0-9]" echo "$out"
+check_out "a read that was never kept has age -1" "^bad read${T}300${T}-1" echo "$out"
 
 echo "-- --status"
 out=$($C --status)
-check_out "a kept read: key, interval, age, ms, exit code, bytes" "^ct list${T}10${T}[0-9]+${T}[0-9]+${T}0${T}[0-9]+\$" echo "$out"
-check_out "a read that was never kept: age -1, dashes after it" "^bad read${T}10${T}-1${T}-${T}-${T}-\$" echo "$out"
+check_out "a kept read: key, interval, age, ms, exit code, bytes first" "^ct list${T}300${T}[0-9]+${T}[0-9]+${T}0${T}[0-9]+${T}" echo "$out"
+check_out "a read whose runs all failed: age -1, status error, its error" "^bad read${T}300${T}-1${T}[0-9]+${T}3${T}0${T}error${T}0${T}exit 3, no output${T}[0-9]+\$" echo "$out"
+check_out "a good read has status fresh, gen 1 and no error" "^ct list${T}300${T}[0-9]+${T}[0-9]+${T}0${T}[0-9]+${T}fresh${T}1${T}-${T}-\$" echo "$out"
 check_eq "the failed read keeps its exit code" "1" "$(awk -F'\t' '$1 == "half read" { print $5 }' <<<"$out")"
 check_eq "as many lines as the list" "4" "$(grep -c . <<<"$out")"
 

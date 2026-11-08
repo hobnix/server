@@ -62,7 +62,7 @@ Issue: hobnix/server#237 (epic #197). Service extensions are #238, permissions #
   1. `protocol = [1]` and a per-row `timeout` in package.toml / commands.tsv flags, validated by `pkg.py validate`; the dispatcher
      (`hs ext`, `hs sys ext`) calls the runner for such rows and renders `data` to TSV/text.
   2. `hs_job` cancel sends SIGTERM to the process group (ADR 0004) so rule 7 holds for jobs started by the web interface.
-  3. An SDK (#197) with the same message types for shell, Python and Go.
+  3. An SDK (#197) with the same message types for shell, Python and Go. The Rust one exists: rust/hobnix-ext-sdk (#240, covers ADR 0011 too).
 
 ## Open points
 

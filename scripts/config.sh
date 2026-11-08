@@ -11,6 +11,7 @@ here=$(dirname "$0")
 . "$here/lib/ui.sh"
 . "$here/lib/machine.sh"
 . "$here/lib/setting.sh"
+. "$here/lib/effect.sh"
 machine=$(machine_file)
 state=${HS_STATE_DIR:-/var/lib/hs}
 
@@ -83,10 +84,10 @@ case "$cmd" in
         if [ -n "$r_pattern" ] && ! grep -Eq -- "$r_pattern" <<<"$val"; then fail "$(t "'%s' must be %s" "$key" "${r_hint:-valid}")"; fi
       fi
       if $remove; then note "$(t 'settings: %s removed' "$key")"; else note "$(t 'settings: %s = %s' "$key" "$val")"; fi
+      effect_say now
       $dry && { note "Dry run: nothing changed."; exit 0; }
       if $remove; then setting_unset "$key"; else setting_set "$key" "$val"; fi
       ok "$(t '%s is set.' "$key")"
-      note "$(t 'It takes effect at once; no rebuild is needed.')"
       exit 0
     fi
     [ -n "$row" ] || fail "$(t "'%s' is not a key hs config handles." "$key")"
@@ -116,15 +117,16 @@ case "$cmd" in
     esac
     if is_setting "$key"; then
       if $remove; then note "$(t 'settings: %s removed' "$key")"; else note "$(t 'settings: %s = %s' "$key" "${val}")"; fi
+      effect_say now
       $dry && { note "Dry run: nothing changed."; exit 0; }
       if $remove; then setting_unset "$key"; else setting_set "$key" "$val"; fi
       ok "$(t '%s is set.' "$key")"
-      note "$(t 'It takes effect at once; no rebuild is needed.')"
       exit 0
     fi
     [ -f "$machine" ] || fail "$(t 'No %s.' "$machine")"
     if $remove; then line="# $key = ..."; else line="$key = $tomlval"; fi
     note "$(t 'machine.toml: %s' "$line")"
+    effect_say rebuild
     $dry && { note "Dry run: nothing changed."; exit 0; }
     # an active line is replaced (or commented out), a commented one is revived in its place, else it is appended;
     # the tool re-reads the result and refuses to write when it does not parse
