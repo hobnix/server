@@ -4,6 +4,7 @@ import Instances from './pages/Instances.svelte';
 import Shares from './pages/Shares.svelte';
 import Health from './pages/Health.svelte';
 import Pools from './pages/Pools.svelte';
+import Incident from './pages/storage/Incident.svelte';
 import Disks from './pages/Disks.svelte';
 import Files from './pages/Files.svelte';
 import Encryption from './pages/Encryption.svelte';
@@ -55,6 +56,7 @@ export const routes = {
   '/storage/pools': Pools,
   '/storage/pools/bulk': Pools,
   '/storage/pools/fast': Pools,
+  '/storage/incident': Incident,
   '/storage/disks': Disks,
   '/storage/shares': Shares,
   '/storage/files': Files,

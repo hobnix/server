@@ -52,6 +52,11 @@ kind = "tsv"
 records = { lock = ["state", "text"], paused = ["state", "text"], scrub = ["pool", "state", "text"], sync = ["pool", "state", "text"] }
 enums = { "lock.state" = ["pool-change", "free", "busy", "unknown"], "paused.state" = ["yes", "no"] }
 
+["incident state"]
+kind = "tsv"
+records = { ok = ["scope", "text"], incident = ["id", "pool", "kind", "severity", "text"], member = ["pool", "name", "state", "group", "disk", "why"], target = ["pool", "member", "dev", "disk"], share = ["pool", "name", "path", "impact"], app = ["pool", "name", "state", "via", "writes"], progress = ["pool", "kind", "percent", "text"], paused = ["paused", "instances"], free = ["disk", "bytes", "role"], phase = ["pool", "phase"], step = ["n", "state", "title"], next = ["command", "text"] }
+enums = { "incident.kind" = ["pool-degraded", "member-down", "disk-failing"], "incident.severity" = ["warn", "error"], "share.impact" = ["unavailable", "at-risk"], "app.writes" = ["yes", "no"], "progress.kind" = ["resilver", "rebuild"], "paused.paused" = ["yes", "no"], "phase.phase" = ["detect", "ready", "running"], "step.state" = ["done", "now", "todo", "optional"] }
+
 ["release show"]
 kind = "tsv"
 records = { channel = ["channel"], installed = ["version"], offer = ["channel", "ref", "state"], ref = ["ref"], state = ["state"], signed = ["signed"] }

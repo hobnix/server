@@ -1,0 +1,5 @@
+date  = "2026-11-08"
+type  = "feature"
+title = "Storage incident workflow: a degraded pool or failing disk, step by step"
+body  = """`hs storage incident` (web: Storage > Incident) shows what is wrong when a ZFS or SnapRAID pool is degraded, a pool disk is missing or SMART rates a disk BAD: the disk to pull, the affected shares and apps, the steps and the next safe step. `hs storage incident replace` waits for the new disk and hands over to the existing replace (plan, typed disk name, background job); `hs storage incident pause` suggests and, on your yes, freezes the apps that write to the pool. The health alert (all channels, webhook included) now ends with a pointer to it. Not tested on hardware yet: only mocked command output."""
+

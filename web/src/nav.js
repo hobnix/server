@@ -12,6 +12,7 @@ export const tree = [
             { label: 'fast', icon: 'lightning', path: '/storage/pools/fast', storage: true },
           ] },
           { label: 'Disks', icon: 'hard-drive', path: '/storage/disks', storage: true },
+          { label: 'Incident', icon: 'first-aid-kit', path: '/storage/incident', storage: true },
           { label: 'Shares', icon: 'folders', path: '/storage/shares', storage: true },
           { label: 'Files', icon: 'folder-open', path: '/storage/files', storage: true },
           { label: 'Encryption', icon: 'lock-key', path: '/storage/encryption' },

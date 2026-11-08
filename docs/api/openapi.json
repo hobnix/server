@@ -4307,6 +4307,494 @@
     }
    }
   },
+  "/incident/plan/{action}": {
+   "post": {
+    "operationId": "incident.plan.by_action",
+    "summary": "what pausing the writing apps (pause) or letting them run again (resume) would do, as data (never asks; exit 1 = refused)",
+    "x-hs-exit": true,
+    "x-hs-sys": {
+     "words": [
+      "incident",
+      "plan",
+      "<action>"
+     ],
+     "script": "storage-incident.sh",
+     "args": "plan {1} {rest}",
+     "class": "plan",
+     "rest": true
+    },
+    "parameters": [
+     {
+      "name": "action",
+      "in": "path",
+      "required": true,
+      "schema": {
+       "type": "string"
+      }
+     }
+    ],
+    "responses": {
+     "0": {
+      "description": "allowed",
+      "content": {
+       "text/tab-separated-values": {
+        "schema": {
+         "$ref": "#/components/schemas/ChangeLines"
+        }
+       }
+      }
+     },
+     "1": {
+      "description": "refused; the reason line says why",
+      "content": {
+       "text/tab-separated-values": {
+        "schema": {
+         "$ref": "#/components/schemas/ChangeLines"
+        }
+       }
+      }
+     },
+     "2": {
+      "description": "something is missing; the needs lines say what",
+      "content": {
+       "text/tab-separated-values": {
+        "schema": {
+         "$ref": "#/components/schemas/ChangeLines"
+        }
+       }
+      }
+     }
+    }
+   }
+  },
+  "/incident/start/{action}": {
+   "post": {
+    "operationId": "incident.start.by_action",
+    "summary": "do it: hs sys incident start pause|resume (status done)",
+    "x-hs-exit": true,
+    "x-hs-sys": {
+     "words": [
+      "incident",
+      "start",
+      "<action>"
+     ],
+     "script": "storage-incident.sh",
+     "args": "start {1} {rest}",
+     "class": "start",
+     "rest": true,
+     "confirm": "--confirm <name>, the name the plan's confirm_name line asks for"
+    },
+    "parameters": [
+     {
+      "name": "action",
+      "in": "path",
+      "required": true,
+      "schema": {
+       "type": "string"
+      }
+     }
+    ],
+    "description": "a long change starts a job; the `unit` line names it; follow it with `jobs tail`",
+    "responses": {
+     "0": {
+      "description": "done or started",
+      "content": {
+       "text/tab-separated-values": {
+        "schema": {
+         "$ref": "#/components/schemas/ChangeLines"
+        }
+       }
+      }
+     },
+     "1": {
+      "description": "refused",
+      "content": {
+       "text/tab-separated-values": {
+        "schema": {
+         "$ref": "#/components/schemas/ChangeLines"
+        }
+       }
+      }
+     },
+     "2": {
+      "description": "something is missing",
+      "content": {
+       "text/tab-separated-values": {
+        "schema": {
+         "$ref": "#/components/schemas/ChangeLines"
+        }
+       }
+      }
+     }
+    }
+   }
+  },
+  "/incident/state": {
+   "get": {
+    "operationId": "incident.state",
+    "summary": "the storage incident as lines: incident, member, target, share, app, progress, paused, free, phase, step, next (or one ok line); for the Incident page",
+    "x-hs-exit": true,
+    "x-hs-sys": {
+     "words": [
+      "incident",
+      "state"
+     ],
+     "script": "storage-incident.sh",
+     "args": "--state {rest}",
+     "class": "read",
+     "rest": true
+    },
+    "x-hs-web": {
+     "path": "/api/sys/incident/state",
+     "kind": "tsv",
+     "ttl": 10,
+     "query": []
+    },
+    "responses": {
+     "0": {
+      "description": "ok",
+      "content": {
+       "text/tab-separated-values": {
+        "schema": {
+         "type": "array",
+         "items": {
+          "oneOf": [
+           {
+            "type": "array",
+            "prefixItems": [
+             {
+              "const": "ok"
+             },
+             {
+              "$ref": "#/components/schemas/Field",
+              "title": "scope"
+             },
+             {
+              "$ref": "#/components/schemas/Field",
+              "title": "text"
+             }
+            ],
+            "minItems": 3,
+            "maxItems": 3
+           },
+           {
+            "type": "array",
+            "prefixItems": [
+             {
+              "const": "incident"
+             },
+             {
+              "$ref": "#/components/schemas/Field",
+              "title": "id"
+             },
+             {
+              "$ref": "#/components/schemas/Field",
+              "title": "pool"
+             },
+             {
+              "$ref": "#/components/schemas/Field",
+              "title": "kind",
+              "enum": [
+               "pool-degraded",
+               "member-down",
+               "disk-failing"
+              ]
+             },
+             {
+              "$ref": "#/components/schemas/Field",
+              "title": "severity",
+              "enum": [
+               "warn",
+               "error"
+              ]
+             },
+             {
+              "$ref": "#/components/schemas/Field",
+              "title": "text"
+             }
+            ],
+            "minItems": 6,
+            "maxItems": 6
+           },
+           {
+            "type": "array",
+            "prefixItems": [
+             {
+              "const": "member"
+             },
+             {
+              "$ref": "#/components/schemas/Field",
+              "title": "pool"
+             },
+             {
+              "$ref": "#/components/schemas/Field",
+              "title": "name"
+             },
+             {
+              "$ref": "#/components/schemas/Field",
+              "title": "state"
+             },
+             {
+              "$ref": "#/components/schemas/Field",
+              "title": "group"
+             },
+             {
+              "$ref": "#/components/schemas/Field",
+              "title": "disk"
+             },
+             {
+              "$ref": "#/components/schemas/Field",
+              "title": "why"
+             }
+            ],
+            "minItems": 7,
+            "maxItems": 7
+           },
+           {
+            "type": "array",
+            "prefixItems": [
+             {
+              "const": "target"
+             },
+             {
+              "$ref": "#/components/schemas/Field",
+              "title": "pool"
+             },
+             {
+              "$ref": "#/components/schemas/Field",
+              "title": "member"
+             },
+             {
+              "$ref": "#/components/schemas/Field",
+              "title": "dev"
+             },
+             {
+              "$ref": "#/components/schemas/Field",
+              "title": "disk"
+             }
+            ],
+            "minItems": 5,
+            "maxItems": 5
+           },
+           {
+            "type": "array",
+            "prefixItems": [
+             {
+              "const": "share"
+             },
+             {
+              "$ref": "#/components/schemas/Field",
+              "title": "pool"
+             },
+             {
+              "$ref": "#/components/schemas/Field",
+              "title": "name"
+             },
+             {
+              "$ref": "#/components/schemas/Field",
+              "title": "path"
+             },
+             {
+              "$ref": "#/components/schemas/Field",
+              "title": "impact",
+              "enum": [
+               "unavailable",
+               "at-risk"
+              ]
+             }
+            ],
+            "minItems": 5,
+            "maxItems": 5
+           },
+           {
+            "type": "array",
+            "prefixItems": [
+             {
+              "const": "app"
+             },
+             {
+              "$ref": "#/components/schemas/Field",
+              "title": "pool"
+             },
+             {
+              "$ref": "#/components/schemas/Field",
+              "title": "name"
+             },
+             {
+              "$ref": "#/components/schemas/Field",
+              "title": "state"
+             },
+             {
+              "$ref": "#/components/schemas/Field",
+              "title": "via"
+             },
+             {
+              "$ref": "#/components/schemas/Field",
+              "title": "writes",
+              "enum": [
+               "yes",
+               "no"
+              ]
+             }
+            ],
+            "minItems": 6,
+            "maxItems": 6
+           },
+           {
+            "type": "array",
+            "prefixItems": [
+             {
+              "const": "progress"
+             },
+             {
+              "$ref": "#/components/schemas/Field",
+              "title": "pool"
+             },
+             {
+              "$ref": "#/components/schemas/Field",
+              "title": "kind",
+              "enum": [
+               "resilver",
+               "rebuild"
+              ]
+             },
+             {
+              "$ref": "#/components/schemas/Field",
+              "title": "percent"
+             },
+             {
+              "$ref": "#/components/schemas/Field",
+              "title": "text"
+             }
+            ],
+            "minItems": 5,
+            "maxItems": 5
+           },
+           {
+            "type": "array",
+            "prefixItems": [
+             {
+              "const": "paused"
+             },
+             {
+              "$ref": "#/components/schemas/Field",
+              "title": "paused",
+              "enum": [
+               "yes",
+               "no"
+              ]
+             },
+             {
+              "$ref": "#/components/schemas/Field",
+              "title": "instances"
+             }
+            ],
+            "minItems": 3,
+            "maxItems": 3
+           },
+           {
+            "type": "array",
+            "prefixItems": [
+             {
+              "const": "free"
+             },
+             {
+              "$ref": "#/components/schemas/Field",
+              "title": "disk"
+             },
+             {
+              "$ref": "#/components/schemas/Field",
+              "title": "bytes"
+             },
+             {
+              "$ref": "#/components/schemas/Field",
+              "title": "role"
+             }
+            ],
+            "minItems": 4,
+            "maxItems": 4
+           },
+           {
+            "type": "array",
+            "prefixItems": [
+             {
+              "const": "phase"
+             },
+             {
+              "$ref": "#/components/schemas/Field",
+              "title": "pool"
+             },
+             {
+              "$ref": "#/components/schemas/Field",
+              "title": "phase",
+              "enum": [
+               "detect",
+               "ready",
+               "running"
+              ]
+             }
+            ],
+            "minItems": 3,
+            "maxItems": 3
+           },
+           {
+            "type": "array",
+            "prefixItems": [
+             {
+              "const": "step"
+             },
+             {
+              "$ref": "#/components/schemas/Field",
+              "title": "n"
+             },
+             {
+              "$ref": "#/components/schemas/Field",
+              "title": "state",
+              "enum": [
+               "done",
+               "now",
+               "todo",
+               "optional"
+              ]
+             },
+             {
+              "$ref": "#/components/schemas/Field",
+              "title": "title"
+             }
+            ],
+            "minItems": 4,
+            "maxItems": 4
+           },
+           {
+            "type": "array",
+            "prefixItems": [
+             {
+              "const": "next"
+             },
+             {
+              "$ref": "#/components/schemas/Field",
+              "title": "command"
+             },
+             {
+              "$ref": "#/components/schemas/Field",
+              "title": "text"
+             }
+            ],
+            "minItems": 3,
+            "maxItems": 3
+           }
+          ]
+         }
+        }
+       }
+      }
+     },
+     "default": {
+      "description": "failed; stderr says why, stdout may be empty"
+     }
+    }
+   }
+  },
   "/iso/dir": {
    "get": {
     "operationId": "iso.dir",
