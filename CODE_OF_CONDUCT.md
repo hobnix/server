@@ -27,7 +27,7 @@ project in public.
 
 ## Reporting and what happens
 
-Report a problem **privately** to the maintainers at **<CONTACT-EMAIL-TO-BE-SET-BY-OWNER>**. A report about a maintainer goes to another
+Report a problem **privately** to the maintainers at **admin@schuchter.cloud**. A report about a maintainer goes to another
 maintainer; say so in the message. We read every report, keep the reporter's name private, and answer within a week.
 
 The maintainers may edit or remove comments, lock a thread, close an issue or pull request, or block a person for a while or for good. Most
