@@ -1,6 +1,6 @@
 # 0002: Declarative system state and dynamic runtime state
 
-Status: Proposed
+Status: Accepted (2026-11-08)
 Issue: hobnix/server#252 (epic #121)
 
 ## Context
@@ -40,13 +40,10 @@ Issue: hobnix/server#252 (epic #121)
   `scripts/disk-spindown.sh`, already does the work), `shareSnapshots` and `syncEveryHours` (timers), `metricsDays` and `metricsMaxGB`
   (Prometheus flags, would need a restart). Not candidates: `hostName`, `nic`, `vlans`, `smbAllow` (Samba configuration), `zfsArcMaxGB`
   (boot parameter), the gateway options (unit files).
-- Follow-up work, not done by this record:
-  - a test for rule 3 (`tests/schema.sh`);
-  - the web interface shows the sentence of rule 4 before Apply (check which pages already do);
-  - a rebuild duration estimate (nothing measures it today);
-  - move at least one candidate, or record per candidate why it cannot move.
+- Follow-up work (status after acceptance, see "Accepted 2026-11-08" below): the test for rule 3 is done (`tests/schema.sh`), the sentence of
+  rule 4 and the duration are done (`tests/apply-effect.sh`), candidates to move are recorded per option.
 
-## Open points
+## Open points (before acceptance, kept for the record)
 
 - How long a rebuild takes is not measured. The "roughly how long" the issue asks for needs real timings from a server; the binary cache
   (#253) changes them.
@@ -81,3 +78,22 @@ the `HS_WEB_*` variables and the three assertions (language, proxyStatusUrl, vps
 Every reader already used `setting_get` / `runtime_setting` or `/var/lib/hs/notify-url` and `heartbeat-url`, and `hs config migrate-settings`
 (run by `hs update`) moves an old `machine.toml` line into the settings store. A rebuild without `hs update` no longer carries such a line over.
 `tests/schema.sh` now lists no exceptions, so rule 3 holds. Not tested on hardware yet.
+
+## Accepted 2026-11-08
+
+The owner accepted the record with the two-class model as it stands. Decisions made at acceptance:
+
+- **No third class.** There is no "needs restart" class between declarative and runtime. A restart of a service is a runtime action: a script does
+  it, and the plan names the unit it restarts. A change that needs a unit file or a Nix expression to change is declarative and takes a rebuild.
+- **Rule 4 is enforced.** Every plan of a change that touches configuration carries one note with the fixed sentence ("takes effect at once" or
+  "takes effect with hs rebuild"), made by `scripts/lib/effect.sh`; the web dialogs show it above the steps, before Apply, and offer "Rebuild now"
+  after a change that waits for a rebuild. `tests/apply-effect.sh` fails for a script that writes machine.toml or the settings without it.
+- **Timing honesty.** A rebuild sentence adds "The last rebuild took about N min." from `/var/lib/hs/last-rebuild-seconds`, and before one was
+  measured says that a rebuild takes several minutes and that none was timed on this server. No figure is invented.
+- **`metricsDays` and `metricsMaxGB`** should later become runtime options of the metrics capability: a wrapper reads them from the settings
+  store and restarts Prometheus (a runtime action that names the unit). Not done now: it needs a test on the real server, and the size cap protects
+  the system disk.
+- **Still open** (the owner decides): whether a runtime option that a unit reads only at start restarts that unit by itself or leaves it to the
+  person; and the rebuild timing once the binary cache (hobnix/server#253) is in use, which changes every figure above.
+
+Not tested on hardware yet.
