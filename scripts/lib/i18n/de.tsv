@@ -2186,6 +2186,54 @@ needs the capability '%s', which is off	braucht die Fähigkeit '%s', die aus ist
 not declared	nicht angegeben
 Permissions it declares	Erklärte Berechtigungen
 Permissions are what a package says it needs. They are not enforced: every command runs as root, so install only packages you trust.	Berechtigungen sind das, was ein Paket nach eigener Angabe braucht. Sie werden nicht erzwungen: jeder Befehl läuft als root, installiere also nur Pakete, denen du vertraust.
+'%s' is not a disk name.	'%s' ist kein Plattenname.
+--confirm-disk '%s' is not the disk '%s'.	--confirm-disk '%s' ist nicht die Platte '%s'.
+/dev/%s could not be mounted read-only.	/dev/%s konnte nicht schreibgeschützt eingehängt werden.
+/dev/%s has mounted parts (it may be the stick or the backup disk). Choose another.	/dev/%s hat eingehängte Teile (es kann der Stick oder die Backup-Platte sein). Wähle eine andere.
+/dev/%s is mounted read-only; nothing is written to it.	/dev/%s ist schreibgeschützt eingehängt; es wird nichts darauf geschrieben.
+Backup password:	Backup-Passwort:
+Bus	Anschluss
+Could not unmount %s; it was left as it is. Unmount it by hand.	%s konnte nicht ausgehängt werden; es blieb unverändert. Bitte von Hand aushängen.
+Data disks are not touched. Afterwards: first boot, hs rebuild, hs vault init, import the pools, hs unlock, hs backup restore (docs/backup-and-recovery.md).	Datenplatten werden nicht angefasst. Danach: erster Start, hs rebuild, hs vault init, Pools importieren, hs unlock, hs backup restore (docs/backup-and-recovery.md).
+Everything on /dev/%s will be erased.	Alles auf /dev/%s wird gelöscht.
+More than one backup disk and no terminal: name one with --backup-device.	Mehr als eine Backup-Platte und kein Terminal: nenne eine mit --backup-device.
+Name of the backup disk partition (e.g. sdb1)	Name der Partition der Backup-Platte (z. B. sdb1)
+Name of the new system disk (e.g. sda or nvme0n1)	Name der neuen Systemplatte (z. B. sda oder nvme0n1)
+New system disk	Neue Systemplatte
+No backup repository in %s. Is this the disk made by hs backup init?	Kein Backup-Repository in %s. Ist das die mit hs backup init angelegte Platte?
+No host snapshot %s.	Kein Host-Snapshot %s.
+No terminal and no --disk: nothing is chosen on a guess.	Kein Terminal und kein --disk: es wird nichts auf Verdacht gewählt.
+No terminal and no --password-file: the backup password cannot be asked.	Kein Terminal und keine --password-file: das Backup-Passwort kann nicht abgefragt werden.
+Not restored here: the backup password (it goes into the new vault by hand), the pools, shares and containers, the vault itself.	Hier nicht zurückgeholt: das Backup-Passwort (es kommt von Hand in den neuen Tresor), die Pools, Freigaben und Container, der Tresor selbst.
+Not the same name. Nothing was changed.	Nicht derselbe Name. Es wurde nichts geändert.
+Only this disk is erased. The data disks and the backup disk stay as they are, but check the name twice.	Nur diese Platte wird gelöscht. Die Datenplatten und die Backup-Platte bleiben, wie sie sind, aber prüfe den Namen zweimal.
+Restore from backup	Aus dem Backup zurückholen
+Run this as root (sudo -i).	Als root ausführen (sudo -i).
+SSH key	SSH-Schlüssel
+Server name	Servername
+Settings that come back from the backup:	Einstellungen, die aus dem Backup zurückkommen:
+That is the backup disk. It is never erased.	Das ist die Backup-Platte. Sie wird nie gelöscht.
+That snapshot holds no machine.toml. Choose another snapshot.	Dieser Snapshot enthält keine machine.toml. Wähle einen anderen Snapshot.
+The answers file	Die Antwortdatei
+The answers file has errors. Nothing was changed.	Die Antwortdatei hat Fehler. Es wurde nichts geändert.
+The answers file is valid	Die Antwortdatei ist gültig
+The backup disk	Die Backup-Platte
+The backup password is in your password manager (hs secrets reminded you of it).	Das Backup-Passwort steht in deinem Passwortmanager (hs secrets hat dich daran erinnert).
+The password file %s does not exist.	Die Passwortdatei %s gibt es nicht.
+The password is empty. Nothing was changed.	Das Passwort ist leer. Es wurde nichts geändert.
+The plan	Der Plan
+The repository could not be opened, or holds no host snapshot. Wrong password, or the wrong disk? Nothing was changed.	Das Repository ließ sich nicht öffnen oder enthält keinen Host-Snapshot. Falsches Passwort oder falsche Platte? Es wurde nichts geändert.
+The restored machine.toml has no SSH key (sshKeys): nobody could log in to the new server.	Die zurückgeholte machine.toml hat keinen SSH-Schlüssel (sshKeys): niemand könnte sich am neuen Server anmelden.
+The restored machine.toml has no hostName.	Die zurückgeholte machine.toml hat keinen hostName.
+The settings could not be read from the snapshot. Nothing was changed.	Die Einstellungen ließen sich nicht aus dem Snapshot lesen. Es wurde nichts geändert.
+The settings of the snapshot were read into a temporary folder	Die Einstellungen des Snapshots wurden in einen temporären Ordner gelesen
+The snapshots	Die Snapshots
+There is no disk /dev/%s.	Es gibt keine Platte /dev/%s.
+This is not the installer stick (nothing is mounted at /iso), so nothing is restored. It runs from the stick.	Das ist nicht der Installer-Stick (unter /iso ist nichts eingehängt), also wird nichts zurückgeholt. Es läuft vom Stick.
+Time zone	Zeitzone
+UNVERIFIED: this restore has not been tested on hardware. Read the plan carefully.	UNVERIFIED: Diese Wiederherstellung wurde nicht auf Hardware getestet. Lies den Plan sorgfältig.
+Which disk is the NEW system disk?	Welche Platte ist die NEUE Systemplatte?
+usage: hs-restore [--backup-device <name>] [--password-file <file>] [--snapshot <id|latest>] [--disk <name>] [--confirm-disk <name>] [--answers <file>] [--dry-run]	Aufruf: hs-restore [--backup-device <Name>] [--password-file <Datei>] [--snapshot <id|latest>] [--disk <Name>] [--confirm-disk <Name>] [--answers <Datei>] [--dry-run]
 This takes effect with hs rebuild.	Das gilt nach: hs rebuild.
 A rebuild takes several minutes; none has been timed on this server yet.	Ein Rebuild dauert mehrere Minuten; auf diesem Server wurde noch keiner gemessen.
 The last rebuild took about %s min.	Der letzte Rebuild dauerte etwa %s Min.
