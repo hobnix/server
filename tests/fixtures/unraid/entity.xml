@@ -1,0 +1,3 @@
+<?xml version="1.0"?>
+<!DOCTYPE Container [<!ENTITY a "aaaa">]>
+<Container version="2"><Repository>&a;</Repository></Container>
