@@ -37,3 +37,4 @@ Issue: hobnix/server#<n>
 | [0015](0015-wasm-runtime-for-extensions.md) | WebAssembly for extension scripts: defer; keep the extension protocol transport-neutral | Proposed |
 | [0016](0016-isolating-package-web-components.md) | Package UI stays declarative; third-party code, if ever allowed, runs in a sandboxed iframe | Proposed |
 | [0017](0017-capabilities-repository-and-channels.md) | hobnix/capabilities: vendored `module.nix` (pure evaluation), overlay on the machine, CI across repositories, wizard step, channels, release flow | Proposed |
+| [0020](0020-webui-package-builder.md) | The web package builder: a form over the CLI validator, drafts kept apart, publish by pull request or archive; never signs | Proposed |
