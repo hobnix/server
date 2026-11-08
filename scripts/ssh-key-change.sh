@@ -17,6 +17,7 @@ set -euo pipefail
 here=$(dirname "$0")
 sshkey=${HS_SSH_KEY:-$here/ssh-key.sh}
 . "$here/lib/machine.sh"
+. "$here/lib/effect.sh"
 export HS_PLAIN=1
 
 refuse() { printf 'status\trefused\nreason\t%s\n' "$1"; exit 1; }
@@ -71,7 +72,7 @@ esac
 if [ "$verb" = start ]; then
   if [ -n "$danger" ] && [ "$confirm" != remove ]; then refuse "type the word to confirm: remove"; fi
   if ! out=$(HS_CALLER=${HS_CALLER:-ui} bash "$sshkey" "$action" "$arg" --yes 2>&1); then refuse "$(lastline <<<"$out")"; fi
-  printf 'status\tdone\nnote\tIt is in machine.toml; it takes effect with: hs rebuild\n'
+  printf 'status\tdone\nnote\tIt is in machine.toml. %s\n' "$(effect_rebuild)"
   exit 0
 fi
 
@@ -84,7 +85,7 @@ case "$action" in
     printf 'heading\tremove the SSH key %s\n' "$comment"
     printf 'step\ttake the key (%s, %s) out of sshKeys in machine.toml; the old file is kept in /var/lib/hs/machine.toml.before-ssh-key\n' "$type" "$arg" ;;
 esac
-printf 'note\tThis only changes machine.toml. The change takes effect with: hs rebuild\n'
+printf 'note\t%s\nnote\tThis only changes machine.toml.\n' "$(effect_rebuild)"
 printf 'command\ths ssh-key %s\n' "$action"
 if [ -n "$danger" ]; then printf 'danger\t%s\nconfirm_name\tremove\n' "$danger"; fi
 printf 'long\tno\n'

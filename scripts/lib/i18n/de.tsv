@@ -2190,9 +2190,12 @@ Unknown option %s	Unbekannte Option %s
 Remove package %s	Paket %s entfernen
 Removed: the installed copy, its event declarations and its switch-on/off marks.	Entfernt: die installierte Kopie, ihre Ereignis-Deklarationen und ihre An-/Aus-Markierungen.
 Stays: containers and data the package made (hs ct remove is for those).	Bleibt: Container und Daten, die das Paket angelegt hat (dafür gibt es hs ct remove).
-Dry run: nothing was changed.	Probelauf: nichts wurde geändert.
+Nothing was changed (dry run).	Nichts wurde geändert (Probelauf).
 the package	das Paket
 Not removed.	Nicht entfernt.
 Removing needs a person at a terminal, --yes or --confirm-name <name>.	Entfernen braucht eine Person am Terminal, --yes oder --confirm-name <Name>.
 Package %s removed.	Paket %s entfernt.
 usage: hs pkg remove <name> [--dry-run] [--yes | --confirm-name <name>]	Aufruf: hs pkg remove <Name> [--dry-run] [--yes | --confirm-name <Name>]
+This takes effect with hs rebuild.	Das gilt nach: hs rebuild.
+A rebuild takes several minutes; none has been timed on this server yet.	Ein Rebuild dauert mehrere Minuten; auf diesem Server wurde noch keiner gemessen.
+The last rebuild took about %s min.	Der letzte Rebuild dauerte etwa %s Min.

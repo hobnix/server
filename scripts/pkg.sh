@@ -128,7 +128,7 @@ case "${1:-list}" in
     note "$(t 'Removed: the installed copy, its event declarations and its switch-on/off marks.')"
     note "$(t 'Stays: containers and data the package made (hs ct remove is for those).')"
     if [ "$dry" = 1 ]; then
-      note "$(t 'Dry run: nothing was changed.')"
+      note "$(t 'Nothing was changed (dry run).')"
       exit 0
     fi
     if [ -n "$confirmed" ]; then

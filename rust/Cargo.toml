@@ -1,6 +1,6 @@
 [workspace]
 resolver = "2"
-members = ["hobnix-core", "hobnix-cli"]
+members = ["hobnix-core", "hobnix-cli", "hobnix-ext-sdk"]
 
 [workspace.package]
 version = "0.1.0"

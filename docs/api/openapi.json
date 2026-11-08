@@ -7535,6 +7535,45 @@
     }
    }
   },
+  "/rebuild/pending": {
+   "get": {
+    "operationId": "rebuild.pending",
+    "summary": "the machine.toml changes that wait for one hs rebuild, one per line: key, the value the running system was built with, the value now (- = not set); empty: nothing waits or no copy was kept yet",
+    "x-hs-exit": true,
+    "x-hs-sys": {
+     "words": [
+      "rebuild",
+      "pending"
+     ],
+     "script": "pending-rebuild.sh",
+     "args": "--list",
+     "class": "read",
+     "rest": false
+    },
+    "x-hs-web": {
+     "path": "/api/sys/rebuild/pending",
+     "kind": "tsv",
+     "ttl": 15,
+     "query": []
+    },
+    "x-hs-described": false,
+    "responses": {
+     "0": {
+      "description": "ok",
+      "content": {
+       "text/tab-separated-values": {
+        "schema": {
+         "type": "string"
+        }
+       }
+      }
+     },
+     "default": {
+      "description": "failed; stderr says why, stdout may be empty"
+     }
+    }
+   }
+  },
   "/recipes/asks/{recipe}": {
    "get": {
     "operationId": "recipes.asks.by_recipe",
@@ -10508,7 +10547,7 @@
   "/system/plan/{action}": {
    "post": {
     "operationId": "system.plan.by_action",
-    "summary": "what updating the parity, a scrub, an update, a rollback or a garbage collection would do, as data: status, plan lines (never asks; exit 2 = something is missing)",
+    "summary": "what updating the parity, a scrub, an update, a rebuild, a rollback or a garbage collection would do, as data: status, plan lines (never asks; exit 2 = something is missing)",
     "x-hs-exit": true,
     "x-hs-sys": {
      "words": [
@@ -10607,7 +10646,7 @@
   "/system/start/{action}": {
    "post": {
     "operationId": "system.start.by_action",
-    "summary": "do it as a background job (hs sys system start sync | scrub --pool <pool> | update | rollback --confirm rollback | gc --days <N>)",
+    "summary": "do it as a background job (hs sys system start sync | scrub --pool <pool> | update | rebuild | rollback --confirm rollback | gc --days <N>)",
     "x-hs-exit": true,
     "x-hs-sys": {
      "words": [

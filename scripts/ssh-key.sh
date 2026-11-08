@@ -14,6 +14,7 @@
 set -euo pipefail
 here=$(dirname "$0")
 . "$here/lib/ui.sh"
+. "$here/lib/effect.sh"
 . "$here/lib/machine.sh"
 machine=$(machine_file)
 state=${HS_STATE_DIR:-/var/lib/hs}
@@ -128,6 +129,7 @@ add)
     if [ "$(body_of "$k")" = "$(body_of "$line")" ]; then note "This key is in the list already: nothing to do."; exit 0; fi
   done
   note "$(t 'Add the key %s (%s, %s)' "$(comment_of "$line")" "$(type_of "$line")" "$(fp_of "$line")")"
+  effect_say rebuild
   ok_confirm "$yes" "$(t 'Add it to machine.toml?')"
   write_keys ${all[@]+"${all[@]}"} "$line"
   ok "$(t 'The key is in machine.toml. It takes effect with: hs rebuild')" ;;
@@ -161,6 +163,7 @@ remove)
   fi
   [ -n "$cur" ] || note "Could not tell which key this session uses. Make sure you can still log in with one of the others."
   note "$(t 'Remove the key %s (%s, %s)' "$(comment_of "$hit")" "$(type_of "$hit")" "$(fp_of "$hit")")"
+  effect_say rebuild
   ok_confirm "$yes" "$(t 'Remove it from machine.toml?')"
   write_keys "${rest[@]}"
   ok "$(t 'The key is removed from machine.toml. It takes effect with: hs rebuild')" ;;

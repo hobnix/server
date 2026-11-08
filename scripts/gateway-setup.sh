@@ -20,6 +20,7 @@ set -euo pipefail
 here=$(dirname "$0")
 . "$here/lib/machine.sh"
 . "$here/lib/setting.sh"
+. "$here/lib/effect.sh"
 
 # the keys of the gateway steps (capability.toml); web-serve.py GW_SET lists the same ones (tests/gateway-setup.sh compares)
 GW_KEYS="reverseProxy gatewayTunnelPort gatewayPublicHttps gatewayPublicHttp proxyDomains gatewayDirectDomains gatewayAcmeEmail gatewayAcmeStaging gatewayAcmeChallenge gatewayAcmeDnsProvider gatewayUnknownHostLocal gatewayUnknownHostPublic"
@@ -205,6 +206,7 @@ if [ "$verb" = plan ]; then
   fi
   printf 'step\tcheck machine.toml afterwards and put the old files back if the check fails\n'
   printf 'step\tapply it: hs rebuild (a background job)\n'
+  printf 'note\t%s The rebuild runs for you as a background job.\n' "$(effect_rebuild)"
   printf 'note\tIf the rebuild fails, machine.toml and the settings are put back as they were, but nothing is rebuilt again. The old copy is kept in %s.\n' "$before"
   printf 'command\ths rebuild\n'
   [ -z "$word" ] || printf 'confirm_name\t%s\n' "$word"
