@@ -1,11 +1,12 @@
 #!/usr/bin/env bash
 # help: install a new server from the installer ISO: the OS disk, name, SSH key, preset (run on the ISO as root)
 # help.de: einen neuen Server vom Installer-Stick einrichten: Systemplatte, Name, SSH-Schlüssel, Vorlage (auf dem Stick als root)
-# args: [--role homeserver|edge|minimal] [--disk <name>] [--hostname <name>] [--key-file <file>] [--timezone <zone>] [--preset <name>] [--confirm-disk <name>] [--bios] [--dry-run]
+# args: [--role homeserver|edge|minimal] [--disk <name>] [--hostname <name>] [--key-file <file>] [--timezone <zone>] [--preset <name>] [--confirm-disk <name>] [--bios] [--restore-from <dir>] [--dry-run]
 set -euo pipefail
 here=$(dirname "$0")
 . "$here/lib/ui.sh"
 . "$here/lib/machine.sh"
+. "$here/lib/restore.sh"
 
 # The terminal installer on the ISO (docs/PLAN-modular-core.md step 10a): it replaces the manual steps 2.1 to 2.7 of the Homeserver guide.
 # It touches ONE disk (the one you pick and then type the name of), leaves every other disk alone, puts a copy of this repository
@@ -18,12 +19,19 @@ here=$(dirname "$0")
 #
 # Everything it asks can be given up front (the options above, plus --nic, --smb-allow, --key <line>, --target <dir>, --repo <dir>).
 # An unattended run needs --disk and --confirm-disk <the same name>: without a terminal nothing is erased on a guess.
+# --restore-from <dir> is set by hs-restore (scripts/install-restore.sh): <dir> holds the settings read from a backup (machine.toml,
+# /var/lib/hs, SSH host keys). They are laid over the fresh configuration before nixos-install. UNVERIFIED: not tested on hardware.
 # Test knobs: HS_INSTALL_SKIP_DISK=1 (no partitioning, no mounting, no nixos-install: only the files), HS_INSTALL_PASSWORD (the adminuser
 # password without asking), HS_PRESETS_DIR, HS_PYTHON.
 
 disk=""; hostname_=""; keyfile=""; key=""; tz=""; preset=""; confirm_disk=""; nic=""; smb=""; dry=false; role=""; bios=false
 target=${HS_INSTALL_TARGET:-/mnt}
-repo=""
+repo=""; restore_from=""
+# no arguments in a terminal: the entry menu, "New install" next to "Restore from backup" (UNVERIFIED: not tested on hardware)
+if [ $# -eq 0 ] && [ -t 0 ] && [ -t 1 ] && [ -z "${HS_INSTALL_SKIP_DISK:-}" ]; then
+  what=$(choose "What do you want to do?" "New install" "Restore from backup") || what="New install"
+  [ "$what" != "Restore from backup" ] || exec bash "$here/install-restore.sh"
+fi
 while [ $# -gt 0 ]; do
   case "$1" in
     --role) role=${2:?}; shift 2 ;;
@@ -39,6 +47,7 @@ while [ $# -gt 0 ]; do
     --smb-allow) smb=${2:?}; shift 2 ;;
     --target) target=${2:?}; shift 2 ;;
     --repo) repo=${2:?}; shift 2 ;;
+    --restore-from) restore_from=${2:?}; shift 2 ;;
     --dry-run) dry=true; shift ;;
     *) say "usage: hs-install [--role homeserver|edge|minimal] [--disk <name>] [--hostname <name>] [--key-file <file>] [--timezone <zone>] [--preset <name>] [--confirm-disk <name>] [--dry-run]"; exit 1 ;;
   esac
@@ -141,6 +150,7 @@ if [ "$role" = homeserver ]; then
   kv "Samba networks" "${smb:-from the example}"
 fi
 kv "Copy of this repository" "$target/etc/nixos"
+[ -z "$restore_from" ] || kv "Settings from the backup" "$(restore_files "$restore_from" | wc -l | tr -d ' ') file(s) laid over the configuration"
 if $dry; then note "Dry run: nothing was changed."; exit 0; fi
 
 if [ -z "$skip" ]; then
@@ -221,6 +231,14 @@ ok "machine.toml: server name, SSH key, network card and the rest"
 HS_PRESETS_DIR=${HS_PRESETS_DIR:-$etc/presets} bash "$here/preset.sh" apply "$preset" --yes >/dev/null || fail "The preset could not be applied."
 ok "$(t "Preset '%s' applied (only what was not set yet)" "$preset")"
 
+# ---- the settings from the backup (hs-restore): over the fresh machine.toml, then what the new disk needs is set again
+if [ -n "$restore_from" ]; then
+  restore_apply "$restore_from" "$target"
+  # the restored machine.toml names the OLD boot disk and may lack what this layout needs
+  ! $bios || mset bootDevice "\"/dev/$disk\""
+  ok "$(t 'Settings from the backup laid over the configuration (%s file(s))' "$(restore_files "$restore_from" | wc -l | tr -d ' ')")"
+fi
+
 # ---- install
 if [ -z "$skip" ]; then
   step "Installing NixOS (a few minutes)"
@@ -234,6 +252,9 @@ if [ -z "$skip" ]; then
 fi
 
 step "Done"
+if [ -n "$restore_from" ]; then
+  note "After the first boot: sudo hs rebuild, make the vault (hs vault init), put the backup password back, import the pools, sudo hs unlock. The checklist: docs/backup-and-recovery.md Case A, from step 8."
+fi
 note "Take the stick out and reboot. Then, from your PC:  ssh adminuser@$hostname_.local   (or the address your router gave it)"
 if [ "$role" = homeserver ]; then
   note "Next: create the pools (zpool create, as in section 3 of the Homeserver guide; the hs command only exists after the first nixos-rebuild switch), then sudo nixos-rebuild switch. The guide: docs/install.md."
