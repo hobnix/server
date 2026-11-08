@@ -97,6 +97,8 @@ gpu_check() {
 # What the rebuild switched to: the Git revision of the checkout, for the health check ("running system = checkout?").
 write_stamp() {
   local repo=${HS_REPO:-/etc/nixos} dir=${HS_STATE_DIR:-/var/lib/hs} rev dirty=0 old_rev prev
+  # the machine.toml this build used: `hs sys rebuild pending` lists what differs from it (the staged changes)
+  { mkdir -p "$dir" && cp -p "${HS_MACHINE_FILE:-$repo/machine.toml}" "$dir/machine.toml.built"; } 2>/dev/null || true
   [ -e "$repo/.git" ] || return 0
   rev=$(git -c safe.directory="$repo" -C "$repo" rev-parse HEAD 2>/dev/null) || return 0
   [ -z "$(git -c safe.directory="$repo" -C "$repo" status --porcelain --untracked-files=no 2>/dev/null)" ] || dirty=1

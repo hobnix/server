@@ -7,6 +7,7 @@ here=$(dirname "$0")
 . "$here/lib/ui.sh"
 . "$here/lib/machine.sh"
 . "$here/lib/setting.sh"
+. "$here/lib/effect.sh"
 py=${HS_PYTHON:-python3}
 pre() { PYTHONUTF8=1 "$py" "$here/preset.py" "$@"; }
 
@@ -65,6 +66,8 @@ case "$cmd" in
     show_plan "$name"
     todo=$(awk -F'\t' '$4 == "set"' <<<"$rows")
     [ -n "$todo" ] || { ok "Nothing to set: everything in this preset is set already."; exit 0; }
+    if awk -F'\t' '$1 != "machine"' <<<"$todo" | grep -q .; then effect_say now; fi
+    if awk -F'\t' '$1 == "machine"' <<<"$todo" | grep -q .; then effect_say rebuild; fi
     $dry && { note "Dry run: nothing changed."; exit 0; }
     if ! $yes; then
       [ -t 0 ] && [ -t 1 ] || fail "Applying a preset asks first: run it in a terminal, or add --yes."

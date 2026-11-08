@@ -14,6 +14,7 @@
   import EmptyState from '../ui/EmptyState.svelte';
   import UnlockForm from '../forms/unlock/UnlockForm.svelte';
   import Placeholder from './Placeholder.svelte';
+  import PendingRebuild from './PendingRebuild.svelte';
 
   // deck: the shared status document; meta: tree notes; node: { name, kind, local, state: 'ok'|'down'|'off'|'loading', why, retry } of the node on screen
   let { deck, meta, node, locked = false } = $props();
@@ -46,6 +47,7 @@
     </Banner>
   {/if}
   <div class="pg" class:down inert={down || undefined}>
+    {#if node.local}<PendingRebuild />{/if}
     {#if Page}<Page {deck} {meta} {node} />{:else}<Placeholder />{/if}
   </div>
 {/if}

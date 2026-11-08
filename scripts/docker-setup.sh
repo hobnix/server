@@ -17,6 +17,7 @@
 set -euo pipefail
 here=$(cd "$(dirname "$0")" && pwd)
 . "$here/lib/capability.sh"
+. "$here/lib/effect.sh"
 
 refuse() { printf 'status\trefused\nreason\t%s\n' "$1"; exit 1; }
 docker_sh() { if [ -n "${HS_DOCKER_SCRIPT:-}" ]; then "$HS_DOCKER_SCRIPT" "$@"; else bash "$here/docker.sh" "$@"; fi; }
@@ -150,6 +151,7 @@ if [ "$verb" = plan ]; then
       *) printf 'step\t%s\n' "${l#"${l%%[![:space:]]*}"}" ;;
     esac
   done <<<"$out"
+  printf 'note\t%s\n' "$(effect_now)"
   printf 'command\ths docker enable --yes --job\n'
   printf 'long\tyes\n'
   exit 0

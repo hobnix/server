@@ -2231,3 +2231,6 @@ Time zone	Zeitzone
 UNVERIFIED: this restore has not been tested on hardware. Read the plan carefully.	UNVERIFIED: Diese Wiederherstellung wurde nicht auf Hardware getestet. Lies den Plan sorgfältig.
 Which disk is the NEW system disk?	Welche Platte ist die NEUE Systemplatte?
 usage: hs-restore [--backup-device <name>] [--password-file <file>] [--snapshot <id|latest>] [--disk <name>] [--confirm-disk <name>] [--answers <file>] [--dry-run]	Aufruf: hs-restore [--backup-device <Name>] [--password-file <Datei>] [--snapshot <id|latest>] [--disk <Name>] [--confirm-disk <Name>] [--answers <Datei>] [--dry-run]
+This takes effect with hs rebuild.	Das gilt nach: hs rebuild.
+A rebuild takes several minutes; none has been timed on this server yet.	Ein Rebuild dauert mehrere Minuten; auf diesem Server wurde noch keiner gemessen.
+The last rebuild took about %s min.	Der letzte Rebuild dauerte etwa %s Min.

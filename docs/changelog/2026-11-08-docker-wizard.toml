@@ -1,0 +1,5 @@
+date  = "2026-11-08"
+type  = "feature"
+title = "Docker: a guided wizard writes the compose file and .env, then opens the editor"
+docs  = "containers-and-apps#create-an-app-with-the-guided-wizard"
+body  = """The Docker page has a Guided button: image, ports, folders and settings one question at a time, then the editor opens on the compose file and .env the wizard wrote. Nothing is saved or started by the wizard."""

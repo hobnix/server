@@ -26,6 +26,7 @@ import Services from './pages/Services.svelte';
 import Docker from './pages/Docker.svelte';
 import Registries from './pages/docker/Registries.svelte';
 import AppEditPage from './pages/docker/AppEditPage.svelte';
+import AppWizardPage from './pages/docker/AppWizardPage.svelte';
 import Docs from './pages/Docs.svelte';
 import Certificates from './pages/Certificates.svelte';
 import Notifications from './pages/Notifications.svelte';
@@ -72,6 +73,7 @@ export const routes = {
   '/instances/docker': Docker,
   '/instances/docker/registries': Registries,
   '/instances/docker/new': AppEditPage,
+  '/instances/docker/wizard': AppWizardPage,
   '/operations/notifications': Notifications,
   '/operations/whats-new': WhatsNew,
   '/monitoring/diagnostics': Data,
