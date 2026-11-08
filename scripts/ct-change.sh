@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # help: change an instance without asking anything: what would happen (plan), then do it as a background job (start)
 # help.de: eine Instanz ändern, ohne etwas zu fragen: was passieren würde (plan), dann als Hintergrundjob ausführen (start)
-# args: plan|start <instance> <start|stop|restart|snapshot|restore|delete-snapshot|add-storage|remove-storage|set|ip|update|update-all|delete|create> [--ram <MB|none>] [--cpu <N|none>] [--disk <GB>] [--autostart yes|no] [--docker yes|no] [--address <ip>] [--type container|docker|vm] [--profile <network profile>] [--bind <fast|shares|sensitive>:<name>:<path>[:ro] ...] [--snapshot <name>] [--label <name>] [--kind fast|shares|sensitive] [--name <storage>] [--path <inside>] [--readonly] [--as <uid>:<gid>] [--device <name>] [--confirm <word>]
+# args: plan|start <instance> <start|stop|restart|snapshot|restore|delete-snapshot|add-storage|remove-storage|set|ip|update|update-all|delete|create> [--ram <MB|none>] [--cpu <N|none>] [--disk <GB>] [--autostart yes|no] [--docker yes|no] [--address <ip>] [--type container|docker|vm] [--profile <network profile>] [--pool <incus pool>] [--iso <name.iso>] [--bind <fast|shares|sensitive>:<name>:<path>[:ro] ...] [--snapshot <name>] [--label <name>] [--kind fast|shares|sensitive] [--name <storage>] [--path <inside>] [--readonly] [--as <uid>:<gid>] [--device <name>] [--confirm <word>]
 # System command (hs sys ct plan|start): for the interface, timers and tests. It never asks and prints plain
 # key<TAB>value lines like pool-change.sh. The questions of the console wizards are
 # ct-guided.sh's; the plan is manage-ct.sh --dry-run sorted into lines.
@@ -17,13 +17,18 @@
 # create: --profile puts the instance on the network (VLAN profile) of that name (hs sys ct profiles lists them); every --bind attaches storage once the
 #   instance runs (kind:name:absolute path inside[:ro]); the job is `ct-change.sh apply-create`: manage-ct.sh --create, then --add-storage per bind. Bulk folders
 #   cannot go into a VM.
+# create --pool <pool> puts the disk on that Incus storage pool (hs sys ct pools: free space per pool; the plan refuses a disk that does not fit);
+#   --iso <name.iso> (a VM only) makes an empty VM that boots from that image of the ISO library (hs iso); an image that was not checked
+#   against a checksum is allowed with a warning. The image is attached read only as device `install`; remove it after the installation.
 # update-all: the instance argument is `all`; the plan is ct-update-all.sh --dry-run (the running containers, no VMs), the job updates exactly that list.
-# Test knobs: HS_MANAGE_CT (stand-in for manage-ct.sh), HS_CT_UPDATE_ALL (stand-in for ct-update-all.sh), HS_CT_BINDINGS (stand-in for ct-bindings.sh), HS_INCUS.
+# Test knobs: HS_CT_POOLS (stand-in for ct-pools.sh), HS_ISO_DIR, HS_MANAGE_CT (stand-in for manage-ct.sh), HS_CT_UPDATE_ALL (stand-in for ct-update-all.sh), HS_CT_BINDINGS (stand-in for ct-bindings.sh), HS_INCUS.
 set -euo pipefail
 here=$(dirname "$0")
 manage=${HS_MANAGE_CT:-$here/manage-ct.sh}
 bindings=${HS_CT_BINDINGS:-$here/ct-bindings.sh}
 updall=${HS_CT_UPDATE_ALL:-$here/ct-update-all.sh}
+pools=${HS_CT_POOLS:-$here/ct-pools.sh}
+. "$here/lib/iso.sh"
 
 # the job of a create with bindings: create first, then bind the storage one by one, stop at the first failure
 if [ "${1:-}" = apply-create ]; then
@@ -53,7 +58,7 @@ case "$action" in start|stop|restart|snapshot|restore|delete-snapshot|add-storag
 shift 3
 
 snap="" label="" kind="" sname="" path="" as="" device="" confirm="" readonly=false
-ram="" cpu="" disk="" autostart="" docker="" address="" type=container profile="" binds=()
+ram="" cpu="" disk="" autostart="" docker="" address="" type=container profile="" pool="" iso="" binds=()
 while [ $# -gt 0 ]; do
   case "$1" in
     --snapshot) snap=${2:-}; shift 2 ;;
@@ -73,12 +78,14 @@ while [ $# -gt 0 ]; do
     --address)   address=${2:-}; shift 2 ;;
     --type)      type=${2:-}; shift 2 ;;
     --profile)   profile=${2:-}; shift 2 ;;
+    --pool)      pool=${2:-}; shift 2 ;;
+    --iso)       iso=${2:-}; shift 2 ;;
     --bind)      binds+=("${2:-}"); shift 2 ;;
     *) refuse "unknown option $1" ;;
   esac
 done
 word='^[A-Za-z0-9][A-Za-z0-9._-]*$'
-for v in "$snap" "$label" "$device" "$sname" "$profile"; do
+for v in "$snap" "$label" "$device" "$sname" "$profile" "$pool"; do
   [ -z "$v" ] || [[ "$v" =~ $word ]] || refuse "invalid name '$v'"
 done
 
@@ -100,6 +107,24 @@ for pair in "autostart:$autostart" "docker:$docker"; do
 done
 case "$type" in container|docker|vm) ;; *) refuse "type is container, docker or vm" ;; esac
 [ "$action" = create ] || [ -z "$profile" -a ${#binds[@]} -eq 0 ] || refuse "--profile and --bind belong to create"
+[ "$action" = create ] || [ -z "$pool$iso" ] || refuse "--pool and --iso belong to create"
+isopath="" isofree="" poolfree="" poolkind=""
+if [ -n "$iso" ]; then
+  [ "$type" = vm ] || refuse "An installer image (ISO) is for a virtual machine only."
+  iso_valid_name "$iso" || refuse "invalid image name '$iso'"
+  [ -f "$(iso_dir)/$iso" ] || refuse "There is no image called '$iso' in the ISO library (hs iso list)."
+  isopath=$(iso_dir)/$iso
+  isochecked=$(iso_meta "$isopath.meta" verified)
+fi
+if [ -n "$pool" ]; then
+  prow=$(bash "$pools" 2>/dev/null | awk -F'\t' -v p="$pool" '$1 == p { print; exit }') || prow=""
+  [ -n "$prow" ] || refuse "There is no storage pool called '$pool' (hs sys ct pools lists them)."
+  poolkind=$(cut -f3 <<<"$prow"); poolfree=$(cut -f4 <<<"$prow")
+  need=${disk:-20}
+  if [[ "$type" = vm && "$poolfree" =~ ^[0-9]+$ && "$disk" != none ]] && [ $((need * 1073741824)) -gt "$poolfree" ]; then
+    refuse "The pool '$pool' has $(numfmt --to=iec "$poolfree" 2>/dev/null || echo "$poolfree") free; a disk of $need GiB does not fit."
+  fi
+fi
 seen=" "
 for b in ${binds[@]+"${binds[@]}"}; do
   [[ "$b" =~ ^(fast|shares|sensitive):[A-Za-z0-9][A-Za-z0-9._-]*:/[A-Za-z0-9._/-]*(:ro)?$ && "$b" != *..* ]] || refuse "expected <fast|shares|sensitive>:<name>:<absolute path>[:ro], got '$b'"
@@ -139,6 +164,8 @@ case "$action" in
     [ "$type" != vm ] || margs+=(--vm)
     [ "$type" != docker ] || margs+=(--docker)
     [ -z "$profile" ] || margs+=(--profile "$profile")
+    [ -z "$pool" ] || margs+=(--pool "$pool")
+    [ -z "$iso" ] || margs+=(--iso "$isopath")
     [ -z "$ram" ] || margs+=(--ram "$ram"); [ -z "$cpu" ] || margs+=(--cpu "$cpu"); [ -z "$disk" ] || margs+=(--disk "$disk")
     [ -z "$address" ] || margs+=(--ip "$address") ;;
 esac
@@ -215,6 +242,13 @@ case "$action" in
   delete) printf 'heading\tdelete %s\nstep\tdelete the instance and its snapshots\nstep\tgive its address back in UniFi\nnote\tAttached storage stays where it is. Remove a Zoraxy rule that pointed to it by hand.\n' "$ct" ;;
   create) printf 'heading\tcreate %s (%s)\nstep\tcreate the instance and pin its MAC\nstep\tstart it\n' "$ct" "$type"
           [ -z "$profile" ] || printf 'note\tOn the network (profile) %s.\n' "$profile"
+          if [ -n "$pool" ]; then
+            printf 'note\tThe disk lives on the %s pool "%s"%s.\n' "$poolkind" "$pool" "$([[ "$poolfree" =~ ^[0-9]+$ ]] && echo ", $(numfmt --to=iec "$poolfree" 2>/dev/null || echo "$poolfree") free")"
+          fi
+          if [ -n "$iso" ]; then
+            printf 'step\tattach the image %s read only; the VM boots from it for the installation\n' "$iso"
+            [ "$isochecked" = yes ] || printf 'warn\tThe image %s was added without a checksum: nothing proves it is the file the publisher made.\n' "$iso"
+          fi
           if [ -n "$address" ]; then printf 'step\treserve %s in UniFi and restart\n' "$address"; else printf 'note\tNo fixed address yet: set one afterwards.\n'; fi
           for b in ${binds[@]+"${binds[@]}"}; do
             r=${b#*:}; bn=${r%%:*}; bp=${r#*:}; bp=${bp%%:*}

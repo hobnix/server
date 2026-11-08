@@ -495,6 +495,24 @@ incusInternalSubnet = "10.99.0.0/29"'''
 
 [[item]]
 kind = "option"
+key = "isoDir"
+type = "string"
+required = false
+settable = true
+secret = false
+store = "settings"
+capability = "incus"
+default = '"/var/lib/hs/iso"'
+pattern = '^/[A-Za-z0-9._/-]{1,200}$'
+hint = "an absolute folder, e.g. /bulk/data-01/isos"
+doc = '''
+# The ISO library: the folder with the install images for virtual machines (hs iso, the Instances page). It can be a folder on a
+# share or a bulk disk when the images are big. Images already in the old folder are not moved. Default "/var/lib/hs/iso".'''
+value = '''
+isoDir = "/var/lib/hs/iso"'''
+
+[[item]]
+kind = "option"
 key = "sshOverIp"
 page = "access"
 type = "bool"

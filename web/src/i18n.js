@@ -51,6 +51,13 @@ const de = {
   'Nothing is stored for this topic yet.': 'Für dieses Thema ist noch nichts gespeichert.',
   'Shows the first 64 KiB of {n} bytes.': 'Zeigt die ersten 64 KiB von {n} Bytes.',
   'shows the same on the command line.': 'zeigt dasselbe auf der Kommandozeile.',
+  // ISO library (pages/IsoLibrary.svelte, forms/instances/IsoAdd.svelte)
+  'ISO images': 'ISO-Abbilder', 'Add image': 'Abbild hinzufügen', 'Add an ISO image': 'ISO-Abbild hinzufügen', Checksum: 'Prüfsumme', Checked: 'Geprüft', Source: 'Quelle',
+  'Install images for virtual machines. A checksum is verified before an image can be used.': 'Installationsabbilder für virtuelle Maschinen. Eine Prüfsumme wird geprüft, bevor ein Abbild verwendet werden kann.',
+  'No images yet': 'Noch keine Abbilder', 'From a URL': 'Von einer URL', 'A file on this server': 'Eine Datei auf diesem Server', 'Path of the file': 'Pfad der Datei',
+  'Checksum (SHA-256 or SHA-512)': 'Prüfsumme (SHA-256 oder SHA-512)', 'Name in the library': 'Name in der Bibliothek', verified: 'geprüft', 'not checked': 'nicht geprüft',
+  'There is no checksum: show me the computed one instead': 'Es gibt keine Prüfsumme: zeig mir stattdessen die berechnete',
+  'This is a plain HTTP address: the download can be changed on the way. Prefer HTTPS and check the checksum.': 'Das ist eine einfache HTTP-Adresse: der Download kann unterwegs verändert werden. Bevorzuge HTTPS und prüfe die Prüfsumme.',
   // Docker wizard (pages/docker/AppWizardPage.svelte, #263)
   'Open in editor': 'Im Editor öffnen', Guided: 'Geführt', Image: 'Image', Restart: 'Neustart', Remove: 'Entfernen', value: 'Wert', Value: 'Wert', '(empty)': '(leer)',
   'Which image should run?': 'Welches Image soll laufen?', 'Which ports should the app listen on?': 'Auf welchen Ports soll die App erreichbar sein?',

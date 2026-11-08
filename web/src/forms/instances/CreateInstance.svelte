@@ -1,8 +1,15 @@
 <script>
   import Button from '../../ui/Button.svelte';
-  // New instance: `hs sys ct plan|start <name> create [--type container|docker|vm] [--ram MB] [--cpu N] [--disk GB] [--address ip] [--profile name] [--bind kind:name:/path[:ro] ...]`
+  // New instance: `hs sys ct plan|start <name> create [--type container|docker|vm] [--ram MB] [--cpu N] [--disk GB] [--address ip] [--profile name] [--pool name]
+  // [--iso name.iso] [--bind kind:name:/path[:ro] ...]`. One guided flow for every kind (issue #258): the steps are shared components (steps/), the plan on the
+  // right is live from the first step, and Start is enabled as soon as the plan allows it. Steps: name and kind, resources, where the disk lives, the install
+  // image (virtual machines only), network and storage.
   import CreateDialog from '../../shell/CreateDialog.svelte';
-  import { poll, rows } from '../../data.svelte.js';
+  import StepBasics from './steps/StepBasics.svelte';
+  import StepResources from './steps/StepResources.svelte';
+  import StepPlacement from './steps/StepPlacement.svelte';
+  import StepMedia from './steps/StepMedia.svelte';
+  import StepNetwork from './steps/StepNetwork.svelte';
 
   let { ondone = () => {} } = $props();
   let name = $state('');
@@ -10,25 +17,31 @@
   let ram = $state('');
   let cpu = $state('');
   let disk = $state('');
+  let pool = $state('');
+  let iso = $state('');
   let address = $state('');
   let profile = $state('');
   // bindings: storage attached once the instance runs (id keeps the rows apart while one is removed)
   let binds = $state([]);
-  let nextId = 1;
+  let step = $state(0);
 
-  const pf = poll('/api/sys/ct/profiles', 60000);
-  // name, network, description
-  const profiles = $derived(rows(pf).map((r) => ({ name: r[0], net: r[1], desc: r[2] })));
-  const sh = poll('/api/sys/shares/overview', 60000, 'shares-overview');
-  const shareNames = $derived(rows(sh).filter((r) => r[1] !== 'other').map((r) => r[0]));
-  const bindKinds = [['shares', 'Share'], ['sensitive', 'Sensitive share'], ['fast', 'Fast volume']];
-  const addBind = () => { binds = [...binds, { id: nextId++, kind: 'shares', name: '', path: '', ro: false }]; };
-  const dropBind = (id) => { binds = binds.filter((b) => b.id !== id); };
+  const steps = $derived([
+    { id: 'basics', label: 'Name and kind' },
+    { id: 'resources', label: 'Resources' },
+    { id: 'placement', label: 'Disk' },
+    ...(type === 'vm' ? [{ id: 'media', label: 'Install image' }] : []),
+    { id: 'network', label: 'Network and storage' },
+  ]);
+  const cur = $derived(steps[Math.min(step, steps.length - 1)].id);
+  const last = $derived(step >= steps.length - 1);
   const bindOk = (b) => /^[A-Za-z0-9][A-Za-z0-9._-]{0,60}$/.test(b.name.trim()) && /^\/(?!.*\.\.)[A-Za-z0-9._/-]{0,200}$/.test(b.path.trim());
   const bindsOk = $derived(binds.every(bindOk) && new Set(binds.map((b) => b.name.trim())).size === binds.length);
   const vmBulk = $derived(type === 'vm' && binds.some((b) => b.kind !== 'fast'));
+  // a kind other than a VM has no install image: drop a choice made before the kind changed
+  $effect(() => { if (type !== 'vm' && iso) iso = ''; });
+  // the next step: not until the name is given; a step the kind does not have is skipped by `steps`
+  const canNext = $derived(step > 0 || name.trim() !== '');
 
-  const kinds = [['container', 'Empty container'], ['docker', 'Docker'], ['vm', 'Virtual machine']];
   const args = () => {
     if (!name.trim()) return null;
     const a = [name.trim(), 'create', '--type', type];
@@ -37,6 +50,8 @@
     if (disk.trim()) a.push('--disk', disk.trim());
     if (address.trim()) a.push('--address', address.trim());
     if (profile) a.push('--profile', profile);
+    if (pool) a.push('--pool', pool);
+    if (type === 'vm' && iso) a.push('--iso', iso);
     if (!bindsOk || vmBulk) return null;
     for (const b of binds) a.push('--bind', `${b.kind}:${b.name.trim()}:${b.path.trim()}${b.ro ? ':ro' : ''}`);
     return a;
@@ -45,62 +60,30 @@
 
 <CreateDialog title="Create an instance" area="ct" {args} {ondone}>
   {#snippet form()}
-    <div class="field">
-      <label for="ci-name">Name</label>
-      <input id="ci-name" class="input" bind:value={name} placeholder="e.g. jellyfin" autocomplete="off" spellcheck="false" />
-    </div>
-    <div class="field">
-      <label for="ci-kind">Kind</label>
-      <div id="ci-kind" class="seg" role="radiogroup">
-        {#each kinds as [v, l]}
-          <label class="seg-opt"><input type="radio" name="ci-type" value={v} bind:group={type} />{l}</label>
-        {/each}
-      </div>
-    </div>
-    <div class="row">
-      <div class="field"><label for="ci-ram">RAM limit (MiB)</label><input id="ci-ram" class="input" bind:value={ram} placeholder="default" inputmode="numeric" autocomplete="off" /></div>
-      <div class="field"><label for="ci-cpu">CPU limit</label><input id="ci-cpu" class="input" bind:value={cpu} placeholder="default" inputmode="numeric" autocomplete="off" /></div>
-      <div class="field"><label for="ci-disk">Disk (GiB)</label><input id="ci-disk" class="input" bind:value={disk} placeholder="default" inputmode="numeric" autocomplete="off" /></div>
-    </div>
-    <div class="field">
-      <label for="ci-addr">Fixed address (optional)</label>
-      <input id="ci-addr" class="input" bind:value={address} placeholder="10.10.95.25" autocomplete="off" spellcheck="false" />
-    </div>
-    <div class="field">
-      <label for="ci-prof">Network</label>
-      <select id="ci-prof" class="input" bind:value={profile}>
-        <option value="">Default network</option>
-        {#each profiles as p}<option value={p.name}>{p.name} ({p.net}{p.desc && p.desc !== '-' ? ', ' + p.desc : ''})</option>{/each}
-      </select>
-      {#if pf.loaded && pf.error}<div class="hint">The networks could not be read; the default one is used.</div>{/if}
-    </div>
-    <div class="field">
-      <span class="lbl">Storage bindings <span class="opt">(optional)</span></span>
-      {#each binds as b (b.id)}
-        <div class="brow">
-          <select class="input" aria-label="Kind" bind:value={b.kind}>{#each bindKinds as [v, l]}<option value={v}>{l}</option>{/each}</select>
-          <input class="input" aria-label="Name" list="ci-shares" bind:value={b.name} placeholder={b.kind === 'fast' ? 'volume' : 'share'} autocomplete="off" spellcheck="false" />
-          <input class="input" aria-label="Path inside" bind:value={b.path} placeholder="/media" autocomplete="off" spellcheck="false" />
-          <label class="chk"><input type="checkbox" bind:checked={b.ro} />ro</label>
-          <Button variant="ghost" class="btn-icon" tooltip={'Remove this binding'} type="button" aria-label="Remove this binding" onclick={() => dropBind(b.id)}><i class="ph ph-x"></i></Button>
-        </div>
+    <ol class="steps" aria-label="Steps">
+      {#each steps as s, i (s.id)}
+        <li class:on={i === step} class:done={i < step}><button type="button" class="stepbtn" aria-current={i === step ? 'step' : undefined} disabled={i > 0 && !name.trim()} onclick={() => { step = i; }}><span class="n">{i + 1}</span>{s.label}</button></li>
       {/each}
-      <datalist id="ci-shares">{#each shareNames as n}<option value={n}></option>{/each}</datalist>
-      <div><Button variant="ghost" size="sm" class="createinstance-sm" type="button" onclick={addBind}><i class="ph ph-plus"></i>Bind storage</Button></div>
-      {#if binds.length && !bindsOk}<div class="hint bad">Each binding needs a different name and an absolute path without "..".</div>{/if}
-      {#if vmBulk}<div class="hint bad">Share folders cannot go into a virtual machine; use a fast volume, or mount the Samba share inside it.</div>{/if}
+    </ol>
+    {#if cur === 'basics'}<StepBasics bind:name bind:type />
+    {:else if cur === 'resources'}<StepResources bind:ram bind:cpu bind:disk {type} />
+    {:else if cur === 'placement'}<StepPlacement bind:pool />
+    {:else if cur === 'media'}<StepMedia bind:iso />
+    {:else}<StepNetwork bind:address bind:profile bind:binds {type} />{/if}
+    <div class="nav">
+      <Button type="button" disabled={step === 0} onclick={() => { step = Math.max(0, step - 1); }}>Back</Button>
+      {#if !last}<Button type="button" variant="primary" disabled={!canNext} onclick={() => { step += 1; }}>Next</Button>{/if}
     </div>
-    <div class="hint">A share that does not exist yet is created when it is bound. The same storage can be bound later from the instance page.</div>
   {/snippet}
 </CreateDialog>
 
 <style>
-  .row { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; }
-  .hint { font-size: 12px; color: var(--color-neutral-500); }
-  .hint.bad { color: var(--st-bad); }
-  .lbl { display: block; font-size: 12px; margin-bottom: 5px; color: color-mix(in srgb, var(--color-text) 70%, transparent); }
-  .opt { color: var(--color-neutral-500); }
-  .brow { display: grid; grid-template-columns: 120px minmax(0, 1fr) minmax(0, 1fr) auto auto; gap: 6px; align-items: center; margin-bottom: 6px; }
-  .chk { display: flex; align-items: center; gap: 4px; font-size: 12.5px; accent-color: var(--color-accent); }
-  :global(.btn.createinstance-sm) { font-size: 12px; }
+  .steps { display: flex; flex-wrap: wrap; gap: 4px 14px; list-style: none; margin: 0; padding: 0; font-size: 12.5px; }
+  .stepbtn { display: inline-flex; align-items: center; gap: 6px; padding: 2px 0; border: 0; background: none; color: var(--fg-3); font: inherit; cursor: pointer; }
+  .stepbtn:disabled { cursor: default; opacity: 0.5; }
+  .on .stepbtn { color: var(--fg); font-weight: 600; }
+  .done .stepbtn { color: var(--fg-2); }
+  .n { display: inline-grid; place-items: center; width: 18px; height: 18px; font-size: 11px; border: 1px solid var(--line-2); }
+  .on .n { border-color: var(--accent); background: var(--accent); color: var(--accent-ink); }
+  .nav { display: flex; justify-content: space-between; margin-top: 4px; }
 </style>

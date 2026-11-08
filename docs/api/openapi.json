@@ -1212,6 +1212,45 @@
     }
    }
   },
+  "/ct/pools": {
+   "get": {
+    "operationId": "ct.pools",
+    "summary": "the Incus storage pools to put a disk on: name, driver, kind (fast|bulk|other), free bytes, total bytes, source (- when unknown)",
+    "x-hs-exit": true,
+    "x-hs-sys": {
+     "words": [
+      "ct",
+      "pools"
+     ],
+     "script": "ct-pools.sh",
+     "args": "-",
+     "class": "read",
+     "rest": false
+    },
+    "x-hs-web": {
+     "path": "/api/sys/ct/pools",
+     "kind": "tsv",
+     "ttl": 15,
+     "query": []
+    },
+    "x-hs-described": false,
+    "responses": {
+     "0": {
+      "description": "ok",
+      "content": {
+       "text/tab-separated-values": {
+        "schema": {
+         "type": "string"
+        }
+       }
+      }
+     },
+     "default": {
+      "description": "failed; stderr says why, stdout may be empty"
+     }
+    }
+   }
+  },
   "/ct/profiles": {
    "get": {
     "operationId": "ct.profiles",
@@ -4752,6 +4791,200 @@
      },
      "default": {
       "description": "failed; stderr says why, stdout may be empty"
+     }
+    }
+   }
+  },
+  "/iso/dir": {
+   "get": {
+    "operationId": "iso.dir",
+    "summary": "the folder of the library (setting isoDir)",
+    "x-hs-exit": true,
+    "x-hs-sys": {
+     "words": [
+      "iso",
+      "dir"
+     ],
+     "script": "iso.sh",
+     "args": "--dir",
+     "class": "read",
+     "rest": false
+    },
+    "x-hs-described": false,
+    "responses": {
+     "0": {
+      "description": "ok",
+      "content": {
+       "text/plain": {
+        "schema": {
+         "type": "string"
+        }
+       }
+      }
+     },
+     "default": {
+      "description": "failed; stderr says why, stdout may be empty"
+     }
+    }
+   }
+  },
+  "/iso/list": {
+   "get": {
+    "operationId": "iso.list",
+    "summary": "images as name, bytes, algo, checksum, checked (yes|no), source, added, used by (instances or -)",
+    "x-hs-exit": true,
+    "x-hs-sys": {
+     "words": [
+      "iso",
+      "list"
+     ],
+     "script": "iso.sh",
+     "args": "--list",
+     "class": "read",
+     "rest": false
+    },
+    "x-hs-web": {
+     "path": "/api/sys/iso/list",
+     "kind": "tsv",
+     "ttl": 10,
+     "query": []
+    },
+    "x-hs-described": false,
+    "responses": {
+     "0": {
+      "description": "ok",
+      "content": {
+       "text/tab-separated-values": {
+        "schema": {
+         "type": "string"
+        }
+       }
+      }
+     },
+     "default": {
+      "description": "failed; stderr says why, stdout may be empty"
+     }
+    }
+   }
+  },
+  "/iso/plan/{action}": {
+   "post": {
+    "operationId": "iso.plan.by_action",
+    "summary": "what adding or removing an image would do, as data: status, plan lines (never asks; exit 2 = the checksum is missing)",
+    "x-hs-exit": true,
+    "x-hs-sys": {
+     "words": [
+      "iso",
+      "plan",
+      "<action>"
+     ],
+     "script": "iso-change.sh",
+     "args": "plan {1} {rest}",
+     "class": "plan",
+     "rest": true
+    },
+    "parameters": [
+     {
+      "name": "action",
+      "in": "path",
+      "required": true,
+      "schema": {
+       "type": "string"
+      }
+     }
+    ],
+    "responses": {
+     "0": {
+      "description": "allowed",
+      "content": {
+       "text/tab-separated-values": {
+        "schema": {
+         "$ref": "#/components/schemas/ChangeLines"
+        }
+       }
+      }
+     },
+     "1": {
+      "description": "refused; the reason line says why",
+      "content": {
+       "text/tab-separated-values": {
+        "schema": {
+         "$ref": "#/components/schemas/ChangeLines"
+        }
+       }
+      }
+     },
+     "2": {
+      "description": "something is missing; the needs lines say what",
+      "content": {
+       "text/tab-separated-values": {
+        "schema": {
+         "$ref": "#/components/schemas/ChangeLines"
+        }
+       }
+      }
+     }
+    }
+   }
+  },
+  "/iso/start/{action}": {
+   "post": {
+    "operationId": "iso.start.by_action",
+    "summary": "do it (hs sys iso start add <file-or-url> (--checksum <hex> | --no-checksum) [--name <n>] | remove <name> --confirm <n>); add answers status started and the unit, remove status done",
+    "x-hs-exit": true,
+    "x-hs-sys": {
+     "words": [
+      "iso",
+      "start",
+      "<action>"
+     ],
+     "script": "iso-change.sh",
+     "args": "start {1} {rest}",
+     "class": "start",
+     "rest": true,
+     "confirm": "--confirm <name>, the name the plan's confirm_name line asks for"
+    },
+    "parameters": [
+     {
+      "name": "action",
+      "in": "path",
+      "required": true,
+      "schema": {
+       "type": "string"
+      }
+     }
+    ],
+    "description": "a long change starts a job; the `unit` line names it; follow it with `jobs tail`",
+    "responses": {
+     "0": {
+      "description": "done or started",
+      "content": {
+       "text/tab-separated-values": {
+        "schema": {
+         "$ref": "#/components/schemas/ChangeLines"
+        }
+       }
+      }
+     },
+     "1": {
+      "description": "refused",
+      "content": {
+       "text/tab-separated-values": {
+        "schema": {
+         "$ref": "#/components/schemas/ChangeLines"
+        }
+       }
+      }
+     },
+     "2": {
+      "description": "something is missing",
+      "content": {
+       "text/tab-separated-values": {
+        "schema": {
+         "$ref": "#/components/schemas/ChangeLines"
+        }
+       }
+      }
      }
     }
    }
