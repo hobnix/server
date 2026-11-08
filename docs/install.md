@@ -388,7 +388,7 @@ yet.
 
 ### First setup with a one-time code (proposed)
 
-Design: [ADR 0022](adr/0022-first-run-console-token.md). The server part is built; the boot step that shows the code on the screen is not
+Design: ADR 0022 (`docs/adr/0022-first-run-console-token.md`). The server part is built; the boot step that shows the code on the screen is not
 yet, so a fresh install does not use this by itself. Not tested on hardware yet.
 
 On a server whose setup is waiting, the sign-in page becomes **First setup**. The server's own screen (or serial console) shows a one-time
