@@ -96,6 +96,11 @@ echo "-- refusals"
 cd "$R"
 release v1.4.0 1.4.0 "$WORK/good" ">=99"; cd "$ROOT"; $PKG fetch test >/dev/null
 check_out "a package that needs a newer core is refused" "API level" bash -c "$PKG update demo --yes 2>&1; true"
+# the index claims ">=1" but the package itself needs more: refused after the copy is read (an index is not the last word)
+cd "$R"; release v1.4.1 1.4.1 "$WORK/good"
+sed -i 's/^requires_core = .*/requires_core = ">=99"/' "$R/recipes/demo/package.toml"; git add -A; git commit -q -m "package.toml needs more"; git -c user.signingkey="$WORK/good.pub" tag -s v1.4.2 -m x; cd "$ROOT"; $PKG fetch test >/dev/null
+check_out "package.toml above the API level is refused" "package.toml says requires_core" bash -c "$PKG update demo --yes 2>&1; true"
+check "and the installed copy is untouched" grep -q '^version = "1[.]3[.]5"$' "$HS_STATE_DIR/packages/installed.toml"
 cd "$R"; release v1.5.0 1.5.0 "$WORK/good" ">=1" "../escape"; cd "$ROOT"; $PKG fetch test >/dev/null
 check_out "a path that leaves the repository is refused" "not allowed" bash -c "$PKG update demo --yes 2>&1; true"
 cd "$R"; release v1.6.0 1.6.0 "$WORK/good" ">=1" recipes/demo '[[events]]\nkind = "done"\nlevel = "loud"\nlabel = "Done"\nmeaning = "x"'; cd "$ROOT"; $PKG fetch test >/dev/null

@@ -80,7 +80,8 @@ case "$action" in
         [ "$inst" != - ] || refuse "$name is not installed from a repository."
         [ "$core" != yes ] || refuse "$name is a core package: other parts of the server refer to it by name, so it stays."
         red=""
-        cmd=(bash "$pkg" remove "$name") ;;
+        if ! why=$(bash "$pkg" remove "$name" --dry-run </dev/null 2>&1); then refuse "$(printf '%s' "$why" | sed -e 's/^[[:space:]]*//' -e 's/^[✗!] *//' | awk 'NF' | head -n 1)"; fi
+        cmd=(bash "$pkg" remove "$name" --yes) ;;
     esac ;;
   fetch)
     repo=$name; name=""

@@ -308,7 +308,9 @@ hs pkg update <name>
 ```
 
 A package update does not touch a running app. For a recipe it replaces the package files; run `hs recipe <name>` to apply them.
-`hs pkg remove <name>` forgets the package files only, never a container.
+`hs pkg remove <name>` forgets the package files only, never a container or data. It refuses while the package is switched on (`hs ext disable <name>` first) or while another package that is on needs it, and it asks you to type the name. See the plan first with `hs pkg remove <name> --dry-run`. Not tested on hardware yet.
+
+A package says which core it works with in `requires_core = ">=N"` (the API level in `scripts/lib/api-level`). `hs pkg install` and `hs pkg update` refuse one that needs a newer core than your server has: run `hs update` first. There is no upper bound: the core only raises its level and keeps a function for one level after announcing its removal (ADR 0008).
 
 Add a repository of your own (a typed repository name confirms it; releases must be signed with a key you trust):
 

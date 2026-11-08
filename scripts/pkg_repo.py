@@ -270,6 +270,10 @@ class Repos:
         if m.get("name") != name or m.get("version") != entry["version"]:
             shutil.rmtree(tmp, ignore_errors=True)
             raise Refused("%s: package.toml (name %s, version %s) does not match the index (%s)" % (name, m.get("name"), m.get("version"), entry["version"]))
+        rq = self.pkg.REQUIRES.match(str(m.get("requires_core", "")))
+        if not rq or int(rq.group(1)) > self.pkg.api_level():
+            shutil.rmtree(tmp, ignore_errors=True)
+            raise Refused("%s: package.toml says requires_core %r, this server has API level %d: hs update first" % (name, m.get("requires_core"), self.pkg.api_level()))
         ev = self.pkg.pkg_events.manifest_problems(name, m.get("events", []))
         if ev:
             shutil.rmtree(tmp, ignore_errors=True)
