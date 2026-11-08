@@ -24,6 +24,7 @@
   dhcpRange = [ 100 199 ];
   incusUi = true;
   incusInternalSubnet = "10.99.0.0/29";
+  isoDir = "/var/lib/hs/iso";
   sshOverIp = true;
   tailscaleRouter = false;
   bulkType = "zfs";

@@ -8,7 +8,9 @@ set -euo pipefail
 #   --list                                   instances, tab separated (name, type, state, address, ram, cpu, autostart, mac pinned, docker, disk,
 #                                            snapshots, last snapshot, memory in use, cpu time, bindings, last start (UTC), owner (user.hs.managed_by, - when none))
 #   <name> --storage                         disk devices of an instance, tab separated
-#   --create <name> [--vm] [--docker] [--ram MB] [--cpu N] [--disk GB] [--ip <address>] [--profile <vlan>]
+#   --create <name> [--vm] [--docker] [--ram MB] [--cpu N] [--disk GB] [--ip <address>] [--profile <vlan>] [--pool <incus pool>] [--iso <file>]
+#                                            --pool puts the disk on that Incus storage pool (hs sys ct pools), --iso (a VM only) makes an empty VM that
+#                                            boots from that installer image (the ISO library, hs iso) instead of the Debian image
 #   --profiles                               network profiles to create on: name, network or bridge, description
 #   <name> --users                           users that run services inside: name, uid, gid, commands
 #   <name> --add-storage <fast|shares|sensitive> <storage-name> <path> [--readonly] [--as <uid>:<gid>]
@@ -156,7 +158,7 @@ if [ "$1" = --create ]; then
   [ $# -ge 2 ] || usage
   name="$2"; shift 2
   valid_name "$name"
-  vm=false; docker=false; ram=""; cpu=""; disk=""; ip=""; profile=""
+  vm=false; docker=false; ram=""; cpu=""; disk=""; ip=""; profile=""; pool=""; iso=""
   while [ $# -gt 0 ]; do
     case "$1" in
       --vm)     vm=true; shift ;;
@@ -166,10 +168,17 @@ if [ "$1" = --create ]; then
       --disk)   number Disk "$2"; disk="$2"; shift 2 ;;
       --ip)     ip="$2"; shift 2 ;;
       --profile) profile="$2"; shift 2 ;;      # the profile of another VLAN than the default one
+      --pool)   pool="$2"; shift 2 ;;          # the Incus storage pool of the root disk
+      --iso)    iso="$2"; shift 2 ;;           # an installer image: an empty VM that boots from it
       *) usage ;;
     esac
   done
   if incus info "$name" >/dev/null 2>&1; then fail "$(t "'%s' already exists." "$name")"; fi
+  [ -z "$iso" ] || $vm || fail "An installer image (ISO) is for a virtual machine only."
+  [ -z "$iso" ] || [ -f "$iso" ] || $dry || fail "$(t "The image '%s' does not exist." "$iso")"
+  if [ -n "$pool" ] && ! $dry; then
+    incus storage show "$pool" >/dev/null 2>&1 || fail "$(t "There is no storage pool called '%s'. Known: %s" "$pool" "$(incus storage list -f csv -c n | tr '\n' ' ')")"
+  fi
 
   opts=(-c boot.autostart=true)
   if $vm; then
@@ -195,8 +204,16 @@ if [ "$1" = --create ]; then
   # start (a VM formats its disk then; the root disk comes from the profile,
   # so it is overridden for this instance), and the MAC of a VM can only be
   # pinned while it is stopped.
-  run incus init images:debian/13 "$name" "${opts[@]}"
-  [ -z "$disk" ] || run incus config device override "$name" root "size=${disk}GiB"
+  [ -z "$pool" ] || opts+=(-s "$pool")
+  if [ -n "$iso" ]; then
+    run incus init --empty "$name" "${opts[@]}"
+  else
+    run incus init images:debian/13 "$name" "${opts[@]}"
+  fi
+  if [ -z "$disk" ]; then :
+  elif [ -n "$pool" ]; then run incus config device set "$name" root "size=${disk}GiB"   # with -s the root disk is the instance's own device already
+  else run incus config device override "$name" root "size=${disk}GiB"; fi
+  [ -z "$iso" ] || run incus config device add "$name" install disk "source=$iso" boot.priority=10 readonly=true
   run bash "$here/mac.sh" "$name"
   run incus start "$name"
   if [ -n "$ip" ]; then

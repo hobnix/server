@@ -348,6 +348,7 @@ sys	sys ct storage <ct>	manage-ct.sh	{1} --storage	storage of one instance	-
 sys	sys ct users <ct>	manage-ct.sh	{1} --users	users inside one instance	-
 sys	sys ct snapshots <ct>	manage-ct.sh	{1} --snapshots	snapshots of one instance	-
 sys	sys ct profiles	manage-ct.sh	--profiles	network profiles an instance can be created on: name, network, description	-
+sys	sys ct pools	ct-pools.sh	-	the Incus storage pools to put a disk on: name, driver, kind (fast|bulk|other), free bytes, total bytes, source (- when unknown)	-
 sys	sys ct bindings <ct>	ct-bindings.sh	{1}	the storage of an instance with pool, disks, size, backup, cache and who else mounts it	-
 sys	sys ct plan <ct> <action>	ct-change.sh	plan {1} {2} {rest}	what a change of an instance would do, as data: status, plan lines, confirm_name (never asks; exit 2 = something is missing)	-
 sys	sys ct start <ct> <action>	ct-change.sh	start {1} {2} {rest}	do a change of an instance as a background job; needs --confirm <name> when the plan has a danger line	-
@@ -430,6 +431,13 @@ user	expiry remove	expiry.sh	remove {rest}	take an entry off the list: hs expiry
 sys	sys expiry list	expiry.sh	--list	entries as name, date, days left, state (ok|soon|due|expired|invalid), how to renew	-
 sys	sys expiry plan <action>	expiry-change.sh	plan {1} {rest}	what adding or removing an expiry entry would do, as data: status, plan lines (never asks; exit 2 = the date is missing)	-
 sys	sys expiry start <action>	expiry-change.sh	start {1} {rest}	do it (hs sys expiry start add <name> --date YYYY-MM-DD [--renew <text>] | remove <name>), answers status done	-
+user	iso	iso.sh	list	the ISO library: install images for virtual machines, with checksum and where they are used	die ISO-Bibliothek: Installationsabbilder für virtuelle Maschinen, mit Prüfsumme und Verwendung	topic:instances,reads,capability:incus
+user	iso add	iso.sh	add {rest}	add an image from a file or URL as a background job: hs iso add <file-or-url> (--checksum <sha256|sha512> | --no-checksum) [--name <name.iso>]	ein Abbild aus einer Datei oder URL als Hintergrundjob hinzufügen: hs iso add <Datei-oder-URL> (--checksum <sha256|sha512> | --no-checksum) [--name <Name.iso>]	topic:instances,changes,capability:incus
+user	iso remove	iso.sh	remove {rest}	delete an image from the library (type its name): hs iso remove <name>	ein Abbild aus der Bibliothek löschen (Namen eintippen): hs iso remove <Name>	topic:instances,changes,capability:incus
+sys	sys iso list	iso.sh	--list	images as name, bytes, algo, checksum, checked (yes|no), source, added, used by (instances or -)	-	topic:instances,reads,capability:incus
+sys	sys iso dir	iso.sh	--dir	the folder of the library (setting isoDir)	-	capability:incus
+sys	sys iso plan <action>	iso-change.sh	plan {1} {rest}	what adding or removing an image would do, as data: status, plan lines (never asks; exit 2 = the checksum is missing)	-	capability:incus
+sys	sys iso start <action>	iso-change.sh	start {1} {rest}	do it (hs sys iso start add <file-or-url> (--checksum <hex> | --no-checksum) [--name <n>] | remove <name> --confirm <n>); add answers status started and the unit, remove status done	-	capability:incus
 sys	sys recipes plan <recipe> <action>	recipe-change.sh	plan {1} {2} {rest}	what running a recipe would do, as data: status, plan lines (never asks; exit 0 ok, 1 refused, also for a recipe that needs something typed)	-
 sys	sys recipes start <recipe> <action>	recipe-change.sh	start {1} {2} {rest}	run a recipe as a background job with the stored answers or the defaults (hs sys recipes start <recipe> run [--name <container>]), answers status started and the unit	-
 sys	sys routes plan <action>	services-change.sh	plan {1} {rest}	what applying the service routes to the reverse proxy, adopting hand-made routes, importing services or removing one would do, as data: status, plan lines (never asks; exit 0 ok, 1 refused or nothing to do)	-
