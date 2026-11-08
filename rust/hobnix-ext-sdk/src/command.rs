@@ -87,7 +87,10 @@ pub struct Failure {
 
 impl Failure {
     pub fn new(code: ErrorCode, message: impl Into<String>) -> Self {
-        Failure { code, message: message.into() }
+        Failure {
+            code,
+            message: message.into(),
+        }
     }
     pub fn failed(message: impl Into<String>) -> Self {
         Self::new(ErrorCode::Failed, message)
@@ -109,10 +112,16 @@ pub struct Success {
 
 impl Success {
     pub fn text(text: impl Into<String>) -> Self {
-        Success { data: None, text: Some(text.into()) }
+        Success {
+            data: None,
+            text: Some(text.into()),
+        }
     }
     pub fn data(data: Value) -> Self {
-        Success { data: Some(data), text: None }
+        Success {
+            data: Some(data),
+            text: None,
+        }
     }
     pub fn with_text(mut self, text: impl Into<String>) -> Self {
         self.text = Some(text.into());
@@ -166,7 +175,14 @@ where
         Ok(Line::Text(l)) => l,
         Ok(Line::Eof) => return fail(&out, "bad_request", "no request on stdin", None),
         Ok(Line::TooLong) => return fail(&out, "bad_request", "request longer than 1 MiB", None),
-        Err(e) => return fail(&out, "bad_request", &format!("cannot read the request: {e}"), None),
+        Err(e) => {
+            return fail(
+                &out,
+                "bad_request",
+                &format!("cannot read the request: {e}"),
+                None,
+            )
+        }
     };
     let value: Value = match serde_json::from_str(&line) {
         Ok(v) => v,
@@ -181,7 +197,14 @@ where
             Ok(r) => r,
             Err(e) => return fail(&out, "bad_request", &format!("invalid request: {e}"), None),
         },
-        _ => return fail(&out, "bad_request", "the first line must be a request", None),
+        _ => {
+            return fail(
+                &out,
+                "bad_request",
+                "the first line must be a request",
+                None,
+            )
+        }
     };
     let ctx = Ctx { out: out.clone() };
     let outcome = catch_unwind(AssertUnwindSafe(|| handler(&req, &ctx)))
@@ -198,7 +221,12 @@ where
             match out.typed("result", f) {
                 Ok(()) => 0,
                 // a result that cannot be written (too long): say so instead of leaving the core without one
-                Err(e) => fail(&out, "failed", &format!("cannot write the result: {e}"), None),
+                Err(e) => fail(
+                    &out,
+                    "failed",
+                    &format!("cannot write the result: {e}"),
+                    None,
+                ),
             }
         }
         Err(e) => fail(&out, e.code.as_str(), &e.message, None),

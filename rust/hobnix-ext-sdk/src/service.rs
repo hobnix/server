@@ -54,10 +54,16 @@ pub struct Health {
 
 impl Health {
     pub fn ok() -> Self {
-        Health { ok: true, text: None }
+        Health {
+            ok: true,
+            text: None,
+        }
     }
     pub fn degraded(text: impl Into<String>) -> Self {
-        Health { ok: false, text: Some(text.into()) }
+        Health {
+            ok: false,
+            text: Some(text.into()),
+        }
     }
 }
 
@@ -77,16 +83,22 @@ impl Ctx {
     }
     /// Publish the newest state of `topic` (`[a-z0-9-]{1,60}`); replaces the previous one. At most 256 KiB.
     pub fn snapshot(&self, topic: &str, data: Value) -> io::Result<()> {
-        let chars_ok = topic.chars().all(|c| matches!(c, 'a'..='z' | '0'..='9' | '-'));
+        let chars_ok = topic
+            .chars()
+            .all(|c| matches!(c, 'a'..='z' | '0'..='9' | '-'));
         if !(1..=60).contains(&topic.len()) || !chars_ok {
             let why = "topic must be 1 to 60 characters of a-z, 0-9 and -";
             return Err(io::Error::new(io::ErrorKind::InvalidInput, why));
         }
         let size = serde_json::to_vec(&data).map_err(io::Error::other)?.len();
         if size > 256 << 10 {
-            return Err(io::Error::new(io::ErrorKind::InvalidInput, "snapshot larger than 256 KiB"));
+            return Err(io::Error::new(
+                io::ErrorKind::InvalidInput,
+                "snapshot larger than 256 KiB",
+            ));
         }
-        self.out.typed("snapshot", json!({"topic": topic, "data": data}))
+        self.out
+            .typed("snapshot", json!({"topic": topic, "data": data}))
     }
 }
 
@@ -186,7 +198,10 @@ pub fn run_with(
                     }
                 }
                 Err(e) => {
-                    let _ = ctx.log(LogLevel::Error, &format!("event {} not handled: {e}", ev.id));
+                    let _ = ctx.log(
+                        LogLevel::Error,
+                        &format!("event {} not handled: {e}", ev.id),
+                    );
                 }
             },
             Ok(Msg::Shutdown) | Ok(Msg::Eof) | Err(RecvTimeoutError::Disconnected) => return 0,

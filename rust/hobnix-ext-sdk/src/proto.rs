@@ -42,7 +42,10 @@ impl Out {
         msg.insert("v".into(), json!(VERSION));
         let mut line = serde_json::to_string(&Value::Object(msg)).map_err(io::Error::other)?;
         if line.len() + 1 > MAX_LINE {
-            return Err(io::Error::new(io::ErrorKind::InvalidInput, "message longer than 1 MiB"));
+            return Err(io::Error::new(
+                io::ErrorKind::InvalidInput,
+                "message longer than 1 MiB",
+            ));
         }
         line.push('\n');
         let mut w = self.0.lock().unwrap_or_else(|p| p.into_inner());
@@ -90,7 +93,11 @@ pub(crate) fn cut(s: &str, max: usize) -> String {
 
 /// One line of English text: line breaks become spaces.
 pub(crate) fn one_line(s: &str) -> String {
-    s.split(['\n', '\r']).map(str::trim).filter(|p| !p.is_empty()).collect::<Vec<_>>().join(" ")
+    s.split(['\n', '\r'])
+        .map(str::trim)
+        .filter(|p| !p.is_empty())
+        .collect::<Vec<_>>()
+        .join(" ")
 }
 
 /// `^pkg\.[a-z][a-z0-9-]*\.[a-z][a-z0-9-]*$`
@@ -114,7 +121,10 @@ pub(crate) enum Line {
 /// Read one line of at most [`MAX_LINE`] bytes (without the newline).
 pub(crate) fn read_line(r: &mut impl BufRead) -> io::Result<Line> {
     let mut buf = Vec::new();
-    let n = r.by_ref().take(MAX_LINE as u64 + 1).read_until(b'\n', &mut buf)?;
+    let n = r
+        .by_ref()
+        .take(MAX_LINE as u64 + 1)
+        .read_until(b'\n', &mut buf)?;
     if n == 0 {
         return Ok(Line::Eof);
     }

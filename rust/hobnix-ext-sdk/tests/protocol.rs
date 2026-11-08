@@ -22,7 +22,9 @@ impl Write for Buf {
 impl Buf {
     fn lines(&self) -> Vec<Value> {
         let s = String::from_utf8(self.0.lock().unwrap().clone()).unwrap();
-        s.lines().map(|l| serde_json::from_str(l).unwrap()).collect()
+        s.lines()
+            .map(|l| serde_json::from_str(l).unwrap())
+            .collect()
     }
 }
 
@@ -49,7 +51,8 @@ fn command_ok_with_messages_then_one_result() {
         assert_eq!(req.words(), ["echo"]);
         ctx.progress(Some(7.0), "x").unwrap(); // clamped
         ctx.log(LogLevel::Warn, "hi").unwrap();
-        ctx.event(&Event::new("pkg.demo.said", "s").text("t")).unwrap();
+        ctx.event(&Event::new("pkg.demo.said", "s").text("t"))
+            .unwrap();
         Ok(Success::data(json!({"n": 1})).with_text("done"))
     });
     assert_eq!(code, 0);
@@ -57,16 +60,24 @@ fn command_ok_with_messages_then_one_result() {
     assert_eq!(types, ["progress", "log", "event", "result"]);
     assert!(out.iter().all(|m| m["v"] == 1));
     assert_eq!(out[0]["fraction"], 1.0);
-    assert_eq!(out[3], json!({"v":1,"type":"result","ok":true,"data":{"n":1},"text":"done"}));
+    assert_eq!(
+        out[3],
+        json!({"v":1,"type":"result","ok":true,"data":{"n":1},"text":"done"})
+    );
 }
 
 #[test]
 fn command_failure_has_error_and_exit_1_and_no_data() {
-    let (code, out) = call(&request(&["x"], &[]), |_, _| Err(Failure::not_found("no\nsuch thing")));
+    let (code, out) = call(&request(&["x"], &[]), |_, _| {
+        Err(Failure::not_found("no\nsuch thing"))
+    });
     assert_eq!(code, 1);
     assert_eq!(out.len(), 1);
     assert_eq!(out[0]["ok"], false);
-    assert_eq!(out[0]["error"], json!({"code":"not_found","message":"no such thing"}));
+    assert_eq!(
+        out[0]["error"],
+        json!({"code":"not_found","message":"no such thing"})
+    );
     assert!(out[0].get("data").is_none());
     let req = request(&["x"], &[]);
     let (_, out) = call(&req, |_, _| Err(Failure::new(ErrorCode::Cancelled, "stop")));
@@ -147,7 +158,8 @@ impl Service for Probe {
         if ev.subject == "bad" {
             return Err("cannot".into());
         }
-        ctx.emit(&Event::new("pkg.demo.seen", &ev.subject)).map_err(|e| e.to_string())
+        ctx.emit(&Event::new("pkg.demo.seen", &ev.subject))
+            .map_err(|e| e.to_string())
     }
     fn tick(&mut self, ctx: &Ctx) -> Health {
         ctx.snapshot("t", json!({"n": self.events.len()})).unwrap();
@@ -177,7 +189,7 @@ fn service_ready_first_acks_handled_events_and_stops_on_shutdown() {
         init(),
         ev(1, "a"),
         json!({"v":1,"type":"future-thing"}), // unknown type: ignored
-        ev(2, "bad"),                           // handler fails: no ack
+        ev(2, "bad"),                         // handler fails: no ack
         ev(3, "c"),
         json!({"v":1,"type":"shutdown","grace_ms":1000}),
     ]);
@@ -192,26 +204,42 @@ fn service_ready_first_acks_handled_events_and_stops_on_shutdown() {
         .map(|m| m["id"].as_u64().unwrap())
         .collect();
     assert_eq!(acks, [1, 3]);
-    assert!(out.iter().any(|m| m["type"] == "log" && m["level"] == "error"));
-    assert!(out.iter().any(|m| m["type"] == "emit" && m["kind"] == "pkg.demo.seen"));
+    assert!(out
+        .iter()
+        .any(|m| m["type"] == "log" && m["level"] == "error"));
+    assert!(out
+        .iter()
+        .any(|m| m["type"] == "emit" && m["kind"] == "pkg.demo.seen"));
     assert!(out.iter().any(|m| m["type"] == "health" && m["ok"] == true));
-    assert!(out.iter().any(|m| m["type"] == "snapshot" && m["topic"] == "t"));
+    assert!(out
+        .iter()
+        .any(|m| m["type"] == "snapshot" && m["topic"] == "t"));
 }
 
 #[test]
 fn service_exits_0_when_stdin_closes_and_1_on_protocol_error() {
     let buf = Buf::default();
-    assert_eq!(service::run_with(svc_input(&[init()]), buf.clone(), Probe::default()), 0);
+    assert_eq!(
+        service::run_with(svc_input(&[init()]), buf.clone(), Probe::default()),
+        0
+    );
     let buf = Buf::default();
     let mut bad = svc_input(&[init()]).into_inner();
     bad.extend_from_slice(b"garbage\n");
-    assert_eq!(service::run_with(Cursor::new(bad), buf.clone(), Probe::default()), 1);
+    assert_eq!(
+        service::run_with(Cursor::new(bad), buf.clone(), Probe::default()),
+        1
+    );
 }
 
 #[test]
 fn service_writes_nothing_when_init_is_wrong() {
     let wrong_version = json!({"v": 2, "type": "init"});
-    for input in [svc_input(&[]), svc_input(&[ev(1, "a")]), svc_input(&[wrong_version])] {
+    for input in [
+        svc_input(&[]),
+        svc_input(&[ev(1, "a")]),
+        svc_input(&[wrong_version]),
+    ] {
         let buf = Buf::default();
         assert_eq!(service::run_with(input, buf.clone(), Probe::default()), 1);
         assert!(buf.lines().is_empty(), "only `ready` may come first");
@@ -230,6 +258,13 @@ fn service_degraded_health_and_topic_checks() {
     }
     let buf = Buf::default();
     service::run_with(svc_input(&[init()]), buf.clone(), Sick);
-    let h = buf.lines().into_iter().find(|m| m["type"] == "health").unwrap();
-    assert_eq!(h, json!({"v":1,"type":"health","ok":false,"text":"device gone"}));
+    let h = buf
+        .lines()
+        .into_iter()
+        .find(|m| m["type"] == "health")
+        .unwrap();
+    assert_eq!(
+        h,
+        json!({"v":1,"type":"health","ok":false,"text":"device gone"})
+    );
 }

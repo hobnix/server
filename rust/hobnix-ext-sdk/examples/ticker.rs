@@ -14,7 +14,10 @@ struct Ticker {
 
 impl Service for Ticker {
     fn start(&mut self, init: &Init, _ctx: &Ctx) -> Result<(), String> {
-        eprintln!("ticker starting as {} (subscribed to {:?})", init.name, init.subscribe);
+        eprintln!(
+            "ticker starting as {} (subscribed to {:?})",
+            init.name, init.subscribe
+        );
         Ok(())
     }
     fn on_event(&mut self, _event: &EventRow, _ctx: &Ctx) -> Result<(), String> {
@@ -24,7 +27,10 @@ impl Service for Ticker {
     }
     fn tick(&mut self, ctx: &Ctx) -> Health {
         self.ticks += 1;
-        match ctx.snapshot("ticks", json!({ "ticks": self.ticks, "events_seen": self.seen })) {
+        match ctx.snapshot(
+            "ticks",
+            json!({ "ticks": self.ticks, "events_seen": self.seen }),
+        ) {
             Ok(()) => Health::ok(),
             Err(e) => Health::degraded(format!("cannot publish: {e}")),
         }

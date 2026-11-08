@@ -31,7 +31,13 @@ pub struct Event {
 
 impl Event {
     pub fn new(kind: impl Into<String>, subject: impl Into<String>) -> Self {
-        Event { kind: kind.into(), subject: subject.into(), text: None, level: None, payload: None }
+        Event {
+            kind: kind.into(),
+            subject: subject.into(),
+            text: None,
+            level: None,
+            payload: None,
+        }
     }
     pub fn text(mut self, text: impl Into<String>) -> Self {
         self.text = Some(text.into());
