@@ -11,3 +11,8 @@
 ## Changelog
 
 <!-- User-visible? Add docs/changelog/<date>-<slug>.toml (CONTRIBUTING.md). -->
+
+## Sign-off
+
+<!-- Every commit needs `Signed-off-by:` (`git commit -s`; fix with `git rebase --signoff origin/develop`). CONTRIBUTING.md "Sign your commits (DCO)". -->
+- [ ] All commits are signed off.

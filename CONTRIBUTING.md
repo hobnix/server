@@ -33,7 +33,36 @@ the loaders, `scripts/lib/api-level`) belongs here, and its pull request says wh
   `docs/changelog/<YYYY-MM-DD>-<slug>.toml` with `date`, `type` (feature, fix, change, security), `title` (one line, plain English) and
   optionally `docs` (a guide and anchor) and `body`. One file per change. Check it with `python3 -I scripts/lib/changelog.py validate .`;
   the format is in `docs/changelog/README.md`. CI only warns when a pull request touches the core without an entry.
-- Commit messages say what changed and why in a line or two. Stage files by name.
+- Commit messages say what changed and why in a line or two, and end with a DCO sign-off (`git commit -s`, see below). Stage files by name.
+
+## Sign your commits (DCO)
+
+Hobnix uses the [Developer Certificate of Origin](https://developercertificate.org/) (DCO), not a contributor license agreement. You keep
+the copyright of your work; the sign-off says you have the right to submit it under the project's license (see `LICENSE`). By adding it you
+certify, in short: you wrote the change or have the right to pass it on under this license, and you understand that the contribution and
+your sign-off are public and kept with the history. The full text is at https://developercertificate.org/.
+
+Sign off every commit with `-s`:
+
+```bash
+git commit -s -m "Short message"
+```
+
+This adds a trailer with the name and email from your git config (`user.name`, `user.email`):
+
+```
+Signed-off-by: Your Name <you@example.org>
+```
+
+- Forgot it on the last commit: `git commit --amend -s --no-edit`. On several commits: `git rebase --signoff origin/develop`, then
+  `git push --force-with-lease`.
+- Use your real name (a pseudonym you are known by is fine, an anonymous one is not) and an email that git can attribute to you.
+- CI (`.github/workflows/dco.yml`, `scripts/dev/dco-check.sh`) fails a pull request when a commit has no `Signed-off-by` trailer. Merge
+  commits and commits by bots (Dependabot, Renovate and the like) are exempt. Run the same check locally with
+  `scripts/dev/dco-check.sh origin/develop`.
+- **AI tools.** The sign-off is the human contributor's: you certify the change, whoever or whatever helped write it. This repository
+  also forbids `Co-Authored-By` and "generated with" lines about any AI tool in commits and pull requests (`CLAUDE.md`), so do not add one.
+  An AI tool never signs off.
 
 ## Community
 
