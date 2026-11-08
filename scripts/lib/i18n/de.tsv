@@ -2137,6 +2137,13 @@ This replaces settings files. Run it in a terminal, or add --yes after looking a
 File	Datei
 Settings files	Einstellungsdateien
 %s is a link into the vault, skipped	%s ist ein Link in den Tresor, übersprungen
+usage: hs installer check-answers <file>	Aufruf: hs installer check-answers <file>
+Check the answers file	Antwortdatei prüfen
+the file cannot be read	die Datei kann nicht gelesen werden
+%s is not a readable TOML file	%s ist keine lesbare TOML-Datei
+the answers file has errors; nothing was changed	die Antwortdatei hat Fehler; nichts wurde verändert
+the answers file is valid	die Antwortdatei ist gültig
+hs-install does not read it yet	hs-install liest sie noch nicht
 Usage: hs docker import <compose-file|-> --name <app> [--env-file <file>] [--dry-run] [--yes --confirm <app>] [--allow-risky] [--job]	Aufruf: hs docker import <Compose-Datei|-> --name <App> [--env-file <Datei>] [--dry-run] [--yes --confirm <App>] [--allow-risky] [--job]
 The app name is not valid: lower case letters, digits, - and _.	Der App-Name ist ungültig: Kleinbuchstaben, Ziffern, - und _.
 Cannot read the compose file: %s	Die Compose-Datei kann nicht gelesen werden: %s
