@@ -1,5 +1,5 @@
 date  = "2026-11-08"
 type  = "feature"
-title = "hs docker import-unraid and hs ct import-vzdump: first steps for people coming from Unraid or Proxmox"
+title = "hs docker import-unraid and hs ct import-vzdump help people coming from Unraid or Proxmox"
 docs  = "containers-and-apps#import-an-unraid-template"
 body  = """hs docker import-unraid turns an Unraid Community Apps template into a compose draft and lists everything it could not carry over; hs ct import-vzdump shows what a Proxmox LXC archive would become in Incus, read-only. Neither starts or creates anything, and neither is tested against real templates or archives yet."""
