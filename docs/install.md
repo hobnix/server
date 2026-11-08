@@ -409,6 +409,64 @@ When everything you want is done, press **Mark setup as finished** on the Setup 
 reminder on the summary page disappears. Everything can also happen later; the page only keeps the list. The machine-readable form for
 scripts is `hs sys setup list`.
 
+## Answers file for unattended installs
+
+Not wired into hs-install yet. Not tested on hardware yet.
+
+An answers file holds the answers to the questions of `hs-install` in one TOML file, so a later unattended install can run without them.
+`hs-install` does not read the file yet; today only the check exists. A key you leave out is asked later, so a partial file is fine.
+A complete unattended run needs `install.disk` and `install.confirm_disk`.
+
+```toml
+version = 1                      # required; the only version is 1
+
+[install]
+role = "homeserver"              # homeserver, edge or minimal
+disk = "nvme0n1"                 # the system disk: it is erased
+confirm_disk = "nvme0n1"         # must equal disk: an unattended run never erases on a guess
+hostname = "nas"
+timezone = "Europe/Vienna"
+preset = "minimal"
+nic = "enp3s0"
+smb_allow = "192.168.1.0/24"
+bios = false
+
+[ssh]
+key = "ssh-ed25519 AAAA... admin@example.com"   # a public key; or use key_file, not both
+
+[secrets]
+admin_password_file = "/run/keys/adminuser-pw"
+```
+
+| Key | Option of `hs-install` | Rule |
+| --- | --- | --- |
+| `version` | none | the integer `1` |
+| `install.role` | `--role` | `homeserver`, `edge` or `minimal` |
+| `install.disk` | `--disk` | a device name such as `nvme0n1` |
+| `install.confirm_disk` | `--confirm-disk` | equal to `install.disk` |
+| `install.hostname` | `--hostname` | a name of letters, digits and hyphens (up to 63) |
+| `install.timezone` | `--timezone` | a name such as `Europe/Vienna`; looked up when the zone database is present |
+| `install.preset` | `--preset` | a preset name |
+| `install.nic` | `--nic` | an interface name |
+| `install.smb_allow` | `--smb-allow` | an address or network such as `192.168.1.0/24` |
+| `install.bios` | `--bios` | `true` or `false` |
+| `ssh.key` | `--key` | a public SSH key; exactly one of `ssh.key` and `ssh.key_file` |
+| `ssh.key_file` | `--key-file` | an absolute path to a public key file |
+| `secrets.admin_password_file` | none | an absolute path to a regular file, mode 600 or stricter, not empty |
+
+**Secrets are never written into the file.** A key that looks like a secret (password, passphrase, token, secret, key) with a value in
+the file is an error; give the path of a file instead (`<name>_file`). The check looks at that file's mode and size only: it never reads
+or prints the content. An unknown key anywhere is an error, so a typo never passes.
+
+Check a file:
+
+```bash
+hs installer check-answers answers.toml
+```
+
+The command lists every problem with its key and exits 0 when there are no errors, 1 when there are errors and 2 when the file cannot
+be read or is not valid TOML. It changes nothing.
+
 ## Check that it worked
 
 ```bash
