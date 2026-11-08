@@ -2195,3 +2195,4 @@ the package	das Paket
 Not removed.	Nicht entfernt.
 Removing needs a person at a terminal, --yes or --confirm-name <name>.	Entfernen braucht eine Person am Terminal, --yes oder --confirm-name <Name>.
 Package %s removed.	Paket %s entfernt.
+usage: hs pkg remove <name> [--dry-run] [--yes | --confirm-name <name>]	Aufruf: hs pkg remove <Name> [--dry-run] [--yes | --confirm-name <Name>]

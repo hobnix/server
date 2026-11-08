@@ -127,7 +127,10 @@ case "${1:-list}" in
     kv "$(t 'Version')" "$(mf version "$dir")"
     note "$(t 'Removed: the installed copy, its event declarations and its switch-on/off marks.')"
     note "$(t 'Stays: containers and data the package made (hs ct remove is for those).')"
-    if [ "$dry" = 1 ]; then note "$(t 'Dry run: nothing was changed.')"; exit 0; fi
+    if [ "$dry" = 1 ]; then
+      note "$(t 'Dry run: nothing was changed.')"
+      exit 0
+    fi
     if [ -n "$confirmed" ]; then
       [ "$confirmed" = "$name" ] || { fail "$(t 'The name does not match.')"; exit 1; }
     elif [ "$yes" = 0 ]; then
