@@ -16,6 +16,10 @@ let
   hsInstall = pkgs.writeShellScriptBin "hs-install" ''
     exec ${pkgs.bash}/bin/bash /etc/hs-installer/scripts/install-wizard.sh "$@"
   '';
+  # UNVERIFIED: not tested on hardware (issue #254): restore a server from its backup disk and password
+  hsRestore = pkgs.writeShellScriptBin "hs-restore" ''
+    exec ${pkgs.bash}/bin/bash /etc/hs-installer/scripts/install-restore.sh "$@"
+  '';
 in
 {
   imports = [ "${modulesPath}/installer/cd-dvd/installation-cd-minimal.nix" ];
@@ -27,14 +31,16 @@ in
   boot.kernelParams = [ "console=tty0" "console=ttyS0,115200n8" ];
 
   environment.etc."hs-installer".source = repo;
-  environment.systemPackages = [ hsInstall pkgs.python3 pkgs.parted pkgs.gum pkgs.gptfdisk ];
+  environment.systemPackages = [ hsInstall hsRestore pkgs.python3 pkgs.parted pkgs.gum pkgs.gptfdisk pkgs.restic ];
 
   # what a person sees on the console after booting the stick
   services.getty.helpLine = lib.mkForce ''
 
     Homeserver installer.
 
-      hs-install      install a new server (asks for the system disk, a name, an SSH key and a preset)
+      hs-install      install a new server (asks for the system disk, a name, an SSH key and a preset;
+                      with no options it first asks: New install or Restore from backup)
+      hs-restore      restore a server from its backup disk and the backup password (UNVERIFIED: not tested on hardware)
 
     Only the disk you pick and type the name of is erased. Guide: /etc/hs-installer/docs/install.md
   '';

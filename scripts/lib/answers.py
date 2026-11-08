@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 """Check an answers file for unattended installs (docs/install.md "Answers file for unattended installs").
 
+  answers.py get <file> <section.key>   prints one plain value (never a secret: only keys without a secret word, or ending in _file)
   answers.py check <file>   prints  level<TAB>where<TAB>text  (error|warn; an empty field is "-")
                             exit 0 no errors, 1 errors, 2 file unreadable or not valid TOML
 Secret values are never printed and secret files are never read (only their mode and size are looked at).
@@ -22,7 +23,8 @@ SCHEMA = {
         "preset": str, "nic": str, "smb_allow": str, "bios": bool,
     },
     "ssh": {"key": str, "key_file": str},
-    "secrets": {"admin_password_file": str},
+    "secrets": {"admin_password_file": str, "backup_passphrase_file": str},
+    "restore": {"backup_device": str, "snapshot": str},
 }
 ROLES = ("homeserver", "edge", "minimal")
 SECRET_WORDS = ("password", "passphrase", "token", "secret", "key")
@@ -39,7 +41,25 @@ def looks_secret(name):
     return any(w in n for w in SECRET_WORDS) and not n.endswith("_file")
 
 
+def get(path, dotted):
+    sect, _, key = dotted.partition(".")
+    if sect not in SCHEMA or key not in SCHEMA[sect] or looks_secret(key):
+        return 2
+    try:
+        with open(path, "rb") as f:
+            v = tomllib.loads(f.read().decode("utf-8")).get(sect, {}).get(key)
+    except (OSError, UnicodeDecodeError, tomllib.TOMLDecodeError):
+        return 2
+    if isinstance(v, bool):
+        v = "true" if v else "false"
+    if isinstance(v, str) and v != "":
+        sys.stdout.write(v + "\n")
+    return 0
+
+
 def main(argv):
+    if len(argv) == 4 and argv[1] == "get":
+        return get(argv[2], argv[3])
     if len(argv) != 3 or argv[1] != "check":
         sys.stderr.write("usage: answers.py check <file>\n")
         return 2
@@ -164,9 +184,18 @@ def main(argv):
     else:
         warn("ssh", "no key and no key_file; you are asked for the key")
 
-    pw = val("secrets", "admin_password_file")
-    if pw is not None:
-        w = "secrets.admin_password_file"
+    bdev = val("restore", "backup_device")
+    if bdev is not None and not DEVICE.match(bdev.removeprefix("/dev/")):
+        err("restore.backup_device", "is not a device name")
+    snap = val("restore", "snapshot")
+    if snap is not None and snap != "latest" and not re.match(r"^[0-9a-f]{8,64}$", snap):
+        err("restore.snapshot", "must be latest or a snapshot id")
+
+    for skey in ("admin_password_file", "backup_passphrase_file"):
+        pw = val("secrets", skey)
+        if pw is None:
+            continue
+        w = "secrets." + skey
         if not os.path.isabs(pw):
             err(w, "must be an absolute path")
         else:
@@ -182,6 +211,7 @@ def main(argv):
                 err(w, "mode is %03o; use 600 (owner only)" % (st.st_mode & 0o777))
             elif st.st_size == 0:
                 err(w, "file is empty")
+
 
     for lvl, where, text in out:
         sys.stdout.write("%s\t%s\t%s\n" % (lvl, where or "-", text or "-"))
