@@ -2186,6 +2186,19 @@ needs the capability '%s', which is off	braucht die Fähigkeit '%s', die aus ist
 not declared	nicht angegeben
 Permissions it declares	Erklärte Berechtigungen
 Permissions are what a package says it needs. They are not enforced: every command runs as root, so install only packages you trust.	Berechtigungen sind das, was ein Paket nach eigener Angabe braucht. Sie werden nicht erzwungen: jeder Befehl läuft als root, installiere also nur Pakete, denen du vertraust.
+Unknown option %s	Unbekannte Option %s
+%s was not installed from a repository.	%s wurde nicht aus einem Repository installiert.
+'%s' is switched on: switch it off first.	'%s' ist eingeschaltet: erst ausschalten.
+'%s' cannot be removed: %s needs it.	'%s' lässt sich nicht entfernen: %s braucht es.
+Remove package %s	Paket %s entfernen
+Removed: the installed copy, its event declarations and its switch-on/off marks.	Entfernt: die installierte Kopie, ihre Ereignis-Deklarationen und ihre An-/Aus-Markierungen.
+Stays: containers and data the package made (hs ct remove is for those).	Bleibt: Container und Daten, die das Paket angelegt hat (dafür gibt es hs ct remove).
+Nothing was changed (dry run).	Nichts wurde geändert (Probelauf).
+the package	das Paket
+Not removed.	Nicht entfernt.
+Removing needs a person at a terminal, --yes or --confirm-name <name>.	Entfernen braucht eine Person am Terminal, --yes oder --confirm-name <Name>.
+Package %s removed.	Paket %s entfernt.
+usage: hs pkg remove <name> [--dry-run] [--yes | --confirm-name <name>]	Aufruf: hs pkg remove <Name> [--dry-run] [--yes | --confirm-name <Name>]
 '%s' is not a disk name.	'%s' ist kein Plattenname.
 --confirm-disk '%s' is not the disk '%s'.	--confirm-disk '%s' ist nicht die Platte '%s'.
 /dev/%s could not be mounted read-only.	/dev/%s konnte nicht schreibgeschützt eingehängt werden.
