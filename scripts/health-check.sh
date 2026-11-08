@@ -531,15 +531,21 @@ fi
 prio=high
 for k in "${keys[@]}"; do case "$k" in forecast:*:urgent) prio=urgent ;; esac; done
 
+# A storage problem (pool not healthy, a bulk disk missing, a disk that fails SMART) points at the guided workflow: hs storage incident (hobnix/server#255).
+incident_line=""
+for k in "${keys[@]:-}"; do
+  case "$k" in zfs:*:scrub-*|zfs:*:missing) ;; zfs:*|bulk:*:[A-Z]*|bulk:no-parity|disk:*:smart|disk:*:bad|disk:*:pending) incident_line=$(bash "${HS_STORAGE_INCIDENT:-$here/storage-incident.sh}" --alert-line 2>/dev/null || true); break ;; esac
+done
+
 echo
 [ "$n_acked" -eq 0 ] || echo "$n_acked acknowledged problem(s) are not counted. See: hs health ack"
 count="${#texts[@]} problem(s)"
 if [ "$new" != "$old" ] && [ -n "$new" ]; then
-  send "$host: $count" "$(echo '**Needs attention**'; printf '%s\n' "${texts[@]}")" "$prio" problem
+  send "$host: $count" "$(echo '**Needs attention**'; printf '%s\n' "${texts[@]}"; [ -z "$incident_line" ] || printf '%s\n' "$incident_line")" "$prio" problem
 elif [ "$new" != "$old" ]; then
   send "$host: all clear" "**All clear.** The problems reported earlier are gone." default ok
 elif [ -n "$new" ] && [ $((now - last)) -ge "$remind" ]; then
-  send "$host: still $count" "$(echo '**Still open since the last message**'; printf '%s\n' "${texts[@]}")" "$prio" problem
+  send "$host: still $count" "$(echo '**Still open since the last message**'; printf '%s\n' "${texts[@]}"; [ -z "$incident_line" ] || printf '%s\n' "$incident_line")" "$prio" problem
 else
   echo "Nothing to send: unchanged since the last message."
   exit 0
