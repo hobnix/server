@@ -2314,6 +2314,7 @@ usage: hs-restore [--backup-device <name>] [--password-file <file>] [--snapshot 
 This takes effect with hs rebuild.	Das gilt nach: hs rebuild.
 A rebuild takes several minutes; none has been timed on this server yet.	Ein Rebuild dauert mehrere Minuten; auf diesem Server wurde noch keiner gemessen.
 The last rebuild took about %s min.	Der letzte Rebuild dauerte etwa %s Min.
+'%s' uses more than it declares in permissions: %s	'%s' nutzt mehr, als in permissions angegeben ist: %s
 %s items need your decision before the app is the same as on Unraid.	%s Punkte brauchen deine Entscheidung, bevor die App so ist wie auf Unraid.
 Cannot read the template: %s	Das Template lässt sich nicht lesen: %s
 Draft written to %s. Nothing was started.	Entwurf nach %s geschrieben. Nichts wurde gestartet.
