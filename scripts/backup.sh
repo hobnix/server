@@ -27,7 +27,7 @@ usage: hs backup [status]                    what is in the backup, last run, sp
        hs backup config restore --from-disk <device> [<snapshot|latest>] [--with-samba] [--dry-run]
                                              put machine.toml and machine.nix of a host snapshot back on this running
                                              server (plan first, you type the file name, the old file is kept as
-                                             <file>.before-restore-<time>); --with-state also /var/lib/hs.
+                                             <file>.before-restore-<time>); --with-state also /var/lib/hs
                                              --from-disk is for a fresh install: only the backup disk and its passphrase
                                              (typed, never an argument) are needed; the disk is mounted read-only,
                                              /var/lib/hs comes back, the SSH host keys after you type their name,
