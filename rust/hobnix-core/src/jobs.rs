@@ -626,6 +626,7 @@ impl Store {
     }
 
     /// `new`: write a queued record, return its id.
+    #[allow(clippy::too_many_arguments)] // one argument per flag of `new`; a struct would only move them
     pub fn new_record(
         &self,
         slug: &str,
