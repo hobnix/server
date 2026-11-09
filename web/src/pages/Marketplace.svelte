@@ -125,6 +125,7 @@
             sub={market.loaded && !market.error ? `${pkgs.length} packages from ${repos.length} repositories${updates ? ` · ${updates} update${updates > 1 ? 's' : ''}` : ''}` : 'Apps and extensions from the repositories you trust.'}>
   {#snippet actions()}
     <Button icon="arrows-clockwise" busy={jobRunning('pkg', ['fetch'])} busyLabel="Checking…" tooltip={'Read the repositories again and find the newest releases'} onclick={fetchAll}>Check for updates</Button>
+    <Button icon="hammer" tooltip={'Write the manifest of a new app or extension'} onclick={() => go('/marketplace/builder')}>Package builder</Button>
     <Button variant="primary" tooltip={'Add a repository of packages'} onclick={addRepo}><i class="ph ph-plus"></i>Add repository</Button>
   {/snippet}
 </PageHeader>

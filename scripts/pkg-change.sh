@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # help: install, update or remove a package, fetch the repositories, add or remove a repository, without asking anything: what would happen (plan), then do it (start)
 # help.de: ein Paket installieren, aktualisieren oder entfernen, die Repositories abrufen, ein Repository hinzufügen oder entfernen, ohne etwas zu fragen: was passieren würde (plan), dann ausführen (start)
-# args: plan|start install <name> [--repo R] | update <name> | remove <name> | fetch [<repo>] | repo-add <name> <url> | repo-remove <name>
+# args: plan|start install <name> [--repo R] | update <name> | remove <name> | fetch [<repo>] | repo-add <name> <url> | repo-remove <name> | check-draft
 # System command (hs sys pkg plan|start): for the interface (Marketplace) and tests. It never asks and prints plain key<TAB>value lines like
 # node-change.sh. The work is pkg.sh's (hs pkg install|update|remove|fetch|repo ...); this script checks the input and says what would happen.
 #   install <name> [--repo R]  fetch the package at the verified release into /var/lib/hs/packages/current (it is not run: a recipe is run from Apps)
@@ -11,6 +11,8 @@
 #   repo-add <name> <url>      add a repository; its public signing key is ONE line on standard input (ssh-ed25519 AAAA..., or a whole
 #                              allowed-signers line). Only signed repositories can be added here (an unsigned one is `hs pkg repo add --unsigned`).
 #                              The release is fetched at once; if nothing verifies the repository is taken out again. Red: the typed word is the name.
+#   check-draft                (plan only) check a package.toml draft given on stdin with the checks of hs pkg validate (ADR 0020, the web package
+#                              builder): status ok|refused, `finding<TAB>error|warn<TAB>where<TAB>text` lines; nothing is written anywhere
 #   repo-remove <name>         take an added repository out (the defaults stay); installed packages stay as they are. Red: the typed word is the name.
 # A package from a repository that was ADDED (not recipes/extensions of this project) runs as root once installed: install and update are red
 # for it, the typed word is the package name. For the default repositories the plan is the confirmation.
@@ -27,8 +29,21 @@ refuse() { printf 'status\trefused\nreason\t%s\n' "$1"; exit 1; }
 
 verb=${1:-}; action=${2:-}; name=${3:-}
 case "$verb" in plan|start) ;; *) echo "usage: pkg-change.sh plan|start install|update|remove <name> | fetch [<repo>] | repo-add <name> <url> | repo-remove <name>" >&2; exit 1 ;; esac
-case "$action" in install|update|remove|fetch|repo-add|repo-remove) ;; *) refuse "unknown action (install, update, remove, fetch, repo-add or repo-remove)" ;; esac
+case "$action" in install|update|remove|fetch|repo-add|repo-remove|check-draft) ;; *) refuse "unknown action (install, update, remove, fetch, repo-add or repo-remove)" ;; esac
 shift 2 || true
+if [ "$action" = check-draft ]; then
+  [ "$verb" = plan ] || refuse "a draft is only checked (plan); nothing is started"
+  [ $# -eq 0 ] || refuse "unexpected extra arguments"
+  rc=0; out=$(head -c 262144 | python3 -I "$here/pkg.py" check-draft 2>/dev/null) || rc=$?
+  errs=$(printf '%s\n' "$out" | awk -F'\t' '$1 == "error"' | wc -l)
+  if [ "$rc" -ne 0 ] && [ "$errs" -eq 0 ]; then refuse "the draft could not be checked"; fi
+  if [ "$errs" -gt 0 ]; then printf 'status\trefused\nreason\t%s\n' "The draft has $errs problem(s)."; else printf 'status\tok\n'; fi
+  printf 'heading\tcheck a package draft\n'
+  printf '%s\n' "$out" | awk -F'\t' 'NF == 3 { printf "finding\t%s\t%s\t%s\n", $1, $2, $3 }'
+  printf 'long\tno\n'
+  [ "$errs" -eq 0 ] || exit 1
+  exit 0
+fi
 name=${1:-}; [ $# -eq 0 ] || shift
 
 # the web interface appends --confirm <word> to start (the typed name of a red change); take it out of the arguments
