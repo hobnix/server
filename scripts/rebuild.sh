@@ -204,6 +204,7 @@ config_check
 gpu_check
 link_check
 
+[ -z "${HS_JOB_ID:-}" ] || [ -n "${HS_STEP_TOTAL:-}" ] || steps 1   # a rebuild job without the update in front: step 1 of 1
 step "Rebuild"
 before=$(readlink -f "$cur_system")
 gen_before=$(generation)

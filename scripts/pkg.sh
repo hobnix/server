@@ -79,6 +79,7 @@ case "${1:-list}" in
   fetch)
     shift
     trap 'live_refresh pkg-market pkg-repos recipes-list recipes-versions parts-list' EXIT
+    hs_job_step 1 1 "Fetching the package repositories and checking their signatures"
     out=$(py fetch "$@") || rc=$?
     { thead 'Repository' 'Release' 'Commit' 'Result'; printf '%s\n' "$out"; } | table
     exit "${rc:-0}" ;;

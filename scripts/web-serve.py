@@ -854,6 +854,7 @@ READS = {
     ("pkg", "repos"): {"kind": "tsv", "ttl": 30, "topic": "pkg-repos"},
     ("dc", "state"): {"kind": "tsv", "ttl": 60, "topic": "dc-state"},
     ("recipes", "asks"): {"kind": "tsv", "ttl": 60, "args": [r"^[a-z0-9][a-z0-9-]{0,40}$"]},
+    ("recipes", "steps"): {"kind": "tsv", "ttl": 60, "args": [r"^[a-z0-9][a-z0-9-]{0,40}$"]},
     ("services", "list"): {"kind": "tsv", "ttl": 15, "topic": "services-list"},
     ("services", "show"): {"kind": "tsv", "ttl": 10, "args": [r"^[a-z0-9][a-z0-9-]{0,40}$"]},
     ("services", "app"): {"kind": "tsv", "ttl": 15, "topic": "services-app"},

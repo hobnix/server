@@ -113,12 +113,14 @@ Read, not run.
 | `packages` | root changes; a tag | the repositories hobnix/recipes and hobnix/extensions are readable (public); their `main` passes `repo-check` and their tests against this core |
 | `nixos` | non-docs changes; a tag | nixpkgs pinned to revision `774debe` (move it when servers' channel moves); evaluates the system, builds `pkgs/hobnix.nix` and `pkgs/hs-web.nix` (a stale `npmDepsHash` fails here), capability matrix on a PR into `main`, a tag or a manual run, and `build-iso.sh --eval`. Optional Cachix: variable `CACHIX_CACHE`, secret `CACHIX_AUTH_TOKEN` |
 | `integration` | root changes; a tag | loop devices, `sudo`, restic, xfsprogs, btrfs-progs, cryptsetup, mergerfs, snapraid |
-| `iso` | **only a tag `v*`** | `nix` with `channel:nixos-unstable`, `permissions: contents: write`, enough runner disk for the image; builds `result-iso/iso/*.iso`, writes `.sha256`, runs `gh release create` (or uploads to an existing release) |
+| `iso` | **only a tag `v*`**, after `changes`, `scripts`, `packages`, `nixos`, `integration` succeeded and `rust` succeeded or was skipped | the same pinned nixpkgs revision as `nixos` (`NIXPKGS_REV` in `ci.yml`), `permissions: contents: write`, enough runner disk for the image; builds `result-iso/iso/*.iso`, writes `.sha256` with the bare file name, runs `gh release create --notes-file docs/RELEASE-NOTES-<major>.<minor>.md` (or uploads to an existing release) |
 | `nested` (nested.yml) | manual only | an ISO URL (a release asset), a runner with `/dev/kvm`; never run, UNVERIFIED |
 | `dco` | pull requests | `Signed-off-by` on every commit, unless the PR has the label `agent-pr` |
 
-On a tag, `ci.yml` runs every job in parallel. The `iso` job has no `needs:`, so the release and the ISO are published even when another
-job fails (blocker B2). The ISO is built against `nixos-unstable` of the day, the other jobs against the pinned revision (blocker B3).
+On a tag, `ci.yml` runs every test job in parallel; the `iso` job waits for them (`needs:`) and is skipped, with no release, if one failed
+or was skipped (blocker B2, issue #397). The ISO is built against the same pinned revision the `nixos` job evaluates (blocker B3, #398).
+The release notes are `docs/RELEASE-NOTES-0.1.md` for any `v0.1.x` tag; a tag without such a file gets generated notes and a warning (B6, #399).
+Changed by reading only: **never run on a real tag push.**
 
 ## 7. Tag the core
 On `main`, clean and equal to `origin/main`. The primary checkout stays on `main`; tagging does not need a branch switch in a work tree:
@@ -163,7 +165,7 @@ gh release download v0.1.0 --repo hobnix/server --dir iso-0.1.0
 (cd iso-0.1.0 && sha256sum -c homeserver-installer.iso.sha256)
 ```
 
-Not run. Expect this check to fail: the workflow runs `sha256sum` on `result-iso/iso/<file>`, so the `.sha256` file carries that path, not the bare file name (blocker B7, verified by reading `ci.yml`). Until it is fixed, compare by hand: `sha256sum homeserver-installer.iso` against the hash in the file.
+Not run. The workflow now runs `sha256sum` in the folder of the ISO, so the `.sha256` file carries the bare file name (blocker B7, issue #399) and the check should pass; the first tag build proves it. If it fails, compare by hand: `sha256sum homeserver-installer.iso` against the hash in the file.
 
 Then boot it. The ISO has never been booted by anyone (issue #175, #254, #262):
 1. Nested, on a machine with Incus and `/dev/kvm`: `bash scripts/dev/nested.sh preflight`, then
@@ -220,7 +222,8 @@ Read from `scripts/lib/update-channel.sh`, `scripts/update.sh`; not run on a ser
 - `hs pkg` on a channel: a stable server takes stable package tags, so step 3 must be done first.
 
 ## 13. Announce
-Replace the generic text of the GitHub release (the workflow writes "Installer ISO: boot it in UEFI mode ...") with the release notes:
+The workflow already creates the release with `docs/RELEASE-NOTES-0.1.md` as its text (`--notes-file`, not run on a tag yet). Check the text on the release page; if the
+release was made earlier or the text is wrong, replace it with the release notes:
 
 ```bash
 gh release edit v0.1.0 --repo hobnix/server --notes-file docs/RELEASE-NOTES-0.1.md
@@ -239,11 +242,11 @@ Each was verified by reading the file named; none was run.
 | # | Blocker | Evidence | Proposed issue |
 | --- | --- | --- | --- |
 | B1 | A server made by the ISO has no git checkout, so `hs update`, update channels and the version shown do not work on it | `scripts/install-wizard.sh:212` excludes `.git`; `docs/install.md` tells the user to clone by hand; `scripts/update.sh` needs git | Installer: leave a git checkout (remote `origin`, the release tag) in /etc/nixos (issue #396). Done in code and tests with a local origin; Not tested on hardware yet. |
-| B2 | The `iso` job publishes a release without waiting for any other job | `.github/workflows/ci.yml`, job `iso` has no `needs:` | CI: the ISO and release job needs the test jobs (issue #397) |
-| B3 | The ISO is built from `nixos-unstable` of the day, everything else from the pinned nixpkgs; the tag build is the first time that combination evaluates | `ci.yml` `iso` vs `nixos` nix_path | CI: build the ISO from the pinned nixpkgs revision (issue #398) |
+| B2 | The `iso` job publishes a release without waiting for any other job | `.github/workflows/ci.yml`, job `iso` has no `needs:` | CI: the ISO and release job needs the test jobs (issue #397; fixed in the workflow, untested on a real tag) |
+| B3 | The ISO is built from `nixos-unstable` of the day, everything else from the pinned nixpkgs; the tag build is the first time that combination evaluates | `ci.yml` `iso` vs `nixos` nix_path | CI: build the ISO from the pinned nixpkgs revision (issue #398; fixed in the workflow, untested on a real tag) |
 | B4 | No version file, no `hs version`, the ISO name has no version | section 10 | Show the Hobnix version in `hs system info` and the ISO file name (issue #400) |
 | B5 | `config/trusted-keys/README.md` and the header of `docs/PLAN-channels.md` say the core key file is missing | the file exists (3d2c07a) | Docs fix, done in this pull request (README) |
-| B7 | The `.sha256` asset names the ISO with the build path, so `sha256sum -c` fails for a downloader | `ci.yml` step "Attach it to the release" | CI: write the checksum with the bare file name (issue #399 (with B6)) |
-| B6 | The GitHub release text is generic, no notes | `ci.yml` `gh release create --notes "Installer ISO ..."` | CI: use a notes file for the release (issue #399 (with B7)) |
+| B7 | The `.sha256` asset names the ISO with the build path, so `sha256sum -c` fails for a downloader | `ci.yml` step "Attach it to the release" | CI: write the checksum with the bare file name (issue #399 (with B6); fixed in the workflow, untested on a real tag) |
+| B6 | The GitHub release text is generic, no notes | `ci.yml` `gh release create --notes "Installer ISO ..."` | CI: use a notes file for the release (issue #399; fixed in the workflow, untested on a real tag) |
 
 Not a blocker, noted: `release.sh beta` and the beta ISO are not built (docs/PLAN-channels.md); the core tag has no helper script.

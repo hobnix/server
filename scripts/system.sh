@@ -53,6 +53,7 @@ case "$cmd" in
     days=30; yes=false
     for a in "$@"; do case "$a" in --yes) yes=true ;; *) days=$a ;; esac; done
     [[ "$days" =~ ^[0-9]+$ ]] || usage
+    steps 1
     step "Cleaning up old generations"
     if ! $yes; then
       warn "$(t 'Deletes every generation older than %s days. Rolling back further than that is not possible afterwards.' "$days")"

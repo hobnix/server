@@ -390,6 +390,9 @@ cmd_now() {
   [ -f "$REPO/config" ] || die "$(t 'No backup repository in %s. Run: hs backup init <device>' "$REPO")"
   clear_locks
 
+  # the steps the job shows ("step n of m"): shares, domain controller and host files, each container or VM, the off-site copy
+  steps $(( (${#paths[@]} > 0 ? 1 : 0) + 1 + ${#cts[@]} ))
+  if [ -s "$OFFSITE" ]; then export HS_STEP_TOTAL=$((HS_STEP_TOTAL + 1)); fi
   if [ ${#paths[@]} -gt 0 ]; then
     step "$(t 'Shares: %s' "${on[*]}")"
     R backup "${b[@]}" --tag shares "${paths[@]}" || fail=1
@@ -412,6 +415,7 @@ cmd_now() {
     local root=$INCUS_ROOT/$name/rootfs
     if [ ! -d "$root" ]; then
       warn "$(t '%s: not running (its files are not mounted), skipped' "$name")"
+      export HS_STEP_TOTAL=$((HS_STEP_TOTAL - 1))   # no step for it: the count stays true
       fail=1; continue
     fi
     step "$(t 'Container %s' "$name")"
