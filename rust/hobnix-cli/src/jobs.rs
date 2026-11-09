@@ -4,7 +4,7 @@
 //! `hobnix: <msg>` and exit 1 (`cancelled` exits 1 without a line when the job is not cancelled). The scripts that call it
 //! only ever test for zero.
 
-use hobnix_core::jobs::{RealSystem, Store};
+use hobnix_core::jobs::{Question, RealSystem, Store};
 use hobnix_core::{Error, Result, EXIT_OK, EXIT_REFUSED};
 use std::io::Write;
 
@@ -160,7 +160,15 @@ pub fn run(args: &[String]) -> Result<u8> {
         "new" => {
             let p = parse(
                 rest,
-                &["--slug", "--desc", "--unit", "--source", "--initiator"],
+                &[
+                    "--slug",
+                    "--desc",
+                    "--unit",
+                    "--source",
+                    "--initiator",
+                    "--parent",
+                    "--kind",
+                ],
             )?;
             exact::<0>(&p)?;
             let slug = p.opt("--slug").ok_or_else(bad)?;
@@ -171,12 +179,40 @@ pub fn run(args: &[String]) -> Result<u8> {
                 p.opt("--unit").unwrap_or(""),
                 p.opt("--source").unwrap_or("cli"),
                 p.opt("--initiator").unwrap_or(""),
+                p.opt("--parent").unwrap_or(""),
+                p.opt("--kind").unwrap_or(""),
             )?;
             out(format!("{id}\n").as_bytes())?;
         }
         "run" => {
             let p = parse(rest, &[])?;
             store.run(&exact::<1>(&p)?[0])?;
+        }
+        "wait" => {
+            let p = parse(
+                rest,
+                &[
+                    "--seq", "--key", "--label", "--kind", "--default", "--pattern", "--choices",
+                    "--error", "--attempt",
+                ],
+            )?;
+            let id = &exact::<1>(&p)?[0];
+            let q = Question {
+                seq: parse_int(p.opt("--seq").ok_or_else(bad)?)?,
+                key: p.opt("--key").ok_or_else(bad)?,
+                label: p.opt("--label").ok_or_else(bad)?,
+                kind: p.opt("--kind").ok_or_else(bad)?,
+                default: p.opt("--default").unwrap_or(""),
+                pattern: p.opt("--pattern").unwrap_or(""),
+                choices: p.opt("--choices").unwrap_or(""),
+                error: p.opt("--error").unwrap_or(""),
+                attempt: parse_int(p.opt("--attempt").unwrap_or("1"))?,
+            };
+            store.wait(id, &q)?;
+        }
+        "resume" => {
+            let p = parse(rest, &[])?;
+            store.resume(&exact::<1>(&p)?[0])?;
         }
         "step" => {
             let p = parse(rest, &[])?;

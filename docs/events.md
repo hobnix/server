@@ -58,6 +58,8 @@ The payload is optional extra data for programs. Rules:
 | `job.failed` | error | `exit` | a job failed |
 | `job.cancelled` | info | none | a job was stopped on purpose |
 | `job.interrupted` | warn | none | a job was running when the server restarted |
+| `job.waiting` | info | `key`, `kind` | a job waits for an answer to a question (subject: the job id; the payload names the question key and kind, never a label or a value) |
+| `job.resumed` | info | none | a waiting job got its answer and runs again |
 | `notify.sent` | info | none | a push message was delivered to a channel (subject: the channel) |
 | `notify.held` | info | none | a push message was held back (quiet hours) |
 | `notify.failed` | warn | none | a push message could not be delivered |

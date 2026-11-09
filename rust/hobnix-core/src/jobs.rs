@@ -17,6 +17,9 @@ pub const KEEP_COUNT: usize = 200;
 pub const KEEP_DAYS: f64 = 30.0;
 /// The values of `--source`.
 pub const SOURCES: [&str; 4] = ["cli", "web", "timer", "extension"];
+/// The values of `--kind` of `new` (ADR 0018) and of a question.
+pub const KINDS: [&str; 2] = ["orchestration", "step"];
+pub const ASK_KINDS: [&str; 3] = ["text", "secret", "choice"];
 
 /// `step` of a record.
 #[derive(Debug, Clone, Default, PartialEq, Eq, Serialize, Deserialize)]
@@ -61,6 +64,39 @@ pub struct Cancel {
     pub extra: serde_json::Map<String, serde_json::Value>,
 }
 
+/// `waiting` of a record (ADR 0018): the pending question. Never an answer, never a default for a secret.
+#[derive(Debug, Clone, Default, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(default)] // a reader takes what is there: a record from another writer may lack fields
+pub struct Waiting {
+    pub seq: i64,
+    pub key: String,
+    pub label: String,
+    pub kind: String,
+    pub default: Option<String>,
+    pub pattern: Option<String>,
+    pub choices: Option<Vec<String>>,
+    pub error: Option<String>,
+    pub attempt: i64,
+    pub asked: String,
+    /// Keys this code does not know (a newer writer or Python): kept, written after the known ones.
+    #[serde(flatten)]
+    pub extra: serde_json::Map<String, serde_json::Value>,
+}
+
+/// The question given to `wait`.
+#[derive(Debug, Clone, Default)]
+pub struct Question<'a> {
+    pub seq: i64,
+    pub key: &'a str,
+    pub label: &'a str,
+    pub kind: &'a str,
+    pub default: &'a str,
+    pub pattern: &'a str,
+    pub choices: &'a str,
+    pub error: &'a str,
+    pub attempt: i64,
+}
+
 /// One job record. The field order is the order in the file (ADR 0004 decision 3); every key is always written, absent = null.
 #[derive(Debug, Clone, Default, PartialEq, Serialize, Deserialize)]
 pub struct Record {
@@ -81,11 +117,20 @@ pub struct Record {
     pub result: Option<serde_json::Value>,
     pub cancel: Option<Cancel>,
     pub version: Option<i64>,
+    /// ADR 0018: id of the orchestration job this one belongs to.
+    pub parent: Option<String>,
+    /// ADR 0018: `orchestration` or `step`.
+    pub kind: Option<String>,
+    /// ADR 0018: the pending question while the state is `waiting`.
+    pub waiting: Option<Waiting>,
 }
 
 impl Record {
     fn is_active(&self) -> bool {
-        matches!(self.state.as_deref(), Some("queued" | "running"))
+        matches!(
+            self.state.as_deref(),
+            Some("queued" | "running" | "waiting")
+        )
     }
 }
 
@@ -561,6 +606,13 @@ impl Store {
         let limit = now_f64() - KEEP_DAYS * 86_400.0;
         for (mtime, n) in items.into_iter().skip(KEEP_COUNT) {
             if mtime < limit {
+                // a job that waits for an answer can wait for days: never pruned while active
+                if self
+                    .load(&n[..n.len() - 5])
+                    .is_ok_and(|r| r.is_active())
+                {
+                    continue;
+                }
                 let base = format!("{}.", &n[..n.len() - 5]);
                 let mut victims = vec![n.clone()];
                 if let Ok(rd) = fs::read_dir(&self.dir) {
@@ -584,9 +636,17 @@ impl Store {
         unit: &str,
         source: &str,
         initiator: &str,
+        parent: &str,
+        kind: &str,
     ) -> Result<String> {
         if !SOURCES.contains(&source) {
             return Err(failed(format!("bad source: {source}")));
+        }
+        if !kind.is_empty() && !KINDS.contains(&kind) {
+            return Err(failed(format!("bad kind: {kind}")));
+        }
+        if !parent.is_empty() {
+            self.path_of(parent)?;
         }
         self.ensure_dir()?;
         let ts = now_secs();
@@ -617,6 +677,8 @@ impl Store {
             queued: Some(format_iso(ts)),
             state: Some("queued".to_string()),
             version: Some(1),
+            parent: some(parent),
+            kind: some(kind),
             ..Record::default()
         };
         self.save(&rec)?;
@@ -629,6 +691,54 @@ impl Store {
             let mut rec = self.load(id)?;
             rec.state = Some("running".to_string());
             rec.started = Some(now_iso());
+            self.save(&rec)
+        })
+    }
+
+    /// `wait`: a question is pending, the state is `waiting`.
+    pub fn wait(&self, id: &str, q: &Question) -> Result<()> {
+        if !ASK_KINDS.contains(&q.kind) {
+            return Err(failed(format!("bad question kind: {}", q.kind)));
+        }
+        self.locked(id, || {
+            let mut rec = self.load(id)?;
+            if !matches!(rec.state.as_deref(), Some("running" | "waiting")) {
+                return Err(failed("job is not running"));
+            }
+            let some = |s: &str| (!s.is_empty()).then(|| s.to_string());
+            let choices: Vec<String> = q
+                .choices
+                .split(',')
+                .filter(|c| !c.is_empty())
+                .map(str::to_string)
+                .collect();
+            rec.state = Some("waiting".to_string());
+            rec.waiting = Some(Waiting {
+                seq: q.seq,
+                key: q.key.to_string(),
+                label: q.label.to_string(),
+                kind: q.kind.to_string(),
+                default: if q.kind == "secret" { None } else { some(q.default) },
+                pattern: some(q.pattern),
+                choices: (!choices.is_empty()).then_some(choices),
+                error: some(q.error),
+                attempt: q.attempt,
+                asked: now_iso(),
+                ..Default::default()
+            });
+            self.save(&rec)
+        })
+    }
+
+    /// `resume`: the question was answered, waiting goes back to running.
+    pub fn resume(&self, id: &str) -> Result<()> {
+        self.locked(id, || {
+            let mut rec = self.load(id)?;
+            if rec.state.as_deref() != Some("waiting") {
+                return Err(failed("job is not waiting"));
+            }
+            rec.state = Some("running".to_string());
+            rec.waiting = None;
             self.save(&rec)
         })
     }
@@ -674,6 +784,7 @@ impl Store {
         self.locked(id, || {
             let mut rec = self.load(id)?;
             rec.exit = Some(exit);
+            rec.waiting = None;
             if rec.state.as_deref() == Some("cancelled") {
                 if rec.ended.as_deref().is_none_or(str::is_empty) {
                     rec.ended = Some(now_iso());
@@ -726,6 +837,7 @@ impl Store {
             }
             let at = now_iso();
             rec.state = Some("cancelled".to_string());
+            rec.waiting = None;
             rec.ended = Some(at.clone());
             rec.error = None;
             rec.cancel = Some(Cancel {
@@ -824,6 +936,7 @@ impl Store {
                 _ => now_iso(),
             });
             rec.state = Some("interrupted".to_string());
+            rec.waiting = None;
             rec.exit = None;
             rec.error = Some(ErrorInfo {
                 category: "interrupted".to_string(),
@@ -892,7 +1005,7 @@ mod tests {
 
     fn mk(store: &Store, unit: &str) -> String {
         store
-            .new_record("pool sync", "hs pool sync", unit, "cli", "alice")
+            .new_record("pool sync", "hs pool sync", unit, "cli", "alice", "", "")
             .unwrap()
     }
 
@@ -969,7 +1082,7 @@ mod tests {
         let t = Tmp::new();
         let s = t.store();
         let id = s
-            .new_record("-- Pool/Sync!! --", "Café sync", "hs-job-x-1", "web", "")
+            .new_record("-- Pool/Sync!! --", "Café sync", "hs-job-x-1", "web", "", "", "")
             .unwrap();
         assert!(valid_id(&id), "{id}");
         assert!(id.contains("-Pool-Sync-"));
@@ -1002,7 +1115,7 @@ mod tests {
         assert!(text.contains("\"description\": \"Café sync\""));
         assert!(text.contains("\"initiator\": null"));
         assert!(text.contains("\"state\": \"queued\""));
-        assert!(text.contains("\"version\": 1\n}\n"));
+        assert!(text.contains("\"version\": 1,\n  \"parent\": null,\n  \"kind\": null,\n  \"waiting\": null\n}\n"));
         #[cfg(unix)]
         {
             use std::os::unix::fs::PermissionsExt;
@@ -1011,13 +1124,13 @@ mod tests {
             assert_eq!(mode(&s.dir.join(format!("{id}.json"))), 0o644);
         }
         assert_eq!(
-            s.new_record("x", "d", "", "bogus", "")
+            s.new_record("x", "d", "", "bogus", "", "", "")
                 .unwrap_err()
                 .to_string(),
             "bad source: bogus"
         );
         assert!(s
-            .new_record("!!!", "d", "", "cli", "")
+            .new_record("!!!", "d", "", "cli", "", "", "")
             .unwrap()
             .contains("-job-"));
     }
@@ -1252,6 +1365,50 @@ mod tests {
             boot: None,
         });
         assert_eq!(r, Reconciled::default());
+    }
+
+    #[test]
+    fn waiting_is_kept_by_retention_and_cleared_by_cancel_and_reconcile() {
+        let t = Tmp::new();
+        let s = t.store();
+        let id = mk(&s, "hs-job-w-1");
+        s.run(&id).unwrap();
+        s.wait(&id, &Question { seq: 1, key: "PW", label: "Password", kind: "secret", default: "hunter2", attempt: 1, ..Default::default() })
+            .unwrap();
+        let rec = s.load(&id).unwrap();
+        assert_eq!(rec.state.as_deref(), Some("waiting"));
+        assert_eq!(rec.waiting.as_ref().unwrap().default, None, "no default for a secret");
+        assert!(!String::from_utf8(s.get(&id).unwrap()).unwrap().contains("hunter2"));
+        assert!(s.wait(&id, &Question { kind: "bogus", ..Default::default() }).is_err());
+        assert_eq!(s.find_unit("hs-job-w-1").unwrap(), id);
+        s.resume(&id).unwrap();
+        assert_eq!(s.load(&id).unwrap().waiting, None);
+        assert!(s.resume(&id).is_err());
+        // a sparse waiting object from another writer loads
+        let p = t.0.join(format!("{id}.json"));
+        let text = fs::read_to_string(&p).unwrap().replace("\"waiting\": null", "\"waiting\": {\"seq\": 1}");
+        fs::write(&p, text).unwrap();
+        assert_eq!(s.load(&id).unwrap().waiting.unwrap().seq, 1);
+        s.cancel(&id, "bob", true).unwrap();
+        assert_eq!(s.load(&id).unwrap().waiting, None);
+        // retention: an old waiting record survives, an old finished one does not
+        let old = SystemTime::now() - Duration::from_secs(40 * 86_400);
+        let w = mk(&s, "hs-job-w-2");
+        s.run(&w).unwrap();
+        s.wait(&w, &Question { seq: 1, key: "K", label: "L", kind: "text", attempt: 1, ..Default::default() }).unwrap();
+        let done = mk(&s, "hs-job-w-3");
+        s.run(&done).unwrap();
+        s.finish(&done, 0).unwrap();
+        for x in [&w, &done] {
+            let f = fs::File::options().write(true).open(t.0.join(format!("{x}.json"))).unwrap();
+            f.set_modified(old - Duration::from_secs(if *x == w { 5 } else { 1 })).unwrap();
+        }
+        for _ in 0..KEEP_COUNT {
+            mk(&s, "hs-job-fill");
+        }
+        s.retention();
+        assert!(t.0.join(format!("{w}.json")).exists(), "waiting is kept");
+        assert!(!t.0.join(format!("{done}.json")).exists(), "an old finished one goes");
     }
 
     #[test]

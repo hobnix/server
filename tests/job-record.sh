@@ -20,7 +20,7 @@ check "a new record is queued" "queued" "$(jf "$id" state)"
 check "unit stored" "hs-job-pool-sync-120000" "$(jf "$id" unit)"
 check "initiator stored" "alice" "$(jf "$id" initiator)"
 check "version is 1" "1" "$(jf "$id" version)"
-check "fields are exactly the ADR list" "id,slug,description,source,initiator,unit,queued,started,ended,state,exit,step,progress,error,result,cancel,version" \
+check "fields are exactly the ADR list" "id,slug,description,source,initiator,unit,queued,started,ended,state,exit,step,progress,error,result,cancel,version,parent,kind,waiting" \
   "$(python3 -c 'import json,sys; print(",".join(json.load(open(sys.argv[1]))))' "$HS_JOBS_DIR/$id.json")"
 check "absent values are null" "null" "$(jf "$id" started)"
 check "directory mode 0755" "755" "$(stat -c %a "$HS_JOBS_DIR")"
@@ -200,6 +200,55 @@ uid=$(hr new --slug evu --desc "kept job" --unit hs-job-evu-1 --source cli); hr 
 hr cancel "$uid" --by alice --safe yes; hr uncancel "$uid"
 check "uncancel puts running back" "running" "$(jf "$uid" state)"
 check "uncancel clears the cancel block and ended" "null null" "$(jf "$uid" cancel) $(jf "$uid" ended)"
+# ADR 0018: parent, kind, waiting; state waiting; job.waiting / job.resumed
+check "a plain job has no parent, kind or waiting" "null null null" "$(jf "$id" parent) $(jf "$id" kind) $(jf "$id" waiting)"
+oid=$(hr new --slug orch --desc "orchestrator" --unit hs-job-orch-1 --source web --initiator alice --kind orchestration); hr run "$oid"
+sid=$(hr new --slug orch-run --desc "step" --unit hs-job-orch-run-1 --source web --parent "$oid" --kind step)
+check "parent is stored" "$oid" "$(jf "$sid" parent)"
+check "kind is stored" "step orchestration" "$(jf "$sid" kind) $(jf "$oid" kind)"
+check "version stays 1" "1" "$(jf "$sid" version)"
+$W new --slug x --desc d --kind bogus >/dev/null 2>&1; check "a bad kind is refused" "1" "$?"
+$W new --slug x --desc d --parent nope >/dev/null 2>&1; check "a bad parent id is refused" "1" "$?"
+hr wait "$oid" --seq 1 --key ADDRESS --label "Address of the app" --kind text --default 10.0.0.5 --pattern '^[0-9.]+$' --attempt 2 --error "Not free"
+check "wait sets waiting" "waiting" "$(jf "$oid" state)"
+check "the question is in the record" "1 ADDRESS Address of the app text 10.0.0.5 2 Not free" "$(for f in seq key label kind default attempt error; do printf '%s ' "$(jf "$oid" waiting.$f)"; done | sed 's/ $//')"
+check "the events: waiting names key and kind, nothing else" '{"key":"ADDRESS","kind":"text"}' "$(evs | grep "$oid" | grep job.waiting | grep -o '{"key[^}]*}' | head -n1)"
+check "job.waiting does not carry the label" "0" "$(evs | grep "$oid" | grep job.waiting | grep -c 'Address of')"
+hr wait "$oid" --seq 2 --key PASSWORD --label Password --kind secret --default hunter2 --choices ""
+check "a secret has no default in the record" "null" "$(jf "$oid" waiting.default)"
+check "the secret value is nowhere in the record" "0" "$(grep -c hunter2 "$HS_JOBS_DIR/$oid.json")"
+hr wait "$oid" --seq 3 --key MODE --label Mode --kind choice --choices fast,safe
+check "choices are a list" "['fast', 'safe']" "$(jf "$oid" waiting.choices)"
+$W wait "$oid" --seq 4 --key K --label L --kind bogus 2>/dev/null; check "a bad question kind is refused" "1" "$?"
+$W wait "$sid" --seq 1 --key K --label L --kind text 2>/dev/null; check "a queued job cannot wait" "1" "$?"
+check "find-unit finds a waiting job" "$oid" "$($W find-unit hs-job-orch-1)"
+hr resume "$oid"
+check "resume sets running and clears waiting" "running null" "$(jf "$oid" state) $(jf "$oid" waiting)"
+check "job.resumed is emitted" "1" "$(evs | grep "$oid" | grep -c job.resumed)"
+$W resume "$oid" 2>/dev/null; check "resume on a running job is refused" "1" "$?"
+hr wait "$oid" --seq 5 --key K --label L --kind text
+hr cancel "$oid" --by alice --safe yes
+check "cancel works from waiting" "cancelled null" "$(jf "$oid" state) $(jf "$oid" waiting)"
+wid=$(hr new --slug w --desc w --unit hs-job-w-1 --source cli); hr run "$wid"; hr wait "$wid" --seq 1 --key K --label L --kind text
+hr finish "$wid" 0
+check "finish from waiting ends the job and clears waiting" "ok null" "$(jf "$wid" state) $(jf "$wid" waiting)"
+check "finish from waiting emits the event once" "1" "$(evs | grep "$wid" | grep -c 'job.ok')"
+# retention: an old waiting record is kept past the limit, an old finished one is removed
+RT=$(mktemp -d)
+grep -q '^KEEP_COUNT' "$here/scripts/job-record.py" || echo "ok:   retention check skipped (not the Python writer; the Rust unit test covers it)"
+grep -q '^KEEP_COUNT' "$here/scripts/job-record.py" && HS_JOBS_DIR=$RT python3 - "$here" <<'PY'
+import importlib.util, json, os, sys, time
+spec = importlib.util.spec_from_file_location("jr", sys.argv[1] + "/scripts/job-record.py"); jr = importlib.util.module_from_spec(spec); spec.loader.exec_module(jr)
+jr.KEEP_COUNT = 1
+d = os.environ["HS_JOBS_DIR"]
+old = time.time() - 40 * 86400
+for i, (name, state) in enumerate((("20200101-000000-keep-aaaa", "ok"), ("20200101-000001-wait-aaaa", "waiting"), ("20200101-000002-done-aaaa", "ok"))):
+    json.dump({"id": name, "state": state}, open("%s/%s.json" % (d, name), "w"))
+    os.utime("%s/%s.json" % (d, name), (old - i, old - i))
+jr.retention()
+PY
+grep -q '^KEEP_COUNT' "$here/scripts/job-record.py" && check "retention spares an active (waiting) record and removes an old finished one" "keep wait" "$(ls "$RT" | sed -E 's/^[0-9]{8}-[0-9]{6}-([a-z]+)-.*/\1/' | tr '\n' ' ' | sed 's/ $//')"
+rm -rf "$RT"
 BAD_EV=$(HS_STATE_DB=/nonexistent/x/ev.db hr new --slug evb --desc "no log" --unit hs-job-evb-1 --source cli >/dev/null; echo "rc=$?")
 check "an unwritable event log changes nothing for the job" "1" "$(grep -c 'rc=0' <<<"$BAD_EV")"
 

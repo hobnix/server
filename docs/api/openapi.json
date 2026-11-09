@@ -4989,6 +4989,122 @@
     }
    }
   },
+  "/jobs/children/{id}": {
+   "get": {
+    "operationId": "jobs.children.by_id",
+    "summary": "the sub-jobs of an orchestration job (ADR 0018), oldest first, the columns of jobs records; empty: none",
+    "x-hs-exit": true,
+    "x-hs-sys": {
+     "words": [
+      "jobs",
+      "children",
+      "<id>"
+     ],
+     "script": "jobs.sh",
+     "args": "--children {1}",
+     "class": "read",
+     "rest": false
+    },
+    "parameters": [
+     {
+      "name": "id",
+      "in": "path",
+      "required": true,
+      "schema": {
+       "type": "string"
+      }
+     }
+    ],
+    "description": "The sub-jobs of one orchestration job (ADR 0018), oldest first; same columns as jobs records.",
+    "responses": {
+     "0": {
+      "description": "ok",
+      "content": {
+       "text/tab-separated-values": {
+        "schema": {
+         "type": "array",
+         "items": {
+          "type": "array",
+          "prefixItems": [
+           {
+            "$ref": "#/components/schemas/Field",
+            "title": "id"
+           },
+           {
+            "$ref": "#/components/schemas/Field",
+            "title": "slug"
+           },
+           {
+            "$ref": "#/components/schemas/Field",
+            "title": "description"
+           },
+           {
+            "$ref": "#/components/schemas/Field",
+            "title": "state",
+            "enum": [
+             "queued",
+             "running",
+             "waiting",
+             "ok",
+             "failed",
+             "cancelled",
+             "interrupted"
+            ]
+           },
+           {
+            "$ref": "#/components/schemas/Field",
+            "title": "queued"
+           },
+           {
+            "$ref": "#/components/schemas/Field",
+            "title": "started"
+           },
+           {
+            "$ref": "#/components/schemas/Field",
+            "title": "ended"
+           },
+           {
+            "$ref": "#/components/schemas/Field",
+            "title": "exit"
+           },
+           {
+            "$ref": "#/components/schemas/Field",
+            "title": "step_n"
+           },
+           {
+            "$ref": "#/components/schemas/Field",
+            "title": "step_of"
+           },
+           {
+            "$ref": "#/components/schemas/Field",
+            "title": "step_text"
+           },
+           {
+            "$ref": "#/components/schemas/Field",
+            "title": "progress_done"
+           },
+           {
+            "$ref": "#/components/schemas/Field",
+            "title": "progress_total"
+           },
+           {
+            "$ref": "#/components/schemas/Field",
+            "title": "progress_unit"
+           }
+          ],
+          "minItems": 14,
+          "maxItems": 14
+         }
+        }
+       }
+      }
+     },
+     "default": {
+      "description": "failed; stderr says why, stdout may be empty"
+     }
+    }
+   }
+  },
   "/jobs/list": {
    "get": {
     "operationId": "jobs.list",
@@ -5190,7 +5306,7 @@
      }
     ],
     "x-hs-described": false,
-    "description": "One job record (docs/adr/0004-job-record.md): id, slug, description, source, initiator, unit, queued, started, ended, state, exit, step {n, of, text}, progress {done, total, unit}, error, result, cancel, version. Absent values are null.",
+    "description": "One job record (docs/adr/0004-job-record.md): id, slug, description, source, initiator, unit, queued, started, ended, state, exit, step {n, of, text}, progress {done, total, unit}, error, result, cancel, version, and since ADR 0018 parent (id of the orchestration), kind (orchestration or step) and waiting (the pending question {seq, key, label, kind, default, pattern, choices, error, attempt, asked}, never an answer). state may be waiting. Absent values are null.",
     "responses": {
      "0": {
       "description": "ok",
@@ -5251,6 +5367,7 @@
             "enum": [
              "queued",
              "running",
+             "waiting",
              "ok",
              "failed",
              "cancelled",

@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """List the job records (ADR 0004), newest first, as tab-separated lines (the machine-readable contract: empty field is "-").
 
-usage: job-records.py [--state <state>] [<limit>]     (limit default 50, at most 500)
+usage: job-records.py [--state <state>] [--parent <id>] [<limit>]     (--parent: the sub-jobs of one orchestration, oldest first)     (limit default 50, at most 500)
 
 Reads HS_JOBS_DIR (default /var/lib/hs/jobs) read-only; a file that is not a valid record is skipped.
 Columns: id, slug, description, state, queued, started, ended, exit, step_n, step_of, step_text,
@@ -25,11 +25,14 @@ def cell(v):
 def main():
     args = sys.argv[1:]
     state = ""
+    parent = None
     limit = 50
     while args:
         a = args.pop(0)
         if a == "--state" and args:
             state = args.pop(0)
+        elif a == "--parent" and args:
+            parent = args.pop(0)
         elif a.isdigit():
             limit = min(int(a), 500)
         else:
@@ -40,6 +43,11 @@ def main():
         names = sorted((n[:-5] for n in os.listdir(d) if n.endswith(".json")), reverse=True)
     except OSError:
         return 0   # no directory yet: no jobs
+    if parent is not None:
+        if not ID.fullmatch(parent):
+            sys.stderr.write("job-records: bad job id\n")
+            return 1
+        names.reverse()   # steps in the order they started
     shown = 0
     for jid in names:
         if shown >= limit:
@@ -51,7 +59,8 @@ def main():
                 r = json.load(f)
         except (OSError, ValueError):
             continue
-        if not isinstance(r, dict) or (state and r.get("state") != state):
+        if not isinstance(r, dict) or (state and r.get("state") != state) \
+                or (parent is not None and r.get("parent") != parent):
             continue
         step = r.get("step") if isinstance(r.get("step"), dict) else {}
         prog = r.get("progress") if isinstance(r.get("progress"), dict) else {}
