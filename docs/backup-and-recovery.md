@@ -116,6 +116,25 @@ the SSH host keys and the Samba secrets. To get just your settings back on a run
 It never touches `hardware-configuration.nix`, the SSH host keys, Samba, disks, pools or the network. `--with-state` also puts back the
 files of `/var/lib/hs`, except the backup password and the files that describe this server's disks (`disks`, `vault-uuid`, `luks-uuids`).
 
+What the settings backup holds and what it leaves out:
+
+| In the host snapshot | Put back by `hs backup config restore` |
+| --- | --- |
+| `machine.toml`, `machine.nix` | yes |
+| `/var/lib/hs` (your server's state files) | only with `--with-state` |
+| `hardware-configuration.nix`, SSH host keys, Samba secrets, gateway certificate keys | no (restore them by hand, see the disaster recovery runbook below) |
+| the backup password (`restic-password`) | never: it is not in the snapshot, keep it in your password manager |
+| `disks`, `vault-uuid`, `luks-uuids` | never: they describe this server's disks |
+
+Secrets are never printed: the plan shows file names only. If the vault is open when the backup runs, its secrets are part of the host
+snapshot; a restore does not write through the links into the vault.
+
+To check that the restore worked, run `sudo hs backup config restore --dry-run` again. It says "Already identical".
+
+**On a clean install** there is no backup password and no `hs` data yet, so `hs backup config restore` cannot read the repository. Follow
+the disaster recovery runbook below: it restores the host files with restic and the password from your password manager. Not tested on
+hardware yet.
+
 ## Give space back
 When the backup disk is full, or a run ended with "no space left":
 

@@ -55,6 +55,27 @@ check_eq "restored file has the old content" hello "$(cat "$WORK/bulk/shares/res
 check "the live copy is untouched" test "$(cat "$WORK/bulk/shares/docs/a.txt")" = changed
 if hsb restore latest "$WORK/bulk/shares/nothing-here" --to "$WORK/bulk/shares/restored" >/dev/null 2>&1; then fail "restoring a path that is not in the backup fails"; else pass "restoring a path that is not in the backup fails"; fi
 
+echo "-- config restore: back up the settings, damage them, put them back"
+export HS_NIXOS_DIR=$WORK/nixos
+mkdir -p "$HS_NIXOS_DIR"
+echo 'hostName = "before"' > "$HS_NIXOS_DIR/machine.toml"
+echo 'hw' > "$HS_NIXOS_DIR/hardware-configuration.nix"
+HS_BACKUP_HOST_FILES="$HS_NIXOS_DIR/machine.toml $HS_NIXOS_DIR/hardware-configuration.nix $WORK/state" hsb now >/dev/null 2>&1
+mount "$dev" "$WORK/mnt"
+out=$(repo ls --recursive latest --tag host 2>&1)
+if grep -q "restic-password" <<<"$out"; then fail "the backup password is not in the host snapshot"; else pass "the backup password is not in the host snapshot"; fi
+umount "$WORK/mnt"
+echo 'hostName = "after"' > "$HS_NIXOS_DIR/machine.toml"
+echo 'hw-changed' > "$HS_NIXOS_DIR/hardware-configuration.nix"
+check_out "config lists the host snapshot" "machine.toml" hsb config
+check_out "the dry run names the changed file" "changed" hsb config restore --dry-run
+check_eq "the dry run changes nothing" 'hostName = "after"' "$(cat "$HS_NIXOS_DIR/machine.toml")"
+check "config restore succeeds" hsb config restore --yes
+check_eq "machine.toml is back" 'hostName = "before"' "$(cat "$HS_NIXOS_DIR/machine.toml")"
+check_eq "the replaced file is kept" 'hostName = "after"' "$(cat "$HS_NIXOS_DIR"/machine.toml.before-restore-* 2>/dev/null)"
+check_eq "hardware-configuration.nix is not touched" "hw-changed" "$(cat "$HS_NIXOS_DIR/hardware-configuration.nix")"
+unset HS_NIXOS_DIR
+
 echo "-- drill"
 check_out "the restore drill restores random files" "restored" hsb drill 2
 check_out "status remembers the drill" "Restore drill +[0-9]+ min" hsb status
