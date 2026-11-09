@@ -62,6 +62,7 @@ import urllib.request
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 import web_terminal as wt      # the in-browser terminal (WebSocket, tickets, pty shell)
+import web_vmconsole as vc    # the graphical VM console (Incus VGA console relayed over a WebSocket, ADR 0021)
 import live_state as ls        # live state: the RESP client for Redis (mode redis)
 import first_run as fr         # first-run flag and the one-time console token (docs/adr/0022-first-run-console-token.md)
 from hs_ext import (env, runtime_setting, capabilities, applied_recipes, ext_roots, ext_sys_rows, ext_packages, ext_manifest,  # noqa: F401,E402
@@ -2201,6 +2202,8 @@ class App:
         self.proxy = Proxy(self.cfg)
         self.warmer = Warmer(self)       # started by main(), not here
         self.terminals = wt.Terminals()
+        self.vmconsoles = vc.consoles()
+        self.incus = vc.IncusApi()                      # tests replace this with a fake
         self.stream_lock, self.streams, self.event_streams = threading.Lock(), 0, 0
         self.term_spawn = lambda target, name=None: wt.pty_spawn(target, self.cfg.local_user, name=name)      # tests replace this with a fake
 
@@ -2305,6 +2308,8 @@ def make_handler(app):
                 return self._hello()
             if path == "/api/terminal/ws":
                 return self._terminal_ws(urllib.parse.parse_qs(urllib.parse.urlsplit(self.path).query))
+            if path == "/api/vmconsole/ws":
+                return self._vmconsole_ws(urllib.parse.parse_qs(urllib.parse.urlsplit(self.path).query))
             if path == "/api/session":
                 s = self._session()
                 if not s:
@@ -2597,7 +2602,7 @@ def make_handler(app):
         def do_POST(self):
             path = urllib.parse.urlsplit(self.path).path
             raw = self._read(FM_SELECTION_BYTES + 8192 if path in ("/api/plan", "/api/start") else 4096)      # a file manager selection can be long
-            if path not in ("/api/login", "/api/logout", "/api/plan", "/api/start", "/api/unlock", "/api/terminal", "/api/changes/seen", "/api/live/refresh", "/api/setup"):
+            if path not in ("/api/login", "/api/logout", "/api/plan", "/api/start", "/api/unlock", "/api/terminal", "/api/vmconsole", "/api/changes/seen", "/api/live/refresh", "/api/setup"):
                 return self._json(404, {"error": "unknown"})
             if not self._same_origin():
                 return self._json(403, {"error": "origin"})
@@ -2610,6 +2615,8 @@ def make_handler(app):
                 return self._setup(body)
             if path == "/api/terminal":
                 return self._terminal_ticket(body)
+            if path == "/api/vmconsole":
+                return self._vmconsole_ticket(body)
             if path == "/api/changes/seen":
                 return self._changes_seen(body)
             if path == "/api/live/refresh":
@@ -2714,6 +2721,72 @@ def make_handler(app):
             if ticket is None:
                 return self._json(429, {"error": "Too many terminals are being opened. Try again in a moment."})
             self._json(200, {"ticket": ticket})
+
+        # --- graphical VM console (ADR 0021; scripts/web_vmconsole.py). Same switch, same rules as the terminal: it is a keyboard on the machine.
+        def _vmconsole_ticket(self, body):
+            s = self._session()
+            if not s:
+                return self._json(401, {"error": "not signed in"})
+            if not secrets.compare_digest(self.headers.get("X-CSRF-Token", ""), s["csrf"]):
+                return self._json(403, {"error": "csrf"})
+            if not cfg.terminal:
+                return self._json(403, {"error": "Switch on the browser terminal under Settings > Users and access."})
+            target = body.get("target")
+            if app.auth.storage_locked():
+                return self._json(409, {"error": "The storage is locked: instances are down. Unlock it first."})
+            try:
+                vc.check_vm(app.incus, target)
+            except vc.ConsoleError as e:
+                return self._json(e.status, {"error": e.message})
+            except OSError:
+                return self._json(502, {"error": "The virtual machine service is not reachable."})
+            ticket = app.vmconsoles.issue(self._token(), target)
+            if ticket is None:
+                return self._json(429, {"error": "Too many consoles are being opened. Try again in a moment."})
+            self._json(200, {"ticket": ticket})
+
+        def _vmconsole_ws(self, query):
+            self.close_connection = True
+            if not cfg.terminal:
+                return self._json(403, {"error": "Switch on the browser terminal under Settings > Users and access."})
+            if not self._same_origin():
+                return self._json(403, {"error": "origin"})
+            h = self.headers
+            if h.get("Upgrade", "").lower() != "websocket" or "upgrade" not in h.get("Connection", "").lower() \
+                    or h.get("Sec-WebSocket-Version", "") != "13" or not wt.valid_key(h.get("Sec-WebSocket-Key", "")):
+                return self._json(400, {"error": "need a WebSocket upgrade"})
+            token = self._token()
+            s = self._session()
+            target = app.vmconsoles.redeem((query.get("ticket") or [""])[0], token) if s else None
+            if not s or target is None:
+                return self._json(403, {"error": "ticket"})
+            if app.auth.storage_locked():
+                return self._json(409, {"error": "The storage is locked."})
+            if not app.vmconsoles.acquire(token):
+                return self._json(429, {"error": "Too many consoles are open."})
+            ip = self._client()
+            try:
+                try:
+                    data, control = vc.open_console(app.incus, target)
+                except vc.ConsoleError as e:
+                    return self._json(e.status, {"error": e.message})
+                except Exception as e:
+                    print("web vm console: could not start for %s %s: %s" % (s["user"], target, e.__class__.__name__), flush=True)
+                    return self._json(502, {"error": "The console could not be started."})
+                relay = vc.VgaRelay(self.connection, data, control, lambda: self._term_alive(token, target),
+                                    idle=cfg.term_idle, lifetime=cfg.term_max, check=cfg.term_check)
+                try:
+                    self.wfile.write(("HTTP/1.1 101 Switching Protocols\r\nUpgrade: websocket\r\nConnection: Upgrade\r\n"
+                                      "Sec-WebSocket-Accept: %s\r\n\r\n" % wt.accept_key(h["Sec-WebSocket-Key"])).encode("ascii"))
+                    self.wfile.flush()
+                except OSError:
+                    relay.close()
+                    return
+                print("web vm console: open %s %s from %s" % (s["user"], target, ip), flush=True)
+                why = relay.run()
+                print("web vm console: close %s %s from %s (%s)" % (s["user"], target, ip, why), flush=True)
+            finally:
+                app.vmconsoles.release(token)
 
         def _term_alive(self, token, target):
             """Is the web session still good? Does not refresh it: an open terminal must not keep a session alive."""
