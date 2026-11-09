@@ -237,12 +237,12 @@ Each was verified by reading the file named; none was run.
 
 | # | Blocker | Evidence | Proposed issue |
 | --- | --- | --- | --- |
-| B1 | A server made by the ISO has no git checkout, so `hs update`, update channels and the version shown do not work on it | `scripts/install-wizard.sh:212` excludes `.git`; `docs/install.md` tells the user to clone by hand; `scripts/update.sh` needs git | Installer: leave a git checkout (remote `origin`, the release tag) in /etc/nixos |
-| B2 | The `iso` job publishes a release without waiting for any other job | `.github/workflows/ci.yml`, job `iso` has no `needs:` | CI: the ISO and release job needs the test jobs |
-| B3 | The ISO is built from `nixos-unstable` of the day, everything else from the pinned nixpkgs; the tag build is the first time that combination evaluates | `ci.yml` `iso` vs `nixos` nix_path | CI: build the ISO from the pinned nixpkgs revision |
-| B4 | No version file, no `hs version`, the ISO name has no version | section 10 | Show the Hobnix version in `hs system info` and the ISO file name |
+| B1 | A server made by the ISO has no git checkout, so `hs update`, update channels and the version shown do not work on it | `scripts/install-wizard.sh:212` excludes `.git`; `docs/install.md` tells the user to clone by hand; `scripts/update.sh` needs git | Installer: leave a git checkout (remote `origin`, the release tag) in /etc/nixos (issue #396) |
+| B2 | The `iso` job publishes a release without waiting for any other job | `.github/workflows/ci.yml`, job `iso` has no `needs:` | CI: the ISO and release job needs the test jobs (issue #397) |
+| B3 | The ISO is built from `nixos-unstable` of the day, everything else from the pinned nixpkgs; the tag build is the first time that combination evaluates | `ci.yml` `iso` vs `nixos` nix_path | CI: build the ISO from the pinned nixpkgs revision (issue #398) |
+| B4 | No version file, no `hs version`, the ISO name has no version | section 10 | Show the Hobnix version in `hs system info` and the ISO file name (issue #400) |
 | B5 | `config/trusted-keys/README.md` and the header of `docs/PLAN-channels.md` say the core key file is missing | the file exists (3d2c07a) | Docs fix, done in this pull request (README) |
-| B7 | The `.sha256` asset names the ISO with the build path, so `sha256sum -c` fails for a downloader | `ci.yml` step "Attach it to the release" | CI: write the checksum with the bare file name |
-| B6 | The GitHub release text is generic, no notes | `ci.yml` `gh release create --notes "Installer ISO ..."` | CI: use a notes file for the release |
+| B7 | The `.sha256` asset names the ISO with the build path, so `sha256sum -c` fails for a downloader | `ci.yml` step "Attach it to the release" | CI: write the checksum with the bare file name (issue #399 (with B6)) |
+| B6 | The GitHub release text is generic, no notes | `ci.yml` `gh release create --notes "Installer ISO ..."` | CI: use a notes file for the release (issue #399 (with B7)) |
 
 Not a blocker, noted: `release.sh beta` and the beta ISO are not built (docs/PLAN-channels.md); the core tag has no helper script.
