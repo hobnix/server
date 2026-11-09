@@ -7,6 +7,7 @@
   import { tr } from '../i18n.js';
   import PageHeader from '../shell/PageHeader.svelte';
   import Banner from '../ui/Banner.svelte';
+  import Button from '../ui/Button.svelte';
   import { blank, manifestText, findingsOf, fieldOf } from './builder.js';
 
   let f = $state(blank());
@@ -91,7 +92,7 @@
       {#each errors.filter((x) => !fieldOf(x.where)) as x}<Banner tone="bad">{x.text}</Banner>{/each}
     </div>
     <div class="card">
-      <div class="head"><b>package.toml</b><button type="button" class="btn sm" onclick={copy}>{tr('Copy')}</button></div>
+      <div class="head"><b>package.toml</b><Button size="sm" onclick={copy}>Copy</Button></div>
       <pre>{text}</pre>
     </div>
   </div>
