@@ -2317,6 +2317,7 @@ The last rebuild took about %s min.	Der letzte Rebuild dauerte etwa %s Min.
 No such events.	Keine solchen Ereignisse.
 Payload	Nutzdaten
 Meaning	Bedeutung
+'%s' uses more than it declares in permissions: %s	'%s' nutzt mehr, als in permissions angegeben ist: %s
 %s items need your decision before the app is the same as on Unraid.	%s Punkte brauchen deine Entscheidung, bevor die App so ist wie auf Unraid.
 Cannot read the template: %s	Das Template lässt sich nicht lesen: %s
 Draft written to %s. Nothing was started.	Entwurf nach %s geschrieben. Nichts wurde gestartet.
