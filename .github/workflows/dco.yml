@@ -1,0 +1,29 @@
+name: dco
+# Every commit of a pull request needs a `Signed-off-by:` trailer (CONTRIBUTING.md "Sign your commits (DCO)").
+# Merge commits and bot commits are exempt. A pull request a maintainer labelled `agent-pr` (work done by an AI session, which never signs
+# off) is skipped; the maintainer who merges it takes the responsibility. The check itself is scripts/dev/dco-check.sh, so it can be run locally.
+on:
+  pull_request:
+    types: [opened, synchronize, reopened, ready_for_review, labeled, unlabeled]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: dco-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  signoff:
+    if: ${{ !contains(github.event.pull_request.labels.*.name, 'agent-pr') }}
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          fetch-depth: 0
+          ref: ${{ github.event.pull_request.head.sha }}
+      - name: Check Signed-off-by on every commit
+        env:
+          BASE: ${{ github.event.pull_request.base.sha }}
+          HEAD: ${{ github.event.pull_request.head.sha }}
+        run: bash scripts/dev/dco-check.sh "$BASE" "$HEAD"
