@@ -1,6 +1,7 @@
 <script>
   // Events: the event log (hs sys event list, ADR 0005), newest first. Filters: source (asked of the server), level, kind and time (in the browser).
   // New rows arrive through the live stream (`domain` items of /api/events, no polling while it is open); a resync, or a closed stream, reads again.
+  import { tip } from '../ui/tooltip.svelte.js';
   import { poll, rows, refresh } from '../data.svelte.js';
   import { live } from '../live.svelte.js';
   import { lang } from '../lang.svelte.js';
@@ -66,7 +67,7 @@
     <div class="card mat">
       <Table id="events" {columns} rows={rowsItems} key="key" sort={{ key: 'time', dir: 'desc' }}>
         {#snippet cell(e, col)}
-          {#if col.key === 'time'}<span title={new Date(e.time * 1000).toLocaleString()}>{agoShort(e.time) || '-'}</span>
+          {#if col.key === 'time'}<span use:tip={new Date(e.time * 1000).toLocaleString()}>{agoShort(e.time) || '-'}</span>
           {:else if col.key === 'level'}<StatusDot state={tone[e.level]} label={e.level} />
           {:else if col.key === 'name'}<code>{e.name}</code>
           {:else if col.key === 'subject'}{e.subject}
