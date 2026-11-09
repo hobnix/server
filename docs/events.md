@@ -72,6 +72,10 @@ The payload is optional extra data for programs. Rules:
 | `live.collector-recovered` | info | none | a live-state read works again after a failure (subject: the topic) |
 | `audit.ok` | info | `actor`, `exit` | a command that changes the system finished with exit 0 (hs dispatcher; subject: the words typed, never the arguments after them) |
 | `audit.failed` | warn | `actor`, `exit` | a command that changes the system failed (hs dispatcher; subject: the words typed, never the arguments after them) |
+| `ct.created` | info | `instance`, `project`, `action` | an Incus container or VM was created (Incus lifecycle watcher in hs-live; subject: the instance) |
+| `ct.started` | info | `instance`, `project`, `action` | an Incus container or VM started (subject: the instance) |
+| `ct.stopped` | info | `instance`, `project`, `action` | an Incus container or VM stopped, also when nobody asked for it (subject: the instance) |
+| `ct.deleted` | info | `instance`, `project`, `action` | an Incus container or VM was deleted (subject: the instance) |
 
 <!-- END generated -->
 

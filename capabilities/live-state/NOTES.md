@@ -120,3 +120,17 @@ deleted. The web interface takes the capability from the read itself (the topic 
 - `@docker` also wakes the `any` topics; accepted.
 
 Not tested on hardware yet.
+
+## Incus watcher (2026-11-09, #392)
+
+`IncusWatch` (subclass of `DockerWatch`, same file, same thread model: decision "inside hs-live", no own unit, so it restarts with the collector
+and shares its `Restart=always`) runs `incus monitor --type=lifecycle --format=json` (`HS_INCUS` honoured; tests: `HS_LIVE_INCUS_EVENTS`) and asks for
+`@instances` (`ct-list`, `ct-profiles`, `services-*`, ...). Coalescing, back-off, one journal line per outage (`incus events down/back`) and the
+capability gate (`incus` off = no process) are the Docker ones; the 10 s poll stays the safety net. After a reconnect one refresh covers what was missed
+(`incus monitor` does not replay).
+
+- Refresh for: created, started, stopped, shutdown, deleted, restarted, renamed, paused, resumed, ready, updated, rebuilt of an instance. Not for snapshots (nightly, every instance), exec, console, log, images, networks.
+- Events: `ct.created`, `ct.started`, `ct.stopped` (also for `instance-shutdown`), `ct.deleted`; subject = instance; payload `instance`, `project`, `action` only (the lifecycle `context` is never read). Same kind and instance within 10 s = one event; at most 30 per minute, the rest is counted in one journal line (a host shutdown stops every instance).
+- Not done: a separate "crashed" kind. Incus does not say whether a stop was requested; `ct.stopped` after no `hs` job is the hint. Decide with the catalogue (#145).
+
+Not tested on hardware yet.
