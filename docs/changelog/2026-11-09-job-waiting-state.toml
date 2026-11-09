@@ -1,0 +1,4 @@
+date  = "2026-11-09"
+type  = "change"
+title = "Job records can wait for an answer"
+body  = """A job record has a new state, waiting, for a job that stops until someone answers a question. It also gets the optional fields parent, kind and waiting, and the event log gets job.waiting and job.resumed. A waiting job is listed as active, can be stopped, and becomes interrupted after a restart like a running one. The new read row hs sys jobs children lists the steps of one job. Nothing asks questions yet: this is the groundwork for interactive recipe runs. Not tested on hardware yet."""

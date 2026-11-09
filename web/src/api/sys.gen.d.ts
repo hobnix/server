@@ -1060,6 +1060,17 @@ export interface SysOperations {
     exit: 0 | 1 | 2;
     lines: ChangeLines;
   };
+  "jobs.children.by_id": {
+    /** the sub-jobs of an orchestration job (ADR 0018), oldest first, the columns of jobs records; empty: none */
+    words: ["jobs", "children", "<id>"];
+    path: "/jobs/children/{id}";
+    method: "get";
+    class: "read";
+    params: { id: string; };
+    stdin: "none";
+    exit: number;
+    lines: ([id: Field, slug: Field, description: Field, state: "queued" | "running" | "waiting" | "ok" | "failed" | "cancelled" | "interrupted", queued: Field, started: Field, ended: Field, exit: Field, step_n: Field, step_of: Field, step_text: Field, progress_done: Field, progress_total: Field, progress_unit: Field])[];
+  };
   "jobs.list": {
     /** timers and services with next and last run */
     words: ["jobs", "list"];
@@ -1113,7 +1124,7 @@ export interface SysOperations {
     params: { };
     stdin: "none";
     exit: number;
-    lines: ([id: Field, slug: Field, description: Field, state: "queued" | "running" | "ok" | "failed" | "cancelled" | "interrupted", queued: Field, started: Field, ended: Field, exit: Field, step_n: Field, step_of: Field, step_text: Field, progress_done: Field, progress_total: Field, progress_unit: Field])[];
+    lines: ([id: Field, slug: Field, description: Field, state: "queued" | "running" | "waiting" | "ok" | "failed" | "cancelled" | "interrupted", queued: Field, started: Field, ended: Field, exit: Field, step_n: Field, step_of: Field, step_text: Field, progress_done: Field, progress_total: Field, progress_unit: Field])[];
   };
   "jobs.running": {
     /** background jobs that are running now */

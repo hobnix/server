@@ -181,6 +181,7 @@ Direction chosen by the owner: option 3, an orchestrator. The owner answered the
   `hs_job_record` already does for `uncancel`), the states enum in consumers (jobs page, timers, `hs job`), the retention rule, the events
   catalogue, the roles table. A job can now sit for hours holding a half-set-up container (acceptable because of idempotence, rule 12c).
 - A second place secrets pass through (the answer file), so rule 10 needs its tests before the first secret recipe moves.
+- **Built (hobnix/server#387, groundwork only):** the record fields `parent`, `kind`, `waiting`, the state `waiting`, the writer commands `new --parent --kind`, `wait`, `resume` (Python and Rust, same JSON), reconcile, cancel and retention for `waiting`, the events `job.waiting` / `job.resumed`, and the read row `sys jobs children <id>` (role `viewer`). Not built: `ask_q`, `jobs answer`, the orchestrator, the notification. A `wait` is accepted only from `running` or `waiting`. `uncancel` of a cancelled waiting job puts it back to `running` without its question (the orchestrator asks again). Not tested on hardware yet.
 - Follow-up issues: stage 1 (headers, `recipes steps`, wizard dialog); `ask_q` and its tests; record fields and Rust parity;
   `job.waiting` events; `jobs answer`/`children` rows with roles; orchestrator; per-recipe conversion list; `config` key for the timeout; docs
   (GUIDE and German texts for every new web string; the repo's i18n rules apply to the dialog, not to this record).

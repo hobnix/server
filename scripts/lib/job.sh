@@ -26,10 +26,10 @@ _hs_job_record_write() {
 hs_job_record() {
   local cmd=${1:-} out rc=0 id=${2:-} line text
   case "$cmd" in
-    new|run|finish|reconcile|uncancel) ;;
+    new|run|wait|resume|finish|reconcile|uncancel) ;;
     *) _hs_job_record_write "$@"; return ;;
   esac
-  if [ "$cmd" = finish ] && ! _hs_job_record_write get "$id" 2>/dev/null | grep -Eq '"state": *"(queued|running)"'; then
+  if [ "$cmd" = finish ] && ! _hs_job_record_write get "$id" 2>/dev/null | grep -Eq '"state": *"(queued|running|waiting)"'; then
     _hs_job_record_write "$@"; return   # already ended (a cancel stays cancelled): no second event
   fi
   out=$(_hs_job_record_write "$@") || rc=$?
@@ -44,6 +44,14 @@ hs_job_record() {
   case "$cmd" in
     new)  event_emit job.queued "$out" "job queued" || true ;;
     run)  event_emit job.running "$id" "job started" || true ;;
+    wait)   # ADR 0018: the payload names the question key and its kind, never a label, a default or an answer
+      local key="" qkind="" prev=""
+      for line in "${@:3}"; do
+        case "$prev" in --key) key=$line ;; --kind) qkind=$line ;; esac
+        prev=$line
+      done
+      event_emit job.waiting "$id" "job waits for input" --payload "$(printf '{"key":"%s","kind":"%s"}' "${key//[^A-Za-z0-9._-]/}" "${qkind//[^a-z]/}")" || true ;;
+    resume) event_emit job.resumed "$id" "job got its answer" || true ;;
     finish)
       if [ "${3:-1}" = 0 ]; then event_emit job.ok "$id" "job finished" || true
       else event_emit job.failed "$id" "job failed (exit ${3:-1})" --payload "{\"exit\":${3:-1}}" || true; fi ;;
@@ -63,6 +71,9 @@ hs_job() {
   here=$(cd "${BASH_SOURCE[0]%/*}/.." && pwd)
   unit=hs-job-$slug-$(date +%H%M%S)
   local extra=() kv
+  local rec_extra=()   # HS_JOB_PARENT / HS_JOB_KIND (ADR 0018): a sub-job names its orchestration; only the caller that sets them gets them
+  [ -z "${HS_JOB_PARENT:-}" ] || rec_extra+=(--parent "$HS_JOB_PARENT")
+  [ -z "${HS_JOB_KIND:-}" ] || rec_extra+=(--kind "$HS_JOB_KIND")
   # HS_JOB_ENV: more environment for the job, one KEY=VALUE per line (recipe answers; a secret is never put here, it travels as a file)
   while IFS= read -r kv; do [[ "$kv" =~ ^[A-Za-z_][A-Za-z0-9_]*= ]] && extra+=(-E "$kv"); done <<<"${HS_JOB_ENV:-}"
   [ -z "${HS_DISK_PASSPHRASE_FILE:-}" ] || extra=(-E "HS_DISK_PASSPHRASE_FILE=$HS_DISK_PASSPHRASE_FILE")   # a path, not the secret
@@ -70,7 +81,7 @@ hs_job() {
   local src=cli jid=
   case "${HS_CALLER:-}" in web|ui) src=web ;; ext) src=extension ;; timer) src=timer ;; esac
   jid=$(hs_job_record new --slug "$slug" --desc "$desc" --unit "$unit" --source "$src" \
-          --initiator "${SUDO_USER:-${USER:-}}" 2>/dev/null) || jid=
+          --initiator "${SUDO_USER:-${USER:-}}" ${rec_extra[@]+"${rec_extra[@]}"} 2>/dev/null) || jid=
   [ -z "$jid" ] || extra+=(-E "HS_JOB_ID=$jid")
   [ -z "${HS_JOBS_DIR:-}" ] || extra+=(-E "HS_JOBS_DIR=$HS_JOBS_DIR")   # the unit writes to the same directory as hs_job
   [ -z "${HOBNIX_BIN:-}" ] || extra+=(-E "HOBNIX_BIN=$HOBNIX_BIN")   # and with the same job record writer

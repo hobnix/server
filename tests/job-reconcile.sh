@@ -107,5 +107,19 @@ mk 20200101-000010-evi-jjjj running hs-job-j 2020-01-01T00:00:01Z
 HS_EVENT_NOROOT=1 HS_STATE_DB="$T/ev.db" bash "$here/scripts/job-reconcile.sh" >/dev/null 2>&1
 check "job.interrupted is emitted with the id" "1" "$(HS_STATE_DB="$T/ev.db" python3 "$here/scripts/state-db.py" event-list 50 2>/dev/null | grep -c '20200101-000010-evi-jjjj')"
 
+# ADR 0018: a waiting job whose unit is gone is interrupted and its question goes; a waiting job with a live unit stays
+H=20200101-000020-wath-hhhh; I=20200101-000021-wati-iiii
+mk $H waiting hs-job-h 2020-01-01T00:00:01Z
+mk $I waiting hs-job-live 2020-01-01T00:00:01Z
+python3 - "$HS_JOBS_DIR/$H.json" <<'PY'
+import json, sys
+r = json.load(open(sys.argv[1])); r["waiting"] = {"seq": 1, "key": "K", "label": "Q", "kind": "text"}; json.dump(r, open(sys.argv[1], "w"))
+PY
+out=$($W reconcile)
+check "waiting + unit gone is interrupted" "interrupted" "$(jf $H state)"
+check "the question is dropped" "null" "$(jf $H waiting)"
+check "a waiting job with a live unit is left alone" "waiting" "$(jf $I state)"
+check "the waiting one is reported" "1" "$(grep -c "^$H" <<<"$out")"
+
 [ "$fail" = 0 ] && echo "job-reconcile: all ok"
 exit "$fail"
