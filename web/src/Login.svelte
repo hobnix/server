@@ -2,7 +2,7 @@
   import Button from './ui/Button.svelte';
   import { tip } from './ui/tooltip.svelte.js';
   import { onMount } from 'svelte';
-  import { hello, login } from './api.js';
+  import { hello, login, setup } from './api.js';
   import { lang, setLang, t } from './lang.svelte.js';
   import { theme, toggleTheme } from './theme.svelte.js';
   import Halftone from './shell/Halftone.svelte';
@@ -28,6 +28,11 @@
   let show = $state(false);
   let busy = $state(false);
   let error = $state('');
+  // first setup (docs/adr/0022-first-run-console-token.md): the one-time code from the server console + a new password for the local admin
+  let code = $state('');
+  let password2 = $state('');
+  let signIn = $state(false);      // the person chose "Sign in" although a setup is open
+  const setupOpen = $derived(!!info?.setup?.open && !signIn);
 
   const domain = $derived(info?.domain ?? null);
   const domainOpen = $derived(!!domain?.available);
@@ -50,6 +55,25 @@
 
   // the realm can flip under the form (storage unlocked, or locked again): never leave "domain" selected when it is closed
   $effect(() => { if (info && !domainOpen && realm === 'domain') realm = 'local'; });
+
+  async function submitSetup(e) {
+    e.preventDefault();
+    if (busy || !code || !password) return;
+    if (password !== password2) { error = t({ en: 'The two passwords are not the same.', de: 'Die beiden Passwörter stimmen nicht überein.' }); return; }
+    busy = true;
+    error = '';
+    try {
+      const s = await setup(code.trim(), password);
+      code = ''; password = ''; password2 = '';
+      onsignedin(s);
+    } catch (err) {
+      error = err.message;
+      password = ''; password2 = '';
+      load();
+    } finally {
+      busy = false;
+    }
+  }
 
   async function submit(e) {
     e.preventDefault();
@@ -99,7 +123,25 @@
       <div class="card xh">
         <span class="stripe" aria-hidden="true"></span>
         <div class="eyebrow">homeserver</div>
-        <h1>{t({ en: 'Sign in', de: 'Anmelden' })}</h1>
+        <h1>{setupOpen ? t({ en: 'First setup', de: 'Erste Einrichtung' }) : t({ en: 'Sign in', de: 'Anmelden' })}</h1>
+
+        {#if setupOpen}
+          <Banner tone="info" icon="terminal-window">{t({ en: 'Look at the screen of this server (or its serial console): it shows a one-time code. Enter it here and choose a password for the administrator.', de: 'Schau auf den Bildschirm dieses Servers (oder seine serielle Konsole): dort steht ein Einmalcode. Gib ihn hier ein und wähle ein Passwort für den Administrator.' })}</Banner>
+          {#if error}
+            <Banner tone="bad">{error}</Banner>
+          {/if}
+          <form onsubmit={submitSetup}>
+            <div class="field"><label for="code">{t({ en: 'One-time code', de: 'Einmalcode' })}</label>
+              <div class="inp"><input id="code" class="mono" autocomplete="off" autocapitalize="characters" spellcheck="false" placeholder="XXXXX-XXXXX-XXXXX-XXXXX" bind:value={code} /></div></div>
+            <div class="field"><label for="npw">{t({ en: 'New password for {user}', de: 'Neues Passwort für {user}' }).replace('{user}', info?.local_user ?? 'adminuser')}</label>
+              <div class="inp"><input id="npw" type="password" autocomplete="new-password" bind:value={password} /></div></div>
+            <div class="field"><label for="npw2">{t({ en: 'Repeat the password', de: 'Passwort wiederholen' })}</label>
+              <div class="inp"><input id="npw2" type="password" autocomplete="new-password" bind:value={password2} /></div></div>
+            <p class="hint">{t({ en: 'At least 10 characters. The code works once; this page is plain HTTP, so do this on your home network only.', de: 'Mindestens 10 Zeichen. Der Code gilt nur einmal; diese Seite läuft über einfaches HTTP, also nur im Heimnetz.' })}</p>
+            <Button variant="primary" class="login-submit" type="submit" disabled={busy || !code || !password || !password2}><i class="ph ph-check"></i>{busy ? t({ en: 'Setting up…', de: 'Einrichten…' }) : t({ en: 'Set up this server', de: 'Server einrichten' })}</Button>
+            <Button class="login-submit" type="button" onclick={() => { signIn = true; error = ''; }}>{t({ en: 'Already set up? Sign in', de: 'Schon eingerichtet? Anmelden' })}</Button>
+          </form>
+        {:else}
 
         {#if domain}
           <div class="seg" role="group" aria-label={t({ en: 'Account type', de: 'Kontoart' })}>
@@ -133,6 +175,7 @@
           </p>
           <Button variant="primary" class="login-submit" type="submit" disabled={busy || !user || !password}><i class="ph ph-sign-in"></i>{busy ? t({ en: 'Signing in…', de: 'Anmelden…' }) : t({ en: 'Sign in', de: 'Anmelden' })}</Button>
         </form>
+        {/if}
       </div>
     </div>
 

@@ -2314,6 +2314,14 @@ usage: hs-restore [--backup-device <name>] [--password-file <file>] [--snapshot 
 This takes effect with hs rebuild.	Das gilt nach: hs rebuild.
 A rebuild takes several minutes; none has been timed on this server yet.	Ein Rebuild dauert mehrere Minuten; auf diesem Server wurde noch keiner gemessen.
 The last rebuild took about %s min.	Der letzte Rebuild dauerte etwa %s Min.
+This needs root: sudo hs setup-code %s	Das braucht root: sudo hs setup-code %s
+The first setup is already done. To start over: sudo hs setup-code reset	Die erste Einrichtung ist schon abgeschlossen. Zum Neubeginnen: sudo hs setup-code reset
+A setup code is waiting (valid for another %s s).	Ein Einrichtungscode wartet (noch %s s gültig).
+The setup code has expired: sudo hs setup-code issue	Der Einrichtungscode ist abgelaufen: sudo hs setup-code issue
+The setup code was used up by wrong tries: sudo hs setup-code issue	Der Einrichtungscode ist durch falsche Eingaben verbraucht: sudo hs setup-code issue
+The first setup is done (admin: %s).	Die erste Einrichtung ist abgeschlossen (Admin: %s).
+No first setup is waiting on this server.	Auf diesem Server wartet keine erste Einrichtung.
+Usage: hs setup-code issue | status | reset	Aufruf: hs setup-code issue | status | reset
 No such events.	Keine solchen Ereignisse.
 Payload	Nutzdaten
 Meaning	Bedeutung

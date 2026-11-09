@@ -70,6 +70,12 @@ export async function login(realm, user, password) {
   return s;
 }
 
+export async function setup(token, password) {
+  const s = await call('POST', '/api/setup', { token, password });
+  csrf = s.csrf;
+  return s;
+}
+
 export async function logout() {
   await call('POST', '/api/logout', {});
   csrf = '';

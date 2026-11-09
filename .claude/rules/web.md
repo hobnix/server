@@ -24,3 +24,5 @@ Loaded when you touch the files above (path-scoped rule). The root CLAUDE.md has
   snapshots `hs share <share> snapshot|snapshots|rollback` (share-snap.sh, ZFS layout only), scrub is
   `services.zfs.autoScrub`). Don't bring one back. If /var/lib/webzfs or the user `webzfs` still exist on a
   server, `hs cleanup` says so.
+
+- **First setup** (docs/adr/0022-first-run-console-token.md, Proposed): `POST /api/setup {token, password}` (no session, private addresses only, throttled) redeems the one-time console code made by `hs setup-code issue` (scripts/first_run.py, flag file `$HS_STATE_DIR/first-run.json`; no file = no setup), sets the local admin's password through `chpasswd` on stdin and signs in; `/api/hello` carries `setup.open`. The token is printed on the console only, never logged. Tests: tests/first-run.sh. The boot unit that issues it is not built.
