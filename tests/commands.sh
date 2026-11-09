@@ -145,6 +145,11 @@ out=$(printf 'n\n' | PATH="$WORK/bin:$PATH" env -u HS_CALLER HS_FORCE_TTY=1 $F s
 check_out "no = waits here" "args:go --x" echo "$out"
 check_eq "the interface is not asked" "args:go" "$(HS_CALLER=ui HS_FORCE_TTY=1 $F slow thing)"
 check_out "--foreground skips the question" "args:go --x" env -u HS_CALLER HS_FORCE_TTY=1 $F slow thing --foreground --x
+check_eq "--dry-run is not offered as a job" "args:go --dry-run" "$(printf 'y\n' | PATH="$WORK/bin:$PATH" env -u HS_CALLER HS_FORCE_TTY=1 $F slow thing --dry-run 2>&1)"
+# #388: update, rebuild and vault move offer a job on a terminal (the decisions are in docs/PLAN-jobs.md "Unified design")
+for r in update rebuild "vault move"; do
+  check_out "$r is flagged long" "(^|,)long(,|$)" bash -c "awk -F'\t' -v r='$r' '\$1 == \"user\" && \$2 == r { print \$7 }' '$REG'"
+done
 check_eq "backup now is long (and has its topic)" "long,nohelp,topic:backup,changes" "$(awk -F'\t' '$2 == "backup now" { print $7 }' "$REG" | sed 's/,cheat:[a-z]*//; s/,capability:[a-z]*//')"
 # every current user row names its topic (the help page sorts by it)
 bad=$(awk -F'\t' '$1 == "user" && $7 !~ /(^|,)topic:/ { print $2 }' "$REG" | paste -sd, -)
