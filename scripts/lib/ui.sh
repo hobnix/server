@@ -50,6 +50,10 @@ paint() {   # paint <colour> <text>
 # `steps N` says how many headings the command prints (also across `exec`: the counter is exported). With it the
 # headings are drawn as a tree, ├ for the first and the steps in between, └ for the last; without it (a script that
 # does not know) the heading keeps the plain ▸. The plain form without gum stays ── Title ──.
+# inside a job (HS_JOB_ID) the report helpers hs_job_step / hs_job_progress are there for every script that sources this file
+[ -z "${HS_JOB_ID:-}" ] || command -v hs_job_step >/dev/null 2>&1 || . "${BASH_SOURCE[0]%/*}/job.sh" 2>/dev/null || true
+command -v hs_job_step >/dev/null 2>&1 || hs_job_step() { :; }   # outside a job (or without job.sh) they report nothing
+command -v hs_job_progress >/dev/null 2>&1 || hs_job_progress() { :; }
 steps() { export HS_STEP_TOTAL=$1 HS_STEP_N=0; }
 step() {
   local glyph='▸' n
@@ -57,6 +61,10 @@ step() {
     n=$(( ${HS_STEP_N:-0} + 1 ))
     export HS_STEP_N=$n
     if [ "$n" -ge "$HS_STEP_TOTAL" ]; then glyph='└'; else glyph='├'; fi
+    # inside a background job the heading is also the job's step (the Jobs page shows "step n of m"): English text, no secrets (ADR 0004 rule 7)
+    if [ -n "${HS_JOB_ID:-}" ]; then
+      hs_job_step "$n" "$HS_STEP_TOTAL" "$*" 2>/dev/null || true
+    fi
   fi
   echo
   if [ "$ui" = gum ]; then gum style --bold --foreground "$c_blue" "$glyph $(_tr "$*")"; else echo "── $(_tr "$*") ──"; fi

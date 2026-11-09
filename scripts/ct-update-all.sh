@@ -98,6 +98,7 @@ for c in "${targets[@]}"; do
   i=$((i + 1))
   before=$(snaps "$c")
   start=$SECONDS; rc=0
+  hs_job_step "$i" "${#targets[@]}" "Updating container $c"
   SPIN_STREAM=1 SPIN_TAIL=15 spin "$(t 'Updating %s (%s of %s)' "$c" "$i" "${#targets[@]}")" bash "$mct" "$c" --update || rc=$?
   after=$(snaps "$c")
   snap=$(comm -13 <(printf '%s\n' "$before") <(printf '%s\n' "$after") | tail -n1)
