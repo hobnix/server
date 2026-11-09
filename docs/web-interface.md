@@ -75,7 +75,7 @@ buttons **Update**, **Reboot** and **Shut down**.
 | Summary | CPU, memory, disks per pool, UPS, important states; **Run health check** |
 | Storage | pools `bulk` and `fast`, disks (SMART, self-tests, unassigned and foreign disks), shares, encryption, vault (values are never shown) |
 | Instances | containers and VMs (start, stop, snapshot, update, settings, fixed address, mounts, create, delete), **Apps** (the recipes), **Services** (what the reverse proxy publishes) |
-| Marketplace | the packages of the repositories (apps and extensions): install, update, remove; the repositories themselves, signed only |
+| Marketplace | the packages of the repositories (apps and extensions): install, update, remove; the repositories themselves, signed only; the Package builder checks the manifest of a new package as you type |
 | Network | addresses of the instances, router networks, DNS names, open ports |
 | Identity | users, groups, certificates (only with a domain) |
 | Monitoring | hardware (temperatures, fans), diagnostics |
@@ -165,6 +165,14 @@ sudo hs config set webTerminalMaxHours 48
 ```
 
 The journal records only "opened" and "closed" with user and target, never the input.
+
+### The graphical console of a virtual machine
+
+With the terminal switched on, a running virtual machine's page also shows a **Console** button (containers keep the terminal). It asks
+Incus for the screen of the VM and relays it to the browser over the same kind of ticketed connection as the terminal; no port of the VM is
+opened and nothing about the VM changes (ADR 0021). At most 2 consoles run at a time, 1 per sign-in, with the same idle and time limits as
+the terminal. The window connects, but the picture itself is not shown yet: the viewer library is not bundled with this version, and the window says
+so. UNVERIFIED on a real virtual machine: not tested on hardware yet.
 
 ## Change the colour
 

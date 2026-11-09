@@ -80,6 +80,8 @@ The payload is optional extra data for programs. Rules:
 A package (recipe or extension) may declare the events it provides in `package.toml`. The kind is written without the prefix: `kind = "failed"`
 of the package `sabnzbd` is the event `pkg.sabnzbd.failed`.
 
+`hs event kinds` lists the core kinds and the kinds of the installed packages (`--package NAME` for one package). Not tested on hardware yet.
+
 ```toml
 [[events]]
 kind    = "failed"                 # required; ^[a-z0-9][a-z0-9-]{0,39}$ (no dots); full kind pkg.<name>.failed

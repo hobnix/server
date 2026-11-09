@@ -19,6 +19,14 @@ const de = {
   Capabilities: 'Funktionen', Advanced: 'Erweitert', Backups: 'Datensicherungen',
   Next: 'Weiter', Back: 'Zurück', Review: 'Überprüfen', 'Back to the questions': 'Zurück zu den Fragen', Change: 'Ändern', 'Apply…': 'Anwenden…', recommended: 'empfohlen',   // the wizard's buttons
   'Sort by': 'Sortieren nach', 'Update all': 'Alle aktualisieren',
+  // Package builder (pages/PackageBuilder.svelte, ADR 0020)
+  'Package builder': 'Paket-Baukasten', 'Write the manifest of a new app or extension': 'Das Manifest einer neuen App oder Erweiterung schreiben',
+  'Write the manifest of a new app or extension; the server checks it as you type. Nothing is saved yet.': 'Das Manifest einer neuen App oder Erweiterung schreiben; der Server prüft es beim Tippen. Noch wird nichts gespeichert.',
+  'App (recipe)': 'App (Rezept)', Extension: 'Erweiterung', Title: 'Titel', Version: 'Version', 'Needs core': 'Braucht Kern', For: 'Für', Script: 'Skript',
+  'Everyone (generic)': 'Alle (generisch)', 'One person (personal)': 'Eine Person (persönlich)',
+  'One per line, for example web.read or net:lan. Declared, not enforced (ADR 0014).': 'Eine pro Zeile, zum Beispiel web.read oder net:lan. Angegeben, nicht erzwungen (ADR 0014).',
+  'Checking…': 'Prüfe…', 'The manifest passes the checks.': 'Das Manifest besteht die Prüfungen.', problem: 'Problem', problems: 'Probleme', Copy: 'Kopieren',
+  'The draft could not be checked.': 'Der Entwurf konnte nicht geprüft werden.',
   // Settings, Releases (settings/Releases.svelte, settings/releases.js)
   Releases: 'Versionen', 'Which version this server follows when it updates.': 'Welcher Version dieser Server beim Aktualisieren folgt.',
   'This server': 'Dieser Server', 'Installed version': 'Installierte Version', 'Next update': 'Nächstes Update', Signature: 'Signatur', valid: 'gültig', 'not valid': 'ungültig',
@@ -37,6 +45,13 @@ const de = {
   'The last read failed; the data is from the last good read.': 'Das letzte Lesen ist fehlgeschlagen; die Daten stammen vom letzten guten Lesen.',
   'Reading failed; the data is from the last good read.': 'Das Lesen ist fehlgeschlagen; die Daten stammen vom letzten guten Lesen.',
   'The data was not read again in time.': 'Die Daten wurden nicht rechtzeitig neu gelesen.',
+  // Graphical VM console (shell/VmConsole.svelte, ADR 0021)
+  Console: 'Konsole', Reconnect: 'Neu verbinden', Received: 'Empfangen',
+  'Open a new connection to the same console': 'Eine neue Verbindung zur selben Konsole öffnen',
+  'Close this window (the virtual machine keeps running)': 'Dieses Fenster schließen (die virtuelle Maschine läuft weiter)',
+  'The connection to the console works, but the picture cannot be shown yet: the viewer is not bundled with this version. Use the Incus console on the server meanwhile.': 'Die Verbindung zur Konsole funktioniert, aber das Bild kann noch nicht angezeigt werden: der Betrachter ist in dieser Version nicht enthalten. Nutze solange die Incus-Konsole auf dem Server.',
+  'Closed after 30 minutes without input.': 'Nach 30 Minuten ohne Eingabe geschlossen.', 'Closed after the 8 hour limit.': 'Nach dem Limit von 8 Stunden geschlossen.',
+  'Your web session ended.': 'Deine Websitzung ist beendet.', 'The connection dropped.': 'Die Verbindung ist abgebrochen.', 'The console could not be opened.': 'Die Konsole konnte nicht geöffnet werden.',
   // Live state (pages/LiveState.svelte)
   'Live state': 'Live-Zustand', Topic: 'Thema', Source: 'Quelle', TTL: 'Gültigkeit', Age: 'Alter', Gen: 'Gen', Exit: 'Exit-Code', Error: 'Fehler',
   Capability: 'Funktion', Needs: 'Braucht', Refresh: 'Neu lesen', Raw: 'Rohdaten', extension: 'Erweiterung', Stored: 'Gespeichert',

@@ -2111,7 +2111,7 @@ No events yet.	Noch keine Ereignisse.
 Could not write the event %s (exit %s)	Das Ereignis %s konnte nicht geschrieben werden (Exit %s)
 Writing to the event log needs root: sudo hs event emit ...	Schreiben ins Ereignisprotokoll braucht root: sudo hs event emit ...
 The event was not written (usage: hs event emit <source.kind> <subject> [text] [--level L] [--payload JSON])	Das Ereignis wurde nicht geschrieben (Aufruf: hs event emit <Quelle.Art> <Betreff> [Text] [--level L] [--payload JSON])
-Unknown event command: %s. Use: hs event list | hs event emit ...	Unbekannter Event-Befehl: %s. Nutze: hs event list | hs event emit ...
+Unknown event command: %s. Use: hs event list | hs event kinds | hs event emit ...	Unbekannter Event-Befehl: %s. Nutze: hs event list | hs event kinds | hs event emit ...
 Nothing recorded yet. Commands that change the server are listed here.	Noch nichts aufgezeichnet. Befehle, die den Server ändern, erscheinen hier.
 Who	Wer
                                              <file>.before-restore-<time>); --with-state also /var/lib/hs	                                             <Datei>.before-restore-<Zeit>); --with-state auch /var/lib/hs
@@ -2314,3 +2314,36 @@ usage: hs-restore [--backup-device <name>] [--password-file <file>] [--snapshot 
 This takes effect with hs rebuild.	Das gilt nach: hs rebuild.
 A rebuild takes several minutes; none has been timed on this server yet.	Ein Rebuild dauert mehrere Minuten; auf diesem Server wurde noch keiner gemessen.
 The last rebuild took about %s min.	Der letzte Rebuild dauerte etwa %s Min.
+This needs root: sudo hs setup-code %s	Das braucht root: sudo hs setup-code %s
+The first setup is already done. To start over: sudo hs setup-code reset	Die erste Einrichtung ist schon abgeschlossen. Zum Neubeginnen: sudo hs setup-code reset
+A setup code is waiting (valid for another %s s).	Ein Einrichtungscode wartet (noch %s s gültig).
+The setup code has expired: sudo hs setup-code issue	Der Einrichtungscode ist abgelaufen: sudo hs setup-code issue
+The setup code was used up by wrong tries: sudo hs setup-code issue	Der Einrichtungscode ist durch falsche Eingaben verbraucht: sudo hs setup-code issue
+The first setup is done (admin: %s).	Die erste Einrichtung ist abgeschlossen (Admin: %s).
+No first setup is waiting on this server.	Auf diesem Server wartet keine erste Einrichtung.
+Usage: hs setup-code issue | status | reset	Aufruf: hs setup-code issue | status | reset
+No such events.	Keine solchen Ereignisse.
+Payload	Nutzdaten
+Meaning	Bedeutung
+'%s' uses more than it declares in permissions: %s	'%s' nutzt mehr, als in permissions angegeben ist: %s
+%s items need your decision before the app is the same as on Unraid.	%s Punkte brauchen deine Entscheidung, bevor die App so ist wie auf Unraid.
+Cannot read the template: %s	Das Template lässt sich nicht lesen: %s
+Draft written to %s. Nothing was started.	Entwurf nach %s geschrieben. Nichts wurde gestartet.
+Not carried over	Nicht übernommen
+Preview only: nothing was written. Add --out <folder> to write the draft.	Nur Vorschau: nichts wurde geschrieben. Mit --out <Ordner> wird der Entwurf geschrieben.
+The folder exists already, nothing is overwritten: %s	Der Ordner existiert schon, nichts wird überschrieben: %s
+The template could not be read: %s	Das Template konnte nicht gelesen werden: %s
+UNVERIFIED: the draft was checked against test templates only. Read it before you import it.	UNGEPRÜFT: der Entwurf wurde nur an Testvorlagen geprüft. Lies ihn, bevor du ihn importierst.
+Usage: hs docker import-unraid <template.xml> [--name <app>] [--out <folder>]	Aufruf: hs docker import-unraid <template.xml> [--name <App>] [--out <Ordner>]
+Volumes and devices	Volumes und Geräte
+Web address	Web-Adresse
+Archive	Archiv
+Cannot read the archive: %s	Das Archiv lässt sich nicht lesen: %s
+Maps to Incus	Wird in Incus zu
+Proxmox archive %s	Proxmox-Archiv %s
+Read-only: nothing was unpacked or created.	Nur gelesen: nichts wurde entpackt oder angelegt.
+The archive could not be read: %s	Das Archiv konnte nicht gelesen werden: %s
+Top folders	Oberste Ordner
+UNVERIFIED: the restore is not built yet, and this plan was checked against test archives only.	UNGEPRÜFT: das Wiederherstellen gibt es noch nicht, und dieser Plan wurde nur an Testarchiven geprüft.
+Usage: hs ct import-vzdump <archive>	Aufruf: hs ct import-vzdump <Archiv>
+The generated capability list could not be refreshed.	Die erzeugte Liste der Zusatzmodule konnte nicht aktualisiert werden.

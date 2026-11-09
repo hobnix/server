@@ -37,4 +37,11 @@ Issue: hobnix/server#<n>
 | [0015](0015-wasm-runtime-for-extensions.md) | WebAssembly for extension scripts: defer; keep the extension protocol transport-neutral | Proposed |
 | [0016](0016-isolating-package-web-components.md) | Package UI stays declarative; third-party code, if ever allowed, runs in a sandboxed iframe | Proposed |
 | [0017](0017-capabilities-repository-and-channels.md) | hobnix/capabilities: vendored `module.nix` (pure evaluation), overlay on the machine, CI across repositories, wizard step, channels, release flow | Proposed |
+| [0018](0018-interactive-recipe-runs.md) | Interactive recipe runs: an orchestrator job runs steps as sub-jobs, a step asks through a question/answer file protocol, the web talks to the orchestrator only | Accepted (2026-11-09) |
+| [0019](0019-vm-gpu-pci-passthrough.md) | VM hardware step: detect IOMMU groups first, pass through by PCI address, bridge by default | Proposed |
+| [0020](0020-webui-package-builder.md) | The web package builder: a form over the CLI validator, drafts kept apart, publish by pull request or archive; never signs | Proposed |
+| [0021](0021-graphical-vm-console.md) | Graphical VM console: Incus's own VGA console (SPICE) relayed through the web interface; no port, ticketed WebSocket | Proposed |
+| [0022](0022-first-run-console-token.md) | First-run web setup: one-time console token, single use, expiry, burn counter, bound to the local admin | Proposed |
 | [0023](0023-nested-test-harness.md) | Hobnix-in-Hobnix: boot the ISO in a nested Incus VM, drive it over the serial console, manual CI job, `t vm` as fallback | Proposed |
+| [0024](0024-import-proxmox-vzdump.md) | Proxmox vzdump import: read-only plan built, restore into an Incus instance and VM archives proposed | Proposed |
+| [0025](0025-translation-scope.md) | Where translation lives: `hs` commands, web, or both; freeze `de.tsv`, web translates, codes only where the web needs them | Proposed |

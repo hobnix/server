@@ -386,6 +386,24 @@ and is meant for your home network and Tailscale: never give it a public route. 
 the install; with a domain, members of Domain Admins can sign in too ([Users and shares](users-and-shares.md)). Not tested on hardware
 yet.
 
+### First setup with a one-time code (proposed)
+
+Design: ADR 0022 (`docs/adr/0022-first-run-console-token.md`). The server part is built; the boot step that shows the code on the screen is not
+yet, so a fresh install does not use this by itself. Not tested on hardware yet.
+
+On a server whose setup is waiting, the sign-in page becomes **First setup**. The server's own screen (or serial console) shows a one-time
+code; type it into the page and choose a password for `adminuser`. The code works once and for 60 minutes, five wrong tries make it
+useless, and it is only ever printed on the console, never sent anywhere. You are then signed in.
+
+Lost or expired code, or somebody else may have seen it: on the console run
+
+```bash
+sudo hs setup-code issue
+```
+
+The old code stops working at once. `hs setup-code status` says whether a setup is waiting. The page is plain HTTP, so do the setup on your
+home network only.
+
 ## Work through the first-run checklist
 
 The first-run command asks for the language of the messages and a notification address, then lists what is still open, with the command

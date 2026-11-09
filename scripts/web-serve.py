@@ -62,7 +62,9 @@ import urllib.request
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 import web_terminal as wt      # the in-browser terminal (WebSocket, tickets, pty shell)
+import web_vmconsole as vc    # the graphical VM console (Incus VGA console relayed over a WebSocket, ADR 0021)
 import live_state as ls        # live state: the RESP client for Redis (mode redis)
+import first_run as fr         # first-run flag and the one-time console token (docs/adr/0022-first-run-console-token.md)
 from hs_ext import (env, runtime_setting, capabilities, applied_recipes, ext_roots, ext_sys_rows, ext_packages, ext_manifest,  # noqa: F401,E402
                     ext_read, ext_load_web, EXT_NAME, EXT_KINDS, EXT_BLOCKS)
 
@@ -279,6 +281,8 @@ class Config:
         self.ntlm_auth = env("HS_WEB_NTLM_AUTH", "ntlm_auth")
         self.wbinfo = env("HS_WEB_WBINFO", "wbinfo")
         self.chkpwd = env("HS_WEB_CHKPWD", "/run/wrappers/bin/unix_chkpwd")
+        self.chpasswd = env("HS_WEB_CHPASSWD", "chpasswd")           # first setup only: sets the local admin's password (line "user:password" on stdin)
+        self.first_run_file = env("HS_FIRST_RUN_FILE", os.path.join(env("HS_STATE_DIR", "/var/lib/hs"), "first-run.json"))   # "" = no first-run setup
         self.hs = env("HS_WEB_HS", "hs")
         self.idle = int(env("HS_WEB_IDLE_MINUTES", "480")) * 60
         self.max_age = int(env("HS_WEB_MAX_HOURS", "12")) * 3600
@@ -534,6 +538,11 @@ class Auth:
         if not password:
             return False
         rc, _ = _run([self.cfg.chkpwd, user, "nonull"], stdin=password.encode() + b"\0")
+        return rc == 0
+
+    def set_local_password(self, user, password):
+        """First setup only. chpasswd reads "user:password" from stdin (never an argument); True when it accepted."""
+        rc, _ = _run([self.cfg.chpasswd], stdin=("%s:%s\n" % (user, password)).encode())
         return rc == 0
 
 
@@ -1047,7 +1056,9 @@ CHANGES = {
             [r"^(update|remove)$", r"^[a-z0-9][a-z0-9-]{0,40}$"],
             [r"^fetch$"], [r"^fetch$", r"^[a-z0-9][a-z0-9-]{0,40}$"],
             {"fixed": [r"^repo-add$", r"^[a-z0-9][a-z0-9-]{0,40}$", r"^(https://|ssh://git@|git@)[A-Za-z0-9._:/@~+-]{3,200}$"], "stdin": True},
-            [r"^repo-remove$", r"^[a-z0-9][a-z0-9-]{0,40}$"]],
+            [r"^repo-remove$", r"^[a-z0-9][a-z0-9-]{0,40}$"],
+            # the package builder (ADR 0020): a package.toml draft as text on stdin, checked by pkg.py, never written anywhere (plan only)
+            {"fixed": [r"^check-draft$"], "document": True}],
     # an answer is `--set KEY=value` (no control characters); the one secret answer of a recipe is a single line on stdin
     "recipes": [{"fixed": [r"^[a-z0-9][a-z0-9-]{0,40}$", r"^run$"],
                  "opts": {"--name": (r"^[a-z0-9][a-z0-9-]{0,40}$", False), "--set": (r"^[A-Z][A-Z0-9_]{0,30}=[^\x00-\x1f]{0,300}$", True)}, "stdin": True}],
@@ -1237,8 +1248,16 @@ def _selection_ok(sel):
     return total <= FM_SELECTION_BYTES
 
 
+DRAFT_MAX = 65536      # bytes of a package.toml draft
+
+
 def _document_bytes(doc):
     """-> bytes or None. Validates the docker app-save document and serializes it deterministically."""
+    if isinstance(doc, dict) and set(doc) == {"manifest"}:     # a package.toml draft (pkg check-draft)
+        m = doc["manifest"]
+        if not isinstance(m, str) or "\0" in m or len(m.encode("utf-8")) > DRAFT_MAX:
+            return None
+        return m.encode("utf-8")
     if isinstance(doc, dict) and set(doc) == {"compose", "env"}:
         compose, env = doc["compose"], doc["env"]
         if not isinstance(compose, str) or "\0" in compose or len(compose.encode("utf-8")) > DOC_COMPOSE_MAX:
@@ -2175,6 +2194,7 @@ class App:
         self.sessions, self.throttle, self.facts, self.reads = Sessions(self.cfg), Throttle(), Facts(self.cfg), Reads(self.cfg)
         self.plans = Plans(self.cfg.plan_ttl)
         self.changes_seen = ChangesSeen(self.cfg)
+        self.first_run = fr.FirstRun(self.cfg.first_run_file)
         self.reads.on_clear = self.plans.clear
         self.store = RedisStore(self.cfg, self.reads) if self.cfg.live == "redis" else OffStore(self.reads)
         self.events = Events(self.cfg)       # main() starts the counter watcher always and the Redis subscription in mode redis
@@ -2182,6 +2202,8 @@ class App:
         self.proxy = Proxy(self.cfg)
         self.warmer = Warmer(self)       # started by main(), not here
         self.terminals = wt.Terminals()
+        self.vmconsoles = vc.consoles()
+        self.incus = vc.IncusApi()                      # tests replace this with a fake
         self.stream_lock, self.streams, self.event_streams = threading.Lock(), 0, 0
         self.term_spawn = lambda target, name=None: wt.pty_spawn(target, self.cfg.local_user, name=name)      # tests replace this with a fake
 
@@ -2286,6 +2308,8 @@ def make_handler(app):
                 return self._hello()
             if path == "/api/terminal/ws":
                 return self._terminal_ws(urllib.parse.parse_qs(urllib.parse.urlsplit(self.path).query))
+            if path == "/api/vmconsole/ws":
+                return self._vmconsole_ws(urllib.parse.parse_qs(urllib.parse.urlsplit(self.path).query))
             if path == "/api/session":
                 s = self._session()
                 if not s:
@@ -2542,6 +2566,7 @@ def make_handler(app):
                 "locked": locked,
                 "domain": {"available": domain and not locked, "workgroup": cfg.workgroup, "realm": cfg.realm} if domain else None,
                 "local_user": cfg.local_user,
+                "setup": {"open": bool(cfg.first_run_file) and app.first_run.is_open()},      # only whether; never when it expires or what is in the file
             }
 
         def _hello(self):
@@ -2577,7 +2602,7 @@ def make_handler(app):
         def do_POST(self):
             path = urllib.parse.urlsplit(self.path).path
             raw = self._read(FM_SELECTION_BYTES + 8192 if path in ("/api/plan", "/api/start") else 4096)      # a file manager selection can be long
-            if path not in ("/api/login", "/api/logout", "/api/plan", "/api/start", "/api/unlock", "/api/terminal", "/api/changes/seen", "/api/live/refresh"):
+            if path not in ("/api/login", "/api/logout", "/api/plan", "/api/start", "/api/unlock", "/api/terminal", "/api/vmconsole", "/api/changes/seen", "/api/live/refresh", "/api/setup"):
                 return self._json(404, {"error": "unknown"})
             if not self._same_origin():
                 return self._json(403, {"error": "origin"})
@@ -2586,8 +2611,12 @@ def make_handler(app):
                 return self._json(400, {"error": "need a JSON body"})
             if path == "/api/unlock":
                 return self._unlock(body)
+            if path == "/api/setup":
+                return self._setup(body)
             if path == "/api/terminal":
                 return self._terminal_ticket(body)
+            if path == "/api/vmconsole":
+                return self._vmconsole_ticket(body)
             if path == "/api/changes/seen":
                 return self._changes_seen(body)
             if path == "/api/live/refresh":
@@ -2693,6 +2722,72 @@ def make_handler(app):
                 return self._json(429, {"error": "Too many terminals are being opened. Try again in a moment."})
             self._json(200, {"ticket": ticket})
 
+        # --- graphical VM console (ADR 0021; scripts/web_vmconsole.py). Same switch, same rules as the terminal: it is a keyboard on the machine.
+        def _vmconsole_ticket(self, body):
+            s = self._session()
+            if not s:
+                return self._json(401, {"error": "not signed in"})
+            if not secrets.compare_digest(self.headers.get("X-CSRF-Token", ""), s["csrf"]):
+                return self._json(403, {"error": "csrf"})
+            if not cfg.terminal:
+                return self._json(403, {"error": "Switch on the browser terminal under Settings > Users and access."})
+            target = body.get("target")
+            if app.auth.storage_locked():
+                return self._json(409, {"error": "The storage is locked: instances are down. Unlock it first."})
+            try:
+                vc.check_vm(app.incus, target)
+            except vc.ConsoleError as e:
+                return self._json(e.status, {"error": e.message})
+            except OSError:
+                return self._json(502, {"error": "The virtual machine service is not reachable."})
+            ticket = app.vmconsoles.issue(self._token(), target)
+            if ticket is None:
+                return self._json(429, {"error": "Too many consoles are being opened. Try again in a moment."})
+            self._json(200, {"ticket": ticket})
+
+        def _vmconsole_ws(self, query):
+            self.close_connection = True
+            if not cfg.terminal:
+                return self._json(403, {"error": "Switch on the browser terminal under Settings > Users and access."})
+            if not self._same_origin():
+                return self._json(403, {"error": "origin"})
+            h = self.headers
+            if h.get("Upgrade", "").lower() != "websocket" or "upgrade" not in h.get("Connection", "").lower() \
+                    or h.get("Sec-WebSocket-Version", "") != "13" or not wt.valid_key(h.get("Sec-WebSocket-Key", "")):
+                return self._json(400, {"error": "need a WebSocket upgrade"})
+            token = self._token()
+            s = self._session()
+            target = app.vmconsoles.redeem((query.get("ticket") or [""])[0], token) if s else None
+            if not s or target is None:
+                return self._json(403, {"error": "ticket"})
+            if app.auth.storage_locked():
+                return self._json(409, {"error": "The storage is locked."})
+            if not app.vmconsoles.acquire(token):
+                return self._json(429, {"error": "Too many consoles are open."})
+            ip = self._client()
+            try:
+                try:
+                    data, control = vc.open_console(app.incus, target)
+                except vc.ConsoleError as e:
+                    return self._json(e.status, {"error": e.message})
+                except Exception as e:
+                    print("web vm console: could not start for %s %s: %s" % (s["user"], target, e.__class__.__name__), flush=True)
+                    return self._json(502, {"error": "The console could not be started."})
+                relay = vc.VgaRelay(self.connection, data, control, lambda: self._term_alive(token, target),
+                                    idle=cfg.term_idle, lifetime=cfg.term_max, check=cfg.term_check)
+                try:
+                    self.wfile.write(("HTTP/1.1 101 Switching Protocols\r\nUpgrade: websocket\r\nConnection: Upgrade\r\n"
+                                      "Sec-WebSocket-Accept: %s\r\n\r\n" % wt.accept_key(h["Sec-WebSocket-Key"])).encode("ascii"))
+                    self.wfile.flush()
+                except OSError:
+                    relay.close()
+                    return
+                print("web vm console: open %s %s from %s" % (s["user"], target, ip), flush=True)
+                why = relay.run()
+                print("web vm console: close %s %s from %s (%s)" % (s["user"], target, ip, why), flush=True)
+            finally:
+                app.vmconsoles.release(token)
+
         def _term_alive(self, token, target):
             """Is the web session still good? Does not refresh it: an open terminal must not keep a session alive."""
             locked = app.auth.storage_locked()
@@ -2780,6 +2875,52 @@ def make_handler(app):
                 app.throttle.ok(*keys)
             print("web unlock: %s from %s: %s" % (s["user"], ip, status), flush=True)   # never the passphrase or the script output
             self._json(200 if status == "ok" else 422 if status == "failed" else 409, {"status": status, "reason": reason})
+
+        def _setup(self, body):
+            """First setup (ADR 0022): the one-time console token + a new password for the local admin. No session needed (there is no account
+            yet); LAN addresses only; the token is checked, the password set and the token consumed under one lock, then the person is signed in."""
+            if not cfg.first_run_file:
+                return self._json(404, {"error": "unknown"})
+            token, password = body.get("token"), body.get("password")
+            if not isinstance(token, str) or not isinstance(password, str):
+                return self._json(400, {"error": "Enter the code from the console and a new password."})
+            ip = self._client()
+            if not private_client(ip):
+                print("web setup refused: not a home network address (%s)" % ip, flush=True)
+                return self._json(403, {"error": "The setup answers only on the home network."})
+            keys = ("setup-ip:" + ip, "setup")
+            wait = app.throttle.wait(*keys)
+            if wait:
+                return self._json(429, {"error": "Too many tries. Wait %d seconds." % wait, "retry_after": wait}, (("Retry-After", str(wait)),))
+            problem = fr.password_problem(password)
+            if problem:
+                return self._json(400, {"error": problem})
+            if not app.first_run.is_open() and app.first_run.status()["state"] == "none":
+                return self._json(404, {"error": "unknown"})
+            result, user = app.first_run.redeem(token, lambda: cfg.local_user if app.auth.set_local_password(cfg.local_user, password) else None)
+            if result == fr.OK:
+                app.throttle.ok(*keys)
+                locked = app.auth.storage_locked()
+                st = app.sessions.create(user, "local", ip)
+                app.warmer.wake.set()
+                s = app.sessions.get(st, locked)
+                print("web setup done: %s from %s" % (user, ip), flush=True)      # never the token or the password
+                return self._json(200, {"user": user, "realm": "local", "csrf": s["csrf"], "features": features(cfg)}, (self._cookie(st, cfg.max_age),))
+            if result in (fr.BAD, fr.BURNED):
+                app.throttle.failed(*keys)
+                time.sleep(cfg.fail_delay)
+                print("web setup refused: wrong code from %s" % ip, flush=True)
+                if result == fr.BURNED:
+                    return self._json(403, {"error": "That code is used up. On the server console run `hs setup-code issue` for a new one."})
+                return self._json(401, {"error": "That code is not right."})
+            if result == fr.EXPIRED:
+                return self._json(403, {"error": "That code has expired. On the server console run `hs setup-code issue` for a new one."})
+            if result == fr.DONE:
+                return self._json(409, {"error": "The setup is already done. Sign in."})
+            if result == fr.FAILED:
+                print("web setup: the password could not be set", flush=True)
+                return self._json(500, {"error": "The password could not be set. See the server log."})
+            return self._json(404, {"error": "unknown"})
 
         def _login(self, body):
             realm, user, password = body.get("realm"), body.get("user"), body.get("password")

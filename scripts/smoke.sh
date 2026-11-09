@@ -160,6 +160,7 @@ default_probes() {
 # reads rows that have no probe, with the reason (one per line: registry path, TAB, reason)
 SKIP_READS=$'smoke	it is this command (it would call itself)
 installer check-answers	needs an answers file (probed by tests/answers.sh)
+ct import-vzdump	needs an archive (probed by tests/import-vzdump.sh)
 node show	needs a registered node (probed by tests/node.sh)
 node status	needs a registered node that answers over ssh
 notify channel show	needs a channel name (probed by tests/notify-channel.sh)

@@ -82,4 +82,31 @@ check_out "a typed wrong name does not accept (terminal not available: refused)"
 cd "$R"; release v1.4.0 1.4.0 'permissions = ["root"]'; cd "$ROOT"
 $PKG fetch test >/dev/null
 check_out "a release with an invalid permission is refused at install" "unknown permission" bash -c "$PKG update demo --yes --accept-permissions </dev/null 2>&1; true"
+echo "-- enforcement: a package may not use more than it declared (ADR 0014 step 1b)"
+E=$WORK/enf/permx; mkdir -p "$E"
+printf 'name = "permx"\nkind = "feature"\nrequires = []\nprovides = []\nneeds = []\nextension = true\n[[web.reads]]\nwords = "list"\nkind = "tsv"\nttl = 30\n' > "$E/capability.toml"
+printf 'sys\tsys ext permx list\tx.sh\treads\n' > "$E/commands.tsv"
+pk() { printf 'name = "permx"\nversion = "1.0.0"\nkind = "extension"\ntitle = "X"\nrequires_core = ">=1"\naudience = "generic"\n%b\n' "$1" > "$E/package.toml"; }
+webreads() {
+  HS_PACKAGES_DIR=$WORK/enf HS_CAPABILITIES_FILE=$WORK/enf/caps HS_STATE_DIR=$WORK/enf/state python3 -I - "$SCRIPTS" <<'EOF2'
+import sys
+sys.path.insert(0, sys.argv[1])
+import hs_ext
+reads, _, _ = hs_ext.ext_load_web()
+print("reads", len(reads))
+EOF2
+}
+echo permx > "$WORK/enf/caps"
+pk 'permissions = ["web.read"]'
+check_eq "perms-check: covered declaration is fine" "" "$($PKG perms-check "$E" permx; true)"
+check_eq "web reads load when covered" "1" "$(webreads | sed -n "s/^reads //p")"
+pk ''
+check_eq "no declaration: not checked, reads load (existing packages)" "1" "$(webreads | sed -n "s/^reads //p")"
+pk 'permissions = ["host:incus"]'
+check_out "perms-check names what is missing" "web.read" bash -c "$PKG perms-check '$E' permx; true"
+check "perms-check exits 1" bash -c "! $PKG perms-check '$E' permx >/dev/null"
+check_eq "web reads are NOT registered when the declaration does not cover them" "0" "$(webreads | sed -n "s/^reads //p")"
+check_out "hs ext enable refuses it" "uses more than it declares" bash -c "HS_PACKAGES_DIR=$WORK/enf HS_CAPABILITIES_FILE=$WORK/enf/caps2 HS_STATE_DIR=$WORK/enf/state bash $SCRIPTS/ext.sh enable permx 2>&1; true"
+pk 'permissions = ["host:incus", "web.read"]'
+check_eq "fixing the declaration loads the reads again" "1" "$(webreads | sed -n "s/^reads //p")"
 finish

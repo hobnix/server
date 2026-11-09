@@ -86,4 +86,14 @@ check_out "an orphan without recorded provenance has a remove plan" "^step${tab}
 check_out "an orphan without recorded provenance can be removed" "^status${tab}done" $C start remove corer
 check "the orphan's files are gone" test ! -e "$HS_STATE_DIR/packages/current/corer"
 check "the orphan's record is gone" bash -c "! grep -q '^\\[package.corer\\]' '$HS_STATE_DIR/packages/installed.toml'"
+echo "-- checking a package draft (the web package builder)"
+GOODDRAFT=$'name = "demo2"\nversion = "0.1.0"\nkind = "recipe"\ntitle = "Demo"\nrequires_core = ">=1"\nscript = "run.sh"\n'
+check_out "a good draft is ok" "^status${tab}ok" bash -c "printf '%s' '$GOODDRAFT' | $C plan check-draft"
+check_out "it says what was not checked" "^finding${tab}warn${tab}-${tab}Checked without files" bash -c "printf '%s' '$GOODDRAFT' | $C plan check-draft"
+check_out "a bad version names its field" "^finding${tab}error${tab}version${tab}version is not semver" bash -c "printf 'name = \"x\"\nversion = \"1.0\"\n' | $C plan check-draft; true"
+check_out "a bad draft is refused with the count" "^reason${tab}The draft has [0-9]+ problem" bash -c "printf 'name = \"x\"\n' | $C plan check-draft; true"
+check_out "text that is no TOML is a finding, not a crash" "^finding${tab}error${tab}-${tab}not valid TOML" bash -c "printf 'name = ' | $C plan check-draft; true"
+check_out "an unknown permission is found" "permissions: " bash -c "printf '%s\npermissions = [\"root.all\"]\n' '$GOODDRAFT' | $C plan check-draft; true"
+check_out "a draft is never started" "only checked" bash -c "$C start check-draft </dev/null; true"
+check "a draft writes nothing into the packages" bash -c "! ls '$HS_STATE_DIR/packages/current' | grep -q demo2"
 finish
