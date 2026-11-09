@@ -188,8 +188,9 @@ There is no version file, no `VERSION`, and no `hs version` command (verified: `
 | Rust workspace (`rust/Cargo.toml`) | `0.1.0` (set already) | `0.1.0` | `0.1.0` |
 | the ISO file | `homeserver-installer.iso`, no version in the name; the GitHub release carries the tag | no release | the release `v0.1.0` |
 
-A server made by the installer has no `.git`: `install-wizard.sh` copies the tree with `tar --exclude=.git`, so `git describe` prints nothing
-and `installed` is `-` (blocker B1). A server cloned as in docs/install.md ("Keep the configuration updatable") follows `develop` (the default
+A server made by the installer had no `.git` (`install-wizard.sh` copies the tree with `tar --exclude=.git`), so `git describe` printed nothing
+and `installed` was `-` (blocker B1). Since issue #396 the installer fetches the history and sets HEAD to the revision the ISO was built
+from (`scripts/lib/checkout.sh`); without a network it leaves no `.git` and says so. Not tested on a VM or hardware yet. A server cloned as in docs/install.md ("Keep the configuration updatable") follows `develop` (the default
 branch). Tag `v0.1.0` sits on the merge commit on `main`, which is not an ancestor of `develop`, so a `develop` checkout keeps showing a bare hash
 until `main` is merged back into `develop` (step 11).
 
@@ -240,7 +241,7 @@ Each was verified by reading the file named; none was run.
 
 | # | Blocker | Evidence | Proposed issue |
 | --- | --- | --- | --- |
-| B1 | A server made by the ISO has no git checkout, so `hs update`, update channels and the version shown do not work on it | `scripts/install-wizard.sh:212` excludes `.git`; `docs/install.md` tells the user to clone by hand; `scripts/update.sh` needs git | Installer: leave a git checkout (remote `origin`, the release tag) in /etc/nixos (issue #396) |
+| B1 | A server made by the ISO has no git checkout, so `hs update`, update channels and the version shown do not work on it | `scripts/install-wizard.sh:212` excludes `.git`; `docs/install.md` tells the user to clone by hand; `scripts/update.sh` needs git | Installer: leave a git checkout (remote `origin`, the release tag) in /etc/nixos (issue #396). Done in code and tests with a local origin; Not tested on hardware yet. |
 | B2 | The `iso` job publishes a release without waiting for any other job | `.github/workflows/ci.yml`, job `iso` has no `needs:` | CI: the ISO and release job needs the test jobs (issue #397; fixed in the workflow, untested on a real tag) |
 | B3 | The ISO is built from `nixos-unstable` of the day, everything else from the pinned nixpkgs; the tag build is the first time that combination evaluates | `ci.yml` `iso` vs `nixos` nix_path | CI: build the ISO from the pinned nixpkgs revision (issue #398; fixed in the workflow, untested on a real tag) |
 | B4 | No version file, no `hs version`, the ISO name has no version | section 10 | Show the Hobnix version in `hs system info` and the ISO file name (issue #400) |

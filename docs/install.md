@@ -331,8 +331,14 @@ Add `--dry-run` to see only the plan. `hs preset list` shows the others; `exampl
 
 ## Keep the configuration updatable
 
-`/etc/nixos` holds copied files so far. Replace it with a clone of the repository so that `hs update` can pull new versions. Your
-`machine.toml` and `hardware-configuration.nix` are not in the repository and stay yours.
+The installer makes `/etc/nixos` a git checkout of the public repository (`origin` is https://github.com/hobnix/server.git) at the exact
+revision the stick was built from: a stick from release `v0.1.0` gives a checkout at `v0.1.0`, and `hs update`, the update channels and
+the version shown work from the first boot. The files are not changed by this, so `git -C /etc/nixos status` is clean; your `machine.toml`
+and `hardware-configuration.nix` are not in the repository and stay yours. The installer says in its plan ("Git checkout") what it will do.
+
+Without a network during the install, or with a stick that does not name its published revision (built from unpublished work), the
+installer still finishes, says "No git checkout was made" and leaves no `.git` in `/etc/nixos`. Once the server is online, make the checkout by
+hand; your `machine.toml` and `hardware-configuration.nix` stay:
 
 ```bash
 git clone https://github.com/hobnix/server.git ~/hobnix
@@ -345,6 +351,14 @@ sudo mv /etc/nixos /etc/nixos.bak
 ```bash
 sudo mv ~/hobnix /etc/nixos
 ```
+
+```bash
+sudo cp /etc/nixos.bak/machine.toml /etc/nixos.bak/hardware-configuration.nix /etc/nixos/
+```
+
+The clone follows `develop` (the channel `edge`); `hs update` moves to the newest release tag on the channel `stable`.
+
+Not tested on hardware yet: the installer's git step ran against a local repository in `tests/install-wizard.sh`, not on a stick or in a VM.
 
 ```bash
 sudo cp /etc/nixos.bak/machine.toml /etc/nixos.bak/hardware-configuration.nix /etc/nixos/
