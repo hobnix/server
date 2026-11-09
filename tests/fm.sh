@@ -386,8 +386,8 @@ echo "-- the job record carries the progress (#386)"
 if command -v python3 >/dev/null 2>&1; then
   export HS_JOBS_DIR=$WORK/jobs; mkdir -p "$HS_JOBS_DIR"
   rid=$(python3 "$SCRIPTS/job-record.py" new --slug fm-copy --desc "copy test" --unit hs-job-fm-test-rec --source web) && python3 "$SCRIPTS/job-record.py" run "$rid"
-  export HS_JOB_ID=$rid; mkdir -p "$D5/shares/media/rec"
-  fmsel Avatar -- start copy --from disk:data-04 --path shares/media/movies --to disk:data-05 --to-path shares/media/rec
+  export HS_JOB_ID=$rid; mkdir -p "$D5/shares/media/rec" "$D4/shares/media/recsrc/Doc"; head -c 20000 /dev/urandom > "$D4/shares/media/recsrc/Doc/a.bin"   # own files: earlier blocks move Avatar
+  fmsel Doc -- start copy --from disk:data-04 --path shares/media/recsrc --to disk:data-05 --to-path shares/media/rec
   unset HS_JOB_ID; has "^unit${T}" || fail "record copy did not start: $out"
   rec=$(python3 "$SCRIPTS/job-record.py" get "$rid")
   python3 -c 'import json,sys; r=json.loads(sys.argv[1]); p=r["progress"]; s=r["step"]; sys.exit(0 if p["unit"]=="bytes" and p["done"]==p["total"] and p["total"]>0 and s["of"]==1 else 1)' "$rec" \
