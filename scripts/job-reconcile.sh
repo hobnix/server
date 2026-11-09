@@ -3,13 +3,19 @@
 # help.de: markiert beim Start Aufgaben, deren Unit weg ist, als unterbrochen (Jobprotokoll, ADR 0004) und schickt eine Nachricht; startet nie etwas neu
 # args: none
 # Run by hs-job-reconcile.service. Always exits 0 so the boot is never held up.
-# Test knobs: HS_JOBS_DIR, HS_SYSTEMCTL, HS_UPTIME_FILE (job-record.py), HS_JOB_NOTIFY (a program that stands in for notify.sh).
+# Test knobs: HS_RUN_DIR (the question folders), HS_JOBS_DIR, HS_SYSTEMCTL, HS_UPTIME_FILE (job-record.py), HS_JOB_NOTIFY (a program that stands in for notify.sh).
 set -uo pipefail
 here=$(cd "$(dirname "$0")" && pwd)
 . "$here/lib/ui.sh"
 . "$here/lib/job.sh"   # hs_job_record
 
 out=$(hs_job_record reconcile) || warn "Some job records could not be checked"
+# ADR 0018 rule 12e: question folders of orchestrations that are not active any more (a run that ended without its trap) go away
+for d in "${HS_RUN_DIR:-/run/hs}"/ask/*/; do
+  [ -d "$d" ] || continue
+  id=$(basename "$d")
+  hs_job_record get "$id" 2>/dev/null | grep -Eq '"state": *"(queued|running|waiting)"' || rm -rf "$d"
+done
 [ -n "$out" ] || exit 0
 
 count=0; list=""

@@ -2348,3 +2348,6 @@ UNVERIFIED: the restore is not built yet, and this plan was checked against test
 Usage: hs ct import-vzdump <archive>	Aufruf: hs ct import-vzdump <Archiv>
 The generated capability list could not be refreshed.	Die erzeugte Liste der Zusatzmodule konnte nicht aktualisiert werden.
 Hobnix	Hobnix
+That is not an address like 10.10.95.25.	Das ist keine Adresse wie 10.10.95.25.
+That value does not fit here.	Dieser Wert passt hier nicht.
+UniFi does not accept that address (taken, or inside the range the router hands out).	UniFi nimmt diese Adresse nicht an (schon vergeben oder im Bereich, den der Router verteilt).

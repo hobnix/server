@@ -20,6 +20,7 @@ user	monitor	monitor.sh	-	-	-	nohelp,topic:system,reads
 user	notify	notify.sh	-	-	-	nohelp,topic:system,changes
 user	rebuild	rebuild.sh	-	-	-	long,topic:system,changes
 user	recipe	recipe.sh	-	-	-	topic:instances,changes,capability:incus
+user	recipe orchestrate	recipe-orchestrate.sh	{rest}	-	-	nohelp,topic:instances,changes,capability:incus
 user	status	status.sh	-	-	-	topic:system,reads,cheat:server
 user	unlock	unlock.sh	-	-	-	topic:security,changes,cheat:trouble
 user	vault	vault.sh	status	status of the vault (the encrypted partition with the secrets) and what is in it	Status des Tresors (der verschlüsselten Partition mit den Geheimnissen) und was darin liegt	topic:security,changes
@@ -217,6 +218,7 @@ sys	sys jobs show <unit>	jobs.sh	--show {1}	the facts of one job: description, s
 sys	sys jobs log <unit>	jobs.sh	--log {1} {rest}	the last journal lines of one job, plain (hs sys jobs log <unit> [N])	-
 sys	sys jobs plan <action>	jobs-change.sh	plan {1} {rest}	what stopping a running job or running a scheduled one now would do, as data: status and plan lines (never asks; exit 0 ok, 1 refused)	-
 sys	sys jobs start <action>	jobs-change.sh	start {1} {rest}	do it (hs sys jobs start stop <unit> [--confirm stop] | run <unit>); run prints the unit to follow	-
+sys	sys jobs answer <id>	jobs-answer.sh	{1} {rest}	answer the question an interactive recipe run waits for (ADR 0018): hs sys jobs answer <id> --seq N --key K [--by <user> --role <role>], the answer is ONE line on stdin; status done|stale|refused; only the initiator or an admin	-
 sys	sys ssh-key list	ssh-key.sh	--list	the SSH keys of adminuser, one per line: id (fingerprint), type, comment, session (yes = this session's key); never the key itself	-
 sys	sys ssh-key plan <action>	ssh-key-change.sh	plan {1} {rest}	what adding or removing an SSH key would do, as data: status and plan lines (never asks; exit 0 ok, 1 refused)	-
 sys	sys ssh-key start <action>	ssh-key-change.sh	start {1} {rest}	do it (hs sys ssh-key start add <public key line> | remove <id> --confirm remove); takes effect with hs rebuild	-

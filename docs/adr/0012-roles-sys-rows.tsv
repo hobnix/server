@@ -34,6 +34,7 @@ jobs tail <unit>	viewer	read	read
 jobs stop <unit>	admin	change	change
 jobs record <id>	viewer	read	read
 jobs children <id>	viewer	read	read
+jobs answer <id>	app-manager	change	change (and the person must be the initiator or an admin, ADR 0018 rule 11)
 jobs records	viewer	read	read
 disk test <disk>	admin	change	starts or records something
 disk plan <disk> <action>	admin	change	change

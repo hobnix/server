@@ -1,0 +1,4 @@
+date  = "2026-11-09"
+type  = "feature"
+title = "App setups can ask their questions while they run"
+body  = """An app setup started in interactive mode runs as a job that stops and asks when it needs an answer, for example a free address that the router refused. Nobody answering for 24 hours cancels the run cleanly and sends a message when it starts to wait. Not tested on hardware yet."""
