@@ -1,0 +1,75 @@
+# Hobnix-in-Hobnix (issue #262, docs/adr/0023-nested-test-harness.md): boot the installer ISO in a nested Incus VM, install unattended,
+# boot the installed system. Manual only (workflow_dispatch): it is NOT part of ci.yml and gates nothing.
+# UNVERIFIED: this job has never run. Expect to fix the Incus setup on the runner on the first attempt.
+# Exit code 3 of the harness means "this runner cannot do nested virtualization": the job then ends green with a notice and the
+# existing fallback (`scripts/dev/t vm`, needs a machine with Incus) is the way to test.
+name: nested
+on:
+  workflow_dispatch:
+    inputs:
+      iso_url:
+        description: "URL of an installer ISO (a release asset). Empty: build it with nix (slow)."
+        required: false
+        default: ""
+      stage:
+        description: "iso (boot check and install), smoke, or all"
+        required: false
+        default: "all"
+
+permissions:
+  contents: read
+
+jobs:
+  nested:
+    runs-on: ubuntu-latest
+    timeout-minutes: 90
+    steps:
+      - uses: actions/checkout@v5
+      - name: Logic tests (no virtualization needed)
+        run: bash tests/nested.sh
+      - name: Can this runner do nested virtualization?
+        id: pre
+        run: |
+          rc=0; bash scripts/dev/nested.sh preflight || rc=$?
+          # a runner without /dev/kvm: try the documented switch for GitHub-hosted runners, then look again
+          if [ "$rc" -eq 3 ] && [ ! -e /dev/kvm ]; then
+            echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' | sudo tee /etc/udev/rules.d/99-kvm4all.rules >/dev/null
+            sudo udevadm control --reload-rules && sudo udevadm trigger --name-match=kvm || true
+            rc=0; bash scripts/dev/nested.sh preflight || rc=$?
+          fi
+          echo "rc=$rc" >> "$GITHUB_OUTPUT"
+      - name: No nested virtualization on this runner
+        if: steps.pre.outputs.rc != '0'
+        run: echo "::notice::Nested virtualization is not available here (or incus is missing). Use scripts/dev/t vm on a machine with Incus (docs/dev-environment.md)."
+      - name: Install Incus
+        if: steps.pre.outputs.rc == '0' || steps.pre.outputs.rc == '3'
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq incus qemu-system-x86 qemu-utils openssh-client python3
+          sudo incus admin init --auto
+          sudo usermod -aG incus-admin "$USER"
+      - name: Get the ISO
+        if: steps.pre.outputs.rc == '0'
+        env:
+          ISO_URL: ${{ inputs.iso_url }}
+        run: |
+          if [ -n "$ISO_URL" ]; then
+            mkdir -p result-iso/iso && curl -fL --retry 3 -o result-iso/iso/homeserver-installer.iso "$ISO_URL"
+          else
+            echo "::error::Building the ISO here needs nix; pass iso_url (a release asset) for now."; exit 1
+          fi
+      - name: Run the harness
+        if: steps.pre.outputs.rc == '0'
+        env:
+          STAGE: ${{ inputs.stage }}
+        run: sg incus-admin -c "bash scripts/dev/nested.sh run --stage '$STAGE'"
+      - name: Logs
+        if: always() && steps.pre.outputs.rc == '0'
+        uses: actions/upload-artifact@v4
+        with:
+          name: nested-logs
+          path: |
+            .work/nested/
+            !.work/nested/*/password
+            !.work/nested/*/key
+          if-no-files-found: ignore

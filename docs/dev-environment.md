@@ -52,6 +52,25 @@ scripts/dev/t wsl root
 
 The runner copies the working tree into `~/hobnix-test` in the WSL (ext4, much faster than `/mnt/c`) and runs the tests there.
 
+## Hobnix-in-Hobnix (nested VM from the ISO)
+
+`scripts/dev/nested.sh run` boots the installer ISO in a nested Incus VM, runs an unattended `hs-install`, boots the installed system and
+checks it (issue #262, docs/adr/0023-nested-test-harness.md). **Not tested on hardware yet: the harness has never been run against a real
+VM.** Only its logic is tested (`scripts/dev/t quick nested`, a fake console and a fake `incus`).
+
+| Command | What |
+| --- | --- |
+| `scripts/dev/nested.sh preflight` | can this machine do it? (`/dev/kvm`, nested virtualization, `incus`, `ssh-keygen`) |
+| `scripts/dev/nested.sh plan [stage]` | the steps, without running anything |
+| `scripts/dev/nested.sh run [--iso <file>] [--stage iso\|smoke\|all] [--keep]` | the run; the ISO defaults to `result-iso/iso/homeserver-installer.iso` (`scripts/dev/build-iso.sh`) |
+
+Exit codes: 0 passed, 1 a check failed, 2 usage, 3 this machine cannot run it, 4 harness or Incus error. Logs: `.work/nested/<run-id>/`
+(`run.log`, `console-<stage>.log`, `result-<stage>.json`; `.work/nested/latest`).
+
+Limits: nested virtualization must be enabled on the host. Where it is not (exit 3, a WSL2 without it, many CI runners) use `scripts/dev/t vm`
+on a machine with Incus; that tests our scripts on Ubuntu VMs, not the ISO. The rebuild rehearsal is not part of it yet. CI: the manual
+workflow `nested` (Actions, "Run workflow", give an ISO URL).
+
 ## Branches and releases
 
 The same model in hobnix/server, hobnix/recipes and hobnix/extensions.
