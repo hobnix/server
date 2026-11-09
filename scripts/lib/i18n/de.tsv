@@ -2111,7 +2111,7 @@ No events yet.	Noch keine Ereignisse.
 Could not write the event %s (exit %s)	Das Ereignis %s konnte nicht geschrieben werden (Exit %s)
 Writing to the event log needs root: sudo hs event emit ...	Schreiben ins Ereignisprotokoll braucht root: sudo hs event emit ...
 The event was not written (usage: hs event emit <source.kind> <subject> [text] [--level L] [--payload JSON])	Das Ereignis wurde nicht geschrieben (Aufruf: hs event emit <Quelle.Art> <Betreff> [Text] [--level L] [--payload JSON])
-Unknown event command: %s. Use: hs event list | hs event emit ...	Unbekannter Event-Befehl: %s. Nutze: hs event list | hs event emit ...
+Unknown event command: %s. Use: hs event list | hs event kinds | hs event emit ...	Unbekannter Event-Befehl: %s. Nutze: hs event list | hs event kinds | hs event emit ...
 Nothing recorded yet. Commands that change the server are listed here.	Noch nichts aufgezeichnet. Befehle, die den Server ändern, erscheinen hier.
 Who	Wer
                                              <file>.before-restore-<time>); --with-state also /var/lib/hs	                                             <Datei>.before-restore-<Zeit>); --with-state auch /var/lib/hs
@@ -2314,6 +2314,9 @@ usage: hs-restore [--backup-device <name>] [--password-file <file>] [--snapshot 
 This takes effect with hs rebuild.	Das gilt nach: hs rebuild.
 A rebuild takes several minutes; none has been timed on this server yet.	Ein Rebuild dauert mehrere Minuten; auf diesem Server wurde noch keiner gemessen.
 The last rebuild took about %s min.	Der letzte Rebuild dauerte etwa %s Min.
+No such events.	Keine solchen Ereignisse.
+Payload	Nutzdaten
+Meaning	Bedeutung
 '%s' uses more than it declares in permissions: %s	'%s' nutzt mehr, als in permissions angegeben ist: %s
 %s items need your decision before the app is the same as on Unraid.	%s Punkte brauchen deine Entscheidung, bevor die App so ist wie auf Unraid.
 Cannot read the template: %s	Das Template lässt sich nicht lesen: %s
