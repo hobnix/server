@@ -5,6 +5,7 @@
   pkg.py updates                                           packages whose tree version is newer than the recorded one
   pkg.py repo-check [<folder>]                             check a package repository checkout: index.toml against its folders
   pkg.py validate                                          check every manifest (and that a recipe's header agrees); exit 1 on a problem
+  pkg.py check-draft                                       a package.toml draft on stdin: level, where, text per finding; exit 1 on an error (web package builder)
   pkg.py convert <recipe-script>                           print the package.toml for a recipe written with header lines
   pkg.py record <name> [--applied]                         remember the tree's version as installed (installed.toml); --applied: a run applied it
   pkg.py applied                                           name, version the last successful run applied
@@ -208,51 +209,51 @@ def convert(script):
     return "\n".join(lines) + "\n"
 
 
-def problems():
-    """[(package, text)] for every manifest."""
-    out, seen = [], {}
+def manifest_problems(m, path=None, seen=None):
+    """[text] for one package.toml dict. `path` = its file: the checks that need the folder (name = folder, the script and its header, the
+    capability.toml of an extension) run only then; None = a draft that is not on disk yet (hs pkg check-draft, the web package builder, ADR 0018)."""
+    out = []
     r = root()
     level = api_level()
-    for path, m in manifests():
+    n = m.get("name", "?")
+    bad = out.append
+    if not NAME.match(str(n)):
+        bad("name is not a lowercase word")
+    if path:
         folder = os.path.basename(os.path.dirname(path))
-        n = m.get("name", "?")
-
-        def bad(t, n=n):
-            out.append((n, t))
-
-        if not NAME.match(str(n)):
-            bad("name is not a lowercase word")
         if n != folder:
             bad(f"name differs from the folder ({folder})")
-        if n in seen:
-            bad(f"name also used in {seen[n]}")
-        seen[n] = path
-        if not SEMVER.match(str(m.get("version", ""))):
-            bad("version is not semver (1.2.3)")
-        if m.get("kind") not in KINDS:
-            bad("kind is not recipe or extension")
-        if not m.get("title"):
-            bad("title missing")
-        rq = REQUIRES.match(str(m.get("requires_core", "")))
-        if not rq:
-            bad('requires_core must look like ">=1"')
-        elif int(rq.group(1)) > level:
-            bad(f"requires_core {rq.group(1)} is above the API level {level}")
-        if m.get("audience", "generic") not in AUDIENCES:
-            bad("audience is not generic or personal")
-        if m.get("kind") == "recipe":
-            for w in m.get("needs", []):
-                if w not in NEEDS:
-                    bad(f"unknown need {w}")
-            for w in m.get("uses", []):
-                if w not in USES:
-                    bad(f"unknown use {w}")
-            for w in m.get("runs", ["lxc"]):
-                if w not in RUNS:
-                    bad(f"unknown runtime {w} in runs")
-            if m.get("input", "none") not in INPUTS:
-                bad("input is not none, form or terminal")
-            s = m.get("script", "")
+        if seen is not None:
+            if n in seen:
+                bad(f"name also used in {seen[n]}")
+            seen[n] = path
+    if not SEMVER.match(str(m.get("version", ""))):
+        bad("version is not semver (1.2.3)")
+    if m.get("kind") not in KINDS:
+        bad("kind is not recipe or extension")
+    if not m.get("title"):
+        bad("title missing")
+    rq = REQUIRES.match(str(m.get("requires_core", "")))
+    if not rq:
+        bad('requires_core must look like ">=1"')
+    elif int(rq.group(1)) > level:
+        bad(f"requires_core {rq.group(1)} is above the API level {level}")
+    if m.get("audience", "generic") not in AUDIENCES:
+        bad("audience is not generic or personal")
+    if m.get("kind") == "recipe":
+        for w in m.get("needs", []):
+            if w not in NEEDS:
+                bad(f"unknown need {w}")
+        for w in m.get("uses", []):
+            if w not in USES:
+                bad(f"unknown use {w}")
+        for w in m.get("runs", ["lxc"]):
+            if w not in RUNS:
+                bad(f"unknown runtime {w} in runs")
+        if m.get("input", "none") not in INPUTS:
+            bad("input is not none, form or terminal")
+        s = m.get("script", "")
+        if path:
             sp = os.path.join(r, s) if s.startswith("scripts/") else os.path.join(os.path.dirname(path), s)
             if not s or ".." in s or s.startswith("/") or not os.path.isfile(sp):
                 bad(f"script {s!r} not found (scripts/... of the core, or a file in the package)")
@@ -271,22 +272,47 @@ def problems():
                 keys = [a.split("|")[0] for a in h["asks"]]
                 if keys != [a.get("key") for a in m.get("ask", [])]:
                     bad("questions differ from the script's '# ask:' headers")
-            if m.get("input", "none") == "form" and not m.get("ask"):
-                bad("a form recipe declares questions")
-            for a in m.get("ask", []):
-                if not ASK_TYPES.match(str(a.get("type", ""))):
-                    bad(f"question {a.get('key')}: type is not text, secret or choice")
-                if a.get("type") == "choice" and not a.get("choices"):
-                    bad(f"question {a.get('key')}: a choice needs choices")
-                if not a.get("label"):
-                    bad(f"question {a.get('key')}: label missing")
-        else:
-            if not os.path.isfile(os.path.join(os.path.dirname(path), "capability.toml")):
-                bad("an extension needs its capability.toml beside package.toml")
-        for t in pkg_events.manifest_problems(n, m.get("events", [])):
-            bad(t)
-        for t in pkg_perms.manifest_problems(n, m, capability_toml(os.path.dirname(path))):
-            bad("permissions: " + t)
+        elif not s or ".." in s or s.startswith("/"):
+            bad(f"script {s!r} must be a file name in the package or scripts/... of the core")
+        if m.get("input", "none") == "form" and not m.get("ask"):
+            bad("a form recipe declares questions")
+        for a in m.get("ask", []):
+            if not ASK_TYPES.match(str(a.get("type", ""))):
+                bad(f"question {a.get('key')}: type is not text, secret or choice")
+            if a.get("type") == "choice" and not a.get("choices"):
+                bad(f"question {a.get('key')}: a choice needs choices")
+            if not a.get("label"):
+                bad(f"question {a.get('key')}: label missing")
+    elif path and not os.path.isfile(os.path.join(os.path.dirname(path), "capability.toml")):
+        bad("an extension needs its capability.toml beside package.toml")
+    for t in pkg_events.manifest_problems(n, m.get("events", [])):
+        bad(t)
+    for t in pkg_perms.manifest_problems(n, m, capability_toml(os.path.dirname(path)) if path else None):
+        bad("permissions: " + t)
+    return out
+
+
+def problems():
+    """[(package, text)] for every manifest."""
+    out, seen = [], {}
+    for path, m in manifests():
+        out += [(m.get("name", "?"), t) for t in manifest_problems(m, path, seen)]
+    return out
+
+
+def draft_findings(text):
+    """[(level, where, text)] for a package.toml draft given as text: what `hs sys pkg plan check-draft` prints as `finding` lines.
+    The same checks as `hs pkg validate` (manifest_problems); only what needs files on disk waits until the package is built."""
+    try:
+        m = tomllib.loads(text)
+    except tomllib.TOMLDecodeError as e:
+        return [("error", "-", f"not valid TOML: {e}")]
+    out = []
+    for t in manifest_problems(m):
+        key = t.split(" ", 1)[0].rstrip(":")
+        out.append(("error", key if key in ("name", "version", "kind", "title", "requires_core", "audience", "script", "permissions") else "-", t))
+    if not out:
+        out.append(("warn", "-", "Checked without files: the script and its header lines, and capability.toml, are checked when the package is built (hs pkg validate)."))
     return out
 
 
@@ -414,6 +440,12 @@ def main(argv):
         for t in p:
             print(t)
         return 1 if p else 0
+    elif cmd == "check-draft":
+        # a package.toml draft on stdin -> level<TAB>where<TAB>text per finding; exit 1 when there is an error
+        found = draft_findings(sys.stdin.buffer.read(262144).decode("utf-8", "replace"))
+        for lv, where, t in found:
+            print(f"{lv}\t{where}\t{t}")
+        return 1 if any(f[0] == "error" for f in found) else 0
     elif cmd == "validate":
         p = problems()
         for n, t in p:
