@@ -193,6 +193,7 @@ peers start <action>	admin	change	system group
 secrets plan <action>	admin	change	secret or system
 secrets start <action>	admin	change	secret or system
 recipes asks <recipe>	viewer	read	read
+recipes steps <recipe>	viewer	read	read
 admin plan <action>	admin	change	system group
 admin start <action>	admin	change	system group
 backup find <word>	viewer	read	read

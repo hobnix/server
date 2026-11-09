@@ -1795,6 +1795,17 @@ export interface SysOperations {
     exit: 0 | 1 | 2;
     lines: ChangeLines;
   };
+  "recipes.steps.by_recipe": {
+    /** the steps a recipe groups its questions into, as data: step id, label, help, the keys asked in it (- when empty); no rows when the recipe declares no steps */
+    words: ["recipes", "steps", "<recipe>"];
+    path: "/recipes/steps/{recipe}";
+    method: "get";
+    class: "read";
+    params: { recipe: string; };
+    stdin: "none";
+    exit: number;
+    lines: string[][];
+  };
   "recipes.versions": {
     /** the app recipes with versions: name, available version, applied version (- = not known), state (current|update|unknown) */
     words: ["recipes", "versions"];
