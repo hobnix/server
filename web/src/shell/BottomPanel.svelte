@@ -1,5 +1,7 @@
 <script>
   import Button from '../ui/Button.svelte';
+  import JobRecords from './JobRecords.svelte';
+  import { tr } from '../i18n.js';
   import { onDestroy } from 'svelte';
   import { poll, rows } from '../data.svelte.js';
   import { get } from '../api.js';
@@ -8,6 +10,8 @@
   let { user = '' } = $props();
 
   let level = $state('warning');
+  let jobsView = $state('records');   // records (ADR 0004) | units (the systemd view: timers and Run now)
+  let recordCount = $state(null);
 
   const tabs = [
     { id: 'tasks', label: 'Tasks', icon: 'list-checks' },
@@ -74,7 +78,7 @@
     sel?.lines.length;
     if (tailEl && stuck) tailEl.scrollTop = tailEl.scrollHeight;
   });
-  const count = (id) => (id === 'tasks' ? String(all.length) : id === 'jobs' && jobs.loaded ? String(jobRows.length) : '');
+  const count = (id) => (id === 'tasks' ? String(all.length) : id === 'jobs' ? (jobsView === 'records' ? (recordCount === null ? '' : String(recordCount)) : jobs.loaded ? String(jobRows.length) : '') : '');
 
   // reports: the text of a read, shown in place of the tiles
   let report = $state(null);                // { name, cmd, text, error, busy }
@@ -157,7 +161,13 @@
           </div>
         {/if}
       {:else if tab === 'jobs'}
-        {#if jobs.error && !jobs.data}<div class="empty">Jobs could not be read.</div>
+        <div class="bar">
+          <Button variant={jobsView === 'records' ? 'primary' : 'ghost'} size="sm" onclick={() => (jobsView = 'records')}>{tr('Job records')}</Button>
+          <Button variant={jobsView === 'units' ? 'primary' : 'ghost'} size="sm" onclick={() => (jobsView = 'units')}>{tr('Scheduled')}</Button>
+        </div>
+        {#if jobsView === 'records'}
+          <JobRecords onload={(n) => (recordCount = n)} />
+        {:else if jobs.error && !jobs.data}<div class="empty">Jobs could not be read.</div>
         {:else}
         <div class="tablescroll"><table class="table">
           <thead><tr><th>Unit</th><th>Node</th><th>What it does</th><th>Last run</th><th>Next run</th><th>Result</th><th></th></tr></thead>

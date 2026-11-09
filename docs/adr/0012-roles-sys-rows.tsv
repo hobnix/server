@@ -33,6 +33,7 @@ logs show	viewer	read	read
 jobs tail <unit>	viewer	read	read
 jobs stop <unit>	admin	change	change
 jobs record <id>	viewer	read	read
+jobs children <id>	viewer	read	read
 jobs records	viewer	read	read
 disk test <disk>	admin	change	starts or records something
 disk plan <disk> <action>	admin	change	change

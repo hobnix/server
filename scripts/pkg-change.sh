@@ -17,9 +17,11 @@
 # A package from a repository that was ADDED (not recipes/extensions of this project) runs as root once installed: install and update are red
 # for it, the typed word is the package name. For the default repositories the plan is the confirmation.
 # plan: exit 0 = allowed, 1 = refused. Output: status ok|refused, reason<TAB><text>, heading|step|note|warn|danger|command|diff<TAB><line>,
-#   confirm_name<TAB><name>, long<TAB>yes|no (yes = the network is used).
-# start: the same checks, then status<TAB>done (or refused with the reason).
-# Test knobs: HS_PKG (stand-in for pkg.sh), HS_PKG_ALLOW_LOCAL=1 (a repository may be a local path or file://).
+#   confirm_name<TAB><name>, long<TAB>yes|no (yes = it runs as a job: fetch).
+# start: the same checks, then status<TAB>done (or refused with the reason). `start fetch` reads the network for a long time, so it runs as a job:
+#   status<TAB>started, unit<TAB><unit> (follow it with hs job follow; the Marketplace shows it as running). `repo-add` stays inline: the person needs
+#   its answer at once (accepted, or refused with the reason and the repository not kept), so its plan says long no.
+# Test knobs: HS_PKG (stand-in for pkg.sh), HS_PKG_ALLOW_LOCAL=1 (a repository may be a local path or file://), HS_JOB_LIB (stand-in for lib/job.sh).
 set -euo pipefail
 here=$(cd "$(dirname "$0")" && pwd)
 pkg=${HS_PKG:-$here/pkg.sh}
@@ -112,7 +114,7 @@ case "$action" in
     [ -n "$url" ] || refuse "the address of the repository is needed"
     if [ "${HS_PKG_ALLOW_LOCAL:-}" = 1 ]; then ok_url='^(https://|ssh://|git@|file://|/)[A-Za-z0-9._:/@~+-]{2,200}$'; else ok_url='^(https://|ssh://git@|git@)[A-Za-z0-9._:/@~+-]{3,200}$'; fi
     [[ "$url" =~ $ok_url ]] && [[ "$url" != *..* ]] || refuse "the address must be https://..., ssh://git@... or git@host:path"
-    red=$name; long=yes ;;
+    red=$name ;;
   repo-remove)
     [[ "$name" =~ $word ]] || refuse "not a repository name"
     r=$(repo_row "$name"); [ -n "$r" ] || refuse "There is no repository $name."
@@ -144,6 +146,10 @@ if [ "$verb" = start ]; then
       printf 'status\tdone\n'; exit 0 ;;
     repo-remove)
       rc=0; out=$(bash "$pkg" repo remove "$name" </dev/null 2>&1) || rc=$? ;;
+    fetch)
+      . "${HS_JOB_LIB:-$here/lib/job.sh}"
+      unit=$(hs_job "pkg-fetch${repo:+-$repo}" "hs pkg fetch${repo:+ $repo}" -- bash -c '"$@" </dev/null' _ "${cmd[@]}") || refuse "the job could not be started"
+      printf 'status\tstarted\nunit\t%s\n' "$unit"; exit 0 ;;
     *)
       rc=0; out=$("${cmd[@]}" </dev/null 2>&1) || rc=$? ;;
   esac

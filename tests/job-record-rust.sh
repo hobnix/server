@@ -136,6 +136,32 @@ newboth "new, cancel without --by" --slug stopme2 --desc "again"
 same "cancel without --by" cancel @ID@ --safe yes
 files_same "after cancel without --by"
 
+# ADR 0018: parent, kind, waiting
+newboth "new orchestration" --slug orch --desc "orchestrator" --unit hs-job-orch-1 --source web --initiator alice --kind orchestration
+files_same "after new with a kind"
+same "run the orchestration" run @ID@
+same "wait" wait @ID@ --seq 1 --key ADDRESS --label "Address of the app" --kind text --default 10.0.0.5 --pattern '^[0-9.]+$' --attempt 2 --error "Not free"
+files_same "after wait"
+same "wait again with choices" wait @ID@ --seq 2 --key MODE --label Mode --kind choice --choices fast,safe
+files_same "after the second wait"
+same "wait for a secret drops the default" wait @ID@ --seq 3 --key PW --label Password --kind secret --default hunter2
+files_same "after wait for a secret"
+same "wait with a bad kind" wait @ID@ --seq 4 --key K --label L --kind bogus
+same "wait without --key" wait @ID@ --seq 4 --label L --kind text
+same "find-unit finds a waiting job" find-unit hs-job-orch-1
+same "resume" resume @ID@
+files_same "after resume"
+same "resume a running job" resume @ID@
+same "wait, then cancel" wait @ID@ --seq 5 --key K --label L --kind text
+same "cancel from waiting" cancel @ID@ --by bob --safe yes
+files_same "after cancel from waiting"
+same "wait on a cancelled job" wait @ID@ --seq 6 --key K --label L --kind text
+ORCH_ID_py=$ID_py; ORCH_ID_rs=$ID_rs
+newboth "new sub-job" --slug orch-run --desc "step" --unit hs-job-orch-run-1 --parent "$ORCH_ID_py" --kind step
+same "wait on a queued job" wait @ID@ --seq 1 --key K --label L --kind text
+same "new with a bad kind" new --slug x --desc d --kind bogus
+same "new with a bad parent" new --slug x --desc d --parent nope
+
 # records that are not records
 for d in py rs; do
   printf '{oops' > "${!d}/20240101-120000-badjson-abcd.json"

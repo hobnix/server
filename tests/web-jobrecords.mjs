@@ -1,0 +1,20 @@
+// The job record helpers of the Jobs panel (web/src/jobrecords.js), run with node.
+import { parseRecord, stateDot, stateKnown, stepText, percent, progressText, duration, isJobEvent } from '../web/src/jobrecords.js';
+let bad = 0;
+const check = (n, ok) => { if (!ok) { bad++; console.log('FAIL: ' + n); } };
+const run = parseRecord(['20261109-101010-update-abcd', 'update', 'Update', 'running', '-', '2026-11-09T10:10:10Z', '-', '-', '2', '5', 'Fetching', '30', '120', 'files']);
+check('running record: step', stepText(run.step) === '2/5 Fetching');
+check('running record: progress', run.progress.done === 30 && run.progress.total === 120 && percent(run.progress) === 25);
+check('running record: no end, no exit', run.ended === null && run.exit === null);
+const bare = parseRecord(['id', '-', '-', 'ok', '-', '-', '-', '0', '-', '-', '-', '-', '-', '-']);
+check('record without step and progress', bare.step === null && bare.progress === null && bare.exit === 0 && bare.description === 'id');
+check('state dots', stateDot('ok') === 'ok' && stateDot('failed') === 'bad' && stateDot('interrupted') === 'warn' && stateDot('running') === 'info');
+check('unknown state is neutral text, not an error', stateDot('waiting') === 'off' && !stateKnown('waiting') && stateKnown('cancelled'));
+check('percent: no total', percent({ done: 3, total: null }) === null && percent(null) === null);
+check('percent: capped', percent({ done: 9, total: 3 }) === 100);
+check('progress text with unit', progressText({ done: 1, total: 4, unit: 'files' }) === '1 / 4 files');
+check('progress text bytes', progressText({ done: 5, total: 10, unit: 'bytes' }, (n) => n + 'B') === '5B / 10B');
+check('duration of an ended job', duration('2026-11-09T10:00:00Z', '2026-11-09T10:02:00Z') === '2 min');
+check('duration of a running job', duration('2026-11-09T10:00:00Z', null, Date.parse('2026-11-09T10:00:30Z')) === '30 s');
+check('job events', isJobEvent({ kind: 'job.failed' }) && !isJobEvent({ kind: 'disk.removed' }) && !isJobEvent(null));
+if (bad) process.exit(1);

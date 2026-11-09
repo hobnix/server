@@ -41,4 +41,18 @@ $J --records --bogus >/dev/null 2>&1; check "bad argument fails" "1" "$?"
 printf 'not json' >"$HS_JOBS_DIR/20260101-000000-junk-abcd.json"
 check "a broken file is skipped" "2" "$($J --records | grep -c '')"
 
+# ADR 0018: waiting is a state, children lists the sub-jobs of one orchestration, oldest first
+o=$($W new --slug orch --desc "orchestrator" --unit hs-job-orch-1 --kind orchestration); $W run "$o"
+c1=$($W new --slug orch-one --desc "step one" --unit hs-job-orch-one-1 --parent "$o" --kind step); $W run "$c1"
+sleep 1
+c2=$($W new --slug orch-two --desc "step two" --unit hs-job-orch-two-1 --parent "$o" --kind step); $W run "$c2"
+$W wait "$o" --seq 1 --key K --label Q --kind text
+check "waiting is listed and can be filtered" "$o" "$($J --records --state waiting | cut -f1)"
+check "children: the sub-jobs, oldest first" "$c1 $c2" "$($J --children "$o" | cut -f1 | tr '\n' ' ' | sed 's/ $//')"
+check "children: the columns of records" "14" "$($J --children "$o" | head -n1 | awk -F'\t' '{print NF}')"
+check "children of a job without any is empty" "" "$($J --children "$a")"
+$J --children nope >/dev/null 2>&1; check "children with a bad id fails" "1" "$?"
+$J --children >/dev/null 2>&1; check "children without an id fails" "1" "$?"
+check "the record JSON carries parent and kind" "$o step" "$($J --record "$c1" | python3 -c 'import json,sys; r=json.load(sys.stdin); print(r["parent"], r["kind"])')"
+
 exit $fail

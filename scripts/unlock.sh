@@ -16,6 +16,7 @@ here=$(dirname "$0")
 . "$here/lib/crypt.sh"
 . "$here/lib/dc.sh"
 . "$here/lib/vault.sh"
+. "$here/lib/event.sh"
 
 usage() {
   say "usage: hs unlock                 ask for the passphrase, open every encrypted disk, start the services"
@@ -102,6 +103,7 @@ cmd_boot() {
   if vault_configured && ! vault_is_open; then
     touch "$crypt_locked"
     warn "Encrypted storage is locked: waiting for hs unlock."
+    event_emit unlock.needed storage "Encrypted storage is locked"
     bash "$here/notify.sh" --category lock "$(hostname): unlock needed" "$unlock_message" urgent || true
     exit 0
   fi
@@ -111,6 +113,7 @@ cmd_boot() {
   if crypt_is_locked; then
     touch "$crypt_locked"
     warn "Encrypted storage is locked: waiting for hs unlock."
+    event_emit unlock.needed storage "Encrypted storage is locked"
     bash "$here/notify.sh" --category lock "$(hostname): unlock needed" "$unlock_message" urgent || true
   else
     rm -f "$crypt_locked"
@@ -245,6 +248,7 @@ cmd_unlock() {
   ok "Unlocked."
   # live state: refill the topics that were skipped while locked
   if [ -f "$here/lib/live.sh" ]; then . "$here/lib/live.sh"; live_refresh --all >/dev/null 2>&1 || true; fi
+  event_emit unlock.done storage "Encrypted storage is unlocked"
   # tell the owner (low priority: it also shows when somebody else unlocked); never makes the unlock fail
   bash "$here/notify.sh" --category ok "$(hostname): unlocked" "The vault and the encrypted disks are open, services are starting." low || true
 }

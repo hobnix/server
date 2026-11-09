@@ -19,6 +19,12 @@ const de = {
   Capabilities: 'Funktionen', Advanced: 'Erweitert', Backups: 'Datensicherungen',
   Next: 'Weiter', Back: 'Zurück', Review: 'Überprüfen', 'Back to the questions': 'Zurück zu den Fragen', Change: 'Ändern', 'Apply…': 'Anwenden…', recommended: 'empfohlen',   // the wizard's buttons
   'Sort by': 'Sortieren nach', 'Update all': 'Alle aktualisieren',
+  // Job records (shell/JobRecords.svelte, ADR 0004)
+  'Job records': 'Auftragsprotokolle', Scheduled: 'Geplant', Started: 'Gestartet', Job: 'Auftrag', Step: 'Schritt', Progress: 'Fortschritt', Took: 'Dauer',
+  queued: 'wartet', running: 'läuft', ok: 'erledigt', failed: 'fehlgeschlagen', cancelled: 'abgebrochen', interrupted: 'unterbrochen',
+  'No job records yet.': 'Noch keine Auftragsprotokolle.', 'The job records could not be read.': 'Die Auftragsprotokolle konnten nicht gelesen werden.',
+  'The record could not be read.': 'Das Protokoll konnte nicht gelesen werden.', 'Cancel requested': 'Abbruch angefordert',
+  Id: 'Kennung', Initiator: 'Ausgelöst von', Unit: 'Einheit', Queued: 'Eingereiht', Ended: 'Beendet',
   // Package builder (pages/PackageBuilder.svelte, ADR 0020)
   'Package builder': 'Paket-Baukasten', 'Write the manifest of a new app or extension': 'Das Manifest einer neuen App oder Erweiterung schreiben',
   'Write the manifest of a new app or extension; the server checks it as you type. Nothing is saved yet.': 'Das Manifest einer neuen App oder Erweiterung schreiben; der Server prüft es beim Tippen. Noch wird nichts gespeichert.',
@@ -87,6 +93,10 @@ const de = {
   'read only': 'nur lesen', 'another server, read only': 'anderer Server, nur lesen',
   'Enter an image such as nginx:alpine or ghcr.io/owner/app:1.2.': 'Ein Image eintragen, zum Beispiel nginx:alpine oder ghcr.io/owner/app:1.2.',
   'The app name is lower case letters, digits, - and _, up to 41 characters.': 'Der App-Name besteht aus Kleinbuchstaben, Ziffern, - und _, bis zu 41 Zeichen.',
+  // Operations > Events (pages/Events.svelte)
+  Events: 'Ereignisse', 'What happened on this server, newest first.': 'Was auf diesem Server passiert ist, das Neueste zuerst.',
+  'All sources': 'Alle Quellen', 'All levels': 'Alle Stufen', 'Any time': 'Jederzeit', 'Last hour': 'Letzte Stunde', 'Last 24 hours': 'Letzte 24 Stunden', 'Last 7 days': 'Letzte 7 Tage',
+  Time: 'Zeit', Subject: 'Betreff', 'What happened': 'Was passiert ist', 'Show older events': 'Ältere Ereignisse zeigen', 'No events': 'Keine Ereignisse',
   // Storage > Incident (pages/storage/Incident.svelte)
   Incident: 'Vorfall',
 };

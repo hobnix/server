@@ -58,6 +58,8 @@ The payload is optional extra data for programs. Rules:
 | `job.failed` | error | `exit` | a job failed |
 | `job.cancelled` | info | none | a job was stopped on purpose |
 | `job.interrupted` | warn | none | a job was running when the server restarted |
+| `job.waiting` | info | `key`, `kind` | a job waits for an answer to a question (subject: the job id; the payload names the question key and kind, never a label or a value) |
+| `job.resumed` | info | none | a waiting job got its answer and runs again |
 | `notify.sent` | info | none | a push message was delivered to a channel (subject: the channel) |
 | `notify.held` | info | none | a push message was held back (quiet hours) |
 | `notify.failed` | warn | none | a push message could not be delivered |
@@ -76,6 +78,29 @@ The payload is optional extra data for programs. Rules:
 | `ct.started` | info | `instance`, `project`, `action` | an Incus container or VM started (subject: the instance) |
 | `ct.stopped` | info | `instance`, `project`, `action` | an Incus container or VM stopped, also when nobody asked for it (subject: the instance) |
 | `ct.deleted` | info | `instance`, `project`, `action` | an Incus container or VM was deleted (subject: the instance) |
+| `backup.ok` | info | none | a backup run finished without errors (subject: backup) |
+| `backup.failed` | error | none | a backup run finished with errors (subject: backup) |
+| `backup.report` | info | `problems` | the monthly restore-drill report was sent (subject: the push category; level warn when something is overdue or failed; payload: the number of problems) |
+| `update.started` | info | none | hs update began to apply a new version (subject: the host) |
+| `update.stopped` | info | none | hs update fetched the new configuration and stopped before the rebuild, new options wait in machine.toml |
+| `update.finished` | info | none | hs update finished (a hs rebuild on its own is a job: see job.*) |
+| `update.failed` | error | `exit` | hs update stopped with an error (payload: the exit code) |
+| `update.rolled-back` | warn | none | a failed update was undone, the previous generation runs again |
+| `update.rollback-skipped` | warn | none | a failed update was not rolled back, the system was left as it is |
+| `update.rollback-failed` | error | none | a failed update could not be rolled back |
+| `health.new` | warn | none | the health check found a problem it did not know before (subject: the problem key; once per change, not per run) |
+| `health.resolved` | info | none | a health problem is gone (subject: the problem key) |
+| `ups.onbatt` | warn | none | the mains power is out, the server runs on the UPS battery (subject: ups) |
+| `ups.online` | info | none | the mains power is back |
+| `ups.lowbatt` | error | none | the UPS battery is almost empty |
+| `ups.shutdown` | warn | none | the server shuts down because of the power failure (NUT FSD/SHUTDOWN or the battery deadline) |
+| `ups.commbad` | warn | none | lost contact with the UPS |
+| `ups.commok` | info | none | contact with the UPS is back |
+| `ups.replbatt` | warn | none | the UPS reports that its battery should be replaced |
+| `power.started` | info | none | the server started with the vault open (subject: the host) |
+| `power.stopping` | info | none | the server is going down (subject: reboot or poweroff) |
+| `unlock.needed` | warn | none | encrypted storage is locked and waits for hs unlock (subject: storage; once per boot) |
+| `unlock.done` | info | none | encrypted storage was unlocked (subject: storage) |
 
 <!-- END generated -->
 

@@ -18,7 +18,7 @@ user	mac	mac.sh	-	-	-	nohelp,topic:instances,changes,capability:incus
 user	machine-merge	machine-merge.sh	-	-	-	nohelp,topic:system,changes
 user	monitor	monitor.sh	-	-	-	nohelp,topic:system,reads
 user	notify	notify.sh	-	-	-	nohelp,topic:system,changes
-user	rebuild	rebuild.sh	-	-	-	topic:system,changes
+user	rebuild	rebuild.sh	-	-	-	long,topic:system,changes
 user	recipe	recipe.sh	-	-	-	topic:instances,changes,capability:incus
 user	status	status.sh	-	-	-	topic:system,reads,cheat:server
 user	unlock	unlock.sh	-	-	-	topic:security,changes,cheat:trouble
@@ -28,10 +28,10 @@ user	vault list	vault.sh	list	what is in the vault, one line each (tab separated
 user	vault init	vault.sh	init {rest}	make the vault on a free partition of the system disk (erases the partition; --dry-run shows the plan)	Tresor auf einer freien Partition der System-SSD anlegen (löscht die Partition; --dry-run zeigt den Plan)	guided,topic:security,changes
 user	vault open	vault.sh	open	open the vault (asks for the passphrase)	Tresor öffnen (fragt die Passphrase)	topic:security,changes
 user	vault close	vault.sh	close {rest}	close the vault; refused while something uses it	Tresor schließen; abgelehnt, solange etwas ihn benutzt	topic:security,changes
-user	vault move	vault.sh	move {rest}	move secrets into the vault (without names: the usual ones that exist) and leave a link	Geheimnisse in den Tresor verschieben (ohne Namen: die üblichen, die es gibt) und einen Link zurücklassen	topic:security,changes
+user	vault move	vault.sh	move {rest}	move secrets into the vault (without names: the usual ones that exist) and leave a link	Geheimnisse in den Tresor verschieben (ohne Namen: die üblichen, die es gibt) und einen Link zurücklassen	long,topic:security,changes
 user	vault bind	vault.sh	bind {rest}	move a whole folder into the vault, e.g. hs vault bind samba-private /var/lib/samba/private	einen ganzen Ordner in den Tresor verschieben, z. B. hs vault bind samba-private /var/lib/samba/private	topic:security,changes
 user	vault header-backup	vault.sh	header-backup	save the LUKS header of the vault outside it (/var/lib/hs/vault-header, part of the host backup)	den LUKS-Header des Tresors außerhalb sichern (/var/lib/hs/vault-header, Teil der Host-Sicherung)	topic:security,changes
-user	update	update.sh	-	-	-	topic:system,changes,cheat:update
+user	update	update.sh	-	-	-	long,topic:system,changes,cheat:update
 user	backup now	backup.sh	now	-	-	long,nohelp,topic:backup,changes,cheat:backup,capability:backup
 user	backup drill	backup.sh	drill	-	-	long,nohelp,topic:backup,changes,capability:backup
 user	backup drill ct	backup.sh	drill ct	restore a container from the backup into a throwaway instance without a network, boot it and delete it (the one drilled longest ago, smallest first); also checks the domain controller backup file	einen Container aus dem Backup in eine Wegwerf-Instanz ohne Netzwerk zurückholen, starten und wieder löschen (den, der am längsten nicht dran war, kleinster zuerst); prüft auch die Sicherungsdatei des Domänencontrollers	long,nohelp,topic:backup,changes,capability:backup
@@ -232,6 +232,7 @@ sys	sys logs show	logs.sh	show {rest}	the journal as plain lines: hs sys logs sh
 sys	sys jobs tail <unit>	jobs.sh	tail {1} {rest}	state and new journal lines of a job since line N (state, exit, line, next)	-
 sys	sys jobs stop <unit>	jobs.sh	stop {1}	stop a running background job	-
 sys	sys jobs record <id>	jobs.sh	--record {1}	one job record as JSON (ADR 0004): state, step, progress, times, exit, error, result	-	reads,topic:jobs
+sys	sys jobs children <id>	jobs.sh	--children {1}	the sub-jobs of an orchestration job (ADR 0018), oldest first, the columns of jobs records; empty: none	-	reads,topic:jobs
 sys	sys jobs records	jobs.sh	--records {rest}	the job records, newest first, tab separated (hs sys jobs records [--state S] [N], N up to 500, default 50)	-	reads,topic:jobs
 sys	sys disk test <disk>	disk-health.sh	--test {rest} {1}	start a self-test inside a disk: sys disk test <disk> short|long	-
 sys	sys disk plan <disk> <action>	disk-change.sh	plan {2} {1} {rest}	what a self-test of a disk, or erasing a free disk (wipe), or mounting, copying from or ejecting another disk (temp-mount, temp-copy, temp-eject), would do, as data: status, plan lines (never asks; exit 1 = refused: unknown disk or a test running already)	was ein Selbsttest einer Platte tun würde, als Daten: Status, Planzeilen (fragt nie; Exit 1 = abgelehnt: unbekannte Platte oder Test läuft schon)

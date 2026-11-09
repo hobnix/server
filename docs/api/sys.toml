@@ -19,12 +19,18 @@ enums = { state = ["running", "ok", "failed", "unknown"] }
 
 ["jobs record <id>"]
 kind = "json"
-note = "One job record (docs/adr/0004-job-record.md): id, slug, description, source, initiator, unit, queued, started, ended, state, exit, step {n, of, text}, progress {done, total, unit}, error, result, cancel, version. Absent values are null."
+note = "One job record (docs/adr/0004-job-record.md): id, slug, description, source, initiator, unit, queued, started, ended, state, exit, step {n, of, text}, progress {done, total, unit}, error, result, cancel, version, and since ADR 0018 parent (id of the orchestration), kind (orchestration or step) and waiting (the pending question {seq, key, label, kind, default, pattern, choices, error, attempt, asked}, never an answer). state may be waiting. Absent values are null."
 
 ["jobs records"]
 kind = "tsv"
 columns = ["id", "slug", "description", "state", "queued", "started", "ended", "exit", "step_n", "step_of", "step_text", "progress_done", "progress_total", "progress_unit"]
-enums = { state = ["queued", "running", "ok", "failed", "cancelled", "interrupted"] }
+enums = { state = ["queued", "running", "waiting", "ok", "failed", "cancelled", "interrupted"] }
+
+["jobs children <id>"]
+kind = "tsv"
+columns = ["id", "slug", "description", "state", "queued", "started", "ended", "exit", "step_n", "step_of", "step_text", "progress_done", "progress_total", "progress_unit"]
+enums = { state = ["queued", "running", "waiting", "ok", "failed", "cancelled", "interrupted"] }
+note = "The sub-jobs of one orchestration job (ADR 0018), oldest first; same columns as jobs records."
 
 ["audit"]
 kind = "tsv"

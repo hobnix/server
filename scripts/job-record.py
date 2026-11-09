@@ -6,9 +6,11 @@ Machine-facing: prints the id or JSON on stdout, one line on stderr and exit 1 o
 Never stores argv or environment, only the description the caller gives.
 
   new --slug S --desc D --unit U --source cli|web|timer|extension --initiator NAME
-  run ID | step ID N OF TEXT | progress ID DONE TOTAL UNIT | finish ID EXIT | get ID
+  new ... [--parent ID] [--kind orchestration|step]   (ADR 0018: a sub-job names its orchestration, both are optional)
+  run ID | wait ID --seq N --key K --label L --kind text|secret|choice [--default D --pattern P --choices a,b --error E --attempt N]
+  resume ID   (waiting -> running) | step ID N OF TEXT | progress ID DONE TOTAL UNIT | finish ID EXIT | get ID
   find-unit UNIT | cancel ID --by NAME --safe yes|no | cancelled ID (exit 0 when cancelled)
-  reconcile   mark queued/running records whose unit is gone as interrupted (boot); never re-runs anything
+  reconcile   mark queued/running/waiting records whose unit is gone as interrupted (boot); never re-runs anything
 """
 import argparse
 import contextlib
@@ -33,7 +35,11 @@ KEEP_DAYS = 30
 RATE_SECONDS = float(os.environ.get("HS_JOB_RATE", "1"))   # the test sets a long time so it cannot depend on speed
 SOURCES = ("cli", "web", "timer", "extension")
 FIELDS = ("id", "slug", "description", "source", "initiator", "unit", "queued", "started", "ended",
-          "state", "exit", "step", "progress", "error", "result", "cancel", "version")
+          "state", "exit", "step", "progress", "error", "result", "cancel", "version",
+          "parent", "kind", "waiting")   # parent, kind, waiting: ADR 0018, optional and additive
+ACTIVE = ("queued", "running", "waiting")
+KINDS = ("orchestration", "step")
+ASK_KINDS = ("text", "secret", "choice")
 
 
 class Fail(Exception):
@@ -151,6 +157,12 @@ def retention():
     for mtime, n in items[KEEP_COUNT:]:
         if mtime < limit:
             base = n[:-5]
+            try:
+                with open(os.path.join(d, n), encoding="utf-8") as f:
+                    if json.load(f).get("state") in ACTIVE:
+                        continue   # a job that waits for an answer can wait for days: never pruned while active
+            except (OSError, ValueError, AttributeError):
+                pass
             for victim in [n] + [x for x in os.listdir(d) if x.startswith(base + ".") and x != n]:
                 try:
                     os.unlink(os.path.join(d, victim))
@@ -169,6 +181,11 @@ def cmd_new(a):
     rec = {k: None for k in FIELDS}
     rec.update(id=job_id, slug=slug, description=a.desc, source=a.source, initiator=a.initiator or None,
                unit=a.unit or None, queued=ts.strftime("%Y-%m-%dT%H:%M:%SZ"), state="queued", version=1)
+    if a.kind and a.kind not in KINDS:
+        raise Fail("bad kind: %s" % a.kind)
+    if a.parent:
+        path_of(a.parent)   # shape check only: the parent may live in another directory state
+    rec.update(parent=a.parent or None, kind=a.kind or None)
     save(rec)
     retention()
     sys.stdout.write(job_id + "\n")
@@ -179,6 +196,33 @@ def cmd_run(a):
         rec = load(a.id)
         rec["state"] = "running"
         rec["started"] = now_iso()
+        save(rec)
+
+
+def cmd_wait(a):
+    """A question is pending (ADR 0018): state waiting and the question in `waiting`. Never an answer, never a default for a secret."""
+    if a.kind not in ASK_KINDS:
+        raise Fail("bad question kind: %s" % a.kind)
+    with locked(a.id):
+        rec = load(a.id)
+        if rec.get("state") not in ("running", "waiting"):
+            raise Fail("job is not running")
+        choices = [c for c in a.choices.split(",") if c] if a.choices else None
+        rec["state"] = "waiting"
+        rec["waiting"] = {"seq": a.seq, "key": a.key, "label": a.label, "kind": a.kind,
+                          "default": None if a.kind == "secret" else (a.default or None),
+                          "pattern": a.pattern or None, "choices": choices or None,
+                          "error": a.error or None, "attempt": a.attempt, "asked": now_iso()}
+        save(rec)
+
+
+def cmd_resume(a):
+    with locked(a.id):
+        rec = load(a.id)
+        if rec.get("state") != "waiting":
+            raise Fail("job is not waiting")
+        rec["state"] = "running"
+        rec["waiting"] = None
         save(rec)
 
 
@@ -206,6 +250,7 @@ def cmd_finish(a):
     with locked(a.id):
         rec = load(a.id)
         rec["exit"] = a.exit
+        rec["waiting"] = None
         if rec.get("state") == "cancelled":   # a cancel stays cancelled; the earlier end time and cancel block stay
             rec["ended"] = rec.get("ended") or now_iso()
         elif a.exit == 0:
@@ -240,7 +285,7 @@ def cmd_find_unit(a):
         except Fail:
             continue
         # hs_job stores the unit without the .service suffix that systemctl and jobs-change.sh use
-        if rec.get("unit") in (a.unit, a.unit[:-8] if a.unit.endswith(".service") else a.unit) and rec.get("state") in ("queued", "running"):
+        if rec.get("unit") in (a.unit, a.unit[:-8] if a.unit.endswith(".service") else a.unit) and rec.get("state") in ACTIVE:
             sys.stdout.write(job_id + "\n")
             return
     raise Fail("no running job record for %s" % a.unit)
@@ -249,10 +294,11 @@ def cmd_find_unit(a):
 def cmd_cancel(a):
     with locked(a.id):
         rec = load(a.id)
-        if rec.get("state") not in ("queued", "running"):
+        if rec.get("state") not in ACTIVE:
             raise Fail("job already finished")
         at = now_iso()
         rec["state"] = "cancelled"
+        rec["waiting"] = None
         rec["ended"] = at
         rec["error"] = None
         rec["cancel"] = {"requested_by": a.by or None, "at": at, "safe": a.safe == "yes"}
@@ -328,11 +374,11 @@ def cmd_reconcile(a):
         job_id = n[:-5]
         try:
             peek = load(job_id)   # no lock yet, so a finished record leaves no lock file behind
-            if peek.get("state") not in ("queued", "running"):
+            if peek.get("state") not in ACTIVE:
                 continue
             with locked(job_id):
                 rec = load(job_id)
-                if rec.get("state") not in ("queued", "running"):
+                if rec.get("state") not in ACTIVE:
                     continue
                 began = parse_iso(rec.get("started") or rec.get("queued"))
                 if boot is not None and began is not None and began >= boot:
@@ -344,6 +390,7 @@ def cmd_reconcile(a):
                 else:
                     rec["ended"] = now_iso()
                 rec["state"] = "interrupted"
+                rec["waiting"] = None
                 rec["exit"] = None
                 rec["error"] = {"category": "interrupted",
                                 "message": "the job did not finish; the server restarted or the unit stopped"}
@@ -374,8 +421,15 @@ def main():
     s.add_argument("--unit", default="")
     s.add_argument("--source", default="cli")
     s.add_argument("--initiator", default="")
+    s.add_argument("--parent", default="")
+    s.add_argument("--kind", default="")
     s.set_defaults(fn=cmd_new)
     s = sub.add_parser("run"); s.add_argument("id"); s.set_defaults(fn=cmd_run)
+    s = sub.add_parser("wait"); s.add_argument("id"); s.add_argument("--seq", type=int, required=True)
+    s.add_argument("--key", required=True); s.add_argument("--label", required=True); s.add_argument("--kind", required=True)
+    s.add_argument("--default", default=""); s.add_argument("--pattern", default=""); s.add_argument("--choices", default="")
+    s.add_argument("--error", default=""); s.add_argument("--attempt", type=int, default=1); s.set_defaults(fn=cmd_wait)
+    s = sub.add_parser("resume"); s.add_argument("id"); s.set_defaults(fn=cmd_resume)
     s = sub.add_parser("step"); s.add_argument("id"); s.add_argument("n", type=int)
     s.add_argument("of", type=int); s.add_argument("text"); s.set_defaults(fn=cmd_step)
     s = sub.add_parser("progress"); s.add_argument("id"); s.add_argument("done", type=int)

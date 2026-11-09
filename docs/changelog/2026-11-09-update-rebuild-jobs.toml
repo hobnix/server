@@ -1,0 +1,4 @@
+date  = "2026-11-09"
+type  = "change"
+title = "hs update, hs rebuild and hs vault move offer a background job"
+body  = """On a terminal these three commands now say that they take long and offer to run as a background job (hs job follow shows it); --foreground waits in the terminal, and --dry-run or --help never ask. In the Marketplace, Check for updates runs as a job too. Adding a repository still answers at once. Not tested on hardware yet."""

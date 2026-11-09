@@ -26,5 +26,5 @@ Make a release: `git tag -s v1.2.0 -m "recipes 1.2.0"` with `gpg.format = ssh` a
 ## The core: `server.allowed_signers`
 
 `hs update` on the `stable` and `beta` channels checks the signature of the release tag of the core itself (`git tag -v`) against
-`server.allowed_signers` in this folder, in the same format as the other files. The file is not here yet: until the maintainer adds the real
-public release key, `hs update` refuses to move onto any tag. Servers without a release tag, and the `edge` channel, do not use it.
+`server.allowed_signers` in this folder, in the same format as the other files. The file holds the release key (one line). A server whose checkout lacks the file or its key
+refuses to move onto any tag, so servers need an `hs update` that brings the file before the first tag. Servers without a release tag, and the `edge` channel, do not use it.
