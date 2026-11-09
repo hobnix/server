@@ -37,7 +37,7 @@ const de = {
   'The last read failed; the data is from the last good read.': 'Das letzte Lesen ist fehlgeschlagen; die Daten stammen vom letzten guten Lesen.',
   'Reading failed; the data is from the last good read.': 'Das Lesen ist fehlgeschlagen; die Daten stammen vom letzten guten Lesen.',
   'The data was not read again in time.': 'Die Daten wurden nicht rechtzeitig neu gelesen.',
-  // Graphical VM console (shell/VmConsole.svelte, ADR 0019)
+  // Graphical VM console (shell/VmConsole.svelte, ADR 0021)
   Console: 'Konsole', Reconnect: 'Neu verbinden', Received: 'Empfangen',
   'Open a new connection to the same console': 'Eine neue Verbindung zur selben Konsole öffnen',
   'Close this window (the virtual machine keeps running)': 'Dieses Fenster schließen (die virtuelle Maschine läuft weiter)',
