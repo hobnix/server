@@ -1,0 +1,4 @@
+date  = "2026-11-09"
+type  = "change"
+title = "File manager jobs report progress on the job record"
+body  = """A copy, move or delete in the file manager now shows its step and progress in the job record, so the Jobs tab follows it like any other job. Nothing changes in the file manager itself."""
