@@ -2317,4 +2317,24 @@ The last rebuild took about %s min.	Der letzte Rebuild dauerte etwa %s Min.
 No such events.	Keine solchen Ereignisse.
 Payload	Nutzdaten
 Meaning	Bedeutung
+%s items need your decision before the app is the same as on Unraid.	%s Punkte brauchen deine Entscheidung, bevor die App so ist wie auf Unraid.
+Cannot read the template: %s	Das Template lässt sich nicht lesen: %s
+Draft written to %s. Nothing was started.	Entwurf nach %s geschrieben. Nichts wurde gestartet.
+Not carried over	Nicht übernommen
+Preview only: nothing was written. Add --out <folder> to write the draft.	Nur Vorschau: nichts wurde geschrieben. Mit --out <Ordner> wird der Entwurf geschrieben.
+The folder exists already, nothing is overwritten: %s	Der Ordner existiert schon, nichts wird überschrieben: %s
+The template could not be read: %s	Das Template konnte nicht gelesen werden: %s
+UNVERIFIED: the draft was checked against test templates only. Read it before you import it.	UNGEPRÜFT: der Entwurf wurde nur an Testvorlagen geprüft. Lies ihn, bevor du ihn importierst.
+Usage: hs docker import-unraid <template.xml> [--name <app>] [--out <folder>]	Aufruf: hs docker import-unraid <template.xml> [--name <App>] [--out <Ordner>]
+Volumes and devices	Volumes und Geräte
+Web address	Web-Adresse
+Archive	Archiv
+Cannot read the archive: %s	Das Archiv lässt sich nicht lesen: %s
+Maps to Incus	Wird in Incus zu
+Proxmox archive %s	Proxmox-Archiv %s
+Read-only: nothing was unpacked or created.	Nur gelesen: nichts wurde entpackt oder angelegt.
+The archive could not be read: %s	Das Archiv konnte nicht gelesen werden: %s
+Top folders	Oberste Ordner
+UNVERIFIED: the restore is not built yet, and this plan was checked against test archives only.	UNGEPRÜFT: das Wiederherstellen gibt es noch nicht, und dieser Plan wurde nur an Testarchiven geprüft.
+Usage: hs ct import-vzdump <archive>	Aufruf: hs ct import-vzdump <Archiv>
 The generated capability list could not be refreshed.	Die erzeugte Liste der Zusatzmodule konnte nicht aktualisiert werden.
