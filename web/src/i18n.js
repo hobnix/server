@@ -99,6 +99,17 @@ const de = {
   Time: 'Zeit', Subject: 'Betreff', 'What happened': 'Was passiert ist', 'Show older events': 'Ältere Ereignisse zeigen', 'No events': 'Keine Ereignisse',
   // Storage > Incident (pages/storage/Incident.svelte)
   Incident: 'Vorfall',
+  // Recipe wizard (forms/ops/RunRecipe.svelte, ADR 0018 stage 1)
+  Run: 'Ausführen', 'The questions of this recipe could not be read:': 'Die Fragen dieses Rezepts konnten nicht gelesen werden:',
+  'This recipe needs a person at a terminal (a password is typed into the setup). Run': 'Dieses Rezept braucht eine Person am Terminal (ein Passwort wird in die Einrichtung getippt). Führe aus:',
+  'on the server.': 'auf dem Server.', Needed: 'Erforderlich', 'No control characters': 'Keine Steuerzeichen', 'Pick one of the choices': 'Wähle eine der Möglichkeiten',
+  'This does not look right': 'Das sieht nicht richtig aus', 'Lower-case letters, digits and dashes': 'Kleinbuchstaben, Ziffern und Bindestriche',
+  'Container name': 'Containername', 'Container name (optional)': 'Containername (optional)',
+  'Leave the name empty for the usual container. A name of your own runs the recipe a second time, for example a second Jellyfin.': 'Lass den Namen leer für den üblichen Container. Ein eigener Name führt das Rezept ein zweites Mal aus, zum Beispiel ein zweites Jellyfin.',
+  'Check your answers. The plan on the right is what the server would do; Start runs it.': 'Prüfe deine Antworten. Rechts steht, was der Server tun würde; Starten führt es aus.',
+  'set (not shown)': 'gesetzt (nicht angezeigt)', 'The secret goes only into the container, never into the log.': 'Das Geheimnis geht nur in den Container, nie ins Protokoll.',
+  'Preferences the recipe does not ask here (memory, port, share ...) use the answers stored last time, or the defaults; to choose them yourself run': 'Einstellungen, die das Rezept hier nicht fragt (Speicher, Port, Freigabe ...), nehmen die zuletzt gespeicherten Antworten oder die Vorgaben; um sie selbst zu wählen, führe aus:',
+  'in the terminal.': 'im Terminal.',
 };
 
 export const tr = (s) => (lang.code === 'de' && typeof s === 'string' ? (de[s] ?? s) : s);

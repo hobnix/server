@@ -8680,6 +8680,56 @@
     }
    }
   },
+  "/recipes/steps/{recipe}": {
+   "get": {
+    "operationId": "recipes.steps.by_recipe",
+    "summary": "the steps a recipe groups its questions into, as data: step id, label, help, the keys asked in it (- when empty); no rows when the recipe declares no steps",
+    "x-hs-exit": true,
+    "x-hs-sys": {
+     "words": [
+      "recipes",
+      "steps",
+      "<recipe>"
+     ],
+     "script": "recipe-steps.sh",
+     "args": "{1}",
+     "class": "read",
+     "rest": false
+    },
+    "x-hs-web": {
+     "path": "/api/sys/recipes/steps/<recipe>",
+     "kind": "tsv",
+     "ttl": 60,
+     "query": []
+    },
+    "parameters": [
+     {
+      "name": "recipe",
+      "in": "path",
+      "required": true,
+      "schema": {
+       "type": "string"
+      }
+     }
+    ],
+    "x-hs-described": false,
+    "responses": {
+     "0": {
+      "description": "ok",
+      "content": {
+       "text/tab-separated-values": {
+        "schema": {
+         "type": "string"
+        }
+       }
+      }
+     },
+     "default": {
+      "description": "failed; stderr says why, stdout may be empty"
+     }
+    }
+   }
+  },
   "/recipes/versions": {
    "get": {
     "operationId": "recipes.versions",
