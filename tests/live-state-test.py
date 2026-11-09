@@ -1204,5 +1204,126 @@ class DockerEvents(unittest.TestCase):
         self.assertEqual(got, {"docker-list", "docker-apps"})
 
 
+FAKE_INCUS = r"""
+import sys, time, json
+mode, counter = sys.argv[1], sys.argv[2]
+try:
+    n = int(open(counter).read())
+except (OSError, ValueError):
+    n = 0
+n += 1
+open(counter, "w").write(str(n))
+def ev(action, name="web", project="default", ctx=None):
+    print(json.dumps({"type": "lifecycle", "timestamp": "2026-11-09T10:00:00Z", "project": project, "location": "none",
+                      "metadata": {"action": action, "source": "/1.0/instances/" + name, "context": ctx or {}}}), flush=True)
+if mode == "start":
+    ev("instance-started", ctx={"token": "SECRET-VALUE"})
+    ev("instance-exec"); ev("instance-console"); ev("instance-snapshot-created", "web/snap0")
+    print(json.dumps({"type": "lifecycle", "metadata": {"action": "image-created", "source": "/1.0/images/abc"}}), flush=True)
+    print("not json at all", flush=True)
+    time.sleep(30)
+elif mode == "burst":
+    for i in range(80):
+        ev(["instance-started", "instance-stopped", "instance-created", "instance-deleted"][i % 4], "c%d" % (i % 40))
+    ev("instance-started", "c1")
+    time.sleep(30)
+elif mode == "restart":
+    if n == 1:
+        ev("instance-stopped"); time.sleep(0.1); sys.exit(1)
+    if n in (2, 3):
+        print("Error: unable to connect to the daemon", flush=True); sys.exit(1)
+    time.sleep(30)
+"""
+
+
+class IncusEvents(DockerEvents):
+    """IncusWatch with a fake `incus monitor` stream (same harness as DockerEvents)."""
+    GROUP = "@instances"
+
+    def setUp(self):
+        super().setUp()
+        with open(self.fake, "w") as f:
+            f.write(FAKE_INCUS)
+        self.emitted = []
+
+    def make(self, mode, cap=True, limit=None):
+        cmd = "%s %s %s %s" % (shlex.quote(sys.executable), shlex.quote(self.fake), mode, shlex.quote(self.counter))
+        p = unittest.mock.patch.dict(os.environ, {"HS_LIVE_INCUS_EVENTS": cmd})
+        p.start()
+        self.addCleanup(p.stop)
+        w = lc.IncusWatch(refresh=self.calls.append, stop=threading.Event(), cap=lambda: cap, logf=self.logs.append,
+                          emit=lambda k, s, t, payload=None: self.emitted.append((k, s, t, payload)))
+        w.COALESCE, w.MAX_WAIT, w.STABLE, w.BACKOFF, w.CAP_CHECK = 0.2, 1.0, 3.0, (0.05, 0.1), 0.05
+        if limit:
+            w.LIMIT = limit
+        t = threading.Thread(target=w.run, daemon=True)
+        self.watchers.append((w, t))
+        t.start()
+        return w
+
+    def test_start_event_asks_for_one_refresh(self):
+        self.make("start")
+        self.assertTrue(self.wait_for(lambda: self.calls and self.emitted))
+        time.sleep(0.5)
+        self.assertEqual(self.calls, ["@instances"])
+        self.assertEqual(self.logs, [])
+
+    def test_only_instance_facts_and_no_secrets(self):
+        self.make("start")
+        self.assertTrue(self.wait_for(lambda: self.emitted))
+        time.sleep(0.5)
+        self.assertEqual(self.emitted, [("ct.started", "web", "web started",
+                                         {"instance": "web", "project": "default", "action": "instance-started"})])
+        self.assertNotIn("SECRET", repr(self.emitted))
+
+    def test_burst_is_coalesced_deduped_and_limited(self):
+        self.make("burst", limit=25)
+        self.assertTrue(self.wait_for(lambda: self.calls))
+        time.sleep(0.8)
+        self.assertEqual(self.calls, ["@instances"])
+        self.assertEqual(len(self.emitted), 25)
+        self.assertEqual(len(set((k, s) for k, s, _, _ in self.emitted)), 25)   # the repeat of c1 started is not written twice
+        self.assertEqual({k for k, _, _, _ in self.emitted} - {"ct.started", "ct.stopped", "ct.created", "ct.deleted"}, set())
+
+    def test_daemon_restart_reconnects_once_and_refreshes(self):
+        self.make("restart")
+        self.assertTrue(self.wait_for(lambda: self.runs() >= 4 and len(self.calls) >= 2))
+        time.sleep(0.6)
+        self.assertEqual(self.calls, ["@instances", "@instances"])
+        self.assertEqual(len([l for l in self.logs if "incus events down" in l]), 1)
+        self.assertEqual(len([l for l in self.logs if "incus events back" in l]), 1)
+        self.assertEqual([e[0] for e in self.emitted], ["ct.stopped"])
+
+    def test_capability_off_runs_nothing(self):
+        self.make("start", cap=False)
+        time.sleep(0.4)
+        self.assertFalse(os.path.exists(self.counter))
+        self.assertEqual((self.calls, self.logs, self.emitted), ([], [], []))
+
+    def test_default_command(self):
+        env = {k: v for k, v in os.environ.items() if k != "HS_LIVE_INCUS_EVENTS"}
+        env["HS_INCUS"] = "/x/incus"
+        with unittest.mock.patch.dict(os.environ, env, clear=True):
+            self.assertEqual(lc.incus_events_cmd(), ["/x/incus", "monitor", "--type=lifecycle", "--format=json"])
+
+    def test_parse(self):
+        def line(action, src, project="p1"):
+            return json.dumps({"type": "lifecycle", "project": project, "metadata": {"action": action, "source": src}})
+        self.assertEqual(lc.parse_incus_event(line("instance-deleted", "/1.0/instances/db?project=p1")), ("deleted", "db", "p1"))
+        for bad in (line("instance-created", "/1.0/instances/a/snapshots/s"), line("instance-exec", "/1.0/instances/a"),
+                    line("instance-created", "/1.0/instances/a b"), line("instance-created", "/1.0/instances/a", "x/y"),
+                    line("network-created", "/1.0/networks/n"), "[]", "{", ""):
+            self.assertIsNone(lc.parse_incus_event(bad), bad)
+
+    def test_instances_group_wakes_ct_list(self):
+        got = {t for t, i in ls.topic_info().items() if "instances" in i["groups"]}
+        self.assertIn("ct-list", got)
+
+    # the Docker tests inherited from DockerEvents do not apply
+    test_docker_group_wakes_the_docker_topics = None
+    test_first_connect_after_failures_refreshes = None
+    test_burst_is_coalesced = None
+
+
 if __name__ == "__main__":
     unittest.main()

@@ -6,11 +6,13 @@ was a good read) or "error" (never); a good read sets state "ok". A change into 
 live.collector-recovered), not one per failed run. Redis down: retry every 5 s, never exit. Log goes to the journal.
 A topic can name topics it needs (lib/live-topics.tsv column 7): when one of them gets a new gen, one wave thread reads the dependents once, in
 dependency order (a burst of changes is one wave); a wave never reads a topic sooner than HS_LIVE_MIN_GAP seconds (default 5) after its last read.
-DockerWatch follows the Docker event stream of the container docker and asks for @docker (#155)."""
+DockerWatch follows the Docker event stream of the container docker and asks for @docker (#155); IncusWatch follows `incus monitor --type=lifecycle`,
+asks for @instances and writes ct.created/started/stopped/deleted events (#392)."""
 import json
 import math
 import os
 import queue
+import re
 import shlex
 import subprocess
 import sys
@@ -39,11 +41,13 @@ def hs_run(words):
         return 127, "", str(e)
 
 
-def emit_event(kind, subject, text):
+def emit_event(kind, subject, text, payload=None):
     """Best effort: one line in the event log (state-db.py emit, the one writer; needs root, which hs-live is). Never raises."""
+    cmd = [sys.executable, os.path.join(ls.HERE, "state-db.py"), "emit", kind, subject, text]
+    if payload:
+        cmd += ["--payload", json.dumps(payload, separators=(",", ":"))]
     try:
-        subprocess.run([sys.executable, os.path.join(ls.HERE, "state-db.py"), "emit", kind, subject, text],
-                       capture_output=True, timeout=15)
+        subprocess.run(cmd, capture_output=True, timeout=15)
     except (OSError, subprocess.TimeoutExpired):
         pass
 
@@ -67,6 +71,8 @@ class DockerWatch:
     """One thread: follows `docker events` and asks for one refresh of the group docker per burst (coalesced). The 300 s poll of the
     docker topics stays the safety net. Reconnects with back-off; an outage is logged once (start and end), not per retry; capability
     docker off = no process. Not tested on hardware yet."""
+    NAME = "docker"
+    CAP = "docker"
     GROUP = "@docker"
     COALESCE = 1.0
     MAX_WAIT = 5.0
@@ -77,7 +83,7 @@ class DockerWatch:
     def __init__(self, refresh, stop, cap=None, cmd=None, logf=None):
         self.refresh = refresh                     # (topic) -> None, Collector.refresh
         self.stop = stop                           # threading.Event of the collector
-        self.cap = cap or (lambda: ls.cap_on("docker"))
+        self.cap = cap or (lambda: ls.cap_on(self.CAP))
         self.cmd = cmd or docker_events_cmd
         self.log = logf or log
         self.down = False                          # in an outage (its start was logged)
@@ -91,9 +97,13 @@ class DockerWatch:
             pass
         q.put(None)
 
+    def accept(self, line):
+        """True when the event line is a change that asks for a refresh. IncusWatch narrows it."""
+        return True
+
     def _mark_up(self):
         if self.down:
-            self.log("docker events back")
+            self.log("%s events back" % self.NAME)
         self.down, self.fails = False, 0
 
     def follow(self, reconnected):
@@ -135,6 +145,8 @@ class DockerWatch:
                 if not line.lstrip().startswith("{"):
                     msg = ls.clean(line.strip()) or msg      # an error text of incus or docker, not an event
                     continue
+                if not self.accept(line):
+                    continue                         # a JSON line that is not a lifecycle change (IncusWatch)
                 now = time.monotonic()
                 if not up:
                     up = True
@@ -164,10 +176,115 @@ class DockerWatch:
                 break
             ever_up = ever_up or up
             if not self.down:                        # once per outage; the failed retries after it log nothing
-                self.log("docker events down (%s), retrying with back-off" % reason)
+                self.log("%s events down (%s), retrying with back-off" % (self.NAME, reason))
                 self.down = True
             self.stop.wait(self.BACKOFF[min(self.fails, len(self.BACKOFF) - 1)])
             self.fails += 1
+
+
+INCUS_REFRESH = ("created", "started", "stopped", "shutdown", "deleted", "restarted", "renamed", "paused", "resumed", "ready", "updated", "rebuilt")
+INCUS_KIND = {"created": "ct.created", "started": "ct.started", "stopped": "ct.stopped", "shutdown": "ct.stopped", "deleted": "ct.deleted"}
+INCUS_TEXT = {"ct.created": "%s was created", "ct.started": "%s started", "ct.stopped": "%s stopped", "ct.deleted": "%s was deleted"}
+NAME_RE = re.compile(r"[A-Za-z0-9][A-Za-z0-9._-]{0,62}")
+
+
+def incus_events_cmd():
+    """The command that streams Incus lifecycle events; HS_LIVE_INCUS_EVENTS (a command line) replaces it in tests."""
+    o = os.environ.get("HS_LIVE_INCUS_EVENTS")
+    if o:
+        return shlex.split(o)
+    return [os.environ.get("HS_INCUS") or "incus", "monitor", "--type=lifecycle", "--format=json"]
+
+
+def parse_incus_event(line):
+    """One line of `incus monitor --type=lifecycle --format=json` -> (action, instance, project), or None when it is no change of an
+    instance that matters (an image, a network, a snapshot, exec, console, a malformed line). Only the three safe fields are read: the
+    context of the event (can hold device and config values) is never looked at."""
+    try:
+        ev = json.loads(line)
+        md = ev.get("metadata") or {}
+        action, src = md.get("action"), md.get("source")
+        if ev.get("type") != "lifecycle" or not isinstance(action, str) or not isinstance(src, str):
+            return None
+    except (ValueError, AttributeError):
+        return None
+    if not action.startswith("instance-") or action[9:] not in INCUS_REFRESH:
+        return None
+    path = src.split("?", 1)[0]
+    if not path.startswith("/1.0/instances/"):
+        return None
+    name = path[len("/1.0/instances/"):]
+    project = ev.get("project")
+    if not NAME_RE.fullmatch(name) or not (project is None or (isinstance(project, str) and NAME_RE.fullmatch(project))):
+        return None
+    return action[9:], name, project or "default"
+
+
+class IncusWatch(DockerWatch):
+    """One thread: follows `incus monitor --type=lifecycle` and asks for one refresh of the group instances per burst (the 10 s poll of
+    ct-list stays the safety net; reconnect, back-off, one journal line per outage and capability off = no process come from DockerWatch).
+    The four facts created, started, stopped, deleted also become events (ct.*, subject = the instance, payload instance/project/action only):
+    the same kind and instance again within DEDUP seconds is one event, and at most LIMIT events per minute are written (a host shutdown
+    or a mass delete stays a refresh; one journal line says how many were left out). Writing happens in a second thread: a slow
+    state-db never blocks the stream. Not tested on hardware yet."""
+    NAME = "incus"
+    CAP = "incus"
+    GROUP = "@instances"
+    DEDUP = 10.0
+    LIMIT = 30
+    WINDOW = 60.0
+
+    def __init__(self, refresh, stop, cap=None, cmd=None, logf=None, emit=emit_event, clock=time.monotonic):
+        super().__init__(refresh, stop, cap=cap, cmd=cmd or incus_events_cmd, logf=logf)
+        self.emit = emit
+        self.clock = clock
+        self.seen = {}                  # (kind, instance) -> time of the last event
+        self.win_start, self.win_n, self.win_skipped = None, 0, 0
+        self.outq = queue.Queue()
+        self.writer = None
+
+    def accept(self, line):
+        p = parse_incus_event(line)
+        if p is None:
+            return False
+        action, name, project = p
+        kind = INCUS_KIND.get(action)
+        if kind and self._admit(kind, name):
+            self.outq.put((kind, name, INCUS_TEXT[kind] % name, {"instance": name, "project": project, "action": "instance-" + action}))
+        return True
+
+    def _admit(self, kind, name):
+        now = self.clock()
+        if (kind, name) in self.seen and now - self.seen[(kind, name)] < self.DEDUP:
+            return False
+        self.seen[(kind, name)] = now
+        if len(self.seen) > 512:
+            self.seen = {k: t for k, t in self.seen.items() if now - t < self.DEDUP}
+        if self.win_start is None or now - self.win_start >= self.WINDOW:
+            if self.win_skipped:
+                self.log("incus events: %d event(s) not recorded (more than %d in a minute); the lists were refreshed anyway" % (self.win_skipped, self.LIMIT))
+            self.win_start, self.win_n, self.win_skipped = now, 0, 0
+        if self.win_n >= self.LIMIT:
+            self.win_skipped += 1
+            return False
+        self.win_n += 1
+        return True
+
+    def _write(self):
+        while True:
+            item = self.outq.get()
+            if item is None:
+                return
+            self.emit(*item[:3], payload=item[3])
+
+    def run(self):
+        self.writer = threading.Thread(target=self._write, daemon=True)
+        self.writer.start()
+        try:
+            super().run()
+        finally:
+            self.outq.put(None)
+            self.writer.join(20)
 
 
 class Collector:
@@ -175,7 +292,7 @@ class Collector:
     RESCAN_MIN = 3.0      # a refresh of an unknown ext- topic looks sooner, but not more often than this
 
     def __init__(self, store, run=hs_run, topic_rows=None, connect=None, topic_info=None, ext_rows=None, emit=emit_event, topic_needs=None, watchers=None):
-        self.watchers = watchers                 # objects with .run(); None = the default DockerWatch
+        self.watchers = watchers                 # objects with .run(); None = the defaults DockerWatch and IncusWatch
         self.emit = emit                         # (kind, subject, text) -> None; a test passes its own
         self.store = store                       # Resp (or a fake) for writing
         self.run = run
@@ -449,7 +566,7 @@ class Collector:
         threading.Thread(target=self.watch, daemon=True).start()
         threading.Thread(target=self.waves, daemon=True).start()
         self.rescan()      # once now: a missing needs target is in the journal from the start
-        for w in (self.watchers if self.watchers is not None else [DockerWatch(self.refresh, self.stop)]):
+        for w in (self.watchers if self.watchers is not None else [DockerWatch(self.refresh, self.stop), IncusWatch(self.refresh, self.stop)]):
             threading.Thread(target=w.run, daemon=True).start()
 
 
