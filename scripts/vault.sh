@@ -238,8 +238,11 @@ cmd_move() {
   # the Samba folder is the optional last item of the default list
   if [ "$explicit" = false ] && { [ -d "$vault_samba_dir" ] || vault_samba_bound; }; then names+=("$vault_samba_name"); fi
   step "Move secrets into the vault"
+  local total=${#names[@]} idx=0
   for n in "${names[@]}"; do
     rc=0
+    idx=$((idx + 1))
+    hs_job_step "$idx" "$total" "Moving $n into the vault"   # a name of a secret file, never its content
     if [ "$n" = "$vault_samba_name" ]; then
       if [ "$explicit" = false ] && ! vault_samba_bound && vault_services_running; then
         note "Samba is running: stop it and run hs vault move samba-private (left out for now)"; continue
