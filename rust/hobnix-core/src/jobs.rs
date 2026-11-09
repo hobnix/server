@@ -607,10 +607,7 @@ impl Store {
         for (mtime, n) in items.into_iter().skip(KEEP_COUNT) {
             if mtime < limit {
                 // a job that waits for an answer can wait for days: never pruned while active
-                if self
-                    .load(&n[..n.len() - 5])
-                    .is_ok_and(|r| r.is_active())
-                {
+                if self.load(&n[..n.len() - 5]).is_ok_and(|r| r.is_active()) {
                     continue;
                 }
                 let base = format!("{}.", &n[..n.len() - 5]);
@@ -718,7 +715,11 @@ impl Store {
                 key: q.key.to_string(),
                 label: q.label.to_string(),
                 kind: q.kind.to_string(),
-                default: if q.kind == "secret" { None } else { some(q.default) },
+                default: if q.kind == "secret" {
+                    None
+                } else {
+                    some(q.default)
+                },
                 pattern: some(q.pattern),
                 choices: (!choices.is_empty()).then_some(choices),
                 error: some(q.error),
@@ -1082,7 +1083,15 @@ mod tests {
         let t = Tmp::new();
         let s = t.store();
         let id = s
-            .new_record("-- Pool/Sync!! --", "Café sync", "hs-job-x-1", "web", "", "", "")
+            .new_record(
+                "-- Pool/Sync!! --",
+                "Café sync",
+                "hs-job-x-1",
+                "web",
+                "",
+                "",
+                "",
+            )
             .unwrap();
         assert!(valid_id(&id), "{id}");
         assert!(id.contains("-Pool-Sync-"));
@@ -1115,7 +1124,9 @@ mod tests {
         assert!(text.contains("\"description\": \"Café sync\""));
         assert!(text.contains("\"initiator\": null"));
         assert!(text.contains("\"state\": \"queued\""));
-        assert!(text.contains("\"version\": 1,\n  \"parent\": null,\n  \"kind\": null,\n  \"waiting\": null\n}\n"));
+        assert!(text.contains(
+            "\"version\": 1,\n  \"parent\": null,\n  \"kind\": null,\n  \"waiting\": null\n}\n"
+        ));
         #[cfg(unix)]
         {
             use std::os::unix::fs::PermissionsExt;
@@ -1373,20 +1384,47 @@ mod tests {
         let s = t.store();
         let id = mk(&s, "hs-job-w-1");
         s.run(&id).unwrap();
-        s.wait(&id, &Question { seq: 1, key: "PW", label: "Password", kind: "secret", default: "hunter2", attempt: 1, ..Default::default() })
-            .unwrap();
+        s.wait(
+            &id,
+            &Question {
+                seq: 1,
+                key: "PW",
+                label: "Password",
+                kind: "secret",
+                default: "hunter2",
+                attempt: 1,
+                ..Default::default()
+            },
+        )
+        .unwrap();
         let rec = s.load(&id).unwrap();
         assert_eq!(rec.state.as_deref(), Some("waiting"));
-        assert_eq!(rec.waiting.as_ref().unwrap().default, None, "no default for a secret");
-        assert!(!String::from_utf8(s.get(&id).unwrap()).unwrap().contains("hunter2"));
-        assert!(s.wait(&id, &Question { kind: "bogus", ..Default::default() }).is_err());
+        assert_eq!(
+            rec.waiting.as_ref().unwrap().default,
+            None,
+            "no default for a secret"
+        );
+        assert!(!String::from_utf8(s.get(&id).unwrap())
+            .unwrap()
+            .contains("hunter2"));
+        assert!(s
+            .wait(
+                &id,
+                &Question {
+                    kind: "bogus",
+                    ..Default::default()
+                }
+            )
+            .is_err());
         assert_eq!(s.find_unit("hs-job-w-1").unwrap(), id);
         s.resume(&id).unwrap();
         assert_eq!(s.load(&id).unwrap().waiting, None);
         assert!(s.resume(&id).is_err());
         // a sparse waiting object from another writer loads
         let p = t.0.join(format!("{id}.json"));
-        let text = fs::read_to_string(&p).unwrap().replace("\"waiting\": null", "\"waiting\": {\"seq\": 1}");
+        let text = fs::read_to_string(&p)
+            .unwrap()
+            .replace("\"waiting\": null", "\"waiting\": {\"seq\": 1}");
         fs::write(&p, text).unwrap();
         assert_eq!(s.load(&id).unwrap().waiting.unwrap().seq, 1);
         s.cancel(&id, "bob", true).unwrap();
@@ -1395,20 +1433,38 @@ mod tests {
         let old = SystemTime::now() - Duration::from_secs(40 * 86_400);
         let w = mk(&s, "hs-job-w-2");
         s.run(&w).unwrap();
-        s.wait(&w, &Question { seq: 1, key: "K", label: "L", kind: "text", attempt: 1, ..Default::default() }).unwrap();
+        s.wait(
+            &w,
+            &Question {
+                seq: 1,
+                key: "K",
+                label: "L",
+                kind: "text",
+                attempt: 1,
+                ..Default::default()
+            },
+        )
+        .unwrap();
         let done = mk(&s, "hs-job-w-3");
         s.run(&done).unwrap();
         s.finish(&done, 0).unwrap();
         for x in [&w, &done] {
-            let f = fs::File::options().write(true).open(t.0.join(format!("{x}.json"))).unwrap();
-            f.set_modified(old - Duration::from_secs(if *x == w { 5 } else { 1 })).unwrap();
+            let f = fs::File::options()
+                .write(true)
+                .open(t.0.join(format!("{x}.json")))
+                .unwrap();
+            f.set_modified(old - Duration::from_secs(if *x == w { 5 } else { 1 }))
+                .unwrap();
         }
         for _ in 0..KEEP_COUNT {
             mk(&s, "hs-job-fill");
         }
         s.retention();
         assert!(t.0.join(format!("{w}.json")).exists(), "waiting is kept");
-        assert!(!t.0.join(format!("{done}.json")).exists(), "an old finished one goes");
+        assert!(
+            !t.0.join(format!("{done}.json")).exists(),
+            "an old finished one goes"
+        );
     }
 
     #[test]

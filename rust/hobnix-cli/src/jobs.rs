@@ -192,8 +192,15 @@ pub fn run(args: &[String]) -> Result<u8> {
             let p = parse(
                 rest,
                 &[
-                    "--seq", "--key", "--label", "--kind", "--default", "--pattern", "--choices",
-                    "--error", "--attempt",
+                    "--seq",
+                    "--key",
+                    "--label",
+                    "--kind",
+                    "--default",
+                    "--pattern",
+                    "--choices",
+                    "--error",
+                    "--attempt",
                 ],
             )?;
             let id = &exact::<1>(&p)?[0];
