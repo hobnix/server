@@ -27,6 +27,8 @@ cat > "$WORK/bin/restic" <<'FAKE'
 cmd="" target="" inc=() ; args=("$@")
 for ((i = 0; i < ${#args[@]}; i++)); do
   case "${args[$i]}" in
+    --password-file) [ -z "${FIXPASS:-}" ] || [ "$(cat "${args[$((i + 1))]}")" = "$FIXPASS" ] || { echo "wrong password" >&2; exit 1; }
+                     echo "${args[*]}" >> "$FIX.calls" ;;
     --target) target=${args[$((i + 1))]} ;;
     --include) inc+=("${args[$((i + 1))]}") ;;
     snapshots|restore|ls) cmd=${cmd:-${args[$i]}} ;;
@@ -35,7 +37,8 @@ done
 case "$cmd" in
   snapshots) echo '[{"id":"abcdef0123456789","time":"2026-11-05T04:00:01Z"}]' ;;
   ls) p=${args[$((${#args[@]} - 1))]}; [ -e "$FIX$p" ] && echo "$p" ;;
-  restore) for p in "${inc[@]}"; do [ -e "$FIX$p" ] && { mkdir -p "$target$(dirname "$p")"; cp -a "$FIX$p" "$target$p"; }; done ;;
+  restore) shopt -s nullglob
+    for p in "${inc[@]}"; do for q in $FIX$p; do q=${q#"$FIX"}; mkdir -p "$target$(dirname "$q")"; cp -a "$FIX$q" "$target$q"; done; done ;;
 esac
 exit 0
 FAKE
@@ -83,5 +86,50 @@ check_eq "restic-password not restored" "live-pass" "$(cat "$ST/restic-password"
 check_eq "other state files are restored" "setting" "$(cat "$ST/sub/keep" 2>/dev/null)"
 check_eq "machine.toml updated again" "new = 3" "$(cat "$NX/machine.toml")"
 check_eq "hardware-configuration.nix still untouched" "hw-live" "$(cat "$NX/hardware-configuration.nix")"
+
+echo "-- from-disk: a fresh install (no password file, no state)"
+export FIXPASS=typed-pass HS_RUN_DIR=$WORK
+rm -rf "$ST" "$NX"; mkdir -p "$NX" "$ST"
+echo 'old = 1' > "$NX/machine.toml"
+echo 'new = 5' > "$FIX$NX/machine.toml"
+export HS_SSH_DIR=$WORK/ssh HS_SAMBA_DIR=$WORK/samba
+mkdir -p "$HS_SSH_DIR" "$FIX$HS_SSH_DIR" "$FIX$HS_SAMBA_DIR"
+echo hostkey > "$FIX$HS_SSH_DIR/ssh_host_ed25519_key"
+echo livekey > "$HS_SSH_DIR/ssh_host_ed25519_key"
+echo sambasecret > "$FIX$HS_SAMBA_DIR/secrets.tdb"
+fd() { bash "$SCRIPTS/backup.sh" config restore --from-disk /dev/fake "$@" 2>&1; }
+
+out=$(printf 'typed-pass\n' | fd --dry-run)
+has "ssh_host_ed25519_key" && has "machine.toml" && has "dry run" && pass "the plan names machine.toml and the SSH host key" || fail "from-disk dry: $out"
+check_eq "dry run changes nothing" "old = 1" "$(cat "$NX/machine.toml")"
+has "--with-samba" && pass "says Samba is left out" || fail "samba note: $out"
+case "$out" in *secrets.tdb*) fail "samba listed without the flag" ;; *) pass "Samba not in the plan" ;; esac
+
+if out=$(printf 'wrong\n' | fd --dry-run); then fail "wrong passphrase accepted"; else has "passphrase" && pass "wrong passphrase refused" || fail "wrong pass text: $out"; fi
+if out=$(printf '\n' | fd --dry-run); then fail "empty passphrase accepted"; else pass "empty passphrase refused"; fi
+if grep -qF typed-pass "$FIX.calls" 2>/dev/null; then fail "passphrase on argv"; else pass "passphrase never on argv"; fi
+
+out=$(printf 'typed-pass\nmachine.toml\nnope\n' | fd)
+check_eq "machine.toml restored" "new = 5" "$(cat "$NX/machine.toml")"
+check_eq "SSH key kept without the typed line" "livekey" "$(cat "$HS_SSH_DIR/ssh_host_ed25519_key")"
+has "SSH host keys not restored" && pass "says the keys were skipped" || fail "skip text: $out"
+check_eq "no restic-password written" 0 "$(ls "$ST" | grep -c '^restic-password$' || true)"
+check_eq "no passphrase file left" 0 "$(ls "$WORK" | grep -c 'hs-config-restore-pw' || true)"
+
+out=$(printf 'typed-pass\nmachine.toml\nssh host keys\n' | fd)
+check_eq "SSH key restored after typing its name" "hostkey" "$(cat "$HS_SSH_DIR/ssh_host_ed25519_key")"
+check_eq "SSH key safety copy" "livekey" "$(cat "$HS_SSH_DIR"/ssh_host_ed25519_key.before-restore-*)"
+[ ! -e "$HS_SAMBA_DIR/secrets.tdb" ] && pass "Samba secrets not restored by default" || fail "samba restored"
+
+echo 'new = 6' > "$FIX$NX/machine.toml"
+out=$(printf 'typed-pass\nmachine.toml\n' | fd --with-samba)
+check_eq "Samba secrets restored with the flag" "sambasecret" "$(cat "$HS_SAMBA_DIR/secrets.tdb" 2>/dev/null)"
+
+echo 'new = 7' > "$FIX$NX/machine.toml"
+echo livekey2 > "$HS_SSH_DIR/ssh_host_ed25519_key"
+out=$(printf 'typed-pass\n' | fd --yes)
+check_eq "--yes leaves the SSH key alone" "livekey2" "$(cat "$HS_SSH_DIR/ssh_host_ed25519_key")"
+check_eq "--yes restores machine.toml" "new = 7" "$(cat "$NX/machine.toml")"
+if out=$(bash "$SCRIPTS/backup.sh" config restore --with-samba </dev/null 2>&1); then fail "--with-samba without --from-disk accepted"; else pass "--with-samba needs --from-disk"; fi
 
 finish

@@ -199,7 +199,7 @@ it do what the guide says, how long did it take, and what was missing.
 | 1. Passwords | the backup password opens the repository | `restic snapshots` lists snapshots, one tagged `host` |
 | 2. Disk | partitions as written | ESP, root, a third partition labelled `vault`; `lsblk` shows them |
 | 3. Repository | `git clone` of your configuration repository works | `/mnt/etc/nixos` exists |
-| 4. Host files | the restore brings back `machine.toml`, `/var/lib/hs` and the SSH host keys | the files exist under `/tmp/host` and are copied |
+| 4. Host files | `hs backup config restore --from-disk <device>` (where `hs` exists; else the manual restic copy) brings back `machine.toml`, `/var/lib/hs` and, after typing `ssh host keys`, the SSH host keys | the plan lists them, the files exist, safety copies `.before-restore-*` for replaced ones |
 | 5. Hardware config | generated again, no `boot.initrd.luks` block | UUIDs of the new disk |
 | 6. Install | `nixos-install --no-root-passwd` ends without an error | unmount works |
 | 7. Boot order | the VM boots from the new disk | login prompt or SSH on port 22 |

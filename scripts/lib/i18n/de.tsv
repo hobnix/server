@@ -2348,3 +2348,15 @@ UNVERIFIED: the restore is not built yet, and this plan was checked against test
 Usage: hs ct import-vzdump <archive>	Aufruf: hs ct import-vzdump <Archiv>
 The generated capability list could not be refreshed.	Die erzeugte Liste der Zusatzmodule konnte nicht aktualisiert werden.
 Hobnix	Hobnix
+The passphrase is typed: run this in a terminal.	Die Passphrase wird getippt: starte das in einem Terminal.
+%s is not a disk or partition.	%s ist keine Platte und keine Partition.
+Could not mount %s read-only. Is it the backup disk (ext4)?	%s konnte nicht schreibgeschützt eingehängt werden. Ist es die Backup-Platte (ext4)?
+No restic repository on %s. Is it the backup disk?	Auf %s liegt kein restic-Repository. Ist es die Backup-Platte?
+Backup passphrase (the restic password from your password manager):	Backup-Passphrase (das restic-Passwort aus deinem Passwort-Manager):
+No passphrase given.	Keine Passphrase eingegeben.
+Could not open the repository: wrong passphrase, or not the backup disk of this server.	Das Repository ließ sich nicht öffnen: falsche Passphrase oder nicht die Backup-Platte dieses Servers.
+--with-samba belongs to --from-disk.	--with-samba gehört zu --from-disk.
+Samba secrets are not restored (add --with-samba to include them).	Samba-Geheimnisse werden nicht zurückgespielt (mit --with-samba kommen sie mit).
+Never touched: hardware-configuration.nix, disks, pools, network.	Nie angefasst: hardware-configuration.nix, Platten, Pools, Netzwerk.
+The SSH host keys of the old server are in the backup. Putting them back keeps your computers from warning about a new server.	Die SSH-Host-Schlüssel des alten Servers sind im Backup. Spielst du sie zurück, warnen deine Rechner nicht vor einem neuen Server.
+SSH host keys not restored (this server keeps its own). Run the command again to put them back.	SSH-Host-Schlüssel nicht zurückgespielt (dieser Server behält seine eigenen). Führe den Befehl nochmal aus, um sie zurückzuholen.

@@ -131,9 +131,29 @@ snapshot; a restore does not write through the links into the vault.
 
 To check that the restore worked, run `sudo hs backup config restore --dry-run` again. It says "Already identical".
 
-**On a clean install** there is no backup password and no `hs` data yet, so `hs backup config restore` cannot read the repository. Follow
-the disaster recovery runbook below: it restores the host files with restic and the password from your password manager. Not tested on
-hardware yet.
+**On a clean install** there is no backup password and no `hs` data yet. Use `--from-disk` with the device of the backup disk. It needs
+only that disk and the passphrase:
+
+```bash
+sudo hs backup config restore --from-disk /dev/disk/by-label/backup --dry-run
+```
+
+```bash
+sudo hs backup config restore --from-disk /dev/disk/by-label/backup
+```
+
+- The disk is mounted **read-only** and unmounted again. Nothing is written to it.
+- The passphrase (the restic password from your password manager) is typed at a hidden prompt, never given as an argument or in the
+  environment, and never written to `/var/lib/hs`. The command refuses without a terminal.
+- The plan comes first (`--dry-run` stops there). You type `machine.toml` to confirm, as above, and every replaced file is kept as
+  `<file>.before-restore-<date>-<time>`.
+- `/var/lib/hs` comes back as with `--with-state`: not the backup password, `disks`, `vault-uuid` or `luks-uuids`.
+- The **SSH host keys** come back only after you type `ssh host keys`; then your computers do not warn about a "new server". With `--yes` they
+  are skipped. Without the typed line the new server keeps its own keys.
+- The **Samba secrets** come back only with `--with-samba`.
+- `hardware-configuration.nix` is never restored: generate it again (`nixos-generate-config`).
+
+Not tested on hardware yet.
 
 ## Give space back
 When the backup disk is full, or a run ended with "no space left":
@@ -261,7 +281,17 @@ a small partition for the vault, so a new one is built the same way, and the ser
    git clone <your-repository> /mnt/etc/nixos
    ```
 
-4. **Mount the backup disk and restore the host files.** There is no `hs` yet, so use restic directly. (On a server that is already running, `hs backup config restore` replaces this manual copy for `machine.toml` and `machine.nix`.) A snapshot with the tag `host`
+4. **Restore the host files.** Where `hs` exists (the Hobnix installer, or a fresh install after its first boot), one command does it from
+   only the backup disk and the passphrase: look at the plan, then run it, and type `machine.toml` and `ssh host keys` when asked
+   (details: [the settings section above](#back-up-and-restore-only-the-settings)). Not tested on hardware yet.
+
+   ```bash
+   sudo hs backup config restore --from-disk /dev/disk/by-label/backup --dry-run
+   sudo hs backup config restore --from-disk /dev/disk/by-label/backup
+   ```
+
+   The command writes to the running system (`/etc/nixos`, `/etc/ssh`, `/var/lib/hs`), not to `/mnt`. On a plain NixOS ISO without `hs`
+   use restic directly, as follows. A snapshot with the tag `host`
    must be listed.
 
    ```bash
