@@ -765,7 +765,7 @@ READS = {
     ("live", "inspect"): {"kind": "json", "ttl": 0, "redis": True},      # the Live state page; ttl 0: never cached nor warmed, re-read on each change of topic live
     ("live", "raw"): {"kind": "json", "ttl": 0, "redis": True, "args": [NAME]},      # one topic's stored output for the Live state page (capped in live_state.py)
     ("state", "events"): {"kind": "tsv", "ttl": 10, "query": {"n": (r"^[0-9]{1,4}$", "")}},
-    ("event", "list"): {"kind": "tsv", "ttl": 10, "query": {"n": (r"^[0-9]{1,4}$", "")}},      # the event log (docs/adr/0005-events.md)
+    ("event", "list"): {"kind": "tsv", "ttl": 10, "query": {"n": (r"^[0-9]{1,4}$", ""), "source": (r"^[a-z][a-z0-9-]{0,30}$", "--source"), "after": (r"^[0-9]{1,9}$", "--after")}},      # the event log (docs/adr/0005-events.md)
     ("ct", "list"): {"kind": "tsv", "ttl": 5, "topic": "ct-list"},
     ("ct", "profiles"): {"kind": "tsv", "ttl": 30, "topic": "ct-profiles"},
     ("ct", "pools"): {"kind": "tsv", "ttl": 15, "topic": "ct-pools"},

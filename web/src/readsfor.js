@@ -50,6 +50,7 @@ export function readsFor(path, extPages = [], liveOn = false) {
     case '/instances/apps': case '/operations/apps': return [`${A}recipes/list`, `${A}recipes/versions`, `${A}ct/list`];
     case '/marketplace': return [`${A}pkg/market`, `${A}pkg/repos`];
     case '/instances/services': case '/operations/services': return [`${A}services/list`, `${A}services/routes`, `${A}ct/list`];
+    case '/operations/events': return [`${A}event/list?n=100`];
     case '/operations/notifications': return [`${A}notify/channels`, `${A}notify/providers`];
     case '/monitoring/live-state': return liveOn ? [`${A}live/inspect`] : [];
     case '/monitoring/diagnostics': return [liveOn ? `${A}live/status` : `${A}reads/status`];
