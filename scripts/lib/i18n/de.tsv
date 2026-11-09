@@ -2334,3 +2334,4 @@ The archive could not be read: %s	Das Archiv konnte nicht gelesen werden: %s
 Top folders	Oberste Ordner
 UNVERIFIED: the restore is not built yet, and this plan was checked against test archives only.	UNGEPRÜFT: das Wiederherstellen gibt es noch nicht, und dieser Plan wurde nur an Testarchiven geprüft.
 Usage: hs ct import-vzdump <archive>	Aufruf: hs ct import-vzdump <Archiv>
+The generated capability list could not be refreshed.	Die erzeugte Liste der Zusatzmodule konnte nicht aktualisiert werden.

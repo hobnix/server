@@ -19,8 +19,12 @@ fi
 
 echo "-- the catalog"
 check "the catalog exists and has entries" test -s "$CATALOG"
-dups=$(cut -f1 "$CATALOG" | grep -v '^#' | grep -v '^$' | sort | uniq -d | head -3)
-if [ -n "$dups" ]; then fail "no text is translated twice ($dups)"; else pass "no text is translated twice"; fi
+# a duplicate key is what a union merge (.gitattributes) can leave behind: say where
+dups=$(awk -F'\t' '/^#/ || NF == 0 || $1 == "" {next} seen[$1] {printf "        line %d repeats line %d: %s\n", NR, seen[$1], $1; next} {seen[$1] = NR}' "$CATALOG")
+if [ -n "$dups" ]; then
+  echo "$dups" | head -10
+  fail "no text is translated twice (duplicate keys in de.tsv, often after a merge: keep one line per key)"
+else pass "no text is translated twice"; fi
 
 missing=0; n=0
 while IFS= read -r k; do
