@@ -1060,6 +1060,18 @@ export interface SysOperations {
     exit: 0 | 1 | 2;
     lines: ChangeLines;
   };
+  "jobs.answer.by_id": {
+    /** answer the question an interactive recipe run waits for (ADR 0018): hs sys jobs answer <id> --seq N --key K [--by <user> --role <role>], the answer is ONE line on stdin; status done|stale|refused; only the initiator or an admin */
+    words: ["jobs", "answer", "<id>"];
+    path: "/jobs/answer/{id}";
+    method: "get";
+    class: "read";
+    params: { id: string; };
+    stdin: "yes";
+    exit: number;
+    lines: ([tag: "status", status: "done" | "stale" | "refused"]
+      | [tag: "reason", text: Field])[];
+  };
   "jobs.children.by_id": {
     /** the sub-jobs of an orchestration job (ADR 0018), oldest first, the columns of jobs records; empty: none */
     words: ["jobs", "children", "<id>"];
@@ -1100,7 +1112,7 @@ export interface SysOperations {
     method: "post";
     class: "plan";
     params: { action: string; };
-    stdin: "none";
+    stdin: "no";
     exit: 0 | 1 | 2;
     lines: ChangeLines;
   };
@@ -1155,7 +1167,7 @@ export interface SysOperations {
     method: "post";
     class: "start";
     params: { action: string; };
-    stdin: "none";
+    stdin: "no";
     exit: 0 | 1 | 2;
     lines: ChangeLines;
   };

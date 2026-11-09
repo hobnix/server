@@ -27,6 +27,9 @@ hs_job_record() {
   local cmd=${1:-} out rc=0 id=${2:-} line text
   case "$cmd" in
     new|run|wait|resume|finish|reconcile|uncancel) ;;
+    error)   # ADR 0018: only the Python writer knows it; an older or newer Rust binary that does not falls back
+      _hs_job_record_write "$@" && return
+      python3 "${BASH_SOURCE[0]%/*}/../job-record.py" "$@"; return ;;
     *) _hs_job_record_write "$@"; return ;;
   esac
   if [ "$cmd" = finish ] && ! _hs_job_record_write get "$id" 2>/dev/null | grep -Eq '"state": *"(queued|running|waiting)"'; then
@@ -81,9 +84,13 @@ hs_job() {
   local src=cli jid=
   case "${HS_CALLER:-}" in web|ui) src=web ;; ext) src=extension ;; timer) src=timer ;; esac
   jid=$(hs_job_record new --slug "$slug" --desc "$desc" --unit "$unit" --source "$src" \
-          --initiator "${SUDO_USER:-${USER:-}}" ${rec_extra[@]+"${rec_extra[@]}"} 2>/dev/null) || jid=
+          --initiator "${HS_JOB_INITIATOR:-${SUDO_USER:-${USER:-}}}" ${rec_extra[@]+"${rec_extra[@]}"} 2>/dev/null) || jid=
   [ -z "$jid" ] || extra+=(-E "HS_JOB_ID=$jid")
+  HS_JOB_LAST_ID=$jid   # for a caller that runs hs_job in its own shell (the orchestrator follows its sub-job by it)
   [ -z "${HS_JOBS_DIR:-}" ] || extra+=(-E "HS_JOBS_DIR=$HS_JOBS_DIR")   # the unit writes to the same directory as hs_job
+  [ -z "${HS_ASK_DIR:-}" ] || extra+=(-E "HS_ASK_DIR=$HS_ASK_DIR")   # the question folder of an orchestration (a path; ADR 0018)
+  [ -z "${HS_RUN_DIR:-}" ] || extra+=(-E "HS_RUN_DIR=$HS_RUN_DIR")
+  [ -z "${HS_ASK_TIMEOUT:-}" ] || extra+=(-E "HS_ASK_TIMEOUT=$HS_ASK_TIMEOUT")
   [ -z "${HOBNIX_BIN:-}" ] || extra+=(-E "HOBNIX_BIN=$HOBNIX_BIN")   # and with the same job record writer
   [ -z "${HS_JOB_RECORD:-}" ] || extra+=(-E "HS_JOB_RECORD=$HS_JOB_RECORD")
   systemd-run --quiet --unit="$unit" --description="$desc" \

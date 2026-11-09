@@ -22,6 +22,11 @@ refuse() { printf 'status\trefused\nreason\t%s\n' "$1"; exit 1; }
 
 verb=${1:-}; action=${2:-}; unit=${3:-}
 case "$verb" in plan|start) ;; *) echo "usage: jobs-change.sh plan|start <stop|run> <unit>" >&2; exit 1 ;; esac
+if [ "$action" = answer ]; then   # ADR 0018: the web interface answers a waiting recipe run (the answer is one line on stdin)
+  shift 3 || true
+  [ "$verb" = start ] || { printf 'status\tok\nheading\tanswer the question\nlong\tno\n'; exit 0; }
+  exec bash "${HS_JOBS_ANSWER:-$here/jobs-answer.sh}" "$unit" "$@"
+fi
 case "$action" in stop|run) ;; *) refuse "unknown action (stop or run)" ;; esac
 case "$unit" in *.service) ;; *) unit=$unit.service ;; esac
 [[ "$unit" =~ ^hs-[A-Za-z0-9@._-]+\.service$ ]] || refuse "that is not a job of this server (hs-*)"

@@ -4991,6 +4991,98 @@
     }
    }
   },
+  "/jobs/answer/{id}": {
+   "get": {
+    "operationId": "jobs.answer.by_id",
+    "summary": "answer the question an interactive recipe run waits for (ADR 0018): hs sys jobs answer <id> --seq N --key K [--by <user> --role <role>], the answer is ONE line on stdin; status done|stale|refused; only the initiator or an admin",
+    "x-hs-exit": true,
+    "x-hs-sys": {
+     "words": [
+      "jobs",
+      "answer",
+      "<id>"
+     ],
+     "script": "jobs-answer.sh",
+     "args": "{1} {rest}",
+     "class": "read",
+     "rest": true
+    },
+    "parameters": [
+     {
+      "name": "id",
+      "in": "path",
+      "required": true,
+      "schema": {
+       "type": "string"
+      }
+     }
+    ],
+    "requestBody": {
+     "required": true,
+     "content": {
+      "text/plain": {
+       "schema": {
+        "type": "string"
+       }
+      }
+     },
+     "description": "one line on stdin: the secret or the document, never in argv or the environment"
+    },
+    "description": "Answer the question an interactive recipe run waits for (ADR 0018). The answer is one line on stdin, never an argument. status stale: the question is not waiting any more (nothing written); refused: not the initiator or an admin, or the answer does not fit the question's shape or choices (exit 1).",
+    "responses": {
+     "0": {
+      "description": "ok",
+      "content": {
+       "text/tab-separated-values": {
+        "schema": {
+         "type": "array",
+         "items": {
+          "oneOf": [
+           {
+            "type": "array",
+            "prefixItems": [
+             {
+              "const": "status"
+             },
+             {
+              "$ref": "#/components/schemas/Field",
+              "title": "status",
+              "enum": [
+               "done",
+               "stale",
+               "refused"
+              ]
+             }
+            ],
+            "minItems": 2,
+            "maxItems": 2
+           },
+           {
+            "type": "array",
+            "prefixItems": [
+             {
+              "const": "reason"
+             },
+             {
+              "$ref": "#/components/schemas/Field",
+              "title": "text"
+             }
+            ],
+            "minItems": 2,
+            "maxItems": 2
+           }
+          ]
+         }
+        }
+       }
+      }
+     },
+     "default": {
+      "description": "failed; stderr says why, stdout may be empty"
+     }
+    }
+   }
+  },
   "/jobs/children/{id}": {
    "get": {
     "operationId": "jobs.children.by_id",
@@ -5247,6 +5339,17 @@
       }
      }
     ],
+    "requestBody": {
+     "required": false,
+     "content": {
+      "text/plain": {
+       "schema": {
+        "type": "string"
+       }
+      }
+     },
+     "description": "one line on stdin for the entries that take it (a password, a key)"
+    },
     "responses": {
      "0": {
       "description": "allowed",
@@ -5573,6 +5676,17 @@
       }
      }
     ],
+    "requestBody": {
+     "required": false,
+     "content": {
+      "text/plain": {
+       "schema": {
+        "type": "string"
+       }
+      }
+     },
+     "description": "one line on stdin for the entries that take it (a password, a key)"
+    },
     "description": "a long change starts a job; the `unit` line names it; follow it with `jobs tail`",
     "responses": {
      "0": {

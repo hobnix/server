@@ -19,6 +19,7 @@
   webDocs = true;
   liveState = "off";
   webTerminal = false;
+  recipeQuestionHours = 24;
   webTerminalIdleMinutes = 30;
   webTerminalMaxHours = 8;
   dhcpRange = [ 100 199 ];

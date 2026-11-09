@@ -346,6 +346,24 @@ webTerminal = true'''
 
 [[item]]
 kind = "option"
+key = "recipeQuestionHours"
+page = "access"
+type = "int"
+required = false
+settable = true
+secret = false
+store = "settings"
+default = '24'
+min = 1
+hint = "a whole number of hours, 1 or more"
+doc = '''
+# How long an interactive app setup (hs sys recipes start ... --interactive, the web wizard) waits for the answer to a
+# question, in hours. After that the run is cancelled cleanly and has to be started again. Default 24.'''
+value = '''
+recipeQuestionHours = 24'''
+
+[[item]]
+kind = "option"
 key = "webTerminalIdleMinutes"
 page = "access"
 type = "int"

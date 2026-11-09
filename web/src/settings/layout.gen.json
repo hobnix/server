@@ -29,6 +29,7 @@
   "webDocs": "general",
   "liveState": "cap:live-state",
   "webTerminal": "access",
+  "recipeQuestionHours": "access",
   "webTerminalIdleMinutes": "access",
   "webTerminalMaxHours": "access",
   "nic": "network",
