@@ -1,0 +1,4 @@
+date  = "2026-11-08"
+type  = "fix"
+title = "Removing a package also removes its row from the generated capability list"
+body  = """hs pkg remove now rewrites the generated capability list (/var/lib/hs/generated/capabilities.tsv) without the removed package, so no entry is left behind. Nothing is created on a server that has no such list. Not tested on hardware yet."""

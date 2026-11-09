@@ -147,6 +147,12 @@ case "${1:-list}" in
       grep -vxF -- "$name" "$f" > "$f.tmp" || true
       mv "$f.tmp" "$f"
     done
+    # a package that brought options or a capability row leaves none behind (ADR 0017 rule 16): the generated overlay is rewritten
+    # without it, but only where an overlay exists already (nothing is created for a server that never had a capability package)
+    if [ -f "$st/generated/capabilities.tsv" ]; then
+      PYTHONUTF8=1 "${HS_PYTHON:-python3}" "$here/schema-gen.py" overlay write --packages "$st/packages/current" --out "$st/generated" >/dev/null \
+        || warn "$(t 'The generated capability list could not be refreshed.')"
+    fi
     ok "$(t 'Package %s removed.' "$name")" ;;
   install)
     cmd=$1; shift

@@ -2317,3 +2317,4 @@ The last rebuild took about %s min.	Der letzte Rebuild dauerte etwa %s Min.
 No such events.	Keine solchen Ereignisse.
 Payload	Nutzdaten
 Meaning	Bedeutung
+The generated capability list could not be refreshed.	Die erzeugte Liste der Zusatzmodule konnte nicht aktualisiert werden.
