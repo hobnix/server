@@ -134,7 +134,7 @@ for f in "$repo"/docs/*.md; do
   b=$(basename "$f")
   [ "$b" = README.md ] && continue   # index of the folder on GitHub, not a page
   case "$b" in
-    CLI-DESIGN.md|Entwicklungsnotizen.md|GUIDE-TEMPLATE.md|PLAN-*.md) cp "$f" "$tmp/en/$(slug "${b%.md}").md" ;;
+    CLI-DESIGN.md|Entwicklungsnotizen.md|GUIDE-TEMPLATE.md|PLAN-*.md|RELEASE-*.md) cp "$f" "$tmp/en/$(slug "${b%.md}").md" ;;
     *) awk -v s="$(verified_line "${b%.md}")" '{ print } !done && /^# / { print ""; print s; done = 1 }' "$f" > "$tmp/en/$(slug "${b%.md}").md" ;;
   esac
 done
