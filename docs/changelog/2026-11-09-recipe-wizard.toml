@@ -1,0 +1,7 @@
+date  = "2026-11-09"
+type  = "feature"
+title = "Apps: running a recipe is a step wizard"
+docs  = "containers-and-apps#install-an-app-with-a-recipe"
+body  = """
+The Run dialog of an app now asks in steps (one page per group of questions, the container name, then a review with the plan) instead of one flat form. A recipe can name its pages with `# step:` and `# help:` header lines; the new read `hs sys recipes steps <recipe>` lists them. Passwords still go on standard input only.
+"""

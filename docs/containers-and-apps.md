@@ -325,6 +325,12 @@ To run a recipe a second time under a container name of its own, for a second in
 hs recipe <name> --name <container>
 ```
 
+In the web interface, **Apps** has a button per recipe that opens a step wizard: one page per group of questions, then the container name, then a
+review with the plan the server would run. Back and Next move between pages; Start is only on the review. A password you type goes into the
+container only, never into an argument or the log, and the review shows it as "set". A recipe that needs a person at a terminal shows the command
+to run instead. Recipe authors group questions with `# step: ID|label` and `# help: ID|text` header lines and a 7th field on an `# ask:` line
+(`hs sys recipes steps <recipe>`); a recipe without them shows all questions on one page. Not tested on hardware yet.
+
 A recipe ends with a short text that holds only the clicks that cannot wait (creating the first account, for example). What the app does
 and how to use it is in its own guide: open the **Docs** page of the web interface and look in the group **Apps**. A guide is shown
 there while its package is installed.
