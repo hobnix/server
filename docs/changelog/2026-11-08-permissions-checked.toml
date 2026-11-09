@@ -1,0 +1,4 @@
+date  = "2026-11-08"
+type  = "feature"
+title = "Extensions that use more than their declared permissions are refused"
+body  = """If a package declares `permissions` but its web reads, changes or events are not covered by them, `hs ext enable` refuses it and the web interface ignores its declarations until the list is fixed. Packages without `permissions` are unchanged. This checks the declaration against the manifest; commands still run as root and are not confined."""

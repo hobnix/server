@@ -2322,6 +2322,7 @@ The setup code was used up by wrong tries: sudo hs setup-code issue	Der Einricht
 The first setup is done (admin: %s).	Die erste Einrichtung ist abgeschlossen (Admin: %s).
 No first setup is waiting on this server.	Auf diesem Server wartet keine erste Einrichtung.
 Usage: hs setup-code issue | status | reset	Aufruf: hs setup-code issue | status | reset
+'%s' uses more than it declares in permissions: %s	'%s' nutzt mehr, als in permissions angegeben ist: %s
 %s items need your decision before the app is the same as on Unraid.	%s Punkte brauchen deine Entscheidung, bevor die App so ist wie auf Unraid.
 Cannot read the template: %s	Das Template lässt sich nicht lesen: %s
 Draft written to %s. Nothing was started.	Entwurf nach %s geschrieben. Nichts wurde gestartet.

@@ -143,6 +143,8 @@ cmd_enable() {
   if ext_package_on "$n"; then note "$(t "The extension '%s' is on already." "$n")"; return 0; fi
   why=$(compat_problem "$n" "$d")
   if [ -n "$why" ]; then fail_fix "$(t "'%s' %s." "$n" "$why")" "hs ext list"; fi
+  why=$(python3 "$here/pkg.py" perms-check "$d" "$n" 2>&1 | head -n1) || true
+  if [ -n "$why" ]; then fail_fix "$(t "'%s' uses more than it declares in permissions: %s" "$n" "$why")" "hs ext list"; fi
   mapfile -t cur < <(caps_list)
   for x in ${cur[@]+"${cur[@]}"}; do [ "$x" != "$n" ] || found=1; done
   if has_nix "$d"; then effect_say rebuild; else effect_say now; fi
