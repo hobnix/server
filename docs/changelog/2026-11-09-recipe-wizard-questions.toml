@@ -1,0 +1,4 @@
+date  = "2026-11-09"
+type  = "feature"
+title = "The app setup wizard shows the questions a setup asks while it runs"
+body  = """When an app setup needs an answer in the middle of a run, the wizard shows the question and sends your answer. A setup that waits stays in the job list as waiting for input, and you can answer from there, also from another browser. Not tested on hardware yet."""
