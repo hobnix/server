@@ -19,6 +19,14 @@ const de = {
   Capabilities: 'Funktionen', Advanced: 'Erweitert', Backups: 'Datensicherungen',
   Next: 'Weiter', Back: 'Zurück', Review: 'Überprüfen', 'Back to the questions': 'Zurück zu den Fragen', Change: 'Ändern', 'Apply…': 'Anwenden…', recommended: 'empfohlen',   // the wizard's buttons
   'Sort by': 'Sortieren nach', 'Update all': 'Alle aktualisieren',
+  // Package builder (pages/PackageBuilder.svelte, ADR 0020)
+  'Package builder': 'Paket-Baukasten', 'Write the manifest of a new app or extension': 'Das Manifest einer neuen App oder Erweiterung schreiben',
+  'Write the manifest of a new app or extension; the server checks it as you type. Nothing is saved yet.': 'Das Manifest einer neuen App oder Erweiterung schreiben; der Server prüft es beim Tippen. Noch wird nichts gespeichert.',
+  'App (recipe)': 'App (Rezept)', Extension: 'Erweiterung', Title: 'Titel', Version: 'Version', 'Needs core': 'Braucht Kern', For: 'Für', Script: 'Skript',
+  'Everyone (generic)': 'Alle (generisch)', 'One person (personal)': 'Eine Person (persönlich)',
+  'One per line, for example web.read or net:lan. Declared, not enforced (ADR 0014).': 'Eine pro Zeile, zum Beispiel web.read oder net:lan. Angegeben, nicht erzwungen (ADR 0014).',
+  'Checking…': 'Prüfe…', 'The manifest passes the checks.': 'Das Manifest besteht die Prüfungen.', problem: 'Problem', problems: 'Probleme', Copy: 'Kopieren',
+  'The draft could not be checked.': 'Der Entwurf konnte nicht geprüft werden.',
   // Settings, Releases (settings/Releases.svelte, settings/releases.js)
   Releases: 'Versionen', 'Which version this server follows when it updates.': 'Welcher Version dieser Server beim Aktualisieren folgt.',
   'This server': 'Dieser Server', 'Installed version': 'Installierte Version', 'Next update': 'Nächstes Update', Signature: 'Signatur', valid: 'gültig', 'not valid': 'ungültig',

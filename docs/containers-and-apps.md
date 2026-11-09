@@ -425,6 +425,11 @@ its data twin `hs sys ext <name> list`, `list.sh`, `NOTES.md`, `guide.md` and `i
 version `0.1.0`. The command never overwrites: a folder or an index entry with the same name stops it. A template for capabilities follows
 with the service extensions.
 
+In the web interface the **Package builder** (Marketplace, button at the top) is a form for the manifest of a new app or extension. As you type it
+makes the `package.toml` text and the server checks it with the same rules as `hs pkg validate`; problems appear next to the field. It checks the manifest only
+(the script and its header lines are checked when the package is built) and saves nothing yet: copy the text into your package. Editing the code and
+publishing from the browser are planned (ADR 0020). Not tested on hardware yet.
+
 Replace the example step or command with your own, keep the header lines of `run.sh` and `package.toml` in step, then check the package
 (`<core>` is the checkout of the core, `/etc/nixos` on a server):
 
@@ -583,6 +588,40 @@ bind mount of `/`, `/etc`, `/proc`, `/sys` or `/boot`. Imported only with `--all
 `security_opt` with `unconfined` and `userns_mode: host`. The app is created in the same way as one made in the web editor
 (`apps/stacks/<name>`), which checks the file once more; `--job` runs the start in the background. This is a command only: the web
 interface has the editor for the same job.
+
+### Import an Unraid template
+
+Unraid's Community Apps are XML templates. Turn one into a compose draft and let the compose importer above do the rest:
+
+```bash
+hs docker import-unraid ./plex.xml
+hs docker import-unraid ./plex.xml --name plex --out ./plex-draft
+```
+
+The first line prints the plan only. It lists the image, the published ports, the volumes (only folders under `/mnt/*/appdata`
+map, to `./data/<name>` in the app folder), the **names** of the environment variables, the WebUI address and everything the draft
+cannot carry over: other host paths (your array shares), devices other than `/dev/dri`, a host or custom network, privileged
+mode, `ExtraParams` and `PostArgs`. Values of masked variables, and of names that look like secrets, are never copied; they go as
+empty lines into `app.env`. With `--out <folder>` the draft (`docker-compose.yml`, `app.env`) is written into a new folder; an
+existing folder is never overwritten and nothing is started. Then run `hs docker import <folder>/docker-compose.yml --name <app>
+--env-file <folder>/app.env`, which shows its own plan and asks for the app name. Files you copy from Unraid keep its owner (user
+`nobody`, id 99:100): check the owner of `./data`.
+
+Not tested on hardware yet. UNVERIFIED: only the test templates in `tests/fixtures/unraid/` were used, no real Community Apps
+template.
+
+### Look into a Proxmox vzdump archive
+
+```bash
+hs ct import-vzdump ./vzdump-lxc-100-2026_11_01.tar.zst
+```
+
+Read-only: the archive is streamed, only its `etc/vzdump/pct.conf` is read, nothing is unpacked or created. The plan shows how cores,
+memory, nesting and the root disk would map onto an Incus instance, and lists what does not map (network cards, mount points, raw LXC
+settings, privileged containers). A VM archive (`.vma`) is only recognised: converting its disks is a separate decision. **The
+restore itself is not built**; the plan for it is docs/adr/0024-import-proxmox-vzdump.md.
+
+Not tested on hardware yet. UNVERIFIED: only small archives built by the tests were used, none from a real Proxmox.
 
 Not tested on hardware yet.
 
