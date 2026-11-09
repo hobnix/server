@@ -99,6 +99,7 @@
         : { icon: 'ph-cloud', k: 'Backup', t: 'no backup yet', meta: '', dot: 'warn' });
     }
     if (behind > 0) out.push({ icon: 'ph-arrow-circle-up', k: 'Updates', t: `${behind} new change${behind === 1 ? '' : 's'} upstream`, meta: '', dot: 'info', plan: ['system', ['update'], 'Update'] });
+    if (m.version && m.version[0] && m.version[0] !== '-') out.push({ icon: 'ph-tag', k: 'Version', t: `Hobnix ${m.version[0]}`, meta: '', dot: 'off', to: '/settings/releases' });
     if (m.encryption) {
       const e = m.encryption[0];
       out.push({ icon: e === 'locked' ? 'ph-lock' : 'ph-lock-open', k: 'Encryption', t: { open: 'open', locked: 'locked', none: 'not encrypted' }[e] ?? e, meta: '', dot: e === 'locked' ? 'warn' : 'ok' });

@@ -45,7 +45,7 @@ only.
 Not tested on hardware yet.
 
 The installer image is the minimal NixOS installer plus a copy of this repository and the command `hs-install`. Download
-`homeserver-installer.iso` from the releases of the server repository, or build it yourself:
+`homeserver-installer-<version>.iso` (for example `homeserver-installer-v0.1.0.iso`) from the releases of the server repository, or build it yourself (the file name carries the output of `git describe`; the stick also holds it in `/etc/hs-installer-version`):
 
 ```bash
 bash scripts/dev/build-iso.sh
