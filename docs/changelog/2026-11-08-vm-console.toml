@@ -1,0 +1,5 @@
+date  = "2026-11-08"
+type  = "feature"
+title = "Virtual machines get a Console button (connection only, no picture yet)"
+docs  = "web-interface#the-graphical-console-of-a-virtual-machine"
+body  = """With the browser terminal switched on, a running virtual machine's page has a Console button. It opens a secured connection to the screen of the machine through the web interface; no port is opened. The picture itself is not shown yet because the viewer is not bundled. Not tested on hardware yet."""
