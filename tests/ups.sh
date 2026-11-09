@@ -53,6 +53,8 @@ rm -f "$WORK/upsc.out"
 check_eq "unreachable fails" "1" "$($U show >/dev/null 2>&1; echo $?)"
 
 echo "-- events"
+export HS_EVENT_NOROOT=1 HS_STATE_DB=$WORK/ev.db
+evs() { python3 "$SCRIPTS/state-db.py" event-list 100 | cut -f3-6,8 | tr '\t' ' '; }   # source kind subject level payload
 : > "$CALLS"
 NOTIFYTYPE=ONBATT $U event "UPS ups on battery"
 check_out "power loss = alarm" "notify --category alarm .*power failure" cat "$CALLS"
@@ -61,12 +63,18 @@ check_out "the countdown starts" "run --unit=hs-ups-deadline --on-active=5m" cat
 NOTIFYTYPE=ONLINE $U event "UPS ups on line power"
 check_out "power back = ok" "notify --category ok .*power is back" cat "$CALLS"
 check_out "the countdown is stopped" "ctl stop hs-ups-deadline" cat "$CALLS"
+check_out "event: on battery" "ups onbatt ups warn" evs
+check_out "event: online" "ups online ups info" evs
 : > "$CALLS"
 NOTIFYTYPE=SHUTDOWN $U event "shutting down"
 check_out "shutdown = stop" "notify --category stop" cat "$CALLS"
 : > "$CALLS"
 NOTIFYTYPE=COMMBAD $U event "lost"
 check_out "lost contact = problem" "notify --category problem" cat "$CALLS"
+check_out "event: shutdown" "ups shutdown ups warn" evs
+check_out "event: lost contact" "ups commbad ups warn" evs
+NOTIFYTYPE=NOSUCH $U event x
+check_eq "an unknown NUT event writes nothing" 0 "$(evs | grep -c nosuch)"
 printf 'name=ups\nshutdownMinutes=0\n' > "$HS_UPS_CONF"
 : > "$CALLS"
 NOTIFYTYPE=ONBATT $U event x
@@ -78,6 +86,7 @@ setups "OB DISCHRG" 50
 : > "$CALLS"
 $U deadline
 check_out "still on battery: forced shutdown" "upsmon -c fsd" cat "$CALLS"
+check_eq "event: the deadline" 2 "$(evs | grep -c "ups shutdown")"
 setups OL 100
 : > "$CALLS"
 $U deadline

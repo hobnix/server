@@ -11,6 +11,8 @@ printf '%s|%s|%s|%s\n' "$2" "$4" "$1 $3" "$5" >> "$FAKE_SENT"
 F
 chmod +x "$HS_BACKUP_NOTIFY"
 export FAKE_SENT=$WORK/sent
+export HS_EVENT_NOROOT=1 HS_STATE_DB=$WORK/ev.db
+evs() { python3 "$SCRIPTS/state-db.py" event-list 100 | cut -f3-6,8 | tr '\t' ' '; }
 hsb() { bash "$SCRIPTS/backup.sh" "$@"; }
 now=$(date +%s); day=86400
 echo pw > "$ST/restic-password"
@@ -28,6 +30,8 @@ check_out "the dry run sends nothing" "nothing sent" echo "$out"
 check "no message went out" test ! -e "$FAKE_SENT"
 hsb report >/dev/null 2>&1
 check_out "a real run sends it with low priority" "restore drills are fine.*low" cat "$FAKE_SENT"
+check_out "event: the report, no problems" "backup report info info {\"problems\":0}" evs
+check_eq "the dry run wrote no event" 1 "$(evs | grep -c .)"
 
 echo "-- overdue and failed"
 rm -f "$FAKE_SENT"
@@ -48,6 +52,7 @@ done
 hsb report >/dev/null 2>&1
 check_out "problems go out with high priority" "to look at.*high" cat "$FAKE_SENT"
 check_out "and as a problem" "^problem[|]" cat "$FAKE_SENT"
+check_out "event: the report with problems is a warn" "backup report problem warn {\"problems\":[1-9]" evs
 
 echo "-- the schedule"
 check_eq "a server without a backup does nothing on the timer" "" "$(HS_STATE_DIR=$WORK/none bash "$SCRIPTS/backup.sh" report --scheduled 2>&1)"

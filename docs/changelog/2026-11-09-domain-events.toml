@@ -1,0 +1,4 @@
+date  = "2026-11-09"
+type  = "feature"
+title = "Backups, updates, health, UPS and power write to the event log"
+body  = """A backup run, an update (started, finished, failed, rolled back), a new or resolved health problem, a UPS event, a start or shutdown and an unlock now each leave one event next to their push message, so the Events view and hs events show them. Nothing is written on every poll, only when something changed, and no event holds a secret. Not tested on hardware yet."""

@@ -67,6 +67,7 @@ ON=$STATE/backup-on              # shares included on purpose, one per line (onl
 # "off" = a share is in the backup only when it was switched on; "on" = in unless switched off.
 # Without the file (a server that was not rebuilt yet) nothing changes: "on".
 . "$(dirname "$0")/lib/sharepath.sh"
+. "$(dirname "$0")/lib/event.sh"   # event_emit: backup.ok, backup.failed, backup.report (best effort)
 . "$(dirname "$0")/lib/setting.sh"   # backupNewShares is a runtime setting now (true|false); the old /etc/hs file (on|off) is its fallback
 NEW_SHARES=${HS_BACKUP_NEW_SHARES:-$(case "$(setting_get backupNewShares 2>/dev/null)" in false|off) echo off ;; *) echo on ;; esac)}
 CTS=$STATE/backup-instances      # containers included, one per line
@@ -445,11 +446,13 @@ cmd_now() {
              "repo_size=$(du -sh "$REPO" 2>/dev/null | cut -f1 || echo '?')"
   if [ "$fail" = 0 ]; then
     note_state "last_ok=$(date +%s)" "status=ok"
+    event_emit backup.ok backup "Backup finished"
     grep -q '^first_ok=' "$RESULT" 2>/dev/null || note_state "first_ok=$(date +%s)"
     ok "Backup finished."
     note "See what is in it: hs backup status"
   else
     note_state "status=failed"
+    event_emit backup.failed backup "Backup finished with errors"
     note "Details: journalctl -u hs-backup. Try again: hs backup now"
     die "Backup finished with errors (see above)."
   fi
@@ -810,6 +813,7 @@ cmd_report() {
   fi
   line "$title"
   printf '%s\n' "$msg"
+  event_emit backup.report "$cat" "Restore drill report" --level "$([ "$problems" -eq 0 ] && echo info || echo warn)" --payload "{\"problems\":$problems}"
   if [ -n "${HS_BACKUP_NOTIFY:-}" ]; then
     "$HS_BACKUP_NOTIFY" --category "$cat" "$title" "$msg" "$prio"
   else

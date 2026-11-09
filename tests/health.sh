@@ -22,6 +22,25 @@ check_out "a failed run is reported" "errors" hc
 printf 'last_ok=%s\nstatus=ok\nused_pct=90\n' "$now" > "$WORK/backup.state"
 check_out "a full backup disk is reported" "90% full" hc
 
+echo "-- events: the change of the problem set, not every run"
+export HS_EVENT_NOROOT=1 HS_STATE_DB=$WORK/ev.db HS_SINCE_FILE=$WORK/health-since
+hevs() { python3 "$SCRIPTS/state-db.py" event-list 100 | cut -f3,4,6 | tr '\t' ' '; }
+rm -f "$HS_SINCE_FILE"
+printf 'last_ok=%s\nstatus=failed\nused_pct=40\n' "$now" > "$WORK/backup.state"
+hc >/dev/null
+check_eq "the first run only takes the baseline" 0 "$(hevs | grep -c . || true)"
+hc >/dev/null
+check_eq "a problem that stays says nothing" 0 "$(hevs | grep -c . || true)"
+printf 'last_ok=%s\nstatus=ok\nused_pct=95\n' "$now" > "$WORK/backup.state"
+hc >/dev/null
+check_out "a new problem is one event" "health new warn" hevs
+check_out "a gone problem is one event" "health resolved info" hevs
+n=$(hevs | grep -c . || true)
+hc >/dev/null
+check_eq "the next run adds nothing" "$n" "$(hevs | grep -c . || true)"
+printf 'last_ok=%s\nstatus=ok\nused_pct=40\n' "$now" > "$WORK/backup.state"
+unset HS_SINCE_FILE
+
 echo "-- a temp disk left mounted"
 mount -t tmpfs t "$WORK/t/old"; mount -t tmpfs t "$WORK/t/new"
 echo $((now - 3 * 86400)) > "$WORK/run/temp-old.since"; echo "$now" > "$WORK/run/temp-new.since"

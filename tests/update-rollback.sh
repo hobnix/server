@@ -59,6 +59,8 @@ FAKE
 chmod +x "$BIN"/* "$WORK/health"
 export WORK HS_HEALTH_CHECK=$WORK/health HS_HEALTH_WINDOW=0 HS_HEALTH_INTERVAL=0
 export PATH="$BIN:$PATH"
+export HS_EVENT_NOROOT=1 HS_STATE_DB=$WORK/ev.db
+evs() { python3 "$SCRIPTS/state-db.py" event-list 100 | cut -f3-6,8 | tr '\t' ' '; }   # source kind subject level payload, oldest first is not promised: use grep
 
 R="bash $SCRIPTS/rebuild.sh"
 reset() { echo gen-old > "$HS_CURRENT_SYSTEM"; rm -f "$HS_CURRENT_SYSTEM.failed"; : > "$FAKE_LOG"; : > "$PUSH_LOG"; rm -f "$STATE/last-rebuild-rev" "$WORK"/hk.*; unset FAKE_MODE FAKE_SSHD FAKE_INCUS FAKE_FAILED FAKE_ROLLBACK_FAILS HS_NO_ROLLBACK HS_UPDATE_YES HS_GUIDED_TTY; export FAKE_MODE=ok; }
@@ -70,6 +72,7 @@ reset; export HS_UPDATE_NOTIFY=1
 check "the rebuild succeeds" $R
 check_eq "no rollback" 0 "$(rollbacks)"
 check_eq "the new generation runs" gen-new "$(running)"
+check_out "event: update finished" "update finished .* info" evs
 check_eq "the stamp holds the revision" "rev=$HEAD" "$(sed -n 1p "$STATE/last-rebuild-rev" 2>/dev/null)"
 
 echo "-- hs rebuild alone writes the stamp but never rolls back"
@@ -95,6 +98,8 @@ check_eq "one rollback" 1 "$(rollbacks)"
 check_eq "the old generation runs again" gen-old "$(running)"
 check "the update still fails" bash -c "! $R"
 grep -q "update rolled back" "$PUSH_LOG" && pass "push message: rolled back" || fail "push message: rolled back"
+check_out "event: rolled back (warn)" "update rolled-back .* warn" evs
+check_out "event: failed with the exit code" "update failed .* error {\"exit\":[0-9]+}" evs
 check "no stamp after a rollback" test ! -e "$STATE/last-rebuild-rev"
 
 echo "-- sshd down after the switch"

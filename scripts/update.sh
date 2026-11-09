@@ -18,6 +18,7 @@
 set -euo pipefail
 . "$(dirname "$0")/lib/ui.sh"
 . "$(dirname "$0")/lib/live.sh"
+. "$(dirname "$0")/lib/event.sh"
 . "$(dirname "$0")/lib/locked.sh"
 . "$(dirname "$0")/lib/stamp.sh"
 . "$(dirname "$0")/lib/update-channel.sh"
@@ -135,6 +136,7 @@ if [ -n "$new" ] && [ "$ask_new" != no ]; then
   fi
   if $stop; then
     note "$(t 'Edit %s, then run: hs rebuild' "${HS_MACHINE_FILE:-$repo/machine.toml}")"
+    event_emit update.stopped "$(hostname)" "New options wait in machine.toml"
     bash "$(dirname "$0")/notify.sh" --category info "$(hostname): update stopped" "The new configuration is fetched. Set the new options in machine.toml, then run \`hs rebuild\`." low || true
     exit 0
   fi
@@ -155,6 +157,7 @@ if ( . "$(dirname "$0")/lib/capability.sh"; capability_on notifications ) 2>/dev
   bash "$(dirname "$0")/notify-channel.sh" migrate >/dev/null 2>&1 || true
 fi
 
+event_emit update.started "$(hostname)" "hs update is running"
 bash "$(dirname "$0")/notify.sh" --category start "$(hostname): update started" "\`hs update\` is running." low || true
 [ "$old" = "$rev_now" ] || export HS_UPDATE_FROM=$old   # rebuild.sh counts the new changelog entries since then
 export HS_UPDATE_NOTIFY=1   # rebuild.sh sends "update finished" / "update failed"

@@ -20,6 +20,7 @@ here=$(dirname "$0")
 . "$here/lib/bulklock.sh"
 . "$here/lib/capability.sh"
 . "$here/lib/channels.sh"
+. "$here/lib/event.sh"
 state=${HS_HEALTH_STATE:-/var/lib/hs/health.state}   # override for tests
 ack_file=${HS_ACK_FILE:-/var/lib/hs/health-ack}      # key TAB time: problems somebody acknowledged (hs health ack)
 host=$(hostname)
@@ -422,6 +423,13 @@ if [ -r "$since_file" ]; then
   while IFS=$'\t' read -r sk st; do [[ "$st" =~ ^[0-9]+$ ]] && since[$sk]=$st; done < "$since_file"
 fi
 if ! $test_msg && { mkdir -p "$(dirname "$since_file")" 2>/dev/null; [ -w "$(dirname "$since_file")" ] && { [ ! -e "$since_file" ] || [ -w "$since_file" ]; }; }; then
+  # events for the change of the problem set (health.new / health.resolved): only where the since file really changes, so a repeated run
+  # says nothing; the first run (no since file yet) only takes the baseline
+  if [ -e "$since_file" ]; then
+    declare -A now_has=()
+    for k in "${keys[@]}"; do now_has[$k]=1; [ -n "${since[$k]:-}" ] || event_emit health.new "$k"; done
+    for k in "${!since[@]}"; do [ -n "${now_has[$k]:-}" ] || event_emit health.resolved "$k"; done
+  fi
   {
     for k in "${keys[@]}"; do printf '%s\t%s\n' "$k" "${since[$k]:-$now}"; done
   } > "$since_file.new" 2>/dev/null && mv "$since_file.new" "$since_file" || rm -f "$since_file.new"
