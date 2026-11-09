@@ -7231,7 +7231,7 @@
   "/pkg/plan/{action}": {
    "post": {
     "operationId": "pkg.plan.by_action",
-    "summary": "what installing, updating or removing a package, fetching, or adding or removing a repository would do, as data: status, plan lines (never asks; exit 0 ok, 1 refused)",
+    "summary": "what installing, updating or removing a package, fetching, or adding or removing a repository would do, as data: status, plan lines (never asks; exit 0 ok, 1 refused); check-draft checks a package.toml draft on stdin (finding lines, changes nothing)",
     "x-hs-exit": true,
     "x-hs-sys": {
      "words": [

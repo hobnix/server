@@ -1537,7 +1537,7 @@ export interface SysOperations {
     lines: string[][];
   };
   "pkg.plan.by_action": {
-    /** what installing, updating or removing a package, fetching, or adding or removing a repository would do, as data: status, plan lines (never asks; exit 0 ok, 1 refused) */
+    /** what installing, updating or removing a package, fetching, or adding or removing a repository would do, as data: status, plan lines (never asks; exit 0 ok, 1 refused); check-draft checks a package.toml draft on stdin (finding lines, changes nothing) */
     words: ["pkg", "plan", "<action>"];
     path: "/pkg/plan/{action}";
     method: "post";

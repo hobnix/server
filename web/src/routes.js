@@ -24,6 +24,7 @@ import IsoLibrary from './pages/IsoLibrary.svelte';
 import Extension from './pages/Extension.svelte';
 import Apps from './pages/Apps.svelte';
 import Marketplace from './pages/Marketplace.svelte';
+import PackageBuilder from './pages/PackageBuilder.svelte';
 import Services from './pages/Services.svelte';
 import Docker from './pages/Docker.svelte';
 import Registries from './pages/docker/Registries.svelte';
@@ -73,6 +74,7 @@ export const routes = {
   '/instances/iso': IsoLibrary,
   '/instances/apps': Apps,
   '/marketplace': Marketplace,
+  '/marketplace/builder': PackageBuilder,
   '/instances/services': Services,
   '/instances/docker': Docker,
   '/instances/docker/registries': Registries,

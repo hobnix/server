@@ -1047,7 +1047,9 @@ CHANGES = {
             [r"^(update|remove)$", r"^[a-z0-9][a-z0-9-]{0,40}$"],
             [r"^fetch$"], [r"^fetch$", r"^[a-z0-9][a-z0-9-]{0,40}$"],
             {"fixed": [r"^repo-add$", r"^[a-z0-9][a-z0-9-]{0,40}$", r"^(https://|ssh://git@|git@)[A-Za-z0-9._:/@~+-]{3,200}$"], "stdin": True},
-            [r"^repo-remove$", r"^[a-z0-9][a-z0-9-]{0,40}$"]],
+            [r"^repo-remove$", r"^[a-z0-9][a-z0-9-]{0,40}$"],
+            # the package builder (ADR 0020): a package.toml draft as text on stdin, checked by pkg.py, never written anywhere (plan only)
+            {"fixed": [r"^check-draft$"], "document": True}],
     # an answer is `--set KEY=value` (no control characters); the one secret answer of a recipe is a single line on stdin
     "recipes": [{"fixed": [r"^[a-z0-9][a-z0-9-]{0,40}$", r"^run$"],
                  "opts": {"--name": (r"^[a-z0-9][a-z0-9-]{0,40}$", False), "--set": (r"^[A-Z][A-Z0-9_]{0,30}=[^\x00-\x1f]{0,300}$", True)}, "stdin": True}],
@@ -1237,8 +1239,16 @@ def _selection_ok(sel):
     return total <= FM_SELECTION_BYTES
 
 
+DRAFT_MAX = 65536      # bytes of a package.toml draft
+
+
 def _document_bytes(doc):
     """-> bytes or None. Validates the docker app-save document and serializes it deterministically."""
+    if isinstance(doc, dict) and set(doc) == {"manifest"}:     # a package.toml draft (pkg check-draft)
+        m = doc["manifest"]
+        if not isinstance(m, str) or "\0" in m or len(m.encode("utf-8")) > DRAFT_MAX:
+            return None
+        return m.encode("utf-8")
     if isinstance(doc, dict) and set(doc) == {"compose", "env"}:
         compose, env = doc["compose"], doc["env"]
         if not isinstance(compose, str) or "\0" in compose or len(compose.encode("utf-8")) > DOC_COMPOSE_MAX:
