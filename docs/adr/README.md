@@ -38,4 +38,6 @@ Issue: hobnix/server#<n>
 | [0016](0016-isolating-package-web-components.md) | Package UI stays declarative; third-party code, if ever allowed, runs in a sandboxed iframe | Proposed |
 | [0017](0017-capabilities-repository-and-channels.md) | hobnix/capabilities: vendored `module.nix` (pure evaluation), overlay on the machine, CI across repositories, wizard step, channels, release flow | Proposed |
 | [0019](0019-vm-gpu-pci-passthrough.md) | VM hardware step: detect IOMMU groups first, pass through by PCI address, bridge by default | Proposed |
+| [0020](0020-webui-package-builder.md) | The web package builder: a form over the CLI validator, drafts kept apart, publish by pull request or archive; never signs | Proposed |
 | [0022](0022-first-run-console-token.md) | First-run web setup: one-time console token, single use, expiry, burn counter, bound to the local admin | Proposed |
+| [0024](0024-import-proxmox-vzdump.md) | Proxmox vzdump import: read-only plan built, restore into an Incus instance and VM archives proposed | Proposed |
