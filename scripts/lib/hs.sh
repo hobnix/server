@@ -336,6 +336,9 @@ long_guard() {   # long_guard <args...>
   [ -z "${HS_CALLER:-}" ] || return 0
   { [ -t 1 ] || [ -n "${HS_FORCE_TTY:-}" ]; } || return 0
   local a=() x fg=0
+  for x in "$@"; do   # a plan or a help text is not the long work: no offer
+    case "$x" in --dry-run|-h|--help) return 0 ;; esac
+  done
   for x in "$@"; do if [ "$x" = --foreground ]; then fg=1; else a+=("$x"); fi; done
   set -- ${a[@]+"${a[@]}"}
   [ "$fg" = 0 ] || { rest=("$@"); return 0; }

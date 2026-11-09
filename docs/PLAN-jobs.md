@@ -46,8 +46,9 @@ Legend: JOB = always a job; ASK = CLI offers a job (long_guard or own); FG = run
 | vps update | long | JOB; vps watch JOB too |
 | admin cache-mover, fans-clean | long | JOB; test-push, pin-macs WEB-INLINE |
 | jobs run <timer> | long | starts the timer's service (not hs_job) |
-| pkg fetch, repo-add (plan says `long yes`) | network, can be slow | **WEB-INLINE** — contradicts its own `long yes` |
-| pkg install/update/remove, repo-remove | install/update run code as root | WEB-INLINE |
+| pkg fetch | network, can be slow | JOB (`sys pkg start fetch` answers `status started` + `unit`; #388) |
+| pkg repo-add | network, one repository | WEB-INLINE on purpose: the person needs the answer (accepted, or refused and not kept) at once; its plan says `long no` (#388) |
+| pkg install/update/remove, repo-remove | install/update run code as root | WEB-INLINE (re-checked 2026-11-09 in scripts/pkg-change.sh: no `hs_job`) |
 | config set/apply/sync/migrate, part enable/disable | effect at next rebuild | WEB-INLINE (no rebuild started) |
 | node, peer (offer/add/attach/…), net setup, notify, ssh-key, expiry, health, docker-registry | short | WEB-INLINE |
 
@@ -58,15 +59,19 @@ Legend: JOB = always a job; ASK = CLI offers a job (long_guard or own); FG = run
 | rows flagged `long`: cache-mover, backup now/drill/drill ct/verify/prune, temp-disk copy, disk temp copy, disk <d> recover, disk <d> move, ct <ct> update, pool <p> sync, system gc, docker enable, docker move-apps | yes | ASK (long_guard) |
 | pool <p> add/replace/remove/convert/close/open | destructive, long | ASK only for bulk + snapraid (`offer_job`); ZFS: FG |
 | ct update-all | long | ASK (`--background`/`--foreground`) |
-| update, rebuild, system update, system rebuild | long (minutes) | FG (no `long` flag) |
+| update, rebuild | long (minutes) | ASK (`long` flag, #388) |
+| system update, system rebuild | long (minutes) | the web runs them as a job (system-change.sh); the CLI words are `hs update` / `hs rebuild` |
+| storage incident replace | long, destructive | ASK (`long` flag; was missing from this table) |
 | system rollback | destructive | FG |
 | backup restore, backup init, backup offsite | long / destructive | FG |
 | share <s> restore, share <s> rollback, share restore-kept, share cleanup, share repair | long / destructive | FG |
 | ct <ct> restore, ct <ct> remove, ct add, ct <ct> storage remove | destructive / long | FG |
 | disk <d> detach/attach, disk replace, disk <d> test, disk selftest, disk baseline run | long / destructive | FG |
-| vault move, vault init, vault close | long / destructive | FG |
+| vault move | long (copies secrets) | ASK (`long` flag, #388; it asks nothing, so a job loses no question) |
+| vault init, vault close | destructive | FG |
 | user <u> remove, group <g> remove, user flush | destructive | FG |
-| pkg install/update/remove/fetch, ext enable/disable | runs code / network | FG |
+| pkg install/update/remove, ext enable/disable | runs code / network | FG |
+| pkg fetch | network | FG on the CLI (a few seconds to a minute; the web uses a job) |
 | docker disable | destructive | FG (unverified whether docker.sh `as_job` is used for disable) |
 | shutdown, reboot | destructive | FG (power.sh) |
 | migrate, first-run, installer, preset apply | long | FG |
@@ -116,4 +121,17 @@ Risks: the tables come from Grep of `hs_job` calls and `long` lines, so an actio
 
 ## Unified design
 
-To be written (epic #128).
+Decided in #388 (2026-11-09), from the code on develop, not from a running server.
+
+**The rule.** A job is right when the work is long, the person does not need to answer anything while it runs, and a closed terminal must not stop it. A command that asks mid-run (a typed name after a plan, a choice) stays in the foreground, because a job has no terminal and would lose the question (ADR 0018 plans the answer protocol for recipes). The CLI offers a job through the `long` registry flag (`long_guard`, scripts/lib/hs.sh): on a terminal only, never when `HS_CALLER` is set, `--foreground` skips, and since #388 `--dry-run`, `-h` and `--help` are not offered a job either. The web runs a change as a job when its `*-change.sh` calls `hs_job`; `long yes|no` in a plan is display only.
+
+| Command | Decision | Why |
+|---|---|---|
+| `update`, `rebuild` | `long` flag: offer a job | minutes; the web already does the same through system-change.sh. In a job the questions of `update.sh` take their no-terminal answers (a beta or edge channel stops with exit 3 without `--yes`; a failed switch rolls back at once). |
+| `vault move` | `long` flag | it asks nothing |
+| `pkg fetch` (web) | job: `status started` + `unit` | long network read, the answer is only "done" |
+| `pkg repo-add` (web) | stays inline, plan says `long no` | the person needs "accepted" or "refused, not kept" at once |
+| `system rollback` | FG | destructive, asks, short once it runs |
+| `backup restore`, `share restore|rollback`, `ct restore|remove`, `disk detach|replace` | FG for now | each asks a typed name or a choice after its plan; offering a job after the confirmation (as `manage-pool.sh offer_job` does for bulk pools) is the way, one command per change. Not done here. |
+
+**Not verified:** the web path of `disk detach` and `disk replace` (scripts/disk-change.sh has `hs_job` only for `wipe` and `temp-copy`, so they probably run inline there); no row of this plan was checked on a running server with systemd. Step and progress reporting is #389.
