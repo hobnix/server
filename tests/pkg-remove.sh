@@ -47,6 +47,17 @@ check "its off mark is gone" bash -c "! grep -qx base '$HS_STATE_DIR/capabilitie
 check "installed.toml has no row for it" bash -c "! grep -q 'package.base' '$HS_STATE_DIR/packages/installed.toml'"
 check "others stay" grep -q 'package.top' "$HS_STATE_DIR/packages/installed.toml"
 check "another package's on mark stays" grep -qx other "$HS_STATE_DIR/capabilities-on"
+echo "-- the generated overlay"
+mkdir -p "$HS_STATE_DIR/generated"
+mk gone extension
+printf 'name = "gone"\nversion = "1.0.0"\ntitle = "Gone"\n' > "$HS_STATE_DIR/packages/current/gone/capability.toml"
+python3 "$SCRIPTS/schema-gen.py" overlay write --packages "$HS_STATE_DIR/packages/current" --out "$HS_STATE_DIR/generated" >/dev/null
+check "the overlay lists the package" grep -q '^gone	' "$HS_STATE_DIR/generated/capabilities.tsv"
+check "removing it" $PKGSH remove gone --yes
+check "the overlay row is gone" bash -c "! grep -q '^gone	' '$HS_STATE_DIR/generated/capabilities.tsv'"
+rm -rf "$HS_STATE_DIR/generated"
+mk gone2 extension
+check "no overlay is created where there was none" bash -c "$PKGSH remove gone2 --yes && test ! -e '$HS_STATE_DIR/generated'"
 check "a recipe is removed with --yes" $PKGSH remove app --yes
 check "and its folder is gone" test ! -e "$HS_STATE_DIR/packages/current/app"
 finish
