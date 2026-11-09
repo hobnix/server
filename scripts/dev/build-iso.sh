@@ -14,6 +14,8 @@ fi
 # commit, so a stick built from it makes no git checkout (scripts/lib/checkout.sh). HS_ISO_DESCRIBE / HS_ISO_COMMIT in the environment win (CI).
 if [ -z "${HS_ISO_DESCRIBE+x}" ]; then
   HS_ISO_DESCRIBE=$(git describe --tags --always 2>/dev/null || true)
+  # CI checks out one commit without tags (actions/checkout): on a tag build the tag is the version
+  if [ "${GITHUB_REF_TYPE:-}" = tag ] && [ -n "${GITHUB_REF_NAME:-}" ]; then HS_ISO_DESCRIBE=$GITHUB_REF_NAME; fi
   if [ -n "$(git status --porcelain --untracked-files=no 2>/dev/null)" ]; then HS_ISO_DESCRIBE=${HS_ISO_DESCRIBE:+$HS_ISO_DESCRIBE-}dirty; HS_ISO_COMMIT=""; fi
 fi
 [ -n "${HS_ISO_COMMIT+x}" ] || HS_ISO_COMMIT=$(git rev-parse HEAD 2>/dev/null || true)
