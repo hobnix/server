@@ -1,0 +1,19 @@
+<?xml version="1.0"?>
+<Container version="2">
+  <Name>plex</Name>
+  <Repository>lscr.io/linuxserver/plex:1.41.0</Repository>
+  <Network>bridge</Network>
+  <Privileged>false</Privileged>
+  <WebUI>http://[IP]:[PORT:32400]/web</WebUI>
+  <ExtraParams>--runtime=nvidia</ExtraParams>
+  <Config Name="WebUI" Target="32400" Default="32400" Mode="tcp" Type="Port" Display="always" Required="true" Mask="false">32400</Config>
+  <Config Name="DLNA" Target="1900" Default="1900" Mode="udp" Type="Port">1900</Config>
+  <Config Name="Config" Target="/config" Default="/mnt/user/appdata/plex" Mode="rw" Type="Path">/mnt/user/appdata/plex</Config>
+  <Config Name="Media" Target="/data" Default="/mnt/user/media" Mode="ro" Type="Path">/mnt/user/media</Config>
+  <Config Name="PUID" Target="PUID" Default="99" Type="Variable" Mask="false">99</Config>
+  <Config Name="PGID" Target="PGID" Default="100" Type="Variable" Mask="false">100</Config>
+  <Config Name="Claim" Target="PLEX_CLAIM" Default="" Type="Variable" Mask="true">claim-secretvalue</Config>
+  <Config Name="GPU" Target="" Default="/dev/dri" Type="Device">/dev/dri</Config>
+  <Config Name="Tuner" Target="" Default="/dev/dvb" Type="Device">/dev/dvb</Config>
+  <Config Name="Icon" Target="net.unraid.docker.icon" Type="Label">https://example.invalid/plex.png</Config>
+</Container>
