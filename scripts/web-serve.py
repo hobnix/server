@@ -773,6 +773,8 @@ READS = {
     ("ct", "snapshots"): {"kind": "tsv", "ttl": 10, "args": [NAME]},
     ("jobs", "list"): {"kind": "tsv", "ttl": 10, "topic": "jobs-list"},
     ("jobs", "running"): {"kind": "tsv", "ttl": 3, "topic": "jobs-running"},
+    ("jobs", "records"): {"kind": "tsv", "ttl": 0, "query": {"state": (r"^(queued|running|ok|failed|cancelled|interrupted)$", "--state"), "n": (r"^[0-9]{1,3}$", "")}},   # job records, newest first (ADR 0004); the page follows job.* events
+    ("jobs", "record"): {"kind": "json", "ttl": 0, "args": [r"^[0-9]{8}-[0-9]{6}-[A-Za-z0-9-]{1,60}-[a-z]{4}$"]},
     ("jobs", "tail"): {"kind": "tsv", "ttl": 0, "args": [UNIT], "query": {"from": (r"^[0-9]{1,7}$", "")}},
     ("system", "updates"): {"kind": "tsv", "ttl": 30, "topic": "system-updates"},
     ("release", "show"): {"kind": "tsv", "ttl": 30},        # the update channel and what the next update does (release-channel.sh)
