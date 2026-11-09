@@ -1,7 +1,7 @@
 # 0018: Interactive recipe runs through an orchestrator job
 
-Status: Proposed
-Issue: to be filed when the owner accepts the direction (none exists yet). Builds on ADR 0004 (job record), 0005 (events), 0006 (API in front
+Status: Accepted (2026-11-09)
+Issue: to be filed (none exists yet); the follow-ups are listed under Consequences. Builds on ADR 0004 (job record), 0005 (events), 0006 (API in front
 of the CLI) and 0012 (roles); it extends 0004, it does not replace it.
 
 "Verified" below means read in the code of this repository on origin/develop (2026-11-08). Everything in the Decision is a design and is
@@ -34,7 +34,7 @@ question only exists because of what an earlier step found.
 
 ## Decision
 
-Direction chosen by the owner: option 3, an orchestrator. It is delivered in three stages (rule 12) so the web improves before the hard part exists.
+Direction chosen by the owner: option 3, an orchestrator. The owner answered the open points on 2026-11-09; the answers are rules 3, 4, 11, 12, 12b, 14, 15 and 16. It is delivered in two stages (rule 12) so the web improves before the hard part exists.
 
 ### Job model
 
@@ -50,12 +50,11 @@ Direction chosen by the owner: option 3, an orchestrator. It is delivered in thr
 3. **New state `waiting`** ("waiting for input"), not terminal. The orchestration job goes `running` -> `waiting` while a question is pending and back
    to `running` when it is answered; the sub-job that asked stays `running` (it is blocked in `ask_q`). `hs job` and the jobs page list it as
    active; `cancel` works from it; reconcile turns a `waiting` job whose unit is gone into `interrupted` like `running` (ADR 0004 rule 6).
-   This **extends ADR 0004 rule 4** ("only these states"); the enum of `sys jobs records` gains `waiting`. Whether a state or a field
-   (`running` plus `waiting != null`) is better is an open point: a state is visible everywhere without code, but any consumer that switches on
-   the state breaks on a value it does not know.
+   This **extends ADR 0004 rule 4** ("only these states"); the enum of `sys jobs records` gains `waiting`. **Decided by the owner: a real state, not a field.** The price: any consumer
+   that switches on the state breaks on a value it does not know, so the jobs page, timers and `hs job` are updated with it.
 4. **Events** (new kinds in `event-kinds.tsv`, regenerate docs/events.md): `job.waiting` (subject = orchestration id, payload `{key, kind}`,
    never a label that may contain a value, never an answer) and `job.resumed`. They give the web a `changed` on the jobs topic at once
-   and the push channel something to notify on (open point).
+   and the push channel something to notify on: a job that goes `waiting` sends one notification through `notify.sh` (owner decision; the text names the recipe and the question label, never a value).
 
 ### Question and answer protocol
 
@@ -75,7 +74,7 @@ Direction chosen by the owner: option 3, an orchestrator. It is delivered in thr
    written by a plain shell test. An empty line means "take the default" for `text`; a `secret` has none.
 8. **Validation and retries.** The step's own check is the only authority (the same code the CLI runs). On a refusal it calls `ask_q` again with
    the same key, `error` set to one plain English line and `attempt + 1`; the record's `waiting` shows it and the web shows it under the field
-   (the browser translates known `error` codes, a free text stays English: open point). The error line must never contain the value. After 10 attempts
+   (the browser translates known `error` codes, a free text stays English: rule 16). The error line must never contain the value. After 10 attempts
    the sub-job fails with `error.category = input_rejected` (the tty loop has no limit; a job that waits forever on a bad answer is worse).
    The answer API only checks what the step cannot misjudge: shape, `seq`, `key`, choices.
 
@@ -98,8 +97,8 @@ Direction chosen by the owner: option 3, an orchestrator. It is delivered in thr
 11. **Three changes, no new mechanism.** `docs/api/sys.toml`, `registry.tsv`, `openapi.json` and `sys.gen.d.ts` are regenerated in the same commit
     (CLAUDE.md rules), and a new row needs a role (ADR 0012 rule 2):
     - `sys recipes start <recipe> run --interactive`: same answers as today, returns `unit` and `job` (the record id). Role `app-manager`.
-    - `sys jobs answer <id> --seq N --key K` (stdin line): role `app-manager`, **and** the person must be the initiator or an `admin`
-      (open point: is that too strict for a household?). Writes an audit line with key and role, never the value.
+    - `sys jobs answer <id> --seq N --key K` (stdin line): role `app-manager`, **and** the person must be the job's initiator or an `admin`
+      (owner decision; anyone else gets 403 and nothing is written). Writes an audit line with key and role, never the value.
     - `sys jobs children <id>` (read, tsv, role `viewer`): the sub-jobs of an orchestration. A new row because the columns of `sys jobs records`
       are a contract; the `parent`, `kind`, `waiting` fields are additive in the JSON of `sys jobs record <id>`, which is what the web polls.
     The web watches `GET /api/events` (`changed` on the jobs topic), reads `jobs record <id>`, shows the question when `waiting` is set, and POSTs the
@@ -110,8 +109,9 @@ Direction chosen by the owner: option 3, an orchestrator. It is delivered in thr
 
 12a. **The browser closes mid-run.** Nothing breaks: the job runs until the next question and then sits in `waiting`. The jobs page lists it
     ("waiting for input", with a button that opens the same question dialog from the record), so the person can come back from another browser.
-12b. **A question times out** after 24 hours (setting to be added to config/schema.toml, so `schema-gen.py` and docs are involved): the sub-job
-    fails with `error.category = input_timeout`, the orchestration ends `failed`, the directory is removed. The message says "run it again".
+12b. **A question times out** after 24 hours (owner decision; a setting to be added to config/schema.toml, so `schema-gen.py` and docs are involved):
+    the orchestration is **cancelled cleanly**: it stops the sub-job at a safe point (`hs_job_cancelled`), ends `cancelled` with
+    `error.category = input_timeout`, and the directory is removed. The message says "run it again".
 12c. **Resume = run again.** Recipes are safe to run again (their header says so) and `setting` already stores non-secret answers, so a
     new run asks only what is still unknown, a secret again. No step-level resume or checkpoint file is built (a half-done step is not
     something to trust; the recipe's idempotence is the checkpoint). This rests on that idempotence **not verified for every recipe**; a recipe
@@ -123,23 +123,30 @@ Direction chosen by the owner: option 3, an orchestrator. It is delivered in thr
 
 ### Migration in three stages
 
-12. Each stage is useful alone and is its own PR series; no stage changes an existing `hs sys` line.
-    1. **Static step wizard** (web only plus headers). Recipe headers gain `# step: ID|label` and `# help: ID|text`, and a trailing field `step` on
+12. Two stages, each its own PR series; no stage changes an existing `hs sys` line. **Stage 2 (plan-first dry run) is dropped** by the owner:
+    the orchestrator makes it unnecessary, and a plan that guesses what a run will ask is worse than asking when it matters.
+    1. **Static step wizard** (web only plus headers), first. Recipe headers gain `# step: ID|label` and `# help: ID|text`, and a trailing field `step` on
        `# ask:` lines (`recipe-change.sh` reads fields with `read k l t d p w _`, so a 7th field is ignored by it; `recipe-asks.sh` keeps its six
        output columns). A new row `sys recipes steps <recipe>` returns step id, label, help and the ask keys of each. The dialog shows steps
        one after another, a **plan preview** (the existing `recipes plan`) as the last page, then ONE job as today. Needs no orchestrator and
-       no protocol; fixes layout, help text and ordering. The last `input` row gains the value `steps` only when stage 3 exists.
-    2. **Plan-first dry run.** `recipes plan --decisions` reports the questions that would be asked given the current state (for example
-       "the fixed address will be asked: UniFi is configured"). It needs the recipe to separate decision from action before its first ask, which
-       is **not true for every recipe** (not verified which). The `needs` status exists today (exit 2); this widens it. It removes some terminal
-       fallbacks cheaply and shows the owner which recipes are really mid-run asks.
-    3. **The orchestrator** (rules 1 to 11), starting with the question protocol in `_lib.sh` (the UniFi fixed address, which has a retry loop and
+       no protocol; fixes layout, help text and ordering. The last `input` row gains the value `steps` only when stage 2 exists.
+    2. **The orchestrator** (rules 1 to 11), second, starting with the question protocol in `_lib.sh` (the UniFi fixed address, which has a retry loop and
        is shared by many recipes), then recipes one by one.
     **Conversion order of the 'needs a terminal' recipes:** (a) anything whose only reason is a retry loop or a computed value; (b) recipes that need
     a secret typed twice or confirmed; (c) `domain` last: the Administrator password is typed into Samba's own prompt on a pty; `samba-tool` takes it
     in argv or interactively, and argv is forbidden for secrets, so converting it needs a way to feed Samba without argv (not verified that one
     exists). It may stay terminal-only, and that is an acceptable result. Per recipe: replace direct `read`/`ask` by `ask_q`, add `# step:` lines,
     run it in tty mode and in job mode against the fake answerer, change `# input: terminal` to `steps`, update docs and the changelog.
+
+### Granularity, containers, translation
+
+14. **Sub-jobs for big steps, logical steps inside them** (owner decision). Install, configure and start are sub-jobs (own unit, record, log,
+    cancel point); the small steps inside one are `hs_job_step N OF TEXT` as today, not records. Retention counts orchestrations, rule 12e.
+15. **A step inside a container** that needs an answer asks through the host: the code in the container does not get `HS_ASK_DIR`; the host-side
+    part of the step (the one that runs `incus exec`) asks with `ask_q`, and passes the answer in by stdin or a 0600 file, never argv, as rule 10 says.
+    Nothing in the container can see the host's ask directory.
+16. **Translation** (owner decision). The web translates by question key (`<recipe>.<KEY>`, errors by code). A recipe ships English `label`
+    and error text, which the web shows when it has no translation; a package may add `label.de` (and so on) beside `label`. Text only, never HTML.
 
 ### Tests without hardware
 
@@ -154,7 +161,7 @@ Direction chosen by the owner: option 3, an orchestrator. It is delivered in thr
 
 - **Static wizard only (stage 1 alone).** Cheap, no new mechanism, no new attack surface. Cannot ask what depends on an earlier step, cannot
   retry on a refusal, keeps `terminal` recipes as they are. Right as the first step, not as the answer.
-- **Plan-first only (stage 2 alone).** Asks everything before running, which is also a safer UX for destructive work (decide, then act).
+- **Plan-first only (the dropped stage).** Asks everything before running, which is also a safer UX for destructive work (decide, then act).
   But a decision that depends on a result of the run cannot be known before it, and a recipe needs refactoring to make its plan honest; a plan
   that guesses wrong is worse than a question mid-run.
 - **Web terminal / pty for these recipes.** Exists today and covers every recipe including `domain` with no recipe change. Against it: it is a shell as
@@ -163,7 +170,7 @@ Direction chosen by the owner: option 3, an orchestrator. It is delivered in thr
 - **Long-poll or SSE per sub-job (the web talks to each sub-job).** Simpler server side (no relay, no orchestrator role in the protocol). The
   web must discover sub-jobs, hold a request per question, and a closed tab loses the pending question; `http.server` threads are held while
   waiting (verified it is a threaded `http.server`, load not measured). It also puts one API surface per step on the roles table.
-- **`waiting` as a field, not a state.** Listed under rule 3; not decided.
+- **`waiting` as a field, not a state.** Rejected by the owner (rule 3).
 - **FIFO as the answer channel.** Rule 7 gives the reasons for a file.
 
 ## Consequences
@@ -174,19 +181,13 @@ Direction chosen by the owner: option 3, an orchestrator. It is delivered in thr
   `hs_job_record` already does for `uncancel`), the states enum in consumers (jobs page, timers, `hs job`), the retention rule, the events
   catalogue, the roles table. A job can now sit for hours holding a half-set-up container (acceptable because of idempotence, rule 12c).
 - A second place secrets pass through (the answer file), so rule 10 needs its tests before the first secret recipe moves.
-- Follow-up issues once accepted: stage 1 (headers, `recipes steps`, wizard dialog); `ask_q` and its tests; record fields and Rust parity;
+- Follow-up issues: stage 1 (headers, `recipes steps`, wizard dialog); `ask_q` and its tests; record fields and Rust parity;
   `job.waiting` events; `jobs answer`/`children` rows with roles; orchestrator; per-recipe conversion list; `config` key for the timeout; docs
   (GUIDE and German texts for every new web string; the repo's i18n rules apply to the dialog, not to this record).
 
 ## Open points
 
-- State or field for `waiting` (rule 3)?
-- Who may answer: initiator or admin, or any `app-manager` (rule 11)?
-- Default question timeout (24 h proposed) and whether a waiting job should push a notification (ntfy/Matrix through `notify.sh`).
-- Labels and errors come from recipes in English; do packages get `label.de`/error codes, or does the web translate by key? (Recipes are signed
-  packages (ADR 0008); the dialog renders them as text only, never as HTML.)
-- Sub-job granularity: a record per step, or logical steps via `hs_job_step` inside one job? Sub-jobs give per-step logs and cancel points, and cost
-  one record and one unit each; the user's direction is sub-jobs, the cost was not measured.
-- A step that must run in a different place (the container, not the host): how `HS_ASK_DIR` reaches it (bind mount or relay through the host).
-- Whether stage 2 is worth building if stage 3 lands soon.
+- **Where translation lives (owner's idea, not decided, not designed here):** possibly drop the translations from `hs` commands and translate
+  only in the web. That touches scripts/lib/i18n.sh, the i18n tests and every command; it needs its own investigation and record. Until then
+  rule 16 applies.
 - Not tested on hardware yet.

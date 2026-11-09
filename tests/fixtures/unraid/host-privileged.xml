@@ -1,0 +1,10 @@
+<?xml version="1.0"?>
+<Container version="2">
+  <Name>Odd App</Name>
+  <Repository>example/odd</Repository>
+  <Network>host</Network>
+  <Privileged>true</Privileged>
+  <PostArgs>--foo</PostArgs>
+  <Config Name="Data" Target="/data" Type="Path" Mode="rw">/mnt/cache/appdata/../../etc</Config>
+  <Config Name="Odd" Target="x" Type="Mystery">1</Config>
+</Container>
