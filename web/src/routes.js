@@ -33,6 +33,7 @@ import AppWizardPage from './pages/docker/AppWizardPage.svelte';
 import Docs from './pages/Docs.svelte';
 import Certificates from './pages/Certificates.svelte';
 import Notifications from './pages/Notifications.svelte';
+import Events from './pages/Events.svelte';
 import WhatsNew from './pages/WhatsNew.svelte';
 import Data from './pages/Data.svelte';
 import LiveState from './pages/LiveState.svelte';
@@ -81,6 +82,7 @@ export const routes = {
   '/instances/docker/new': AppEditPage,
   '/instances/docker/wizard': AppWizardPage,
   '/operations/notifications': Notifications,
+  '/operations/events': Events,
   '/operations/whats-new': WhatsNew,
   '/monitoring/diagnostics': Data,
   '/monitoring/live-state': LiveState,

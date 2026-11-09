@@ -93,6 +93,10 @@ const de = {
   'read only': 'nur lesen', 'another server, read only': 'anderer Server, nur lesen',
   'Enter an image such as nginx:alpine or ghcr.io/owner/app:1.2.': 'Ein Image eintragen, zum Beispiel nginx:alpine oder ghcr.io/owner/app:1.2.',
   'The app name is lower case letters, digits, - and _, up to 41 characters.': 'Der App-Name besteht aus Kleinbuchstaben, Ziffern, - und _, bis zu 41 Zeichen.',
+  // Operations > Events (pages/Events.svelte)
+  Events: 'Ereignisse', 'What happened on this server, newest first.': 'Was auf diesem Server passiert ist, das Neueste zuerst.',
+  'All sources': 'Alle Quellen', 'All levels': 'Alle Stufen', 'Any time': 'Jederzeit', 'Last hour': 'Letzte Stunde', 'Last 24 hours': 'Letzte 24 Stunden', 'Last 7 days': 'Letzte 7 Tage',
+  Time: 'Zeit', Subject: 'Betreff', 'What happened': 'Was passiert ist', 'Show older events': 'Ältere Ereignisse zeigen', 'No events': 'Keine Ereignisse',
   // Storage > Incident (pages/storage/Incident.svelte)
   Incident: 'Vorfall',
 };
