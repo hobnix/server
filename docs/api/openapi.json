@@ -5179,6 +5179,12 @@
      "class": "read",
      "rest": false
     },
+    "x-hs-web": {
+     "path": "/api/sys/jobs/record/<id>",
+     "kind": "json",
+     "ttl": 0,
+     "query": []
+    },
     "parameters": [
      {
       "name": "id",
@@ -5222,6 +5228,15 @@
      "args": "--records {rest}",
      "class": "read",
      "rest": true
+    },
+    "x-hs-web": {
+     "path": "/api/sys/jobs/records",
+     "kind": "tsv",
+     "ttl": 0,
+     "query": [
+      "state",
+      "n"
+     ]
     },
     "responses": {
      "0": {

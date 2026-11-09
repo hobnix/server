@@ -70,6 +70,12 @@ The tree on the left, the task panel at the bottom (Tasks, Jobs, Logs, disk even
 shows the server name, a node switcher, how old the data on screen is (with a refresh button), the storage state, the theme toggle and the
 buttons **Update**, **Reboot** and **Shut down**.
 
+The **Jobs** tab of the task panel has two views. **Job records** lists what the server ran, newest first, also after the job is gone
+(finished, failed, cancelled, or interrupted by a restart), with state, step, progress and how long it took; click a row for the source,
+who started it and the error text of a failed job. The list updates when a job changes, without polling (it polls every 15 s only while the
+event stream is down). A state this page does not know is shown as text. **Scheduled** is the list of timers with **Run now**.
+Not tested on hardware yet.
+
 | Page | What you do there |
 | --- | --- |
 | Summary | CPU, memory, disks per pool, UPS, important states; **Run health check** |

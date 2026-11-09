@@ -1,0 +1,5 @@
+date  = "2026-11-09"
+type  = "feature"
+title = "The Jobs tab shows job records with step, progress and errors"
+docs  = "web-interface"
+body  = """Job records lists every job newest first, also finished, failed, cancelled and interrupted ones. A running job shows its step and progress, a failed one its error. The list follows job events and needs no polling."""
