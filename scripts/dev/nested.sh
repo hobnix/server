@@ -29,7 +29,10 @@ case "$cmd" in
   *) usage; exit 2 ;;
 esac
 
-iso=${HS_NESTED_ISO:-$root/result-iso/iso/homeserver-installer.iso}; stage=all; keep=false; name=""
+iso=${HS_NESTED_ISO:-$root/result-iso/iso/homeserver-installer.iso}
+# a build with a version has it in the name (homeserver-installer-v0.1.0.iso): take that one when the plain name is not there
+[ -n "${HS_NESTED_ISO:-}" ] || [ -e "$iso" ] || for f in "$root"/result-iso/iso/homeserver-installer-*.iso; do [ -e "$f" ] && iso=$f; done
+stage=all; keep=false; name=""
 while [ $# -gt 0 ]; do
   case $1 in
     --iso) iso=${2:?}; shift 2 ;;

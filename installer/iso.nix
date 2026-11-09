@@ -20,17 +20,24 @@ let
   hsRestore = pkgs.writeShellScriptBin "hs-restore" ''
     exec ${pkgs.bash}/bin/bash /etc/hs-installer/scripts/install-restore.sh "$@"
   '';
+  # the version this stick was built from (scripts/dev/build-iso.sh sets HS_ISO_DESCRIBE and HS_ISO_COMMIT; empty when built by hand: the old
+  # file name, and the installer then makes no git checkout). Issue #400; the installer reads it for the git checkout (issue #396).
+  describe = builtins.getEnv "HS_ISO_DESCRIBE";
+  commit = builtins.getEnv "HS_ISO_COMMIT";
 in
 {
   imports = [ "${modulesPath}/installer/cd-dvd/installation-cd-minimal.nix" ];
 
-  image.fileName = lib.mkForce "homeserver-installer.iso";
+  # homeserver-installer-v0.1.0.iso (the tag of a release build); homeserver-installer.iso without a version. The volume label stays
+  # HS_INSTALLER (at most 32 characters, and the boot menu looks for it).
+  image.fileName = lib.mkForce (if describe == "" then "homeserver-installer.iso" else "homeserver-installer-${describe}.iso");
   isoImage.volumeID = lib.mkForce "HS_INSTALLER";
 
   # the console also on the serial port: a server without a screen, and `incus console` of a test VM, show the installer
   boot.kernelParams = [ "console=tty0" "console=ttyS0,115200n8" ];
 
   environment.etc."hs-installer".source = repo;
+  environment.etc."hs-installer-version".text = "describe=${if describe == "" then "-" else describe}\ncommit=${if commit == "" then "-" else commit}\n";
   environment.systemPackages = [ hsInstall hsRestore pkgs.python3 pkgs.parted pkgs.gum pkgs.gptfdisk pkgs.restic ];
 
   # what a person sees on the console after booting the stick

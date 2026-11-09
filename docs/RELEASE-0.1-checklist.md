@@ -174,17 +174,19 @@ Then boot it. The ISO has never been booted by anyone (issue #175, #254, #262):
 The restore path (`hs-restore`, issue #254, PR #362) is UNVERIFIED too: only try it on a spare machine.
 
 ## 10. What the version string shows
-There is no version file, no `VERSION`, and no `hs version` command (verified: `git ls-files`, `scripts/lib/registry.tsv`). The facts:
+There is no `VERSION` file and no `hs version` command (verified: `git ls-files`, `scripts/lib/registry.tsv`); since issue #400 the version comes from git (`scripts/lib/version.sh`) and is shown in more places. The facts:
 
 | Where | Shows | Before any tag | After `v0.1.0` |
 | --- | --- | --- | --- |
 | `hs sys release show` (`scripts/release-channel.sh`), key `installed` | `git describe --tags --always` of `/etc/nixos` | the short commit hash, for example `91aa7ec` | `v0.1.0` on the tagged commit; `v0.1.0-<n>-g<hash>` on a commit after it that has the tag as ancestor |
 | web Settings "Releases" (same command) | the same value | short hash | as above |
+| `hs system info`, line `Hobnix` (issue #400) | the same value (`scripts/lib/version.sh`; the version the installer kept in `.hobnix-version` when there is no checkout; `-` if unknown) | the short hash | `v0.1.0` |
+| web Overview, the "Version" fact (row `version` of `hs sys status`, last row) | the same value | short hash | `v0.1.0` |
 | `hs system info`, line `Repo` | `git log -1` short hash and subject | same | same (no tag in it) |
 | `hs system info`, line `NixOS` | `nixos-version` | NixOS release and nixpkgs revision, not the Hobnix version | same |
 | `hs sys release show`, key `ref` and the `offer` lines | what each channel would install | `-` and state `none` | `v0.1.0` for stable and beta, `origin/develop` for edge |
 | Rust workspace (`rust/Cargo.toml`) | `0.1.0` (set already) | `0.1.0` | `0.1.0` |
-| the ISO file | `homeserver-installer.iso`, no version in the name; the GitHub release carries the tag | no release | the release `v0.1.0` |
+| the ISO file | `homeserver-installer-<describe>.iso` from `scripts/dev/build-iso.sh` (`homeserver-installer.iso` when built by hand without git); the volume label stays `HS_INSTALLER`; `/etc/hs-installer-version` on the stick holds `describe=` and `commit=` | no release | `homeserver-installer-v0.1.0.iso` when built from the tag. Release CI (issue #397 to #399) must use this name: not checked here. |
 
 A server made by the installer has no `.git`: `install-wizard.sh` copies the tree with `tar --exclude=.git`, so `git describe` prints nothing
 and `installed` is `-` (blocker B1). A server cloned as in docs/install.md ("Keep the configuration updatable") follows `develop` (the default
@@ -240,7 +242,7 @@ Each was verified by reading the file named; none was run.
 | B1 | A server made by the ISO has no git checkout, so `hs update`, update channels and the version shown do not work on it | `scripts/install-wizard.sh:212` excludes `.git`; `docs/install.md` tells the user to clone by hand; `scripts/update.sh` needs git | Installer: leave a git checkout (remote `origin`, the release tag) in /etc/nixos (issue #396) |
 | B2 | The `iso` job publishes a release without waiting for any other job | `.github/workflows/ci.yml`, job `iso` has no `needs:` | CI: the ISO and release job needs the test jobs (issue #397) |
 | B3 | The ISO is built from `nixos-unstable` of the day, everything else from the pinned nixpkgs; the tag build is the first time that combination evaluates | `ci.yml` `iso` vs `nixos` nix_path | CI: build the ISO from the pinned nixpkgs revision (issue #398) |
-| B4 | No version file, no `hs version`, the ISO name has no version | section 10 | Show the Hobnix version in `hs system info` and the ISO file name (issue #400) |
+| B4 | No version file, no `hs version`, the ISO name has no version | section 10 | Show the Hobnix version in `hs system info` and the ISO file name (issue #400). Done in code and tests; the ISO build was not run (no nix here), Not tested on hardware yet. |
 | B5 | `config/trusted-keys/README.md` and the header of `docs/PLAN-channels.md` say the core key file is missing | the file exists (3d2c07a) | Docs fix, done in this pull request (README) |
 | B7 | The `.sha256` asset names the ISO with the build path, so `sha256sum -c` fails for a downloader | `ci.yml` step "Attach it to the release" | CI: write the checksum with the bare file name (issue #399 (with B6)) |
 | B6 | The GitHub release text is generic, no notes | `ci.yml` `gh release create --notes "Installer ISO ..."` | CI: use a notes file for the release (issue #399 (with B7)) |

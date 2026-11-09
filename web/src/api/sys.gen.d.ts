@@ -2417,7 +2417,7 @@ export interface SysOperations {
     lines: string[][];
   };
   "status": {
-    /** the facts the Overview shows: backup age, encryption, parity sync and scrub, upload cache, disk health, instances, hottest disk, last disk event */
+    /** the facts the Overview shows: backup age, encryption, parity sync and scrub, upload cache, disk health, instances, hottest disk, last disk event, the Hobnix version */
     words: ["status"];
     path: "/status";
     method: "get";

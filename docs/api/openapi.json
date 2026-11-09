@@ -11247,7 +11247,7 @@
   "/status": {
    "get": {
     "operationId": "status",
-    "summary": "the facts the Overview shows: backup age, encryption, parity sync and scrub, upload cache, disk health, instances, hottest disk, last disk event",
+    "summary": "the facts the Overview shows: backup age, encryption, parity sync and scrub, upload cache, disk health, instances, hottest disk, last disk event, the Hobnix version",
     "x-hs-exit": true,
     "x-hs-sys": {
      "words": [
