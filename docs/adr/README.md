@@ -43,3 +43,4 @@ Issue: hobnix/server#<n>
 | [0021](0021-graphical-vm-console.md) | Graphical VM console: Incus's own VGA console (SPICE) relayed through the web interface; no port, ticketed WebSocket | Proposed |
 | [0022](0022-first-run-console-token.md) | First-run web setup: one-time console token, single use, expiry, burn counter, bound to the local admin | Proposed |
 | [0024](0024-import-proxmox-vzdump.md) | Proxmox vzdump import: read-only plan built, restore into an Incus instance and VM archives proposed | Proposed |
+| [0025](0025-translation-scope.md) | Where translation lives: `hs` commands, web, or both; freeze `de.tsv`, web translates, codes only where the web needs them | Proposed |
