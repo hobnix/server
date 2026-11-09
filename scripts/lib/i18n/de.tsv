@@ -2322,3 +2322,4 @@ The setup code was used up by wrong tries: sudo hs setup-code issue	Der Einricht
 The first setup is done (admin: %s).	Die erste Einrichtung ist abgeschlossen (Admin: %s).
 No first setup is waiting on this server.	Auf diesem Server wartet keine erste Einrichtung.
 Usage: hs setup-code issue | status | reset	Aufruf: hs setup-code issue | status | reset
+The generated capability list could not be refreshed.	Die erzeugte Liste der Zusatzmodule konnte nicht aktualisiert werden.
