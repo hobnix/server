@@ -117,6 +117,18 @@ test: a pull request gets the quick answer (the tests are picked by the file nam
 before and after the merge. A change to `scripts/lib/`, `tests/lib*.sh`, `config/` or a workflow runs every test even in a pull request.
 A new test needs no entry in the workflow. A test never hard-codes a TCP port: `free_port` in tests/lib.sh asks the kernel for one.
 
+### The nixpkgs pin
+
+`config/nixpkgs-pin.toml` is the one place that names nixpkgs: the `channel` the servers follow and the `rev` CI evaluates and builds
+(job `nixos`) and the ISO is built from (job `iso`). Nothing else may hard-code a revision (`scripts/dev/nixpkgs-pin.sh check` runs in the
+`scripts` job). Servers follow their channel, not the revision: the revision only decides which store paths CI puts in the binary cache.
+
+- **Who moves it:** the workflow `nixpkgs-bump` (Mondays, or by hand) opens a pull request that moves `rev` to the head of the channel;
+  the normal CI runs on it and a maintainer merges it when green. Without a bump the pin stays; a stale pin costs cache hits, not correctness.
+- **By hand:** `bash scripts/dev/nixpkgs-pin.sh bump` (head of the channel) or `bump --rev <sha>`, then commit the file.
+- **A NixOS release change** changes `channel` too and is a project decision, not a bump: [Move to a new NixOS release](operations.md#move-to-a-new-nixos-release).
+- The bump workflow needs repository settings that only the owner can change (see the comment at the top of `.github/workflows/nixpkgs-bump.yml`).
+
 Update channels (Stable, Beta, Edge) are designed in docs/PLAN-channels.md; they build on these branches and tags.
 Not tested on hardware yet.
 

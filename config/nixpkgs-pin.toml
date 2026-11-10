@@ -1,0 +1,10 @@
+# The one place that names the nixpkgs of Hobnix (issue #436). Read by CI (.github/workflows/ci.yml, jobs nixos and iso) and the
+# installer ISO build through `scripts/dev/nixpkgs-pin.sh get <key>`. Not generated: edit by hand or let `scripts/dev/nixpkgs-pin.sh bump`
+# (the weekly workflow .github/workflows/nixpkgs-bump.yml) change `rev`. A release change (26.05 to 26.11) changes `channel` too:
+# docs/operations.md, "Move to a new NixOS release".
+#
+# channel: the NixOS channel the servers follow (`nix-channel --list` on a server shows it).
+# rev:     a commit of that channel's branch. CI evaluates and builds exactly this one, so the binary cache has the same store paths the
+#          servers ask for (docs/adr/0003-binary-cache.md). Servers that run another revision get cache misses, not errors.
+channel = "nixos-26.05"
+rev = "774debe7a0d1b496e35677ad955a1011c6ff74f3"
