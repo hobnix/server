@@ -19,11 +19,14 @@ import subprocess
 import sys
 import time
 
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))   # python -I does not add the script folder (nested_stages)
+
 EXIT_OK, EXIT_FAIL, EXIT_USAGE, EXIT_NOHOST, EXIT_INFRA = 0, 1, 2, 3, 4
 
 ANSI = re.compile(r"\x1b\][^\x07\x1b]*(?:\x07|\x1b\\)|\x1b\[[0-9;?]*[ -/]*[@-~]|\x1bP[^\x1b]*\x1b\\")
 PROMPT_ISO = r"\[nixos@[^\]]*\]\$ "      # the auto-login shell of the NixOS installer image
 LOGIN = r"\n[^\n]*login: $"
+LOGIN_OR_SHELL = r"(?:login: $|\[%s@[^\]]*\][$#] $)"
 
 
 # ---------------------------------------------------------------- preflight
@@ -139,10 +142,19 @@ def build_scenario(stage, params):
             step("run", "systemctl is-system-running --wait | grep -Eq '^(running|degraded)$'", timeout=300,
                  what="systemd finished starting (running or degraded)"),
         ]
-    raise KeyError(stage)
+    import nested_stages   # stages 3 to 5 (#432) live in their own module: one entry in SCENARIOS adds a stage
+    fn = nested_stages.SCENARIOS.get(stage)
+    if fn is None:
+        raise KeyError(stage)
+    return fn(params)
 
 
-STAGES = ("iso", "smoke")
+def _extra_stages():
+    import nested_stages
+    return tuple(nested_stages.SCENARIOS)
+
+
+STAGES = ("iso", "smoke") + _extra_stages()
 
 
 # ---------------------------------------------------------------- console driver
@@ -237,7 +249,16 @@ def run_steps(console, steps, params_vars=None, report=None):
         rec = {"step": what, "kind": s["kind"], "ok": False}
         try:
             k = s["kind"]
-            if k == "wait":
+            if k == "login":   # an installed VM: the console is at a login prompt or still in a shell
+                console.send("")
+                got = console.expect(LOGIN_OR_SHELL % s["user"], s.get("timeout", 60))
+                if re.search(r"login: $", got):
+                    console.send(s["user"])
+                    console.expect(r"[Pp]assword: ?$", 30)
+                    console.send(s["secret"])
+                    console.expect(r"\[%s@[^\]]*\]\$ " % s["user"], 60)
+                rec["ok"] = True
+            elif k == "wait":
                 console.expect(s["text"], s.get("timeout", 60))
                 rec["ok"] = True
             elif k == "send":
@@ -246,13 +267,16 @@ def run_steps(console, steps, params_vars=None, report=None):
             elif k == "send_secret":
                 console.send(s["text"])
                 rec["ok"] = True
+            elif k == "send_var":
+                console.send(s["text"].format(**vars_))
+                rec["ok"] = True
             elif k in ("run", "run_var", "capture"):
                 cmd = s["text"].format(**vars_) if k == "run_var" else s["text"]
                 rc, out = console.run(cmd, s.get("timeout", 60))
                 want = s.get("expect_rc", 0)
                 rec["rc"] = rc
                 if k == "capture":
-                    vars_[s["var"]] = out
+                    vars_[s["var"]] = out.strip() if s.get("strip") else out
                 rec["ok"] = want is None or rc == want
             elif k == "pick_disk":
                 d = pick_disk(vars_.get(s["src"], ""))
@@ -307,10 +331,10 @@ class PtyTransport:
             self.proc.kill()
 
 
-def drive(stage, vm, logdir, password, pubkey, hostname, incus):
-    steps = build_scenario(stage, {"password": password, "pubkey": pubkey, "hostname": hostname})
+def drive(stage, vm, logdir, password, pubkey, hostname, incus, backup_pass="", disks=None):
+    steps = build_scenario(stage, {"password": password, "pubkey": pubkey, "hostname": hostname, "backup_pass": backup_pass, "disks": disks or {}})
     os.makedirs(logdir, exist_ok=True)
-    redact = Redactor([password])
+    redact = Redactor([x for x in (password, backup_pass) if x])
     with open(os.path.join(logdir, "console-%s.log" % stage), "w") as log:
         try:
             transport = PtyTransport([incus, "console", vm])
@@ -344,6 +368,7 @@ def main(argv):
     p.add_argument("--vm", required=True)
     p.add_argument("--logdir", required=True)
     p.add_argument("--hostname", default="nested-test")
+    p.add_argument("--disk", action="append", default=[], help="name=<Incus device name> of a virtual disk the stage may use")
     p.add_argument("--incus", default=os.environ.get("HS_NESTED_INCUS", "incus"))
     a = ap.parse_args(argv)
     if a.cmd == "preflight":
@@ -357,7 +382,8 @@ def main(argv):
         return EXIT_OK if ok else EXIT_FAIL
     if a.cmd == "plan":
         try:
-            steps = build_scenario(a.stage, {"password": "<password>", "pubkey": "<pubkey>"})
+            steps = build_scenario(a.stage, {"password": "<password>", "pubkey": "<pubkey>", "backup_pass": "<backup-password>",
+                                             "disks": {k: "<disk-%s>" % k for k in ("backup", "pool1", "pool2")}})
         except KeyError:
             print("unknown stage %r (stages: %s)" % (a.stage, ", ".join(STAGES)), file=sys.stderr)
             return EXIT_USAGE
@@ -372,7 +398,8 @@ def main(argv):
     if a.stage not in STAGES:
         print("unknown stage %r" % a.stage, file=sys.stderr)
         return EXIT_USAGE
-    return drive(a.stage, a.vm, a.logdir, pw, key, a.hostname, a.incus)
+    disks = dict(x.split("=", 1) for x in a.disk if "=" in x)
+    return drive(a.stage, a.vm, a.logdir, pw, key, a.hostname, a.incus, os.environ.get("HS_NESTED_BACKUP_PASS", ""), disks)
 
 
 if __name__ == "__main__":

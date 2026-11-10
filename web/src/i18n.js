@@ -61,7 +61,7 @@ const de = {
   // Test-lab (pages/TestLab.svelte)
   'Test-lab': 'Testlabor', 'Run on develop': 'Auf develop ausführen', Stage: 'Stufe', Result: 'Ergebnis', Ref: 'Stand', Commit: 'Commit',
   error: 'Fehler', skipped: 'übersprungen',
-  'Builds the installer ISO of a Hobnix branch and checks it in a virtual machine (stages 1 and 2).': 'Baut die Installer-ISO eines Hobnix-Zweigs und prüft sie in einer virtuellen Maschine (Stufen 1 und 2).',
+  'Builds the installer ISO of a Hobnix branch and checks it in a virtual machine (stages 1 to 6).': 'Baut die Installer-ISO eines Hobnix-Zweigs und prüft sie in einer virtuellen Maschine (Stufen 1 bis 6).',
   'The test-lab is off. Turn on the capability testlab under Settings > Capabilities to use it here.': 'Das Testlabor ist aus. Schalte die Funktion testlab unter Einstellungen > Funktionen ein, um es hier zu nutzen.',
   'The runs could not be read.': 'Die Läufe konnten nicht gelesen werden.', 'No test-lab run yet.': 'Noch kein Testlabor-Lauf.',
   // Live state (pages/LiveState.svelte)
