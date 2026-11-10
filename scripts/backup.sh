@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # help: back up shares, chosen containers, the domain controller and the host config with restic to the disk labelled "backup"
 # help.de: sichert Freigaben, ausgewählte Container, den Domänencontroller und die Server-Einstellungen mit restic auf die Platte mit dem Etikett "backup"
-# args: [--state | --shares | --snapshots | status | now | list | find <name> | restore <snapshot|latest> <path> | config [restore [<snapshot|latest>] [--with-state]] | browse [--off] | verify | drill [N] | drill ct [<name>] | report | offsite set <repo>|now|off | init [<device>] | <share> on|off | ct <name> on|off] [--dry-run]
+# args: [--state | --shares | --snapshots | status | now | list | find <name> | restore <snapshot|latest> <path> | config [restore [<snapshot|latest>] [--with-state] [--from-disk <device>] [--with-samba]] | browse [--off] | verify | drill [N] | drill ct [<name>] | report | offsite set <repo>|now|off | init [<device>] | <share> on|off | ct <name> on|off] [--dry-run]
 set -euo pipefail
 . "$(dirname "$0")/lib/ui.sh"
 . "$(dirname "$0")/lib/dc.sh"
@@ -24,9 +24,14 @@ usage: hs backup [status]                    what is in the backup, last run, sp
                                              into /bulk/shares/restored (never over the live copy)
        hs backup config                      the host snapshots and which settings files each holds
        hs backup config restore [<snapshot|latest>] [--with-state] [--dry-run]
+       hs backup config restore --from-disk <device> [<snapshot|latest>] [--with-samba] [--dry-run]
                                              put machine.toml and machine.nix of a host snapshot back on this running
                                              server (plan first, you type the file name, the old file is kept as
                                              <file>.before-restore-<time>); --with-state also /var/lib/hs
+                                             --from-disk is for a fresh install: only the backup disk and its passphrase
+                                             (typed, never an argument) are needed; the disk is mounted read-only,
+                                             /var/lib/hs comes back, the SSH host keys after you type their name,
+                                             the Samba secrets only with --with-samba
        hs backup browse [--off]              show the whole backup read-only as share "backup-browse"
        hs backup verify                      check part of the stored data
        hs backup prune [--dry-run]           give space back now: delete leftovers of a run that ran out of space, apply the
@@ -94,7 +99,10 @@ set -- "${args[@]+"${args[@]}"}"
 cmd=${1:-status}
 [ $# -gt 0 ] && shift
 
-R() { restic -r "$REPO" --password-file "$PASSFILE" "$@"; }
+# --from-disk (config restore on a fresh install): the typed passphrase is in a private temp file and the disk is read-only, so no lock is taken
+R_PASSFILE=$PASSFILE
+R_EXTRA=()
+R() { restic -r "$REPO" --password-file "$R_PASSFILE" "${R_EXTRA[@]}" "$@"; }
 
 # Remove locks a dead run left behind. `restic unlock` only removes a lock whose process is gone, and a reused PID (or a
 # reboot) keeps it for days ("already locked by PID ... 85h ago"); when no restic runs on this host any more nothing can
@@ -893,6 +901,8 @@ cmd_restore() {
 # hardware-configuration.nix, SSH host keys, Samba secrets, disks and networks are never put back by this command.
 NIXOS_DIR=${HS_NIXOS_DIR:-/etc/nixos}
 CONFIG_FILES=(machine.toml machine.nix)
+SSH_DIR=${HS_SSH_DIR:-/etc/ssh}
+SAMBA_DIR=${HS_SAMBA_DIR:-/var/lib/samba/private}
 # Files of $STATE that describe THIS disk set or the backup itself: never restored, even with --with-state.
 state_skip() {  # state_skip <path relative to $STATE>
   case "$1" in
@@ -920,24 +930,62 @@ cmd_config_list() {
   note "$(t 'Put them back with: hs backup config restore --dry-run')"
 }
 
+# --from-disk: mount the backup disk read-only and open the repository with a typed passphrase (a fresh install has neither
+# /var/lib/hs/restic-password nor the mounted disk). Sets REPO, R_PASSFILE, R_EXTRA; cleanup() unmounts, the trap removes the temp files.
+open_repo_from_disk() {   # open_repo_from_disk <device>
+  local dev=$1 pass
+  [ -t 0 ] || [ -n "${HS_BACKUP_NO_MOUNT:-}" ] || die "$(t 'The passphrase is typed: run this in a terminal.')"
+  if [ -z "${HS_BACKUP_NO_MOUNT:-}" ]; then
+    [ -b "$dev" ] || die "$(t '%s is not a disk or partition.' "$dev")"
+    MNT=$(mktemp -d "${HS_RUN_DIR:-/run}/hs-config-restore-mnt.XXXX")
+    mount -o ro,noatime "$dev" "$MNT" || die "$(t 'Could not mount %s read-only. Is it the backup disk (ext4)?' "$dev")"
+    mounted_by_us=true
+    REPO=$MNT/restic
+  fi
+  [ -f "$REPO/config" ] || die "$(t 'No restic repository on %s. Is it the backup disk?' "$dev")"
+  CFG_PASSDIR=$(umask 077; mktemp -d "${HS_RUN_DIR:-/run}/hs-config-restore-pw.XXXX")
+  pass=$(ask_secret "$(t 'Backup passphrase (the restic password from your password manager):')") || die "cancelled"
+  [ -n "$pass" ] || die "$(t 'No passphrase given.')"
+  (umask 077; printf '%s' "$pass" >"$CFG_PASSDIR/pass")   # printf is a builtin: nothing on argv
+  pass=""
+  R_PASSFILE=$CFG_PASSDIR/pass
+  R_EXTRA=(--no-lock --no-cache)
+  R snapshots --tag host --json >/dev/null 2>&1 || die "$(t 'Could not open the repository: wrong passphrase, or not the backup disk of this server.')"
+}
+
 cmd_config_restore() {
-  local snap=latest with_state=false a
-  for a in "$@"; do
+  local snap=latest with_state=false a with_samba=false
+  from_disk=""   # global: the EXIT trap reads it after this function ends
+  while [ $# -gt 0 ]; do
+    a=$1; shift
     case "$a" in
       --with-state) with_state=true ;;
+      --with-samba) with_samba=true ;;
+      --from-disk) [ $# -gt 0 ] || usage; from_disk=$1; shift ;;
       -*) usage ;;
       *)  snap=$a ;;
     esac
   done
-  need_repo
+  if $with_samba && [ -z "$from_disk" ]; then die "$(t '--with-samba belongs to --from-disk.')"; fi
   local tmp
+  CFG_TMP="" CFG_PASSDIR=""
+  trap '[ -z "$CFG_TMP" ] || rm -rf "$CFG_TMP"; [ -z "$CFG_PASSDIR" ] || rm -rf "$CFG_PASSDIR"; cleanup; if [ -n "$from_disk" ] && [ -z "${HS_BACKUP_NO_MOUNT:-}" ]; then rmdir "$MNT" 2>/dev/null || true; fi' EXIT
+  if [ -n "$from_disk" ]; then
+    with_state=true
+    open_repo_from_disk "$from_disk"
+  else
+    need_repo
+  fi
   mkdir -p "$STATE"
   tmp=$(mktemp -d "$STATE/.config-restore.XXXX")
   CFG_TMP=$tmp
-  trap 'rm -rf "$CFG_TMP"; cleanup' EXIT
   local inc=() f
   for f in "${CONFIG_FILES[@]}"; do inc+=(--include "$NIXOS_DIR/$f"); done
   $with_state && inc+=(--include "$STATE")
+  if [ -n "$from_disk" ]; then
+    inc+=(--include "$SSH_DIR/ssh_host_*")
+    $with_samba && inc+=(--include "$SAMBA_DIR")
+  fi
   step "$(t 'Reading the host snapshot %s' "$snap")"
   R restore "$snap" --tag host --target "$tmp" "${inc[@]}" >/dev/null || die "$(t 'Could not restore the settings from snapshot %s. Is there a host snapshot? (hs backup config)' "$snap")"
   [ -f "$tmp$NIXOS_DIR/machine.toml" ] || die "$(t 'That snapshot holds no machine.toml. Look at the list: hs backup config')"
@@ -954,6 +1002,14 @@ cmd_config_restore() {
       if state_skip "$rel"; then skipped+=("$rel"); continue; fi
       rows+=("$STATE/$rel")
     done < <(find "$tmp$STATE" -type f -print0 | sort -z)
+  fi
+  local ssh_rows=()
+  if [ -n "$from_disk" ]; then
+    while IFS= read -r -d '' f; do ssh_rows+=("${f#"$tmp"}"); done < <(find "$tmp$SSH_DIR" -maxdepth 1 -name 'ssh_host_*' -type f -print0 2>/dev/null | sort -z)
+    rows+=("${ssh_rows[@]}")
+    if $with_samba && [ -d "$tmp$SAMBA_DIR" ]; then
+      while IFS= read -r -d '' f; do rows+=("${f#"$tmp"}"); done < <(find "$tmp$SAMBA_DIR" -type f -print0 | sort -z)
+    fi
   fi
   local plan=()
   for f in "${rows[@]}"; do
@@ -973,12 +1029,31 @@ cmd_config_restore() {
   if [ "${#skipped[@]}" -gt 0 ]; then
     note "$(t 'Not restored on purpose (they describe this disk set or the backup itself): %s' "$(IFS=,; echo "${skipped[*]}")")"
   fi
-  note "$(t 'Never touched: hardware-configuration.nix, SSH host keys, Samba, disks, pools, network.')"
+  if [ -n "$from_disk" ]; then
+    $with_samba || note "$(t 'Samba secrets are not restored (add --with-samba to include them).')"
+    note "$(t 'Never touched: hardware-configuration.nix, disks, pools, network.')"
+  else
+    note "$(t 'Never touched: hardware-configuration.nix, SSH host keys, Samba, disks, pools, network.')"
+  fi
   if $dry; then note "(dry run, nothing changed)"; return 0; fi
 
   if [ -z "${HS_BACKUP_YES:-}" ]; then
-    [ -t 0 ] || die "$(t 'This replaces settings files. Run it in a terminal, or add --yes after looking at --dry-run.')"
+    [ -t 0 ] || { [ -n "$from_disk" ] && [ -n "${HS_BACKUP_NO_MOUNT:-}" ]; } || die "$(t 'This replaces settings files. Run it in a terminal, or add --yes after looking at --dry-run.')"
     confirm_name "machine.toml" "the file" || die "cancelled"
+  fi
+  if [ "${#ssh_rows[@]}" -gt 0 ]; then
+    # the old SSH host keys replace this install's own: other computers stop warning about a new server, but they are secrets,
+    # so they come back only after a typed line (never with --yes)
+    local keep=() r ssh_ok=false
+    if [ -z "${HS_BACKUP_YES:-}" ]; then
+      note "$(t 'The SSH host keys of the old server are in the backup. Putting them back keeps your computers from warning about a new server.')"
+      confirm_name "ssh host keys" "the SSH host keys" && ssh_ok=true
+    fi
+    if ! $ssh_ok; then
+      for r in "${rows[@]}"; do case " ${ssh_rows[*]} " in *" $r "*) ;; *) keep+=("$r") ;; esac; done
+      rows=("${keep[@]}")
+      warn "$(t 'SSH host keys not restored (this server keeps its own). Run the command again to put them back.')"
+    fi
   fi
 
   local stamp
