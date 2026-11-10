@@ -28,3 +28,5 @@ Make a release: `git tag -s v1.2.0 -m "recipes 1.2.0"` with `gpg.format = ssh` a
 `hs update` on the `stable` and `beta` channels checks the signature of the release tag of the core itself (`git tag -v`) against
 `server.allowed_signers` in this folder, in the same format as the other files. The file holds the release key (one line). A server whose checkout lacks the file or its key
 refuses to move onto any tag, so servers need an `hs update` that brings the file before the first tag. Servers without a release tag, and the `edge` channel, do not use it.
+
+The release workflow (`.github/workflows/release.yml`, docs/RELEASE-PROCESS.md "Release from GitHub") signs with a second key, principal `release-ci`, kept as a secret in the GitHub environment `release`. Its line is added here by a pull request, next to `release`; it is checked by the same `uc_verify`.

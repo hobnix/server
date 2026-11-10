@@ -29,7 +29,7 @@ where everything stands.
 2. **Release pull request.** `gh pr create --base main --head release/0.1 --title "Release 0.1.0" --body-file docs/RELEASE-NOTES-0.1.md`.
    CI runs; because the base is `main` the capability matrix runs too. Merge with `gh pr merge <n> --merge` (**merge commit**, never squash or
    rebase: the earlier releases must stay ancestors of `main`).
-3. **Tag.** `bash scripts/dev/release-core.sh tag v0.1.0`. It checks that `ci-ok` is green on the tip of `origin/main`, signs it, verifies the
+3. **Tag.** On the owner's machine `bash scripts/dev/release-core.sh tag v0.1.0`, or from GitHub with the workflow `release` (section "Release from GitHub"). It checks that `ci-ok` is green on the tip of `origin/main`, signs it, verifies the
    signature against `config/trusted-keys/server.allowed_signers` as `main` has it, asks you to type the tag, and pushes. The push builds the
    ISO and the GitHub release (the `iso` job of `ci.yml`). A pushed tag is never moved: a bad release gets the next number.
 4. **Check.** `gh run watch`, then `bash scripts/dev/release-core.sh verify v0.1.0`.
@@ -65,6 +65,65 @@ never lacks anything `develop` or `main` has.**
 
 So there is one line of history: `develop` is always an ancestor of the milestone branch, the milestone branch of `develop` after its pull
 request, and `main` of `develop` after the merge-back.
+
+## Release from GitHub (no owner PC)
+
+The workflow `.github/workflows/release.yml` signs and pushes the tag, so a release needs a browser, not the owner's key file. The git steps
+before it stay the same: release branch, release pull request merged with a merge commit (or a hotfix pull request). Then: Actions, `release`,
+Run workflow, branch `main`, version `v0.1.0` (a release or hotfix) or `v0.2.0-beta.1`.
+
+What it does (`scripts/dev/release-gate.sh`, tested by `tests/release-gate.sh`):
+
+1. **`gate`** (no secret, no approval): `check` refuses unless the run is on `main`, the commit is the tip of `origin/main` and a merge commit,
+   `ci-ok` is green on it or on its second parent (CI does not run on a push to `main`, the pull request head carries the result),
+   `docs/RELEASE-NOTES-X.Y.md` exists and names `X.Y`, the changelog entries validate, the tag does not exist (here or on the remote), the version is
+   above the newest stable tag and `main` contains that tag. A beta must be for a version not released yet, with a higher `N` than the earlier betas.
+2. **`release`** waits for the owner's approval (environment `release`), runs the checks again (main may have moved), then `sign`: the tag is
+   made with the private key in the secret, then **the check `hs update` uses** (`uc_verify`: a good signature by a key in
+   `config/trusted-keys/server.allowed_signers`, and the signed name equals the tag) runs on it. A tag that fails is deleted and nothing is
+   pushed. A tag signed by GitHub itself (its web-flow key) or by any key that is not in the file never passes.
+3. It pushes the tag, creates the GitHub release with the notes file (`--prerelease` for a beta) and, for a stable tag, starts `ci.yml` on the
+   tag with `gh workflow run`: a push made with the workflow's token starts no workflow, so the test jobs and the ISO job would not run
+   otherwise. The ISO job attaches the ISO to the release this workflow made. A beta gets no ISO (open question 1 of PLAN-channels).
+
+Beta tags are cut from `main` by this workflow (after the release pull request, before the stable tag), which differs from PLAN-channels
+(beta on `develop`); say so if you want it the other way. "The version matches the changelog" is checked as: the notes file for that `X.Y`
+exists, names it, and the changelog entries validate; there is no version field in the entries.
+
+### One-time setup (the owner; nothing in this repository can do it)
+
+1. Make a dedicated key, with a passphrase-less OpenSSH format (the workflow cannot type one), on a machine you trust, and keep nothing of it
+   there afterwards:
+   ```bash
+   ssh-keygen -t ed25519 -N '' -C hobnix-release-ci -f release-ci
+   ```
+2. Add the public key as **one more line** of `config/trusted-keys/server.allowed_signers` by a pull request (principal `release-ci`,
+   `namespaces="git"`, the key: `release-ci namespaces="git" $(cut -d' ' -f1,2 release-ci.pub)`). Keep the existing `release` line. Let servers
+   run `hs update` first (they learn a key only that way): the order is in `config/trusted-keys/README.md`.
+3. Repository settings, Environments: create `release`, tick *Required reviewers* (you) and, if you like, *Deployment branches*: `main`.
+   In that environment add the secret `RELEASE_SIGNING_KEY` with the whole content of the file `release-ci` (the private key). Then delete the file.
+4. If you apply ruleset proposal 3 (only the owner creates `v*` tags), add the **GitHub Actions** app as a bypass actor of
+   `protect-release-tags`, or the workflow cannot push. The ruleset also keeps forbidding update and deletion of a tag.
+5. Settings, Actions: the workflow needs "Read and write permissions" for the token (the file asks for them per job).
+
+**Rotation.** Add the new line, merge, let servers update, put the new key in the secret, cut the next release, remove the old line later
+(the order of the trusted-keys README).
+**Revocation (leaked or lost).** Remove the `release-ci` line by a pull request at once and delete the secret. Servers that update afterwards
+refuse any tag signed with it, including tags already published with that key when they check them again: re-release (the next number,
+signed by the other key or a new one). A pushed tag is never moved or deleted.
+
+### What this changes about trust
+`config/trusted-keys/README.md` promises that a stolen GitHub account alone cannot put code on a server, because the key lives off GitHub. With
+this workflow a signing key lives in a GitHub secret, so an attacker who can run this workflow **and** pass the environment approval can
+sign. The approval (a required reviewer who is not the person who ran it, once there are two maintainers), the dedicated principal (removable
+without touching the owner's key) and the checks (only a merge commit that is the tip of `main`, green CI) are the guard. If that trade is not
+acceptable, keep using `release-core.sh tag` on the owner's machine: both ways verify against the same file.
+
+### Proven only on GitHub
+Nothing of the workflow ran. Not proven: that the `gate` job reads `ci-ok` of the pull request head with the workflow token, that the
+environment approval and the secret reach the job, that `git push` of the tag is allowed by the rulesets, that `gh workflow run ci.yml --ref <tag>`
+starts the tag build and its `iso` job (which then finds the release this workflow created), and that `gh release create --verify-tag`
+accepts the pushed tag. The scripts and the verification logic are tested locally with fakes.
 
 ## Rule proposals for the owner
 
