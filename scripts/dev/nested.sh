@@ -11,7 +11,8 @@
 # Logs: .work/nested/<run-id>/ (run.log, console-<stage>.log, result-<stage>.json); .work/nested/latest points at the newest run.
 # Extra stages (nested_stages.py: rollback, backup, restore, pool, ...) work like smoke: on an installed VM, so --name and the password
 # (HS_NESTED_PASSWORD_FILE) are needed. HS_NESTED_DISKS="name=device ..." names the Incus devices of virtual disks a stage may use,
-# HS_NESTED_BACKUP_PASS_FILE holds the restic password for the stage restore.
+# HS_NESTED_BACKUP_PASS_FILE holds the restic password for the stage restore. Stage upgrade (#435): the VM was installed from the LAST release
+# (--iso of that release); HS_NESTED_CANDIDATE is the branch `hs update` goes to, HS_NESTED_UPGRADE_APP an optional app. Not tested on hardware yet.
 # Knobs: HS_NESTED_ISO (default result-iso/iso/homeserver-installer.iso), HS_NESTED_INCUS (the incus command), HS_NESTED_CPU, _MEM, _DISK.
 set -uo pipefail
 root=$(cd "$(dirname "$0")/../.." && pwd)
@@ -49,6 +50,7 @@ done
 case $stage in iso|smoke|all) ;; *) "$py" -I "$lib" plan "$stage" >/dev/null 2>&1 || { usage; exit 2; } ;; esac
 # smoke and every extra stage run on an installed VM
 installed=false; case $stage in iso|all) ;; *) installed=true ;; esac
+[ "$stage" != upgrade ] || [ -n "${HS_NESTED_CANDIDATE:-}" ] || { echo "--stage upgrade needs HS_NESTED_CANDIDATE (the branch to update to) and a VM installed from the LAST release" >&2; exit 2; }
 $installed && [ -z "$name" ] && { echo "--stage $stage needs --name <vm> of an installed VM (kept with --keep)" >&2; exit 2; }
 
 runid=$(date +%Y%m%d-%H%M%S)-$$

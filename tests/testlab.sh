@@ -27,6 +27,7 @@ case "$sub" in
   checkout) cp -r "$dir/tree/." "$wd/" ;;
   rev-parse) echo 0123456789abcdef0123456789abcdef01234567 ;;
   fetch) [ -z "${FAKE_FETCH_FAIL:-}" ] || exit 128 ;;
+  ls-remote) [ -n "${FAKE_NO_TAGS:-}" ] || printf 'aaa\trefs/tags/v0.1.0\nbbb\trefs/tags/v0.1.1\nccc\trefs/tags/v0.1.10\nddd\trefs/tags/v0.2.0-beta.1\n' ;;
 esac
 exit 0
 FAKE
@@ -65,7 +66,7 @@ sys.exit(rc)
 FAKE
 cat > "$B/tree/scripts/dev/build-iso.sh" <<'FAKE'
 #!/usr/bin/env bash
-echo build >> "${FAKE_DIR:?}/build.log"; [ -z "${FAKE_BUILD_FAIL:-}" ] || exit 1; mkdir -p result-iso; exit 0
+echo build >> "${FAKE_DIR:?}/build.log"; [ -z "${FAKE_BUILD_FAIL:-}" ] || exit 1; mkdir -p result-iso/iso; : > result-iso/iso/homeserver-installer.iso; exit 0
 FAKE
 cat > "$B/incus" <<'FAKE'
 #!/usr/bin/env bash
@@ -87,7 +88,7 @@ FAKE
 chmod +x "$B/git" "$B/incus" "$B/notify.sh" "$B/bin/systemd-run" "$B/tree/scripts/dev/"*.sh
 export FAKE_DIR=$B PATH="$B/bin:$PATH"
 
-reset() { rm -rf "$B/state" "$B"/*.log "$B/state.db" "$B/jobs"/*; unset FAKE_FAIL_STAGE FAKE_BROWSER_RC FAKE_MODE FAKE_PREFLIGHT_RC FAKE_FETCH_FAIL FAKE_BUILD_FAIL; }
+reset() { rm -rf "$B/state" "$B"/*.log "$B/state.db" "$B/jobs"/*; unset FAKE_NO_TAGS FAKE_FAIL_STAGE FAKE_BROWSER_RC FAKE_MODE FAKE_PREFLIGHT_RC FAKE_FETCH_FAIL FAKE_BUILD_FAIL; }
 lastrun() { ls -1 "$B/state/runs" | tail -n1; }
 res() { python3 -I -c 'import json,sys; print(json.load(open(sys.argv[1]))["result"])' "$B/state/runs/$(lastrun)/stage-$1.json"; }
 events() { python3 "$SCRIPTS/state-db.py" event-list 2>/dev/null | awk -F'\t' '{print $4}' | tr '\n' ' '; }
@@ -274,6 +275,39 @@ lines=$($T results --list)
 check_eq "one line per stage for one run" "6" "$(wc -l <<<"$lines" | tr -d ' ')"
 check_out "tab separated: run, stage, result, exit, ref, commit" $'^[0-9-]+\t1\tok\t0\tdevelop\t0123456789abcdef' echo "$lines"
 have column && check_out "a table for people" "Result" $T results
+
+echo "-- stage 7: the upgrade test (#435)"
+reset
+$T run --stage all --dry-run 2>&1 | grep -q "7 (upgrade)"; check_eq "stage 7 is not part of all" "1" "$?"
+out=$($T run --stage upgrade --dry-run 2>&1); rc=$?
+check_eq "the plan exits 0" "0" "$rc"
+check_out "the plan names the release" "newest vX.Y.Z tag" echo "$out"
+check_out "and says it was not tested" "Not tested on hardware yet" echo "$out"
+check_eq "a dry run starts nothing" "" "$(nlog git)$(nlog nested)"
+$T run --stage 7 --from v0.1 --dry-run >/dev/null 2>&1; rc=$?
+check_eq "a release that is no tag is refused" "1" "$rc"
+$T run --stage 1 --from v0.1.0 --dry-run >/dev/null 2>&1; rc=$?
+check_eq "--from is for stage 7 only" "2" "$rc"
+reset
+$T run --stage upgrade --ref develop --yes --foreground >/dev/null 2>&1; rc=$?
+check_eq "a green upgrade exits 0" "0" "$rc"
+check_eq "stage-7.json says ok" "ok" "$(res 7)"
+check_out "the newest release tag is used (v0.1.10 beats v0.1.1, no beta)" "fetch -q --depth 1 origin refs/tags/v0.1.10" nlog git
+check_out "the release ISO is installed first" "run --stage iso --iso .*homeserver-installer.iso --name hs-testlab-.* --keep" nlog nested
+check_out "then the upgrade runs on that VM" "run --stage upgrade --name hs-testlab-" nlog nested
+check_eq "no stage 1 file for it" "no" "$([ -e "$B/state/runs/$(lastrun)/stage-1.json" ] && echo yes || echo no)"
+check_out "results lists stage 7" "	7	ok" $T results --list
+reset; FAKE_FAIL_STAGE=upgrade $T run --stage 7 --yes --foreground >/dev/null 2>&1; rc=$?
+check_eq "a failed upgrade exits 1" "1" "$rc"
+check_eq "and is written as failed" "failed" "$(res 7)"
+check_out "and sends a push message" "Test-lab failed" nlog notify
+reset; FAKE_MODE=iso-fail $T run --stage 7 --yes --foreground >/dev/null 2>&1; rc=$?
+check_eq "the release does not install: exit 1" "1" "$rc"
+reset; FAKE_NO_TAGS=1 $T run --stage 7 --yes --foreground >/dev/null 2>&1; rc=$?
+check_eq "no release yet: skipped, exit 3" "3" "$rc"
+check_eq "written as skipped" "skipped" "$(res 7)"
+reset; FAKE_PREFLIGHT_RC=1 $T run --stage 7 --yes --foreground >/dev/null 2>&1; rc=$?
+check_eq "no nested VMs here: exit 3" "3" "$rc"
 
 echo "-- the web route (testlab-change.sh)"
 reset

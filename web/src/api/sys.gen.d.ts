@@ -2550,7 +2550,7 @@ export interface SysOperations {
     lines: ChangeLines;
   };
   "testlab.results": {
-    /** the last test-lab runs as data: run, stage (1|2), result (ok|failed|skipped|error), exit, ref, commit, started, ended; empty: no run yet */
+    /** the last test-lab runs as data: run, stage (1 to 7), result (ok|failed|skipped|error), exit, ref, commit, started, ended; empty: no run yet */
     words: ["testlab", "results"];
     path: "/testlab/results";
     method: "get";

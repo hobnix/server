@@ -2392,8 +2392,10 @@ Started	Gestartet
 The job was cancelled.	Der Job wurde abgebrochen.
 The test-lab is off. Switch it on with the capability testlab (hs config set capabilities, then hs rebuild).	Das Testlabor ist aus. Schalte die Funktion testlab ein (hs config set capabilities, dann hs rebuild).
 This builds an installer image and boots virtual machines: it takes a long time and puts load on this server.	Das baut ein Installer-Abbild und startet virtuelle Maschinen: es dauert lange und belastet diesen Server.
-usage: hs testlab run [--ref <branch|tag|commit>] [--stage 1|2|3|4|5|6|<name>|all] [--dry-run] [--yes] [--background|--foreground]	Aufruf: hs testlab run [--ref <branch|tag|commit>] [--stage 1|2|3|4|5|6|<name>|all] [--dry-run] [--yes] [--background|--foreground]
 2. check that this machine can run nested VMs (KVM, Incus)	2. prüfen, ob dieser Rechner verschachtelte VMs starten kann (KVM, Incus)
+From release	Ab Release
+Upgrading from %s to %s	Update von %s auf %s
+no release tag (vX.Y.Z) exists yet: nothing to upgrade from	es gibt noch kein Release (vX.Y.Z): nichts, von dem aus ein Update geprüft werden kann
    stage 3: break an update on purpose and check that it goes back by itself	   Stufe 3: ein Update absichtlich kaputt machen und prüfen, dass es von selbst zurückgeht
    stage 4: back up onto a virtual disk, install a second clean VM and restore there	   Stufe 4: auf eine virtuelle Platte sichern, eine zweite saubere VM installieren und dort zurückholen
    stage 5: add virtual disks, make a pool, copy a file with the file manager	   Stufe 5: virtuelle Platten hinzufügen, einen Pool anlegen, eine Datei mit dem Dateimanager kopieren
@@ -2402,3 +2404,6 @@ Stage %s: %s	Stufe %s: %s
 Stage 4: a second, clean VM %s	Stufe 4: eine zweite, saubere VM %s
 The VM has no IPv4 address that Incus can see.	Die VM hat keine IPv4-Adresse, die Incus sehen kann.
 this ref has no scripts/dev/testlab-browser.py	dieser Stand hat kein scripts/dev/testlab-browser.py
+usage: hs testlab run [--ref <branch|tag|commit>] [--stage 1|2|3|4|5|6|7|<name>|all] [--from <vX.Y.Z>] [--dry-run] [--yes] [--background|--foreground]	Aufruf: hs testlab run [--ref <branch|tag|commit>] [--stage 1|2|3|4|5|6|7|<name>|all] [--from <vX.Y.Z>] [--dry-run] [--yes] [--background|--foreground]
+3. build the installer ISO of the RELEASE (nix, long) and install it in a throwaway VM	3. das Installer-ISO des RELEASES bauen (nix, dauert lange) und in einer Wegwerf-VM installieren
+Installing %s in VM %s	%s wird in der VM %s installiert

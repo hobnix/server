@@ -129,6 +129,29 @@ check_eq "up = share of the expected readings" "[0.02,0.02,0.02]" "$(hj '[h["up"
 check_eq "the hour with the reboot says so" "[false,false,true]" "$(hj '[h["boot"] for h in d["hours"][-3:]]' | sed 's/False/false/g;s/True/true/g')"
 check_eq "each hour is stamped with its start" "[1700002800,1700006400,1700010000]" "$(hj '[h["t"] for h in d["hours"][-3:]]')"
 
+echo "-- the schema has a version and migration steps (#435)"
+prev_db=$HS_STATE_DB
+export HS_STATE_DB=$(wp "$WORK/schema/state.db"); mkdir -p "$WORK/schema"
+uv() { python3 -I -c 'import sqlite3,sys; print(sqlite3.connect(sys.argv[1]).execute("PRAGMA user_version").fetchone()[0])' "$HS_STATE_DB"; }
+want=$(python3 -I -c 'import runpy,sys; print(runpy.run_path(sys.argv[1], run_name="m")["SCHEMA_VERSION"])' "$(wp "$SCRIPTS")/state-db.py")
+python3 "$SCRIPTS/state-db.py" forget nothing >/dev/null 2>&1
+check_eq "a new database gets the current version" "$want" "$(uv)"
+# a database from before the number existed (version 0, an events table without the newer columns) is migrated and keeps its rows
+rm -f "$WORK/schema/state.db"*
+python3 -I -c 'import sqlite3,sys; c=sqlite3.connect(sys.argv[1]); c.execute("CREATE TABLE events (id INTEGER PRIMARY KEY, time INTEGER, kind TEXT, subject TEXT, text TEXT)"); c.execute("INSERT INTO events (time,kind,subject,text) VALUES (5,\"plugged\",\"x\",\"old row\")"); c.commit()' "$HS_STATE_DB"
+check_eq "old database starts at version 0" "0" "$(uv)"
+python3 "$SCRIPTS/state-db.py" forget nothing >/dev/null 2>&1
+check_eq "opening it for writing migrates to the current version" "$want" "$(uv)"
+check_eq "the old row is still there" "1" "$(python3 -I -c 'import sqlite3,sys; print(sqlite3.connect(sys.argv[1]).execute("SELECT count(*) FROM events WHERE text=\"old row\"").fetchone()[0])' "$HS_STATE_DB")"
+check_eq "the new columns exist" "yes" "$(python3 -I -c 'import sqlite3,sys; print("yes" if {"level","payload","v","source"} <= {r[1] for r in sqlite3.connect(sys.argv[1]).execute("PRAGMA table_info(events)")} else "no")' "$HS_STATE_DB")"
+# a database of a newer release is refused, not written to
+python3 -I -c 'import sqlite3,sys; c=sqlite3.connect(sys.argv[1]); c.execute("PRAGMA user_version=%d" % (int(sys.argv[2])+1)); c.commit()' "$HS_STATE_DB" "$want"
+out=$(python3 "$SCRIPTS/state-db.py" forget nothing 2>&1); rc=$?
+check_eq "a newer schema is refused (exit 1)" "1" "$rc"
+check_out "with a reason" "newer release" echo "$out"
+check_eq "and the version is left alone" "$((want + 1))" "$(uv)"
+export HS_STATE_DB=$prev_db
+
 echo "-- history: the old files are migrated once"
 export HS_STATE_DB=$(wp "$WORK/mig/state.db")
 mkdir -p "$WORK/oldhist"

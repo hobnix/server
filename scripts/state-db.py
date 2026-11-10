@@ -99,15 +99,40 @@ CREATE TABLE IF NOT EXISTS hours (
 """
 
 
+class SchemaTooNew(Exception):
+    pass
+
+
+def schema_steps():
+    """The migrations, in order: (version it leads to, function). A step must be safe to run twice (check first, change inside BEGIN IMMEDIATE),
+    because two writers may start at once and a crash can leave the version behind. A new schema change: add a step here, raise SCHEMA_VERSION,
+    and never edit an old step. Version 2 is the first numbered one: the columns of `events` and `reads` (#324) were added by the two
+    functions before the number existed, so an old database of any age lands on 2."""
+    return ((2, lambda c: (migrate_events(c), migrate_reads(c))),)
+
+
+SCHEMA_VERSION = schema_steps()[-1][0]
+
+
+def migrate_schema(c):
+    """Bring the database to SCHEMA_VERSION (PRAGMA user_version). A database from a NEWER release (after a downgrade) is refused with
+    SchemaTooNew: an old script must not write into a layout it does not know. user_version 0 is a database from before the number existed."""
+    have = c.execute("PRAGMA user_version").fetchone()[0]
+    if have > SCHEMA_VERSION:
+        raise SchemaTooNew("state.db has schema version %d, this release knows up to %d: it was written by a newer release" % (have, SCHEMA_VERSION))
+    for version, fn in schema_steps():
+        if version > have:
+            fn(c)
+            c.execute("PRAGMA user_version=%d" % version)
+
+
 def open_rw():
     os.makedirs(os.path.dirname(DB) or ".", exist_ok=True)
     c = sqlite3.connect(DB, timeout=30)
     c.execute("PRAGMA journal_mode=WAL")
     c.execute("PRAGMA synchronous=NORMAL")
     c.executescript(SCHEMA)
-    migrate_events(c)
-    migrate_reads(c)
-    c.execute("PRAGMA user_version=2")
+    migrate_schema(c)
     import_disk_events(c)
     return c
 
@@ -1268,4 +1293,8 @@ def main(argv):
 
 
 if __name__ == "__main__":
-    sys.exit(main(sys.argv))
+    try:
+        sys.exit(main(sys.argv))
+    except SchemaTooNew as e:
+        print("hs: %s" % e, file=sys.stderr)
+        sys.exit(1)

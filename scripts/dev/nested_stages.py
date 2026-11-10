@@ -9,6 +9,8 @@ changes. params: password (of adminuser), hostname, backup_pass (the restic pass
 Incus device names of the virtual disks a stage may use: dict name -> device name).
 """
 
+import os
+
 LOGIN = r"\n[^\n]*login: $"
 
 
@@ -128,9 +130,60 @@ def pool(params):
     ]
 
 
+def upgrade_steps(params):
+    """Stage upgrade (#435): the system installed from the LAST release ISO is set up (a share, one app), `hs update` moves it to the candidate
+    (a branch of the Hobnix repository that the old checkout is pointed at), and it must still be healthy with its shares, state.db and app.
+    Not tested on hardware yet: the command lines are written from the scripts, never run in a VM."""
+    user, pw = "adminuser", params["password"]
+    cand = params.get("candidate") or os.environ.get("HS_NESTED_CANDIDATE") or "<candidate-branch>"   # the branch the server updates to
+    repo = params.get("candidate_repo") or os.environ.get("HS_NESTED_CANDIDATE_REPO") or "https://github.com/hobnix/server.git"
+    app, share = params.get("app") or os.environ.get("HS_NESTED_UPGRADE_APP", ""), "upgrade-test"
+    db = "/var/lib/hs/state.db"
+    ver = "python3 -I -c 'import sqlite3,sys; print(sqlite3.connect(sys.argv[1]).execute(\"PRAGMA user_version\").fetchone()[0])' " + db
+    rows = ("python3 -I -c 'import sqlite3,sys; print(sqlite3.connect(sys.argv[1]).execute(\"SELECT count(*) FROM events\").fetchone()[0])' " + db)
+    steps = [
+        step("wait", LOGIN, timeout=420, what="the old release boots to a login prompt"),
+        step("send", user),
+        step("wait", r"[Pp]assword: ?$", timeout=30, what="the password prompt"),
+        step("send_secret", pw),
+        step("wait", r"\[%s@[^\]]*\]\$ " % user, timeout=60, what="adminuser is logged in"),
+        step("run", "sudo -n true", what="adminuser may use sudo without a password"),
+        step("run", "systemctl is-system-running --wait | grep -Eq '^(running|degraded)$'", timeout=300, what="the old release finished starting"),
+        # set up what a server in the field has
+        step("run", "sudo -n hs share add %s" % share, timeout=300, what="a share is created on the old release"),
+        step("run", "sudo -n hs sys shares list > /var/tmp/upgrade-shares-before && grep -q %s /var/tmp/upgrade-shares-before" % share, what="the share is listed"),
+    ]
+    if app:
+        steps += [step("run", "sudo -n hs pkg install %s --yes" % _q(app), timeout=1800, what="one app is installed on the old release")]
+    steps += [
+        step("run", "git -C /etc/nixos rev-parse HEAD > /var/tmp/upgrade-rev-before", what="the revision of the old release is noted"),
+        step("run", "cp /etc/nixos/machine.toml /var/tmp/upgrade-machine-before", what="machine.toml of the old release is kept"),
+        step("run", "%s > /var/tmp/upgrade-schema-before && %s > /var/tmp/upgrade-events-before" % (ver, rows), what="the state.db schema version and event count are noted"),
+        # point the old checkout at the candidate branch: update.sh follows the upstream of the current branch while no newer signed tag exists
+        step("run", "sudo -n git -C /etc/nixos remote set-url origin %s" % _q(repo), what="origin is the Hobnix repository"),
+        step("run", "sudo -n git -C /etc/nixos fetch origin %s" % _q(cand), timeout=600, what="the candidate branch is fetched"),
+        step("run", "sudo -n git -C /etc/nixos branch -u origin/%s" % _q(cand), what="the current branch follows the candidate"),
+        step("run", "sudo -n hs update --yes", timeout=3600, what="hs update moves the server to the candidate"),
+        # the checks
+        step("run", "test \"$(git -C /etc/nixos rev-parse HEAD)\" != \"$(cat /var/tmp/upgrade-rev-before)\"", what="the checkout moved to a new revision"),
+        step("run", "systemctl is-system-running --wait | grep -Eq '^(running|degraded)$'", timeout=300, what="the updated system is running"),
+        step("run", "sudo -n hs sys shares list | grep -q %s" % share, what="the share survived the update"),
+        step("run", "diff <(sudo -n hs sys shares list | grep %s) <(grep %s /var/tmp/upgrade-shares-before)" % (share, share), what="the share lists the same"),
+        step("run", "test -s /etc/nixos/machine.toml && grep -q . /var/tmp/upgrade-machine-before", what="machine.toml is still there and not empty"),
+        step("run", "test \"$(%s)\" -ge \"$(cat /var/tmp/upgrade-schema-before)\"" % ver, what="the state.db schema version did not go back"),
+        step("run", "test \"$(%s)\" -ge \"$(cat /var/tmp/upgrade-events-before)\"" % rows, what="state.db kept its events"),
+        step("run", "sudo -n hs smoke", timeout=300, what="hs smoke passes on the updated system"),
+        step("run", "sudo -n hs health", timeout=120, what="hs health reports no problem"),
+    ]
+    if app:
+        steps += [step("run", "sudo -n hs pkg list | grep -q %s" % _q(app), what="the app is still installed")]
+    return steps
+
+
 SCENARIOS = {
     "rollback": rollback,
     "backup": backup,
     "restore": restore,
     "pool": pool,
+    "upgrade": upgrade_steps,
 }

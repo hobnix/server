@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
-# help: the test-lab: fetch a Hobnix ref, build the installer ISO, install it in a nested VM and smoke check it (stages 1 to 6); plan first, runs as a job
-# help.de: das Testlabor: einen Hobnix-Stand holen, die Installer-ISO bauen, in einer verschachtelten VM installieren und prüfen (Stufen 1 bis 6); erst der Plan, läuft als Job
-# args: run [--ref <branch|tag|commit>] [--stage 1|2|3|4|5|6|<name>|all] [--dry-run] [--yes] [--background|--foreground] | results [--list [N]]
+# help: the test-lab: fetch a Hobnix ref, build the installer ISO, install it in a nested VM and smoke check it (stages 1 to 6, and the upgrade test 7); plan first, runs as a job
+# help.de: das Testlabor: einen Hobnix-Stand holen, die Installer-ISO bauen, in einer verschachtelten VM installieren und prüfen (Stufen 1 bis 6, dazu der Update-Test 7); erst der Plan, läuft als Job
+# args: run [--ref <branch|tag|commit>] [--stage 1|2|3|4|5|6|7|<name>|all] [--from <vX.Y.Z>] [--dry-run] [--yes] [--background|--foreground] | results [--list [N]]
 # UNVERIFIED: written without Incus, KVM or nix. Not tested on hardware yet. Design: capabilities/testlab/NOTES.md, docs/adr/0023-nested-test-harness.md.
 #
 #   run      builds the ISO of the ref and runs scripts/dev/nested.sh of THAT checkout. Stage 1: the ISO boots and installs unattended. Stage 2: the
@@ -9,6 +9,9 @@
 #            changes nothing. On a terminal it asks once, then whether to run as a background job; a job, --yes and the timer ask nothing.
 #            Stage 3 (rollback): a bad update goes back by itself. Stage 4 (backup): back up on the VM, restore onto a second clean VM.
 #            Stage 5 (pool): a pool and the file manager on virtual disks. Stage 6 (browser): a headless browser opens every web page.
+#            Stage 7 (upgrade, #435; never part of `all`, it needs no stages 1 and 2): builds the ISO of the LAST release (--from vX.Y.Z, default the
+#            newest tag), installs it, sets up a share (and an app, HS_NESTED_UPGRADE_APP), runs `hs update` to --ref (a BRANCH of the Hobnix repository)
+#            and checks health, shares, state.db and the app. Takes two ISO builds. Not tested on hardware yet.
 #            A stage is a number or its name (install smoke rollback backup pool browser); stages 3 to 6 need 1 and 2 and run them first.
 #   results  the last runs, one line per run and stage; --list: machine-readable (run, stage, result, exit, ref, commit, started, ended; `-` = empty)
 #
@@ -32,16 +35,16 @@ incus=${HS_NESTED_INCUS:-incus}
 repo_url=${HS_TESTLAB_REPO:-https://github.com/hobnix/server.git}
 
 # The stages. Adding one (#435 does the upgrade test): a case line in stage_name, its number in STAGES_ALL, a function stage_<name> in the run part.
-stage_name() { case "$1" in 1) echo install ;; 2) echo smoke ;; 3) echo rollback ;; 4) echo backup ;; 5) echo pool ;; 6) echo browser ;; *) return 1 ;; esac; }
+stage_name() { case "$1" in 1) echo install ;; 2) echo smoke ;; 3) echo rollback ;; 4) echo backup ;; 5) echo pool ;; 6) echo browser ;; 7) echo upgrade ;; *) return 1 ;; esac; }
 STAGES_ALL="1 2 3 4 5 6"
 stage_number() {   # a number, or a name, to the number; fails for anything else
   local n
-  for n in $STAGES_ALL; do if [ "$1" = "$n" ] || [ "$1" = "$(stage_name "$n")" ]; then echo "$n"; return 0; fi; done
+  for n in $STAGES_ALL 7; do if [ "$1" = "$n" ] || [ "$1" = "$(stage_name "$n")" ]; then echo "$n"; return 0; fi; done
   return 1
 }
 
 usage() {
-  say "usage: hs testlab run [--ref <branch|tag|commit>] [--stage 1|2|3|4|5|6|<name>|all] [--dry-run] [--yes] [--background|--foreground]"
+  say "usage: hs testlab run [--ref <branch|tag|commit>] [--stage 1|2|3|4|5|6|7|<name>|all] [--from <vX.Y.Z>] [--dry-run] [--yes] [--background|--foreground]"
   say "       hs testlab results [--list [N]]"
   exit 2
 }
@@ -101,11 +104,12 @@ PY
 fi
 
 # ---------------------------------------------------------------- run
-ref=develop; stage=all; dry=false; yes=false; bg=ask
+ref=develop; stage=all; from=; dry=false; yes=false; bg=ask
 while [ $# -gt 0 ]; do
   case "$1" in
     --ref) [ $# -ge 2 ] || usage; ref=$2; shift 2 ;;
     --stage) [ $# -ge 2 ] || usage; stage=$2; shift 2 ;;
+    --from) [ $# -ge 2 ] || usage; from=$2; shift 2 ;;
     --dry-run) dry=true; shift ;;
     --yes) yes=true; shift ;;
     --background) bg=yes; shift ;;
@@ -116,8 +120,10 @@ done
 # the selected stages: a stage above 2 needs the installed VM of 1 and 2
 if [ "$stage" = all ]; then sel=$STAGES_ALL; else
   sn=$(stage_number "$stage") || usage
-  if [ "$sn" -le 2 ]; then sel=$(seq -s ' ' 1 "$sn"); else sel="1 2 $sn"; fi
+  if [ "$sn" = 7 ]; then sel=7; elif [ "$sn" -le 2 ]; then sel=$(seq -s ' ' 1 "$sn"); else sel="1 2 $sn"; fi
 fi
+[ -z "$from" ] || [ "$sel" = 7 ] || usage
+[ -z "$from" ] || [[ "$from" =~ ^v[0-9]+\.[0-9]+\.[0-9]+$ ]] || fail_fix "The release '$from' is not accepted." "use a release tag like v0.1.0"
 sel_has() { case " $sel " in *" $1 "*) return 0 ;; esac; return 1; }
 testlab_ref_ok "$ref" || fail_fix "The ref '$ref' is not accepted." "use a branch, a tag or a commit of the Hobnix repository (never refs/pull/...)"
 testlab_url_ok "$repo_url" || fail_fix "The repository address is not on the allowlist." "only https://github.com/hobnix/<repository> is fetched"
@@ -129,6 +135,16 @@ step "$(t 'Plan: test-lab run of %s' "$ref")"
 kv "Repository" "$repo_url"
 kv "Ref" "$ref"
 kv "Stages" "$(for n in $sel; do printf '%s ' "$n ($(stage_name "$n"))"; done)"
+if [ "$sel" = 7 ]; then
+  kv "From release" "${from:-the newest vX.Y.Z tag}"
+  note "1. fetch the candidate $ref (it holds the harness) and the release tag"
+  note "2. check that this machine can run nested VMs (KVM, Incus)"
+  note "3. build the installer ISO of the RELEASE (nix, long) and install it in a throwaway VM"
+  note "4. set up a share and an app, run hs update to $ref, check health, shares, state.db and the app"
+  note "5. delete the VM; write stage-7.json to $state/runs/<run-id>/"
+  note "A failure sends a push message. Not tested on hardware yet."
+  if $dry; then note "Dry run: nothing was fetched, built or started."; exit 0; fi
+fi
 note "1. fetch the ref from the Hobnix repository (shallow, into $state/src)"
 note "2. check that this machine can run nested VMs (KVM, Incus)"
 note "3. build the installer ISO (nix, can take a long time and needs tens of GiB)"
@@ -150,7 +166,7 @@ fi
 if [ "${HS_CALLER:-}" != job ] && [ "$bg" != no ]; then
   if [ "$bg" = ask ] && interactive && confirm "Run it as a background job (you can close the terminal)?"; then bg=yes; fi
   if [ "$bg" = yes ]; then
-    unit=$(hs_job testlab "hs testlab run $ref" -- bash "$here/testlab.sh" run --ref "$ref" --stage "$stage" --yes --foreground) || exit 1
+    unit=$(hs_job testlab "hs testlab run $ref" -- bash "$here/testlab.sh" run --ref "$ref" --stage "$stage" ${from:+--from "$from"} --yes --foreground) || exit 1
     ok "$(t 'Started as job %s.' "$unit")"
     next_step "hs job follow $unit"
     exit 0
@@ -237,6 +253,59 @@ step "$(t 'Run %s: can this machine run nested VMs?' "$runid")"
 if ! bash "$src/scripts/dev/nested.sh" preflight; then fail_run 3 1 "this machine cannot run nested VMs (no KVM, nested virtualization or incus)"; fi
 stopped
 
+json_ok() {   # json_ok <file>: ok|failed|error from a harness result file
+  python3 -I -c 'import json,sys; print("ok" if json.load(open(sys.argv[1])).get("ok") else "failed")' "$1" 2>/dev/null || echo error
+}
+xrun() {   # xrun <stage> <vm> "<name=device ...>": a console scenario of the harness on an installed VM; echoes ok|failed|skipped|error
+  local st=$1 on=$2 disks=$3 rc=0 d
+  (cd "$src" && HS_NESTED_PASSWORD_FILE=$4 HS_NESTED_DISKS=$disks HS_NESTED_BACKUP_PASS_FILE=${5:-} timeout "${HS_TESTLAB_RUN_TIMEOUT:-2700}" \
+     bash scripts/dev/nested.sh run --stage "$st" --name "$on" --keep) || rc=$?
+  d=$(cd "$src/.work/nested/latest" 2>/dev/null && pwd || true)
+  [ -z "$d" ] || { mkdir -p "$rundir/harness-$st"; cp "$d"/*.log "$d"/result-*.json "$rundir/harness-$st/" 2>/dev/null || true; }
+  if [ -n "$d" ] && [ -f "$d/result-$st.json" ]; then json_ok "$d/result-$st.json"; return; fi
+  case "$rc" in 0) echo ok ;; 3) echo skipped ;; *) echo error ;; esac
+}
+
+if [ "$sel" = 7 ]; then
+  # ---- stage 7: the harness (and the scenario) is the candidate's (src); the ISO is the last release's (src-old). Own path: needs no stage 1 and 2.
+  hs_job_step 3 4 "Building the ISO of the last release"; hs_job_progress 2 4 steps
+  if [ -z "$from" ]; then
+    from=$(gitc ls-remote --tags --refs "$repo_url" 'v*' 2>/dev/null | sed 's|.*refs/tags/||' | grep -E '^v[0-9]+\.[0-9]+\.[0-9]+$' | sort -V | tail -n 1 || true)
+    if [ -z "$from" ]; then warn "no release tag (vX.Y.Z) exists yet: nothing to upgrade from"; write_stage 7 skipped 3; finish 3 7 "no release to upgrade from"; fi
+  fi
+  note "$(t 'Upgrading from %s to %s' "$from" "$ref")"
+  old=$state/src-old; mkdir -p "$old"
+  up_fail() { write_stage 7 error 4; finish 4 7 "$1"; }
+  [ -d "$old/.git" ] || gitc -C "$old" init -q || up_fail "git init failed"
+  gitc -C "$old" remote remove origin >/dev/null 2>&1 || true
+  gitc -C "$old" remote add origin "$repo_url" || up_fail "git remote failed"
+  gitc -C "$old" fetch -q --depth 1 origin "refs/tags/$from" || up_fail "could not fetch the release $from"
+  gitc -C "$old" checkout -q -f --detach FETCH_HEAD || up_fail "could not check out $from"
+  gitc -C "$old" clean -q -fdx -e result-iso >/dev/null 2>&1 || true
+  (cd "$old" && SPIN_STREAM=1 timeout "${HS_TESTLAB_BUILD_TIMEOUT:-5400}" bash scripts/dev/build-iso.sh) || up_fail "the ISO build of $from failed (see run.log)"
+  oldiso=$(ls "$old"/result-iso/iso/*.iso 2>/dev/null | head -n 1 || true)
+  [ -n "$oldiso" ] || up_fail "the ISO of $from is missing after the build"
+  stopped
+  hs_job_step 4 4 "Install $from, update to $ref"; hs_job_progress 3 4 steps
+  step "$(t 'Installing %s in VM %s' "$from" "$vm")"
+  nrc=0
+  (cd "$src" && timeout "${HS_TESTLAB_RUN_TIMEOUT:-2700}" bash scripts/dev/nested.sh run --stage iso --iso "$oldiso" --name "$vm" --keep) || nrc=$?
+  ndir=$(cd "$src/.work/nested/latest" 2>/dev/null && pwd || true)
+  ur=error
+  if [ "$nrc" = 0 ]; then
+    export HS_NESTED_CANDIDATE=$ref
+    ur=$(xrun upgrade "$vm" "" "$ndir/password")
+  elif [ "$nrc" = 3 ]; then ur=skipped
+  elif [ -n "$ndir" ] && [ -f "$ndir/result-iso.json" ] && [ "$(json_ok "$ndir/result-iso.json")" = failed ]; then ur=failed; fi
+  [ -z "$ndir" ] || { mkdir -p "$rundir/harness"; cp "$ndir"/*.log "$ndir"/result-*.json "$rundir/harness/" 2>/dev/null || true; }
+  write_stage 7 "$ur" "$nrc"
+  hs_job_progress 4 4 steps
+  step "$(t 'Result')"
+  status_line "Upgrade $from to $ref" "$ur" "$([ "$ur" = ok ] && echo ok || echo bad)"
+  note "$(t 'Commit %s, run folder %s' "$commit" "$rundir")"
+  case "$ur" in ok) finish 0 7 "" ;; failed) finish 1 7 "the upgrade from $from failed" ;; skipped) finish 3 7 "the harness cannot run here" ;; *) finish 4 7 "upgrade $ur" ;; esac
+fi
+
 hs_job_step 3 4 "Building the installer ISO"; hs_job_progress 2 4 steps
 step "$(t 'Building the installer ISO (this takes a long time)')"
 if ! (cd "$src" && SPIN_STREAM=1 timeout "${HS_TESTLAB_BUILD_TIMEOUT:-5400}" bash scripts/dev/build-iso.sh); then fail_run 4 2 "the ISO build failed (see run.log)"; fi
@@ -252,9 +321,6 @@ ndir=$(cd "$src/.work/nested/latest" 2>/dev/null && pwd || true)
 [ -z "$ndir" ] || rm -f "$rundir/harness/key" "$rundir/harness/password"   # a throwaway key and password of the VM: not kept
 pwfile=$ndir/password   # the password of the installed VM: the later stages log in with it (the copy in the run folder is deleted)
 
-json_ok() {   # json_ok <file>: ok|failed|error from a harness result file
-  python3 -I -c 'import json,sys; print("ok" if json.load(open(sys.argv[1])).get("ok") else "failed")' "$1" 2>/dev/null || echo error
-}
 stage_res() {   # stage_res <iso|smoke>: ok|failed|skipped|error from the harness result file, else from its exit code
   local f=$ndir/result-$1.json
   if [ -n "$ndir" ] && [ -f "$f" ]; then json_ok "$f"; return; fi
@@ -277,15 +343,6 @@ vdisk_add() {   # vdisk_add <vm> <device> <size>: a virtual disk (an Incus block
   "$incus" storage volume create "$spool" "$1-$2" --type=block "size=$3" >/dev/null || return 1
   vols+=("$1-$2")
   "$incus" config device add "$1" "$2" disk "pool=$spool" "source=$1-$2" >/dev/null
-}
-xrun() {   # xrun <stage> <vm> "<name=device ...>": a console scenario of the harness on an installed VM; echoes ok|failed|skipped|error
-  local st=$1 on=$2 disks=$3 rc=0 d
-  (cd "$src" && HS_NESTED_PASSWORD_FILE=$4 HS_NESTED_DISKS=$disks HS_NESTED_BACKUP_PASS_FILE=${5:-} timeout "${HS_TESTLAB_RUN_TIMEOUT:-2700}" \
-     bash scripts/dev/nested.sh run --stage "$st" --name "$on" --keep) || rc=$?
-  d=$(cd "$src/.work/nested/latest" 2>/dev/null && pwd || true)
-  [ -z "$d" ] || { mkdir -p "$rundir/harness-$st"; cp "$d"/*.log "$d"/result-*.json "$rundir/harness-$st/" 2>/dev/null || true; }
-  if [ -n "$d" ] && [ -f "$d/result-$st.json" ]; then json_ok "$d/result-$st.json"; return; fi
-  case "$rc" in 0) echo ok ;; 3) echo skipped ;; *) echo error ;; esac
 }
 worst() {   # worst <result>...: the first that is not ok
   local r; for r in "$@"; do [ "$r" = ok ] || { echo "$r"; return; }; done; echo ok

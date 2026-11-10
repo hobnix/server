@@ -1,0 +1,6 @@
+date  = "2026-11-10"
+type  = "feature"
+title = "Test-lab: check the update from the last release"
+body  = """The test-lab has a new stage, hs testlab run --stage upgrade. It installs the last release in a virtual machine, sets up a share and an app, runs hs update to a branch and checks that the server, its shares, its history database and the app are still fine. The history database (state.db) now carries a schema version, and a database written by a newer release is refused instead of being changed.
+
+Not tested on hardware yet."""
