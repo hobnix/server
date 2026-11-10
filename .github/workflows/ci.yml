@@ -14,11 +14,6 @@ concurrency:
   group: ci-${{ github.ref }}
   cancel-in-progress: true
 
-env:
-  # The nixpkgs revision the servers run (nixos-version --revision): the cache only helps when CI builds the same store paths. Used by the
-  # jobs `nixos` and `iso`, so the ISO that ships is built from the revision CI evaluated. Move it when the servers' channel moves.
-  NIXPKGS_REV: 774debe7a0d1b496e35677ad955a1011c6ff74f3
-
 jobs:
   # What did the change touch? Draft pull requests run nothing (mark one ready for review to start CI); the slow jobs run only when they can
   # be affected. A tag, a push to develop or a manual run always runs everything.
@@ -81,6 +76,8 @@ jobs:
       - uses: actions/checkout@v5
         with:
           fetch-depth: 0
+      - name: The nixpkgs pin is well formed and written in one place only
+        run: bash scripts/dev/nixpkgs-pin.sh check
       - name: Syntax of every script
         run: for f in scripts/*.sh scripts/lib/*.sh scripts/recipes/*.sh vps/*.sh tests/*.sh; do bash -n "$f" || exit 1; done
       - name: Changelog entry for a user-visible change (warning only)
@@ -153,6 +150,9 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v5
+      # The nixpkgs revision comes from config/nixpkgs-pin.toml, the one place that names it (CI, ISO, docs): NIXPKGS_REV.
+      - name: Read the nixpkgs pin
+        run: bash scripts/dev/nixpkgs-pin.sh github-env >> "$GITHUB_ENV"
       # The pinned nixpkgs comes from the cache, not from a download per run (GitHub answered 429 once and the job failed). The `iso` job
       # still downloads it: it runs on a tag only.
       - uses: actions/cache@v4
@@ -220,9 +220,11 @@ jobs:
       contents: write
     steps:
       - uses: actions/checkout@v5
+      - name: Read the nixpkgs pin
+        run: bash scripts/dev/nixpkgs-pin.sh github-env >> "$GITHUB_ENV"
       - uses: cachix/install-nix-action@v27
         with:
-          # The same revision the `nixos` job evaluates (env.NIXPKGS_REV above).
+          # The same revision the `nixos` job evaluates (config/nixpkgs-pin.toml).
           nix_path: nixpkgs=https://github.com/NixOS/nixpkgs/archive/${{ env.NIXPKGS_REV }}.tar.gz
       - name: Build the ISO
         run: bash scripts/dev/build-iso.sh

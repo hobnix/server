@@ -1,0 +1,6 @@
+date  = "2026-11-11"
+type  = "docs"
+title = "Guide: move to a new NixOS release"
+body  = """Operations has a new section with the steps to move a server to the next NixOS release, with a way back. The nixpkgs version Hobnix is tested with is now named in one file, config/nixpkgs-pin.toml.
+
+Not tested on hardware yet."""
