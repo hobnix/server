@@ -1,14 +1,15 @@
-# DRAFT: proposals for four owner decisions (milestone 0.2)
+# Owner decisions of 2026-11-10: positioning, Rust, ADRs, release rhythm
 
-**Draft for owner decision. Nothing here is decided.** Prepared 2026-11-10 from the roadmap review. The owner (Simon) accepts, changes or
-rejects each part; this page is deleted when the four issues are closed. No ADR status was changed by this draft.
+The owner (Simon) answered the proposals of the roadmap review on 2026-11-10. This page keeps the proposals with the answers, for #458, #438,
+#437 and #464; delete it when the four issues are closed. The ADR status changes are in their own pull request (hobnix/server#514), after the
+edits to the records (hobnix/server#513).
 
-| Issue | Proposal in short | Text applied in this pull request |
+| Issue | Decision | Text in the tree |
 | --- | --- | --- |
-| [#458](https://github.com/hobnix/server/issues/458) positioning | Home user first; clustering, high availability and live migration out of scope before 1.0 | `README.md`, `docs/roadmap.md` ("Positioning", marked draft) |
-| [#438](https://github.com/hobnix/server/issues/438) Rust | Pause new command groups until the two moved ones ran on a real server; then at most one group per release, with a rule for new commands | this page only |
-| [#437](https://github.com/hobnix/server/issues/437) ADRs | Accept most; three need an edit first; one is already decided | `CONTRIBUTING.md` (sharper rule, marked draft) |
-| [#464](https://github.com/hobnix/server/issues/464) rhythm | A release every six weeks on a Tuesday; what is verified ships | `docs/dev-environment.md` ("Release rhythm", marked draft) |
+| [#458](https://github.com/hobnix/server/issues/458) positioning | Unraid users first; clustering, high availability and live migration out before 1.0; #203 and #201 moved to the milestone "Later — after 1.0" | `README.md`, `docs/roadmap.md` |
+| [#438](https://github.com/hobnix/server/issues/438) Rust | Pause new shell-to-Rust moves through 0.4 until a real-server run; then the groups below; a new subcommand of a Rust group is Rust | this page |
+| [#437](https://github.com/hobnix/server/issues/437) ADRs | All recommendations accepted; 0012 and 0017 edited first | `CONTRIBUTING.md`; the records in #513 and #514 |
+| [#464](https://github.com/hobnix/server/issues/464) rhythm | **No fixed rhythm and no due dates** until after 1.0; what is verified ships; one milestone is *released* at a time | `docs/dev-environment.md` |
 
 Things I found that the issues do not say:
 
@@ -16,9 +17,9 @@ Things I found that the issues do not say:
 - **ADR 0025 already has the owner's decision**: a comment on #437 says English-only `hs` commands and a translated web interface
   (option B, with C for what the web shows), tracked in #490. The record itself still says Proposed.
 - **The CONTRIBUTING rule already exists** in a short form ("A change that needs a decision record is merged after the record is Accepted,
-  or behind a switch that is off by default"), and so does rule 6 in `docs/dev-environment.md`. The draft only sharpens it (what counts as a
+  or behind a switch that is off by default"), and so does rule 6 in `docs/dev-environment.md`. The new text only sharpens it (what counts as a
   switch, what to do with code that is already merged).
-- **GitHub milestones have no due date** today (checked with the API on 2026-11-10); no `v0.1.0` tag exists.
+- GitHub milestones have no due date and no `v0.1.0` tag exists (2026-11-10); the owner wants no due dates for now.
 - `gh issue view` fails in this repository (Projects classic is gone); I read the issues with `gh api`.
 
 ---
@@ -27,7 +28,7 @@ Things I found that the issues do not say:
 
 **Proposal.** Hobnix is for the person who runs a home server today with Unraid (or a hand-built NAS) and wants apps, shares and backups
 that they can read and rebuild. It is not a virtualization platform. The text is in `README.md` ("Who Hobnix is for") and
-`docs/roadmap.md` ("Positioning"); both carry a "Draft" line to remove when the owner agrees.
+`docs/roadmap.md` ("Positioning").
 
 The three things Hobnix does better, as I wrote them (each is checked against what is verified; two are not run on a real server yet, and the
 text says so):
@@ -41,22 +42,23 @@ Out of scope before 1.0: clusters with shared state, high availability, live mig
 per object, read-only copies, no consensus) stays a record of why, and is the design behind the read-only node (#421) and the edge role (#422),
 which stay.
 
-Epics outside the positioning (the issue's third box). The board is the source, so I only list; I did not move anything:
+Epics outside the positioning (the issue's third box). The board is the source; the owner's planning session moved #203 and #201:
 
 | Issue | Milestone today | Proposal |
 | --- | --- | --- |
-| #203 Epic: Multi-node Management | 0.16 | loses its milestone |
-| #201 Epic: Networking Management | 0.16 | owner checks: keep only what a home network needs (UniFi, VLANs, gateway), drop the rest |
+| #203 Epic: Multi-node Management | 0.16 | **decided:** moved to the milestone "Later — after 1.0" (not cut down) |
+| #201 Epic: Networking Management | 0.16 | **decided:** moved to "Later — after 1.0" (not cut down) |
 | #205 Epic: Marketplace and Ecosystem (P2) | 0.13 | stays; ADR 0015 (Wasm) and ADR 0016 (third-party code) are already "not before an owner decision" |
 | #421, #422 read-only node, edge role | 0.16 | stay (one person's own servers; no shared state) |
 | #260, #261, #262 VM passthrough, console, nested harness | 0.15 | stay: Unraid users run VMs and GPUs |
 
-**Questions for the owner**
+**Answers (owner, 2026-11-10)**
 
-1. Home user of Unraid first: yes, or also the Proxmox homelab user? (This decides whether #269, the vzdump import, stays in 0.6.)
-2. Is the third "better" point (readable git repository and plan-before-change) the one you want?
-3. #203 loses its milestone and #201 is cut down: agreed?
-4. May the README say "rollback" and "rebuild" as promises, or only after #161 and #163 ran? (The draft says "Not tested on hardware yet.")
+1. Unraid users first.
+2. The third "better" point (readable git repository, plan before change) is right.
+3. #203 and #201 are **not** cut down; both moved to the milestone "Later — after 1.0".
+4. The README may promise rollback and rebuild but keeps "not run on a real server yet" until #161 and #163 ran.
+
 
 ---
 
@@ -91,12 +93,10 @@ code stays as is. I do not recommend it: ADR 0001's strangler is cheap to contin
 3. Everything else is shell or Python as today. No command is moved only to be moved.
 4. A Rust command needs the same things as a script: a registry row, its test, the changelog entry. A moved row keeps `fallback:<script>` for one release.
 
-**Questions for the owner**
+**Answers (owner, 2026-11-10)**: all four as recommended. Pause through 0.4 until the two moved groups ran on a real server; the groups per
+release as in the table; a new subcommand of a group that is already Rust is Rust. The pause is about moving shell to Rust, not about
+Python: read literally, a Python script may still move under the ADR 0001 checklist while shell stays (asked in the report).
 
-1. Pause until the two moved groups ran on a real server (recommended), or until 1.0?
-2. Are the releases and groups in the table right, or do you want to name them yourself?
-3. Is rule 1 (a new subcommand of a Rust group must be Rust) acceptable? It forbids a quick shell addition to `secrets` or the job record.
-4. Does the pause also cover Python (`pkg.py`, `forecast.py`, `live-collect.py` follow the same checklist in ADR 0001)?
 
 ---
 
@@ -140,46 +140,20 @@ record is never rewritten (`docs/adr/README.md`). What each record says about it
 > which of the two applies. Code that was merged before its record was accepted stays behind its switch, or is the first thing the owner's
 > decision covers; do not build further on it.
 
-**Questions for the owner**
+**Answers (owner, 2026-11-10)**: go with the list. Accept all as recommended; 0012 and 0017 edited first, and 0007 made consistent with #233:
+no `release/*` branch (the long-lived `0.2` branch plus tags), written into 0007, `docs/RELEASE-PROCESS.md` and `release-core.sh` (#513).
+0022: plain HTTP on the setup page is acceptable until TLS, written into the record. 0024: step 1 only; the restore gets its own record.
+The statuses are changed in #514, after #513.
 
-1. Do you accept my recommendations as listed, or want to go through them one by one? (23 records; 22 need a status line and a date.)
-2. Edit first (0007 follow-up, 0012, 0017): should I prepare those edits in a separate pull request?
-3. 0017 question 4, `release/*` branches: no (recommended) or yes?
-4. 0022: is a setup page over plain HTTP acceptable until TLS?
-5. 0024: accept only step 1 and require a new record for the restore?
 
 ---
 
 ## #464 Release rhythm
 
-**Proposal.** A release every **six weeks, on a Tuesday**. The date is fixed, the scope is not: what is verified ships, what is not moves
-to the next release. The text is in `docs/dev-environment.md` ("Release rhythm"), marked draft.
+**Proposal was** a release every six weeks with due dates (0.1 on 2026-12-15, 0.2 on 2027-01-26).
 
-Due dates (not set on GitHub; the owner sets them, or tells me to):
-
-| Milestone | Due | Why |
-| --- | --- | --- |
-| 0.1 Trustworthy Foundation | Tuesday 2026-12-15 | 5 weeks from today; the release checklist exists; most open P0 items need runs on a real server (#161, #163, #165, #169, #415 to #417) by the owner |
-| 0.2 Safe Updates | Tuesday 2027-01-26 | six weeks after 0.1 (the Christmas weeks are inside the 0.1 period) |
-| 0.3 Foundations | Tuesday 2027-03-09 | not asked for; shown only to make the rhythm visible |
-
-If 0.1 should come sooner, the rhythm still holds: 0.1 ships on 2026-12-01 with only what is verified, and 0.2 follows on 2027-01-12.
-
-**On release day, an unfinished issue**
-
-| State of the issue | What happens |
-| --- | --- |
-| Every box under "Done when" ticked | closed, listed in the release notes |
-| Merged but not run on a real server or VM | stays open in In Review and moves to the next milestone; the release notes list it under "Not verified yet", the guide says "Not tested on hardware yet.", and a feature with risk is behind a switch that is off |
-| Not merged | moves to the next milestone; its branch stays; nothing half-built is merged to finish it |
-
-The date moves only for one reason: a P0 issue of that milestone that can lose data or lock a server out is open. The owner decides, once, by
-at most two weeks, and writes it in the milestone. A hotfix (rule 3 of "Branches and releases") is outside the rhythm.
-
-**Questions for the owner**
-
-1. Six weeks, or four? (Six matches one person verifying on real hardware; four needs the test lab, #430.)
-2. 0.1 on 2026-12-15, or sooner with less?
-3. A date moves for a P0 only: acceptable, or should it never move?
-4. `docs/dev-environment.md` rule 8 says one milestone at a time, and 0.2 work already runs on a long-lived `0.2` branch next to `develop`. Which wins, and
-   when is `0.2` merged into `develop` (when 0.1 is tagged)? The draft text does not decide this.
+**Decision (owner, 2026-11-10):** no fixed rhythm and no due dates for now, maybe after 1.0: the owner works when there is time. What
+remains: **what is verified ships, what is not moves on** (`docs/dev-environment.md`), and the amendment to rule 8: one milestone is
+*released* at a time; the next may be built on its own long-lived branch; the milestone branch is merged into `develop` right after the
+release tag (rule 8 and `docs/RELEASE-PROCESS.md`, in #513). Release day for an unfinished issue: merged but not run stays open and moves on,
+not merged moves on, as the text says.

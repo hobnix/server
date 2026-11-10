@@ -21,7 +21,6 @@ the loaders, `scripts/lib/api-level`) belongs here, and its pull request says wh
 - Code for a decision record (`docs/adr/`) is merged only when the record is Accepted, or when the code is behind a switch that is off by
   default (an option in `config/schema.toml`, or a feature a command refuses without). The pull request names the record and says which of
   the two applies. Code merged before its record was accepted stays behind its switch; nothing is built on it until the owner decides.
-  *(Draft for owner decision, #437.)*
 - An issue is closed when every box under "Done when" is ticked. Code that is merged but was not run stays open, in the board column In Review.
 - Run the tests of the files you changed through the quiet runner, not raw: `scripts/dev/t quick [name...]` (`scripts/dev/t list` names
   them). Many tests need Linux (use WSL on Windows). Also `bash -n` on a script and `python3 scripts/pkg.py validate` for manifests.

@@ -100,18 +100,10 @@ The same model in hobnix/server, hobnix/recipes and hobnix/extensions.
 
 ### Release rhythm
 
-> **Draft for owner decision (#464).** Remove this line when the owner agrees.
-
-- A release every **six weeks, on a Tuesday**. The due date of the GitHub milestone is the date; the scope is not fixed.
-- **What is verified ships, what is not moves on.** A release holds only what ran on a real server or VM, with the date recorded. Anything
-  else is behind a switch that is off, or says "Not tested on hardware yet."
-- One week before the date only fixes, docs and verification are merged for that release.
-- An unfinished issue on release day: all "Done when" boxes ticked, it is closed and named in the release notes. Merged but not run, it stays
-  open in In Review, moves to the next milestone and is listed under "Not verified yet". Not merged, it moves to the next milestone with its branch.
-- The date moves only when a P0 issue of the milestone that can lose data or lock a server out is open. The owner decides, once, by at most two weeks.
-- A hotfix (step 3 above) is outside the rhythm.
-
-Next dates (proposal): 0.1 on 2026-12-15, 0.2 on 2027-01-26.
+There is no fixed rhythm and there are no due dates (owner decision 2026-11-10; maybe after 1.0). **What is verified ships, what is not moves
+on.** A release holds only what ran on a real server or VM, with the date recorded; anything else is behind a switch that is off, or says
+"Not tested on hardware yet." On release day an issue with every "Done when" box ticked is closed; one that is merged but not run stays open
+(In Review) and moves to the next milestone, listed in the release notes as not verified; one that is not merged moves on with its branch.
 
 ### What CI runs (.github/workflows/ci.yml)
 

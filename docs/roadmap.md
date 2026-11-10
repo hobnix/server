@@ -8,13 +8,11 @@ from `TODO.md` in the same way. Nothing between the markers is edited by hand. S
 
 ## Positioning
 
-> **Draft for owner decision (#458).** Remove this line when the owner agrees.
-
 - **For whom:** the home user of Unraid or a hand-built NAS who wants apps, shares and backups on a system that can be read and rebuilt.
 - **Three things Hobnix does better:** rollback of the whole system; a server rebuilt from a backup disk and a passphrase (both not run on a
   real server yet: #161, #163); a server that is a readable git repository with a plan before every change.
 - **Out of scope before 1.0:** clusters with shared state, high availability, live migration. ADR 0013 stays a record of why, not a plan.
-  Epics outside this lose their milestone.
+  Epics outside this (multi-node management, networking management) sit in the milestone "Later — after 1.0".
 
 ## Milestones
 

@@ -9,8 +9,6 @@ This is the server repository. Apps (recipes) and optional parts (extensions) ar
 
 ## Who Hobnix is for
 
-> **Draft for owner decision (#458).** Remove this line when the owner agrees.
-
 Hobnix is for people who run a home server today, for example with Unraid, and want apps, shares and backups on a system they can read and
 rebuild. It is a home NAS with apps first, not a virtualization platform.
 
