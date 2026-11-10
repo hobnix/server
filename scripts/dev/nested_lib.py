@@ -21,6 +21,7 @@ import time
 
 EXIT_OK, EXIT_FAIL, EXIT_USAGE, EXIT_NOHOST, EXIT_INFRA = 0, 1, 2, 3, 4
 
+ANSI = re.compile(r"\x1b\][^\x07\x1b]*(?:\x07|\x1b\\)|\x1b\[[0-9;?]*[ -/]*[@-~]|\x1bP[^\x1b]*\x1b\\")
 PROMPT_ISO = r"\[nixos@[^\]]*\]\$ "      # the auto-login shell of the NixOS installer image
 LOGIN = r"\n[^\n]*login: $"
 
@@ -111,7 +112,7 @@ def build_scenario(stage, params):
     host = params.get("hostname", "nested-test")
     if stage == "iso":      # ISO boot check (#175) and the unattended install (needs the flags of hs-install; the answers file is not read yet)
         pw, key = params["password"], params["pubkey"]
-        install = ("HS_INSTALL_PASSWORD=%s hs-install --role minimal --disk {disk} --confirm-disk {disk} --hostname %s --key %s"
+        install = ("HS_INSTALL_PASSWORD=%s hs-install --role minimal --disk {disk} --confirm-disk {disk} --hostname %s --key %s --timezone UTC --preset minimal"
                    % (shq(pw), shq(host), shq(key)))
         return [
             step("wait", PROMPT_ISO, timeout=420, what="the installer ISO boots to its shell"),
@@ -121,6 +122,7 @@ def build_scenario(stage, params):
             step("capture", "lsblk -dnb -e 7,11 -o NAME,SIZE", var="lsblk", what="a target disk is visible"),
             step("pick_disk", "", var="disk", src="lsblk", what="a disk was found"),
             step("run_var", install, timeout=1800, what="unattended hs-install finishes"),
+            step("run", "sed -i '/^options /s/$/ console=tty0 console=ttyS0,115200n8/' /mnt/boot/loader/entries/*.conf && grep -h ^options /mnt/boot/loader/entries/*.conf", what="serial console on the installed system (the installer sets none)"),
             step("run", "sync && poweroff", expect_rc=None, what="power off after the install"),
         ]
     if stage == "smoke":    # the installed system boots from its disk
@@ -169,6 +171,7 @@ class Console:
     def __init__(self, transport, log=None, redact=None, clock=time.monotonic):
         self.t, self.log, self.redact, self.clock = transport, log, redact or (lambda s: s), clock
         self.buf = ""
+        self.logbuf = ""
         self.seq = 0
 
     def _pump(self, timeout):
@@ -177,11 +180,23 @@ class Console:
             raise Closed("console closed")
         if chunk:
             chunk = chunk.replace("\r", "")
-            self.buf += chunk
+            self.buf = ANSI.sub("", self.buf + chunk)   # the serial console carries colour and OSC sequences
             if self.log:
-                self.log.write(self.redact(chunk))
-                self.log.flush()
+                # whole lines only: the console delivers a typed line in small pieces, and a secret split over two pieces was not redacted
+                self.logbuf += chunk
+                cut = self.logbuf.rfind("\n") + 1
+                if cut:
+                    self.log.write(self.redact(self.logbuf[:cut]))
+                    self.log.flush()
+                    self.logbuf = self.logbuf[cut:]
         return chunk
+
+    def flush_log(self):
+        """Write the unfinished last line (a prompt, the output before a timeout) to the log."""
+        if self.log and self.logbuf:
+            self.log.write(self.redact(self.logbuf))
+            self.log.flush()
+        self.logbuf = ""
 
     def expect(self, regex, timeout):
         """Wait until `regex` matches the buffered output; returns the text before and including the match and drops it from the buffer."""
@@ -305,6 +320,7 @@ def drive(stage, vm, logdir, password, pubkey, hostname, incus):
             print("the console closed (did the VM stop?)", file=sys.stderr)
             return EXIT_INFRA
         finally:
+            con.flush_log()
             transport.close()
     with open(os.path.join(logdir, "result-%s.json" % stage), "w") as f:
         json.dump({"stage": stage, "ok": ok, "steps": results}, f, indent=1)

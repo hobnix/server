@@ -1,6 +1,7 @@
 #!/usr/bin/env bash
 # Hobnix-in-Hobnix: boot the installer ISO in a nested Incus VM, install unattended, boot the result, run a smoke check (issue #262,
-# docs/adr/0023-nested-test-harness.md). UNVERIFIED: written without Incus, KVM or nix; it has never booted an ISO.
+# docs/adr/0023-nested-test-harness.md). First run on hardware 2026-11-10 (issue #430): both stages passed
+# once, on NixOS 26.05 with Incus 7.0.1, after the fixes of that day. Not verified on any other machine.
 #
 #   scripts/dev/nested.sh run [--iso <file>] [--stage iso|smoke|all] [--keep] [--name <vm>]
 #   scripts/dev/nested.sh preflight       can this machine run it? (exit 3: no, fall back to `scripts/dev/t vm`)

@@ -85,6 +85,22 @@ class ConsoleTests(unittest.TestCase):
         self.assertIn("pw is *** ok", log.getvalue())
         self.assertNotIn("hunter2", log.getvalue())
 
+    def test_log_is_redacted_when_the_secret_comes_in_pieces(self):
+        # a serial console delivers the echo of a typed line in small pieces (first hardware run, 2026-11-10: the password was in the log)
+        log = io.StringIO()
+        t = FakeTransport()
+        t.queue = ["PW='hun", "ter", "2' cmd\n", "done\n", "tail"]
+        c = n.Console(t, log=log, redact=n.Redactor(["hunter2"]))
+        c.expect("tail", 5)
+        self.assertEqual(log.getvalue(), "PW='***' cmd\ndone\n")
+        c.flush_log()                              # the unfinished last line is written at the end
+        self.assertEqual(log.getvalue(), "PW='***' cmd\ndone\ntail")
+
+    def test_prompt_with_colour_and_title_sequences_matches(self):
+        banner = "\x1b]0;nixos@nixos: ~\x07\x1b[1;32m[nixos@nixos:~]$\x1b[0m "
+        c = n.Console(FakeTransport(banner=banner), clock=Clock())
+        self.assertIn("[nixos@nixos:~]$ ", c.expect(n.PROMPT_ISO, 3))
+
 
 class ScenarioTests(unittest.TestCase):
     P = {"password": "pw1", "pubkey": "ssh-ed25519 AAAA test", "hostname": "box"}
@@ -103,6 +119,18 @@ class ScenarioTests(unittest.TestCase):
         inst = [s for s in steps if "hs-install" in s["text"] and s["kind"] == "run_var"][0]
         self.assertEqual(inst["text"].count("{disk}"), 2)
         self.assertIn("--confirm-disk {disk}", inst["text"])
+
+    def test_install_step_leaves_no_question_open(self):
+        # hs-install asks for what no option gives when it has a terminal, and the console is one
+        steps = n.build_scenario("iso", self.P)
+        inst = [s for s in steps if "hs-install" in s["text"] and s["kind"] == "run_var"][0]
+        for flag in ("--role ", "--hostname ", "--key ", "--timezone ", "--preset "):
+            self.assertIn(flag, inst["text"])
+
+    def test_serial_console_is_set_before_power_off(self):
+        texts = [s["text"] for s in n.build_scenario("iso", self.P)]
+        serial = [i for i, x in enumerate(texts) if "console=ttyS0" in x]
+        self.assertTrue(serial and serial[0] < texts.index("sync && poweroff"))
 
     def test_unknown_stage(self):
         with self.assertRaises(KeyError):
