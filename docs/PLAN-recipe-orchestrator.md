@@ -1,6 +1,6 @@
 # Recipe orchestrator: the contract (ADR 0018 stage 3)
 
-Status: built in hobnix/server (pull request A, backend). The web side (pull request B) follows this page. **Not tested on hardware yet.**
+Status: built in hobnix/server (pull request A, backend; pull request B, the web wizard, follows this page: web/src/forms/ops/RunQuestions.svelte and recipeQuestions.js). **Not tested on hardware yet.**
 Decision record: docs/adr/0018-interactive-recipe-runs.md. This page is the exact contract between the backend and the web interface; where the two
 differ, the ADR holds the reasons and this page holds the shapes.
 

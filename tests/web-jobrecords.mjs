@@ -9,7 +9,7 @@ check('running record: no end, no exit', run.ended === null && run.exit === null
 const bare = parseRecord(['id', '-', '-', 'ok', '-', '-', '-', '0', '-', '-', '-', '-', '-', '-']);
 check('record without step and progress', bare.step === null && bare.progress === null && bare.exit === 0 && bare.description === 'id');
 check('state dots', stateDot('ok') === 'ok' && stateDot('failed') === 'bad' && stateDot('interrupted') === 'warn' && stateDot('running') === 'info');
-check('unknown state is neutral text, not an error', stateDot('waiting') === 'off' && !stateKnown('waiting') && stateKnown('cancelled'));
+check('unknown state is neutral text, not an error', stateDot('brand-new') === 'off' && !stateKnown('brand-new') && stateDot('waiting') === 'warn' && stateKnown('waiting') && stateKnown('cancelled'));
 check('percent: no total', percent({ done: 3, total: null }) === null && percent(null) === null);
 check('percent: capped', percent({ done: 9, total: 3 }) === 100);
 check('progress text with unit', progressText({ done: 1, total: 4, unit: 'files' }) === '1 / 4 files');
