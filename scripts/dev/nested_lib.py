@@ -19,11 +19,14 @@ import subprocess
 import sys
 import time
 
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))   # python -I does not add the script folder (nested_stages)
+
 EXIT_OK, EXIT_FAIL, EXIT_USAGE, EXIT_NOHOST, EXIT_INFRA = 0, 1, 2, 3, 4
 
 ANSI = re.compile(r"\x1b\][^\x07\x1b]*(?:\x07|\x1b\\)|\x1b\[[0-9;?]*[ -/]*[@-~]|\x1bP[^\x1b]*\x1b\\")
 PROMPT_ISO = r"\[nixos@[^\]]*\]\$ "      # the auto-login shell of the NixOS installer image
 LOGIN = r"\n[^\n]*login: $"
+LOGIN_OR_SHELL = r"(?:login: $|\[%s@[^\]]*\][$#] $)"
 
 
 # ---------------------------------------------------------------- preflight
@@ -105,55 +108,6 @@ def step(kind, text, **kw):
     return d
 
 
-def upgrade_steps(params):
-    """Stage upgrade (#435): the system installed from the LAST release ISO is set up (a share, one app), `hs update` moves it to the candidate
-    (a branch of the Hobnix repository that the old checkout is pointed at), and it must still be healthy with its shares, state.db and app.
-    Not tested on hardware yet: the command lines are written from the scripts, never run in a VM."""
-    host, user, pw = params.get("hostname", "nested-test"), "adminuser", params["password"]
-    cand, repo = params["candidate"], params.get("candidate_repo", "https://github.com/hobnix/server.git")
-    app, share = params.get("app", ""), "upgrade-test"
-    db = "/var/lib/hs/state.db"
-    ver = "python3 -I -c 'import sqlite3,sys; print(sqlite3.connect(sys.argv[1]).execute(\"PRAGMA user_version\").fetchone()[0])' " + db
-    rows = ("python3 -I -c 'import sqlite3,sys; print(sqlite3.connect(sys.argv[1]).execute(\"SELECT count(*) FROM events\").fetchone()[0])' " + db)
-    steps = [
-        step("wait", LOGIN, timeout=420, what="the old release boots to a login prompt"),
-        step("send", user),
-        step("wait", r"[Pp]assword: ?$", timeout=30, what="the password prompt"),
-        step("send_secret", pw),
-        step("wait", r"\[%s@[^\]]*\]\$ " % user, timeout=60, what="adminuser is logged in"),
-        step("run", "sudo -n true", what="adminuser may use sudo without a password"),
-        step("run", "systemctl is-system-running --wait | grep -Eq '^(running|degraded)$'", timeout=300, what="the old release finished starting"),
-        # set up what a server in the field has
-        step("run", "sudo -n hs share add %s" % share, timeout=300, what="a share is created on the old release"),
-        step("run", "sudo -n hs sys shares list > /var/tmp/upgrade-shares-before && grep -q %s /var/tmp/upgrade-shares-before" % share, what="the share is listed"),
-    ]
-    if app:
-        steps += [step("run", "sudo -n hs pkg install %s --yes" % shq(app), timeout=1800, what="one app is installed on the old release")]
-    steps += [
-        step("run", "git -C /etc/nixos rev-parse HEAD > /var/tmp/upgrade-rev-before", what="the revision of the old release is noted"),
-        step("run", "cp /etc/nixos/machine.toml /var/tmp/upgrade-machine-before", what="machine.toml of the old release is kept"),
-        step("run", "%s > /var/tmp/upgrade-schema-before && %s > /var/tmp/upgrade-events-before" % (ver, rows), what="the state.db schema version and event count are noted"),
-        # point the old checkout at the candidate branch: update.sh follows the upstream of the current branch while no newer signed tag exists
-        step("run", "sudo -n git -C /etc/nixos remote set-url origin %s" % shq(repo), what="origin is the Hobnix repository"),
-        step("run", "sudo -n git -C /etc/nixos fetch origin %s" % shq(cand), timeout=600, what="the candidate branch is fetched"),
-        step("run", "sudo -n git -C /etc/nixos branch -u origin/%s" % shq(cand), what="the current branch follows the candidate"),
-        step("run", "sudo -n hs update --yes", timeout=3600, what="hs update moves the server to the candidate"),
-        # the checks
-        step("run", "test \"$(git -C /etc/nixos rev-parse HEAD)\" != \"$(cat /var/tmp/upgrade-rev-before)\"", what="the checkout moved to a new revision"),
-        step("run", "systemctl is-system-running --wait | grep -Eq '^(running|degraded)$'", timeout=300, what="the updated system is running"),
-        step("run", "sudo -n hs sys shares list | grep -q %s" % share, what="the share survived the update"),
-        step("run", "diff <(sudo -n hs sys shares list | grep %s) <(grep %s /var/tmp/upgrade-shares-before)" % (share, share), what="the share lists the same"),
-        step("run", "test -s /etc/nixos/machine.toml && grep -q . /var/tmp/upgrade-machine-before", what="machine.toml is still there and not empty"),
-        step("run", "test \"$(%s)\" -ge \"$(cat /var/tmp/upgrade-schema-before)\"" % ver, what="the state.db schema version did not go back"),
-        step("run", "test \"$(%s)\" -ge \"$(cat /var/tmp/upgrade-events-before)\"" % rows, what="state.db kept its events"),
-        step("run", "sudo -n hs smoke", timeout=300, what="hs smoke passes on the updated system"),
-        step("run", "sudo -n hs health", timeout=120, what="hs health reports no problem"),
-    ]
-    if app:
-        steps += [step("run", "sudo -n hs pkg list | grep -q %s" % shq(app), what="the app is still installed")]
-    return steps
-
-
 def build_scenario(stage, params):
     """The steps of one stage. Kinds: wait (regex on the console), send (raw line), run (command, rc must be 0 unless expect_rc),
     capture (command, output kept in a variable), run_var (a command with {var} placeholders). Deliberately data, so it can be reviewed
@@ -188,14 +142,19 @@ def build_scenario(stage, params):
             step("run", "systemctl is-system-running --wait | grep -Eq '^(running|degraded)$'", timeout=300,
                  what="systemd finished starting (running or degraded)"),
         ]
-    if stage == "upgrade":
-        if not params.get("candidate"):
-            raise KeyError(stage)
-        return upgrade_steps(params)
-    raise KeyError(stage)
+    import nested_stages   # stages 3 to 5 (#432) live in their own module: one entry in SCENARIOS adds a stage
+    fn = nested_stages.SCENARIOS.get(stage)
+    if fn is None:
+        raise KeyError(stage)
+    return fn(params)
 
 
-STAGES = ("iso", "smoke", "upgrade")
+def _extra_stages():
+    import nested_stages
+    return tuple(nested_stages.SCENARIOS)
+
+
+STAGES = ("iso", "smoke") + _extra_stages()
 
 
 # ---------------------------------------------------------------- console driver
@@ -290,7 +249,16 @@ def run_steps(console, steps, params_vars=None, report=None):
         rec = {"step": what, "kind": s["kind"], "ok": False}
         try:
             k = s["kind"]
-            if k == "wait":
+            if k == "login":   # an installed VM: the console is at a login prompt or still in a shell
+                console.send("")
+                got = console.expect(LOGIN_OR_SHELL % s["user"], s.get("timeout", 60))
+                if re.search(r"login: $", got):
+                    console.send(s["user"])
+                    console.expect(r"[Pp]assword: ?$", 30)
+                    console.send(s["secret"])
+                    console.expect(r"\[%s@[^\]]*\]\$ " % s["user"], 60)
+                rec["ok"] = True
+            elif k == "wait":
                 console.expect(s["text"], s.get("timeout", 60))
                 rec["ok"] = True
             elif k == "send":
@@ -299,13 +267,16 @@ def run_steps(console, steps, params_vars=None, report=None):
             elif k == "send_secret":
                 console.send(s["text"])
                 rec["ok"] = True
+            elif k == "send_var":
+                console.send(s["text"].format(**vars_))
+                rec["ok"] = True
             elif k in ("run", "run_var", "capture"):
                 cmd = s["text"].format(**vars_) if k == "run_var" else s["text"]
                 rc, out = console.run(cmd, s.get("timeout", 60))
                 want = s.get("expect_rc", 0)
                 rec["rc"] = rc
                 if k == "capture":
-                    vars_[s["var"]] = out
+                    vars_[s["var"]] = out.strip() if s.get("strip") else out
                 rec["ok"] = want is None or rc == want
             elif k == "pick_disk":
                 d = pick_disk(vars_.get(s["src"], ""))
@@ -360,18 +331,10 @@ class PtyTransport:
             self.proc.kill()
 
 
-def drive(stage, vm, logdir, password, pubkey, hostname, incus):
-    params = {"password": password, "pubkey": pubkey, "hostname": hostname}
-    if stage == "upgrade":     # the candidate comes from the environment of nested.sh, like the password
-        params.update(candidate=os.environ.get("HS_NESTED_CANDIDATE", ""), app=os.environ.get("HS_NESTED_UPGRADE_APP", ""),
-                      candidate_repo=os.environ.get("HS_NESTED_CANDIDATE_REPO", "https://github.com/hobnix/server.git"))
-    try:
-        steps = build_scenario(stage, params)
-    except KeyError:
-        print("stage %s needs HS_NESTED_CANDIDATE (a branch of the Hobnix repository)" % stage, file=sys.stderr)
-        return EXIT_USAGE
+def drive(stage, vm, logdir, password, pubkey, hostname, incus, backup_pass="", disks=None):
+    steps = build_scenario(stage, {"password": password, "pubkey": pubkey, "hostname": hostname, "backup_pass": backup_pass, "disks": disks or {}})
     os.makedirs(logdir, exist_ok=True)
-    redact = Redactor([password])
+    redact = Redactor([x for x in (password, backup_pass) if x])
     with open(os.path.join(logdir, "console-%s.log" % stage), "w") as log:
         try:
             transport = PtyTransport([incus, "console", vm])
@@ -405,6 +368,7 @@ def main(argv):
     p.add_argument("--vm", required=True)
     p.add_argument("--logdir", required=True)
     p.add_argument("--hostname", default="nested-test")
+    p.add_argument("--disk", action="append", default=[], help="name=<Incus device name> of a virtual disk the stage may use")
     p.add_argument("--incus", default=os.environ.get("HS_NESTED_INCUS", "incus"))
     a = ap.parse_args(argv)
     if a.cmd == "preflight":
@@ -418,8 +382,8 @@ def main(argv):
         return EXIT_OK if ok else EXIT_FAIL
     if a.cmd == "plan":
         try:
-            steps = build_scenario(a.stage, {"password": "<password>", "pubkey": "<pubkey>", "candidate": os.environ.get("HS_NESTED_CANDIDATE") or "<candidate-branch>",
-                                             "app": os.environ.get("HS_NESTED_UPGRADE_APP", "")})
+            steps = build_scenario(a.stage, {"password": "<password>", "pubkey": "<pubkey>", "backup_pass": "<backup-password>",
+                                             "disks": {k: "<disk-%s>" % k for k in ("backup", "pool1", "pool2")}})
         except KeyError:
             print("unknown stage %r (stages: %s)" % (a.stage, ", ".join(STAGES)), file=sys.stderr)
             return EXIT_USAGE
@@ -434,7 +398,8 @@ def main(argv):
     if a.stage not in STAGES:
         print("unknown stage %r" % a.stage, file=sys.stderr)
         return EXIT_USAGE
-    return drive(a.stage, a.vm, a.logdir, pw, key, a.hostname, a.incus)
+    disks = dict(x.split("=", 1) for x in a.disk if "=" in x)
+    return drive(a.stage, a.vm, a.logdir, pw, key, a.hostname, a.incus, os.environ.get("HS_NESTED_BACKUP_PASS", ""), disks)
 
 
 if __name__ == "__main__":

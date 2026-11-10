@@ -5,9 +5,14 @@
 
 {
   systemd.services.hs-testlab-nightly = {
-    description = "Test-lab: build the installer ISO of develop and run it in a nested VM";
-    path = [ "/run/current-system/sw" pkgs.git pkgs.nix pkgs.openssh pkgs.python3 ];
-    environment.HS_CALLER = "timer";
+    description = "Test-lab: build the installer ISO of develop and run stages 1 to 6 in nested VMs";
+    # stage 6 (a headless browser opens every web page) needs playwright and its browsers; UNVERIFIED: never evaluated here
+    path = [ "/run/current-system/sw" pkgs.git pkgs.nix pkgs.openssh (pkgs.python3.withPackages (ps: [ ps.playwright ])) ];
+    environment = {
+      HS_CALLER = "timer";
+      PLAYWRIGHT_BROWSERS_PATH = "${pkgs.playwright-driver.browsers}";
+      PLAYWRIGHT_SKIP_VALIDATE_HOST_REQUIREMENTS = "true";
+    };
     serviceConfig = {
       Type = "oneshot";
       ExecStart = "${pkgs.bash}/bin/bash ${hs.scripts}/testlab.sh run --ref develop --stage all --yes --background";

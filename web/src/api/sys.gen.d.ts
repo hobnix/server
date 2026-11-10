@@ -2550,7 +2550,7 @@ export interface SysOperations {
     lines: ChangeLines;
   };
   "testlab.results": {
-    /** the last test-lab runs as data: run, stage (1|2|upgrade), result (ok|failed|skipped|error), exit, ref, commit, started, ended; empty: no run yet */
+    /** the last test-lab runs as data: run, stage (1 to 7), result (ok|failed|skipped|error), exit, ref, commit, started, ended; empty: no run yet */
     words: ["testlab", "results"];
     path: "/testlab/results";
     method: "get";
@@ -2561,7 +2561,7 @@ export interface SysOperations {
     lines: ([run: Field, stage: "1" | "2", result: "ok" | "failed" | "skipped" | "error", exit: Field, ref: Field, commit: Field, started: Field, ended: Field])[];
   };
   "testlab.start.by_action": {
-    /** start it (hs sys testlab start run [--ref R] [--stage 1|2|all]) as a background job; status started + unit */
+    /** start it (hs sys testlab start run [--ref R] [--stage 1|2|3|4|5|6|<name>|all]) as a background job; status started + unit */
     words: ["testlab", "start", "<action>"];
     path: "/testlab/start/{action}";
     method: "post";
