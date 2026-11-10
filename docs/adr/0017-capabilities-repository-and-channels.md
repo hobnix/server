@@ -1,6 +1,6 @@
 # 0017: The capabilities repository: layout, vendored Nix modules, regeneration on the machine, CI across repositories, channels and release flow
 
-Status: Proposed
+Status: Accepted (2026-11-10)
 Issue: hobnix/server#217 (epic), with #221, #224, #225, #228, #229, #231 and #233. Builds on ADR 0007 (branches and releases), ADR 0008
 (capabilities and packages) and ADR 0009 (a capability is a package kind); it does not repeat them.
 

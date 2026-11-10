@@ -1,6 +1,6 @@
 # 0009: A capability is a third package kind; a short list stays in the core
 
-Status: Proposed
+Status: Accepted (2026-11-10)
 Issue: hobnix/server#219 (epic #217). Extends ADR 0008 (capabilities and packages); does not repeat it.
 
 ## Context

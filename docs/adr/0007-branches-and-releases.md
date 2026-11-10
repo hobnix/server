@@ -1,6 +1,6 @@
 # 0007: `develop` for work, `main` for releases, signed tags
 
-Status: Proposed
+Status: Accepted (2026-11-10)
 Issue: hobnix/server#213 (epic #207). Records the branch model in CLAUDE.md and docs/dev-environment.md ("Branches and releases").
 
 ## Context

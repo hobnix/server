@@ -1,6 +1,6 @@
 # 0024: Importing Proxmox vzdump archives: read-only plan first, restore into an Incus instance later
 
-Status: Proposed
+Status: Accepted (2026-11-10) for step 1 only (the read-only plan). The restore (rule 2) gets its own record before it is built.
 Issue: hobnix/server#269 (with #205)
 Not tested on hardware yet.
 

@@ -1,6 +1,6 @@
 # 0005: Events: domain events in one log, invalidations as counters
 
-Status: Proposed
+Status: Accepted (2026-11-10)
 Issue: hobnix/server#143 (epic #139)
 
 ## Context

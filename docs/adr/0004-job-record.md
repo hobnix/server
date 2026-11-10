@@ -1,6 +1,6 @@
 # 0004: The job record
 
-Status: Proposed
+Status: Accepted (2026-11-10)
 Issue: hobnix/server#131 (epic #128)
 
 ## Context

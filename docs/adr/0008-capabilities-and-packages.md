@@ -1,6 +1,6 @@
 # 0008: Capabilities with a contract; apps and optional parts are signed packages in their own repositories
 
-Status: Proposed
+Status: Accepted (2026-11-10)
 Issue: hobnix/server#213 (epic #207). Records decisions already made in docs/PLAN-modular-core.md and docs/PLAN-packages.md.
 
 ## Context

@@ -1,6 +1,6 @@
 # 0011: Service extensions: one supervised process, JSON lines both ways, events delivered at least once
 
-Status: Proposed
+Status: Accepted (2026-11-10)
 Issue: hobnix/server#238 (epic #197). Command extensions are ADR 0010 (#237), permissions #239; neither is decided here.
 
 ## Context

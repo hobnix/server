@@ -1,6 +1,6 @@
 # 0006: The `hs sys` contract is the API; the web interface is a client of it
 
-Status: Proposed
+Status: Accepted (2026-11-10)
 Issue: hobnix/server#213 (epic #207). Records decisions already made in docs/PLAN-web-backend.md; nothing here is new.
 
 ## Context

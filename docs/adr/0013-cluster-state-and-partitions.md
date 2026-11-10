@@ -1,6 +1,6 @@
 # 0013: Cluster state and behaviour during a network partition
 
-Status: Proposed
+Status: Accepted (2026-11-10)
 Issue: hobnix/server#256 (part of #203). The owner decides; nothing here is built beyond what the Context lists.
 
 ## Context

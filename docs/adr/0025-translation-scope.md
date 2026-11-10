@@ -1,6 +1,6 @@
 # 0025: Where translation lives: the `hs` commands, the web, or both
 
-Status: Proposed
+Status: Accepted (2026-11-10)
 Issue: none yet. The owner decides. Nothing is built; this record investigates and recommends.
 
 Numbers 0018 and 0023 are taken by open pull requests (interactive recipe runs, nested test harness).
