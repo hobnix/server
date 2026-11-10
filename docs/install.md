@@ -45,7 +45,7 @@ only.
 Not tested on hardware yet.
 
 The installer image is the minimal NixOS installer plus a copy of this repository and the command `hs-install`. Download
-`homeserver-installer.iso` from the releases of the server repository, or build it yourself:
+`homeserver-installer-<version>.iso` (for example `homeserver-installer-v0.1.0.iso`) from the releases of the server repository, or build it yourself (the file name carries the output of `git describe`; the stick also holds it in `/etc/hs-installer-version`):
 
 ```bash
 bash scripts/dev/build-iso.sh
@@ -61,6 +61,8 @@ It asks for the system disk, a server name, your public SSH key, a time zone and
 disk is erased**, and you confirm by typing its name. Every question has an option for unattended runs (`--disk`, `--confirm-disk`,
 `--hostname`, `--key-file`, `--timezone`, `--preset`). It installs the base system, writes `machine.toml` with a generated `hostId` and
 applies the preset. Reboot, remove the stick, and continue with [First start](#first-start).
+
+To bring back a dead server from its backup instead, see [Restore from a backup](#restore-from-a-backup).
 
 ### Option B: install by hand
 
@@ -329,8 +331,14 @@ Add `--dry-run` to see only the plan. `hs preset list` shows the others; `exampl
 
 ## Keep the configuration updatable
 
-`/etc/nixos` holds copied files so far. Replace it with a clone of the repository so that `hs update` can pull new versions. Your
-`machine.toml` and `hardware-configuration.nix` are not in the repository and stay yours.
+The installer makes `/etc/nixos` a git checkout of the public repository (`origin` is https://github.com/hobnix/server.git) at the exact
+revision the stick was built from: a stick from release `v0.1.0` gives a checkout at `v0.1.0`, and `hs update`, the update channels and
+the version shown work from the first boot. The files are not changed by this, so `git -C /etc/nixos status` is clean; your `machine.toml`
+and `hardware-configuration.nix` are not in the repository and stay yours. The installer says in its plan ("Git checkout") what it will do.
+
+Without a network during the install, or with a stick that does not name its published revision (built from unpublished work), the
+installer still finishes, says "No git checkout was made" and leaves no `.git` in `/etc/nixos`. Once the server is online, make the checkout by
+hand; your `machine.toml` and `hardware-configuration.nix` stay:
 
 ```bash
 git clone https://github.com/hobnix/server.git ~/hobnix
@@ -343,6 +351,14 @@ sudo mv /etc/nixos /etc/nixos.bak
 ```bash
 sudo mv ~/hobnix /etc/nixos
 ```
+
+```bash
+sudo cp /etc/nixos.bak/machine.toml /etc/nixos.bak/hardware-configuration.nix /etc/nixos/
+```
+
+The clone follows `develop` (the channel `edge`); `hs update` moves to the newest release tag on the channel `stable`.
+
+Not tested on hardware yet: the installer's git step ran against a local repository in `tests/install-wizard.sh`, not on a stick or in a VM.
 
 ```bash
 sudo cp /etc/nixos.bak/machine.toml /etc/nixos.bak/hardware-configuration.nix /etc/nixos/
@@ -384,6 +400,24 @@ and is meant for your home network and Tailscale: never give it a public route. 
 the install; with a domain, members of Domain Admins can sign in too ([Users and shares](users-and-shares.md)). Not tested on hardware
 yet.
 
+### First setup with a one-time code (proposed)
+
+Design: ADR 0022 (`docs/adr/0022-first-run-console-token.md`). The server part is built; the boot step that shows the code on the screen is not
+yet, so a fresh install does not use this by itself. Not tested on hardware yet.
+
+On a server whose setup is waiting, the sign-in page becomes **First setup**. The server's own screen (or serial console) shows a one-time
+code; type it into the page and choose a password for `adminuser`. The code works once and for 60 minutes, five wrong tries make it
+useless, and it is only ever printed on the console, never sent anywhere. You are then signed in.
+
+Lost or expired code, or somebody else may have seen it: on the console run
+
+```bash
+sudo hs setup-code issue
+```
+
+The old code stops working at once. `hs setup-code status` says whether a setup is waiting. The page is plain HTTP, so do the setup on your
+home network only.
+
 ## Work through the first-run checklist
 
 The first-run command asks for the language of the messages and a notification address, then lists what is still open, with the command
@@ -408,6 +442,127 @@ The same list is the **Setup** page of the web interface. Each open item leads t
 When everything you want is done, press **Mark setup as finished** on the Setup page (or run `hs config set setupDone true`) and the
 reminder on the summary page disappears. Everything can also happen later; the page only keeps the list. The machine-readable form for
 scripts is `hs sys setup list`.
+
+## Answers file for unattended installs
+
+Not wired into hs-install yet; `hs-restore` reads the restore keys (see Restore from a backup). Not tested on hardware yet.
+
+An answers file holds the answers to the questions of `hs-install` in one TOML file, so a later unattended install can run without them.
+`hs-install` does not read the file yet; today only the check exists. A key you leave out is asked later, so a partial file is fine.
+A complete unattended run needs `install.disk` and `install.confirm_disk`.
+
+```toml
+version = 1                      # required; the only version is 1
+
+[install]
+role = "homeserver"              # homeserver, edge or minimal
+disk = "nvme0n1"                 # the system disk: it is erased
+confirm_disk = "nvme0n1"         # must equal disk: an unattended run never erases on a guess
+hostname = "nas"
+timezone = "Europe/Vienna"
+preset = "minimal"
+nic = "enp3s0"
+smb_allow = "192.168.1.0/24"
+bios = false
+
+[ssh]
+key = "ssh-ed25519 AAAA... admin@example.com"   # a public key; or use key_file, not both
+
+[secrets]
+admin_password_file = "/run/keys/adminuser-pw"
+```
+
+| Key | Option of `hs-install` | Rule |
+| --- | --- | --- |
+| `version` | none | the integer `1` |
+| `install.role` | `--role` | `homeserver`, `edge` or `minimal` |
+| `install.disk` | `--disk` | a device name such as `nvme0n1` |
+| `install.confirm_disk` | `--confirm-disk` | equal to `install.disk` |
+| `install.hostname` | `--hostname` | a name of letters, digits and hyphens (up to 63) |
+| `install.timezone` | `--timezone` | a name such as `Europe/Vienna`; looked up when the zone database is present |
+| `install.preset` | `--preset` | a preset name |
+| `install.nic` | `--nic` | an interface name |
+| `install.smb_allow` | `--smb-allow` | an address or network such as `192.168.1.0/24` |
+| `install.bios` | `--bios` | `true` or `false` |
+| `ssh.key` | `--key` | a public SSH key; exactly one of `ssh.key` and `ssh.key_file` |
+| `ssh.key_file` | `--key-file` | an absolute path to a public key file |
+| `secrets.admin_password_file` | none | an absolute path to a regular file, mode 600 or stricter, not empty |
+| `secrets.backup_passphrase_file` | `hs-restore --password-file` | same rules as `admin_password_file`; the backup password for [Restore from a backup](#restore-from-a-backup) |
+| `restore.backup_device` | `hs-restore --backup-device` | a device name such as `sdb1` (the partition of the backup disk) |
+| `restore.snapshot` | `hs-restore --snapshot` | `latest` or a snapshot id (8 to 64 hex digits) |
+
+**Secrets are never written into the file.** A key that looks like a secret (password, passphrase, token, secret, key) with a value in
+the file is an error; give the path of a file instead (`<name>_file`). The check looks at that file's mode and size only: it never reads
+or prints the content. An unknown key anywhere is an error, so a typo never passes.
+
+Check a file:
+
+```bash
+hs installer check-answers answers.toml
+```
+
+The command lists every problem with its key and exits 0 when there are no errors, 1 when there are errors and 2 when the file cannot
+be read or is not valid TOML. It changes nothing.
+
+## Restore from a backup
+
+**UNVERIFIED: not tested on hardware.** Not tested on hardware yet. The reading of the backup, the plan and the files laid over the new
+configuration are covered by `tests/install-restore.sh` with a fake `restic` and no disk. Partitioning, mounting the backup disk, the
+real restic repository, `nixos-install` with the restored settings and the ISO itself have never run. Use the checklist below on a spare
+machine first.
+
+Use this when the system disk (or the whole host) is dead and you have the backup disk and the backup password. It automates
+[Case A of the recovery guide](backup-and-recovery.md#case-a-the-system-disk-is-gone-the-data-disks-are-fine) up to the first boot.
+Case B (data pools) and Case C (the backup disk is gone too) stay manual.
+
+Boot the installer stick in UEFI mode and connect the backup disk (the one labelled `backup`). Then run:
+
+```bash
+sudo hs-install
+```
+
+With no options it asks **New install** or **Restore from backup**. The restore can also be started directly:
+
+```bash
+sudo hs-restore --dry-run
+```
+
+It mounts the backup disk **read-only**, asks for the backup password (no echo; or `--password-file <file>`), lists the host snapshots and
+reads the settings of one (`latest` unless you pass `--snapshot`). It then shows the plan: the backup, the snapshot, the new system disk
+(erased), the server name, role, time zone and SSH key taken from the restored `machine.toml`, and the files that come back.
+`--dry-run` stops there and changes nothing. Without it you type the **name of the system disk** to continue; an unattended run needs
+`--disk <name> --confirm-disk <same name>`. The data disks and the backup disk are never touched; the backup disk is refused as a target.
+
+After the confirmation the normal installer runs with the restored settings: the same disk layout and `nixos-install` as a new install, and
+it asks for the password of `adminuser`. What comes back from the host snapshot:
+
+- `/etc/nixos/machine.toml` (and `machine.nix` if there is one), including the old `hostId`, so the ZFS pools can be imported
+- the state folder `/var/lib/hs`, except `restic-password` and the `disks/` folder; links into the vault are not copied
+- the SSH host keys, so your computers do not warn about a new server
+
+`hardware-configuration.nix` is generated again for the new machine and never taken from the backup. These are **not** restored by the
+installer: the backup password (put it into the new vault by hand), the vault itself, the pools, shares and containers. After the first
+boot, continue with step 8 of Case A: `sudo hs rebuild`, `sudo hs vault init ...`, import the pools, `sudo hs unlock`, then
+`sudo hs backup restore` for the shares (Case B).
+
+Known gaps: the installer's disk layout has no vault partition (Case A creates one; make it by hand or point `hs vault init` at another
+disk); a BIOS-only machine only works for the `edge` role, as in a new install; the `adminuser` password file of the answers file is not
+read yet; a restored `machine.toml` that names hardware of the old machine (`nic`) needs a look after the first boot.
+
+The answers file (format above) may carry `[restore]` and `secrets.backup_passphrase_file`: `hs-restore --answers answers.toml`.
+
+### Checklist for the first real run
+
+Not tested on hardware yet. Do it on a spare machine or a VM with a copy of a real backup disk, and write down every difference.
+
+- [ ] The stick boots and `hs-install` offers New install and Restore from backup.
+- [ ] `hs-restore --dry-run` finds the disk labelled `backup`, mounts it read-only (`findmnt` shows `ro`), accepts the password and lists the snapshots.
+- [ ] A wrong password is refused with nothing changed.
+- [ ] The plan names the right new disk, the right server name and the files above; it lists no `restic-password`.
+- [ ] A different name than the disk's cancels; the backup disk is refused as a target.
+- [ ] The restore runs to the end; the backup disk can be unmounted afterwards and was not written to.
+- [ ] The new system boots, `ssh adminuser@<name>` works with the old key and without a host-key warning.
+- [ ] `/etc/nixos/machine.toml` is the backed-up one; `hs rebuild` works; the pools import with the old `hostId`.
 
 ## Check that it worked
 

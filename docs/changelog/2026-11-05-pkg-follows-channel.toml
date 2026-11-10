@@ -1,0 +1,5 @@
+date  = "2026-11-05"
+type  = "feature"
+title = "Apps and extensions follow the update channel"
+body  = """hs pkg now follows the setting updateChannel too: on stable it takes only signed release tags, on beta or edge it also takes signed beta tags (vX.Y.Z-beta.N). A release always beats its own betas, so a beta server moves to the release when it appears. Packages are never taken from a branch head, so edge counts as beta here. Not tested on hardware yet."""
+docs  = "operations#update-channels"

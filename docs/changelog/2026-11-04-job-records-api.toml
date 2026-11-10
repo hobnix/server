@@ -1,0 +1,5 @@
+date  = "2026-11-04"
+type  = "feature"
+title = "Job records are readable through the API"
+body  = """Two new read commands expose the job record: hs sys jobs record <id> prints one record as JSON (state, step, progress, times, exit status), hs sys jobs records lists the latest records, newest first, with an optional --state filter and a limit (default 50, at most 500). Nothing that the existing job commands print changes. Not tested on hardware yet."""
+docs  = "operations"

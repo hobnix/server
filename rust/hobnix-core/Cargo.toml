@@ -1,0 +1,11 @@
+[package]
+name = "hobnix-core"
+description = "Service layer of the hobnix server (no terminal output, no argv parsing)"
+version.workspace = true
+edition.workspace = true
+publish.workspace = true
+license.workspace = true
+
+[dependencies]
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"

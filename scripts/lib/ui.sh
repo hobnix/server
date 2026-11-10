@@ -50,6 +50,10 @@ paint() {   # paint <colour> <text>
 # `steps N` says how many headings the command prints (also across `exec`: the counter is exported). With it the
 # headings are drawn as a tree, ├ for the first and the steps in between, └ for the last; without it (a script that
 # does not know) the heading keeps the plain ▸. The plain form without gum stays ── Title ──.
+# inside a job (HS_JOB_ID) the report helpers hs_job_step / hs_job_progress are there for every script that sources this file
+[ -z "${HS_JOB_ID:-}" ] || command -v hs_job_step >/dev/null 2>&1 || . "${BASH_SOURCE[0]%/*}/job.sh" 2>/dev/null || true
+command -v hs_job_step >/dev/null 2>&1 || hs_job_step() { :; }   # outside a job (or without job.sh) they report nothing
+command -v hs_job_progress >/dev/null 2>&1 || hs_job_progress() { :; }
 steps() { export HS_STEP_TOTAL=$1 HS_STEP_N=0; }
 step() {
   local glyph='▸' n
@@ -57,6 +61,10 @@ step() {
     n=$(( ${HS_STEP_N:-0} + 1 ))
     export HS_STEP_N=$n
     if [ "$n" -ge "$HS_STEP_TOTAL" ]; then glyph='└'; else glyph='├'; fi
+    # inside a background job the heading is also the job's step (the Jobs page shows "step n of m"): English text, no secrets (ADR 0004 rule 7)
+    if [ -n "${HS_JOB_ID:-}" ]; then
+      hs_job_step "$n" "$HS_STEP_TOTAL" "$*" 2>/dev/null || true
+    fi
   fi
   echo
   if [ "$ui" = gum ]; then gum style --bold --foreground "$c_blue" "$glyph $(_tr "$*")"; else echo "── $(_tr "$*") ──"; fi
@@ -364,12 +372,22 @@ thead() {   # thead <cell>...: the header line of a table for people, every cell
 '
 }
 
+_column() {   # column -t -s TAB [-o SEP]; without column(1) (not installed everywhere) an awk version pads the cells the same way
+  local sep=${1:-  }
+  if command -v column >/dev/null 2>&1; then column -t -s $'\t' -o "$sep"; return; fi
+  awk -F'\t' -v sep="$sep" '
+    { n[NR] = NF; for (i = 1; i <= NF; i++) { c[NR, i] = $i; if (length($i) > w[i]) w[i] = length($i) } }
+    END { for (r = 1; r <= NR; r++) { line = ""
+            for (i = 1; i <= n[r]; i++) line = line (i < n[r] ? sprintf("%-" w[i] "s%s", c[r, i], sep) : c[r, i])
+            print line } }'
+}
+
 table() {   # tab separated lines on stdin, the first line is the header
   if [ "$ui" = gum ]; then
     # Same look as the other components: indent 2, a dim bold header with a thin rule, the first column in blue,
     # the last one coloured when it is a status (ok, failed, never ...). Alignment first, colours after, so wide
     # characters do not shift anything; the cells are cut at the header's column starts.
-    column -t -s $'\t' -o '  ' | sed 's/[[:space:]]*$//' | awk \
+    _column '  ' | sed 's/[[:space:]]*$//' | awk \
       -v blue="$(rgb "$c_blue")" -v dim="$(rgb "$c_dim")" -v text="$(rgb "$c_text")" \
       -v green="$(rgb "$c_green")" -v red="$(rgb "$c_red")" -v yellow="$(rgb "$c_yellow")" -v cols="$(_cols)" '
       function col(c, t) { return sprintf("\033[38;2;%sm%s\033[0m", c, t) }
@@ -412,6 +430,6 @@ table() {   # tab separated lines on stdin, the first line is the header
         for (r = 1; r <= nb; r++) print row(body[r])
       }'
   else
-    column -t -s $'\t'
+    _column '  '
   fi
 }

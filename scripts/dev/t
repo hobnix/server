@@ -4,13 +4,13 @@
 #   scripts/dev/t quick [name...]   the tests that need no root (default: all of them); only failures are printed, then one summary line
 #   scripts/dev/t changed           only the tests that mention a file changed since the merge base with main (plus uncommitted changes)
 #   scripts/dev/t root [name...]    the root tests (loop devices, dm-crypt, mounts); needs Linux and root, it uses sudo when you are not root
-#   scripts/dev/t vm                the throwaway Incus VM test (needs KVM and the internet, HS_TEST_VM=1)
+#   scripts/dev/t vm [name...]      the throwaway Incus VM tests (zfs-vm, rebuild-vm; default both; needs KVM and the internet, HS_TEST_VM=1)
 #   scripts/dev/t list              names of the tests, quick and root
 #   -v   (anywhere) print a line for every test, not only failures
 #
 # The full output of every test is kept in .work/test-logs/<name>.log; read it only for a failing test, with `grep -n FAIL` first.
 # Exit status: 0 when nothing failed. A test that skips (exit 77, or a skip line) counts as skipped, not failed.
-# Knobs: T_TIMEOUT (seconds per test, default 280), T_FAILS (failure lines shown per test, default 6), HS_TEST_BASH (bash that runs a test).
+# Knobs: T_TIMEOUT (seconds per test, default 280, 900 in vm mode), T_FAILS (failure lines shown per test, default 6), HS_TEST_BASH (bash that runs a test).
 set -uo pipefail
 root=$(cd "$(dirname "$0")/../.." && pwd)
 cd "$root"
@@ -27,7 +27,7 @@ mode=${1:-quick}
 HELPERS=" lib lib-poolfakes lib-standins run run-all "
 all_tests() { local f n; for f in tests/*.sh; do n=$(basename "$f" .sh); case "$HELPERS" in *" $n "*) continue ;; esac; echo "$n"; done; }
 needs_root() { grep -q 'need_root' "tests/$1.sh"; }
-is_external() { [ "$1" = zfs-vm ]; }
+is_external() { [ "$1" = zfs-vm ] || [ "$1" = rebuild-vm ]; }
 quick_tests() { local n; while read -r n; do needs_root "$n" || is_external "$n" || echo "$n"; done < <(all_tests); }
 root_tests() { local n; while read -r n; do ! needs_root "$n" || echo "$n"; done < <(all_tests); }
 
@@ -58,6 +58,8 @@ run_one() {   # run_one <name> [env...]: prints nothing for a pass unless -v; re
   line=$(grep -E '^  -> [0-9]+ ok' <<<"$out" | tail -n1 | sed 's/^ *-> //')
   if [ "$rc" -eq 124 ]; then echo "$n: TIMEOUT after ${T_TIMEOUT:-280}s"; return 1; fi
   if [ "$rc" -eq 77 ]; then $verbose && echo "$n: skipped"; return 2; fi
+  # a test that ran nothing (0 ok, only skip lines) is skipped, not ok
+  if [ "$rc" -eq 0 ] && [[ "$line" =~ ^0\ ok,\ 0\ failed,\ [1-9] ]]; then $verbose && echo "$n: skipped ($line)"; return 2; fi
   if [ "$rc" -ne 0 ] || grep -q '^  FAIL' <<<"$out"; then
     echo "$n: ${line:-exit $rc}"
     grep -E '^  FAIL' <<<"$out" | head -n "${T_FAILS:-6}" | cut -c1-220 | sed 's/^/    /'
@@ -70,21 +72,22 @@ run_one() {   # run_one <name> [env...]: prints nothing for a pass unless -v; re
 }
 
 run_list() {   # run_list <env or ""> name...
-  local envs=$1 n total=0 ok=0 skipped=0 failed=() rc
+  local envs=$1 n total=0 ok=0 skipped=0 failed=() skips=() rc sk=""
   shift
   for n in "$@"; do
     total=$((total + 1))
     # shellcheck disable=SC2086
     run_one "$n" $envs; rc=$?
-    case $rc in 0) ok=$((ok + 1)) ;; 2) skipped=$((skipped + 1)) ;; *) failed+=("$n") ;; esac
+    case $rc in 0) ok=$((ok + 1)) ;; 2) skipped=$((skipped + 1)); skips+=("$n") ;; *) failed+=("$n") ;; esac
   done
-  if [ ${#failed[@]} -eq 0 ]; then echo "$total tests: $ok ok, $skipped skipped, 0 failed"; return 0; fi
-  echo "$total tests: $ok ok, $skipped skipped, ${#failed[@]} failed (${failed[*]})"
+  [ "$skipped" -eq 0 ] || sk=" (${skips[*]})"
+  if [ ${#failed[@]} -eq 0 ]; then echo "$total tests: $ok ok, $skipped skipped$sk, 0 failed"; return 0; fi
+  echo "$total tests: $ok ok, $skipped skipped$sk, ${#failed[@]} failed (${failed[*]})"
   return 1
 }
 
 case "$mode" in
-  list) echo "quick: $(quick_tests | paste -sd' ')"; echo "root:  $(root_tests | paste -sd' ')"; echo "vm:    zfs-vm" ;;
+  list) echo "quick: $(quick_tests | paste -sd' ')"; echo "root:  $(root_tests | paste -sd' ')"; echo "vm:    zfs-vm rebuild-vm" ;;
   quick)
     if [ $# -gt 0 ]; then names=("$@"); else mapfile -t names < <(quick_tests); fi
     run_list "" "${names[@]}" ;;
@@ -109,7 +112,13 @@ case "$mode" in
       sudo -n true 2>/dev/null || { echo "sudo needs a password: see docs/dev-environment.md (passwordless sudo for this machine only)"; exit 2; }
       exec sudo -n env HS_TEST_ROOT=1 HS_T_LOG="$log" "$0" root "${names[@]}"
     fi ;;
-  vm) run_list "HS_TEST_VM=1" zfs-vm ;;
+  vm)
+    if [ $# -gt 0 ]; then
+      names=("$@")
+      for n in "${names[@]}"; do is_external "$n" || { echo "$n: not a VM test (zfs-vm rebuild-vm)"; exit 2; }; done
+    else names=(zfs-vm rebuild-vm); fi
+    T_TIMEOUT=${T_TIMEOUT:-900}   # a VM test needs longer than the 280 s default (rebuild-vm 415 s seen)
+    run_list "HS_TEST_VM=1" "${names[@]}" ;;
   wsl)
     # Windows only: copy this tree into the Debian WSL (ext4, fast; one-time setup: scripts/dev/wsl-setup.sh) and run the same runner there.
     # `t wsl changed` works out the test names here (the copy has no .git) and runs them there. Distro: T_WSL_DISTRO (default Debian).

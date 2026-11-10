@@ -77,7 +77,7 @@ check_eq "the nine guides exist and have the template's sections" "" "$bad"
 bad=""
 for f in "$DOCS"/*.md "$FIX"/packages/*/guide.md; do
   [ -f "$f" ] || continue
-  case "$(basename "$f")" in README.md|PLAN-*|Entwicklungsnotizen.md|CLI-DESIGN.md) continue ;; esac
+  case "$(basename "$f")" in README.md|PLAN-*|RELEASE-*|Entwicklungsnotizen.md|CLI-DESIGN.md) continue ;; esac
   grep -qE '<(p|br|div|span|details|summary|img|a|table|b|i|small|center)[ >/]' "$f" && bad="$bad [html:$f]"
   grep -qE '^```bash$' "$f" && awk '/^```bash$/ { inb = 1; next } /^```/ { inb = 0 } inb && /^\$ / { print FILENAME; exit }' "$f" | grep -q . && bad="$bad [prompt:$f]"
   grep -qiE "\b(example\.com|192\.168\.1\.)" "$f" || true

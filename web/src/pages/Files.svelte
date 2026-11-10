@@ -36,6 +36,7 @@
   $effect(() => {
     if (!started || !live.open) return;
     live.gen['fm-locations'];
+    live.resyncs;
     untrack(() => fm.refreshLocs());
   });
   onDestroy(() => fm.destroy());

@@ -9,9 +9,10 @@ This file is the whole HTTP side of the entry page:
   POST /api/logout
   GET  /api/changes/seen   the revision this user has seen in What's new ({rev}, "" = never); session needed
   POST /api/changes/seen   {rev: 40 hex}: remember it for the signed-in user (web-changes-seen.json in the state folder); session + CSRF
+  POST /api/live/refresh   {topic}: ask the live collector to read that topic again (mode redis; 409 otherwise); session + CSRF
   GET  /api/sys/...   a read-only `hs sys` call from the allowlist READS below (session needed), e.g. /api/sys/ct/list
   GET  /api/sys/jobs/stream/<unit>  the same job journal as `sys jobs tail`, as server-sent events (one JSON {rows} per look, `event: end` when the unit ended), session needed
-  GET  /api/events    server-sent events `changed` ({topic, gen}) while live state is on (HS_WEB_LIVE=redis, else 404), `down`/`up` when Redis goes; session, same Origin
+  GET  /api/events    server-sent events `changed` ({topic, gen}) in every mode (a watcher reads the table `topics` of state.db once a second; Redis, when on, is the fast path), `down`/`up` when Redis goes; session, same Origin
   GET  /api/board     the dashboard tiles and their stats, only while the dashboard variant is web; a session, or (setting dashboardOpen) a private address
   GET  /api/proxy/status  the VPS status document (machine.toml proxyStatusUrl, env HS_WEB_PROXY_URL; 404 while not configured), session needed
   GET  /api/docs/index|page/<lang>/<slug>|search?q=  the guides (capability docs; `hs docs build` writes them), session needed
@@ -61,7 +62,9 @@ import urllib.request
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 import web_terminal as wt      # the in-browser terminal (WebSocket, tickets, pty shell)
+import web_vmconsole as vc    # the graphical VM console (Incus VGA console relayed over a WebSocket, ADR 0021)
 import live_state as ls        # live state: the RESP client for Redis (mode redis)
+import first_run as fr         # first-run flag and the one-time console token (docs/adr/0022-first-run-console-token.md)
 from hs_ext import (env, runtime_setting, capabilities, applied_recipes, ext_roots, ext_sys_rows, ext_packages, ext_manifest,  # noqa: F401,E402
                     ext_read, ext_load_web, EXT_NAME, EXT_KINDS, EXT_BLOCKS)
 
@@ -278,6 +281,8 @@ class Config:
         self.ntlm_auth = env("HS_WEB_NTLM_AUTH", "ntlm_auth")
         self.wbinfo = env("HS_WEB_WBINFO", "wbinfo")
         self.chkpwd = env("HS_WEB_CHKPWD", "/run/wrappers/bin/unix_chkpwd")
+        self.chpasswd = env("HS_WEB_CHPASSWD", "chpasswd")           # first setup only: sets the local admin's password (line "user:password" on stdin)
+        self.first_run_file = env("HS_FIRST_RUN_FILE", os.path.join(env("HS_STATE_DIR", "/var/lib/hs"), "first-run.json"))   # "" = no first-run setup
         self.hs = env("HS_WEB_HS", "hs")
         self.idle = int(env("HS_WEB_IDLE_MINUTES", "480")) * 60
         self.max_age = int(env("HS_WEB_MAX_HOURS", "12")) * 3600
@@ -311,6 +316,7 @@ class Config:
         # live state (capability live-state): "redis" serves topic reads from Redis and pushes changes on /api/events; anything else = off
         self.live = env("HS_WEB_LIVE", "")
         self.live_socket = env("HS_LIVE_SOCKET", "/run/redis-hobnix/redis.sock")
+        self.events_watch = 1.0                                           # seconds between two reads of the change counters (table topics of state.db)
         self.events_ping = 15.0                                           # seconds of silence before a `: ping` on /api/events (tests shorten it)
         self.events_max = int(env("HS_WEB_EVENTS_MAX", "32"))             # /api/events streams open at once
 
@@ -534,6 +540,11 @@ class Auth:
         rc, _ = _run([self.cfg.chkpwd, user, "nonull"], stdin=password.encode() + b"\0")
         return rc == 0
 
+    def set_local_password(self, user, password):
+        """First setup only. chpasswd reads "user:password" from stdin (never an argument); True when it accepted."""
+        rc, _ = _run([self.cfg.chpasswd], stdin=("%s:%s\n" % (user, password)).encode())
+        return rc == 0
+
 
 # ─────────────────────────── state: sessions, throttle, facts ───────────────────────────
 def _h(token):
@@ -745,25 +756,35 @@ READS = {
                           "topic": {"bulk": "pool-members-bulk", "fast": "pool-members-fast"}},
     ("pool", "state"): {"kind": "tsv", "ttl": 10, "query": {"pool": (NAME, "")},
                         "topic": {"bulk": "pool-state-bulk", "fast": "pool-state-fast"}},     # bulk lock, health-check pause, last scrub / parity sync (lock, paused, scrub <pool>, sync bulk)
+    ("incident", "state"): {"kind": "tsv", "ttl": 10},     # the storage incident workflow (scripts/storage-incident.sh --state)
     ("pool", "disks"): {"kind": "tsv", "ttl": 15, "query": {"role": (r"^adopt$", "--role")}},
     ("disk-health", "list"): {"kind": "tsv", "ttl": 30, "topic": "disk-health"},
     ("state", "disks"): {"kind": "tsv", "ttl": 15, "topic": "disk-inventory"},
     ("reads", "status"): {"kind": "tsv", "ttl": 5},      # the Data page: what the collector keeps, how old, how long each read takes
     ("live", "status"): {"kind": "tsv", "ttl": 5, "topic": "live"},      # the Data page in live mode: the live topics themselves
+    ("live", "inspect"): {"kind": "json", "ttl": 0, "redis": True},      # the Live state page; ttl 0: never cached nor warmed, re-read on each change of topic live
+    ("live", "raw"): {"kind": "json", "ttl": 0, "redis": True, "args": [NAME]},      # one topic's stored output for the Live state page (capped in live_state.py)
     ("state", "events"): {"kind": "tsv", "ttl": 10, "query": {"n": (r"^[0-9]{1,4}$", "")}},
+    ("testlab", "results"): {"kind": "tsv", "ttl": 10},      # the Test-lab page (capability testlab)
+    ("event", "list"): {"kind": "tsv", "ttl": 10, "query": {"n": (r"^[0-9]{1,4}$", ""), "source": (r"^[a-z][a-z0-9-]{0,30}$", "--source"), "after": (r"^[0-9]{1,9}$", "--after")}},      # the event log (docs/adr/0005-events.md)
     ("ct", "list"): {"kind": "tsv", "ttl": 5, "topic": "ct-list"},
     ("ct", "profiles"): {"kind": "tsv", "ttl": 30, "topic": "ct-profiles"},
+    ("ct", "pools"): {"kind": "tsv", "ttl": 15, "topic": "ct-pools"},
     ("ct", "bindings"): {"kind": "tsv", "ttl": 10, "args": [NAME]},
     ("ct", "snapshots"): {"kind": "tsv", "ttl": 10, "args": [NAME]},
     ("jobs", "list"): {"kind": "tsv", "ttl": 10, "topic": "jobs-list"},
     ("jobs", "running"): {"kind": "tsv", "ttl": 3, "topic": "jobs-running"},
+    ("jobs", "records"): {"kind": "tsv", "ttl": 0, "query": {"state": (r"^(queued|running|waiting|ok|failed|cancelled|interrupted)$", "--state"), "n": (r"^[0-9]{1,3}$", "")}},   # job records, newest first (ADR 0004); the page follows job.* events
+    ("jobs", "record"): {"kind": "json", "ttl": 0, "args": [r"^[0-9]{8}-[0-9]{6}-[A-Za-z0-9-]{1,60}-[a-z]{4}$"]},
     ("jobs", "tail"): {"kind": "tsv", "ttl": 0, "args": [UNIT], "query": {"from": (r"^[0-9]{1,7}$", "")}},
     ("system", "updates"): {"kind": "tsv", "ttl": 30, "topic": "system-updates"},
+    ("release", "show"): {"kind": "tsv", "ttl": 30},        # the update channel and what the next update does (release-channel.sh)
     ("ssh-key", "list"): {"kind": "tsv", "ttl": 30, "topic": "ssh-keys"},
     ("node", "list"): {"kind": "tsv", "ttl": 15, "topic": "node-list"},
     ("node", "show"): {"kind": "tsv", "ttl": 15, "args": [NAME]},
     ("changes", "list"): {"kind": "tsv", "ttl": 60, "query": {"from": (r"^[0-9a-f]{7,40}$", "--from"), "since": (r"^[0-9]{4}-[0-9]{2}-[0-9]{2}$", "--since")}},   # What's new
     ("parts", "pending"): {"kind": "tsv", "ttl": 15},
+    ("rebuild", "pending"): {"kind": "tsv", "ttl": 15},
     ("net", "nics"): {"kind": "tsv", "ttl": 15},                                                  # the physical network cards (Network wizard)
     ("parts", "list"): {"kind": "tsv", "ttl": 15, "topic": "parts-list"},                          # the optional parts and whether each is on (Settings)
     ("node", "keyline"): {"kind": "tsv", "ttl": 5, "args": [NAME]},       # the public key line a node's owner has to allow (never the private key)
@@ -821,6 +842,7 @@ READS = {
     ("system", "report"): {"kind": "text", "ttl": 60},
     # new pages (scripts and registry rows are added with the pages; the contract of each is in its script header)
     ("expiry", "list"): {"kind": "tsv", "ttl": 60, "topic": "expiry"},
+    ("iso", "list"): {"kind": "tsv", "ttl": 10, "topic": "iso-list"},
     # Games and Posters are extension packages: their reads are declared in capabilities/<name>/capability.toml ([[web.reads]]), see ext_load_web
     ("hardware",): {"kind": "tsv", "ttl": 10, "topic": "hardware"},
     ("encryption", "list"): {"kind": "tsv", "ttl": 15, "topic": "encryption"},
@@ -833,6 +855,7 @@ READS = {
     ("pkg", "repos"): {"kind": "tsv", "ttl": 30, "topic": "pkg-repos"},
     ("dc", "state"): {"kind": "tsv", "ttl": 60, "topic": "dc-state"},
     ("recipes", "asks"): {"kind": "tsv", "ttl": 60, "args": [r"^[a-z0-9][a-z0-9-]{0,40}$"]},
+    ("recipes", "steps"): {"kind": "tsv", "ttl": 60, "args": [r"^[a-z0-9][a-z0-9-]{0,40}$"]},
     ("services", "list"): {"kind": "tsv", "ttl": 15, "topic": "services-list"},
     ("services", "show"): {"kind": "tsv", "ttl": 10, "args": [r"^[a-z0-9][a-z0-9-]{0,40}$"]},
     ("services", "app"): {"kind": "tsv", "ttl": 15, "topic": "services-app"},
@@ -891,11 +914,11 @@ FULL_NAME = r"^\w[\w .'-]{0,63}$"                                     # a full n
 CHANGE = r"^[A-Za-z0-9][A-Za-z0-9._-]{0,63}:[A-Za-z0-9][A-Za-z0-9._ -]{0,63}=(add|remove)$"     # <user>:<group>=add|remove
 # settings the web UI may change (machine.toml keys); everything else (keys, host name, addresses, secrets) stays a terminal job
 # schema:begin CONFIG_KEYS (generated by scripts/schema-gen.py; edit config/schema.toml)
-CONFIG_KEYS = ("timeZone|language|keyMap|icons|loginMessage|webAccent|webTerminal|webTerminalIdleMinutes|"
-               "webTerminalMaxHours|nic|smbAllow|dhcpRange|siteName|incusUi|syncEveryHours|shareSnapshots|"
-               "diskSpindownMinutes|fileManagerWrite|setupDone|backupNewShares|backupNewInstances|"
-               "notifySecondMinPriority|notifications|quietHours|autoMitigate|metrics|metricsDays|metricsMaxGB|"
-               "deckApi|dockerSize|dockerMemory|dockerCpus|gatewayPublicHttps|gatewayPublicHttp|"
+CONFIG_KEYS = ("timeZone|language|keyMap|icons|loginMessage|updateChannel|webAccent|webTerminal|recipeQuestionHours|"
+               "webTerminalIdleMinutes|webTerminalMaxHours|nic|smbAllow|dhcpRange|siteName|incusUi|isoDir|"
+               "syncEveryHours|shareSnapshots|diskSpindownMinutes|fileManagerWrite|setupDone|backupNewShares|"
+               "backupNewInstances|notifySecondMinPriority|notifications|quietHours|autoMitigate|metrics|metricsDays|"
+               "metricsMaxGB|deckApi|dockerSize|dockerMemory|dockerCpus|gatewayPublicHttps|gatewayPublicHttp|"
                "gatewayUnknownHostLocal|gatewayUnknownHostPublic|gatewayTunnelPort|gatewayAcmeEmail|"
                "gatewayAcmeStaging|gatewayAcmeChallenge|gatewayAcmeDnsProvider")
 # schema:end CONFIG_KEYS
@@ -922,13 +945,20 @@ TEMP_NAME = r"^[a-z0-9][a-z0-9-]{0,31}$"                                      # 
 # the keys of the gateway steps (capabilities/gateway/capability.toml; scripts/gateway-setup.sh GW_KEYS); tests/gateway-setup.sh compares both
 GW_SET = (r"^(reverseProxy|gatewayTunnelPort|gatewayPublicHttps|gatewayPublicHttp|proxyDomains|gatewayDirectDomains|gatewayAcmeEmail|"
           r"gatewayAcmeStaging|gatewayAcmeChallenge|gatewayAcmeDnsProvider|gatewayUnknownHostLocal|gatewayUnknownHostPublic)=[A-Za-z0-9.,@_+-]{0,200}$")
-# the change area (first path segment of the area of a web change) -> the live-state group it refreshes (scripts/lib/live-topics.tsv); ext/<n> -> ext-<n>
-AREA_GROUP = {
-    "ct": "instances", "recipes": "instances", "docker": "instances", "docker-app": "instances", "docker-registry": "instances", "pool": "disks", "shares": "shares", "fm": "shares", "users": "users", "admin": "users", "dc": "users",
-    "backup": "backup", "secrets": "security", "ssh-key": "security", "net": "network", "routes": "network", "gateway": "network", "vps": "network",
-    "peers": "network", "node": "network", "jobs": "jobs", "notify": "system", "health": "system", "expiry": "system", "config": "system",
-    "system": "system", "parts": "system", "pkg": "system",
-}
+# the change area (first path segment of the area of a web change) -> the live-state group it refreshes: scripts/lib/live-areas.tsv; ext/<n> -> ext-<n>
+def _load_area_group():
+    path = os.path.join(os.path.dirname(os.path.abspath(__file__)), "lib", "live-areas.tsv")
+    out = {}
+    with open(path, encoding="utf-8") as f:
+        for line in f:
+            cols = line.rstrip("\n").split("\t")
+            if line.startswith("#") or len(cols) < 2:
+                continue
+            out[cols[0]] = cols[1]
+    return out
+
+
+AREA_GROUP = _load_area_group()
 
 
 def area_refresh(area):
@@ -943,7 +973,9 @@ def area_refresh(area):
 DOCKER_REGISTRY_HOST = r"^[a-z0-9.-]{1,100}(:[0-9]{1,5})?$"
 DOCKER_SET = r"^(dockerManager=(webui|arcane|portainer|none)|dockerSize=[sml])$"
 CHANGES = {
-    "jobs": [[r"^(run|stop)$", UNIT]],
+    "jobs": [[r"^(run|stop)$", UNIT],
+             # ADR 0018: the answer to a question of an interactive recipe run is ONE line on stdin; --by and --role are added by the server, never by the client
+             {"fixed": [r"^answer$", r"^[0-9]{8}-[0-9]{6}-[A-Za-z0-9-]{1,60}-[a-z]{4}$"], "opts": {"--seq": (r"^[0-9]{1,9}$", False), "--key": (r"^[A-Za-z][A-Za-z0-9_]{0,40}$", False)}, "need": ["--seq", "--key"], "stdin": True}],
     # the file manager (fm.sh): copy, move, delete, rename, mkdir. The selection (names below --path) is NOT an argument: the body field `selection` (a list of names,
     # at most FM_SELECTION_MAX) goes to the script on stdin, NUL separated, never argv. The script enforces every rule itself; --by (who) is added here, not by the client.
     "fm": [{"fixed": [r"^(copy|move|delete|rename|mkdir)$"],
@@ -971,6 +1003,8 @@ CHANGES = {
              # convert: a SnapRAID data disk is emptied and formatted again (--fs, --encrypt); ZFS has nothing to convert, so only bulk
              {"fixed": [r"^bulk$", r"^convert$", r"^--member$", DISKID],
               "opts": {"--fs": (FSTYPE, False), "--encrypt": (None, False), "--discard": (None, False)}, "stdin": True}],
+    # the storage incident workflow: freeze the apps that write to an affected share, thaw them again (storage-incident.sh plan|start)
+    "incident": [[r"^(pause|resume)$"]],
     "disk": [[DISKID, r"^test$", r"^(short|long)$"],
              # wipe: erase a disk that belongs to nothing (disk-change.sh refuses a mounted, pool, array or backup disk); red, the disk name is typed
              [DISKID, r"^wipe$"],
@@ -1000,6 +1034,8 @@ CHANGES = {
     # the vault and the secrets (vault-change.sh): a header backup, move secrets in (optionally by name), close (red), root-only permissions; init, bind and open are not here
     "secrets": [[r"^(header-backup|close|secrets-fix)$"], [r"^move$"], [r"^move$", r"^[A-Za-z0-9][A-Za-z0-9._-]{0,60}$"]],
     # small chores (admin-change.sh): a test push message, pin the MACs, move the upload cache now, clean the fans
+    # the test-lab (testlab-change.sh, the capability testlab): start a run as a job; the ref is a branch, tag or commit name (testlab.sh checks it again and the allowlist of repositories)
+    "testlab": [{"fixed": [r"^run$"], "opts": {"--ref": (r"^[A-Za-z0-9][A-Za-z0-9._/-]{0,99}$", False), "--stage": (r"^(1|2|all)$", False)}}],
     "admin": [[r"^(test-push|pin-macs|cache-mover)$"], {"fixed": [r"^fans-clean$"], "opts": {"--seconds": (r"^[0-9]{1,2}$", False)}}],
     # the certificates of the domain controller (dc-change.sh): make the CA once, renew the certificate of a controller on this server (red: Samba restarts)
     "dc": [[r"^ca$"], {"fixed": [r"^renew$"], "opts": {"--dc": (r"^[A-Za-z0-9][A-Za-z0-9-]{0,62}$", False)}}],
@@ -1028,10 +1064,12 @@ CHANGES = {
             [r"^(update|remove)$", r"^[a-z0-9][a-z0-9-]{0,40}$"],
             [r"^fetch$"], [r"^fetch$", r"^[a-z0-9][a-z0-9-]{0,40}$"],
             {"fixed": [r"^repo-add$", r"^[a-z0-9][a-z0-9-]{0,40}$", r"^(https://|ssh://git@|git@)[A-Za-z0-9._:/@~+-]{3,200}$"], "stdin": True},
-            [r"^repo-remove$", r"^[a-z0-9][a-z0-9-]{0,40}$"]],
+            [r"^repo-remove$", r"^[a-z0-9][a-z0-9-]{0,40}$"],
+            # the package builder (ADR 0020): a package.toml draft as text on stdin, checked by pkg.py, never written anywhere (plan only)
+            {"fixed": [r"^check-draft$"], "document": True}],
     # an answer is `--set KEY=value` (no control characters); the one secret answer of a recipe is a single line on stdin
     "recipes": [{"fixed": [r"^[a-z0-9][a-z0-9-]{0,40}$", r"^run$"],
-                 "opts": {"--name": (r"^[a-z0-9][a-z0-9-]{0,40}$", False), "--set": (r"^[A-Z][A-Z0-9_]{0,30}=[^\x00-\x1f]{0,300}$", True)}, "stdin": True}],
+                 "opts": {"--name": (r"^[a-z0-9][a-z0-9-]{0,40}$", False), "--set": (r"^[A-Z][A-Z0-9_]{0,30}=[^\x00-\x1f]{0,300}$", True), "--interactive": (None, False)}, "stdin": True}],
     # the proxyserver (VPS): exactly these two words; scripts/vps-change.sh adds nothing else to the ssh command line, and the key on the VPS can only run them
     "vps": [[r"^(update|watch)$"]],
     # switch an optional part (part-change.sh): enable/disable <name>; off with a NixOS module is red
@@ -1050,7 +1088,8 @@ CHANGES = {
            # forms of the Instances page (docs/PLAN-web-backend.md, Create dialog and forms)
            {"fixed": [CT, r"^create$"], "opts": {"--type": (r"^(container|docker|vm)$", False), "--ram": (CT_RAM, False), "--cpu": (CT_CPU, False),
                                                  "--disk": (CT_DISK, False), "--address": (IPV4, False),
-                                                 "--profile": (CT_PROFILE, False), "--bind": (CT_BIND, True)}},
+                                                 "--profile": (CT_PROFILE, False), "--pool": (CT_PROFILE, False),
+                                                 "--iso": (r"^[A-Za-z0-9][A-Za-z0-9._-]{0,80}\.[iI][sS][oO]$", False), "--bind": (CT_BIND, True)}},
            {"fixed": [CT, r"^set$"], "opts": {"--ram": (CT_RAM, False), "--cpu": (CT_CPU, False), "--disk": (CT_DISK, False),
                                              "--autostart": (r"^(yes|no)$", False), "--docker": (r"^(yes|no)$", False)}},
            {"fixed": [CT, r"^ip$"], "opts": {"--address": (IPV4, False)}},
@@ -1093,9 +1132,16 @@ CHANGES = {
     "expiry": [{"fixed": [r"^add$", r"^[A-Za-z0-9][A-Za-z0-9 ._()-]{0,60}$"],
                 "opts": {"--date": (r"^[0-9]{4}-[0-9]{2}-[0-9]{2}$", False), "--renew": (r"^[^\t\r\n\x00]{0,120}$", False)}},
                [r"^remove$", r"^[A-Za-z0-9][A-Za-z0-9 ._()-]{0,60}$"]],
+    # the ISO library (iso-change.sh): add a file or URL (the checksum or --no-checksum is asked for by the plan), remove an image (red: the name is typed)
+    "iso": [{"fixed": [r"^add$", r"^(https?://[A-Za-z0-9._~%/+=:@,;&?-]{1,1000}|/[A-Za-z0-9._/@+ ~-]{1,1000})$"],
+             "opts": {"--name": (r"^[A-Za-z0-9][A-Za-z0-9._-]{0,80}\.[iI][sS][oO]$", False), "--checksum": (r"^(sha(256|512):)?[0-9A-Fa-f]{64,128}$", False),
+                      "--no-checksum": (None, False)}},
+            [r"^remove$", r"^[A-Za-z0-9][A-Za-z0-9._-]{0,80}\.[iI][sS][oO]$"]],
     # acknowledge a health problem, take it back, lift the pause of the bulk jobs (health-change.sh checks the id against the listed problems)
     "health": [[r"^(ack|unack)$", r"^[A-Za-z0-9][A-Za-z0-9:._ ()-]{0,100}$"], [r"^resume$"]],
-    "system": [[r"^(sync|scrub|update|gc|rollback|reboot|shutdown)$"],
+    # switching the update channel (release-change.sh): a newer channel needs its own name as the confirmation
+    "release": [[r"^channel$", r"^(stable|beta|edge)$"]],
+    "system": [[r"^(sync|scrub|update|rebuild|gc|rollback|reboot|shutdown)$"],
                [r"^(sync|scrub)$", r"^--pool$", POOL]],
     # the gateway setup (gateway-setup.sh): all changed keys as --set key=value (may repeat); the typed port comes as --confirm
     "gateway": [{"fixed": [r"^setup$"], "opts": {"--set": (GW_SET, True)}}],
@@ -1210,8 +1256,16 @@ def _selection_ok(sel):
     return total <= FM_SELECTION_BYTES
 
 
+DRAFT_MAX = 65536      # bytes of a package.toml draft
+
+
 def _document_bytes(doc):
     """-> bytes or None. Validates the docker app-save document and serializes it deterministically."""
+    if isinstance(doc, dict) and set(doc) == {"manifest"}:     # a package.toml draft (pkg check-draft)
+        m = doc["manifest"]
+        if not isinstance(m, str) or "\0" in m or len(m.encode("utf-8")) > DRAFT_MAX:
+            return None
+        return m.encode("utf-8")
     if isinstance(doc, dict) and set(doc) == {"compose", "env"}:
         compose, env = doc["compose"], doc["env"]
         if not isinstance(compose, str) or "\0" in compose or len(compose.encode("utf-8")) > DOC_COMPOSE_MAX:
@@ -1310,6 +1364,8 @@ def parse_change(out, rc):
             d["id"] = v
         elif k in ("status", "reason", "heading", "command", "confirm_name", "unit"):
             d[k] = v
+        elif k == "job" and re.fullmatch(r"[0-9]{8}-[0-9]{6}-[A-Za-z0-9-]{1,60}-[a-z]{4}", v):
+            d["job"] = v           # the job record of an interactive recipe run (ADR 0018): the page follows it
         elif k == "secret":
             name, _, val = v.partition("\t")      # what the other side types (peer-change.sh offer): login, domain, host, password
             if name in ("login", "domain", "host", "password"):
@@ -1834,6 +1890,10 @@ class RedisStore(StateStore):
             self.caps = {t: i["cap"] for t, i in ls.topic_info().items()}      # topic -> the capability it needs (None = always)
         except OSError:
             self.caps = {}
+        try:
+            self.ivals = {t[0]: t[2] for t in ls.topics()}      # topic -> interval, for status_of of an old document without ttl
+        except OSError:
+            self.ivals = {}
 
     def _doc(self, topic):
         """-> the stored document or None (key missing); OSError when Redis does not answer"""
@@ -1850,6 +1910,15 @@ class RedisStore(StateStore):
 
     def get(self, spec, argv, key, fresh=False):
         topic = spec.get("topic")
+        if spec.get("redis") and not topic:      # a direct read that needs Redis (the Live state page): Redis down is 503 like for a topic read
+            try:
+                r = ls.Resp(self.cfg.live_socket, timeout=1.0)
+                try:
+                    r.cmd("PING")
+                finally:
+                    r.close()
+            except OSError:
+                return 503, {"error": "state service down", "hint": "systemctl status redis-hobnix hs-live"}, None, ()
         cap = spec["cap"] if "cap" in spec else self.caps.get(topic)      # an extension read names its own capability (None = a recipe package)
         if not topic or not ls.cap_on(cap):      # no topic, or its capability is off (the collector never writes it): the direct read
             return self.off.get(spec, argv, key, fresh=fresh)
@@ -1875,10 +1944,14 @@ class RedisStore(StateStore):
             code, obj = Reads._shape(spec, int(doc.get("rc") or 0), str(doc.get("out") or ""))
         except (TypeError, ValueError):
             return 502, {"error": "The stored answer is not readable."}, None, ()
-        more = ()
+        more = (("X-HS-Status", ls.status_of(doc, self.ivals.get(topic, 60), time.time())),)      # fresh|stale|error|expired (#322); expired is still served
         try:
             if doc.get("err") and float(doc.get("ts_err") or 0) > ts:
-                more = (("X-HS-Stale", str(int(float(doc["ts_err"])))),)
+                more += (("X-HS-Stale", str(int(float(doc["ts_err"])))),
+                         ("X-HS-State", "stale" if ts else "error"),      # additive: stale = last good data served, error = never read
+                         ("X-HS-Last-Ok", str(int(ts)) if ts else "-"),
+                         ("X-HS-Topic", topic),      # for the tooltip of the top bar (#323): which read, and its last error line (printable ASCII)
+                         ("X-HS-Error", ls.clean(doc["err"], 160).encode("ascii", "replace").decode()))
         except (TypeError, ValueError):
             pass
         return code, obj, max(0.0, time.time() - ts), more
@@ -1896,10 +1969,14 @@ class RedisStore(StateStore):
 
 class Events:
     """The hub behind /api/events: one thread follows hs:v1:changed (mode redis) and hands every message to each open stream. A stream is a
-    queue of ("changed", topic, gen) | ("down",) | ("up",). feed() is also how tests push a message."""
+    queue of ("changed", topic, gen) | ("domain", row) | ("resync",) | ("down",) | ("up",). feed() is also how tests push a message."""
 
     def __init__(self, cfg):
         self.cfg, self.lock, self.queues = cfg, threading.Lock(), set()
+        self.redis_up = False        # the Redis subscription holds: it delivers the live topics, the counters are then only the fallback
+        self.counters = None         # topic -> gen as the watcher saw it last; None = not read yet (the first read is the baseline, no event)
+        self.last_event = None       # id of the newest event-log row the watcher saw; None = not read yet (the first read is the baseline)
+        self.on_change = None        # App sets it: called once per round that saw a change made outside the web (clears the read cache)
 
     def add(self):
         q = queue.Queue(maxsize=256)
@@ -1918,10 +1995,122 @@ class Events:
             try:
                 q.put_nowait(item)
             except queue.Full:
-                pass         # the hub never blocks on a slow stream
+                # the hub never blocks on a slow stream; it drops what the stream holds and says so (ADR 0005 rule 7)
+                try:
+                    while True:
+                        q.get_nowait()
+                except queue.Empty:
+                    pass
+                try:
+                    q.put_nowait(("resync",))
+                except queue.Full:
+                    pass
 
     def start(self):
         threading.Thread(target=self._run, daemon=True).start()
+
+    def start_watch(self):
+        threading.Thread(target=self._watch, daemon=True).start()
+
+    def read_counters(self):
+        """-> {topic: gen} from the table `topics` of the state database (read-only, no subprocess); {} while there is no database or table;
+        None when it could not be read now (busy): the watcher keeps what it knows."""
+        db = env("HS_STATE_DB", os.path.join(env("HS_STATE_DIR", "/var/lib/hs"), "state.db"))
+        if not os.path.exists(db):
+            return {}
+        try:
+            c = sqlite3.connect("file:%s?mode=ro" % db.replace("\\", "/"), uri=True, timeout=2)
+            try:
+                c.execute("PRAGMA query_only=1")
+                return {t: int(g) for t, g in c.execute("SELECT topic, gen FROM topics")}
+            finally:
+                c.close()
+        except sqlite3.OperationalError as e:
+            return {} if "no such table" in str(e) else None
+        except sqlite3.Error:
+            return None
+
+    def _event_db(self):
+        return env("HS_STATE_DB", os.path.join(env("HS_STATE_DIR", "/var/lib/hs"), "state.db"))
+
+    def read_events(self, after, limit=None):
+        """-> the event-log rows with id > after (oldest first, dicts as the stream sends them); None when the log cannot be read now.
+        With limit: ("resync",) instead when the gap is not served (the id is older than the oldest kept row, newer than the newest, or more
+        than `limit` rows behind)."""
+        db = self._event_db()
+        if not os.path.exists(db):
+            return ("resync",) if limit is not None and after else []
+        try:
+            c = sqlite3.connect("file:%s?mode=ro" % db.replace("\\", "/"), uri=True, timeout=2)
+            try:
+                c.execute("PRAGMA query_only=1")
+                if limit is not None and after:
+                    lo, hi = c.execute("SELECT MIN(id), MAX(id) FROM events").fetchone()
+                    if hi is None:
+                        return []
+                    if after > hi or after + 1 < lo or c.execute("SELECT COUNT(*) FROM events WHERE id > ?", (after,)).fetchone()[0] > limit:
+                        return ("resync",)
+                rows = c.execute("SELECT id, time, source, kind, subject, level, text, payload FROM events WHERE id > ? ORDER BY id LIMIT ?",
+                                 (after, limit if limit is not None else 1000)).fetchall()
+            finally:
+                c.close()
+        except sqlite3.Error:
+            return None
+        out = []
+        for i, t, src, kind, subj, lvl, text, payload in rows:
+            try:
+                pl = json.loads(payload) if payload else None
+            except ValueError:
+                pl = None
+            out.append({"id": i, "time": t, "source": src, "kind": kind, "subject": subj or "", "level": lvl, "text": text or "", "payload": pl})
+        return out
+
+    def poll_events(self):
+        """One round: every new row of the event log becomes a `domain` item for the streams. The first read is the baseline (no item)."""
+        if self.last_event is None:
+            db = self._event_db()
+            if not os.path.exists(db):
+                return
+            try:
+                c = sqlite3.connect("file:%s?mode=ro" % db.replace("\\", "/"), uri=True, timeout=2)
+                try:
+                    self.last_event = c.execute("SELECT MAX(id) FROM events").fetchone()[0] or 0
+                finally:
+                    c.close()
+            except sqlite3.Error:
+                pass
+            return
+        for row in self.read_events(self.last_event) or []:
+            self.last_event = row["id"]
+            self.feed("domain", row)
+
+    def poll_counters(self):
+        """One round: every topic whose gen moved gets a `changed` (not while Redis delivers it); a change made outside the web (hs in a terminal, a
+        timer) also clears the read cache. A `reads:<key>` counter is the collector keeping newer output: the event only, the cache stays."""
+        now = self.read_counters()
+        if now is None:
+            return
+        before, self.counters = self.counters, now
+        if before is None:
+            return
+        moved = sorted((t, g) for t, g in now.items() if g != before.get(t))
+        if any(not t.startswith("reads:") for t, _ in moved) and self.on_change:
+            self.on_change()
+        for t, g in moved:
+            if t.startswith("reads:") or not self.redis_up:
+                self.feed("changed", t, g)
+
+    def _watch(self):
+        while True:
+            try:
+                self.poll_counters()
+            except Exception:
+                pass          # the watcher must not die
+            try:
+                self.poll_events()
+            except Exception:
+                pass
+            time.sleep(self.cfg.events_watch)
 
     def _run(self):
         up, wait = False, 1
@@ -1934,6 +2123,7 @@ class Events:
                         wait = 1
                         if not up:
                             up = True
+                            self.redis_up = True
                             self.announce()
                         topic, _, gen = msg.partition(" ")
                         if topic:
@@ -1945,6 +2135,7 @@ class Events:
             if up:
                 self.feed("down")
             up = False
+            self.redis_up = False
             if time.time() - began > 10:      # the subscription held for a while: start the backoff again
                 wait = 1
             self.sleep(wait)
@@ -2013,12 +2204,16 @@ class App:
         self.sessions, self.throttle, self.facts, self.reads = Sessions(self.cfg), Throttle(), Facts(self.cfg), Reads(self.cfg)
         self.plans = Plans(self.cfg.plan_ttl)
         self.changes_seen = ChangesSeen(self.cfg)
+        self.first_run = fr.FirstRun(self.cfg.first_run_file)
         self.reads.on_clear = self.plans.clear
         self.store = RedisStore(self.cfg, self.reads) if self.cfg.live == "redis" else OffStore(self.reads)
-        self.events = Events(self.cfg)       # started by main() in mode redis
+        self.events = Events(self.cfg)       # main() starts the counter watcher always and the Redis subscription in mode redis
+        self.events.on_change = self.reads.clear
         self.proxy = Proxy(self.cfg)
         self.warmer = Warmer(self)       # started by main(), not here
         self.terminals = wt.Terminals()
+        self.vmconsoles = vc.consoles()
+        self.incus = vc.IncusApi()                      # tests replace this with a fake
         self.stream_lock, self.streams, self.event_streams = threading.Lock(), 0, 0
         self.term_spawn = lambda target, name=None: wt.pty_spawn(target, self.cfg.local_user, name=name)      # tests replace this with a fake
 
@@ -2123,6 +2318,8 @@ def make_handler(app):
                 return self._hello()
             if path == "/api/terminal/ws":
                 return self._terminal_ws(urllib.parse.parse_qs(urllib.parse.urlsplit(self.path).query))
+            if path == "/api/vmconsole/ws":
+                return self._vmconsole_ws(urllib.parse.parse_qs(urllib.parse.urlsplit(self.path).query))
             if path == "/api/session":
                 s = self._session()
                 if not s:
@@ -2317,14 +2514,13 @@ def make_handler(app):
                     app.streams -= 1
 
         def _events(self):
-            """Server-sent events for the live state: `changed` {topic, gen} when the collector read a topic again, `down` / `up` when Redis goes
-            or comes back. One thread per stream (at most cfg.events_max). The page reads the topic again when `changed` arrives."""
+            """Server-sent events, in every liveState mode: `changed` {topic, gen} when a change counter moved (Events.poll_counters) or, in mode
+            redis, the collector read a topic again; `domain` (id = event log id) per new log row, replayed after Last-Event-ID (up to 500, else `resync`,
+            also sent when a stream queue overflowed); `down` / `up` when Redis goes or comes back. One thread per stream (at most cfg.events_max). The page reads the topic again when `changed` arrives."""
             if not self._session():
                 return self._json(401, {"error": "not signed in"})
             if self.headers.get("Origin") and not self._same_origin():
                 return self._json(403, {"error": "origin"})
-            if cfg.live != "redis":
-                return self._json(404, {"error": "live state is off"})
             with app.stream_lock:
                 if app.event_streams >= cfg.events_max:
                     return self._json(503, {"error": "too many open streams"})
@@ -2334,6 +2530,16 @@ def make_handler(app):
                 self.close_connection = True
                 self._headers(200, "text/event-stream", None, (("Cache-Control", "no-cache"), ("Connection", "close"), ("X-Accel-Buffering", "no")))
                 self.wfile.write(b"retry: 3000\n\n")
+                sent = 0                                                     # the newest log id this stream has sent (a live row up to it is a repeat)
+                last = (self.headers.get("Last-Event-ID") or "").strip()
+                if last.isdigit():
+                    rows = app.events.read_events(int(last), 500)
+                    if rows is None or rows == ("resync",):
+                        self.wfile.write(b"event: resync\ndata: {}\n\n")
+                    else:
+                        for row in rows:
+                            sent = row["id"]
+                            self.wfile.write(b"id: %d\nevent: domain\ndata: " % sent + json.dumps(row).encode() + b"\n\n")
                 self.wfile.flush()
                 t0 = time.time()
                 while time.time() - t0 < cfg.stream_hours * 3600:
@@ -2345,6 +2551,11 @@ def make_handler(app):
                         break                                               # signed out, expired or locked
                     if item is None:
                         self.wfile.write(b": ping\n\n")                      # keeps proxies from closing an idle stream
+                    elif item[0] == "domain":
+                        if item[1]["id"] <= sent:
+                            continue
+                        sent = item[1]["id"]
+                        self.wfile.write(b"id: %d\nevent: domain\ndata: " % sent + json.dumps(item[1]).encode() + b"\n\n")
                     elif item[0] == "changed":
                         self.wfile.write(b"event: changed\ndata: " + json.dumps({"topic": item[1], "gen": item[2]}).encode() + b"\n\n")
                     else:
@@ -2365,6 +2576,7 @@ def make_handler(app):
                 "locked": locked,
                 "domain": {"available": domain and not locked, "workgroup": cfg.workgroup, "realm": cfg.realm} if domain else None,
                 "local_user": cfg.local_user,
+                "setup": {"open": bool(cfg.first_run_file) and app.first_run.is_open()},      # only whether; never when it expires or what is in the file
             }
 
         def _hello(self):
@@ -2400,7 +2612,7 @@ def make_handler(app):
         def do_POST(self):
             path = urllib.parse.urlsplit(self.path).path
             raw = self._read(FM_SELECTION_BYTES + 8192 if path in ("/api/plan", "/api/start") else 4096)      # a file manager selection can be long
-            if path not in ("/api/login", "/api/logout", "/api/plan", "/api/start", "/api/unlock", "/api/terminal", "/api/changes/seen"):
+            if path not in ("/api/login", "/api/logout", "/api/plan", "/api/start", "/api/unlock", "/api/terminal", "/api/vmconsole", "/api/changes/seen", "/api/live/refresh", "/api/setup"):
                 return self._json(404, {"error": "unknown"})
             if not self._same_origin():
                 return self._json(403, {"error": "origin"})
@@ -2409,10 +2621,16 @@ def make_handler(app):
                 return self._json(400, {"error": "need a JSON body"})
             if path == "/api/unlock":
                 return self._unlock(body)
+            if path == "/api/setup":
+                return self._setup(body)
             if path == "/api/terminal":
                 return self._terminal_ticket(body)
+            if path == "/api/vmconsole":
+                return self._vmconsole_ticket(body)
             if path == "/api/changes/seen":
                 return self._changes_seen(body)
+            if path == "/api/live/refresh":
+                return self._live_refresh(body)
             if path in ("/api/plan", "/api/start"):
                 return self._change(path[len("/api/"):], body)
             if path == "/api/logout":
@@ -2436,6 +2654,21 @@ def make_handler(app):
             print("web changes seen: %s" % s["user"], flush=True)
             return self._json(200, {"ok": True})
 
+        def _live_refresh(self, body):
+            s = self._session()
+            if not s:
+                return self._json(401, {"error": "not signed in"})
+            if not secrets.compare_digest(self.headers.get("X-CSRF-Token", ""), s["csrf"]):
+                return self._json(403, {"error": "csrf"})
+            if cfg.live != "redis":
+                return self._json(409, {"error": "live state is off"})
+            topic = body.get("topic")
+            if not isinstance(topic, str) or not re.fullmatch(NAME, topic) or topic not in {t[0] for t in ls.topics()}:
+                return self._json(400, {"error": "That topic is not known."})
+            app.store.request(topic)      # the same message ?fresh=1 sends
+            print("web live refresh: %s %s" % (re.sub(r"[^A-Za-z0-9._@-]", "_", str(s["user"])), topic), flush=True)
+            return self._json(200, {"ok": True})
+
         def _change(self, verb, body):
             s = self._session()
             if not s:
@@ -2449,6 +2682,9 @@ def make_handler(app):
             cmd = [cfg.hs, "sys"] + area.split("/") + [verb] + args      # "ext/games" = the words `ext games` (an extension package)
             if verb == "start" and confirm:
                 cmd += ["--confirm", confirm]
+            if (area == "jobs" and args[:1] == ["answer"]) or (area == "recipes" and "--interactive" in args):
+                # ADR 0018 rule 11: who answers / who started the run. Roles (ADR 0012) are not built: every signed-in person is an administrator today
+                cmd += ["--by", re.sub(r"[^A-Za-z0-9._@-]", "_", str(s["user"])), "--role", "admin"]
             if area == "fm" and verb == "start":
                 cmd += ["--by", re.sub(r"[^A-Za-z0-9._@-]", "_", str(s["user"]))]       # who, for the audit log of the file manager
             if verb == "start":
@@ -2498,6 +2734,72 @@ def make_handler(app):
             if ticket is None:
                 return self._json(429, {"error": "Too many terminals are being opened. Try again in a moment."})
             self._json(200, {"ticket": ticket})
+
+        # --- graphical VM console (ADR 0021; scripts/web_vmconsole.py). Same switch, same rules as the terminal: it is a keyboard on the machine.
+        def _vmconsole_ticket(self, body):
+            s = self._session()
+            if not s:
+                return self._json(401, {"error": "not signed in"})
+            if not secrets.compare_digest(self.headers.get("X-CSRF-Token", ""), s["csrf"]):
+                return self._json(403, {"error": "csrf"})
+            if not cfg.terminal:
+                return self._json(403, {"error": "Switch on the browser terminal under Settings > Users and access."})
+            target = body.get("target")
+            if app.auth.storage_locked():
+                return self._json(409, {"error": "The storage is locked: instances are down. Unlock it first."})
+            try:
+                vc.check_vm(app.incus, target)
+            except vc.ConsoleError as e:
+                return self._json(e.status, {"error": e.message})
+            except OSError:
+                return self._json(502, {"error": "The virtual machine service is not reachable."})
+            ticket = app.vmconsoles.issue(self._token(), target)
+            if ticket is None:
+                return self._json(429, {"error": "Too many consoles are being opened. Try again in a moment."})
+            self._json(200, {"ticket": ticket})
+
+        def _vmconsole_ws(self, query):
+            self.close_connection = True
+            if not cfg.terminal:
+                return self._json(403, {"error": "Switch on the browser terminal under Settings > Users and access."})
+            if not self._same_origin():
+                return self._json(403, {"error": "origin"})
+            h = self.headers
+            if h.get("Upgrade", "").lower() != "websocket" or "upgrade" not in h.get("Connection", "").lower() \
+                    or h.get("Sec-WebSocket-Version", "") != "13" or not wt.valid_key(h.get("Sec-WebSocket-Key", "")):
+                return self._json(400, {"error": "need a WebSocket upgrade"})
+            token = self._token()
+            s = self._session()
+            target = app.vmconsoles.redeem((query.get("ticket") or [""])[0], token) if s else None
+            if not s or target is None:
+                return self._json(403, {"error": "ticket"})
+            if app.auth.storage_locked():
+                return self._json(409, {"error": "The storage is locked."})
+            if not app.vmconsoles.acquire(token):
+                return self._json(429, {"error": "Too many consoles are open."})
+            ip = self._client()
+            try:
+                try:
+                    data, control = vc.open_console(app.incus, target)
+                except vc.ConsoleError as e:
+                    return self._json(e.status, {"error": e.message})
+                except Exception as e:
+                    print("web vm console: could not start for %s %s: %s" % (s["user"], target, e.__class__.__name__), flush=True)
+                    return self._json(502, {"error": "The console could not be started."})
+                relay = vc.VgaRelay(self.connection, data, control, lambda: self._term_alive(token, target),
+                                    idle=cfg.term_idle, lifetime=cfg.term_max, check=cfg.term_check)
+                try:
+                    self.wfile.write(("HTTP/1.1 101 Switching Protocols\r\nUpgrade: websocket\r\nConnection: Upgrade\r\n"
+                                      "Sec-WebSocket-Accept: %s\r\n\r\n" % wt.accept_key(h["Sec-WebSocket-Key"])).encode("ascii"))
+                    self.wfile.flush()
+                except OSError:
+                    relay.close()
+                    return
+                print("web vm console: open %s %s from %s" % (s["user"], target, ip), flush=True)
+                why = relay.run()
+                print("web vm console: close %s %s from %s (%s)" % (s["user"], target, ip, why), flush=True)
+            finally:
+                app.vmconsoles.release(token)
 
         def _term_alive(self, token, target):
             """Is the web session still good? Does not refresh it: an open terminal must not keep a session alive."""
@@ -2587,6 +2889,52 @@ def make_handler(app):
             print("web unlock: %s from %s: %s" % (s["user"], ip, status), flush=True)   # never the passphrase or the script output
             self._json(200 if status == "ok" else 422 if status == "failed" else 409, {"status": status, "reason": reason})
 
+        def _setup(self, body):
+            """First setup (ADR 0022): the one-time console token + a new password for the local admin. No session needed (there is no account
+            yet); LAN addresses only; the token is checked, the password set and the token consumed under one lock, then the person is signed in."""
+            if not cfg.first_run_file:
+                return self._json(404, {"error": "unknown"})
+            token, password = body.get("token"), body.get("password")
+            if not isinstance(token, str) or not isinstance(password, str):
+                return self._json(400, {"error": "Enter the code from the console and a new password."})
+            ip = self._client()
+            if not private_client(ip):
+                print("web setup refused: not a home network address (%s)" % ip, flush=True)
+                return self._json(403, {"error": "The setup answers only on the home network."})
+            keys = ("setup-ip:" + ip, "setup")
+            wait = app.throttle.wait(*keys)
+            if wait:
+                return self._json(429, {"error": "Too many tries. Wait %d seconds." % wait, "retry_after": wait}, (("Retry-After", str(wait)),))
+            problem = fr.password_problem(password)
+            if problem:
+                return self._json(400, {"error": problem})
+            if not app.first_run.is_open() and app.first_run.status()["state"] == "none":
+                return self._json(404, {"error": "unknown"})
+            result, user = app.first_run.redeem(token, lambda: cfg.local_user if app.auth.set_local_password(cfg.local_user, password) else None)
+            if result == fr.OK:
+                app.throttle.ok(*keys)
+                locked = app.auth.storage_locked()
+                st = app.sessions.create(user, "local", ip)
+                app.warmer.wake.set()
+                s = app.sessions.get(st, locked)
+                print("web setup done: %s from %s" % (user, ip), flush=True)      # never the token or the password
+                return self._json(200, {"user": user, "realm": "local", "csrf": s["csrf"], "features": features(cfg)}, (self._cookie(st, cfg.max_age),))
+            if result in (fr.BAD, fr.BURNED):
+                app.throttle.failed(*keys)
+                time.sleep(cfg.fail_delay)
+                print("web setup refused: wrong code from %s" % ip, flush=True)
+                if result == fr.BURNED:
+                    return self._json(403, {"error": "That code is used up. On the server console run `hs setup-code issue` for a new one."})
+                return self._json(401, {"error": "That code is not right."})
+            if result == fr.EXPIRED:
+                return self._json(403, {"error": "That code has expired. On the server console run `hs setup-code issue` for a new one."})
+            if result == fr.DONE:
+                return self._json(409, {"error": "The setup is already done. Sign in."})
+            if result == fr.FAILED:
+                print("web setup: the password could not be set", flush=True)
+                return self._json(500, {"error": "The password could not be set. See the server log."})
+            return self._json(404, {"error": "unknown"})
+
         def _login(self, body):
             realm, user, password = body.get("realm"), body.get("user"), body.get("password")
             if realm not in ("domain", "local") or not isinstance(user, str) or not isinstance(password, str) \
@@ -2644,6 +2992,7 @@ def main():
     app = App(cfg)
     app.reads.load(cfg.cache_file)
     app.warmer.start()
+    app.events.start_watch()
     if cfg.live == "redis":
         app.events.start()
     server = Server((cfg.bind, cfg.port), make_handler(app))

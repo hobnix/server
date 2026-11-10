@@ -10,6 +10,7 @@
   keyMap = null;
   icons = "unicode";
   loginMessage = true;
+  updateChannel = "stable";
   webUi = false;
   webPort = 8480;
   webAccent = "#9184d9";
@@ -17,12 +18,15 @@
   webLan = true;
   webDocs = true;
   liveState = "off";
+  testlabNightly = false;
   webTerminal = false;
+  recipeQuestionHours = 24;
   webTerminalIdleMinutes = 30;
   webTerminalMaxHours = 8;
   dhcpRange = [ 100 199 ];
   incusUi = true;
   incusInternalSubnet = "10.99.0.0/29";
+  isoDir = "/var/lib/hs/iso";
   sshOverIp = true;
   tailscaleRouter = false;
   bulkType = "zfs";

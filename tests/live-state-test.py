@@ -5,9 +5,11 @@ import io
 import json
 import os
 import re
+import shlex
 import socket
 import tempfile
 import threading
+import time
 import unittest
 import unittest.mock
 
@@ -67,10 +69,56 @@ class Collect(unittest.TestCase):
         self.assertEqual(json.loads(st.data["hs:v1:status"])["gen"], 2)
         self.assertEqual(st.published, [("hs:v1:changed", "status 1"), ("hs:v1:changed", "status 2")])
 
+    def test_identical_output_keeps_gen_and_does_not_publish(self):
+        S = "same\n"
+        c, st, _ = self.make([(0, S, ""), (0, S, ""), (0, S, ""), (1, S, "e"), (1, S, "e")])
+        self.assertTrue(c.collect("status", ["status"]))
+        ts1 = json.loads(st.data["hs:v1:status"])["ts"]
+        self.assertFalse(c.collect("status", ["status"]))
+        self.assertFalse(c.collect("status", ["status"]))
+        d = json.loads(st.data["hs:v1:status"])
+        self.assertEqual(d["gen"], 1)
+        self.assertGreaterEqual(d["ts"], ts1)     # freshness still moves
+        self.assertEqual(len(st.published), 1)
+        # a changed rc with the same text counts as different
+        self.assertTrue(c.collect("status", ["status"]))
+        self.assertEqual(json.loads(st.data["hs:v1:status"])["gen"], 2)
+        self.assertFalse(c.collect("status", ["status"]))
+        self.assertEqual(len(st.published), 2)
+
+    def test_output_back_after_an_error_counts_as_different(self):
+        c, st, _ = self.make([(0, "good", ""), (2, "", "boom"), (0, "good", "")])
+        c.collect("status", ["status"])
+        c.collect("status", ["status"])
+        self.assertTrue(c.collect("status", ["status"]))
+        d = json.loads(st.data["hs:v1:status"])
+        self.assertEqual((d["gen"], d["err"]), (2, None))
+
     def test_nonzero_with_output_counts_as_data(self):
         c, st, _ = self.make([(1, "partial", "boom")])
         self.assertTrue(c.collect("status", ["status"]))
         self.assertEqual(json.loads(st.data["hs:v1:status"])["rc"], 1)
+
+    def test_document_has_src_and_ttl(self):
+        c, st, _ = self.make([(0, "a", ""), (0, "a", ""), (2, "", "x")])
+        c.collect("status", ["status"])
+        d = json.loads(st.data["hs:v1:status"])
+        self.assertEqual((d["src"], d["ttl"]), ("status", 45))      # 3 x interval 15
+        c.info = {"status": {"ttl": 600}}
+        c.collect("status", ["status"])       # identical read: only ts moves (and a ttl change shows)
+        d2 = json.loads(st.data["hs:v1:status"])
+        self.assertEqual((d2["gen"], d2["out"], d2["ttl"]), (1, "a", 600))
+        c.collect("status", ["status"])
+        d3 = json.loads(st.data["hs:v1:status"])
+        self.assertEqual((d3["src"], d3["ttl"], d3["out"]), ("status", 600, "a"))      # a failed read keeps them
+
+    def test_identical_read_of_old_document_only_moves_ts(self):
+        c, st, _ = self.make([(0, "a", "")])
+        st.data["hs:v1:status"] = json.dumps({"ts": 1.0, "gen": 3, "rc": 0, "out": "a", "err": None, "ts_err": None, "state": "ok"})
+        self.assertFalse(c.collect("status", ["status"]))
+        d = json.loads(st.data["hs:v1:status"])
+        self.assertEqual((d["gen"], d["out"], st.published), (3, "a", []))
+        self.assertGreater(d["ts"], 1.0)
 
     def test_failure_keeps_data_and_sets_err(self):
         c, st, _ = self.make([(0, "good", ""), (2, "", "x" * 300)])
@@ -82,6 +130,36 @@ class Collect(unittest.TestCase):
         self.assertEqual(len(d["err"]), 200)
         self.assertGreaterEqual(d["ts_err"], d["ts"])
         self.assertEqual(len(st.published), 1)
+
+    def test_failing_collector_keeps_last_good_and_emits_once(self):
+        events = []
+        res = [(0, "good", ""), (1, "", "boom"), (1, "", "boom"), (124, "", "timeout after 90 s"), (0, "better", "")]
+        st = FakeResp()
+        c = lc.Collector(st, run=lambda w: res.pop(0), topic_rows=self.rows, emit=lambda *a: events.append(a))
+        key = "hs:v1:status"
+        c.collect("status", ["status"])
+        good = json.loads(st.data[key])
+        self.assertEqual(good["state"], "ok")
+        c.collect("status", ["status"])
+        d = json.loads(st.data[key])
+        self.assertEqual((d["state"], d["out"], d["ts"], d["gen"]), ("stale", "good", good["ts"], 1))
+        c.collect("status", ["status"])
+        c.collect("status", ["status"])
+        self.assertEqual([e[0] for e in events], ["live.collector-failed"])      # one event for three failed runs
+        self.assertEqual(events[0][1], "status")
+        self.assertTrue(c.collect("status", ["status"]))
+        d = json.loads(st.data[key])
+        self.assertEqual((d["state"], d["out"], d["err"], d["ts_err"]), ("ok", "better", None, None))
+        self.assertEqual([e[0] for e in events], ["live.collector-failed", "live.collector-recovered"])
+
+    def test_never_read_topic_is_error_not_stale(self):
+        events = []
+        c, st, _ = self.make([(3, "", "no")])
+        c.emit = lambda *a: events.append(a)
+        c.collect("status", ["status"])
+        d = json.loads(st.data["hs:v1:status"])
+        self.assertEqual((d["state"], d["ts"], d["out"]), ("error", None, ""))
+        self.assertEqual(len(events), 1)
 
     def test_locked_skip_runs_nothing(self):
         marker = os.path.join(tempfile.mkdtemp(), "locked")
@@ -101,6 +179,131 @@ class Collect(unittest.TestCase):
         self.assertTrue(c.events["slow"].is_set())
         c.refresh("*")
         self.assertTrue(c.events["status"].is_set())
+
+
+class Needs(unittest.TestCase):
+    """dependency graph and waves (#153)"""
+
+    def make(self, edges, run=None, names=None):
+        names = names or sorted({k for k in edges} | {n for v in edges.values() for n in v})
+        rows = [(n, [n], 30, "run") for n in names]
+        calls = []
+        count = {}
+
+        def default(words):
+            count[words[0]] = count.get(words[0], 0) + 1
+            return 0, "%s %d\n" % (words[0], count[words[0]]), ""
+        inner = run or default
+
+        def wrapped(words):
+            calls.append(words[0])
+            return inner(words)
+        c = lc.Collector(FakeResp(), run=wrapped, topic_rows=rows, topic_info={n: {"cap": None, "groups": set()} for n in names},
+                         topic_needs=edges)
+        c.min_gap = 0
+        return c, calls
+
+    def test_real_table_is_clean(self):
+        own = os.path.join(scripts, "lib", "live-topics.tsv")
+        self.assertEqual(ls.graph(ls.topic_needs(own), {t[0] for t in ls.topics(own)})[2], [])
+        self.assertEqual(ls.topic_needs(own)["services-routes"], ("services-list",))
+        self.assertEqual(ls.topic_needs(own)["status"], ())
+
+    def test_graph_rejects(self):
+        order, clean, problems = ls.graph({"a": ("nosuch",), "b": ("b",)}, {"a", "b"})
+        self.assertEqual(sorted(problems), ["topic a needs unknown topic nosuch", "topic b needs itself"])
+        self.assertEqual((clean["a"], clean["b"], order), ((), (), ["a", "b"]))
+        order, clean, problems = ls.graph({"a": ("b",), "b": ("a",), "c": ("a",), "d": ()}, {"a", "b", "c", "d"})
+        self.assertEqual(problems, ["dependency cycle among: a, b, c"])
+        self.assertEqual(clean, {"a": (), "b": (), "c": (), "d": ()})
+        self.assertEqual(sorted(order), ["a", "b", "c", "d"])
+
+    def test_chain(self):
+        c, calls = self.make({"b": ("a",), "c": ("b",)})
+        self.assertEqual(c.wave({"a"}), ["b", "c"])
+        self.assertEqual(calls, ["b", "c"])
+
+    def test_diamond_reads_d_once_and_last(self):
+        c, calls = self.make({"b": ("a",), "c": ("a",), "d": ("b", "c")})
+        self.assertEqual(c.wave({"a"}), ["b", "c", "d"])
+        self.assertEqual(calls.count("d"), 1)
+        self.assertEqual(calls[-1], "d")
+
+    def test_only_a_new_gen_spreads(self):
+        c, calls = self.make({"b": ("a",), "c": ("b",)}, run=lambda w: (0, "same\n", ""))
+        self.assertTrue(c.collect("b", ["b"]))
+        self.assertFalse(c.collect("b", ["b"]))        # identical read: no new gen
+        calls.clear()
+        self.assertEqual(c.wave({"a"}), ["b"])         # b read, identical, so c is not read
+        c.changed("x")
+        self.assertEqual(c.pending, set())
+        c.changed("a")
+        self.assertEqual(c.pending, {"a"})
+
+    def test_loop_does_not_queue_on_identical_read(self):
+        c, _ = self.make({"b": ("a",)}, run=lambda w: (0, "same\n", ""))
+        c.collect("a", ["a"])
+        seen = []
+        c.changed = seen.append
+        t = threading.Thread(target=c.loop, args=("a", ["a"], 60, "run"), daemon=True)
+        t.start()
+        import time
+        time.sleep(0.3)
+        c.stop.set()
+        c.events["a"].set()
+        t.join(2)
+        self.assertEqual(seen, [])
+
+    def test_error_in_a_changes_nothing(self):
+        outs = [(0, "ok\n", ""), (1, "", "boom")]
+        c, calls = self.make({"b": ("a",)}, run=lambda w: outs.pop(0) if w[0] == "a" else (0, "b\n", ""))
+        c.collect("b", ["b"])
+        before = c.store.data["hs:v1:b"]
+        self.assertTrue(c.collect("a", ["a"]))
+        self.assertFalse(c.collect("a", ["a"]))        # failed: not a new gen, no wave
+        self.assertEqual(c.store.data["hs:v1:b"], before)
+        self.assertEqual(json.loads(c.store.data["hs:v1:b"])["state"], "ok")
+
+    def test_error_in_b_inside_a_wave(self):
+        state = {"n": 0}
+
+        def run(w):
+            if w[0] == "b":
+                state["n"] += 1
+                return (0, "good\n", "") if state["n"] == 1 else (1, "", "boom")
+            return 0, "c\n", ""
+        c, calls = self.make({"b": ("a",), "c": ("b",)}, run=run)
+        self.assertEqual(c.wave({"a"}), ["b", "c"])
+        calls.clear()
+        self.assertEqual(c.wave({"a"}), ["b"])
+        doc = json.loads(c.store.data["hs:v1:b"])
+        self.assertEqual((doc["state"], doc["out"]), ("stale", "good\n"))
+
+    def test_min_gap_waits_and_a_burst_is_one_wave(self):
+        import time
+        c, calls = self.make({"b": ("a",)})
+        c.min_gap = 0.2
+        c.last_read["b"] = time.time()
+        t0 = time.time()
+        self.assertEqual(c.wave({"a"}), ["b"])
+        self.assertGreaterEqual(time.time() - t0, 0.15)
+        c.changed("a")
+        c.changed("a")
+        self.assertEqual(c.pending, {"a"})
+
+    def test_bad_min_gap_env(self):
+        for v, want in (("x", 5.0), ("-1", 5.0), ("0", 0.0), ("2.5", 2.5)):
+            with unittest.mock.patch.dict(os.environ, {"HS_LIVE_MIN_GAP": v}):
+                c = lc.Collector(FakeResp(), topic_rows=[], topic_info={}, topic_needs={})
+            self.assertEqual(c.min_gap, want)
+
+    def test_group_refresh_still_works(self):
+        rows = [("a", ["a"], 30, "run"), ("b", ["b"], 30, "run")]
+        info = {"a": {"cap": None, "groups": {"disks"}}, "b": {"cap": None, "groups": {"shares"}}}
+        c = lc.Collector(FakeResp(), run=lambda w: (0, "x", ""), topic_rows=rows, topic_info=info, topic_needs={"b": ("a",)})
+        c.refresh("@disks")
+        self.assertTrue(c.events["a"].is_set())
+        self.assertFalse(c.events["b"].is_set())
 
 
 class Reconnect(unittest.TestCase):
@@ -253,7 +456,8 @@ ID_TOPICS = {
     'backup-state': (['backup', 'state'], 30, 'run', 'backup', {'backup', 'any'}),
     'backup-overview': (['backup', 'overview'], 60, 'skip', 'backup', {'backup', 'shares', 'instances', 'disks', 'system'}),
     'backup-shares': (['backup', 'shares'], 60, 'skip', 'backup', {'backup', 'shares', 'instances', 'disks', 'system'}),
-    'docker-list': (['docker', 'list'], 30, 'skip', 'docker', {'instances', 'system'}),
+    'docker-list': (['docker', 'list'], 300, 'skip', 'docker', {'instances', 'system', 'docker'}),
+    'docker-apps': (['docker', 'apps'], 300, 'skip', 'docker', {'instances', 'system', 'docker'}),
 }
 
 
@@ -491,10 +695,13 @@ class Cli(unittest.TestCase):
         out = io.StringIO()
         self.assertEqual(ls.cli_status(self.fake(time.time() - 7), out), 0)
         lines = out.getvalue().rstrip("\n").split("\n")
-        self.assertEqual(len(lines), 65)
+        self.assertEqual(len(lines), 67)
         status = [l for l in lines if l.startswith("status\t")][0].split("\t")
         live = [l for l in lines if l.startswith("live\t")][0].split("\t")
-        self.assertEqual(len(status), 7)
+        self.assertEqual(len(status), 9)
+        self.assertEqual(status[7], "-")
+        self.assertEqual(status[8], "fresh")
+        self.assertEqual(live[8], "-")      # no document: no status
         self.assertEqual((status[0], status[1], status[3], status[4], status[5], status[6]), ("status", "15", "4", "0", "-", "-"))
         self.assertIn(int(status[2]), (7, 8))
         self.assertEqual((live[0], live[1], live[3], live[4], live[5], live[6]), ("live", "5", "0", "-", "-", "-"))
@@ -503,9 +710,38 @@ class Cli(unittest.TestCase):
     def test_status_without_data(self):
         out = io.StringIO()
         ls.cli_status(FakeResp(), out)
-        lines = sorted(out.getvalue().rstrip("\n").split("\n"))
+        raw = out.getvalue().rstrip("\n").split("\n")
+        self.assertTrue(all(len(l.split("\t")) == 9 for l in raw))
+        by = {l.split("\t")[0]: l.split("\t")[7] for l in raw}
+        self.assertEqual((by["services-routes"], by["status"]), ("services-list", "-"))
+        self.assertTrue(all(l.split("\t")[8] == "-" for l in raw))
+        lines = sorted("\t".join(l.split("\t")[:7]) for l in raw)
         old = ['disk-health	30	-1	0	-	-	-', 'disk-inventory	30	-1	0	-	-	-', 'disk-marks	15	-1	0	-	-	-', 'encryption	30	-1	0	-	-	-', 'fm-locations	15	-1	0	-	-	-', 'live	5	-1	0	-	-	-', 'monitor-disks	15	-1	0	-	-	-', 'pool-info-bulk	15	-1	0	-	-	-', 'pool-info-fast	15	-1	0	-	-	-', 'pool-members-bulk	15	-1	0	-	-	-', 'pool-members-fast	15	-1	0	-	-	-', 'pool-state-bulk	10	-1	0	-	-	-', 'pool-state-fast	10	-1	0	-	-	-', 'shares-deleted	60	-1	0	-	-	-', 'shares-overview	30	-1	0	-	-	-', 'shares-principals	60	-1	0	-	-	-', 'state-history	30	-1	0	-	-	-', 'status	15	-1	0	-	-	-', 'temp-disks	30	-1	0	-	-	-', 'vault-list	60	-1	0	-	-	-', 'vault-usage	30	-1	0	-	-	-', 'vault-uses	60	-1	0	-	-	-']
         self.assertEqual(lines, sorted(old + ["%s	%s	-1	0	-	-	-" % (t, iv) for t, iv in SYSTEM_TOPICS.items()] + ["%s	%s	-1	0	-	-	-" % (t, v[1]) for t, v in INSTANCE_TOPICS.items()] + ["%s	%s	-1	0	-	-	-" % (t, v[1]) for t, v in APP_TOPICS.items()] + ["%s	%s	-1	0	-	-	-" % (t, v[1]) for t, v in NET_TOPICS.items()] + ["%s	%s	-1	0	-	-	-" % (t, v[1]) for t, v in ID_TOPICS.items()]))
+
+    def test_status_of(self):
+        n = 1000.0
+        f = lambda d, iv=10: ls.status_of(d, iv, n)       # noqa: E731
+        self.assertEqual(f({"ts": n - 5}), "fresh")
+        self.assertEqual(f({"ts": n - 30}), "fresh")          # no ttl in the document: 3 x interval, the edge counts as fresh
+        self.assertEqual(f({"ts": n - 31}), "expired")
+        self.assertEqual(f({"ts": n - 31, "ttl": 60}), "fresh")      # the document's ttl wins
+        self.assertEqual(f({"ts": n - 5, "err": "x", "ts_err": n - 1}), "stale")
+        self.assertEqual(f({"ts": n - 50, "err": "x", "ts_err": n - 1}), "error")
+        self.assertEqual(f({"ts": None, "err": "x", "ts_err": n - 1}), "error")
+        self.assertEqual(f({"ts": n - 5, "err": "old", "ts_err": n - 9}), "fresh")      # a later good read cleared the failure
+        self.assertEqual(f({}), "error")
+        self.assertEqual(f({"ts": "junk"}), "error")
+
+    def test_ttl_override_and_status_field(self):
+        import time
+        out = io.StringIO()
+        st = self.fake(time.time() - 100)
+        ls.cli_status(st, out)
+        self.assertEqual([l for l in out.getvalue().split("\n") if l.startswith("status\t")][0].split("\t")[8], "expired")
+        self.assertEqual(ls._ttl({}, 15, {"ttl": 600}), 600)
+        self.assertEqual(ls._ttl({"ttl": 20}, 15, {"ttl": 600}), 20)
+        self.assertEqual(ls._ttl({}, 15, None), 45)
 
     def test_check_fresh_stale_down(self):
         import time
@@ -538,7 +774,7 @@ class Cli(unittest.TestCase):
         st = FakeResp()
         ls.cli_refresh(["--all"], st)
         self.assertEqual(sorted(p[1] for p in st.published), sorted([t[0] for t in ls.topics()]))
-        self.assertEqual(len(st.published), 65)
+        self.assertEqual(len(st.published), 67)
         os.environ["HS_LIVE_SOCKET"] = "/nonexistent/none.sock"
         try:
             self.assertEqual(ls.cli_refresh(["--all"]), 0)
@@ -556,6 +792,86 @@ class Cli(unittest.TestCase):
         live = [l for l in out.getvalue().rstrip("\n").split("\n") if l.startswith("live\t")][0].split("\t")
         self.assertEqual(live[3], "3")      # the generation that existed before this collection
         self.assertEqual(st.published, [])  # status does not publish refreshes
+
+    # --- inspect / raw (the Live state page)
+    def inspect(self, st, caps=None):
+        out = io.StringIO()
+        with unittest.mock.patch.object(ls, "cap_on", lambda n: True if caps is None else caps.get(n, True)):
+            rc = ls.cli_inspect(st, out)
+        return rc, (json.loads(out.getvalue()) if out.getvalue() else None)
+
+    def test_inspect_shape(self):
+        import time
+        st = FakeResp()
+        st.data["hs:v1:status"] = json.dumps({"ts": time.time() - 5, "gen": 4, "rc": 0, "out": "abc", "err": None, "ts_err": None})
+        rc, doc = self.inspect(st)
+        self.assertEqual(rc, 0)
+        self.assertEqual(len(doc["topics"]), len(ls.topics()))
+        base = {"topic", "words", "interval", "lock", "origin", "cap", "cap_on", "groups", "age", "gen", "rc", "err", "ts_err", "bytes"}
+        for e in doc["topics"]:
+            self.assertEqual(set(e) & base, base)
+            self.assertNotIn("needs", e)
+            self.assertEqual("status" in e, e["topic"] == "status")      # status/ttl only when there is a document (#322)
+            self.assertEqual("ttl" in e, e["topic"] == "status")
+            self.assertEqual(e["origin"], "core")
+        by = {e["topic"]: e for e in doc["topics"]}
+        self.assertEqual((by["status"]["gen"], by["status"]["rc"], by["status"]["bytes"], by["status"]["interval"]), (4, 0, 3, 15))
+        self.assertIn(by["status"]["age"], (5, 6))
+        self.assertIsNone(by["live"]["age"])
+        self.assertIsNone(by["live"]["bytes"])
+
+    def test_inspect_cap_off(self):
+        topics = [t for t in ls.topic_info().items() if t[1]["cap"]]
+        if not topics:
+            self.skipTest("no topic with a capability")
+        t, i = topics[0]
+        rc, doc = self.inspect(FakeResp(), {i["cap"]: False})
+        self.assertFalse({e["topic"]: e for e in doc["topics"]}[t]["cap_on"])
+
+    def test_inspect_passes_doc_extras(self):
+        st = FakeResp()
+        st.data["hs:v1:status"] = json.dumps({"ts": 1, "gen": 1, "rc": 0, "out": "x", "src": "status", "ttl": 45, "source": {"a": 1}})
+        rc, doc = self.inspect(st)
+        e = {e["topic"]: e for e in doc["topics"]}["status"]
+        self.assertEqual((e["status"], e["ttl"], e["source"]), ("expired", 45, "status"))      # ts 1 is long past the ttl
+
+    def test_inspect_extension_topic(self):
+        row = ("ext-demo-list", ["ext", "demo", "list"], 30, "run")
+        with unittest.mock.patch.object(ls, "ext_live", lambda: ([row], {"ext-demo-list": {"cap": None, "groups": {"ext-demo"}}})):
+            rc, doc = self.inspect(FakeResp())
+        e = {e["topic"]: e for e in doc["topics"]}["ext-demo-list"]
+        self.assertEqual((e["origin"], e["groups"]), ("extension", ["ext-demo"]))
+        with unittest.mock.patch.object(ls, "ext_live", lambda: ([], {})):
+            rc, doc = self.inspect(FakeResp())
+        self.assertNotIn("ext-demo-list", {e["topic"] for e in doc["topics"]})
+
+    def test_inspect_down(self):
+        class Dead:
+            def cmd(self, *a):
+                raise OSError("gone")
+        rc, doc = self.inspect(Dead())
+        self.assertEqual(rc, 1)
+
+    def raw(self, args, st):
+        out = io.StringIO()
+        rc = ls.cli_raw(args, st, out)
+        return rc, (json.loads(out.getvalue()) if out.getvalue() else None)
+
+    def test_raw_caps_size(self):
+        st = FakeResp()
+        st.data["hs:v1:status"] = json.dumps({"ts": 1, "gen": 2, "rc": 0, "out": "x" * 100000, "err": None, "ts_err": None})
+        rc, d = self.raw(["status"], st)
+        self.assertEqual(rc, 0)
+        self.assertEqual((d["stored"], d["bytes"], d["truncated"], len(d["out"]), d["gen"]), (True, 100000, True, 65536, 2))
+
+    def test_raw_unknown_topic(self):
+        self.assertEqual(self.raw(["nope"], FakeResp())[0], 2)
+        self.assertEqual(self.raw([], FakeResp())[0], 2)
+        self.assertEqual(self.raw(["status", "live"], FakeResp())[0], 2)
+
+    def test_raw_not_stored(self):
+        rc, d = self.raw(["status"], FakeResp())
+        self.assertEqual((rc, d), (0, {"topic": "status", "stored": False}))
 
 
 @unittest.skipUnless(hasattr(socket, "AF_UNIX"), "no AF_UNIX")
@@ -723,6 +1039,290 @@ class ExtLive(unittest.TestCase):
         c.refresh("ext-demo-list")
         self.assertEqual(started, ["ext-demo-list"])
         self.assertTrue(c.events["ext-demo-list"].is_set())
+
+    def test_rescan_follows_a_changed_needs_alone(self):
+        decl = self.DECL + 'live = 30\nneeds = ["%s"]\n'
+        self.package(decl % "ct-list")
+        c = lc.Collector(FakeResp(), run=lambda w: (0, "x", ""),
+                         topic_rows=[("ct-list", ["ct"], 15, "run"), ("services-list", ["s"], 15, "run")],
+                         topic_info={}, topic_needs={}, ext_rows=ls.ext_live)
+        c._spawn = lambda *r: None
+        c.rescan()
+        self.assertEqual(c.needs["ext-demo-list"], ("ct-list",))
+        self.package(decl % "services-list")
+        c.rescan()
+        self.assertEqual(c.needs["ext-demo-list"], ("services-list",))
+
+    def test_needs_of_an_extension_read(self):
+        self.package(self.DECL + 'live = 30\nneeds = ["ct-list"]\n')
+        self.assertEqual([r[0] for r in self.ext()], ["ext-demo-list"])
+        self.assertEqual(ls.topic_info()["ext-demo-list"]["needs"], ("ct-list",))
+        self.assertEqual(ls.topic_needs()["ext-demo-list"], ("ct-list",))
+
+    def test_unknown_needs_target_switches_the_topic_off(self):
+        self.package(self.DECL + 'live = 30\nneeds = ["nosuch"]\n')
+        got = []
+        self.assertEqual(self.ext(), [])
+        reads = hs_ext.ext_declarations(got.append)[0][1]
+        self.assertNotIn("topic", reads[("ext", "demo", "list")])
+        self.assertIn("extension demo: live topic ext-demo-list off (needs unknown topic nosuch)", got)
+        self.assertIn(("ext", "demo", "list"), hs_ext.ext_load_web()[0])
+
+    def test_bad_needs_drops_the_package(self):
+        self.package(self.DECL + 'needs = ["ct-list"]\n')
+        self.assertEqual(hs_ext.ext_declarations(), [])
+        self.package(self.DECL + 'live = 30\nneeds = "ct-list"\n')
+        self.assertEqual(self.ext(), [])
+        self.assertEqual(hs_ext.ext_declarations(), [])
+
+
+FAKE_EVENTS = r"""
+import sys, time
+mode, counter = sys.argv[1], sys.argv[2]
+try:
+    n = int(open(counter).read())
+except OSError:
+    n = 0
+n += 1
+open(counter, "w").write(str(n))
+def out(t):
+    print(t, flush=True)
+if mode == "start":
+    out('{"Type":"container","Action":"start"}')
+    time.sleep(30)
+elif mode == "burst":
+    for i in range(50):
+        out('{"Type":"%s","Action":"a%d"}' % (["container", "network", "volume"][i % 3], i))
+    time.sleep(30)
+elif mode == "restart":
+    if n == 1:
+        out('{"Type":"container","Action":"start"}')
+        time.sleep(0.1)
+        sys.exit(1)
+    if n in (2, 3):
+        out("Error: cannot connect to the Docker daemon")
+        sys.exit(1)
+    time.sleep(30)
+elif mode == "late":
+    if n == 1:
+        out("Error: cannot connect to the Docker daemon")
+        sys.exit(1)
+    time.sleep(30)
+"""
+
+
+class DockerEvents(unittest.TestCase):
+    def setUp(self):
+        self.tmp = tempfile.TemporaryDirectory()
+        self.addCleanup(self.tmp.cleanup)
+        self.fake = os.path.join(self.tmp.name, "fake.py")
+        self.counter = os.path.join(self.tmp.name, "count")
+        with open(self.fake, "w") as f:
+            f.write(FAKE_EVENTS)
+        self.calls, self.logs, self.watchers = [], [], []
+
+    def tearDown(self):
+        for w, t in self.watchers:
+            w.stop.set()
+            t.join(10)
+
+    def runs(self):
+        try:
+            return int(open(self.counter).read())
+        except (OSError, ValueError):
+            return 0
+
+    def make(self, mode, cap=True):
+        cmd = "%s %s %s %s" % (shlex.quote(sys.executable), shlex.quote(self.fake), mode, shlex.quote(self.counter))
+        p = unittest.mock.patch.dict(os.environ, {"HS_LIVE_DOCKER_EVENTS": cmd})
+        p.start()
+        self.addCleanup(p.stop)
+        w = lc.DockerWatch(refresh=self.calls.append, stop=threading.Event(), cap=lambda: cap, logf=self.logs.append)
+        w.COALESCE, w.MAX_WAIT, w.STABLE, w.BACKOFF, w.CAP_CHECK = 0.2, 1.0, 3.0, (0.05, 0.1), 0.05   # STABLE far above the start time of a fake
+        t = threading.Thread(target=w.run, daemon=True)
+        self.watchers.append((w, t))
+        t.start()
+        return w
+
+    def wait_for(self, pred, timeout=30):
+        end = time.monotonic() + timeout
+        while time.monotonic() < end:
+            if pred():
+                return True
+            time.sleep(0.05)
+        return pred()
+
+    def test_start_event_asks_for_one_refresh(self):
+        self.make("start")
+        self.assertTrue(self.wait_for(lambda: self.calls))
+        time.sleep(0.5)
+        self.assertEqual(self.calls, ["@docker"])
+        self.assertEqual(self.logs, [])
+
+    def test_burst_is_coalesced(self):
+        self.make("burst")
+        self.assertTrue(self.wait_for(lambda: self.calls))
+        time.sleep(0.6)
+        self.assertEqual(self.calls, ["@docker"])
+
+    def test_daemon_restart_reconnects_once_and_refreshes(self):
+        self.make("restart")
+        self.assertTrue(self.wait_for(lambda: self.runs() >= 4 and len(self.calls) >= 2))
+        time.sleep(0.6)
+        self.assertEqual(self.calls, ["@docker", "@docker"])
+        down = [l for l in self.logs if "docker events down" in l]
+        self.assertEqual(len(down), 1)
+        self.assertIn("down", down[0])
+        self.assertEqual(len([l for l in self.logs if "docker events back" in l]), 1)
+
+    def test_first_connect_after_failures_refreshes(self):
+        self.make("late")
+        self.assertTrue(self.wait_for(lambda: self.calls))
+        self.assertEqual(self.calls, ["@docker"])
+        self.assertEqual(len([l for l in self.logs if "docker events down" in l]), 1)
+        self.assertEqual(len([l for l in self.logs if "docker events back" in l]), 1)
+
+    def test_capability_off_runs_nothing(self):
+        self.make("start", cap=False)
+        time.sleep(0.4)
+        self.assertFalse(os.path.exists(self.counter))
+        self.assertEqual(self.calls, [])
+        self.assertEqual(self.logs, [])
+
+    def test_default_command(self):
+        env = {k: v for k, v in os.environ.items() if k != "HS_LIVE_DOCKER_EVENTS"}
+        env["HS_INCUS"] = "/x/incus"
+        with unittest.mock.patch.dict(os.environ, env, clear=True):
+            cmd = lc.docker_events_cmd()
+        self.assertEqual(cmd[:5], ["/x/incus", "exec", "docker", "--", "docker"])
+        self.assertIn("type=volume", cmd)
+        self.assertIn("event=die", cmd)
+        self.assertFalse([c for c in cmd if c.startswith("event=exec") or c == "event=health_status"])
+
+    def test_docker_group_wakes_the_docker_topics(self):
+        got = {t for t, i in ls.topic_info().items() if "docker" in i["groups"]}
+        self.assertEqual(got, {"docker-list", "docker-apps"})
+
+
+FAKE_INCUS = r"""
+import sys, time, json
+mode, counter = sys.argv[1], sys.argv[2]
+try:
+    n = int(open(counter).read())
+except (OSError, ValueError):
+    n = 0
+n += 1
+open(counter, "w").write(str(n))
+def ev(action, name="web", project="default", ctx=None):
+    print(json.dumps({"type": "lifecycle", "timestamp": "2026-11-09T10:00:00Z", "project": project, "location": "none",
+                      "metadata": {"action": action, "source": "/1.0/instances/" + name, "context": ctx or {}}}), flush=True)
+if mode == "start":
+    ev("instance-started", ctx={"token": "SECRET-VALUE"})
+    ev("instance-exec"); ev("instance-console"); ev("instance-snapshot-created", "web/snap0")
+    print(json.dumps({"type": "lifecycle", "metadata": {"action": "image-created", "source": "/1.0/images/abc"}}), flush=True)
+    print("not json at all", flush=True)
+    time.sleep(30)
+elif mode == "burst":
+    for i in range(80):
+        ev(["instance-started", "instance-stopped", "instance-created", "instance-deleted"][i % 4], "c%d" % (i % 40))
+    ev("instance-started", "c1")
+    time.sleep(30)
+elif mode == "restart":
+    if n == 1:
+        ev("instance-stopped"); time.sleep(0.1); sys.exit(1)
+    if n in (2, 3):
+        print("Error: unable to connect to the daemon", flush=True); sys.exit(1)
+    time.sleep(30)
+"""
+
+
+class IncusEvents(DockerEvents):
+    """IncusWatch with a fake `incus monitor` stream (same harness as DockerEvents)."""
+    GROUP = "@instances"
+
+    def setUp(self):
+        super().setUp()
+        with open(self.fake, "w") as f:
+            f.write(FAKE_INCUS)
+        self.emitted = []
+
+    def make(self, mode, cap=True, limit=None):
+        cmd = "%s %s %s %s" % (shlex.quote(sys.executable), shlex.quote(self.fake), mode, shlex.quote(self.counter))
+        p = unittest.mock.patch.dict(os.environ, {"HS_LIVE_INCUS_EVENTS": cmd})
+        p.start()
+        self.addCleanup(p.stop)
+        w = lc.IncusWatch(refresh=self.calls.append, stop=threading.Event(), cap=lambda: cap, logf=self.logs.append,
+                          emit=lambda k, s, t, payload=None: self.emitted.append((k, s, t, payload)))
+        w.COALESCE, w.MAX_WAIT, w.STABLE, w.BACKOFF, w.CAP_CHECK = 0.2, 1.0, 3.0, (0.05, 0.1), 0.05
+        if limit:
+            w.LIMIT = limit
+        t = threading.Thread(target=w.run, daemon=True)
+        self.watchers.append((w, t))
+        t.start()
+        return w
+
+    def test_start_event_asks_for_one_refresh(self):
+        self.make("start")
+        self.assertTrue(self.wait_for(lambda: self.calls and self.emitted))
+        time.sleep(0.5)
+        self.assertEqual(self.calls, ["@instances"])
+        self.assertEqual(self.logs, [])
+
+    def test_only_instance_facts_and_no_secrets(self):
+        self.make("start")
+        self.assertTrue(self.wait_for(lambda: self.emitted))
+        time.sleep(0.5)
+        self.assertEqual(self.emitted, [("ct.started", "web", "web started",
+                                         {"instance": "web", "project": "default", "action": "instance-started"})])
+        self.assertNotIn("SECRET", repr(self.emitted))
+
+    def test_burst_is_coalesced_deduped_and_limited(self):
+        self.make("burst", limit=25)
+        self.assertTrue(self.wait_for(lambda: self.calls))
+        time.sleep(0.8)
+        self.assertEqual(self.calls, ["@instances"])
+        self.assertEqual(len(self.emitted), 25)
+        self.assertEqual(len(set((k, s) for k, s, _, _ in self.emitted)), 25)   # the repeat of c1 started is not written twice
+        self.assertEqual({k for k, _, _, _ in self.emitted} - {"ct.started", "ct.stopped", "ct.created", "ct.deleted"}, set())
+
+    def test_daemon_restart_reconnects_once_and_refreshes(self):
+        self.make("restart")
+        self.assertTrue(self.wait_for(lambda: self.runs() >= 4 and len(self.calls) >= 2))
+        time.sleep(0.6)
+        self.assertEqual(self.calls, ["@instances", "@instances"])
+        self.assertEqual(len([l for l in self.logs if "incus events down" in l]), 1)
+        self.assertEqual(len([l for l in self.logs if "incus events back" in l]), 1)
+        self.assertEqual([e[0] for e in self.emitted], ["ct.stopped"])
+
+    def test_capability_off_runs_nothing(self):
+        self.make("start", cap=False)
+        time.sleep(0.4)
+        self.assertFalse(os.path.exists(self.counter))
+        self.assertEqual((self.calls, self.logs, self.emitted), ([], [], []))
+
+    def test_default_command(self):
+        env = {k: v for k, v in os.environ.items() if k != "HS_LIVE_INCUS_EVENTS"}
+        env["HS_INCUS"] = "/x/incus"
+        with unittest.mock.patch.dict(os.environ, env, clear=True):
+            self.assertEqual(lc.incus_events_cmd(), ["/x/incus", "monitor", "--type=lifecycle", "--format=json"])
+
+    def test_parse(self):
+        def line(action, src, project="p1"):
+            return json.dumps({"type": "lifecycle", "project": project, "metadata": {"action": action, "source": src}})
+        self.assertEqual(lc.parse_incus_event(line("instance-deleted", "/1.0/instances/db?project=p1")), ("deleted", "db", "p1"))
+        for bad in (line("instance-created", "/1.0/instances/a/snapshots/s"), line("instance-exec", "/1.0/instances/a"),
+                    line("instance-created", "/1.0/instances/a b"), line("instance-created", "/1.0/instances/a", "x/y"),
+                    line("network-created", "/1.0/networks/n"), "[]", "{", ""):
+            self.assertIsNone(lc.parse_incus_event(bad), bad)
+
+    def test_instances_group_wakes_ct_list(self):
+        got = {t for t, i in ls.topic_info().items() if "instances" in i["groups"]}
+        self.assertIn("ct-list", got)
+
+    # the Docker tests inherited from DockerEvents do not apply
+    test_docker_group_wakes_the_docker_topics = None
+    test_first_connect_after_failures_refreshes = None
+    test_burst_is_coalesced = None
 
 
 if __name__ == "__main__":

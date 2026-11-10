@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
-# The live-state hooks: the dispatcher (scripts/lib/hs.sh) asks the collector for the group of a `changes` row after exit 0 (HS_LIVE_LOG records
-# the call instead of the socket), a failed change and a read ask for nothing; reads-collect.sh skips what has a topic when the live socket exists.
+# The live-state hooks: the dispatcher (scripts/lib/hs.sh) asks the collector for the group of a `changes` row after any exit code (HS_LIVE_LOG records
+# the call instead of the socket), a failed change asks too (rule 8 of docs/adr/0005-events.md), a read asks for nothing; reads-collect.sh skips what has a topic when the live socket exists.
 # shellcheck source=tests/lib.sh
 . "$(dirname "$0")/lib.sh"
 wp() { if command -v cygpath >/dev/null 2>&1; then cygpath -m "$1"; else echo "$1"; fi; }
@@ -26,8 +26,8 @@ out=$($HS zok a b); check_eq "a change: the script's output stays" "ran a b" "$o
 check_eq "a change that succeeds asks for its group" "@disks" "$(cat "$WORK/live.log")"
 : > "$WORK/live.log"; $HS zfail >/dev/null 2>&1; rc=$?
 check_eq "a failed change keeps its exit code" "3" "$rc"
-check_eq "...and asks for nothing" "0" "$(grep -c . "$WORK/live.log")"
-$HS zplain >/dev/null; check_eq "a change without topic: asks for @system" "@system" "$(cat "$WORK/live.log")"
+check_eq "...and still asks for its group (rule 8)" "@disks" "$(cat "$WORK/live.log")"
+: > "$WORK/live.log"; $HS zplain >/dev/null; check_eq "a change without topic: asks for @system" "@system" "$(cat "$WORK/live.log")"
 : > "$WORK/live.log"; $HS zread >/dev/null
 check_eq "a read asks for nothing" "0" "$(grep -c . "$WORK/live.log")"
 
@@ -54,7 +54,7 @@ check_eq "health-check.sh refreshes the health topics" "yes" "$(hook health-chec
 check_eq "update.sh refreshes system-updates after the pull" "yes" "$(hook update.sh 'system-updates')"
 check_eq "update-preview.sh refreshes system-updates after the fetch" "yes" "$(hook update-preview.sh 'system-updates')"
 check_eq "pkg.sh refreshes the package topics after a fetch" "yes" "$(hook pkg.sh 'pkg-market pkg-repos recipes-list recipes-versions parts-list')"
-check_eq "...and after install, remove, update and repo add|remove (pkg_changed)" "4" "$(grep -cE 'pkg_changed(;|$)' "$SCRIPTS/pkg.sh")"
+check_eq "...and after install, remove, update and repo add|remove (pkg_changed)" "5" "$(grep -cE 'pkg_changed(;|$)' "$SCRIPTS/pkg.sh")"
 mkdir -p "$WORK/pkgstate"
 : > "$WORK/live.log"
 HS_STATE_DIR=$(wp "$WORK/pkgstate") bash "$SCRIPTS/pkg.sh" repo remove nope >/dev/null 2>&1

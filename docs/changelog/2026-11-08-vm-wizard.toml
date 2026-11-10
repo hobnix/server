@@ -1,0 +1,5 @@
+date  = "2026-11-08"
+type  = "feature"
+title = "Create-instance wizard: disk placement with free space per pool, and install from an ISO image"
+docs  = "containers-and-apps#create-in-the-web-interface"
+body  = """The create dialog in the web interface is now a short guided flow for containers, Docker and virtual machines: name and kind, resources, which Incus pool the disk lives on (with the free space of each), the install image and the network. On the console, `hs ct add --pool <pool> --iso <name.iso>` does the same. A disk that does not fit the pool is refused in the plan."""

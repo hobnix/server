@@ -11,6 +11,7 @@ listed there and below, or `tests/docs.sh` complains. Guides follow [GUIDE-TEMPL
 | [Containers and apps](containers-and-apps.md) | Containers and VMs, fixed addresses, snapshots, recipes and packages |
 | [Users and shares](users-and-shares.md) | The domain, users and groups, shares and their permissions |
 | [Storage and disks](storage-and-disks.md) | ZFS and SnapRAID pools, adding and replacing disks, disk health, moving from Unraid |
+| [Disk failures](disk-failures.md) | What to check and do, case by case, when a disk or a pool fails |
 | [Encryption and vault](encryption-and-vault.md) | One passphrase, the vault, encrypted disks, unlocking |
 | [Backup and recovery](backup-and-recovery.md) | Backups, restoring, snapshots, rebuilding a server |
 | [Web interface](web-interface.md) | Turning it on, signing in, pages, terminal, appearance |
@@ -32,10 +33,22 @@ Docs page shows them under *Apps* and *Extensions*.
 | [PLAN-modular-core](PLAN-modular-core.md) | The option schema, capabilities and roles |
 | [PLAN-extensions](PLAN-extensions.md) | Extension packages: commands and web pages |
 | [PLAN-packages](PLAN-packages.md) | Recipes and extensions as packages, repositories, signed releases |
+| [PLAN-capabilities-on-machine](PLAN-capabilities-on-machine.md) | Derived files of an installed capability package |
+| [PLAN-recipe-orchestrator](PLAN-recipe-orchestrator.md) | Interactive recipe runs: the orchestrator and its API contract |
 | [PLAN-web-backend](PLAN-web-backend.md) | The web interface backend |
 | [PLAN-disk-health](PLAN-disk-health.md) | Daily SMART baseline, and a disk and pool checklist |
+| [PLAN-hardware-runbook](PLAN-hardware-runbook.md) | Runbook for four checks only the owner can run: auto-rollback, rebuild rehearsal, drill report, installer ISO (none run yet) |
+| [PLAN-events](PLAN-events.md) | Event sources, consumers and delivery (audit #141 for the event architecture) |
+| [events](events.md) | The event catalogue: kind names, levels, payload rules |
+| [notify-rules](notify-rules.md) | Which events become push messages: the rules table, mute a kind, Matrix cards |
+| [PLAN-jobs](PLAN-jobs.md) | Job system audit: which commands run as jobs, what a job record holds |
 | [PLAN-web-cache](PLAN-web-cache.md) | Hot state for the web interface (Redis, collector, live updates) |
+| [PLAN-channels](PLAN-channels.md) | Update channels Stable, Beta, Edge on top of develop and main |
+| [RELEASE-0.1-checklist](RELEASE-0.1-checklist.md) | The steps to release 0.1.0, what CI and the ISO need, blockers found |
+| [RELEASE-NOTES-0.1](RELEASE-NOTES-0.1.md) | Draft release notes of 0.1.0, with the hardware-UNVERIFIED parts |
 | [PLAN-docker-instances](PLAN-docker-instances.md) | Docker as a capability: locked instances, child apps, recipes with `runs` |
 | [PLAN-selfservice](PLAN-selfservice.md) | Self-service password change for domain users |
+| [roadmap](roadmap.md) | Milestones and open work, a snapshot of the GitHub project board and TODO.md |
+| [Architecture decisions](adr/README.md) | Decision records (ADRs), starting with Rust behind the `hs sys` contract |
 | [CLI-DESIGN](CLI-DESIGN.md) | The look of every `hs` command |
 | [Entwicklungsnotizen](Entwicklungsnotizen.md) | Per-feature design notes (grouped by topic) |

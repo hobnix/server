@@ -17,6 +17,7 @@ set -euo pipefail
 . "$(dirname "$0")/lib/capability.sh"
 . "$(dirname "$0")/lib/internal-link.sh"
 . "$(dirname "$0")/lib/setting.sh"
+. "$(dirname "$0")/lib/event.sh"
 
 refuse_if_locked   # before any build (also with --verbose / nixos-rebuild options)
 
@@ -37,8 +38,10 @@ if [ -n "${HS_UPDATE_NOTIFY:-}" ]; then
       if [ -n "${HS_UPDATE_FROM:-}" ]; then n=$(bash "$(dirname "$0")/changes.sh" --count --from "$HS_UPDATE_FROM" 2>/dev/null) || n=0; fi
       [[ $n =~ ^[0-9]+$ ]] || n=0
       [ "$n" -eq 0 ] || msg="$msg $n new change(s) in the changelog: \`hs changes\` or What's new in the web interface."
+      event_emit update.finished "$(hostname)" "hs update is done"
       bash "$(dirname "$0")/notify.sh" --category ok "$(hostname): update finished" "$msg" low || true
     else
+      event_emit update.failed "$(hostname)" "hs update stopped with an error" --payload "{\"exit\":$rc}"
       bash "$(dirname "$0")/notify.sh" --category problem "$(hostname): update failed" "\`hs update\` stopped with an error (exit $rc). Look at the console." high || true
     fi
   }
@@ -97,6 +100,8 @@ gpu_check() {
 # What the rebuild switched to: the Git revision of the checkout, for the health check ("running system = checkout?").
 write_stamp() {
   local repo=${HS_REPO:-/etc/nixos} dir=${HS_STATE_DIR:-/var/lib/hs} rev dirty=0 old_rev prev
+  # the machine.toml this build used: `hs sys rebuild pending` lists what differs from it (the staged changes)
+  { mkdir -p "$dir" && cp -p "${HS_MACHINE_FILE:-$repo/machine.toml}" "$dir/machine.toml.built"; } 2>/dev/null || true
   [ -e "$repo/.git" ] || return 0
   rev=$(git -c safe.directory="$repo" -C "$repo" rev-parse HEAD 2>/dev/null) || return 0
   [ -z "$(git -c safe.directory="$repo" -C "$repo" status --porcelain --untracked-files=no 2>/dev/null)" ] || dirty=1
@@ -162,15 +167,18 @@ rollback_now() {   # rollback_now <what went wrong>
   warn "$1"
   if asks_first && ! confirm "Go back to the previous generation now?"; then
     note "Later: sudo nixos-rebuild switch --rollback"
+    event_emit update.rollback-skipped "$(hostname)" "The system was left as it is"
     push "update not rolled back" "$1. The system was left as it is."
     return 1
   fi
   if SPIN_TAIL=30 spin "Going back to the previous generation" nixos-rebuild switch --rollback; then
     move_bulk_disks back
     ok "Rolled back to the previous generation"
+    event_emit update.rolled-back "$(hostname)" "The previous generation is running again"
     push "update rolled back" "$1. The previous generation is running again."
   else
     warn "The rollback failed too. By hand: sudo nixos-rebuild switch --rollback"
+    event_emit update.rollback-failed "$(hostname)" "Going back to the previous generation failed"
     push "ROLLBACK FAILED" "$1, and going back failed as well. Log in and run: sudo nixos-rebuild switch --rollback"
   fi
   return 0
@@ -196,6 +204,7 @@ config_check
 gpu_check
 link_check
 
+[ -z "${HS_JOB_ID:-}" ] || [ -n "${HS_STEP_TOTAL:-}" ] || steps 1   # a rebuild job without the update in front: step 1 of 1
 step "Rebuild"
 before=$(readlink -f "$cur_system")
 gen_before=$(generation)
@@ -203,6 +212,7 @@ failed_before=""
 health_before=""
 if rollback_enabled; then failed_before=$(failed_units); health_before=$(health_keys); fi
 # the build prints hundreds of lines; they matter only when it fails
+t_build=$(date +%s)
 SPIN_TAIL=60 spin "Building the system and switching to it (after big changes: many minutes)" nixos-rebuild switch || {
   if rollback_enabled; then
     # a failed build changes nothing; a switch that broke half way has already moved the running system
@@ -216,6 +226,9 @@ SPIN_TAIL=60 spin "Building the system and switching to it (after big changes: m
   exit 1
 }
 after=$(readlink -f "$cur_system")
+# how long the build took, so `hs sys config ... plan` can say "the last rebuild took about N min"
+{ printf '%s
+' "$(( $(date +%s) - t_build ))" > "${HS_STATE_DIR:-/var/lib/hs}/last-rebuild-seconds"; } 2>/dev/null || true
 move_bulk_disks
 
 if rollback_enabled; then

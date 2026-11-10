@@ -1,6 +1,7 @@
 <script>
-  import { tip } from '../ui/tooltip.svelte.js';
   import Button from '../ui/Button.svelte';
+  import JobRecords from './JobRecords.svelte';
+  import { tr } from '../i18n.js';
   import { onDestroy } from 'svelte';
   import { poll, rows } from '../data.svelte.js';
   import { get } from '../api.js';
@@ -9,6 +10,8 @@
   let { user = '' } = $props();
 
   let level = $state('warning');
+  let jobsView = $state('records');   // records (ADR 0004) | units (the systemd view: timers and Run now)
+  let recordCount = $state(null);
 
   const tabs = [
     { id: 'tasks', label: 'Tasks', icon: 'list-checks' },
@@ -75,7 +78,7 @@
     sel?.lines.length;
     if (tailEl && stuck) tailEl.scrollTop = tailEl.scrollHeight;
   });
-  const count = (id) => (id === 'tasks' ? String(all.length) : id === 'jobs' && jobs.loaded ? String(jobRows.length) : '');
+  const count = (id) => (id === 'tasks' ? String(all.length) : id === 'jobs' ? (jobsView === 'records' ? (recordCount === null ? '' : String(recordCount)) : jobs.loaded ? String(jobRows.length) : '') : '');
 
   // reports: the text of a read, shown in place of the tiles
   let report = $state(null);                // { name, cmd, text, error, busy }
@@ -122,9 +125,9 @@
     {/each}
     <span style="flex:1"></span>
     <span class="tag tag-neutral" style="padding:1px 8px;margin-right:8px">all nodes</span>
-    <button use:tip={open ? 'Collapse the panel' : 'Expand the panel'} class="btn btn-ghost btn-icon" style="width:26px;height:26px;color:var(--color-neutral-400)" onclick={() => (ui.panel.open = !open)} aria-label={open ? 'Collapse' : 'Expand'}>
+    <Button variant="ghost" class="btn-icon" tooltip={open ? 'Collapse the panel' : 'Expand the panel'} style="width:26px;height:26px;color:var(--color-neutral-400)" onclick={() => (ui.panel.open = !open)} aria-label={open ? 'Collapse' : 'Expand'}>
       <i class="ph ph-caret-{open ? 'down' : 'up'}"></i>
-    </button>
+    </Button>
   </div>
 
   {#if open}
@@ -158,7 +161,13 @@
           </div>
         {/if}
       {:else if tab === 'jobs'}
-        {#if jobs.error && !jobs.data}<div class="empty">Jobs could not be read.</div>
+        <div class="bar">
+          <Button variant={jobsView === 'records' ? 'primary' : 'ghost'} size="sm" onclick={() => (jobsView = 'records')}>{tr('Job records')}</Button>
+          <Button variant={jobsView === 'units' ? 'primary' : 'ghost'} size="sm" onclick={() => (jobsView = 'units')}>{tr('Scheduled')}</Button>
+        </div>
+        {#if jobsView === 'records'}
+          <JobRecords onload={(n) => (recordCount = n)} />
+        {:else if jobs.error && !jobs.data}<div class="empty">Jobs could not be read.</div>
         {:else}
         <div class="tablescroll"><table class="table">
           <thead><tr><th>Unit</th><th>Node</th><th>What it does</th><th>Last run</th><th>Next run</th><th>Result</th><th></th></tr></thead>
@@ -201,7 +210,7 @@
         </table></div>
       {:else if report}
         <div class="bar rbar">
-          <button use:tip={'Back to the list of reports'} class="btn btn-ghost" style="font-size:12px;padding:2px 6px" onclick={() => (report = null)}><i class="ph ph-caret-left"></i>Reports</button>
+          <Button variant="ghost" tooltip={'Back to the list of reports'} style="font-size:12px;padding:2px 6px" onclick={() => (report = null)}><i class="ph ph-caret-left"></i>Reports</Button>
           <span style="font-weight:500">{report.name}</span>
           <code style="font-size:11px;color:var(--color-neutral-500)">{report.cmd}</code>
         </div>

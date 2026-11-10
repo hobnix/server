@@ -5,7 +5,7 @@ set -uo pipefail
 . "$(dirname "$0")/lib.sh"
 CATALOG=$SCRIPTS/lib/i18n/de.tsv
 # the scripts whose messages are translated (the machine-readable lists they print are not)
-CORE="docker services state remote fans providers/docker/arcane lib/hs jobs pkg lib/ui machine-sync selftest secrets ct-guided user-guided share-restore config system net-ip health report migrate first-run ct-access users-show share-perm disk-replace doctor recipe rebuild update sync-shares unlock migrate-check temp-disk backup manage-pool status disk-health disk-erc share-snap share-snap-guided share-cleanup cleanup docs-build bulk-sync motd snapshots-auto smoke manage-ct manage-users ports ct-update-all ssh-key node dns gateway gateway-setup dc-cert power update-preview changes manage-shares create-share mac jobs lib/locked lib/instance unifi share-cache monitor notify recipes/_lib recipes/_media cache-mover vault lib/vault ext notify-channel docs-verified docker-app-change docker-registry-change lib/docker-auth"
+CORE="storage-incident docker services state remote fans providers/docker/arcane lib/hs jobs pkg lib/ui machine-sync selftest secrets ct-guided user-guided share-restore config system net-ip health report migrate first-run ct-access users-show share-perm disk-replace doctor recipe rebuild update sync-shares unlock migrate-check temp-disk backup manage-pool status disk-health disk-erc share-snap share-snap-guided share-cleanup cleanup docs-build bulk-sync motd snapshots-auto smoke manage-ct manage-users ports ct-update-all ssh-key node dns gateway gateway-setup dc-cert power update-preview changes manage-shares create-share mac jobs lib/locked lib/instance unifi share-cache monitor notify recipes/_lib recipes/_media cache-mover vault lib/vault ext notify-channel docs-verified docker-app-change docker-import import-unraid import-vzdump docker-registry-change lib/docker-auth lib/update-channel audit answers lib/effect install-restore setup-code lib/restore iso testlab event lib/event"
 
 files=$(for n in $CORE; do echo "$SCRIPTS/$n.sh"; done)
 keys=$(python3 -I "$SCRIPTS/dev/i18n-keys.py" $files)
@@ -19,8 +19,12 @@ fi
 
 echo "-- the catalog"
 check "the catalog exists and has entries" test -s "$CATALOG"
-dups=$(cut -f1 "$CATALOG" | grep -v '^#' | grep -v '^$' | sort | uniq -d | head -3)
-if [ -n "$dups" ]; then fail "no text is translated twice ($dups)"; else pass "no text is translated twice"; fi
+# a duplicate key is what a union merge (.gitattributes) can leave behind: say where
+dups=$(awk -F'\t' '/^#/ || NF == 0 || $1 == "" {next} seen[$1] {printf "        line %d repeats line %d: %s\n", NR, seen[$1], $1; next} {seen[$1] = NR}' "$CATALOG")
+if [ -n "$dups" ]; then
+  echo "$dups" | head -10
+  fail "no text is translated twice (duplicate keys in de.tsv, often after a merge: keep one line per key)"
+else pass "no text is translated twice"; fi
 
 missing=0; n=0
 while IFS= read -r k; do

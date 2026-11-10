@@ -20,6 +20,7 @@ here=$(dirname "$0")
 . "$here/lib/bulklock.sh"
 . "$here/lib/capability.sh"
 . "$here/lib/channels.sh"
+. "$here/lib/event.sh"
 state=${HS_HEALTH_STATE:-/var/lib/hs/health.state}   # override for tests
 ack_file=${HS_ACK_FILE:-/var/lib/hs/health-ack}      # key TAB time: problems somebody acknowledged (hs health ack)
 host=$(hostname)
@@ -58,6 +59,14 @@ if have zpool; then
     health=$(zpool list -H -o health "$p" 2>/dev/null || echo unknown)
     problem "zfs:$p:$health" "ZFS pool $p is not healthy (state $health). Details: zpool status $p"
   done
+  # A pool NixOS imports at boot (zfs-import-<pool>.service) that `zpool list` does not show failed to import: the loop above never sees it.
+  if have systemctl && listed=$(zpool list -H -o name 2>/dev/null); then
+    while read -r u _; do
+      p=${u#zfs-import-}; p=${p%.service}
+      [ -n "$p" ] && [ "$p" != "$u" ] || continue
+      grep -qx -- "$p" <<<"$listed" || problem "zfs:$p:missing" "ZFS pool $p is not imported. Details: journalctl -u zfs-import-$p, zpool import"
+    done < <(systemctl list-unit-files --plain --no-legend 'zfs-import-*.service' 2>/dev/null || true)
+  fi
   # Scrub: the weekly one must keep running and must not have found errors.
   # "scrub repaired 0B in 00:10:02 with 0 errors on Sun Oct  4 00:24:01 2026"
   for p in $(zpool list -H -o name 2>/dev/null || true); do
@@ -200,7 +209,9 @@ done
 # ── Failed services: the scheduled jobs (hs-*) and what the shares depend on ──
 if have systemctl; then
   mapfile -t units < <(systemctl list-units --all --plain --no-legend 'hs-*.service' 2>/dev/null | awk '{ print $1 }' || true)
-  for u in "${units[@]}" bulk-mount.service samba-smbd.service; do
+  mapfile -t zunits < <(systemctl list-units --all --plain --no-legend 'zfs-import-*.service' 'zfs-scrub*.service' 2>/dev/null | awk '{ print $1 }' || true)
+  for u in "${units[@]}" "${zunits[@]}" bulk-mount.service samba-smbd.service; do
+    [ -n "$u" ] || continue
     if systemctl is-failed --quiet "$u" 2>/dev/null; then
       problem "unit:$u" "$u failed. Details: journalctl -u $u"
     fi
@@ -412,6 +423,13 @@ if [ -r "$since_file" ]; then
   while IFS=$'\t' read -r sk st; do [[ "$st" =~ ^[0-9]+$ ]] && since[$sk]=$st; done < "$since_file"
 fi
 if ! $test_msg && { mkdir -p "$(dirname "$since_file")" 2>/dev/null; [ -w "$(dirname "$since_file")" ] && { [ ! -e "$since_file" ] || [ -w "$since_file" ]; }; }; then
+  # events for the change of the problem set (health.new / health.resolved): only where the since file really changes, so a repeated run
+  # says nothing; the first run (no since file yet) only takes the baseline
+  if [ -e "$since_file" ]; then
+    declare -A now_has=()
+    for k in "${keys[@]}"; do now_has[$k]=1; [ -n "${since[$k]:-}" ] || event_emit health.new "$k"; done
+    for k in "${!since[@]}"; do [ -n "${now_has[$k]:-}" ] || event_emit health.resolved "$k"; done
+  fi
   {
     for k in "${keys[@]}"; do printf '%s\t%s\n' "$k" "${since[$k]:-$now}"; done
   } > "$since_file.new" 2>/dev/null && mv "$since_file.new" "$since_file" || rm -f "$since_file.new"
@@ -521,15 +539,21 @@ fi
 prio=high
 for k in "${keys[@]}"; do case "$k" in forecast:*:urgent) prio=urgent ;; esac; done
 
+# A storage problem (pool not healthy, a bulk disk missing, a disk that fails SMART) points at the guided workflow: hs storage incident (hobnix/server#255).
+incident_line=""
+for k in "${keys[@]:-}"; do
+  case "$k" in zfs:*:scrub-*|zfs:*:missing) ;; zfs:*|bulk:*:[A-Z]*|bulk:no-parity|disk:*:smart|disk:*:bad|disk:*:pending) incident_line=$(bash "${HS_STORAGE_INCIDENT:-$here/storage-incident.sh}" --alert-line 2>/dev/null || true); break ;; esac
+done
+
 echo
 [ "$n_acked" -eq 0 ] || echo "$n_acked acknowledged problem(s) are not counted. See: hs health ack"
 count="${#texts[@]} problem(s)"
 if [ "$new" != "$old" ] && [ -n "$new" ]; then
-  send "$host: $count" "$(echo '**Needs attention**'; printf '%s\n' "${texts[@]}")" "$prio" problem
+  send "$host: $count" "$(echo '**Needs attention**'; printf '%s\n' "${texts[@]}"; [ -z "$incident_line" ] || printf '%s\n' "$incident_line")" "$prio" problem
 elif [ "$new" != "$old" ]; then
   send "$host: all clear" "**All clear.** The problems reported earlier are gone." default ok
 elif [ -n "$new" ] && [ $((now - last)) -ge "$remind" ]; then
-  send "$host: still $count" "$(echo '**Still open since the last message**'; printf '%s\n' "${texts[@]}")" "$prio" problem
+  send "$host: still $count" "$(echo '**Still open since the last message**'; printf '%s\n' "${texts[@]}"; [ -z "$incident_line" ] || printf '%s\n' "$incident_line")" "$prio" problem
 else
   echo "Nothing to send: unchanged since the last message."
   exit 0

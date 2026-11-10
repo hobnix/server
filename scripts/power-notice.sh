@@ -9,6 +9,7 @@
 set -euo pipefail
 here=$(dirname "$0")
 host=$(hostname)
+. "$here/lib/event.sh"
 locked=${HS_RUN_DIR:-/run/hs}/storage-locked
 
 case "${1:-}" in
@@ -18,6 +19,7 @@ case "${1:-}" in
     up=$(cut -d. -f1 "${HS_PROC_UPTIME:-/proc/uptime}" 2>/dev/null || echo 0)
     [ "${up:-0}" -lt "${HS_BOOT_WINDOW:-900}" ] || exit 0
     # the network is usually up (network-online), but a router that is still starting needs a moment
+    event_emit power.started "$host" "The server is up and the vault is open"
     for _ in $(seq 1 "${HS_NOTICE_TRIES:-12}"); do
       HS_NOTIFY_STRICT=1 bash "$here/notify.sh" --category start "$host: started" "The server is up and the vault is open." default && exit 0
       sleep "${HS_NOTICE_WAIT:-10}"
@@ -29,6 +31,7 @@ case "${1:-}" in
     if grep -q 'reboot.target' <<<"$jobs"; then what="rebooting"
     elif grep -Eq '(poweroff|halt|kexec)\.target' <<<"$jobs"; then what="shutting down"
     else exit 0; fi
+    event_emit power.stopping "$host" "The server is $what" --payload "{\"action\":\"$([ "$what" = rebooting ] && echo reboot || echo poweroff)\"}"
     bash "$here/notify.sh" --category stop "$host: $what" "The server is $what. If you did not do this, look at the console." low || true
     ;;
   *) echo "usage: power-notice.sh started|stopping" >&2; exit 1 ;;

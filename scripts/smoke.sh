@@ -74,9 +74,18 @@ default_probes() {
     $'hs disk events\tdisk events\t0 1' \
     $'hs disk inventory\tdisk inventory\t0 1' \
     $'hs disk baseline\tdisk baseline\t0 1' \
+    $'hs event list\tevent list\t0' \
+    $'hs audit\taudit\t0' \
+    $'hs sys audit\tsys audit\t0' \
+    $'hs sys event list\tsys event list\t0' \
+    $'hs sys jobs records\tsys jobs records\t0' \
+    $'hs sys jobs children\tsys jobs children 20200101-000000-x-aaaa\t0' \
     $'hs pool bulk\tpool bulk\t0 1' \
     $'hs sys pool state\tsys pool state\t0' \
+    $'hs storage incident\tstorage incident\t0 1' \
+    $'hs sys incident state\tsys incident state\t0 1' \
     $'hs sys parts pending\tsys parts pending\t0' \
+    $'hs sys rebuild pending\tsys rebuild pending\t0' \
     $'hs sys net nics\tsys net nics\t0' \
     $'hs sys fm locations\tsys fm locations\t0 1' \
     $'hs user list\tuser list\t0' \
@@ -95,6 +104,7 @@ default_probes() {
     $'hs backup status\tbackup status\t0' \
     $'hs backup list\tbackup list\t0 1' \
     $'hs backup find\tbackup find machine.toml\t0 1' \
+    $'hs backup config\tbackup config\t0 1' \
     $'hs system info\tsystem info\t0' \
     $'hs secrets\tsecrets\t0' \
     $'hs cleanup\tcleanup\t0' \
@@ -133,6 +143,7 @@ default_probes() {
     $'hs remote list\tremote list\t0 1' \
     $'hs cheatsheet\tcheatsheet\t0' \
     $'hs expiry\texpiry\t0' \
+    $'hs iso\tiso\t0 1' \
     $'hs changes\tchanges\t0' \
     $'hs ups\tups\t0 1' \
     $'hs pkg list\tpkg list\t0' \
@@ -149,6 +160,8 @@ default_probes() {
 }
 # reads rows that have no probe, with the reason (one per line: registry path, TAB, reason)
 SKIP_READS=$'smoke	it is this command (it would call itself)
+installer check-answers	needs an answers file (probed by tests/answers.sh)
+ct import-vzdump	needs an archive (probed by tests/import-vzdump.sh)
 node show	needs a registered node (probed by tests/node.sh)
 node status	needs a registered node that answers over ssh
 notify channel show	needs a channel name (probed by tests/notify-channel.sh)
@@ -156,7 +169,8 @@ pc list	the old word of hs ext games list, which is probed
 ext list	the same script as hs ext games list, which is probed (the row `ext <name>` of the same length hides this one from the matcher)
 pkg validate	checks one folder given as argument (tests/pkg.sh)
 pkg repo list	probed as pkg repo list is empty without repositories (tests/pkg-repo.sh)
-pkg available	needs a fetched repository (tests/pkg-repo.sh)'
+pkg available	needs a fetched repository (tests/pkg-repo.sh)
+testlab results	the capability testlab is off on a normal server (probed by tests/testlab.sh)'
 
 if $coverage; then
   cov=$(mktemp -d); trap 'rm -rf "$cov"' EXIT
@@ -199,7 +213,8 @@ for tool in $tools; do
   if command -v "$tool" >/dev/null 2>&1; then continue; fi
   users=$(grep -lwE -- "$tool" "$here"/*.sh "$here"/recipes/*.sh "$here"/../packages/*/run.sh 2>/dev/null | while read -r f; do
     [ "$(basename "$f")" != smoke.sh ] || continue
-    grep -v '^[[:space:]]*#' "$f" | grep -qwE -- "$tool" && basename "$f" .sh
+    # no -q: an early exit of grep would give the writer SIGPIPE, and pipefail then fails the test
+    grep -v '^[[:space:]]*#' "$f" | grep -wE -- "$tool" >/dev/null && basename "$f" .sh
   done | sort -u | head -n 6 | paste -sd' ' -)
   [ -n "$users" ] || continue
   result tool "$tool" fail "$(t 'not installed; used by: %s' "$users")"

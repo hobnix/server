@@ -1,0 +1,5 @@
+date  = "2026-11-04"
+type  = "feature"
+title = "Switch the update channel in the web interface"
+body  = """The new page Settings, Releases shows stable, beta and edge side by side, marks the current one and shows which version the next update would install. Choosing a channel shows a plan first: it checks the signature of the release, says if no update is waiting and asks you to type the channel name when you move to a newer one. Moving to an older channel never downgrades: the server keeps the installed version until the channel catches up."""
+docs  = "operations#update-channels"

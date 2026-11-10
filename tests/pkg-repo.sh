@@ -14,15 +14,17 @@ ssh-keygen -q -t ed25519 -N '' -f "$WORK/evil" -C test >/dev/null
 printf 'releaser@test namespaces="git" %s\n' "$(cut -d' ' -f1,2 "$WORK/good.pub")" > "$WORK/signers"
 R=$WORK/repo; mkdir -p "$R/recipes/demo"; cd "$R"
 git init -q . && git config user.email t@t && git config user.name t && git config gpg.format ssh && git config commit.gpgsign false
-release() {   # release <tag> <version> <key> [requires_core] [path]: package.toml + index.toml at that version, committed and tagged (signed with <key>, "none" = unsigned)
+release() {   # release <tag> <version> <key> [requires_core] [path] [extra]: package.toml + index.toml at that version, committed and tagged (signed with <key>, "none" = unsigned)
   local rc=${4:->=1} path=${5:-recipes/demo}
   mkdir -p "$R/recipes/demo"
   printf 'name = "demo"\nversion = "%s"\nkind = "recipe"\ntitle = "Demo"\nrequires_core = "%s"\naudience = "generic"\nneeds = []\nuses = []\ninput = "none"\nscript = "run.sh"\n' "$2" "$rc" > "$R/recipes/demo/package.toml"
+  [ -z "${6:-}" ] || printf '%b\n' "$6" >> "$R/recipes/demo/package.toml"
   printf '#!/usr/bin/env bash\n# kind: generic\n# needs: -\n# uses: -\necho demo %s\n' "$2" > "$R/recipes/demo/run.sh"
   printf '[package.demo]\nversion = "%s"\nkind = "recipe"\npath = "%s"\nrequires_core = "%s"\n' "$2" "$path" "$rc" > "$R/index.toml"
   git add -A && git commit -q -m "demo $2"
   if [ "$3" = none ]; then git tag -a "$1" -m "unsigned $2"; else git -c user.signingkey="$3.pub" tag -s "$1" -m "release $2"; fi
 }
+EV='[[events]]\nkind = "done"\nlevel = "warn"\nlabel = "Done"\nmeaning = "the demo finished"\nnotify = { category = "ok", title = "{kind}", message = "{text}" }'
 release v1.0.0 1.0.0 "$WORK/good"
 cd "$ROOT"
 
@@ -52,6 +54,7 @@ check_out "fetch finds the signed release" "^test${tab}v1[.]0[.]0" $PKG fetch te
 check_out "available lists the package" "^test${tab}demo${tab}recipe${tab}1[.]0[.]0${tab}-" $PKG available
 check_out "install says where it came from" "demo 1[.]0[.]0 from test" $PKG install demo
 check "the package is in current/" test -f "$HS_STATE_DIR/packages/current/demo/package.toml"
+check "a package without events has no declaration file" test ! -e "$HS_STATE_DIR/pkg-events/demo.tsv"
 check "and read-only" bash -c "! [ -w '$HS_STATE_DIR/packages/current/demo/run.sh' ] || [ \"\$(id -u)\" = 0 ] || [[ \$(uname) == MINGW* ]]"
 check_out "installed.toml names repo, commit and tag" 'tag = "v1.0.0"' cat "$HS_STATE_DIR/packages/installed.toml"
 check_out "hs pkg list shows it" "^demo${tab}recipe${tab}1[.]0[.]0" $PKG list
@@ -67,7 +70,7 @@ check_out "fetch still picks the newest VERIFIED tag" "^test${tab}v1[.]0[.]0" $P
 check_eq "so there is no update" "" "$($PKG updates)"
 
 echo "-- update with a diff"
-cd "$R"; release v1.3.0 1.3.0 "$WORK/good"; cd "$ROOT"
+cd "$R"; release v1.3.0 1.3.0 "$WORK/good" ">=1" recipes/demo "$EV"; cd "$ROOT"
 check_out "the new release is found" "^test${tab}v1[.]3[.]0" $PKG fetch test
 check_out "updates names it" "^demo${tab}1[.]0[.]0${tab}1[.]3[.]0" $PKG updates
 check_out "update without --yes and without a terminal shows the diff and refuses" "demo 1.3.0" bash -c "$PKG update demo </dev/null 2>&1; true"
@@ -77,12 +80,13 @@ cp "$HS_STATE_DIR/packages/installed.toml" "$WORK/installed.kept"
 sed -i '/^repo = /d;/^commit = /d;/^tag = /d' "$HS_STATE_DIR/packages/installed.toml"
 check_out "an entry that lost its repo still shows the update diff" "demo 1.3.0" bash -c "$PKG update demo </dev/null 2>&1; true"
 check_out "update --yes installs" "demo 1[.]3[.]0 from test" $PKG update demo --yes
+check_out "the update installed its events" "pkg[.]demo[.]done${tab}warn" cat "$HS_STATE_DIR/pkg-events/demo.tsv"
 check "the one before is kept" bash -c "ls '$HS_STATE_DIR/packages/previous' | grep -q '^demo@'"
 sed -i 's/^version = "1[.]3[.]0"$/version = "1.2.0"/' "$HS_STATE_DIR/packages/installed.toml"
 check "record refreshes the version and keeps repository provenance" bash -c "$PKG record demo && grep -q '^version = \"1[.]3[.]0\"$' '$HS_STATE_DIR/packages/installed.toml' && grep -q '^repo = \"test\"$' '$HS_STATE_DIR/packages/installed.toml' && grep -q '^commit = \"' '$HS_STATE_DIR/packages/installed.toml' && grep -q '^tag = \"v1[.]3[.]0\"$' '$HS_STATE_DIR/packages/installed.toml'"
 check_out "a current package says so" "current" $PKG update demo --yes
 $PKG record demo --applied
-cd "$R"; release v1.3.5 1.3.5 "$WORK/good"; cd "$ROOT"
+cd "$R"; release v1.3.5 1.3.5 "$WORK/good" ">=1" recipes/demo "$EV"; cd "$ROOT"
 $PKG fetch test >/dev/null
 $PKG update demo --yes >/dev/null
 check "a later update keeps the applied line" grep -q '^applied = "1[.]3[.]0"$' "$HS_STATE_DIR/packages/installed.toml"
@@ -92,8 +96,17 @@ echo "-- refusals"
 cd "$R"
 release v1.4.0 1.4.0 "$WORK/good" ">=99"; cd "$ROOT"; $PKG fetch test >/dev/null
 check_out "a package that needs a newer core is refused" "API level" bash -c "$PKG update demo --yes 2>&1; true"
+# the index claims ">=1" but the package itself needs more: refused after the copy is read (an index is not the last word)
+cd "$R"; release v1.4.1 1.4.1 "$WORK/good"
+sed -i 's/^requires_core = .*/requires_core = ">=99"/' "$R/recipes/demo/package.toml"; git add -A; git commit -q -m "package.toml needs more"; git -c user.signingkey="$WORK/good.pub" tag -s v1.4.2 -m x; cd "$ROOT"; $PKG fetch test >/dev/null
+check_out "package.toml above the API level is refused" "package.toml says requires_core" bash -c "$PKG update demo --yes 2>&1; true"
+check "and the installed copy is untouched" grep -q '^version = "1[.]3[.]5"$' "$HS_STATE_DIR/packages/installed.toml"
 cd "$R"; release v1.5.0 1.5.0 "$WORK/good" ">=1" "../escape"; cd "$ROOT"; $PKG fetch test >/dev/null
 check_out "a path that leaves the repository is refused" "not allowed" bash -c "$PKG update demo --yes 2>&1; true"
+cd "$R"; release v1.6.0 1.6.0 "$WORK/good" ">=1" recipes/demo '[[events]]\nkind = "done"\nlevel = "loud"\nlabel = "Done"\nmeaning = "x"'; cd "$ROOT"; $PKG fetch test >/dev/null
+check_out "a package with a bad [[events]] is refused" "events" bash -c "$PKG update demo --yes 2>&1; true"
+check "and the installed version is still 1.3.5" grep -q '^version = "1[.]3[.]5"$' "$HS_STATE_DIR/packages/installed.toml"
+check_out "and its declaration is untouched" "pkg[.]demo[.]done" cat "$HS_STATE_DIR/pkg-events/demo.tsv"
 cd "$R"; git rm -q -r recipes; mkdir -p recipes/fixapp; cd "$ROOT"
 cd "$R"
 printf 'name = "fixapp"\nversion = "9.0.0"\nkind = "recipe"\ntitle = "Evil fixapp"\nrequires_core = ">=1"\nscript = "run.sh"\n' > recipes/fixapp/package.toml; echo 'echo evil' > recipes/fixapp/run.sh
@@ -150,6 +163,25 @@ check_out "an applied package without a folder is fetched too" "^opt 1[.]0[.]0 f
 check "and its run.sh arrived" test -f "$HS_STATE_DIR/packages/current/opt/run.sh"
 check "a repository package can be removed" $PKG remove demo
 check "and its folder is gone" test ! -e "$HS_STATE_DIR/packages/current/demo"
+check "and its declaration file" test ! -e "$HS_STATE_DIR/pkg-events/demo.tsv"
 check "remove refuses a built-in" bash -c "! $PKG remove fixapp 2>/dev/null"
 check "a repository can be removed" $PKG repo remove test
+echo "-- channels: beta tags count only on beta and edge, and v5.0.0 beats v5.0.0-beta.2"
+cd "$R"
+release v5.0.0-beta.1 5.0.0 "$WORK/good"
+release v5.0.0-beta.2 5.0.0 "$WORK/good"
+cd "$ROOT"
+$PKG repo add chan "$R" --key "$WORK/signers"
+export HS_SETTINGS_DIR=$WORK/settings; mkdir -p "$HS_SETTINGS_DIR"
+check_out "stable ignores beta tags" "^chan${tab}v3[.]0[.]0" $PKG fetch chan
+printf 'beta\n' > "$HS_SETTINGS_DIR/updateChannel"
+check_out "beta takes the newest beta tag" "^chan${tab}v5[.]0[.]0-beta[.]2" $PKG fetch chan
+printf 'edge\n' > "$HS_SETTINGS_DIR/updateChannel"
+check_out "edge counts as beta for packages" "^chan${tab}v5[.]0[.]0-beta[.]2" $PKG fetch chan
+cd "$R"; release v5.0.0 5.0.0 "$WORK/good"; cd "$ROOT"
+check_out "the release beats its betas" "^chan${tab}v5[.]0[.]0${tab}" $PKG fetch chan
+printf 'stable\n' > "$HS_SETTINGS_DIR/updateChannel"
+unset HS_SETTINGS_DIR
+$PKG repo remove chan
+
 finish

@@ -1,0 +1,6 @@
+# Transition copy (hobnix/server#313): the events of the media helper until hobnix/recipes declares them in package.toml [[events]].
+# Same format as /var/lib/hs/pkg-events/<package>.tsv (scripts/lib/pkg_events.py); an installed declaration of the package replaces this file.
+# kind	level	payload keys	label	icon	meaning	category	priority	title	message
+pkg.maintainerr.planned	info	service,name,label,icon,title,sub?,body,fields?,footer?,poster_url?	Duplicate found	warning	a lower version of a film was found and is announced (media helper; subject: the service)	info	default	{name}: {label}	{body}
+pkg.maintainerr.deleted	info	service,name,label,icon,title,sub?,body,fields?,footer?,poster_url?	Lower version deleted	trash	a lower version of a film was deleted (media helper; subject: the service)	info	default	{name}: {label}	{body}
+pkg.maintainerr.test	info	service,name,label,icon,title,sub?,body,fields?,footer?,poster_url?	Test	check-circle	the test message of Maintainerr (Script) (media helper; subject: the service)	info	low	{name}: {label}	{body}

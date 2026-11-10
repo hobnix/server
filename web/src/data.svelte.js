@@ -3,7 +3,7 @@
 import { get } from './api.js';
 import { live } from './live.svelte.js';
 import { nextDelay } from './polldelay.js';
-export { ageOf } from './api.js';
+export { ageOf, stateOf } from './api.js';
 
 // The last answer per path, for the whole session: a page revisited (or the tree's counts) shows it at once and then reads again.
 const cache = new Map();
@@ -48,8 +48,8 @@ export function poll(path, ms, topic) {
     const p = typeof path === 'function' ? path() : path;
     if (!p) return;
     const t = (typeof topic === 'function' ? topic() : topic) ?? live.topics[p];
-    const liveOpen = !!t && live.open;
-    if (t) live.gen[t];   // a change of the topic re-runs this effect, which reads again
+    const liveOpen = !!t && live.open && live.follow;
+    if (t) { live.gen[t]; live.resyncs; }   // a change of the topic (or a resync) re-runs this effect, which reads again
     if (cache.has(p)) { st.data = cache.get(p); st.error = null; st.loaded = true; }
     let alive = true;
     let timer;

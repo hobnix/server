@@ -82,6 +82,79 @@ sudo hs backup browse
 sudo hs backup browse --off
 ```
 
+## Back up and restore only the settings
+The host snapshot (tag `host`, made by every `hs backup now`) holds `machine.toml`, `machine.nix`, `hardware-configuration.nix`, `/var/lib/hs`,
+the SSH host keys and the Samba secrets. To get just your settings back on a running server, for example after a bad edit, use
+`hs backup config`. Not tested on hardware yet.
+
+1. **List the host snapshots.** Each line shows which settings files that snapshot holds.
+
+   ```bash
+   hs backup config
+   ```
+
+2. **Look at the plan.** `--dry-run` compares the snapshot with the live files and prints `new` or `changed` per file, never the contents.
+   Nothing is changed. `latest` is the default; you can name a snapshot id instead.
+
+   ```bash
+   sudo hs backup config restore --dry-run
+   ```
+
+3. **Put the files back.** You type the file name `machine.toml` to confirm. Every file that is replaced is first copied to
+   `<file>.before-restore-<date>-<time>` next to it. Without a terminal the command refuses unless you add `--yes`.
+
+   ```bash
+   sudo hs backup config restore
+   ```
+
+4. **Apply the settings.** The command does not rebuild for you.
+
+   ```bash
+   sudo hs rebuild
+   ```
+
+It never touches `hardware-configuration.nix`, the SSH host keys, Samba, disks, pools or the network. `--with-state` also puts back the
+files of `/var/lib/hs`, except the backup password and the files that describe this server's disks (`disks`, `vault-uuid`, `luks-uuids`).
+
+What the settings backup holds and what it leaves out:
+
+| In the host snapshot | Put back by `hs backup config restore` |
+| --- | --- |
+| `machine.toml`, `machine.nix` | yes |
+| `/var/lib/hs` (your server's state files) | only with `--with-state` |
+| `hardware-configuration.nix`, SSH host keys, Samba secrets, gateway certificate keys | no (restore them by hand, see the disaster recovery runbook below) |
+| the backup password (`restic-password`) | never: it is not in the snapshot, keep it in your password manager |
+| `disks`, `vault-uuid`, `luks-uuids` | never: they describe this server's disks |
+
+Secrets are never printed: the plan shows file names only. If the vault is open when the backup runs, its secrets are part of the host
+snapshot; a restore does not write through the links into the vault.
+
+To check that the restore worked, run `sudo hs backup config restore --dry-run` again. It says "Already identical".
+
+**On a clean install** there is no backup password and no `hs` data yet. Use `--from-disk` with the device of the backup disk. It needs
+only that disk and the passphrase:
+
+```bash
+sudo hs backup config restore --from-disk /dev/disk/by-label/backup --dry-run
+```
+
+```bash
+sudo hs backup config restore --from-disk /dev/disk/by-label/backup
+```
+
+- The disk is mounted **read-only** and unmounted again. Nothing is written to it.
+- The passphrase (the restic password from your password manager) is typed at a hidden prompt, never given as an argument or in the
+  environment, and never written to `/var/lib/hs`. The command refuses without a terminal.
+- The plan comes first (`--dry-run` stops there). You type `machine.toml` to confirm, as above, and every replaced file is kept as
+  `<file>.before-restore-<date>-<time>`.
+- `/var/lib/hs` comes back as with `--with-state`: not the backup password, `disks`, `vault-uuid` or `luks-uuids`.
+- The **SSH host keys** come back only after you type `ssh host keys`; then your computers do not warn about a "new server". With `--yes` they
+  are skipped. Without the typed line the new server keeps its own keys.
+- The **Samba secrets** come back only with `--with-samba`.
+- `hardware-configuration.nix` is never restored: generate it again (`nixos-generate-config`).
+
+Not tested on hardware yet.
+
 ## Give space back
 When the backup disk is full, or a run ended with "no space left":
 
@@ -179,6 +252,9 @@ Not tested on hardware yet: a complete reinstall onto an empty disk with data fr
 and the shares is replayed by the repository's test suite.
 
 ### Case A: the system disk is gone, the data disks are fine
+The installer can do steps 2 to 6 for you: `hs-install` on the stick, "Restore from backup" ([Restore from a backup](install.md#restore-from-a-backup)).
+Not tested on hardware yet. The manual steps below stay the reference.
+
 This is the common case. The pools and their data are untouched. The system disk is plain (GPT with an EFI partition and an ext4 root) plus
 a small partition for the vault, so a new one is built the same way, and the server then boots to SSH and is unlocked with `hs unlock`.
 
@@ -205,7 +281,17 @@ a small partition for the vault, so a new one is built the same way, and the ser
    git clone <your-repository> /mnt/etc/nixos
    ```
 
-4. **Mount the backup disk and restore the host files.** There is no `hs` yet, so use restic directly. A snapshot with the tag `host`
+4. **Restore the host files.** Where `hs` exists (the Hobnix installer, or a fresh install after its first boot), one command does it from
+   only the backup disk and the passphrase: look at the plan, then run it, and type `machine.toml` and `ssh host keys` when asked
+   (details: [the settings section above](#back-up-and-restore-only-the-settings)). Not tested on hardware yet.
+
+   ```bash
+   sudo hs backup config restore --from-disk /dev/disk/by-label/backup --dry-run
+   sudo hs backup config restore --from-disk /dev/disk/by-label/backup
+   ```
+
+   The command writes to the running system (`/etc/nixos`, `/etc/ssh`, `/var/lib/hs`), not to `/mnt`. On a plain NixOS ISO without `hs`
+   use restic directly, as follows. A snapshot with the tag `host`
    must be listed.
 
    ```bash
@@ -338,7 +424,10 @@ Once a year, rehearse in a throwaway VM: a virtual machine with the NixOS instal
 disk (a copy of the repository, or a fresh `hs backup init` with test data). Do Case A (disk with a vault partition, clone the
 repository, host files with restic, a new `hardware-configuration.nix`, `nixos-install`, boot order, `hs vault init`, the password by
 hand, `sudo hs unlock`, `hs rebuild`, pools). Then Case B: empty the data disks, add the pool, restore the shares and compare
-checksums. This is the part nobody has run on real hardware yet. Write down what did not match this guide and report it.
+checksums. This is the part nobody has run on real hardware yet.
+
+The repository has a partial rehearsal, `tests/rebuild-vm.sh` (`scripts/dev/t vm`): a clean VM gets only the backup volume and the passphrase and
+must bring back the host files and the shares with the same checksums. It does not cover the reinstall, boot, vault or pools. Not tested on hardware yet: it has not been run. Write down what did not match this guide and report it.
 
 ## Check that it worked
 - `hs backup status` shows a snapshot from last night and enough free space on the backup disk.

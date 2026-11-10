@@ -2,7 +2,6 @@
   // The Marketplace: every package of every repository (recipes and extensions are both just packages), and the repositories they come from.
   // Reads: hs sys pkg market / repos. Changes: hs sys pkg plan|start (install, update, remove, fetch, repo-add, repo-remove); a package or repository
   // that came from a repository somebody added is red (the typed word is its name).
-  import { tip } from '../ui/tooltip.svelte.js';
   import { poll, rows, refresh } from '../data.svelte.js';
   import { openPlan, openCreate, jobRunning, ui } from '../ui.svelte.js';
   import { route, go } from '../route.svelte.js';
@@ -126,7 +125,8 @@
             sub={market.loaded && !market.error ? `${pkgs.length} packages from ${repos.length} repositories${updates ? ` · ${updates} update${updates > 1 ? 's' : ''}` : ''}` : 'Apps and extensions from the repositories you trust.'}>
   {#snippet actions()}
     <Button icon="arrows-clockwise" busy={jobRunning('pkg', ['fetch'])} busyLabel="Checking…" tooltip={'Read the repositories again and find the newest releases'} onclick={fetchAll}>Check for updates</Button>
-    <button class="btn btn-primary" use:tip={'Add a repository of packages'} onclick={addRepo}><i class="ph ph-plus"></i>Add repository</button>
+    <Button icon="hammer" tooltip={'Write the manifest of a new app or extension'} onclick={() => go('/marketplace/builder')}>Package builder</Button>
+    <Button variant="primary" tooltip={'Add a repository of packages'} onclick={addRepo}><i class="ph ph-plus"></i>Add repository</Button>
   {/snippet}
 </PageHeader>
 
@@ -137,11 +137,11 @@
              emptyIcon="storefront" emptyTitle="Nothing to install yet" emptyText="No release of any repository has been read. Use Check for updates." retry={() => refresh(PATHS)}>
     <div class="bar">
       {#each [['all', 'All'], ['recipe', 'Apps'], ['extension', 'Extensions']] as [k, l]}
-        <button class="btn sm {kind === k ? 'btn-primary' : 'btn-ghost'}" onclick={() => (kind = k)}>{l}</button>
+        <Button variant={kind === k ? 'primary' : 'ghost'} size="sm" onclick={() => (kind = k)}>{l}</Button>
       {/each}
       <span class="sep"></span>
       {#each [['all', 'Any'], ['installed', 'Installed'], ['updates', 'Updates'], ['new', 'Not installed']] as [k, l]}
-        <button class="btn sm {show === k ? 'btn-primary' : 'btn-ghost'}" onclick={() => (show = k)}>{l}</button>
+        <Button variant={show === k ? 'primary' : 'ghost'} size="sm" onclick={() => (show = k)}>{l}</Button>
       {/each}
       <input class="input find" bind:value={q} placeholder="Search packages" aria-label="Search packages" autocomplete="off" />
     </div>
@@ -149,10 +149,10 @@
     {#if selected.size}
       <div class="bulk">
         <span class="bulk-count">{selected.size} selected</span>
-        <button class="btn sm {canInstall ? 'btn-primary' : 'btn-ghost'}" disabled={!canInstall || bulkBusy} onclick={() => runBulk('install')}>Install selected</button>
-        <button class="btn sm {canUpdate ? 'btn-primary' : 'btn-ghost'}" disabled={!canUpdate || bulkBusy} onclick={() => runBulk('update')}>Update selected</button>
-        <button class="btn sm {canRemove ? 'btn-danger' : 'btn-ghost'}" disabled={!canRemove || bulkBusy} onclick={() => runBulk('remove')}>Remove selected</button>
-        <button class="btn btn-ghost sm" disabled={bulkBusy} onclick={() => (selected = new Set())}>Clear selection</button>
+        <Button variant={canInstall ? 'primary' : 'ghost'} size="sm" disabled={!canInstall || bulkBusy} onclick={() => runBulk('install')}>Install selected</Button>
+        <Button variant={canUpdate ? 'primary' : 'ghost'} size="sm" disabled={!canUpdate || bulkBusy} onclick={() => runBulk('update')}>Update selected</Button>
+        <Button variant={canRemove ? 'danger' : 'ghost'} size="sm" disabled={!canRemove || bulkBusy} onclick={() => runBulk('remove')}>Remove selected</Button>
+        <Button variant="ghost" size="sm" disabled={bulkBusy} onclick={() => (selected = new Set())}>Clear selection</Button>
       </div>
     {/if}
 
@@ -224,7 +224,7 @@
         {#each bulkOpen.items as p}<li>{p.name} <span class="bulk-note">({stateText(p)})</span></li>{/each}
       </ul>
       <div class="bulk-foot">
-        <button class="btn" onclick={cancelBulk}>Cancel</button>
+        <Button onclick={cancelBulk}>Cancel</Button>
         <Button variant={bulkOpen.action === 'remove' ? 'danger' : 'primary'} disabled={bulkBusy} onclick={confirmBulk}>
           {bulkOpen.action === 'remove' ? 'Remove' : 'Start'}{bulkOpen.items.length === 1 ? '' : ' ' + bulkOpen.items.length + (bulkOpen.action === 'remove' ? '' : ' jobs')}
         </Button>
@@ -243,7 +243,7 @@
         {/each}
       </ul>
       <div class="bulk-foot">
-        <button class="btn btn-primary" onclick={dismissSummary}>Done</button>
+        <Button variant="primary" onclick={dismissSummary}>Done</Button>
       </div>
     </div>
   </div>

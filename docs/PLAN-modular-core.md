@@ -192,4 +192,4 @@ three verbs against a fake. The proxy contract is proven with two real variants 
 
 - Where the cousin's server fits: the first non-author preset, to test the generic path early?
 - Does the `docker` host stay one container, or can there be several, each with its own manager?
-- Format of the answers file for unattended installs (wizard output = `machine.toml` plus `settings.toml`?).
+- ~~Format of the answers file for unattended installs~~ Decided: one TOML file, `version = 1`, keys map to the `hs-install` options, secrets only as file references. Format and checker: docs/install.md "Answers file for unattended installs" (`hs installer check-answers`); `hs-install` does not read it yet.

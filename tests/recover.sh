@@ -11,7 +11,7 @@ id adminuser >/dev/null 2>&1 || { useradd -M -s /usr/sbin/nologin adminuser && m
 dev=$(mkloop backupdisk 300M)
 export HS_STATE_DIR=$WORK/state HS_BACKUP_MOUNT=$WORK/mnt HS_BACKUP_DEV=$dev HS_BULK=$WORK/bulk
 export HS_BACKUP_CACHE=$WORK/cache HS_BACKUP_HOST_FILES="$WORK/host/machine.nix $WORK/state" HS_RUN_DIR=$WORK/run HS_PLAIN=1
-export HS_BACKUP_YES=1 HS_INCUS_ROOT=$WORK/incus
+export HS_BACKUP_YES=1 HS_INCUS_ROOT=$WORK/incus HS_STATE_DB=$WORK/events.db   # the event log is not part of what the rehearsal compares
 mkdir -p "$WORK/bulk/shares/docs" "$WORK/bulk/shares/media" "$WORK/bulk/sensitive/photos" "$WORK/host" "$WORK/state" "$WORK/safe"
 for i in 1 2 3; do head -c 50000 /dev/urandom > "$WORK/bulk/shares/docs/d$i.bin"; done
 head -c 80000 /dev/urandom > "$WORK/bulk/shares/media/m.bin"; head -c 70000 /dev/urandom > "$WORK/bulk/sensitive/photos/p.jpg"

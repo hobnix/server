@@ -50,11 +50,15 @@ export function readsFor(path, extPages = [], liveOn = false) {
     case '/instances/apps': case '/operations/apps': return [`${A}recipes/list`, `${A}recipes/versions`, `${A}ct/list`];
     case '/marketplace': return [`${A}pkg/market`, `${A}pkg/repos`];
     case '/instances/services': case '/operations/services': return [`${A}services/list`, `${A}services/routes`, `${A}ct/list`];
+    case '/operations/events': return [`${A}event/list?n=100`];
     case '/operations/notifications': return [`${A}notify/channels`, `${A}notify/providers`];
+    case '/monitoring/live-state': return liveOn ? [`${A}live/inspect`] : [];
+    case '/monitoring/test-lab': return [`${A}testlab/results`];
     case '/monitoring/diagnostics': return [liveOn ? `${A}live/status` : `${A}reads/status`];
     case '/storage/encryption': return [`${A}encryption/list`, `${A}status`];
     case '/storage/vault': return [`${A}status`, `${A}vault/list`, `${A}vault/usage`, `${A}vault/uses`];
     case '/storage/pools': return [`${A}pool/info?pool=bulk`, `${A}pool/info?pool=fast`, `${A}monitor/disks`];
+    case '/storage/incident': return [`${A}incident/state`, `${A}pool/disks`];
     case '/storage/disks': case '/storage/unassigned': return DISKS;
     case '/storage/shares': return SHARES;
     case '/storage/files': return [`${A}fm/locations`];

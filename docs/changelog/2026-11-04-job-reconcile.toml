@@ -1,0 +1,4 @@
+date  = "2026-11-04"
+type  = "feature"
+title = "After a restart the server tells you which jobs were interrupted"
+body  = """A job that was still running when the server restarted (or whose unit stopped) is now marked as interrupted in the job record, and you get one push message with the count and the names of the first five. Nothing is started again; run the job again by hand if you still need it."""

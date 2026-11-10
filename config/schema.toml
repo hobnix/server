@@ -194,6 +194,27 @@ loginMessage = true'''
 
 [[item]]
 kind = "option"
+key = "updateChannel"
+page = "updates"
+type = "string"
+required = false
+settable = true
+secret = false
+store = "settings"
+default = '"stable"'
+choices = ["stable", "beta", "edge"]
+doc = '''
+# Which version `hs update` follows:
+#   "stable"  the newest signed release (default; the right one for every server that holds data)
+#   "beta"    the newest signed beta or release; for a second server or a test machine
+#   "edge"    the head of the development branch; only for a server whose data may be lost
+# Beta and edge can break things. Changing it moves nothing by itself: it takes effect at the next `hs update`,
+# which asks you to type the channel name when you switch to a newer one.'''
+value = '''
+updateChannel = "stable"'''
+
+[[item]]
+kind = "option"
 key = "webUi"
 type = "bool"
 required = false
@@ -306,6 +327,22 @@ liveState = "off"'''
 
 [[item]]
 kind = "option"
+key = "testlabNightly"
+type = "bool"
+required = false
+settable = false
+secret = false
+capability = "testlab"
+default = 'false'
+doc = '''
+# Run the test-lab on the branch develop every night (the capability testlab, off by default: it needs `testlab` in `capabilities`, KVM and Incus
+# with nested virtualization, and it builds the installer ISO, so it is for a dedicated build server, never a normal install). The run is a job and
+# a failure sends a push message. `hs testlab run` starts it by hand. Needs a rebuild. Not tested on hardware yet.'''
+value = '''
+testlabNightly = false'''
+
+[[item]]
+kind = "option"
 key = "webTerminal"
 page = "access"
 type = "bool"
@@ -322,6 +359,24 @@ doc = '''
 # hours; nothing is recorded. Default false. Needs webUi = true; a change takes effect at once.'''
 value = '''
 webTerminal = true'''
+
+[[item]]
+kind = "option"
+key = "recipeQuestionHours"
+page = "access"
+type = "int"
+required = false
+settable = true
+secret = false
+store = "settings"
+default = '24'
+min = 1
+hint = "a whole number of hours, 1 or more"
+doc = '''
+# How long an interactive app setup (hs sys recipes start ... --interactive, the web wizard) waits for the answer to a
+# question, in hours. After that the run is cancelled cleanly and has to be started again. Default 24.'''
+value = '''
+recipeQuestionHours = 24'''
 
 [[item]]
 kind = "option"
@@ -471,6 +526,24 @@ doc = '''
 # and change the tunnel's service address in Cloudflare. Needs hs rebuild.'''
 value = '''
 incusInternalSubnet = "10.99.0.0/29"'''
+
+[[item]]
+kind = "option"
+key = "isoDir"
+type = "string"
+required = false
+settable = true
+secret = false
+store = "settings"
+capability = "incus"
+default = '"/var/lib/hs/iso"'
+pattern = '^/[A-Za-z0-9._/-]{1,200}$'
+hint = "an absolute folder, e.g. /bulk/data-01/isos"
+doc = '''
+# The ISO library: the folder with the install images for virtual machines (hs iso, the Instances page). It can be a folder on a
+# share or a bulk disk when the images are big. Images already in the old folder are not moved. Default "/var/lib/hs/iso".'''
+value = '''
+isoDir = "/var/lib/hs/iso"'''
 
 [[item]]
 kind = "option"

@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
-# help: the facts the Overview shows (backup age, encryption, parity sync and scrub, upload cache, disk health, instances, hottest disk, last disk event)
-# help.de: die Angaben der Übersicht (Backup-Alter, Verschlüsselung, Paritäts-Sync und Scrub, Upload-Cache, Plattengesundheit, Instanzen, heißeste Platte, letztes Platten-Ereignis)
+# help: the facts the Overview shows (backup age, encryption, parity sync and scrub, upload cache, disk health, instances, hottest disk, last disk event, the Hobnix version)
+# help.de: die Angaben der Übersicht (Backup-Alter, Verschlüsselung, Paritäts-Sync und Scrub, Upload-Cache, Plattengesundheit, Instanzen, heißeste Platte, letztes Platten-Ereignis, die Hobnix-Version)
 # args: -
 # System command (hs sys status), read only, tab separated, one fact per line, in this order. The interface
 # chooses words and colours; this script only says what is the case. A source that cannot be read leaves its line out.
@@ -12,7 +12,8 @@
 #   instances   <running>  <all>
 #   hottest     <disk>  <degrees>
 #   event       <when>  <what>                                          (the last line of the disk event log)
-# Test knobs: HS_BULK_TYPE_FILE, HS_SNAPRAID_CONF, HS_STATE_DIR, HS_LOCKED_MARKER, HS_UNLOCK, HS_JOBS, HS_SHARE_CACHE, HS_DISK_HEALTH, HS_MONITOR, HS_INCUS, HS_DISK_EVENTS.
+#   version     <git describe of the checkout, e.g. v0.1.0, or - if not known>   (always printed, last)
+# Test knobs: HS_BULK_TYPE_FILE, HS_SNAPRAID_CONF, HS_STATE_DIR, HS_LOCKED_MARKER, HS_UNLOCK, HS_JOBS, HS_SHARE_CACHE, HS_DISK_HEALTH, HS_MONITOR, HS_INCUS, HS_STATE_DB.
 set -uo pipefail
 here=$(dirname "$0")
 state=${HS_STATE_DIR:-/var/lib/hs}
@@ -83,8 +84,11 @@ disks=$(cat "$tmp/disks")
 awk -F'\t' '$5 ~ /^[0-9]+$/ && $5 + 0 > best { best = $5 + 0; name = $1 } END { if (name != "") printf "hottest\t%s\t%d\n", name, best }' <<<"$disks"
 
 # --- the last disk event
-ev=${HS_DISK_EVENTS:-$state/disk-events}
-if [ -s "$ev" ]; then
-  tail -n 1 "$ev" | awk -F'\t' '{ printf "event\t%s\t%s", $1, $2; for (i = 3; i <= NF; i++) printf " %s", $i; printf "\n" }'
+ev=$(python3 "$(dirname "$0")/state-db.py" disk-events 1 2>/dev/null || true)
+if [ -n "$ev" ]; then
+  printf '%s\n' "$ev" | awk -F'\t' '{ printf "event\t%s\t%s", $1, $2; for (i = 3; i <= NF; i++) printf " %s", $i; printf "\n" }'
 fi
+# --- the Hobnix version (lib/version.sh)
+. "$here/lib/version.sh"
+printf 'version\t%s\n' "$(hobnix_version)"
 exit 0

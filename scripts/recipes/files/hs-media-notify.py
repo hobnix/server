@@ -1,23 +1,28 @@
 #!/usr/bin/env python3
-"""One message to ntfy AND to the Matrix hook, for the helpers that run next to the film apps.
+"""One event for the helpers that run next to the film apps. It tells the server what happened; it sends nothing.
 
   hs-media-notify.py send --service maintainerr|sabnzbd --event <name> --title T [--sub S] [--field K=V]... [--footer F]
   hs-media-notify.py <type> <title> <message>        SABnzbd's notification script (it calls a script like this)
 
-Config (JSON, written by the recipes): {"ntfy": "https://server/topic", "hook": "http://synapse:8090/hook/<secret>/<room>",
-"radarr": {"url": "http://radarr:7878", "key": "..."}, "sonarr": {...}}. Each may be missing; radarr/sonarr only serve the lookup
-that turns a release name into a title, year and poster for the Downloadarr cards. It is looked for in $HS_MEDIA_NOTIFY_CONF, next to this file, one folder up, /etc/hs-media-notify.json.
-Never fails its caller: a message that cannot be sent is a line on stderr, exit 0.
-Test knob: HS_MEDIA_NOTIFY_LOG=<file> appends the message as a JSON line and sends nothing.
+The event is a file in the spool folder (config key "spool", default /media/.hs-events: the share the container has mounted anyway).
+The server reads the folder (scripts/event-notify.sh), writes the event pkg.<service>.<event> to its event log, and its
+notification rules (the package's `[[events]]`; scripts/lib/pkg-events/ until the recipes ship it) decide who is told, in which channel and how. No address, topic or secret is kept here.
 
-The labels, icons and the look of one service live here (and the card in matrix-card/); the hook only draws
-what the payload says, so a new event is a new row in EVENTS.
+Config (JSON, written by the recipes): {"spool": "/media/.hs-events", "radarr": {"url": "http://radarr:7878", "key": "..."}, "sonarr": {...}}.
+Each may be missing; radarr/sonarr only serve the lookup that turns a release name into a title, year and poster for the Downloadarr
+cards. It is looked for in $HS_MEDIA_NOTIFY_CONF, next to this file, one folder up, /etc/hs-media-notify.json.
+Never fails its caller: an event that cannot be written is a line on stderr, exit 0.
+Test knob: HS_MEDIA_NOTIFY_LOG=<file> appends the event as a JSON line and writes no spool file.
+
+The labels and icons of one service live here (and the card in matrix-card/); the card only draws what the payload says, so a
+new event is a new row in EVENTS.
 """
 import json
 import json as _json
 import os
 import re
 import sys
+import time
 import urllib.parse
 import urllib.request
 
@@ -27,25 +32,26 @@ HERE = os.path.dirname(os.path.abspath(__file__))
 # Maintainerr itself (if it ever posts) must be told apart in the history of ntfy and Matrix.
 NAMES = {"maintainerr": "Maintainerr (Script)", "sabnzbd": "Downloadarr"}
 
-# (service, event) -> (label, icon of the card, ntfy emoji tag, ntfy priority)
+# (service, event) -> (label, icon of the card). How loud an event is and its rule live in the package's `[[events]]` (scripts/lib/pkg-events/ until the recipes ship it).
+# An event name is the last part of the kind pkg.<service>.<event>: lower case, digits and "-".
 EVENTS = {
-    ("maintainerr", "planned"): ("Duplicate found", "warning", "mag", 3),
-    ("maintainerr", "deleted"): ("Lower version deleted", "trash", "wastebasket", 3),
-    ("maintainerr", "test"): ("Test", "check-circle", "white_check_mark", 2),
-    ("sabnzbd", "added"): ("Download queued", "download-simple", "inbox_tray", 2),
-    ("sabnzbd", "unpacking"): ("Unpacking", "package", "package", 1),
-    ("sabnzbd", "finished"): ("Download finished", "tray-arrow-down", "white_check_mark", 3),
-    ("sabnzbd", "failed"): ("Download failed", "warning-octagon", "x", 4),
-    ("sabnzbd", "queue_done"): ("Queue finished", "checks", "tada", 2),
-    ("sabnzbd", "disk_full"): ("Disk full", "warning-octagon", "rotating_light", 5),
-    ("sabnzbd", "error"): ("Error", "warning-octagon", "rotating_light", 4),
-    ("sabnzbd", "warning"): ("Warning", "warning", "warning", 3),
-    ("sabnzbd", "test"): ("Test", "check-circle", "white_check_mark", 2),
+    ("maintainerr", "planned"): ("Duplicate found", "warning"),
+    ("maintainerr", "deleted"): ("Lower version deleted", "trash"),
+    ("maintainerr", "test"): ("Test", "check-circle"),
+    ("sabnzbd", "added"): ("Download queued", "download-simple"),
+    ("sabnzbd", "unpacking"): ("Unpacking", "package"),
+    ("sabnzbd", "finished"): ("Download finished", "tray-arrow-down"),
+    ("sabnzbd", "failed"): ("Download failed", "warning-octagon"),
+    ("sabnzbd", "queue-done"): ("Queue finished", "checks"),
+    ("sabnzbd", "disk-full"): ("Disk full", "warning-octagon"),
+    ("sabnzbd", "error"): ("Error", "warning-octagon"),
+    ("sabnzbd", "warning"): ("Warning", "warning"),
+    ("sabnzbd", "test"): ("Test", "check-circle"),
 }
 
 # what SABnzbd calls an event -> ours (startup, new_login and everything unknown are not sent)
 SAB_TYPES = {"download": "added", "pp": "unpacking", "complete": "finished", "failed": "failed",
-             "queue_done": "queue_done", "disk_full": "disk_full", "error": "error", "warning": "warning",
+             "queue_done": "queue-done", "disk_full": "disk-full", "error": "error", "warning": "warning",
              "other": "test"}   # the Test button of SABnzbd sends "other"
 
 
@@ -59,12 +65,6 @@ def load_config():
             except (OSError, ValueError) as e:
                 sys.stderr.write("hs-media-notify: %s: %s\n" % (path, e))
     return {}
-
-
-def post(url, data, headers):
-    req = urllib.request.Request(url, data=data, headers=headers, method="POST")
-    with urllib.request.urlopen(req, timeout=60) as r:
-        r.read()
 
 
 QUALITY = re.compile(r"^(2160p|1080p|720p|576p|480p|4k|uhd|hdr|hdr10|dv|german|english|multi|dl|dubbed|bluray|blu-ray|bdrip|brrip|"
@@ -135,28 +135,30 @@ def markdown(service, label, title, sub, fields, footer):
 
 
 def send(service, event, title, sub="", fields=(), footer="", poster_url=""):
-    label, icon, tag, prio = EVENTS.get((service, event), (event, "check-circle", "bell", 3))
+    label, icon = EVENTS.get((service, event), (event, "check-circle"))
     name = NAMES.get(service, service)
     fields = [(k, v) for k, v in fields if v not in (None, "")]
+    # a flat payload (docs/events.md): the fields of the card are one string, a "K=V" per line
+    payload = {"service": service, "name": name, "label": label, "icon": icon, "title": title, "sub": sub,
+               "body": markdown(service, label, title, sub, fields, footer),
+               "fields": "\n".join("%s=%s" % kv for kv in fields), "footer": footer, "poster_url": poster_url}
+    row = {"kind": "pkg.%s.%s" % (service, event), "subject": service, "text": "%s: %s" % (label, title),
+           "payload": {k: v for k, v in payload.items() if v != ""}}
     log = os.environ.get("HS_MEDIA_NOTIFY_LOG")
     if log:
         with open(log, "a") as f:
-            f.write(json.dumps({"service": service, "event": event, "title": title, "sub": sub, "fields": fields, "footer": footer, "poster_url": poster_url}) + "\n")
+            f.write(json.dumps({"service": service, "event": event, "title": title, "sub": sub, "fields": fields, "footer": footer, "poster_url": poster_url}) + chr(10))
         return
-    conf = load_config()
-    if conf.get("ntfy"):
-        try:
-            post(conf["ntfy"], markdown(service, label, title, sub, fields, footer).encode(),
-                 {"Title": ("%s · %s" % (name, label)).encode("utf-8").decode("latin-1", "replace"),
-                  "Tags": tag, "Priority": str(prio), "Markdown": "yes"})
-        except Exception as e:   # noqa: BLE001 - never fail the caller
-            sys.stderr.write("hs-media-notify: ntfy: %s\n" % e)
-    if conf.get("hook"):
-        try:
-            post(conf["hook"], json.dumps({"hsService": service, "event": label, "event_icon": icon, "title": title, "sub": sub,
-                                           "fields": fields, "footer": footer, "poster_url": poster_url}).encode(), {"Content-Type": "application/json"})
-        except Exception as e:   # noqa: BLE001
-            sys.stderr.write("hs-media-notify: matrix: %s\n" % e)
+    spool = load_config().get("spool") or "/media/.hs-events"
+    try:
+        os.makedirs(spool, exist_ok=True)
+        # written under a name the server skips, then renamed: it never reads half a file
+        tmp = os.path.join(spool, ".tmp-%d-%d" % (os.getpid(), time.time_ns()))
+        with open(tmp, "w") as f:
+            json.dump(row, f)
+        os.rename(tmp, os.path.join(spool, "ev-%d-%d.json" % (time.time_ns(), os.getpid())))
+    except OSError as e:   # never fail the caller
+        sys.stderr.write("hs-media-notify: %s: %s\n" % (spool, e))
 
 
 def main(argv):

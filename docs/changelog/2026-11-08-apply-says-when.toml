@@ -1,0 +1,6 @@
+date  = "2026-11-08"
+type  = "change"
+title = "Every change says when it takes effect, and how long a rebuild takes"
+body  = """Before you apply a change, its plan now says either "takes effect at once" or "takes effect with hs rebuild", on the web pages and in the terminal. A change that waits for a rebuild shows the last measured rebuild time, or "several minutes" before one was measured, and offers Rebuild now.
+
+Not tested on hardware yet."""

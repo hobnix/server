@@ -1,0 +1,5 @@
+date  = "2026-11-09"
+type  = "change"
+title = "The backup guide says what the settings backup holds"
+body  = """The guide now lists which files hs backup config restore puts back, which it never touches, how to check the result, and where a clean install starts instead. Not tested on hardware yet."""
+docs  = "backup-and-recovery#back-up-and-restore-only-the-settings"

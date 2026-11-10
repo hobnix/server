@@ -1,0 +1,4 @@
+date  = "2026-11-04"
+type  = "fix"
+title = "The live view catches up after a lost connection"
+body  = """After the browser reconnects, the web interface gets the event log entries it missed. When too many were missed, or the connection was too slow, every open page reads its data again, so nothing stays stale."""

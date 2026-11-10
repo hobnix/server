@@ -8,6 +8,12 @@ Commands (machine readable output; scripts/state.sh makes the pretty version for
   collect [--event]          read the disks (monitor.sh --disks + lsblk) and update disks / events / smart
   disks                      inventory, tab separated: serial model size dev state role pool first_seen last_seen worse note
   events [N]                 time kind subject text (newest last)
+  emit <source>.<kind> <subject> [text] [--level info|warn|error] [--payload JSON]
+                             the ONE writer of the event log (root; scripts/lib/event.sh, hs event emit); docs/adr/0005-events.md
+  event-list [N] [--source S] [--after ID]  id time source kind subject level text payload (newest last; `-` for an empty field)
+  event-kinds [--package P]  kind level payload keys meaning origin: the core kinds, then the kinds installed packages declare (origin core or the package; hs event kinds)
+  audit-list [N]            id time actor result exit command (the audit.* events, newest last; hs audit, hs sys audit)
+  disk-events [N]            local time TAB plugged in|taken out TAB text (newest last); the old file disk-events is imported once
   smart <serial|dev>         the stored SMART readings of one disk
   problems                   key TAB text for health-check.sh (missing disks, worsening disks, a collector that stopped)
   deck-disks                 the 5 fields per disk the status document uses (name bytes kind role temp), from the last reading
@@ -17,7 +23,9 @@ Commands (machine readable output; scripts/state.sh makes the pretty version for
   usage-record <key> <used> <size>  one reading of a pool / filesystem fill level (bytes; backup: percent and 100), at most one per hour and key
   usage <key> [days]         the readings of the last N days (default 60): time TAB used TAB size, oldest first (scripts/forecast.py reads them)
   read-get <key>             the kept output (nothing and exit 1 when there is none)
-  reads                      key TAB age in seconds TAB milliseconds the read took TAB exit code TAB bytes, oldest first
+  topic-bump <topic|@group|--all>...  count one change up in the table `topics` (docs/adr/0005-events.md rule 5): live_refresh and the collector call it
+  read-fail <key> --err TEXT [--ms N] [--rc N]  a run with no output: keeps the old output, records err and ts_err (#324)
+  reads                      key TAB age in seconds (-1 = never read well) TAB milliseconds TAB exit code TAB bytes TAB status TAB gen TAB err TAB err age, oldest first
   baseline-run               the daily SMART check: read every disk through disk-health.sh --readings, compare with the stored reading,
                              update the table baseline (docs/PLAN-disk-health.md)
   baseline                   machine line per disk: serial dev kind level since last_read first_read wwn realloc pending uncorr crc
@@ -25,7 +33,8 @@ Commands (machine readable output; scripts/state.sh makes the pretty version for
 Environment (tests): HS_STATE_DB, HS_STATE_DIR, HS_MONITOR (command), HS_LSBLK, HS_LOCKED_MARKER, HS_NOW,
 HS_STATE_SMART_EVERY (seconds, default 900), HS_STATE_WORSE_DAYS (default 14), HS_DISK_HEALTH (the reading command),
 HS_SMART_FAIL_REALLOC (10), HS_SMART_FAIL_MEDIA (10), HS_SMART_WEAR_JUMP (3), HS_SMART_HOLD_DAYS (7), HS_SMART_WAKE_DAYS (6),
-HS_SMART_STALE (seconds, default 2*86400+3600).
+HS_SMART_STALE (seconds, default 2*86400+3600),
+HS_EVENT_KEEP (rows kept in the event log, default 5000), HS_EVENT_DAYS (age limit in days, default 90).
 """
 import json
 import os
@@ -41,7 +50,9 @@ HERE = os.path.dirname(os.path.abspath(__file__))
 SMART_EVERY = int(os.environ.get("HS_STATE_SMART_EVERY", "900"))
 WORSE_DAYS = int(os.environ.get("HS_STATE_WORSE_DAYS", "14"))
 STALE_S = int(os.environ.get("HS_STATE_STALE", "1800"))
-KEEP_EVENTS = 2000
+KEEP_EVENTS = int(os.environ.get("HS_EVENT_KEEP", "5000"))
+EVENT_DAYS = int(os.environ.get("HS_EVENT_DAYS", "90"))
+WARN_KINDS = ("worse", "missing")
 SMART_KEEP_DAYS = 400
 SMART_THIN_DAYS = 30
 # the daily SMART check (baseline): thresholds in one place
@@ -65,7 +76,8 @@ CREATE TABLE IF NOT EXISTS disks (
   state TEXT NOT NULL DEFAULT 'ok', note TEXT, worse INTEGER NOT NULL DEFAULT 0,
   temp INTEGER, kind TEXT);
 CREATE TABLE IF NOT EXISTS events (
-  id INTEGER PRIMARY KEY AUTOINCREMENT, time INTEGER NOT NULL, kind TEXT NOT NULL, subject TEXT, text TEXT);
+  id INTEGER PRIMARY KEY AUTOINCREMENT, time INTEGER NOT NULL, kind TEXT NOT NULL, subject TEXT, text TEXT,
+  source TEXT NOT NULL DEFAULT 'storage', level TEXT NOT NULL DEFAULT 'info', payload TEXT, v INTEGER NOT NULL DEFAULT 1);
 CREATE TABLE IF NOT EXISTS smart (
   time INTEGER NOT NULL, serial TEXT NOT NULL, realloc INTEGER, pending INTEGER, crc INTEGER, temp INTEGER, hours INTEGER);
 CREATE INDEX IF NOT EXISTS smart_serial ON smart (serial, time);
@@ -74,8 +86,10 @@ CREATE TABLE IF NOT EXISTS baseline (serial TEXT PRIMARY KEY, wwn TEXT, dev TEXT
 CREATE TABLE IF NOT EXISTS samples (
   time INTEGER NOT NULL, cpu INTEGER, mem INTEGER, gpu INTEGER, rx INTEGER, tx INTEGER, boot INTEGER NOT NULL DEFAULT 0);
 -- the output of the slow `hs sys ...` reads, written by the collector (scripts/reads-collect.sh) and served by the web interface instead of running the script
+CREATE TABLE IF NOT EXISTS topics (topic TEXT PRIMARY KEY, gen INTEGER NOT NULL DEFAULT 0, time INTEGER NOT NULL DEFAULT 0);
 CREATE TABLE IF NOT EXISTS reads (
-  key TEXT PRIMARY KEY, payload TEXT NOT NULL, updated INTEGER NOT NULL, ms INTEGER, rc INTEGER NOT NULL DEFAULT 0);
+  key TEXT PRIMARY KEY, payload TEXT NOT NULL, updated INTEGER NOT NULL, ms INTEGER, rc INTEGER NOT NULL DEFAULT 0,
+  gen INTEGER NOT NULL DEFAULT 0, err TEXT, ts_err INTEGER, ttl INTEGER);
 -- fill levels for the capacity forecast (scripts/forecast.py, health-check.sh): one reading per hour and key
 CREATE TABLE IF NOT EXISTS usage (
   time INTEGER NOT NULL, key TEXT NOT NULL, used INTEGER NOT NULL, size INTEGER NOT NULL);
@@ -91,8 +105,94 @@ def open_rw():
     c.execute("PRAGMA journal_mode=WAL")
     c.execute("PRAGMA synchronous=NORMAL")
     c.executescript(SCHEMA)
-    c.execute("PRAGMA user_version=1")
+    migrate_events(c)
+    migrate_reads(c)
+    c.execute("PRAGMA user_version=2")
+    import_disk_events(c)
     return c
+
+
+DISK_EVENT_KINDS = {"plugged in": "plugged", "taken out": "removed"}
+
+
+def import_disk_events(c):
+    """One time: the lines of the old file /var/lib/hs/disk-events (time TAB label TAB text, local time) become rows of the event log
+    (source disk, kind plugged | removed | other). The file is renamed to disk-events.imported, not deleted. Rows that exist already are
+    skipped, so a crash between the commit and the rename imports nothing twice."""
+    src = os.path.join(STATE_DIR, "disk-events")
+    if not os.path.isfile(src):
+        return
+    try:
+        with open(src, encoding="utf-8", errors="replace") as f:
+            lines = f.read().splitlines()
+    except OSError:
+        return
+    with c:
+        for line in lines:
+            f = line.split("	", 2)
+            if len(f) < 2:
+                continue
+            try:
+                t = int(time.mktime(time.strptime(f[0].strip(), "%Y-%m-%d %H:%M")))
+            except ValueError:
+                continue
+            kind = DISK_EVENT_KINDS.get(f[1].strip(), "other")
+            text = one_line(f[2] if len(f) > 2 else "")
+            if kind == "other":
+                text = one_line(f[1] + ": " + text)
+            subject = text.split(",", 1)[0].split(":", 1)[0].strip()[:60]
+            if c.execute("SELECT 1 FROM events WHERE source='disk' AND time=? AND kind=? AND text=?", (t, kind, text)).fetchone():
+                continue
+            event(c, t, kind, subject, text, "disk", kind_level("disk", kind))
+    try:
+        os.replace(src, src + ".imported")
+    except OSError:
+        pass
+
+
+EVENT_COLS = (("source", "TEXT NOT NULL DEFAULT 'storage'"), ("level", "TEXT NOT NULL DEFAULT 'info'"),
+              ("payload", "TEXT"), ("v", "INTEGER NOT NULL DEFAULT 1"))
+
+
+READS_COLS = (("gen", "INTEGER NOT NULL DEFAULT 0"), ("err", "TEXT"), ("ts_err", "INTEGER"), ("ttl", "INTEGER"))
+
+
+def migrate_reads(c):
+    """Bring an old `reads` table to the live entry shape (gen, err, ts_err, ttl; docs/PLAN-web-cache.md "Reads table", #324). Same pattern as
+    migrate_events: checked again inside BEGIN IMMEDIATE because two writers may start at once. Old rows keep payload, updated, ms and rc."""
+    def missing():
+        have = {r[1] for r in c.execute("PRAGMA table_info(reads)")}
+        return [(col, decl) for col, decl in READS_COLS if col not in have]
+    if not missing():
+        return
+    c.execute("BEGIN IMMEDIATE")
+    try:
+        for col, decl in missing():
+            c.execute("ALTER TABLE reads ADD COLUMN %s %s" % (col, decl))
+        c.commit()
+    except sqlite3.Error:
+        c.rollback()
+        raise
+
+
+def migrate_events(c):
+    """Add the event log columns to an old table. Two writers may start at once: the check is made again inside BEGIN IMMEDIATE,
+    and the transaction ends here, so no write lock stays open."""
+    def missing():
+        have = {r[1] for r in c.execute("PRAGMA table_info(events)")}
+        return [(col, decl) for col, decl in EVENT_COLS if col not in have]
+    if not missing():
+        return
+    c.execute("BEGIN IMMEDIATE")
+    try:
+        for col, decl in missing():
+            c.execute("ALTER TABLE events ADD COLUMN %s %s" % (col, decl))
+            if col == "level":      # old rows: the two kinds that are bad news
+                c.execute("UPDATE events SET level='warn' WHERE kind IN (%s)" % ",".join("'%s'" % k for k in WARN_KINDS))
+        c.commit()
+    except sqlite3.Error:
+        c.rollback()
+        raise
 
 
 def open_ro():
@@ -165,8 +265,73 @@ def pool_of(role):
     return role
 
 
-def event(c, t, kind, subject, text):
-    c.execute("INSERT INTO events (time, kind, subject, text) VALUES (?,?,?,?)", (t, kind, subject, text))
+def event(c, t, kind, subject, text, source="storage", level=None, payload=None):
+    """The one INSERT into the event log. payload: a JSON text (an object) or None."""
+    if level is None:
+        level = "warn" if kind in WARN_KINDS else "info"
+    c.execute("INSERT INTO events (time, kind, subject, text, source, level, payload) VALUES (?,?,?,?,?,?,?)",
+              (t, kind, subject, text, source, level, payload))
+
+
+def kind_level(source, kind):
+    """The level a kind has in scripts/lib/event-kinds.tsv; for pkg.* kinds the level its package declares (scripts/lib/pkg_events.py);
+    info for a kind that is not listed."""
+    try:
+        with open(os.path.join(HERE, "lib", "event-kinds.tsv"), encoding="utf-8") as f:
+            for line in f:
+                p = line.rstrip("\n").split("\t")
+                if len(p) >= 2 and p[0] == "%s.%s" % (source, kind) and p[1] in ("info", "warn", "error"):
+                    return p[1]
+    except OSError:
+        pass
+    if source == "pkg":
+        try:
+            import importlib.util
+            spec = importlib.util.spec_from_file_location("pkg_events", os.path.join(HERE, "lib", "pkg_events.py"))
+            mod = importlib.util.module_from_spec(spec)
+            spec.loader.exec_module(mod)
+            r = mod.find("pkg." + kind)
+            if r:
+                return r["level"]
+        except Exception:
+            pass
+    return "info"
+
+
+def cmd_event_kinds(args):
+    """Core kinds (event-kinds.tsv) and the declared kinds of the packages (pkg_events.declarations()); tab separated, `-` = empty."""
+    only = None
+    if args[:1] == ["--package"] and len(args) == 2:
+        only = args[1]
+    elif args:
+        print("usage: event-kinds [--package P]", file=sys.stderr)
+        return 2
+    rows = []
+    if only is None:
+        try:
+            with open(os.path.join(HERE, "lib", "event-kinds.tsv"), encoding="utf-8") as f:
+                for line in f:
+                    p = line.rstrip("\n").split("\t")
+                    if len(p) >= 4 and not line.startswith("#"):
+                        rows.append([p[0], p[1], p[2], p[3], "core"])
+        except OSError:
+            pass
+    import importlib.util
+    spec = importlib.util.spec_from_file_location("pkg_events", os.path.join(HERE, "lib", "pkg_events.py"))
+    mod = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(mod)
+    for name, recs in sorted(mod.declarations().items()):
+        if only is None or only == name:
+            rows += [[r["kind"], r["level"], r["payload"], r["meaning"], name] for r in recs]
+    for r in rows:
+        print("\t".join(x or "-" for x in r))
+    return 0
+
+
+def trim_events(c, t):
+    """Retention in one place: the newest KEEP_EVENTS rows, nothing older than EVENT_DAYS (whichever removes more)."""
+    c.execute("DELETE FROM events WHERE id NOT IN (SELECT id FROM events ORDER BY id DESC LIMIT ?)", (KEEP_EVENTS,))
+    c.execute("DELETE FROM events WHERE time < ?", (t - EVENT_DAYS * 86400,))
 
 
 def label(model, serial):
@@ -250,7 +415,7 @@ def collect(args):
         c.execute("DELETE FROM smart WHERE time < ?", (t - SMART_KEEP_DAYS * 86400,))
         c.execute("DELETE FROM smart WHERE time < ? AND rowid NOT IN (SELECT MIN(rowid) FROM smart WHERE time < ? GROUP BY serial, time / 86400)",
                   (t - SMART_THIN_DAYS * 86400, t - SMART_THIN_DAYS * 86400))
-        c.execute("DELETE FROM events WHERE id NOT IN (SELECT id FROM events ORDER BY id DESC LIMIT ?)", (KEEP_EVENTS,))
+        trim_events(c, t)
         c.execute("INSERT OR REPLACE INTO meta VALUES ('collect_ok','1')")
         c.execute("INSERT OR REPLACE INTO meta VALUES ('collect_time',?)", (str(t),))
         c.execute("INSERT OR REPLACE INTO meta VALUES ('collect_try',?)", (str(t),))
@@ -464,9 +629,113 @@ def cmd_events(args):
     if c is None:
         return 0
     n = int(args[0]) if args and args[0].isdigit() else 30
-    rows = c.execute("SELECT time, kind, subject, text FROM events ORDER BY id DESC LIMIT ?", (n,)).fetchall()
+    rows = c.execute("SELECT time, kind, subject, text FROM events WHERE source='storage' ORDER BY id DESC LIMIT ?", (n,)).fetchall()
     for r in reversed(rows):
         print("\t".join(clean(x) for x in r))
+    return 0
+
+
+def one_line(s):
+    return re.sub(r"[\t\r\n]+", " ", s or "").strip()[:500]
+
+
+def cmd_emit(args):
+    """emit <source>.<kind> <subject> [text] [--level L] [--payload JSON]"""
+    pos, level, payload = [], None, None
+    i = 0
+    while i < len(args):
+        if args[i] == "--level" and i + 1 < len(args):
+            level = args[i + 1]; i += 2
+        elif args[i] == "--payload" and i + 1 < len(args):
+            payload = args[i + 1]; i += 2
+        else:
+            pos.append(args[i]); i += 1
+    if not pos or not re.fullmatch(r"[a-z0-9]+(\.[a-z0-9][a-z0-9-]*)+", pos[0]):
+        print("usage: emit <source>.<kind> <subject> [text] [--level info|warn|error] [--payload JSON]  (a kind is <source>.<kind>, lower case)",
+              file=sys.stderr)
+        return 2
+    source, kind = pos[0].split(".", 1)
+    if level not in (None, "info", "warn", "error"):
+        print("level is info, warn or error", file=sys.stderr)
+        return 2
+    if payload is not None:
+        try:
+            def no_const(name):
+                raise ValueError(name)       # NaN, Infinity: not JSON
+            ok = isinstance(json.loads(payload, parse_constant=no_const), dict)
+        except ValueError:
+            ok = False
+        payload = json.dumps(json.loads(payload), allow_nan=False, separators=(",", ":")) if ok else None
+    subject = one_line(pos[1]) if len(pos) > 1 else ""
+    text = one_line(pos[2]) if len(pos) > 2 else ""
+    c = open_rw()
+    t = now()
+    with c:
+        event(c, t, kind, subject, text, source, level or kind_level(source, kind), payload)
+        trim_events(c, t)
+    return 0
+
+
+def cmd_event_list(args):
+    c = open_ro()
+    if c is None:
+        return 0
+    n, source, after = 50, None, 0
+    i = 0
+    while i < len(args):
+        if args[i] == "--source" and i + 1 < len(args):
+            source = args[i + 1]; i += 2
+        elif args[i] == "--after" and i + 1 < len(args):
+            after = int(args[i + 1]) if args[i + 1].isdigit() else 0; i += 2
+        elif args[i].isdigit():
+            n = int(args[i]); i += 1
+        else:
+            i += 1
+    try:
+        rows = c.execute("SELECT id, time, source, kind, subject, level, text, payload FROM events WHERE id > ? AND (? IS NULL OR source = ?) "
+                         "ORDER BY id DESC LIMIT ?", (after, source, source, n)).fetchall()
+    except sqlite3.Error:
+        return 0
+    for r in reversed(rows):
+        print("	".join(clean(x) if x not in (None, "") else "-" for x in r))
+    return 0
+
+
+def cmd_audit_list(args):
+    """audit-list [N]: id TAB time TAB actor TAB result (ok|failed) TAB exit TAB command, from the audit.* events, newest last."""
+    n = int(args[0]) if args and args[0].isdigit() else 50
+    c = open_ro()
+    if c is None:
+        return 0
+    try:
+        rows = c.execute("SELECT id, time, kind, subject, payload FROM events WHERE source = 'audit' ORDER BY id DESC LIMIT ?", (n,)).fetchall()
+    except sqlite3.Error:
+        return 0
+    for i, t, kind, subject, payload in reversed(rows):
+        try:
+            p = json.loads(payload) if payload else {}
+        except ValueError:
+            p = {}
+        if not isinstance(p, dict):
+            p = {}
+        print("	".join(clean(x) if x not in (None, "") else "-" for x in
+                        (i, t, p.get("actor"), "ok" if kind == "ok" else "failed", p.get("exit"), subject)))
+    return 0
+
+
+def cmd_disk_events(args):
+    """disk-events [N]: local time TAB label (plugged in | taken out) TAB text, newest last; the Disk events panel and hs disk events."""
+    n = int(args[0]) if args and args[0].isdigit() else 30
+    c = open_ro()
+    if c is None:
+        return 0
+    try:
+        rows = c.execute("SELECT time, kind, text FROM events WHERE source='disk' ORDER BY id DESC LIMIT ?", (n,)).fetchall()
+    except sqlite3.Error:
+        return 0
+    names = {"plugged": "plugged in", "removed": "taken out"}
+    for t, kind, text in reversed(rows):
+        print("	".join((time.strftime("%Y-%m-%d %H:%M", time.localtime(t)), names.get(kind, kind), clean(text or "-"))))
     return 0
 
 
@@ -579,7 +848,7 @@ def cmd_disks_json():
 def cmd_events_json(args):
     c = open_ro()
     n = int(args[0]) if args and args[0].isdigit() else 50
-    rows = [] if c is None else c.execute("SELECT time, kind, subject, text FROM events ORDER BY id DESC LIMIT ?", (n,)).fetchall()
+    rows = [] if c is None else c.execute("SELECT time, kind, subject, text FROM events WHERE source='storage' ORDER BY id DESC LIMIT ?", (n,)).fetchall()
     print(json.dumps({"schema": 1, "events": [
         {"time": r[0], "kind": r[1], "id": mask(r[2]), "text": re.sub(r"S/N (\S+?)\)", lambda m: "S/N " + mask(m.group(1)) + ")", r[3] or "")}
         for r in rows]}, separators=(",", ":")))
@@ -767,32 +1036,113 @@ def cmd_usage(args):
     return 0
 
 
-def cmd_read_put(args):
-    """read-put <key> [--ms N] [--rc N]: the payload is standard input. A key is the words of the read ("monitor disks")."""
-    key, ms, rc = "", None, 0
+def _read_args(args, usage):
+    """key, ms, rc, err from the words after read-put / read-fail"""
+    key, ms, rc, err = "", None, 0, None
     i = 0
     while i < len(args):
         if args[i] == "--ms" and i + 1 < len(args):
             ms = int(args[i + 1]); i += 2
         elif args[i] == "--rc" and i + 1 < len(args):
             rc = int(args[i + 1]); i += 2
+        elif args[i] == "--err" and i + 1 < len(args):
+            err = args[i + 1]; i += 2
         elif not key:
             key = args[i]; i += 1
         else:
-            print("usage: read-put <key> [--ms N] [--rc N]", file=sys.stderr)
-            return 1
+            print(usage, file=sys.stderr)
+            return None
     if not re.fullmatch(r"[a-z0-9-]+( [a-z0-9-]+){0,3}", key or ""):
         print("a key is the words of a read, like: monitor disks", file=sys.stderr)
+        return None
+    return key, ms, rc, err
+
+
+def cmd_read_put(args):
+    """read-put <key> [--ms N] [--rc N]: the payload is standard input. A key is the words of the read ("monitor disks").
+    A new payload counts gen up; a successful put clears err and ts_err (the entry shape of the live state, live_state.status_of)."""
+    parsed = _read_args(args, "usage: read-put <key> [--ms N] [--rc N]")
+    if parsed is None:
         return 1
+    key, ms, rc, _ = parsed
     payload = sys.stdin.read()
     if len(payload) > 4_000_000:
         print("the output is too big to keep", file=sys.stderr)
         return 1
     c = open_rw()
     with c:
-        c.execute("INSERT INTO reads (key, payload, updated, ms, rc) VALUES (?, ?, ?, ?, ?) "
-                  "ON CONFLICT(key) DO UPDATE SET payload = excluded.payload, updated = excluded.updated, ms = excluded.ms, rc = excluded.rc",
-                  (key, payload, now(), ms, rc))
+        old = c.execute("SELECT payload FROM reads WHERE key = ?", (key,)).fetchone()
+        changed = old is None or old[0] != payload
+        if changed:
+            bump(c, ["reads:" + key])      # the collector read something new: the browser may read it again
+        c.execute("INSERT INTO reads (key, payload, updated, ms, rc, gen) VALUES (?, ?, ?, ?, ?, 1) "
+                  "ON CONFLICT(key) DO UPDATE SET payload = excluded.payload, updated = excluded.updated, ms = excluded.ms, rc = excluded.rc, "
+                  "gen = reads.gen + ?, err = NULL, ts_err = NULL",
+                  (key, payload, now(), ms, rc, 1 if changed else 0))
+    return 0
+
+
+def cmd_read_fail(args):
+    """read-fail <key> --err TEXT [--ms N] [--rc N]: a run that gave no output. The kept payload and its time stay; err, ts_err, rc and ms record the
+    failure, so status_of says `stale` while the old output is inside its ttl and `error` after. With no row yet an empty one is made (updated 0 =
+    never read well). Does not count gen up and bumps no topic: nothing the browser could read changed."""
+    parsed = _read_args(args, "usage: read-fail <key> --err TEXT [--ms N] [--rc N]")
+    if parsed is None:
+        return 1
+    key, ms, rc, err = parsed
+    text = " ".join(("".join(ch if ch.isprintable() else " " for ch in (err or "no output")))[:200].split()) or "no output"
+    c = open_rw()
+    t = now()
+    with c:
+        c.execute("INSERT INTO reads (key, payload, updated, ms, rc, gen, err, ts_err) VALUES (?, '', 0, ?, ?, 0, ?, ?) "
+                  "ON CONFLICT(key) DO UPDATE SET ms = excluded.ms, rc = excluded.rc, err = excluded.err, ts_err = excluded.ts_err",
+                  (key, ms, rc, text, t))
+    return 0
+
+
+def bump(c, names):
+    """Count each topic one up (inserts it at 1). The caller owns the transaction."""
+    t = now()
+    for n in names:
+        c.execute("INSERT INTO topics (topic, gen, time) VALUES (?, 1, ?) "
+                  "ON CONFLICT(topic) DO UPDATE SET gen = gen + 1, time = excluded.time", (n, t))
+
+
+def expand_topics(args):
+    """topic names as given; @group = every live topic of that change area and of `any`; --all or * = every live topic
+    (scripts/lib/live-topics.tsv, column 6 = groups). Without the list the names stay as given."""
+    rows = []
+    try:
+        with open(os.environ.get("HS_LIVE_TOPICS", os.path.join(HERE, "lib", "live-topics.tsv")), encoding="utf-8") as f:
+            for line in f:
+                p = line.rstrip("\r\n").split("\t")
+                if p[0] and not p[0].startswith("#"):
+                    rows.append((p[0], (p[5] if len(p) > 5 else "-").split(",")))
+    except OSError:
+        pass
+    out = []
+    for a in args:
+        if a in ("--all", "*"):
+            out += [r[0] for r in rows]
+        elif a.startswith("@"):
+            out += [t for t, groups in rows if a[1:] in groups or "any" in groups]
+        else:
+            out.append(a)
+    return list(dict.fromkeys(out))
+
+
+def cmd_topic_bump(args):
+    """Best effort and silent: no database folder (a test box), not root, a busy database: nothing happens and the exit code is 0."""
+    names = [n for n in expand_topics(args) if re.fullmatch(r"[A-Za-z0-9_:. -]{1,64}", n)]
+    if not names or not os.path.isdir(os.path.dirname(DB) or "."):
+        return 0
+    try:
+        c = open_rw()
+        with c:
+            bump(c, names)
+        c.close()
+    except (sqlite3.Error, OSError):
+        pass
     return 0
 
 
@@ -810,15 +1160,45 @@ def cmd_read_get(args):
     return 0
 
 
+def _read_intervals():
+    """key -> seconds from the list the collector works through (HS_COLLECTED_FILE, default scripts/lib/collected-reads.tsv)"""
+    path = os.environ.get("HS_COLLECTED_FILE") or os.path.join(os.path.dirname(os.path.abspath(__file__)), "lib", "collected-reads.tsv")
+    out = {}
+    try:
+        with open(path, encoding="utf-8") as f:
+            for line in f:
+                parts = line.rstrip("\n").split("\t")
+                if parts[0] and not parts[0].startswith("#"):
+                    out[parts[0]] = int(parts[1]) if len(parts) > 1 and parts[1].isdigit() else 30
+    except OSError:
+        pass
+    return out
+
+
 def cmd_reads():
+    """key TAB age TAB ms TAB rc TAB bytes TAB status TAB gen TAB err TAB err-age; since #324 the last four (the entry shape of the live state).
+    age -1 = never read well (no good output yet); status = live_state.status_of of the row (fresh|stale|error|expired); err and err-age `-` when the
+    last run was fine. An old database that is not migrated yet gives the first five columns and `-` for the rest."""
     c = open_ro()
     if c is None:
         return 0
+    import live_state
+    every = _read_intervals()
+    t = now()
     try:
-        for key, updated, ms, rc, size in c.execute("SELECT key, updated, ms, rc, length(payload) FROM reads ORDER BY updated"):
-            print("%s\t%d\t%s\t%d\t%d" % (key, max(0, now() - updated), "-" if ms is None else ms, rc, size))
+        rows = c.execute("SELECT key, updated, ms, rc, length(payload), gen, err, ts_err, ttl FROM reads ORDER BY updated").fetchall()
     except sqlite3.Error:
-        pass
+        try:
+            rows = [r + (0, None, None, None) for r in c.execute("SELECT key, updated, ms, rc, length(payload) FROM reads ORDER BY updated")]
+        except sqlite3.Error:
+            return 0
+    for key, updated, ms, rc, size, gen, err, ts_err, ttl in rows:
+        doc = {"ts": updated, "err": err, "ts_err": ts_err, "ttl": ttl}
+        status = live_state.status_of(doc, every.get(key, 30), t)
+        age = max(0, t - updated) if updated else -1
+        print("%s\t%d\t%s\t%d\t%d\t%s\t%d\t%s\t%s" % (
+            key, age, "-" if ms is None else ms, rc, size, status, gen or 0,
+            err or "-", "-" if not err or ts_err is None else max(0, t - ts_err)))
     return 0
 
 
@@ -841,6 +1221,16 @@ def main(argv):
         return cmd_disks()
     if cmd == "events":
         return cmd_events(args)
+    if cmd == "emit":
+        return cmd_emit(args)
+    if cmd == "event-kinds":
+        return cmd_event_kinds(args)
+    if cmd == "audit-list":
+        return cmd_audit_list(args)
+    if cmd == "disk-events":
+        return cmd_disk_events(args)
+    if cmd == "event-list":
+        return cmd_event_list(args)
     if cmd == "smart":
         return cmd_smart(args)
     if cmd == "problems":
@@ -865,6 +1255,10 @@ def main(argv):
         return cmd_usage(args)
     if cmd == "read-put":
         return cmd_read_put(args)
+    if cmd == "topic-bump":
+        return cmd_topic_bump(args)
+    if cmd == "read-fail":
+        return cmd_read_fail(args)
     if cmd == "read-get":
         return cmd_read_get(args)
     if cmd == "reads":

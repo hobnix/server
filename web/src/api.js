@@ -8,12 +8,27 @@ export const ageOf = (path) => {
   return a ? a.age + (Date.now() - a.at) / 1000 : null;
 };
 
+// The status of each read as the server reported it (X-HS-Status: fresh|stale|error|expired; absent = a read that has no live topic), with the topic, the
+// error line and the time of the last good read in ms (null = unknown). Read by shell/Fresh.svelte; a page keeps its last data whatever the status is.
+const states = new Map();
+export const stateOf = (path) => states.get(path) ?? null;
+
 async function call(method, path, body, ageKey, signal) {
   const headers = {};
   if (body !== undefined) headers['Content-Type'] = 'application/json';
   if (method !== 'GET' && csrf) headers['X-CSRF-Token'] = csrf;
   const r = await fetch(path, { method, headers, body: body === undefined ? undefined : JSON.stringify(body), credentials: 'same-origin', signal });
   if (method === 'GET' && r.ok) ages.set(ageKey ?? path, { age: Number(r.headers.get('X-HS-Age') ?? 0) || 0, at: Date.now() });
+  if (method === 'GET' && r.ok) {
+    const st = r.headers.get('X-HS-Status');
+    const ok = Number(r.headers.get('X-HS-Last-Ok'));
+    if (st) {
+      states.set(ageKey ?? path, {
+        status: st, topic: r.headers.get('X-HS-Topic') || '', error: r.headers.get('X-HS-Error') || '',
+        lastOk: ok > 0 ? ok * 1000 : st === 'fresh' ? Date.now() : Date.now() - (Number(r.headers.get('X-HS-Age') ?? 0) || 0) * 1000,
+      });
+    } else states.delete(ageKey ?? path);
+  }
   let data = null;
   try { data = await r.json(); } catch { /* no body */ }
   if (!r.ok) {
@@ -28,8 +43,12 @@ async function call(method, path, body, ageKey, signal) {
 // a one-use ticket for the terminal WebSocket; target is 'host' or an instance name
 export const terminalTicket = (target) => call('POST', '/api/terminal', { target });
 
+// a one-use ticket for the graphical console WebSocket of a virtual machine (ADR 0019)
+export const vmConsoleTicket = (target) => call('POST', '/api/vmconsole', { target });
+
 // the last revision of the changelog this user has seen (What's new), kept on the server
 export const changesSeen = () => call('GET', '/api/changes/seen');
+export const liveRefresh = (topic) => call('POST', '/api/live/refresh', { topic });
 export const markChangesSeen = (rev) => call('POST', '/api/changes/seen', { rev });
 
 export const hello = () => call('GET', '/api/hello');
@@ -47,6 +66,12 @@ export async function session() {
 
 export async function login(realm, user, password) {
   const s = await call('POST', '/api/login', { realm, user, password });
+  csrf = s.csrf;
+  return s;
+}
+
+export async function setup(token, password) {
+  const s = await call('POST', '/api/setup', { token, password });
   csrf = s.csrf;
   return s;
 }

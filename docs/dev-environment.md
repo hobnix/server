@@ -16,11 +16,13 @@ scripts/dev/t quick pkg docs
 | `scripts/dev/t quick [name...]` | the tests that need no root (all of them without names) |
 | `scripts/dev/t changed` | the tests that mention a file you changed (at most 25; name the rest yourself) |
 | `scripts/dev/t root [name...]` | the root tests: loop devices, dm-crypt, mounts (Linux and root, or passwordless sudo) |
-| `scripts/dev/t vm` | the throwaway Incus VM test (`zfs-vm`; needs KVM and the internet) |
+| `scripts/dev/t vm [name...]` | the throwaway Incus VM tests (`zfs-vm`, and `rebuild-vm`: restore from only the backup volume and the passphrase; need KVM and the internet); no name runs both; 900 s per test |
 | `scripts/dev/t wsl quick\|changed\|root` | the same, run inside a Debian WSL (Windows only) |
 | `scripts/dev/t list` | the names of the quick, root and vm tests |
 
 Add `-v` for a line per test. `grep -n FAIL .work/test-logs/<name>.log` shows why one failed.
+
+Rust: `cargo build` in rust/ (in WSL for a Linux binary), then `scripts/dev/t quick vault-change-rust` runs the shell test against it (skipped without a binary).
 
 ## Where each test can run
 
@@ -49,6 +51,70 @@ scripts/dev/t wsl root
 ```
 
 The runner copies the working tree into `~/hobnix-test` in the WSL (ext4, much faster than `/mnt/c`) and runs the tests there.
+
+## Hobnix-in-Hobnix (nested VM from the ISO)
+
+`scripts/dev/nested.sh run` boots the installer ISO in a nested Incus VM, runs an unattended `hs-install`, boots the installed system and
+checks it (issue #262, docs/adr/0023-nested-test-harness.md). **Not tested on hardware yet: the harness has never been run against a real
+VM.** Only its logic is tested (`scripts/dev/t quick nested`, a fake console and a fake `incus`).
+
+| Command | What |
+| --- | --- |
+| `scripts/dev/nested.sh preflight` | can this machine do it? (`/dev/kvm`, nested virtualization, `incus`, `ssh-keygen`) |
+| `scripts/dev/nested.sh plan [stage]` | the steps, without running anything |
+| `scripts/dev/nested.sh run [--iso <file>] [--stage iso\|smoke\|all] [--keep]` | the run; the ISO defaults to `result-iso/iso/homeserver-installer.iso` (`scripts/dev/build-iso.sh`) |
+
+Exit codes: 0 passed, 1 a check failed, 2 usage, 3 this machine cannot run it, 4 harness or Incus error. Logs: `.work/nested/<run-id>/`
+(`run.log`, `console-<stage>.log`, `result-<stage>.json`; `.work/nested/latest`).
+
+Limits: nested virtualization must be enabled on the host. Where it is not (exit 3, a WSL2 without it, many CI runners) use `scripts/dev/t vm`
+on a machine with Incus; that tests our scripts on Ubuntu VMs, not the ISO. The rebuild rehearsal is not part of it yet. CI: the manual
+workflow `nested` (Actions, "Run workflow", give an ISO URL).
+
+## Branches and releases
+
+The same model in hobnix/server, hobnix/recipes and hobnix/extensions.
+
+| Branch | Holds | Who writes to it |
+|---|---|---|
+| `develop` | the next release, always green | pull requests from `feature/<topic>` and `fix/<topic>` |
+| `main` | released code only | release pull requests from `develop`, hotfix pull requests |
+
+1. Start a worktree from `origin/develop`, name the branch `feature/<topic>`, open the pull request against `develop`. CI runs on every
+   pull request, whatever its target.
+2. To release, open a pull request from `develop` into `main` and merge it with a **merge commit** (no squash, so `develop` stays an
+   ancestor of `main`). Then, on `main`, tag it: core `git tag -s vX.Y.Z`, package repositories `bash <core>/scripts/dev/release.sh`
+   (it refuses unless you are on `main`, clean and equal to `origin/main`). The tag on the core builds the installer ISO.
+3. A hotfix branches from `main`, goes into `main` through a pull request and is tagged. Merge `main` back into `develop` right after, so
+   the fix is not lost and the next release pull request has no conflict.
+4. `main` is protected: no direct pushes, no force pushes, no deletion. The primary checkout stays on `main` (guard
+   scripts/dev/guard-primary-checkout.sh).
+5. A pull request is merged only when the check `ci-ok` is green (it is the one check the branch rule asks for). CI also runs on `develop`
+   after each merge: two pull requests that pass alone can fail together. A red `develop` is fixed before anything else is merged.
+6. Code for a decision record (`docs/adr/`) is merged after the record is Accepted, or behind a switch that is off by default.
+7. An issue is closed when every box under "Done when" is ticked. Merged but not run: it stays open, in the board column In Review.
+8. One milestone at a time, and at most three issues In Progress. Work for a later milestone waits until the current one is released.
+9. A pull request opened by an AI session carries the label `agent-pr` from the start (`gh pr create --label agent-pr`); the DCO job is
+   skipped for it and the maintainer who merges it takes the responsibility (CONTRIBUTING.md).
+
+### What CI runs (.github/workflows/ci.yml)
+
+| Job | What | When |
+| --- | --- | --- |
+| `changes` | decides which jobs can be affected | always (not on a draft pull request) |
+| `scripts` | `bash -n`, shellcheck (errors), the changelog warning | always |
+| `tests` | the tests that need no root, in four parts on four runners (`tests/run-all.sh --shard I/4`) | always |
+| `rust` | format, clippy, tests of the Cargo workspace | Rust files or the scripts they stand in for changed |
+| `packages` | hobnix/recipes and hobnix/extensions against this core | not for web-only or docs-only changes |
+| `integration` | the root tests on loop devices | not for web-only or docs-only changes |
+| `nixos` | evaluates the system, builds the Rust program and the web frontend, evaluates the ISO | not for docs-only or tests-only changes |
+| `ci-ok` | fails when one of the jobs above failed or was cancelled | always |
+| `iso` | builds the ISO and the release | a tag `v*`, after every job above |
+
+A push to `develop`, a tag and a manual run always run every job. A new test needs no entry in the workflow.
+
+Update channels (Stable, Beta, Edge) are designed in docs/PLAN-channels.md; they build on these branches and tags.
+Not tested on hardware yet.
 
 ## Agents
 

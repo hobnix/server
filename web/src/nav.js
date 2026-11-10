@@ -12,6 +12,7 @@ export const tree = [
             { label: 'fast', icon: 'lightning', path: '/storage/pools/fast', storage: true },
           ] },
           { label: 'Disks', icon: 'hard-drive', path: '/storage/disks', storage: true },
+          { label: 'Incident', icon: 'first-aid-kit', path: '/storage/incident', storage: true },
           { label: 'Shares', icon: 'folders', path: '/storage/shares', storage: true },
           { label: 'Files', icon: 'folder-open', path: '/storage/files', storage: true },
           { label: 'Encryption', icon: 'lock-key', path: '/storage/encryption' },
@@ -20,6 +21,7 @@ export const tree = [
       },
       { label: 'Instances', icon: 'cube', path: '/instances', storage: true, children: [
         { label: 'Apps', icon: 'package', path: '/instances/apps', storage: true },
+        { label: 'ISO images', icon: 'disc', path: '/instances/iso', storage: true, capability: 'incus' },
         { label: 'Services', icon: 'arrows-split', path: '/instances/services', capability: 'reverse-proxy' },
         { label: 'Docker', icon: 'shipping-container', path: '/instances/docker', capability: 'docker', children: [
           { label: 'Registries', icon: 'key', path: '/instances/docker/registries', capability: 'docker' },
@@ -35,6 +37,8 @@ export const tree = [
       { label: 'Monitoring', icon: 'gauge', path: '/monitoring', children: [
         { label: 'Hardware', icon: 'cpu', path: '/monitoring/hardware' },
         { label: 'Diagnostics', icon: 'stethoscope', path: '/monitoring/diagnostics' },
+        { label: 'Live state', icon: 'pulse', path: '/monitoring/live-state', capability: 'live-state' },
+        { label: 'Test-lab', icon: 'flask', path: '/monitoring/test-lab', capability: 'testlab' },
       ] },
       { label: 'Protection', icon: 'shield', path: '/protection', children: [
         { label: 'Backup', icon: 'cloud-arrow-up', path: '/protection/backup' },
@@ -43,6 +47,7 @@ export const tree = [
       { label: 'Operations', icon: 'gear-six', path: '/operations', children: [
         { label: 'Health', icon: 'heartbeat', path: '/operations/health' },
         { label: 'Notifications', icon: 'bell', path: '/operations/notifications', capability: 'notifications' },
+        { label: 'Events', icon: 'list-bullets', path: '/operations/events' },
         { label: "What's new", icon: 'sparkle', path: '/operations/whats-new' },
       ] },
       { label: 'Docs', icon: 'book-open', path: '/docs', prefix: true, capability: 'docs' },
@@ -55,6 +60,7 @@ export const tree = [
         { label: 'Backups', icon: 'cloud-arrow-up', path: '/settings/backups', capability: 'backup' },
         { label: 'Users and access', icon: 'users-three', path: '/settings/access' },
         { label: 'Updates', icon: 'arrow-circle-up', path: '/settings/updates' },
+        { label: 'Releases', icon: 'git-branch', path: '/settings/releases' },
         // one child per capability that is on and has a settings page of its own is added at render time (nodeItems capItems)
         { label: 'Capabilities', icon: 'puzzle-piece', path: '/settings/capabilities', prefix: true },
         { label: 'Advanced', icon: 'wrench', path: '/settings/advanced' },

@@ -1,0 +1,4 @@
+date  = "2026-11-04"
+type  = "feature"
+title = "Plugged-in and removed disks are kept in the event log"
+body  = """The list of disks that were plugged in or taken out now lives in the event log together with the other events. Your old list is imported once and nothing is lost; the file /var/lib/hs/disk-events is kept as disk-events.imported and is no longer written. `hs disk events` and the Disk events panel show the same lines as before."""

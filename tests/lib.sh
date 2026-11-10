@@ -33,7 +33,24 @@ check_out() {   # check_out "what" regex command...: output of the command match
   if grep -Eq "$re" <<<"$out"; then pass "$what"; else fail "$what (no '$re' in: $(head -c 300 <<<"$out" | tr '\n' ' '))"; fi
 }
 
-need_root() { [ "$(id -u)" -eq 0 ] || { echo "The integration tests need root (loop devices, mounts)."; exit 2; }; }
+# Mounts the tests make (the pool, the data disks, /bulk). A leftover one of an earlier test or of the machine itself is in the way.
+# mountpoint(1) cannot be used for this: on a dead FUSE mount (mergerfs gone) it says "not a mountpoint" and mkdir says "File exists".
+test_mounts() { awk '$5 ~ /^(\/bulk|\/mnt\/bulk|\/var\/lib\/hs\/disks)(\/|$)/ { print $5 }' /proc/self/mountinfo | sort -ru; }
+# cleanup unmounts these paths only for a test that passed need_root and found them free at its start. A test without need_root, or a
+# machine where they are in use (a real pool), never gets them unmounted by the EXIT trap.
+POOL_MOUNTS_OURS=false
+need_root() {
+  [ "$(id -u)" -eq 0 ] || { echo "The integration tests need root (loop devices, mounts)."; exit 2; }
+  local left
+  left=$(test_mounts | tr '\n' ' ')
+  if [ -n "$left" ]; then
+    echo "  FAIL  these paths are mounted and the test needs them free: $left"
+    echo "        Never run the root tests on a machine with a real pool: use a throwaway VM. If an earlier test left them in a test VM,"
+    echo "        unmount them there (umount -l, deepest first) and run the test again. Nothing was unmounted."
+    exit 1
+  fi
+  POOL_MOUNTS_OURS=true
+}
 have() { command -v "$1" >/dev/null 2>&1; }
 
 mkloop() {   # mkloop <name> <size> -> device; /dev/disk/by-id/ata-TEST_<name> points at it
@@ -68,7 +85,13 @@ dm_works() {   # device-mapper / dm-crypt usable?
 cleanup() {
   local m d
   for m in $(findmnt -rn -o TARGET | grep "^$WORK" | sort -r); do umount -l "$m" 2>/dev/null || true; done
-  for m in /mnt/bulk/data-* /mnt/bulk/parity-* /var/lib/hs/disks/data-* /var/lib/hs/disks/parity-* /mnt/bulk/pool /bulk; do mountpoint -q "$m" 2>/dev/null && umount -l "$m" 2>/dev/null; done
+  if $POOL_MOUNTS_OURS; then   # every mount of the pool, deepest first; a mount can be stacked, so look again until it is gone
+    local i
+    for i in 1 2 3; do
+      for m in $(test_mounts); do umount -l "$m" 2>/dev/null || true; done
+      [ -z "$(test_mounts)" ] && break
+    done
+  fi
   for d in /dev/mapper/hs-*; do [ -e "$d" ] && cryptsetup close "$(basename "$d")" 2>/dev/null; done
   [ ! -f "$LOOPS" ] || while read -r d; do [ -n "$d" ] && losetup -d "$d" 2>/dev/null; done < "$LOOPS"
   [ ! -f "$LINKS" ] || while read -r d; do [ -n "$d" ] && rm -f "$d"; done < "$LINKS"

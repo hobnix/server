@@ -46,7 +46,7 @@ in
       Type = "oneshot";
       RemainAfterExit = true;
     };
-    script = "bash ${scripts}/bulk-mount.sh && bash ${scripts}/live.sh refresh @disks";
+    script = "rc=0; bash ${scripts}/bulk-mount.sh || rc=$?; bash ${scripts}/live.sh refresh @disks; exit $rc";
   };
   # Parity is only as fresh as the last sync: what is new or changed since is unprotected.
   # Once a night at 03:00 by default (machine.toml: syncEveryHours; every run wakes all data disks); a sync only works on what changed.
@@ -58,7 +58,7 @@ in
     # no parity disk: skip the run (not a failure, the health check and the status say "no parity disk")
     serviceConfig.Type = "oneshot";
     serviceConfig.ExecCondition = "${pkgs.gnugrep}/bin/grep -q '^parity ' /var/lib/snapraid/snapraid.conf";
-    script = "bash ${scripts}/bulk-sync.sh && bash ${scripts}/live.sh refresh @disks";
+    script = "rc=0; bash ${scripts}/bulk-sync.sh || rc=$?; bash ${scripts}/live.sh refresh @disks; exit $rc";
     startAt = if syncEveryHours >= 24 then "*-*-* 03:00:00" else "*-*-* ${toString (lib.mod 3 syncEveryHours)}/${toString syncEveryHours}:00:00";   # "3/24" is not valid in systemd
     onFailure = notifyFailure;       # also when the sync is refused
   };
@@ -71,7 +71,7 @@ in
     after = [ "bulk-mount.service" ];
     path = [ "/run/current-system/sw" ];
     serviceConfig.Type = "oneshot";
-    script = "bash ${scripts}/cache-mover.sh --if-full && bash ${scripts}/live.sh refresh @shares";
+    script = "rc=0; bash ${scripts}/cache-mover.sh --if-full || rc=$?; bash ${scripts}/live.sh refresh @shares; exit $rc";
     startAt = "*:7/15";
     onFailure = notifyFailure;
   };
@@ -82,7 +82,7 @@ in
     path = [ "/run/current-system/sw" ];
     serviceConfig.Type = "oneshot";
     serviceConfig.ExecCondition = "${pkgs.gnugrep}/bin/grep -q '^parity ' /var/lib/snapraid/snapraid.conf";
-    script = "bash ${scripts}/bulk-sync.sh --scrub && bash ${scripts}/live.sh refresh @disks";
+    script = "rc=0; bash ${scripts}/bulk-sync.sh --scrub || rc=$?; bash ${scripts}/live.sh refresh @disks; exit $rc";
     startAt = "Sun 05:00";
     onFailure = notifyFailure;
   };
@@ -154,7 +154,7 @@ in
     path = [ "/run/current-system/sw" ];
     serviceConfig.Type = "oneshot";
     unitConfig = whenUnlocked;
-    script = "bash ${scripts}/snapshots-auto.sh run && bash ${scripts}/live.sh refresh @shares";
+    script = "rc=0; bash ${scripts}/snapshots-auto.sh run || rc=$?; bash ${scripts}/live.sh refresh @shares; exit $rc";
     startAt = "hourly";
     onFailure = notifyFailure;
   };
@@ -191,7 +191,7 @@ in
     description = "Start a short SMART self-test in every disk (hs disk selftest short)";
     path = [ "/run/current-system/sw" ];
     serviceConfig.Type = "oneshot";
-    script = "bash ${scripts}/selftest.sh short && bash ${scripts}/live.sh refresh @disks";
+    script = "rc=0; bash ${scripts}/selftest.sh short || rc=$?; bash ${scripts}/live.sh refresh @disks; exit $rc";
     startAt = "Sat 03:10";    # maintenance window (starts 03:00)
     onFailure = notifyFailure;
   };
@@ -201,7 +201,7 @@ in
     description = "Start a long SMART self-test in one disk per night, ordered by serial (hs disk selftest long)";
     path = [ "/run/current-system/sw" ];
     serviceConfig.Type = "oneshot";
-    script = "bash ${scripts}/selftest.sh long --night && bash ${scripts}/live.sh refresh @disks";
+    script = "rc=0; bash ${scripts}/selftest.sh long --night || rc=$?; bash ${scripts}/live.sh refresh @disks; exit $rc";
     startAt = "*-*-* 03:15";    # maintenance window (starts 03:00)
     onFailure = notifyFailure;
   };
@@ -230,7 +230,7 @@ in
     wants = [ "network-online.target" ];
     path = [ "/run/current-system/sw" "/run/wrappers" ];
     serviceConfig.Type = "oneshot";
-    script = "bash ${scripts}/remote.sh mount-all && bash ${scripts}/live.sh refresh @shares";
+    script = "rc=0; bash ${scripts}/remote.sh mount-all || rc=$?; bash ${scripts}/live.sh refresh @shares; exit $rc";
     startAt = "*:0/2";
   };
 
@@ -249,7 +249,7 @@ in
   };
 
   # A disk was plugged in or taken out (started by the udev rule above). %i = "<action>-<kernel name>".
-  # scripts/disk-event.sh logs it to /var/lib/hs/disk-events and sends a push message; see: hs disk events
+  # scripts/disk-event.sh logs it to the event log (disk.plugged, disk.removed) and sends a push message; see: hs disk events
   systemd.services."hs-disk-event@" = {
     description = "Disk event: %i";
     path = [ "/run/current-system/sw" ];
@@ -259,6 +259,17 @@ in
       action=''${1%%-*}
       name=''${1#*-}
       bash ${scripts}/disk-event.sh "$action" "$name"
+    '';
+  };
+
+  # ZFS fault events (hobnix/server#297): ZED (services.zfs.zed) runs this zedlet for every ZFS event; scripts/zed-event.sh writes a
+  # pool or device fault to the event log (storage.pool-fault) and refreshes the disks group, so Health shows it at once.
+  # This repo does not set services.zfs.zed itself; it relies on the NixOS default (zfs-zed runs when ZFS is in use). Not tested on hardware yet.
+  environment.etc."zfs/zed.d/all-hobnix.sh" = {
+    mode = "0755";
+    text = ''
+      #!/bin/sh
+      exec ${pkgs.bash}/bin/bash ${scripts}/zed-event.sh
     '';
   };
 

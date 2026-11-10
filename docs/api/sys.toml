@@ -1,0 +1,102 @@
+# Hand-written shapes of `hs sys` outputs; scripts/openapi-gen.py turns them into docs/api/openapi.json.
+# Key = the row path without "sys ". Fields: kind (tsv|json|text); either columns = [...] (every line has these fields) or
+# records = {tag = [fields after the tag]} (the first field names the line); optional enums = {field = [...]}
+# (records: "tag.field" for one line kind), stdin = "line"|"bytes", note. Rows without an entry are marked x-hs-described: false.
+
+["jobs list"]
+kind = "tsv"
+columns = ["unit", "description", "next", "last", "result"]
+enums = { result = ["ok", "failed", "never"] }
+
+["jobs running"]
+kind = "tsv"
+columns = ["unit", "description", "started"]
+
+["jobs tail <unit>"]
+kind = "tsv"
+records = { state = ["state"], exit = ["status"], line = ["text"], next = ["count"] }
+enums = { state = ["running", "ok", "failed", "unknown"] }
+
+["jobs record <id>"]
+kind = "json"
+note = "One job record (docs/adr/0004-job-record.md): id, slug, description, source, initiator, unit, queued, started, ended, state, exit, step {n, of, text}, progress {done, total, unit}, error, result, cancel, version, and since ADR 0018 parent (id of the orchestration), kind (orchestration or step) and waiting (the pending question {seq, key, label, kind, default, pattern, choices, error, attempt, asked}, never an answer). state may be waiting. Absent values are null."
+
+["jobs records"]
+kind = "tsv"
+columns = ["id", "slug", "description", "state", "queued", "started", "ended", "exit", "step_n", "step_of", "step_text", "progress_done", "progress_total", "progress_unit"]
+enums = { state = ["queued", "running", "waiting", "ok", "failed", "cancelled", "interrupted"] }
+
+["jobs children <id>"]
+kind = "tsv"
+columns = ["id", "slug", "description", "state", "queued", "started", "ended", "exit", "step_n", "step_of", "step_text", "progress_done", "progress_total", "progress_unit"]
+enums = { state = ["queued", "running", "waiting", "ok", "failed", "cancelled", "interrupted"] }
+note = "The sub-jobs of one orchestration job (ADR 0018), oldest first; same columns as jobs records."
+
+["jobs answer <id>"]
+kind = "tsv"
+records = { status = ["status"], reason = ["text"] }
+enums = { status = ["done", "stale", "refused"] }
+stdin = "line"
+note = "Answer the question an interactive recipe run waits for (ADR 0018). The answer is one line on stdin, never an argument. status stale: the question is not waiting any more (nothing written); refused: not the initiator or an admin, or the answer does not fit the question's shape or choices (exit 1)."
+
+["audit"]
+kind = "tsv"
+columns = ["id", "time", "actor", "result", "exit", "command"]
+enums = { result = ["ok", "failed"] }
+note = "Who did what: one line per command that changed the system, newest last. command is the words typed, never the arguments after them."
+
+["event list"]
+kind = "tsv"
+columns = ["id", "time", "source", "kind", "subject", "level", "text", "payload"]
+enums = { level = ["info", "warn", "error"] }
+
+["ct list"]
+kind = "tsv"
+columns = ["name", "type", "state", "address", "ram", "cpu", "autostart", "mac_pinned", "docker", "disk", "snapshots",
+           "last_snapshot", "memory_in_use", "cpu_time", "bindings", "last_start_utc", "owner"]
+
+["pool state"]
+kind = "tsv"
+records = { lock = ["state", "text"], paused = ["state", "text"], scrub = ["pool", "state", "text"], sync = ["pool", "state", "text"] }
+enums = { "lock.state" = ["pool-change", "free", "busy", "unknown"], "paused.state" = ["yes", "no"] }
+
+["pool state <pool>"]
+kind = "tsv"
+records = { lock = ["state", "text"], paused = ["state", "text"], scrub = ["pool", "state", "text"], sync = ["pool", "state", "text"] }
+enums = { "lock.state" = ["pool-change", "free", "busy", "unknown"], "paused.state" = ["yes", "no"] }
+
+["incident state"]
+kind = "tsv"
+records = { ok = ["scope", "text"], incident = ["id", "pool", "kind", "severity", "text"], member = ["pool", "name", "state", "group", "disk", "why"], target = ["pool", "member", "dev", "disk"], share = ["pool", "name", "path", "impact"], app = ["pool", "name", "state", "via", "writes"], progress = ["pool", "kind", "percent", "text"], paused = ["paused", "instances"], free = ["disk", "bytes", "role"], phase = ["pool", "phase"], step = ["n", "state", "title"], next = ["command", "text"] }
+enums = { "incident.kind" = ["pool-degraded", "member-down", "disk-failing"], "incident.severity" = ["warn", "error"], "share.impact" = ["unavailable", "at-risk"], "app.writes" = ["yes", "no"], "progress.kind" = ["resilver", "rebuild"], "paused.paused" = ["yes", "no"], "phase.phase" = ["detect", "ready", "running"], "step.state" = ["done", "now", "todo", "optional"] }
+
+["release show"]
+kind = "tsv"
+records = { channel = ["channel"], installed = ["version"], offer = ["channel", "ref", "state"], ref = ["ref"], state = ["state"], signed = ["signed"] }
+enums = { "offer.state" = ["none", "unknown", "current", "kept", "update"], "state.state" = ["none", "unknown", "current", "kept", "update"], "signed.signed" = ["yes", "no", "-"] }
+
+["live inspect"]
+kind = "json"
+note = "{now, topics: [{topic, words[], interval, lock (run|skip), origin (core|extension), cap (null = always), cap_on, groups[], age (null = never read), gen, rc, err, ts_err, bytes}]}. Optional per topic, only when known: needs[] (#153), status, ttl, source (#322)."
+
+["live raw <topic>"]
+kind = "json"
+note = "{topic, stored (false = no document), ts, gen, rc, err, ts_err, bytes (full size), truncated, out (at most 65536 bytes)}. Exit 2: unknown topic."
+
+["testlab results"]
+kind = "tsv"
+columns = ["run", "stage", "result", "exit", "ref", "commit", "started", "ended"]
+enums = { stage = ["1", "2"], result = ["ok", "failed", "skipped", "error"] }
+note = "The last test-lab runs (capability testlab), oldest first, one line per run and stage. started and ended are UTC times; empty fields are -."
+
+["testlab plan <action>"]
+kind = "tsv"
+records = { status = ["status"], reason = ["text"], heading = ["text"], step = ["text"], note = ["text"], command = ["text"], long = ["yes"] }
+enums = { status = ["ok", "refused"] }
+note = "What a test-lab run would do: hs sys testlab plan run [--ref R] [--stage 1|2|all]. Exit 0 ok, 1 refused. Never asks."
+
+["testlab start <action>"]
+kind = "tsv"
+records = { status = ["status"], reason = ["text"], unit = ["unit"] }
+enums = { status = ["started", "refused"] }
+note = "Start a test-lab run as a background job: hs sys testlab start run [--ref R] [--stage 1|2|all]; status started + the job unit."

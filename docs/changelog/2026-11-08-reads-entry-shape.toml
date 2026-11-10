@@ -1,0 +1,4 @@
+date  = "2026-11-08"
+type  = "change"
+title = "Diagnostics shows one status for every read"
+body  = """On a server that still reads without live state, the Diagnostics page now shows the same status as with it (fresh, stale, error, expired) and the last error of each read. A read that fails keeps its last good output and says why it failed. `hs sys reads status` has four more columns at the end. Not tested on hardware yet."""

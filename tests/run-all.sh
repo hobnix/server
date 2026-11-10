@@ -1,11 +1,12 @@
 #!/usr/bin/env bash
 # Runs every tests/*.sh (the one place that knows the list: CI calls this, nobody lists tests by hand).
 #
-#   bash tests/run-all.sh [--list] [--only <glob>]... [--jobs N] [--verbose] [--root-only]
+#   bash tests/run-all.sh [--list] [--only <glob>]... [--jobs N] [--shard I/N] [--verbose] [--root-only]
 #
 #   --list       show each test and whether it would run or be skipped (and why), run nothing
 #   --only GLOB  only tests whose name (without .sh) matches the glob; repeatable (e.g. --only 'pool-*')
 #   --jobs N     run N tests at the same time (default 1; a few tests use fixed ports/dirs, so 1 is the safe default)
+#   --shard I/N  only part I of N of the list (every Nth test, counted after --only): CI runs the parts on separate runners
 #   --verbose    print the output of passing tests too (failed ones always print their FAIL lines and last 40 lines)
 #   --root-only  run only the tests that need root (what the CI "integration" job does)
 #
@@ -25,10 +26,11 @@ bash_bin=${HS_TEST_BASH:-bash}
 # name -> why it is not run by default | the env switch that enables it.
 declare -A EXTERNAL=(
   [zfs-vm]="needs Incus with KVM and the internet (a throwaway VM)|HS_TEST_VM"
+  [rebuild-vm]="needs Incus with KVM and the internet (two throwaway VMs)|HS_TEST_VM"
 )
 HELPERS=" lib lib-poolfakes lib-standins run run-all "
 
-list=false verbose=false root_only=false jobs=1
+list=false verbose=false root_only=false jobs=1 shard_i=1 shard_n=1
 only=()
 while [ $# -gt 0 ]; do
   case $1 in
@@ -37,7 +39,11 @@ while [ $# -gt 0 ]; do
     --root-only) root_only=true ;;
     --only) shift; [ $# -gt 0 ] || { echo "--only needs a glob" >&2; exit 2; }; only+=("$1") ;;
     --jobs|-j) shift; jobs=${1:-}; case $jobs in ''|*[!0-9]*|0) echo "--jobs needs a number >= 1" >&2; exit 2 ;; esac ;;
-    -h|--help) sed -n '2,20p' "$0" | sed 's/^# \{0,1\}//'; exit 0 ;;
+    --shard) shift; s=${1:-}
+      case $s in [1-9]*/[1-9]*) shard_i=${s%%/*}; shard_n=${s##*/} ;; *) shard_i=x ;; esac
+      case $shard_i$shard_n in *[!0-9]*) echo "--shard needs I/N, for example 2/4" >&2; exit 2 ;; esac
+      [ "$shard_i" -le "$shard_n" ] || { echo "--shard needs I/N with I <= N" >&2; exit 2; } ;;
+    -h|--help) sed -n '2,21p' "$0" | sed 's/^# \{0,1\}//'; exit 0 ;;
     *) echo "unknown option: $1" >&2; exit 2 ;;
   esac
   shift
@@ -76,6 +82,12 @@ for f in "$here"/*.sh; do
   names+=("$n")
 done
 [ ${#names[@]} -gt 0 ] || { echo "no test matches" >&2; exit 2; }
+if [ "$shard_n" -gt 1 ]; then
+  part=()
+  for i in "${!names[@]}"; do [ $((i % shard_n)) -eq $((shard_i - 1)) ] && part+=("${names[$i]}"); done
+  names=("${part[@]}")
+  [ ${#names[@]} -gt 0 ] || { echo "== 0 passed, 0 failed, 0 skipped (part $shard_i/$shard_n is empty)"; exit 0; }
+fi
 
 if $list; then
   for n in "${names[@]}"; do
@@ -96,7 +108,8 @@ run_one() {   # name: runs the test, prints one line, leaves <name>.res = ok|FAI
   rc=$?
   t1=$(now)
   secs=$(awk -v a="$t0" -v b="$t1" 'BEGIN { printf "%.1f", b - a }')
-  if [ $rc -eq 0 ]; then echo ok >"$out/$n.res"
+  if [ $rc -eq 0 ] && grep -aqE '^  -> 0 ok, 0 failed, [1-9]' "$out/$n.log"; then echo skip >"$out/$n.res"   # ran nothing, only skip lines
+  elif [ $rc -eq 0 ]; then echo ok >"$out/$n.res"
   elif [ $rc -eq 77 ]; then echo skip >"$out/$n.res"
   else echo FAIL >"$out/$n.res"; extra="  (exit $rc)"; fi
   printf '%-4s %-22s %6ss%s\n' "$(cat "$out/$n.res")" "$n" "$secs" "$extra"
@@ -124,11 +137,11 @@ for n in "${todo[@]}"; do
 done
 wait
 
-pass=0 fail=0 failed=()
+pass=0 fail=0 failed=() skipped=()
 for n in "${todo[@]}"; do
   case $(cat "$out/$n.res" 2>/dev/null) in
     ok) pass=$((pass + 1)) ;;
-    skip) nskip=$((nskip + 1)) ;;
+    skip) nskip=$((nskip + 1)); skipped+=("$n") ;;
     *) fail=$((fail + 1)); failed+=("$n") ;;
   esac
   if $verbose && [ -f "$out/$n.log" ]; then echo "---- $n"; cat "$out/$n.log"; fi
@@ -141,5 +154,6 @@ for n in "${failed[@]}"; do
 done
 total=$(awk -v a="$started" -v b="$(now)" 'BEGIN { printf "%.1f", b - a }')
 echo "== $pass passed, $fail failed, $nskip skipped, in ${total}s"
+[ ${#skipped[@]} -eq 0 ] || echo "skipped: ${skipped[*]}"
 if [ $fail -gt 0 ]; then echo "failed: ${failed[*]}"; exit 1; fi
 exit 0

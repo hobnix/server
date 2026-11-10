@@ -14,6 +14,7 @@ set -uo pipefail
 here=$(dirname "$0")
 . "$here/lib/ui.sh"
 . "$here/lib/live.sh"
+. "$here/lib/event.sh"
 conf=${HS_UPS_CONF:-/etc/hs/ups}
 
 cval() { sed -n "s/^$1=//p" "$conf" 2>/dev/null | head -n1; }
@@ -90,6 +91,16 @@ case "$cmd" in
   event)
     msg=${2:-}; type=${NOTIFYTYPE:-${msg%% *}}; host=$(hostname)
     systemctl_=${HS_SYSTEMCTL:-systemctl}
+    # one event per NUT event, only for the names we know (the name is never taken into the log as it comes)
+    case "$type" in
+      ONBATT) event_emit ups.onbatt ups "On battery" ;;
+      ONLINE) event_emit ups.online ups "Mains power is back" ;;
+      LOWBATT) event_emit ups.lowbatt ups "Battery low" ;;
+      FSD|SHUTDOWN) event_emit ups.shutdown ups "Shutting down" ;;
+      COMMBAD) event_emit ups.commbad ups "UPS not reachable" ;;
+      COMMOK) event_emit ups.commok ups "UPS reachable again" ;;
+      REPLBATT) event_emit ups.replbatt ups "Replace the battery" ;;
+    esac
     case "$type" in
       ONBATT)
         extra=""
@@ -116,6 +127,7 @@ case "$cmd" in
     read_ups
     case "$(state_of "$r_status")" in
       battery|low)
+        event_emit ups.shutdown ups "Battery deadline of $minutes min reached"
         notify --category stop "$(hostname): shutting down (UPS)" "$minutes min on battery: shutting down cleanly." high
         "${HS_UPSMON:-upsmon}" -c fsd 2>/dev/null || ${HS_POWEROFF:-systemctl poweroff} ;;
     esac

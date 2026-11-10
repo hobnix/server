@@ -1,0 +1,5 @@
+date  = "2026-11-09"
+type  = "feature"
+title = "The Hobnix version is shown in hs system info and on the Overview"
+docs  = "operations"
+body  = """hs system info has a line Hobnix with the version (a tag like v0.1.0, or the tag, the number of commits after it and a short hash), and the Overview shows it as the fact Version. The installer ISO carries the version in its file name (homeserver-installer-v0.1.0.iso) and in /etc/hs-installer-version. The volume label stays HS_INSTALLER. Not tested on hardware yet."""

@@ -48,6 +48,9 @@ run plan vpn run;                                 check_eq "an answer is missing
 has "^needs${T}ADDR" && pass "names ADDR" || fail "$out"
 has "^needs${T}KEY" && pass "and the secret KEY" || fail "$out"
 has "^needs${T}COUNTRIES" && fail "a text question without a pattern may stay empty" || pass "COUNTRIES may stay empty"
+run plan vpn run --interactive --by alice --role admin </dev/null; check_eq "interactive: nothing has to be answered up front (it is asked while the run goes)" 0 "$rc"
+run plan vpn run --interactive --by 'a b';        check_eq "interactive: a bad --by is refused" 1 "$rc"
+run plan vpn run --role boss;                     check_eq "a role that does not exist is refused" 1 "$rc"
 runin 's3cret' plan vpn run --set ADDR=10.2.0.2/32; check_eq "all answered: exit 0" 0 "$rc"
 has "kept secret" && pass "the plan says the secret stays secret" || fail "$out"
 grep -q "s3cret\|10.2.0.2" <<<"$out" && fail "the plan must not print the answers" || pass "no answer is printed"
@@ -105,6 +108,15 @@ check_out "a row per question" "^PROVIDER${T}Provider${T}text${T}proton${T}" ech
 check_out "the condition is a column" "^KEY${T}Private key${T}secret${T}-${T}-${T}KIND=wg" echo "$a"
 check_out "the last row says how it is answered" "^input${T}form" echo "$a"
 check_out "a recipe without questions says none" "^input${T}none" env HS_RECIPES_DIR=$R bash "$SCRIPTS/recipe-asks.sh" fine
+echo "-- hs sys recipes steps"
+mkdir -p "$R/stepped"
+printf '# recipe: Stepped\n# kind: generic\n# needs: -\n# input: form\n# uses: -\n# step: account|Your account\n# help: account|Who you are | with a bar\n# step: extras|Extras\n# ask: USER|User|text|-|-|-|account\n# ask: PW|Password|secret|-|-|-|account\n# ask: MODE|Mode|choice:a,b|a|-|-|extras\n# ask: LOOSE|Loose|text\n' > "$R/stepped/run.sh"
+st=$(HS_RECIPES_DIR=$R bash "$SCRIPTS/recipe-steps.sh" stepped)
+check_out "a step row: id, label, help, keys" "^account${T}Your account${T}Who you are \\| with a bar${T}USER,PW$" echo "$st"
+check_out "a step with another key" "^extras${T}Extras${T}-${T}MODE$" echo "$st"
+check_eq "a question without a step is in no row" 0 "$(grep -c LOOSE <<<"$st" || true)"
+check_eq "a recipe without steps has no rows" "" "$(HS_RECIPES_DIR=$R bash "$SCRIPTS/recipe-steps.sh" fine)"
+check_out "asks keeps its columns with a 7th field" "^USER${T}User${T}text${T}-${T}-${T}-$" env HS_RECIPES_DIR=$R bash "$SCRIPTS/recipe-asks.sh" stepped
 echo "-- runs (pickable runtime)"
 export HS_STATE_DIR=$WORK/st; mkdir -p "$HS_STATE_DIR"
 printf 'state\toff\n' > "$WORK/dstat-off"; printf 'state\ton\n' > "$WORK/dstat-on"

@@ -87,6 +87,13 @@ for `backup-state` because a plugged or removed backup disk flips its `disk` key
 and exits 1 with its usage text, so the READS entry (no argument) can never answer. No page in web/src calls it (only the WARM list does); it needs a
 design (one row per share) before it can become a topic. Reported, not changed.
 
+## Dependencies (2026-11-06, #153)
+
+Dependencies (#153): `live-topics.tsv` column 7 `needs` = topics whose new gen re-reads this one in a wave (one thread, dependency order, once per topic).
+Only a new gen spreads; a failed read keeps the data and spreads nothing. A wave never reads a topic sooner than `HS_LIVE_MIN_GAP` s (5) after its last read.
+An extension read may `needs` core topics only; an unknown name switches its live topic off and logs one line. `hs sys live status` field 8 = needs.
+Not tested on hardware yet.
+
 ## Extension reads (2026-11-01)
 
 A package manifest can opt a `[[web.reads]]` entry without `args` in with `live = 10..3600` (docs/PLAN-extensions.md): topic `ext-<name>-<words joined
@@ -96,3 +103,34 @@ words `a-z0-9-` only, topic at most 100 characters, no duplicate topic across pa
 declaration), no `live` with `args`. `live_state.topics()` and `topic_info()` append these rows (only for the default file, so tests with their own path
 are unaffected). The collector rescans every 60 s, and at once when a refresh names an unknown `ext-` topic; a removed topic stops and its key is
 deleted. The web interface takes the capability from the read itself (the topic is not in `live-topics.tsv`), and a package that is switched off has no read at all in the web interface (it is gone within 3 s, the collector stops the topic within 60 s). A web change in the area `ext/<n>` wakes `@ext-<n>`. Output is stored in Redis as printed: a read must print no secret.
+
+## Docker watcher (2026-11-06, #155)
+
+`DockerWatch` in `scripts/live-collect.py` is one thread of hs-live. It runs
+`incus exec docker -- docker events --format '{{json .}}' --filter type=container --filter type=network --filter type=volume`
+(`HS_INCUS` is honoured) and asks for the group `@docker` (the topics `docker-list` and `docker-apps`) with a direct `refresh`, no Redis round trip.
+
+- Coalescing: a refresh when 1 s passed without a new event, at the latest 5 s after the first event of a burst. Pending events are flushed when the stream ends.
+- The poll of the two topics is 300 s now; it is the safety net when the watcher is down.
+- Reconnect with back-off 1, 2, 5, 10, 30, 60 s (the last repeats; reset after a connection that was up). A connection is up after one event line or 3 s alive. Every up connection after the first asks for one refresh.
+- Logging: one journal line when an outage starts (`docker events down (<reason>), retrying with back-off`), one when it is over (`docker events back`). No state.db event kind, journal only: `journalctl -u hs-live | grep 'docker events'`.
+- Capability gate: with `docker` off there is no process; the thread checks again every 60 s.
+- Tests replace the whole command with `HS_LIVE_DOCKER_EVENTS` (a command line).
+- Open: whether a real `incus exec` without a terminal needs `--force-noninteractive` (or `-T`) to avoid a pty is not verified; check `incus exec --help` on hardware.
+- `@docker` also wakes the `any` topics; accepted.
+
+Not tested on hardware yet.
+
+## Incus watcher (2026-11-09, #392)
+
+`IncusWatch` (subclass of `DockerWatch`, same file, same thread model: decision "inside hs-live", no own unit, so it restarts with the collector
+and shares its `Restart=always`) runs `incus monitor --type=lifecycle --format=json` (`HS_INCUS` honoured; tests: `HS_LIVE_INCUS_EVENTS`) and asks for
+`@instances` (`ct-list`, `ct-profiles`, `services-*`, ...). Coalescing, back-off, one journal line per outage (`incus events down/back`) and the
+capability gate (`incus` off = no process) are the Docker ones; the 10 s poll stays the safety net. After a reconnect one refresh covers what was missed
+(`incus monitor` does not replay).
+
+- Refresh for: created, started, stopped, shutdown, deleted, restarted, renamed, paused, resumed, ready, updated, rebuilt of an instance. Not for snapshots (nightly, every instance), exec, console, log, images, networks.
+- Events: `ct.created`, `ct.started`, `ct.stopped` (also for `instance-shutdown`), `ct.deleted`; subject = instance; payload `instance`, `project`, `action` only (the lifecycle `context` is never read). Same kind and instance within 10 s = one event; at most 30 per minute, the rest is counted in one journal line (a host shutdown stops every instance).
+- Not done: a separate "crashed" kind. Incus does not say whether a stop was requested; `ct.stopped` after no `hs` job is the hint. Decide with the catalogue (#145).
+
+Not tested on hardware yet.

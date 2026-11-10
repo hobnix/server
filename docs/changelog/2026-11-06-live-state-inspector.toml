@@ -1,0 +1,7 @@
+date  = "2026-11-06"
+type  = "feature"
+title = "Live state page: every topic, its state and errors, refresh and raw output"
+docs  = "web-interface"
+body  = """
+Monitoring > Live state lists every live-state topic with its command, interval, capability, groups, age, generation, exit code and last error. It updates by itself, can ask for a new reading of one topic and shows what is stored. Only with the capability live-state.
+"""

@@ -1,0 +1,12 @@
+# Transition copy (hobnix/server#313): the events of the media helper until hobnix/recipes declares them in package.toml [[events]].
+# Same format as /var/lib/hs/pkg-events/<package>.tsv (scripts/lib/pkg_events.py); an installed declaration of the package replaces this file.
+# kind	level	payload keys	label	icon	meaning	category	priority	title	message
+pkg.sabnzbd.added	info	service,name,label,icon,title,sub?,body,fields?,footer?,poster_url?	Download queued	download-simple	a download was queued (media helper; subject: the service)	info	low	{name}: {label}	{body}
+pkg.sabnzbd.unpacking	info	service,name,label,icon,title,sub?,body,fields?,footer?,poster_url?	Unpacking	package	a download is being unpacked (media helper; subject: the service)	info	min	{name}: {label}	{body}
+pkg.sabnzbd.finished	info	service,name,label,icon,title,sub?,body,fields?,footer?,poster_url?	Download finished	tray-arrow-down	a download finished (media helper; subject: the service)	ok	default	{name}: {label}	{body}
+pkg.sabnzbd.failed	warn	service,name,label,icon,title,sub?,body,fields?,footer?,poster_url?	Download failed	warning-octagon	a download failed (media helper; subject: the service)	problem	high	{name}: {label}	{body}
+pkg.sabnzbd.queue-done	info	service,name,label,icon,title,sub?,body,fields?,footer?,poster_url?	Queue finished	checks	the download queue is empty (media helper; subject: the service)	info	low	{name}: {label}	{body}
+pkg.sabnzbd.disk-full	error	service,name,label,icon,title,sub?,body,fields?,footer?,poster_url?	Disk full	warning-octagon	SABnzbd reports a full disk (media helper; subject: the service)	alarm	urgent	{name}: {label}	{body}
+pkg.sabnzbd.error	warn	service,name,label,icon,title,sub?,body,fields?,footer?,poster_url?	Error	warning-octagon	SABnzbd reports an error (media helper; subject: the service)	problem	high	{name}: {label}	{body}
+pkg.sabnzbd.warning	info	service,name,label,icon,title,sub?,body,fields?,footer?,poster_url?	Warning	warning	SABnzbd reports a warning (media helper; subject: the service)	problem	default	{name}: {label}	{body}
+pkg.sabnzbd.test	info	service,name,label,icon,title,sub?,body,fields?,footer?,poster_url?	Test	check-circle	the test message of SABnzbd (media helper; subject: the service)	info	low	{name}: {label}	{body}

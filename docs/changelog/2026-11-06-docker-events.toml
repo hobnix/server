@@ -1,0 +1,4 @@
+date  = "2026-11-06"
+type  = "feature"
+title = "Docker apps show a start or stop within about a second"
+body  = """The live state now follows the Docker event stream and refreshes the Docker app lists when a container, network or volume changes, instead of waiting up to 30 seconds. The lists are still re-read every 5 minutes as a safety net. Not tested on hardware yet."""

@@ -535,6 +535,26 @@ st_write() {
       done
     } > "$busyf.tmp" 2>/dev/null && mv -f "$busyf.tmp" "$busyf" 2>/dev/null || true
   fi
+  rec_report
+}
+# The same numbers go to the job record (ADR 0004, #386): progress {done,total,unit} (bytes, else files) and step {n of, text = the phase}.
+# Only inside a job (HS_JOB_ID, set by hs_job); at most once a second, and always when the job has ended. Best effort: a record that cannot be
+# written never changes the job. The state file stays for what the record has no field for (files AND bytes, speed, eta, current) and for the
+# skipped and failed lists and the selection; those are not moved into `result` (the record holds no per-file lists by design, ADR 0004 rule 7).
+rec_last=-1; rec_phase=""
+rec_report() {
+  [ -n "${HS_JOB_ID:-}" ] || return 0
+  local now=$SECONDS n=0 i of=${#SEL[@]} u=files d=$files_done t=$files_total
+  if [ "$result" = running ] && [ "$now" -eq "$rec_last" ] && [ "$phase" = "$rec_phase" ]; then return 0; fi
+  rec_last=$now; rec_phase=$phase
+  command -v hs_job_progress >/dev/null 2>&1 || . "$here/lib/job.sh" 2>/dev/null || return 0
+  for ((i = 0; i < of; i++)); do [ "${idone_flag[i]:-0}" != 1 ] || n=$((n + 1)); done
+  [ "$result" != running ] || [ "$n" -ge "$of" ] || n=$((n + 1))
+  [ "$of" -ge 1 ] || of=1
+  [ "$n" -le "$of" ] || n=$of
+  if [ "${bytes_total:-0}" -gt 0 ]; then u=bytes; d=$bytes_done; t=$bytes_total; fi
+  hs_job_step "$n" "$of" "${phase//$'\t'/ }" || true
+  hs_job_progress "$d" "$t" "$u" || true
 }
 st_tick() { if [ "$SECONDS" -ne "$last_tick" ]; then last_tick=$SECONDS; st_write; fi; }
 
@@ -693,6 +713,7 @@ run_job() {
   mkdir -p "$fm_dir/jobs" "$fm_dir/busy" "$fm_dir/claims"; chmod 700 "$fm_dir" 2>/dev/null || true
   sf=$fm_dir/jobs/$jobid.state; skf=$fm_dir/jobs/$jobid.skipped; failf=$fm_dir/jobs/$jobid.failed; busyf=$fm_dir/busy/$jobid
   : > "$skf"; : > "$failf"
+  [ -z "${HS_JOB_ID:-}" ] || printf '%s\n' "$HS_JOB_ID" > "$fm_dir/jobs/$jobid.rec" 2>/dev/null || true   # which job record carries this job (cmd_progress falls back to it)
   files_done=0; files_total=0; bytes_done=0; bytes_total=0; skipped=0; failed=0; current=""; phase=starting; result=running
   cancelled=0; took_admin=no; cur_tmp=""; claimf=""; last_tick=-1; t0=$SECONDS
   ifiles=(); ibytes=(); idone=(); idone_flag=(); bsrc=(); bdst=()   # global: the exit trap writes the state last
@@ -806,6 +827,26 @@ cmd_progress() {
   if [ -f "$fm_dir/jobs/$unit.alias" ]; then id=$(cat "$fm_dir/jobs/$unit.alias"); else id=$unit; fi
   [[ $id =~ ^[A-Za-z0-9._-]{1,60}$ ]] || refuse "that is not a job"
   sf=$fm_dir/jobs/$id.state
+  if [ ! -f "$sf" ] && [ -f "$fm_dir/jobs/$id.rec" ]; then
+    # no state file (not written yet, or removed): the shared fields come from the job record
+    local rid; rid=$(cat "$fm_dir/jobs/$id.rec" 2>/dev/null)
+    if [[ $rid =~ ^[A-Za-z0-9._-]{1,100}$ ]] && [ -f "$here/job-record.py" ] \
+       && python3 "$here/job-record.py" get "$rid" 2>/dev/null | python3 -c '
+import json, sys
+r = json.load(sys.stdin)
+p = r.get("progress") or {}
+st = r.get("step") or {}
+res = {"ok": "done", "cancelled": "cancelled", "failed": "failed", "interrupted": "failed"}.get(r.get("state"), "running")
+unit = p.get("unit")
+done, total = int(p.get("done") or 0), int(p.get("total") or 0)
+f = (done, total) if unit == "files" else (0, 0)
+b = (done, total) if unit == "bytes" else (0, 0)
+print("status\tok")
+for k, v in (("files_done", f[0]), ("files_total", f[1]), ("bytes_done", b[0]), ("bytes_total", b[1]), ("speed", 0), ("eta", 0), ("current", ""),
+             ("phase", str(st.get("text") or "").replace("\t", " ")), ("result", res), ("skipped", 0), ("failed", 0)):
+    print("%s\t%s" % (k, v))
+' ; then return 0; fi
+  fi
   if [ ! -f "$sf" ]; then
     if systemctl is-active -q "$unit.service" 2>/dev/null || [ -f "$fm_dir/jobs/$unit.alias" ]; then
       printf 'status\tok\nfiles_done\t0\nfiles_total\t0\nbytes_done\t0\nbytes_total\t0\nspeed\t0\neta\t0\ncurrent\t\nphase\tstarting\nresult\trunning\nskipped\t0\nfailed\t0\n'

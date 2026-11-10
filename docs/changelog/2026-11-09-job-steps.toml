@@ -1,0 +1,4 @@
+date  = "2026-11-09"
+type  = "change"
+title = "The Jobs page shows the step a long job is at"
+body  = """Update, rebuild, system clean-up, backup now, container updates, moving secrets into the vault and fetching package repositories now report "step n of m" (for example "Updating container web", step 2 of 5) to the job record, so the Jobs page shows where a job is. Only real steps are reported, no percentages. Not tested on hardware yet."""

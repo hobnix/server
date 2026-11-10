@@ -1,0 +1,5 @@
+date  = "2026-11-09"
+type  = "feature"
+title = "Restore the settings on a fresh install from the backup disk"
+body  = """hs backup config restore --from-disk <device> needs only the backup disk and its passphrase: the disk is mounted read-only, the passphrase is typed (never an argument), and the plan, the typed machine.toml confirmation and the .before-restore safety copies work as before. /var/lib/hs comes back (not the backup password or the disk files), the SSH host keys after you type their name, the Samba secrets only with --with-samba; hardware-configuration.nix is never restored. Not tested on hardware yet."""
+docs  = "backup-and-recovery#back-up-and-restore-only-the-settings"

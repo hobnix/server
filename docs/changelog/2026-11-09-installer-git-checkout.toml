@@ -1,0 +1,5 @@
+date  = "2026-11-09"
+type  = "fix"
+title = "A server made by the installer ISO is a git checkout, so hs update works"
+docs  = "install"
+body  = """The installer now makes /etc/nixos a git checkout of the public repository at the revision the stick was built from. hs update, the update channels and the version shown work from the first boot, and the manual clone is only needed when the install ran without a network (the installer says so). machine.toml and hardware-configuration.nix are not touched. Not tested on hardware yet."""

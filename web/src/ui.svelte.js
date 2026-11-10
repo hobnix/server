@@ -10,6 +10,11 @@ export const ui = $state({
   panel: { open: true, tab: 'tasks', height: 214 },   // height in px while open; the grip drags it
 });
 
+// After a change that waits for a rebuild was saved: tells the person so and offers "Rebuild now" (shell/PlanDialog.svelte, mode saved)
+export function openSaved(title) {
+  ui.dialog = { saved: true, title };
+}
+
 export function openPlan(area, args, title, options = {}) {
   ui.dialog = { area, args, title, ...options };
 }

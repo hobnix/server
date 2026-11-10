@@ -1,0 +1,6 @@
+date  = "2026-11-08"
+type  = "feature"
+title = "Changes that wait for a rebuild are listed, and one rebuild applies them all"
+body  = """A banner above every page lists the machine.toml changes saved since the last rebuild. Change as many settings as you like, then press Rebuild now once. The list starts after the first rebuild with this version.
+
+Not tested on hardware yet."""

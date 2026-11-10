@@ -2,6 +2,7 @@
   // The Docker page: the apps (compose projects) that run in the locked docker container.
   import { poll, rows, refresh } from '../data.svelte.js';
   import { takeSelection } from '../select.svelte.js';
+  import { tip } from '../ui/tooltip.svelte.js';
   import { openPlan, jobRunning, ui } from '../ui.svelte.js';
   import { url, go } from '../route.svelte.js';
   import Table from '../shell/Table.svelte';
@@ -73,7 +74,7 @@
       {#snippet action()}<a class="btn" href={url('/settings/capabilities/docker')}>Open Docker settings</a>{/snippet}
     </EmptyState>
   {:else}
-    <div class="toolbar"><Button size="sm" icon="plus" onclick={() => go('/instances/docker/new')}>New app</Button></div>
+    <div class="toolbar"><Button size="sm" icon="plus" onclick={() => go('/instances/docker/new')}>New app</Button> <Button size="sm" icon="magic-wand" onclick={() => go('/instances/docker/wizard')}>Guided</Button></div>
     <Split open={!!sel}>
       {#snippet list()}
         <div class="card" style="padding:0">
@@ -82,13 +83,13 @@
               {#if col.key === 'name'}{a.name}
                 {#if filesChip(a)}{@const c = filesChip(a)} <Chip tone={c.tone} title={c.tip}>{c.text}</Chip>{/if}
               {:else if col.key === 'state'}<StatusDot state={dot(a.state)} label={a.state} />
-              {:else if col.key === 'running'}{#if a.running === '0/0'}<span title="No containers yet: save applies when the app is started or pulled">–</span>{:else}{a.running}{/if}
+              {:else if col.key === 'running'}{#if a.running === '0/0'}<span use:tip={"No containers yet: save applies when the app is started or pulled"}>–</span>{:else}{a.running}{/if}
               {:else if col.key === 'ports'}
                 {@const ports = a.ports === '-' ? [] : a.ports.split(',').filter(Boolean)}
                 {#if ports.length}
                   {#each ports as p, i}{#if i > 0}, {/if}{#if portHref(a, p)}<a href={portHref(a, p)} target="_blank" rel="noopener" onclick={(e) => e.stopPropagation()}>{p}</a>{:else}{p}{/if}{/each}
                 {:else}–{/if}
-              {:else if col.key === 'images'}<span class="images" title={a.images}>{a.images}</span>
+              {:else if col.key === 'images'}<span class="images" use:tip={a.images}>{a.images}</span>
               {:else if col.key === 'managed'}<Chip>{a.managed}</Chip>
               {:else if !isActionable(a)}
                 <span class="acts"></span>
