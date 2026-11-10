@@ -112,6 +112,8 @@ admin_builtin_dc1() {
   printf 'homeassistant\t*\tHome Assistant\twarn\n'
   printf 'sunshine\t47990\tSunshine web UI\twarn\n'
   printf 'sunshine\t8083\tSteam Headless desktop (noVNC)\twarn\n'
+  printf 'claude-vm\t3389\tClaude VM Remote Desktop (xrdp)\twarn\n'
+  printf 'claude-vm\t22\tClaude VM SSH\twarn\n'
   printf 'steamos\t5900\tSteam desktop (VNC)\twarn\n'
   printf 'dc1\t*\tdomain controller\twarn\n'
   printf 'pelican-panel\t*\tPelican Panel (public on purpose, but /admin must have its own protection)\tinfo\n'
