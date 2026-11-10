@@ -656,9 +656,22 @@ class Throttle:
                     longest = max(longest, e["until"] - now)
         return math.ceil(longest)
 
+    MAX_KEYS = 4096     # user names come from the network: the table must not grow without a bound
+
+    def _prune(self, now):
+        """Caller holds the lock. Forget keys that are not locked and have no failure in the last ten minutes; if the table is still full, the oldest go."""
+        for k in [k for k, e in self.fails.items() if e["until"] <= now and not [t for t in e["times"] if now - t < 600]]:
+            del self.fails[k]
+        # still full: the oldest keys that are not locked go (a locked key stays, so a flood of made-up names cannot free an address)
+        free = sorted((k for k, e in self.fails.items() if e["until"] <= now), key=lambda k: self.fails[k]["times"][-1] if self.fails[k]["times"] else 0)
+        for k in free[:max(0, len(self.fails) - self.MAX_KEYS * 9 // 10)]:      # down to 90 %: the next prunes are far apart
+            del self.fails[k]
+
     def failed(self, *keys):
         now = time.time()
         with self.lock:
+            if len(self.fails) >= self.MAX_KEYS:
+                self._prune(now)
             for k in keys:
                 e = self.fails.setdefault(k, {"times": [], "until": 0})
                 e["times"] = [t for t in e["times"] if now - t < 600] + [now]
@@ -2616,6 +2629,14 @@ def make_handler(app):
                 return self._json(404, {"error": "unknown"})
             if not self._same_origin():
                 return self._json(403, {"error": "origin"})
+            # One gate for every changing request: a session and its CSRF token, checked before any handler runs, so a handler added later cannot
+            # forget it. Only the requests that start a session (login, setup) and logout (which is harmless without a session) are exempt.
+            if path not in ("/api/login", "/api/setup", "/api/logout"):
+                gate = self._session()
+                if not gate:
+                    return self._json(401, {"error": "not signed in"})
+                if not secrets.compare_digest(self.headers.get("X-CSRF-Token", ""), gate["csrf"]):
+                    return self._json(403, {"error": "csrf"})
             body = self._json_body(raw)
             if body is None:
                 return self._json(400, {"error": "need a JSON body"})
@@ -2859,7 +2880,7 @@ def make_handler(app):
             pw = body.get("passphrase")
             if not isinstance(pw, str) or not pw or len(pw) > 256 or any(ord(c) < 32 or ord(c) == 127 for c in pw):
                 return self._json(400, {"status": "failed", "reason": "Enter the passphrase (one line, up to 256 characters)."})
-            ip = self.client_address[0]
+            ip = self._client()
             keys = ("unlock-ip:" + ip, "unlock")
             wait = app.throttle.wait(*keys)
             if wait:
@@ -2914,6 +2935,7 @@ def make_handler(app):
             if result == fr.OK:
                 app.throttle.ok(*keys)
                 locked = app.auth.storage_locked()
+                app.sessions.drop(self._token())
                 st = app.sessions.create(user, "local", ip)
                 app.warmer.wake.set()
                 s = app.sessions.get(st, locked)
@@ -2971,6 +2993,7 @@ def make_handler(app):
                     return deny("Wrong user name or password.")
                 name = user
             app.throttle.ok(*keys)
+            app.sessions.drop(self._token())      # a cookie that came with the login is not kept alive (no session fixation)
             token = app.sessions.create(name, realm, ip)
             app.warmer.wake.set()
             s = app.sessions.get(token, locked)
