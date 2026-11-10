@@ -108,7 +108,8 @@ run_one() {   # name: runs the test, prints one line, leaves <name>.res = ok|FAI
   rc=$?
   t1=$(now)
   secs=$(awk -v a="$t0" -v b="$t1" 'BEGIN { printf "%.1f", b - a }')
-  if [ $rc -eq 0 ]; then echo ok >"$out/$n.res"
+  if [ $rc -eq 0 ] && grep -aqE '^  -> 0 ok, 0 failed, [1-9]' "$out/$n.log"; then echo skip >"$out/$n.res"   # ran nothing, only skip lines
+  elif [ $rc -eq 0 ]; then echo ok >"$out/$n.res"
   elif [ $rc -eq 77 ]; then echo skip >"$out/$n.res"
   else echo FAIL >"$out/$n.res"; extra="  (exit $rc)"; fi
   printf '%-4s %-22s %6ss%s\n' "$(cat "$out/$n.res")" "$n" "$secs" "$extra"
@@ -136,11 +137,11 @@ for n in "${todo[@]}"; do
 done
 wait
 
-pass=0 fail=0 failed=()
+pass=0 fail=0 failed=() skipped=()
 for n in "${todo[@]}"; do
   case $(cat "$out/$n.res" 2>/dev/null) in
     ok) pass=$((pass + 1)) ;;
-    skip) nskip=$((nskip + 1)) ;;
+    skip) nskip=$((nskip + 1)); skipped+=("$n") ;;
     *) fail=$((fail + 1)); failed+=("$n") ;;
   esac
   if $verbose && [ -f "$out/$n.log" ]; then echo "---- $n"; cat "$out/$n.log"; fi
@@ -153,5 +154,6 @@ for n in "${failed[@]}"; do
 done
 total=$(awk -v a="$started" -v b="$(now)" 'BEGIN { printf "%.1f", b - a }')
 echo "== $pass passed, $fail failed, $nskip skipped, in ${total}s"
+[ ${#skipped[@]} -eq 0 ] || echo "skipped: ${skipped[*]}"
 if [ $fail -gt 0 ]; then echo "failed: ${failed[*]}"; exit 1; fi
 exit 0
