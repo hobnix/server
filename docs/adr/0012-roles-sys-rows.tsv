@@ -28,8 +28,8 @@ config list	admin	read	system group
 config check	admin	read	system group
 config plan <action>	admin	change	system group
 config start <action>	admin	change	system group
-logs units	viewer	read	read
-logs show	viewer	read	read
+logs units	admin	read	read
+logs show	admin	read	read
 jobs tail <unit>	viewer	read	read
 jobs stop <unit>	admin	change	change
 jobs record <id>	viewer	read	read
@@ -148,7 +148,7 @@ ct profiles	viewer	read	read
 ct bindings <ct>	viewer	read	read
 ct plan <ct> <action>	app-manager	change	change
 ct start <ct> <action>	app-manager	change	change
-ct logs <ct>	viewer	read	read
+ct logs <ct>	app-manager	read	read
 monitor disks	viewer	read	read
 health dry-run	viewer	read	read
 health next	viewer	read	read
@@ -228,7 +228,7 @@ docker plan <action>	app-manager	change	change
 docker start <action>	app-manager	change	change
 docker apps	viewer	read	read
 docker containers	viewer	read	read
-docker logs <app>	viewer	read	read
+docker logs <app>	app-manager	read	read
 docker app <app>	viewer	read	read
 docker rev <app>	viewer	read	read
 docker-app plan <app> <action>	app-manager	change	change
