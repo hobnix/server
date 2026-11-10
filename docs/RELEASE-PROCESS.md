@@ -1,7 +1,7 @@
 # Release process
 
 How code goes from `develop` to a signed release, how a hotfix flows back, what the milestone branch `0.2` does, and the rule proposals for
-the owner. Issue #233; decision record [ADR 0007](adr/0007-branches-and-releases.md); update channels [PLAN-channels](PLAN-channels.md). The
+the owner. Issue #233; decision record ADR 0007 (`docs/adr/0007-branches-and-releases.md`); update channels [PLAN-channels](PLAN-channels.md). The
 first release has its own list: [RELEASE-0.1-checklist](RELEASE-0.1-checklist.md). Nothing here was run against `main`, a real tag or a
 real server yet: **Not tested on hardware yet.** The script is tested against a local repository (`tests/release-core.sh`).
 
