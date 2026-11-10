@@ -82,10 +82,11 @@ The same model in hobnix/server, hobnix/recipes and hobnix/extensions.
 
 1. Start a worktree from `origin/develop`, name the branch `feature/<topic>`, open the pull request against `develop`. CI runs on every
    pull request, whatever its target.
-2. To release, open a pull request from `develop` into `main` and merge it with a **merge commit** (no squash, so `develop` stays an
+2. To release, cut `release/X.Y` from `develop` (`scripts/dev/release-core.sh branch X.Y`), open a pull request from it into `main` and merge it with a **merge commit** (no squash, so `develop` stays an
    ancestor of `main`). Then, on `main`, tag it: core `git tag -s vX.Y.Z`, package repositories `bash <core>/scripts/dev/release.sh`
-   (it refuses unless you are on `main`, clean and equal to `origin/main`). The tag on the core builds the installer ISO.
-3. A hotfix branches from `main`, goes into `main` through a pull request and is tagged. Merge `main` back into `develop` right after, so
+   (it refuses unless you are on `main`, clean and equal to `origin/main`). The tag on the core builds the installer ISO. The core's tag:
+   `scripts/dev/release-core.sh tag vX.Y.Z`. Steps, hotfixes, the milestone branch (`0.2`) and the ruleset proposals: docs/RELEASE-PROCESS.md.
+3. A hotfix branches from `main`, goes into `main` through a pull request and is tagged. Merge `main` back into `develop` (and `develop` into an open milestone branch) right after, so
    the fix is not lost and the next release pull request has no conflict.
 4. `main` is protected: no direct pushes, no force pushes, no deletion. The primary checkout stays on `main` (guard
    scripts/dev/guard-primary-checkout.sh).
