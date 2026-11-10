@@ -1048,7 +1048,7 @@ CHANGES = {
     "secrets": [[r"^(header-backup|close|secrets-fix)$"], [r"^move$"], [r"^move$", r"^[A-Za-z0-9][A-Za-z0-9._-]{0,60}$"]],
     # small chores (admin-change.sh): a test push message, pin the MACs, move the upload cache now, clean the fans
     # the test-lab (testlab-change.sh, the capability testlab): start a run as a job; the ref is a branch, tag or commit name (testlab.sh checks it again and the allowlist of repositories)
-    "testlab": [{"fixed": [r"^run$"], "opts": {"--ref": (r"^[A-Za-z0-9][A-Za-z0-9._/-]{0,99}$", False), "--stage": (r"^(1|2|all)$", False)}}],
+    "testlab": [{"fixed": [r"^run$"], "opts": {"--ref": (r"^[A-Za-z0-9][A-Za-z0-9._/-]{0,99}$", False), "--stage": (r"^([1-6]|install|smoke|rollback|backup|pool|browser|all)$", False)}}],
     "admin": [[r"^(test-push|pin-macs|cache-mover)$"], {"fixed": [r"^fans-clean$"], "opts": {"--seconds": (r"^[0-9]{1,2}$", False)}}],
     # the certificates of the domain controller (dc-change.sh): make the CA once, renew the certificate of a controller on this server (red: Samba restarts)
     "dc": [[r"^ca$"], {"fixed": [r"^renew$"], "opts": {"--dc": (r"^[A-Za-z0-9][A-Za-z0-9-]{0,62}$", False)}}],

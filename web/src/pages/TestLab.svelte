@@ -25,7 +25,7 @@
 </script>
 
 <div class="page">
-  <PageHeader title="Test-lab" crumb="Monitoring" sub={tr('Builds the installer ISO of a Hobnix branch and checks it in a virtual machine (stages 1 and 2).')}>
+  <PageHeader title="Test-lab" crumb="Monitoring" sub={tr('Builds the installer ISO of a Hobnix branch and checks it in a virtual machine (stages 1 to 6).')}>
     {#snippet actions()}
       {#if on}
         <Button variant="primary" icon="flask" busy={jobRunning('testlab', ['run'])} busyLabel="Running…" tooltip={'Shows the plan first'}
