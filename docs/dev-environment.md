@@ -89,6 +89,29 @@ The same model in hobnix/server, hobnix/recipes and hobnix/extensions.
    the fix is not lost and the next release pull request has no conflict.
 4. `main` is protected: no direct pushes, no force pushes, no deletion. The primary checkout stays on `main` (guard
    scripts/dev/guard-primary-checkout.sh).
+5. A pull request is merged only when the check `ci-ok` is green (it is the one check the branch rule asks for). CI also runs on `develop`
+   after each merge: two pull requests that pass alone can fail together. A red `develop` is fixed before anything else is merged.
+6. Code for a decision record (`docs/adr/`) is merged after the record is Accepted, or behind a switch that is off by default.
+7. An issue is closed when every box under "Done when" is ticked. Merged but not run: it stays open, in the board column In Review.
+8. One milestone at a time, and at most three issues In Progress. Work for a later milestone waits until the current one is released.
+9. A pull request opened by an AI session carries the label `agent-pr` from the start (`gh pr create --label agent-pr`); the DCO job is
+   skipped for it and the maintainer who merges it takes the responsibility (CONTRIBUTING.md).
+
+### What CI runs (.github/workflows/ci.yml)
+
+| Job | What | When |
+| --- | --- | --- |
+| `changes` | decides which jobs can be affected | always (not on a draft pull request) |
+| `scripts` | `bash -n`, shellcheck (errors), the changelog warning | always |
+| `tests` | the tests that need no root, in four parts on four runners (`tests/run-all.sh --shard I/4`) | always |
+| `rust` | format, clippy, tests of the Cargo workspace | Rust files or the scripts they stand in for changed |
+| `packages` | hobnix/recipes and hobnix/extensions against this core | not for web-only or docs-only changes |
+| `integration` | the root tests on loop devices | not for web-only or docs-only changes |
+| `nixos` | evaluates the system, builds the Rust program and the web frontend, evaluates the ISO | not for docs-only or tests-only changes |
+| `ci-ok` | fails when one of the jobs above failed or was cancelled | always |
+| `iso` | builds the ISO and the release | a tag `v*`, after every job above |
+
+A push to `develop`, a tag and a manual run always run every job. A new test needs no entry in the workflow.
 
 Update channels (Stable, Beta, Edge) are designed in docs/PLAN-channels.md; they build on these branches and tags.
 Not tested on hardware yet.

@@ -109,12 +109,14 @@ Read, not run.
 | --- | --- | --- |
 | `changes` | every non-draft pull request, tag, manual run | full history; decides which jobs run; a tag or manual run runs all |
 | `rust` | Rust, vault or job files changed; a tag | `cargo fmt`, `clippy -D warnings`, `cargo test --locked`, an up to date `Cargo.lock` |
-| `scripts` | always | `bash -n`, shellcheck (errors), every non-root `tests/*.sh` with `HS_TEST_CI=1`, apt packages `jq`, `python3-pil` |
+| `scripts` | always | `bash -n`, shellcheck (errors) |
+| `tests` | always, four parts | every non-root `tests/*.sh` with `HS_TEST_CI=1` (`tests/run-all.sh --shard I/4`), apt packages `jq`, `python3-pil` |
 | `packages` | root changes; a tag | the repositories hobnix/recipes and hobnix/extensions are readable (public); their `main` passes `repo-check` and their tests against this core |
 | `nixos` | non-docs changes; a tag | nixpkgs pinned to revision `774debe` (move it when servers' channel moves); evaluates the system, builds `pkgs/hobnix.nix` and `pkgs/hs-web.nix` (a stale `npmDepsHash` fails here), capability matrix on a PR into `main`, a tag or a manual run, and `build-iso.sh --eval`. Optional Cachix: variable `CACHIX_CACHE`, secret `CACHIX_AUTH_TOKEN` |
 | `integration` | root changes; a tag | loop devices, `sudo`, restic, xfsprogs, btrfs-progs, cryptsetup, mergerfs, snapraid |
-| `iso` | **only a tag `v*`**, after `changes`, `scripts`, `packages`, `nixos`, `integration` succeeded and `rust` succeeded or was skipped | the same pinned nixpkgs revision as `nixos` (`NIXPKGS_REV` in `ci.yml`), `permissions: contents: write`, enough runner disk for the image; builds `result-iso/iso/*.iso`, writes `.sha256` with the bare file name, runs `gh release create --notes-file docs/RELEASE-NOTES-<major>.<minor>.md` (or uploads to an existing release) |
+| `iso` | **only a tag `v*`**, after `changes`, `scripts`, `tests`, `packages`, `nixos`, `integration` succeeded and `rust` succeeded or was skipped | the same pinned nixpkgs revision as `nixos` (`NIXPKGS_REV` in `ci.yml`), `permissions: contents: write`, enough runner disk for the image; builds `result-iso/iso/*.iso`, writes `.sha256` with the bare file name, runs `gh release create --notes-file docs/RELEASE-NOTES-<major>.<minor>.md` (or uploads to an existing release) |
 | `nested` (nested.yml) | manual only | an ISO URL (a release asset), a runner with `/dev/kvm`; never run, UNVERIFIED |
+| `ci-ok` | always | fails when a job above failed or was cancelled; the one check the branch rule asks for |
 | `dco` | pull requests | `Signed-off-by` on every commit, unless the PR has the label `agent-pr` |
 
 On a tag, `ci.yml` runs every test job in parallel; the `iso` job waits for them (`needs:`) and is skipped, with no release, if one failed

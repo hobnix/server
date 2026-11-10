@@ -1,10 +1,13 @@
 name: ci
 on:
-  # Pull requests only (action minutes ran out when every push ran); a tag builds the ISO release.
+  # Pull requests, the merge queue, and `develop` after each merge (two pull requests that pass alone can fail together); a tag builds
+  # the ISO release. A push to a feature branch runs nothing: its pull request does.
   push:
     tags: ['v*']
+    branches: [develop]
   pull_request:
     types: [opened, synchronize, reopened, ready_for_review]
+  merge_group:
   workflow_dispatch:
 
 concurrency:
@@ -18,7 +21,7 @@ env:
 
 jobs:
   # What did the change touch? Draft pull requests run nothing (mark one ready for review to start CI); the slow jobs run only when they can
-  # be affected. A tag or a manual run always runs everything.
+  # be affected. A tag, a push to develop or a manual run always runs everything.
   changes:
     if: github.event_name != 'pull_request' || !github.event.pull_request.draft
     runs-on: ubuntu-latest
@@ -32,7 +35,7 @@ jobs:
           fetch-depth: 0
       - id: f
         env:
-          BASE: ${{ github.event.pull_request.base.sha }}
+          BASE: ${{ github.event.pull_request.base.sha || github.event.merge_group.base_sha }}
         run: |
           nix=true root=true rust=true
           if [ -n "$BASE" ] && git cat-file -e "$BASE" 2>/dev/null; then
@@ -88,17 +91,32 @@ jobs:
           bash scripts/dev/changelog-check.sh "$BASE" || echo "::warning::No docs/changelog entry: add one if users see this change (CONTRIBUTING.md)."
       - name: shellcheck (errors only)
         run: |
-          shellcheck -S error -x scripts/*.sh scripts/lib/*.sh scripts/recipes/*.sh vps/*.sh tests/*.sh
+          # every file, four processes at a time (one process for all of them took about 90 s)
+          echo scripts/*.sh scripts/lib/*.sh scripts/recipes/*.sh vps/*.sh tests/*.sh | xargs -n 25 -P 4 shellcheck -S error -x
       - name: shellcheck warnings in the pool scripts (informational, counts only)
         continue-on-error: true
         run: |
           shellcheck -x -S warning -f gcc scripts/manage-pool.sh tests/pool-*.sh > /tmp/pool-shellcheck.txt || true
           echo "shellcheck warnings in manage-pool.sh and tests/pool-*.sh: $(wc -l < /tmp/pool-shellcheck.txt)"
           cut -d: -f4- /tmp/pool-shellcheck.txt | sort | uniq -c | sort -rn | head -10
-      - name: Tests that need no root (every tests/*.sh; tests/run-all.sh lists them, root tests are skipped here)
+
+  # The tests that need no root (every tests/*.sh; tests/run-all.sh lists them, root tests are skipped here), split over four runners:
+  # one runner took about 9 minutes. A new test needs no entry here, --shard takes every fourth one.
+  tests:
+    needs: changes
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        shard: [1, 2, 3, 4]
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          fetch-depth: 0
+      - name: Tests, part ${{ matrix.shard }} of 4
         run: |
           sudo apt-get update -qq && sudo apt-get install -y -qq jq python3-pil
-          HS_TEST_CI=1 bash tests/run-all.sh --jobs 2
+          HS_TEST_CI=1 bash tests/run-all.sh --jobs 2 --shard ${{ matrix.shard }}/4
 
   # The default package repositories at their latest main, checked against this core: manifests, indexes and their own tests. A core change
   # that breaks a package is seen here, before a release (docs/PLAN-packages.md, "Compatibility and CI across repositories").
@@ -135,9 +153,21 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v5
+      # The pinned nixpkgs comes from the cache, not from a download per run (GitHub answered 429 once and the job failed). The `iso` job
+      # still downloads it: it runs on a tag only.
+      - uses: actions/cache@v4
+        with:
+          path: ~/nixpkgs.tar.gz
+          key: nixpkgs-${{ env.NIXPKGS_REV }}
+      - name: Unpack the pinned nixpkgs
+        run: |
+          [ -s ~/nixpkgs.tar.gz ] || curl -fsSL --retry 5 --retry-all-errors --retry-delay 10 -o ~/nixpkgs.tar.gz "https://github.com/NixOS/nixpkgs/archive/$NIXPKGS_REV.tar.gz"
+          mkdir -p "$RUNNER_TEMP/nixpkgs"
+          tar -xzf ~/nixpkgs.tar.gz -C "$RUNNER_TEMP/nixpkgs" --strip-components=1
+          echo "NIXPKGS_DIR=$RUNNER_TEMP/nixpkgs" >> "$GITHUB_ENV"
       - uses: cachix/install-nix-action@v27
         with:
-          nix_path: nixpkgs=https://github.com/NixOS/nixpkgs/archive/${{ env.NIXPKGS_REV }}.tar.gz
+          nix_path: nixpkgs=${{ env.NIXPKGS_DIR }}
       - name: Evaluate the system configuration
         run: |
           cp machine.toml.example machine.toml
@@ -175,12 +205,13 @@ jobs:
   # other jobs must have succeeded (a failed or skipped one stops the release). On a tag `changes` turns every job on, so `rust` is only
   # skipped if that ever changes.
   iso:
-    needs: [changes, rust, scripts, packages, nixos, integration]
+    needs: [changes, rust, scripts, tests, packages, nixos, integration]
     if: >-
       !cancelled() && startsWith(github.ref, 'refs/tags/v')
       && needs.changes.result == 'success'
       && (needs.rust.result == 'success' || needs.rust.result == 'skipped')
       && needs.scripts.result == 'success'
+      && needs.tests.result == 'success'
       && needs.packages.result == 'success'
       && needs.nixos.result == 'success'
       && needs.integration.result == 'success'
@@ -238,3 +269,17 @@ jobs:
           sudo apt-get install -y -qq restic xfsprogs btrfs-progs cryptsetup mergerfs snapraid jq attr psmisc python3-pil
       - name: Tests
         run: sudo env HS_TEST_CI=1 HS_TEST_ROOT=1 bash tests/run-all.sh --root-only
+
+  # The one check a branch rule asks for: green when no job failed or was cancelled (a job that did not have to run counts as fine).
+  # Jobs come and go and the test parts have their own names; the rule only knows `ci-ok`.
+  ci-ok:
+    if: always()
+    needs: [changes, rust, scripts, tests, packages, nixos, integration]
+    runs-on: ubuntu-latest
+    steps:
+      - name: Every job passed or was skipped
+        env:
+          RESULTS: ${{ join(needs.*.result, ' ') }}
+        run: |
+          echo "results: $RESULTS"
+          case " $RESULTS " in *" failure "*|*" cancelled "*) exit 1 ;; esac
