@@ -122,8 +122,8 @@ def build_scenario(stage, params):
             step("capture", "lsblk -dnb -e 7,11 -o NAME,SIZE", var="lsblk", what="a target disk is visible"),
             step("pick_disk", "", var="disk", src="lsblk", what="a disk was found"),
             step("run_var", install, timeout=1800, what="unattended hs-install finishes"),
-            step("run", "sed -i '/^options /s/$/ console=tty0 console=ttyS0,115200n8/' /mnt/boot/loader/entries/*.conf && grep -h ^options /mnt/boot/loader/entries/*.conf", what="serial console on the installed system (the installer sets none)"),
-            step("run", "sync && poweroff", expect_rc=None, what="power off after the install"),
+            # the console may close before the marker comes back: the shell is stopped as soon as the shutdown starts (rerun of 2026-11-10)
+            step("run", "sync && poweroff", expect_rc=None, may_close=True, what="power off after the install"),
         ]
     if stage == "smoke":    # the installed system boots from its disk
         user, pw = "adminuser", params["password"]
@@ -264,6 +264,10 @@ def run_steps(console, steps, params_vars=None, report=None):
                 raise ValueError("unknown step kind %r" % k)
         except Timeout as e:
             rec["error"] = str(e)
+        except Closed:
+            if not s.get("may_close"):
+                raise
+            rec["ok"] = rec["closed"] = True
         rec["detail"] = None
         results.append(rec)
         if report:
