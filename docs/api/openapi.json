@@ -11865,7 +11865,7 @@
   "/testlab/results": {
    "get": {
     "operationId": "testlab.results",
-    "summary": "the last test-lab runs as data: run, stage (1|2), result (ok|failed|skipped|error), exit, ref, commit, started, ended; empty: no run yet",
+    "summary": "the last test-lab runs as data: run, stage (1|2|upgrade), result (ok|failed|skipped|error), exit, ref, commit, started, ended; empty: no run yet",
     "x-hs-exit": true,
     "x-hs-sys": {
      "words": [

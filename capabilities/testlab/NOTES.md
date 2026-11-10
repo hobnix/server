@@ -3,6 +3,9 @@
 The test-lab is a thin layer over the nested harness (docs/adr/0023-nested-test-harness.md, `scripts/dev/nested.sh`): it fetches a ref of a
 Hobnix repository, builds the installer ISO from it, boots it in an Incus VM, installs unattended and smoke checks the installed system. Milestone
 0.1 covers stage 1 (the ISO boots and installs) and stage 2 (first boot and smoke check). Stages 3 to 6 are hobnix/server#432 (0.2).
+The stage `upgrade` (hobnix/server#435, `--stage upgrade [--from vX.Y.Z]`, not part of `all`) builds the ISO of the last release, installs it, sets up a share
+(and an app, `HS_NESTED_UPGRADE_APP`), runs `hs update` to the `--ref` branch and checks health, shares, `state.db` and the app. Its result is
+`stage-upgrade.json`. The candidate must be a branch of hobnix/server; the signed-tag path of `hs update` is not exercised.
 Status: written without Incus, KVM or nix. Not tested on hardware yet.
 
 - **Off by default.** A normal install never gets it: `capabilities = ["testlab"]` in machine.toml, then `hs rebuild`. `testlabNightly = true` adds the

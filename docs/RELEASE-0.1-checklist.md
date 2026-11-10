@@ -238,6 +238,20 @@ Not run. Tell people that the ISO and every hardware item in the notes are UNVER
 ## Test-lab exit rule
 _To be written after the first real run of `hs testlab run` (hobnix/server#430, stages 1 and 2): "the test-lab is green on the release commit, plus the short manual list". Not tested on hardware yet._
 
+## Upgrade run (from the first release after 0.1.0 on)
+Once a release exists, a release is not ready until a server on the LAST release reaches the candidate with its settings, shares, `state.db` and
+apps intact (hobnix/server#435). On a machine with the capability `testlab`, with the candidate on a branch of hobnix/server (the release branch
+or `develop`):
+
+```bash
+hs testlab run --stage upgrade --ref <candidate-branch> --from <last-release-tag>
+```
+
+- [ ] `stage-upgrade.json` of the run says `ok` (`hs testlab results`), for the commit that is going to be tagged. Not tested on hardware yet.
+- Skip it for 0.1.0 itself: there is no earlier release (the stage then ends `skipped`, exit 3).
+- `hs update` normally follows a signed tag; the stage points the old checkout at the candidate branch instead, so the signed-tag path is not
+  covered by it. Check that by hand on the first real update.
+
 ## Open work in milestone 0.1
 From `docs/roadmap.md` (2026-11-09): #161 auto-rollback on the real server, #163 rebuild rehearsal in a VM, #165 first monthly restore drill, #171
 disk and pool failure review, #128 job system epic, #139 event architecture epic, #147 live-state epic, #153, #155, #157, #159, #169, #252, #322,

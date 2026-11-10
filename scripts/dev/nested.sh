@@ -3,7 +3,9 @@
 # docs/adr/0023-nested-test-harness.md). First run on hardware 2026-11-10 (issue #430): both stages passed
 # once, on NixOS 26.05 with Incus 7.0.1, after the fixes of that day. Not verified on any other machine.
 #
-#   scripts/dev/nested.sh run [--iso <file>] [--stage iso|smoke|all] [--keep] [--name <vm>]
+#   scripts/dev/nested.sh run [--iso <file>] [--stage iso|smoke|all|upgrade] [--candidate <branch>] [--keep] [--name <vm>]
+#   upgrade (#435): --iso is the LAST RELEASE; installs it, then sets up a share (and the app HS_NESTED_UPGRADE_APP), runs `hs update` to
+#   --candidate (a branch of the Hobnix repository) and checks health. Not tested on hardware yet.
 #   scripts/dev/nested.sh preflight       can this machine run it? (exit 3: no, fall back to `scripts/dev/t vm`)
 #   scripts/dev/nested.sh plan [stage]    print the steps without running anything
 #
@@ -18,11 +20,12 @@ py=${HS_PYTHON:-python3}
 cmd=${1:-}
 [ $# -eq 0 ] || shift
 
-usage() { echo "usage: scripts/dev/nested.sh run [--iso <file>] [--stage iso|smoke|all] [--keep] [--name <vm>] | preflight | plan [stage]" >&2; }
+usage() { echo "usage: scripts/dev/nested.sh run [--iso <file>] [--stage iso|smoke|all|upgrade] [--candidate <branch>] [--keep] [--name <vm>] | preflight | plan [stage]" >&2; }
 
 case "$cmd" in
   preflight) exec "$py" -I "$lib" preflight ;;
   plan)
+    if [ "${1:-}" = upgrade ]; then export HS_NESTED_CANDIDATE=${HS_NESTED_CANDIDATE:-<candidate-branch>}; fi
     if [ $# -gt 0 ]; then exec "$py" -I "$lib" plan "$1"; fi
     for s in iso smoke; do echo "== $s"; "$py" -I "$lib" plan "$s" || exit $?; done
     exit 0 ;;
@@ -33,17 +36,19 @@ esac
 iso=${HS_NESTED_ISO:-$root/result-iso/iso/homeserver-installer.iso}
 # a build with a version has it in the name (homeserver-installer-v0.1.0.iso): take that one when the plain name is not there
 [ -n "${HS_NESTED_ISO:-}" ] || [ -e "$iso" ] || for f in "$root"/result-iso/iso/homeserver-installer-*.iso; do [ -e "$f" ] && iso=$f; done
-stage=all; keep=false; name=""
+stage=all; keep=false; name=""; candidate=""
 while [ $# -gt 0 ]; do
   case $1 in
     --iso) iso=${2:?}; shift 2 ;;
     --stage) stage=${2:?}; shift 2 ;;
+    --candidate) candidate=${2:?}; shift 2 ;;
     --keep) keep=true; shift ;;
     --name) name=${2:?}; shift 2 ;;
     *) usage; exit 2 ;;
   esac
 done
-case $stage in iso|smoke|all) ;; *) usage; exit 2 ;; esac
+case $stage in iso|smoke|all|upgrade) ;; *) usage; exit 2 ;; esac
+[ "$stage" != upgrade ] || [ -n "$candidate" ] || { echo "--stage upgrade needs --candidate <branch> and --iso <the last release>" >&2; exit 2; }
 [ "$stage" != smoke ] || [ -n "$name" ] || { echo "--stage smoke needs --name <vm> of an installed VM (kept with --keep)" >&2; exit 2; }
 
 runid=$(date +%Y%m%d-%H%M%S)-$$
@@ -97,7 +102,11 @@ if [ "$stage" != smoke ]; then
   wait_state STOPPED 120 || infra "the VM did not power off after the install"
   "$incus" config device remove "$name" iso || infra "detaching the ISO failed"
 fi
-if [ "$stage" != iso ]; then
+if [ "$stage" = upgrade ]; then
+  echo "== stage upgrade: boot the old release, update to $candidate"
+  if [ "$(vm_state)" != RUNNING ]; then "$incus" start "$name" || infra "incus start failed"; fi
+  HS_NESTED_CANDIDATE=$candidate "$py" -I "$lib" drive upgrade --vm "$name" --logdir "$logdir"; rc=$?
+elif [ "$stage" != iso ]; then
   echo "== stage smoke: boot the installed system"
   if [ "$(vm_state)" != RUNNING ]; then "$incus" start "$name" || infra "incus start failed"; fi
   "$py" -I "$lib" drive smoke --vm "$name" --logdir "$logdir"; rc=$?

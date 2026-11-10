@@ -111,6 +111,18 @@ class ScenarioTests(unittest.TestCase):
         self.assertIsNone(n.pick_disk(""))
         self.assertIsNone(n.pick_disk("garbage\n"))
 
+    def test_upgrade_scenario(self):
+        steps = n.build_scenario("upgrade", dict(self.P, candidate="develop", app="whoami"))
+        text = "\n".join(s["text"] for s in steps if s["kind"] != "send_secret")
+        self.assertLess(text.index("hs share add"), text.index("hs update --yes"))     # set up first, then update
+        self.assertLess(text.index("hs update --yes"), text.index("hs smoke"))        # checked after
+        self.assertIn("pkg install 'whoami'", text)
+        self.assertNotIn("pw1", text)                                                  # the password is only sent as a secret
+        self.assertNotIn("pkg install", "\n".join(s["text"] for s in n.build_scenario("upgrade", dict(self.P, candidate="develop"))))
+        with self.assertRaises(KeyError):                                              # no candidate, no scenario
+            n.build_scenario("upgrade", self.P)
+        self.assertIn("upgrade", n.STAGES)
+
     def test_shq(self):
         self.assertEqual(n.shq("a'b"), "'a'\\''b'")
 
