@@ -58,6 +58,12 @@ const de = {
   'The connection to the console works, but the picture cannot be shown yet: the viewer is not bundled with this version. Use the Incus console on the server meanwhile.': 'Die Verbindung zur Konsole funktioniert, aber das Bild kann noch nicht angezeigt werden: der Betrachter ist in dieser Version nicht enthalten. Nutze solange die Incus-Konsole auf dem Server.',
   'Closed after 30 minutes without input.': 'Nach 30 Minuten ohne Eingabe geschlossen.', 'Closed after the 8 hour limit.': 'Nach dem Limit von 8 Stunden geschlossen.',
   'Your web session ended.': 'Deine Websitzung ist beendet.', 'The connection dropped.': 'Die Verbindung ist abgebrochen.', 'The console could not be opened.': 'Die Konsole konnte nicht geöffnet werden.',
+  // Test-lab (pages/TestLab.svelte)
+  'Test-lab': 'Testlabor', 'Run on develop': 'Auf develop ausführen', Stage: 'Stufe', Result: 'Ergebnis', Ref: 'Stand', Commit: 'Commit',
+  error: 'Fehler', skipped: 'übersprungen',
+  'Builds the installer ISO of a Hobnix branch and checks it in a virtual machine (stages 1 and 2).': 'Baut die Installer-ISO eines Hobnix-Zweigs und prüft sie in einer virtuellen Maschine (Stufen 1 und 2).',
+  'The test-lab is off. Turn on the capability testlab under Settings > Capabilities to use it here.': 'Das Testlabor ist aus. Schalte die Funktion testlab unter Einstellungen > Funktionen ein, um es hier zu nutzen.',
+  'The runs could not be read.': 'Die Läufe konnten nicht gelesen werden.', 'No test-lab run yet.': 'Noch kein Testlabor-Lauf.',
   // Live state (pages/LiveState.svelte)
   'Live state': 'Live-Zustand', Topic: 'Thema', Source: 'Quelle', TTL: 'Gültigkeit', Age: 'Alter', Gen: 'Gen', Exit: 'Exit-Code', Error: 'Fehler',
   Capability: 'Funktion', Needs: 'Braucht', Refresh: 'Neu lesen', Raw: 'Rohdaten', extension: 'Erweiterung', Stored: 'Gespeichert',

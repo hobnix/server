@@ -233,6 +233,9 @@ gh release edit v0.1.0 --repo hobnix/server --notes-file docs/RELEASE-NOTES-0.1.
 
 Not run. Tell people that the ISO and every hardware item in the notes are UNVERIFIED.
 
+## Test-lab exit rule
+_To be written after the first real run of `hs testlab run` (hobnix/server#430, stages 1 and 2): "the test-lab is green on the release commit, plus the short manual list". Not tested on hardware yet._
+
 ## Open work in milestone 0.1
 From `docs/roadmap.md` (2026-11-09): #161 auto-rollback on the real server, #163 rebuild rehearsal in a VM, #165 first monthly restore drill, #171
 disk and pool failure review, #128 job system epic, #139 event architecture epic, #147 live-state epic, #153, #155, #157, #159, #169, #252, #322,

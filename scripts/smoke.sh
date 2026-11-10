@@ -169,7 +169,8 @@ pc list	the old word of hs ext games list, which is probed
 ext list	the same script as hs ext games list, which is probed (the row `ext <name>` of the same length hides this one from the matcher)
 pkg validate	checks one folder given as argument (tests/pkg.sh)
 pkg repo list	probed as pkg repo list is empty without repositories (tests/pkg-repo.sh)
-pkg available	needs a fetched repository (tests/pkg-repo.sh)'
+pkg available	needs a fetched repository (tests/pkg-repo.sh)
+testlab results	the capability testlab is off on a normal server (probed by tests/testlab.sh)'
 
 if $coverage; then
   cov=$(mktemp -d); trap 'rm -rf "$cov"' EXIT

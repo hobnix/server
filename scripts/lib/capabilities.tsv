@@ -19,4 +19,5 @@ reverse-proxy	reverseProxy	Reverse proxy (publishes the services)
 samba		Samba shares and network discovery
 storage		Storage (ZFS or SnapRAID pools, shares, encrypted disks)
 tailscale		Tailscale (private access to this server)
+testlab		Test-lab (builds the installer ISO and runs it in a nested VM)
 vps	vpsHost,proxyStatusUrl	Proxyserver (VPS) as the front door

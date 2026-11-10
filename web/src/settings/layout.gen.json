@@ -28,6 +28,7 @@
   "webLan": "access",
   "webDocs": "general",
   "liveState": "cap:live-state",
+  "testlabNightly": "cap:testlab",
   "webTerminal": "access",
   "recipeQuestionHours": "access",
   "webTerminalIdleMinutes": "access",
@@ -382,6 +383,11 @@
   },
   "tailscale": {
    "title": "Tailscale (private access to this server)",
+   "icon": "puzzle-piece",
+   "entry": true
+  },
+  "testlab": {
+   "title": "Test-lab (builds the installer ISO and runs it in a nested VM)",
    "icon": "puzzle-piece",
    "entry": true
   },

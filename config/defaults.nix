@@ -18,6 +18,7 @@
   webLan = true;
   webDocs = true;
   liveState = "off";
+  testlabNightly = false;
   webTerminal = false;
   recipeQuestionHours = 24;
   webTerminalIdleMinutes = 30;

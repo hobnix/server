@@ -82,3 +82,21 @@ note = "{now, topics: [{topic, words[], interval, lock (run|skip), origin (core|
 ["live raw <topic>"]
 kind = "json"
 note = "{topic, stored (false = no document), ts, gen, rc, err, ts_err, bytes (full size), truncated, out (at most 65536 bytes)}. Exit 2: unknown topic."
+
+["testlab results"]
+kind = "tsv"
+columns = ["run", "stage", "result", "exit", "ref", "commit", "started", "ended"]
+enums = { stage = ["1", "2"], result = ["ok", "failed", "skipped", "error"] }
+note = "The last test-lab runs (capability testlab), oldest first, one line per run and stage. started and ended are UTC times; empty fields are -."
+
+["testlab plan <action>"]
+kind = "tsv"
+records = { status = ["status"], reason = ["text"], heading = ["text"], step = ["text"], note = ["text"], command = ["text"], long = ["yes"] }
+enums = { status = ["ok", "refused"] }
+note = "What a test-lab run would do: hs sys testlab plan run [--ref R] [--stage 1|2|all]. Exit 0 ok, 1 refused. Never asks."
+
+["testlab start <action>"]
+kind = "tsv"
+records = { status = ["status"], reason = ["text"], unit = ["unit"] }
+enums = { status = ["started", "refused"] }
+note = "Start a test-lab run as a background job: hs sys testlab start run [--ref R] [--stage 1|2|all]; status started + the job unit."

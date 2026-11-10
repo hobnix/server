@@ -2538,6 +2538,39 @@ export interface SysOperations {
     exit: number;
     lines: string[][];
   };
+  "testlab.plan.by_action": {
+    /** what a test-lab run would do, as data: status, plan lines (never asks; exit 0 ok, 1 refused) */
+    words: ["testlab", "plan", "<action>"];
+    path: "/testlab/plan/{action}";
+    method: "post";
+    class: "plan";
+    params: { action: string; };
+    stdin: "none";
+    exit: 0 | 1 | 2;
+    lines: ChangeLines;
+  };
+  "testlab.results": {
+    /** the last test-lab runs as data: run, stage (1|2), result (ok|failed|skipped|error), exit, ref, commit, started, ended; empty: no run yet */
+    words: ["testlab", "results"];
+    path: "/testlab/results";
+    method: "get";
+    class: "read";
+    params: { };
+    stdin: "none";
+    exit: number;
+    lines: ([run: Field, stage: "1" | "2", result: "ok" | "failed" | "skipped" | "error", exit: Field, ref: Field, commit: Field, started: Field, ended: Field])[];
+  };
+  "testlab.start.by_action": {
+    /** start it (hs sys testlab start run [--ref R] [--stage 1|2|all]) as a background job; status started + unit */
+    words: ["testlab", "start", "<action>"];
+    path: "/testlab/start/{action}";
+    method: "post";
+    class: "start";
+    params: { action: string; };
+    stdin: "none";
+    exit: 0 | 1 | 2;
+    lines: ChangeLines;
+  };
   "unifi.clients": {
     /** every address the router has reserved or sees online, no header, by address: ip, mac, name (- when none), reserved|online|reserved+online */
     words: ["unifi", "clients"];
