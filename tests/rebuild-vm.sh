@@ -4,6 +4,7 @@
 # passphrase, and the restore must bring back the host files and every share file with the same checksums.
 # Not covered: nixos-install, boot order, the vault, hs rebuild, pools (Case A steps 5-11 of the guide; a manual rehearsal).
 # Run on the server as a user who may use incus (no root):   bash tests/rebuild-vm.sh [--keep]
+# First run on hardware 2026-11-10 (#415): the read-only volume needs restic --no-lock.
 # Not part of tests/run.sh and not run by CI: it needs Incus with KVM and the internet. `scripts/dev/t vm` runs it.
 set -uo pipefail
 here=$(cd "$(dirname "$0")/.." && pwd)
@@ -86,17 +87,22 @@ fail() { echo "  FAIL  $*"; bad=1; }
 bad=0
 dev=$(for d in /dev/disk/by-id/scsi-0QEMU_QEMU_HARDDISK_incus_*; do case $d in *-part*) ;; *) readlink -f "$d"; break ;; esac; done)
 mkdir -p /mnt/backup && mount -o ro "$dev" /mnt/backup && pass "the backup volume mounts" || { fail "mount"; exit 1; }
-R() { restic -r /mnt/backup/restic --password-file /root/pw "$@"; }
-R snapshots --tag host 2>/dev/null | grep -q host && pass "the host snapshot is listed with the passphrase" || fail "no host snapshot"
-R snapshots --tag shares 2>/dev/null | grep -q shares && pass "the shares snapshot is listed" || fail "no shares snapshot"
+# the volume is read-only on purpose (the rehearsal must not write to the backup), so restic takes no lock and keeps no cache (as backup.sh does)
+R() { restic -r /mnt/backup/restic --password-file /root/pw --no-lock --no-cache "$@"; }
+err=/root/restic-err
+shown() { sed "s/^/      restic: /" "$err" | head -n 5; }   # restic message of the failed call, indented
+R snapshots --tag host 2>"$err" | grep -q host && pass "the host snapshot is listed with the passphrase" || { fail "no host snapshot"; shown; }
+R snapshots --tag shares 2>"$err" | grep -q shares && pass "the shares snapshot is listed" || { fail "no shares snapshot"; shown; }
 printf wrong > /root/pw-bad
-restic -r /mnt/backup/restic --password-file /root/pw-bad snapshots >/dev/null 2>&1 && fail "a wrong passphrase opened the repository" || pass "a wrong passphrase is refused"
-R check >/dev/null 2>&1 && pass "restic check is clean" || fail "restic check"
+if restic -r /mnt/backup/restic --password-file /root/pw-bad --no-lock --no-cache snapshots >/dev/null 2>"$err"; then fail "a wrong passphrase opened the repository"
+elif grep -qi "wrong password" "$err"; then pass "a wrong passphrase is refused"
+else fail "a wrong passphrase failed, but not with a wrong-password message"; shown; fi
+R check >/dev/null 2>"$err" && pass "restic check is clean" || { fail "restic check"; shown; }
 # the guide: host files back into place, shares into a separate folder first
-R restore latest --tag host --target / >/dev/null 2>&1 && pass "host files restored" || fail "host restore"
+R restore latest --tag host --target / >/dev/null 2>"$err" && pass "host files restored" || { fail "host restore"; shown; }
 grep -q oldbox /etc/hs/machine.toml && pass "machine.toml is back with its content" || fail "machine.toml differs"
 mkdir -p /bulk/shares/restored
-R restore latest --tag shares --target /bulk/shares/restored >/dev/null 2>&1 && pass "shares restored" || fail "share restore"
+R restore latest --tag shares --target /bulk/shares/restored >/dev/null 2>"$err" && pass "shares restored" || { fail "share restore"; shown; }
 miss=0
 while read -r sum path; do
   case $path in bulk/*) f=/bulk/shares/restored/$path ;; *) f=/$path ;; esac

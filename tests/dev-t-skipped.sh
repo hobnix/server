@@ -17,6 +17,12 @@ check_eq "t: a test with 0 ok and a skip is counted as skipped, and named" "2 te
 out=$(HS_T_LOG=$WORK/log bash "$T/scripts/dev/t" quick good nothing bad 2>&1 | tail -n1)
 check_eq "t: failed and skipped together" "3 tests: 1 ok, 1 skipped (nothing), 1 failed (bad)" "$out"
 
+out=$(HS_T_LOG=$WORK/log bash "$T/scripts/dev/t" vm good 2>&1)
+check_eq "t vm: a name that is not a VM test is refused" "good: not a VM test (zfs-vm rebuild-vm)" "$out"
+printf '%s\n' 'echo "  ok    a"' 'echo "  -> 1 ok, 0 failed, 0 skipped"' > "$T/tests/zfs-vm.sh"
+out=$(HS_T_LOG=$WORK/log bash "$T/scripts/dev/t" vm zfs-vm 2>&1)
+check_eq "t vm: only the named VM test runs" "1 tests: 1 ok, 0 skipped, 0 failed" "$out"
+
 out=$(bash "$T/tests/run-all.sh" --only good --only nothing 2>&1)
 case "$out" in *"== 1 passed, 0 failed, 1 skipped"*"skipped: nothing"*) pass "run-all: the same, with the name listed" ;; *) fail "run-all: $out" ;; esac
 
