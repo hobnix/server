@@ -45,6 +45,7 @@ Docs page shows them under *Apps* and *Extensions*.
 | [PLAN-jobs](PLAN-jobs.md) | Job system audit: which commands run as jobs, what a job record holds |
 | [PLAN-web-cache](PLAN-web-cache.md) | Hot state for the web interface (Redis, collector, live updates) |
 | [PLAN-channels](PLAN-channels.md) | Update channels Stable, Beta, Edge on top of develop and main |
+| [RELEASE-PROCESS](RELEASE-PROCESS.md) | develop, release branch, main, tags, hotfixes, the milestone branch, ruleset proposals |
 | [RELEASE-0.1-checklist](RELEASE-0.1-checklist.md) | The steps to release 0.1.0, what CI and the ISO need, blockers found |
 | [RELEASE-NOTES-0.1](RELEASE-NOTES-0.1.md) | Draft release notes of 0.1.0, with the hardware-UNVERIFIED parts |
 | [PLAN-docker-instances](PLAN-docker-instances.md) | Docker as a capability: locked instances, child apps, recipes with `runs` |
