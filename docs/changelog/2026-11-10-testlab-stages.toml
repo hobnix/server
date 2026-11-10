@@ -1,0 +1,6 @@
+date  = "2026-11-10"
+type  = "feature"
+title = "Test-lab: bad update, backup and restore, pool and file manager, web pages"
+body  = """The test-lab now has four more stages after install and smoke check: a bad update that goes back by itself, backup and restore onto a second clean virtual machine, a pool and the file manager on virtual disks, and a headless browser that opens every web page. Run one with hs testlab run --stage rollback (or backup, pool, browser); the nightly run includes all of them. This list was written without a real server.
+
+Not tested on hardware yet."""

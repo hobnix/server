@@ -23,7 +23,7 @@ Issue: hobnix/server#253 (epic #121)
 ## Consequences
 
 - Faster rebuilds only when the host asks for the same store path that CI built. CI is pinned to the nixpkgs revision the servers run (`nixos-version --revision`, set in
-  `.github/workflows/ci.yml`; move it when the servers' channel moves); a host on another revision gets cache misses. The web frontend (`pkgs/hs-web.nix`) is built
+  `config/nixpkgs-pin.toml`; a weekly workflow proposes the bump, see docs/dev-environment.md "The nixpkgs pin"); a host on another revision gets cache misses. The web frontend (`pkgs/hs-web.nix`) is built
   and pushed next to the Rust program. Not measured yet: compare the derivation hash on CI and on a server after the first push.
 - A new trusted key means a compromised Cachix cache could serve a malicious binary to every host. The key is tied to the owner's account:
   protect it with two-factor login and rotate it by changing `publicKey` in a release.

@@ -279,6 +279,59 @@ tag, never from a branch head. Every tag is still checked against the repository
 
 Not tested on hardware yet.
 
+## Move to a new NixOS release
+
+Twice a year NixOS publishes a release (for example 26.05, then 26.11). Hobnix follows one NixOS channel; a new release is a step you take
+on purpose, never part of a normal `hs update`. The channel Hobnix was tested with is named in `config/nixpkgs-pin.toml`.
+
+**A release change updates every package on the server and can fail halfway. Do it when you can reach the machine, after a backup, and
+never on the day you need the server.**
+
+Before you start: a restore test of your backup ([Backup and recovery](backup-and-recovery.md)), `hs health` clean, the checkout in sync
+([Know that the configuration is in sync](#know-that-the-configuration-is-in-sync)).
+
+1. Update Hobnix first. The release that supports the new NixOS names it in its release notes; do not move the channel before that.
+
+```bash
+sudo hs update
+```
+
+2. See the channel the server follows now.
+
+```bash
+sudo nix-channel --list
+```
+
+3. Point it at the new release (here nixos-26.11) and fetch it. This replaces the line named `nixos`; `stateVersion` in the configuration stays as it is.
+
+```bash
+sudo nix-channel --add https://nixos.org/channels/nixos-26.11 nixos
+```
+
+```bash
+sudo nix-channel --update
+```
+
+4. Build and switch. This can take many minutes and restarts services.
+
+```bash
+sudo hs rebuild
+```
+
+5. If it fails or something is wrong afterwards, go back to the previous generation, then put the old channel back with step 3.
+
+```bash
+sudo nixos-rebuild switch --rollback
+```
+
+Check that it worked: `nixos-version` shows the new release, `hs health` says `No problems found.`, the services you use answer.
+
+**For maintainers:** the release change in the repository is one pull request that changes `channel` and `rev` in
+`config/nixpkgs-pin.toml` together (`bash scripts/dev/nixpkgs-pin.sh` shows the head of a channel), lets CI evaluate it, and ships with
+release notes. The upgrade path (a server on the old release, switched as above) is rehearsed in the test-lab.
+
+Not tested on hardware yet. The test-lab rehearsal of a release change is not done: see issue #435 (upgrade test).
+
 ## See what changed after an update
 
 Every user-visible change ships with a short entry, so you can read what an update brought without reading commits.

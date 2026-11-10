@@ -36,6 +36,7 @@ Docs page shows them under *Apps* and *Extensions*.
 | [PLAN-capabilities-on-machine](PLAN-capabilities-on-machine.md) | Derived files of an installed capability package |
 | [PLAN-recipe-orchestrator](PLAN-recipe-orchestrator.md) | Interactive recipe runs: the orchestrator and its API contract |
 | [PLAN-web-backend](PLAN-web-backend.md) | The web interface backend |
+| [THREAT-MODEL-web](THREAT-MODEL-web.md) | Who can reach the web service, what each sign-in can start, protections and open findings |
 | [PLAN-disk-health](PLAN-disk-health.md) | Daily SMART baseline, and a disk and pool checklist |
 | [PLAN-hardware-runbook](PLAN-hardware-runbook.md) | Runbook for four checks only the owner can run: auto-rollback, rebuild rehearsal, drill report, installer ISO (none run yet) |
 | [PLAN-events](PLAN-events.md) | Event sources, consumers and delivery (audit #141 for the event architecture) |
@@ -44,6 +45,7 @@ Docs page shows them under *Apps* and *Extensions*.
 | [PLAN-jobs](PLAN-jobs.md) | Job system audit: which commands run as jobs, what a job record holds |
 | [PLAN-web-cache](PLAN-web-cache.md) | Hot state for the web interface (Redis, collector, live updates) |
 | [PLAN-channels](PLAN-channels.md) | Update channels Stable, Beta, Edge on top of develop and main |
+| [RELEASE-PROCESS](RELEASE-PROCESS.md) | develop, release branch, main, tags, hotfixes, the milestone branch, ruleset proposals |
 | [RELEASE-0.1-checklist](RELEASE-0.1-checklist.md) | The steps to release 0.1.0, what CI and the ISO need, blockers found |
 | [RELEASE-NOTES-0.1](RELEASE-NOTES-0.1.md) | Draft release notes of 0.1.0, with the hardware-UNVERIFIED parts |
 | [PLAN-docker-instances](PLAN-docker-instances.md) | Docker as a capability: locked instances, child apps, recipes with `runs` |

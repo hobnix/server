@@ -1,0 +1,62 @@
+# Proposes a nixpkgs pin bump as a pull request (issue #436): every Monday it moves `rev` in config/nixpkgs-pin.toml to the head of the
+# pinned channel. The pull request runs the normal CI (the `nixos` job evaluates and builds with the new revision); a human merges it.
+# Needs (owner, repository settings): Settings > Actions > General > "Allow GitHub Actions to create and approve pull requests", and for CI
+# to start on the pull request a token that is not GITHUB_TOKEN (GitHub does not run workflows for pull requests made with it): the secret
+# BUMP_TOKEN (a fine-grained token with contents and pull requests write). Without the secret the pull request is made but CI must be started
+# by closing and reopening it. UNVERIFIED: this workflow has never run.
+name: nixpkgs-bump
+on:
+  schedule:
+    - cron: '23 4 * * 1'
+  workflow_dispatch:
+    inputs:
+      base:
+        description: "Branch the pull request targets (default: the repository variable NIXPKGS_BUMP_BASE, else develop)"
+        required: false
+        default: ""
+
+permissions:
+  contents: write
+  pull-requests: write
+
+jobs:
+  bump:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Which branch
+        id: base
+        env:
+          INPUT: ${{ inputs.base }}
+          VAR: ${{ vars.NIXPKGS_BUMP_BASE }}
+        run: echo "name=${INPUT:-${VAR:-develop}}" >> "$GITHUB_OUTPUT"
+      - uses: actions/checkout@v5
+        with:
+          ref: ${{ steps.base.outputs.name }}
+      - name: Move the pin
+        id: pin
+        run: |
+          res=$(bash scripts/dev/nixpkgs-pin.sh bump)
+          echo "result=$res" >> "$GITHUB_OUTPUT"
+          echo "$res"
+      - name: Open the pull request
+        if: steps.pin.outputs.result != 'unchanged'
+        env:
+          GH_TOKEN: ${{ secrets.BUMP_TOKEN || github.token }}
+          BASE: ${{ steps.base.outputs.name }}
+        run: |
+          read -r old new <<<"${{ steps.pin.outputs.result }}"
+          channel=$(bash scripts/dev/nixpkgs-pin.sh get channel)
+          branch="chore/nixpkgs-pin-${new:0:7}"
+          # an open bump pull request exists already: close it, the new one replaces it
+          for n in $(gh pr list --state open --search "head:chore/nixpkgs-pin-" --json number,headRefName -q '.[] | select(.headRefName | startswith("chore/nixpkgs-pin-")) | .number'); do
+            gh pr close "$n" --delete-branch --comment "Replaced by a newer bump (${new:0:7})." || true
+          done
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git switch -c "$branch"
+          git add config/nixpkgs-pin.toml
+          git commit -m "chore: move the nixpkgs pin of $channel to ${new:0:7}" -m "From ${old:0:7}. Proposed by the weekly workflow nixpkgs-bump."
+          git push origin "$branch"
+          gh pr create --base "$BASE" --head "$branch" --title "chore: move the nixpkgs pin of $channel to ${new:0:7}" --body "The weekly job moved \`rev\` in config/nixpkgs-pin.toml from \`$old\` to \`$new\` (head of \`$channel\`).
+
+Merge when CI is green: the \`nixos\` job evaluates the system and builds the Rust program and the web frontend with this revision. After the merge the binary cache fills on the next CI run on the branch. Servers follow their channel and are not changed by this pull request."

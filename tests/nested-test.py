@@ -153,6 +153,39 @@ class ScenarioTests(unittest.TestCase):
         with self.assertRaises(KeyError):
             n.build_scenario("nope", self.P)
 
+    def test_extra_stages_are_registered_and_build(self):
+        P = dict(self.P, backup_pass="BKPASS", disks={"backup": "bk", "pool1": "p1", "pool2": "p2"})
+        for st in ("rollback", "backup", "restore", "pool"):
+            self.assertIn(st, n.STAGES)
+            steps = n.build_scenario(st, P)
+            self.assertGreater(len(steps), 5, st)
+            for s in steps:
+                self.assertIn(s["kind"], ("login", "send", "send_var", "send_secret", "wait", "run", "run_var", "capture", "pick_disk"), st)
+                # a secret is typed only by send_secret or the login step, never inside a command line
+                if s["kind"] != "send_secret":
+                    self.assertNotIn(P["password"], s["text"], st)
+                    self.assertNotIn("BKPASS", s["text"], st)
+
+    def test_login_step_logs_in_when_a_login_prompt_shows(self):
+        t = FakeTransport(banner="\nnested-test login: ")
+        c = n.Console(t, clock=Clock())
+        # the fake does not ask for a password after the user name: the step fails there, but it did type the user name
+        ok, _ = n.run_steps(c, [n.step("login", "", user="adminuser", secret="pw", timeout=5, what="l")])
+        self.assertFalse(ok)
+        self.assertIn("adminuser", "".join(t.sent))
+
+    def test_login_step_accepts_a_shell_that_is_already_open(self):
+        t = FakeTransport(banner="[adminuser@nested-test:~]$ ")
+        ok, res = n.run_steps(n.Console(t, clock=Clock()), [n.step("login", "", user="adminuser", secret="pw", timeout=5, what="l")])
+        self.assertTrue(ok, res)
+        self.assertNotIn("pw", "".join(t.sent))
+
+    def test_the_stage_scenarios_do_not_touch_a_disk_they_were_not_given(self):
+        P = dict(self.P, backup_pass="x", disks={"backup": "bk", "pool1": "p1", "pool2": "p2"})
+        text = " ".join(s["text"] for st in ("backup", "restore", "pool") for s in n.build_scenario(st, P))
+        self.assertNotIn("/dev/sda", text)
+        self.assertIn("incus_bk", text)
+
     def test_full_iso_stage_against_fake(self):
         t = FakeTransport(banner="[nixos@nixos:~]$ ", outputs={"lsblk": "sda 21474836480\n"})
         c = n.Console(t)
@@ -288,7 +321,7 @@ class RunTests(unittest.TestCase):
         # a copy of the scripts so .work/ lands in the temp dir, not in the repository
         self.repo = os.path.join(d, "repo")
         os.makedirs(os.path.join(self.repo, "scripts/dev"))
-        for f in ("nested.sh", "nested_lib.py"):
+        for f in ("nested.sh", "nested_lib.py", "nested_stages.py"):
             shutil.copy(os.path.join(ROOT, "scripts/dev", f), os.path.join(self.repo, "scripts/dev", f))
         self.iso = os.path.join(d, "x.iso")
         with open(self.iso, "wb") as f:
@@ -316,6 +349,8 @@ class RunTests(unittest.TestCase):
         self.assertEqual(self.run_sh("run", "--bogus").returncode, 2)
         self.assertEqual(self.run_sh("run", "--stage", "smoke").returncode, 2)
         self.assertEqual(self.run_sh("plan", "nope").returncode, 2)
+        self.assertEqual(self.run_sh("plan", "rollback").returncode, 0)
+        self.assertEqual(self.run_sh("run", "--stage", "rollback").returncode, 2)   # needs --name of an installed VM
 
     def test_plan_prints_steps_without_secrets(self):
         r = self.run_sh("plan")

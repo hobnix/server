@@ -109,12 +109,12 @@ Read, not run.
 | --- | --- | --- |
 | `changes` | every non-draft pull request, tag, manual run | full history; decides which jobs run; a tag or manual run runs all |
 | `rust` | Rust, vault or job files changed; a tag | `cargo fmt`, `clippy -D warnings`, `cargo test --locked`, an up to date `Cargo.lock` |
-| `scripts` | always | `bash -n`, shellcheck (errors) |
-| `tests` | always, four parts | every non-root `tests/*.sh` with `HS_TEST_CI=1` (`tests/run-all.sh --shard I/4`), apt packages `jq`, `python3-pil` |
-| `packages` | root changes; a tag | the repositories hobnix/recipes and hobnix/extensions are readable (public); their `main` passes `repo-check` and their tests against this core |
-| `nixos` | non-docs changes; a tag | nixpkgs pinned to revision `774debe` (move it when servers' channel moves); evaluates the system, builds `pkgs/hobnix.nix` and `pkgs/hs-web.nix` (a stale `npmDepsHash` fails here), capability matrix on a PR into `main`, a tag or a manual run, and `build-iso.sh --eval`. Optional Cachix: variable `CACHIX_CACHE`, secret `CACHIX_AUTH_TOKEN` |
+| `scripts` | always | `bash -n`; shellcheck (errors): the changed files on a pull request, every file otherwise |
+| `tests` | always (skipped when no test matches a pull request), one to four parts | a pull request: the tests that mention its files (`scripts/dev/tests-for.sh`); a push to `develop` or `0.2`, the merge queue, the nightly run, a tag: every non-root `tests/*.sh`. `HS_TEST_CI=1`, `tests/run-all.sh --shard I/N`, apt packages `jq`, `python3-pil` |
+| `packages` | changes to the core's package helpers, libraries or the package folders; a tag | the repositories hobnix/recipes and hobnix/extensions are readable (public); their `main` passes `repo-check` and their tests against this core |
+| `nixos` | non-docs changes; a tag | nixpkgs pinned to the revision in `config/nixpkgs-pin.toml` (`774debe` at 0.1; a weekly pull request moves it); evaluates the system, builds `pkgs/hobnix.nix` and `pkgs/hs-web.nix` (a stale `npmDepsHash` fails here), capability matrix on a PR into `main`, a tag or a manual run, and `build-iso.sh --eval`. Optional Cachix: variable `CACHIX_CACHE`, secret `CACHIX_AUTH_TOKEN` |
 | `integration` | root changes; a tag | loop devices, `sudo`, restic, xfsprogs, btrfs-progs, cryptsetup, mergerfs, snapraid |
-| `iso` | **only a tag `v*`**, after `changes`, `scripts`, `tests`, `packages`, `nixos`, `integration` succeeded and `rust` succeeded or was skipped | the same pinned nixpkgs revision as `nixos` (`NIXPKGS_REV` in `ci.yml`), `permissions: contents: write`, enough runner disk for the image; builds `result-iso/iso/*.iso`, writes `.sha256` with the bare file name, runs `gh release create --notes-file docs/RELEASE-NOTES-<major>.<minor>.md` (or uploads to an existing release) |
+| `iso` | **only a tag `v*`**, after `changes`, `scripts`, `tests`, `packages`, `nixos`, `integration` succeeded and `rust` succeeded or was skipped | the same pinned nixpkgs revision as `nixos` (`config/nixpkgs-pin.toml`), `permissions: contents: write`, enough runner disk for the image; builds `result-iso/iso/*.iso`, writes `.sha256` with the bare file name, runs `gh release create --notes-file docs/RELEASE-NOTES-<major>.<minor>.md` (or uploads to an existing release) |
 | `nested` (nested.yml) | manual only | an ISO URL (a release asset), a runner with `/dev/kvm`; never run, UNVERIFIED |
 | `ci-ok` | always | fails when a job above failed or was cancelled; the one check the branch rule asks for |
 | `dco` | pull requests | `Signed-off-by` on every commit, unless the PR has the label `agent-pr` |
@@ -236,7 +236,7 @@ gh release edit v0.1.0 --repo hobnix/server --notes-file docs/RELEASE-NOTES-0.1.
 Not run. Tell people that the ISO and every hardware item in the notes are UNVERIFIED.
 
 ## Test-lab exit rule
-_To be written after the first real run of `hs testlab run` (hobnix/server#430, stages 1 and 2): "the test-lab is green on the release commit, plus the short manual list". Not tested on hardware yet._
+_To be written after the first real run of `hs testlab run` (hobnix/server#430, stages 1 and 2; stages 3 to 6 are #432 in 0.2): "the test-lab is green on the release commit, plus the short manual list". Not tested on hardware yet._
 
 ## Open work in milestone 0.1
 From `docs/roadmap.md` (2026-11-09): #161 auto-rollback on the real server, #163 rebuild rehearsal in a VM, #165 first monthly restore drill, #171
