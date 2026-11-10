@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # help: run an app recipe without asking anything: what would happen (plan), then do it as a background job (start)
 # help.de: ein Rezept ausführen, ohne etwas zu fragen: was passieren würde (plan), dann als Hintergrundjob ausführen (start)
-# args: plan|start <recipe> run [--name <container>] [--set KEY=value]...
+# args: plan|start <recipe> run [--name <container>] [--set KEY=value]... [--interactive] [--by <user>] [--role <role>]
 # System command (hs sys recipes plan|start): for the interface and tests. It never asks and prints plain key<TAB>value lines like
 # backup-change.sh. The work is recipe.sh's. A recipe run this way has no terminal, so every preference takes the answer stored last time or
 # its default, and every question the recipe declares (`# ask:` lines in its header, `hs sys recipes asks <recipe>`) must be answered:
@@ -12,6 +12,10 @@
 #   run   set the app up, or bring it up to date (recipes are safe to run again)
 # A recipe whose header says `# input: terminal` needs a person at a terminal (domain: the Administrator password is typed into Samba): it is
 # refused here and the plan names the command. A parked recipe (sunshine) is refused too.
+#   --interactive   (ADR 0018) the run is an orchestration job (scripts/recipe-orchestrate.sh): nothing has to be answered up front, a question the
+#                   recipe asks while it runs reaches the person as `waiting` in the job record (answer: hs sys jobs answer). start prints
+#                   status started, unit and job (the record id). --by/--role: who starts it (the web server sets them from the session; the initiator
+#                   and admins may answer). A secret on stdin is optional here: given, it is the root-only file as in a plain run; else it is asked while the run goes.
 # plan: exit 0 = allowed, 1 = refused, 2 = an answer is missing (status needs, needs<TAB><KEY>). Output: status ok|refused|needs,
 #   reason<TAB><text>, heading|step|note|warn|command<TAB><line>, long<TAB>yes. The values and the secret are never printed.
 # start: the same checks, then the work runs as a background job (status started, unit).
@@ -30,11 +34,14 @@ case "$verb" in plan|start) ;; *) echo "usage: recipe-change.sh plan|start <reci
 [[ "$name" =~ ^[a-z0-9][a-z0-9-]{0,40}$ ]] || refuse "invalid recipe name"
 [ "$action" = run ] || refuse "unknown action (run)"
 shift 3 || true
-ct=""
+ct=""; interactive=false; by=""; role=""
 declare -A given=()
 while [ $# -gt 0 ]; do
   case "$1" in
     --name) [ $# -ge 2 ] || refuse "--name needs a value"; ct=$2; shift 2 ;;
+    --interactive) interactive=true; shift ;;
+    --by)   [ $# -ge 2 ] && [[ "$2" =~ ^[A-Za-z0-9._@\\-]{1,64}$ ]] || refuse "--by needs a user name"; by=$2; shift 2 ;;
+    --role) [ $# -ge 2 ] && [[ "$2" =~ ^(viewer|app-manager|admin)$ ]] || refuse "--role needs a role"; role=$2; shift 2 ;;
     --set)  [ $# -ge 2 ] || refuse "--set needs KEY=value"
             [[ "$2" =~ ^([A-Z][A-Z0-9_]{0,30})=(.*)$ ]] || refuse "--set needs KEY=value"
             given[${BASH_REMATCH[1]}]=${BASH_REMATCH[2]}; shift 2 ;;
@@ -91,6 +98,7 @@ for i in "${!ak[@]}"; do
   if [ "$t" = secret ]; then secret_key=$k; secret_label=${al[$i]}; continue; fi
   v=$(value_of "$k")
   if [ -z "$v" ]; then
+    $interactive && continue   # asked while the run goes
     # a text question without a pattern may stay empty (the countries of a VPN); every other one needs an answer
     if [ "$t" = text ] && [ -z "${ap[$i]}" ]; then continue; fi
     needs+=("$k"); continue
@@ -106,7 +114,7 @@ done
 secret=""
 if [ -n "$secret_key" ]; then
   IFS= read -r -t 3 secret || true
-  [ -n "$secret" ] || needs+=("$secret_key")
+  [ -n "$secret" ] || $interactive || needs+=("$secret_key")   # interactive: it may be asked while the run goes
   [[ "$secret" != *[[:cntrl:]]* ]] || refuse "the secret has a control character"
 fi
 if [ ${#needs[@]} -gt 0 ]; then
@@ -132,6 +140,25 @@ if [ "$verb" = start ]; then
     [[ "$k" =~ ^(DASH|PUBLIC|PUBLIC_NAME)_[A-Z0-9_]+$ ]] && env_lines+="RECIPE_$k=${given[$k]}"$'\n'
   done
   slug="recipe-$name${ct:+-$ct}"
+  if $interactive; then
+    # one orchestration job; its sub-jobs ask through HS_ASK_DIR (scripts/recipe-orchestrate.sh). A secret given up front (the wizard's first pages)
+    # is the root-only file as in a plain run; one that is not given is asked while the run goes.
+    sdir=""
+    if [ -n "$secret" ]; then
+      run=${HS_RUN_DIR:-/run/hs}
+      mkdir -p "$run"; chmod 700 "$run" 2>/dev/null || true
+      sdir=$(mktemp -d "$run/recipe-secret.XXXXXX"); chmod 700 "$sdir" 2>/dev/null || true
+      ( umask 077; printf '%s\n' "$secret" > "$sdir/$secret_key" ); chmod 600 "$sdir/$secret_key" 2>/dev/null || true
+      env_lines+="HS_SECRETS_DIR=$sdir"$'\n'
+    fi
+    export HS_JOB_ENV=$env_lines HS_JOB_KIND=orchestration HS_JOB_INITIATOR=${by:-${SUDO_USER:-${USER:-}}}
+    unit=$(hs_job "$slug" "hs recipe $name${ct:+ --name $ct}" -- bash -c 'd=$1; shift; "$@"; rc=$?; [ -z "$d" ] || rm -rf "$d"; exit $rc' _ "$sdir" \
+            bash "${HS_ORCHESTRATE:-$here/recipe-orchestrate.sh}" "$name" ${ct:+--name "$ct"}) ||
+      { [ -z "$sdir" ] || rm -rf "$sdir"; refuse "the job could not be started"; }
+    jid=$(hs_job_record find-unit "$unit" 2>/dev/null) || jid=""
+    printf 'status\tstarted\nunit\t%s\njob\t%s\n' "$unit" "${jid:--}"
+    exit 0
+  fi
   if [ -n "$secret_key" ]; then
     # the secret is a root-only file that the job reads (`answer`) and removes when it ends
     run=${HS_RUN_DIR:-/run/hs}

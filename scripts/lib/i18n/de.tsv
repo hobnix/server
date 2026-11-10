@@ -2365,3 +2365,6 @@ SSH host keys not restored (this server keeps its own). Run the command again to
                                              (typed, never an argument) are needed; the disk is mounted read-only,	                                             (getippt, nie als Argument) werden gebraucht; die Platte wird schreibgeschützt eingehängt,
                                              /var/lib/hs comes back, the SSH host keys after you type their name,	                                             /var/lib/hs kommt zurück, die SSH-Host-Schlüssel nachdem du ihren Namen tippst,
                                              the Samba secrets only with --with-samba	                                             die Samba-Geheimnisse nur mit --with-samba
+That is not an address like 10.10.95.25.	Das ist keine Adresse wie 10.10.95.25.
+That value does not fit here.	Dieser Wert passt hier nicht.
+UniFi does not accept that address (taken, or inside the range the router hands out).	UniFi nimmt diese Adresse nicht an (schon vergeben oder im Bereich, den der Router verteilt).

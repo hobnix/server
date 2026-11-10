@@ -2,7 +2,7 @@
 // Columns of `hs sys jobs records` (docs/api/sys.toml): id slug description state queued started ended exit step_n step_of step_text
 // progress_done progress_total progress_unit. An empty field is "-".
 
-const KNOWN = { queued: 'off', running: 'info', ok: 'ok', failed: 'bad', cancelled: 'off', interrupted: 'warn' };
+const KNOWN = { queued: 'off', running: 'info', waiting: 'warn', ok: 'ok', failed: 'bad', cancelled: 'off', interrupted: 'warn' };
 
 const val = (s) => (s === undefined || s === null || s === '-' || s === '' ? null : s);
 const num = (s) => { const v = val(s); if (v === null) return null; const n = Number(v); return Number.isFinite(n) ? n : null; };
@@ -16,7 +16,7 @@ export function parseRecord(r) {
   };
 }
 
-// The dot of a state. A state this page does not know (ADR 0018: waiting, ...) is plain text with a neutral dot, never an error.
+// The dot of a state. A state this page does not know is plain text with a neutral dot, never an error.
 export const stateDot = (s) => KNOWN[s] ?? 'off';
 export const stateKnown = (s) => Object.prototype.hasOwnProperty.call(KNOWN, s);
 

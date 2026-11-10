@@ -32,6 +32,13 @@ columns = ["id", "slug", "description", "state", "queued", "started", "ended", "
 enums = { state = ["queued", "running", "waiting", "ok", "failed", "cancelled", "interrupted"] }
 note = "The sub-jobs of one orchestration job (ADR 0018), oldest first; same columns as jobs records."
 
+["jobs answer <id>"]
+kind = "tsv"
+records = { status = ["status"], reason = ["text"] }
+enums = { status = ["done", "stale", "refused"] }
+stdin = "line"
+note = "Answer the question an interactive recipe run waits for (ADR 0018). The answer is one line on stdin, never an argument. status stale: the question is not waiting any more (nothing written); refused: not the initiator or an admin, or the answer does not fit the question's shape or choices (exit 1)."
+
 ["audit"]
 kind = "tsv"
 columns = ["id", "time", "actor", "result", "exit", "command"]

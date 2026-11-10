@@ -10,6 +10,7 @@ Never stores argv or environment, only the description the caller gives.
   run ID | wait ID --seq N --key K --label L --kind text|secret|choice [--default D --pattern P --choices a,b --error E --attempt N]
   resume ID   (waiting -> running) | step ID N OF TEXT | progress ID DONE TOTAL UNIT | finish ID EXIT | get ID
   find-unit UNIT | cancel ID --by NAME --safe yes|no | cancelled ID (exit 0 when cancelled)
+  error ID --category C --message M   (name why an ended job ended: input_timeout, input_rejected; Python writer only)
   reconcile   mark queued/running/waiting records whose unit is gone as interrupted (boot); never re-runs anything
 """
 import argparse
@@ -273,6 +274,16 @@ def cmd_finish(a):
         pass
 
 
+def cmd_error(a):
+    """Name the reason of an ended job (ADR 0018: input_timeout, input_rejected). Only a record that ended; state and exit stay as they are."""
+    with locked(a.id):
+        rec = load(a.id)
+        if rec.get("state") in ACTIVE:
+            raise Fail("job has not ended")
+        rec["error"] = {"category": a.category, "message": a.message}
+        save(rec)
+
+
 def cmd_find_unit(a):
     """Print the id of the newest queued/running record of a unit (highest id), else exit 1."""
     try:
@@ -437,6 +448,8 @@ def main():
     s = sub.add_parser("finish"); s.add_argument("id"); s.add_argument("exit", type=int); s.set_defaults(fn=cmd_finish)
     s = sub.add_parser("get"); s.add_argument("id"); s.set_defaults(fn=cmd_get)
     s = sub.add_parser("reconcile"); s.set_defaults(fn=cmd_reconcile)
+    s = sub.add_parser("error"); s.add_argument("id"); s.add_argument("--category", required=True)
+    s.add_argument("--message", default=""); s.set_defaults(fn=cmd_error)
     s = sub.add_parser("find-unit"); s.add_argument("unit"); s.set_defaults(fn=cmd_find_unit)
     s = sub.add_parser("cancel"); s.add_argument("id"); s.add_argument("--by", default="")
     s.add_argument("--safe", choices=("yes", "no"), required=True); s.set_defaults(fn=cmd_cancel)

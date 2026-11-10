@@ -5,15 +5,19 @@
   // container name, then the review: the plan the server would run (the right-hand side of the dialog) and Start. Text and choices go as --set, the
   // one secret on standard input (never in an argument or a log, and the review never shows it). Everything else a recipe asks (memory, port, share ...)
   // takes the answer stored last time or its default. A recipe with `# input: terminal` only shows the command to run on the server.
-  // Stage 3 (the orchestrator) feeds more steps of the same shape into `steps`; see recipeSteps.js.
+  // Stage 3 (docs/PLAN-recipe-orchestrator.md): the run starts with --interactive, as an orchestration job; what the recipe asks while it runs
+  // (a refused address, a value an earlier step found) comes to RunQuestions.svelte, which opens when the job is started.
   import CreateDialog from '../../shell/CreateDialog.svelte';
   import Button from '../../ui/Button.svelte';
   import { get } from '../../api.js';
+  import { openCreate } from '../../ui.svelte.js';
+  import RunQuestions from './RunQuestions.svelte';
   import { tr } from '../../i18n.js';
   import { progress } from '../../settings/steps.js';
   import { parseAsks, buildSteps, visibleSteps, activeAsks, choicesOf, askError, stepMissing, nameError, answerArgs, secretOf, secretAsk, reviewRows } from './recipeSteps.js';
 
-  let { recipe, onclose, ondone } = $props();
+  let { recipe, onclose, ondone = () => {} } = $props();
+  const started = (r) => { ondone(r); if (r?.job && r.job !== '-') openCreate(RunQuestions, { job: r.job, recipe }); };
 
   let own = $state('');
   let loaded = $state(false);
@@ -65,7 +69,7 @@
   const args = () => {
     if (!loaded || loadError || input === 'terminal' || !isReview || allMissing) return null;
     const n = own.trim();
-    const a = [recipe, 'run'];
+    const a = [recipe, 'run', '--interactive'];
     if (n) a.push('--name', n);
     return a.concat(answerArgs(steps, values, n, runsTouched));
   };
@@ -75,7 +79,7 @@
   const prog = $derived(progress(at, total));
 </script>
 
-<CreateDialog title={tr('Run') + ' ' + recipe} kicker="Apps" area="recipes" {args} {stdin} {onclose} {ondone}>
+<CreateDialog title={tr('Run') + ' ' + recipe} kicker="Apps" area="recipes" {args} {stdin} {onclose} ondone={started}>
   {#snippet form()}
     {#if loadError}
       <div class="hint">{tr('The questions of this recipe could not be read:')} {loadError}</div>

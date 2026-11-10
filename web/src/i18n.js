@@ -110,6 +110,16 @@ const de = {
   'set (not shown)': 'gesetzt (nicht angezeigt)', 'The secret goes only into the container, never into the log.': 'Das Geheimnis geht nur in den Container, nie ins Protokoll.',
   'Preferences the recipe does not ask here (memory, port, share ...) use the answers stored last time, or the defaults; to choose them yourself run': 'Einstellungen, die das Rezept hier nicht fragt (Speicher, Port, Freigabe ...), nehmen die zuletzt gespeicherten Antworten oder die Vorgaben; um sie selbst zu wählen, führe aus:',
   'in the terminal.': 'im Terminal.',
+  // Interactive recipe runs (forms/ops/RunQuestions.svelte, shell/JobRecords.svelte, ADR 0018 stage 3)
+  'Waiting for your answer': 'Warte auf deine Antwort', 'waiting for input': 'wartet auf Eingabe', waiting: 'wartet auf Eingabe', 'Answer the question': 'Frage beantworten',
+  Send: 'Senden', Done: 'Fertig', 'Running…': 'Läuft…', 'The job could not be read.': 'Der Auftrag konnte nicht gelesen werden.',
+  'Leave it empty to use': 'Leer lassen, um zu verwenden:',
+  'Closing this window does not stop the run: it waits for your answer on the Jobs page.': 'Das Schließen dieses Fensters hält den Lauf nicht an: Er wartet auf der Seite Aufträge auf deine Antwort.',
+  'A question appears here when the setup needs an answer. You can close this window; the run goes on.': 'Hier erscheint eine Frage, wenn die Einrichtung eine Antwort braucht. Du kannst dieses Fenster schließen; der Lauf geht weiter.',
+  'Nobody answered in time, so the run was cancelled. Run it again.': 'Niemand hat rechtzeitig geantwortet, deshalb wurde der Lauf abgebrochen. Starte ihn erneut.',
+  'The run was stopped.': 'Der Lauf wurde gestoppt.', 'The run was interrupted (the server restarted). Run it again.': 'Der Lauf wurde unterbrochen (der Server wurde neu gestartet). Starte ihn erneut.',
+  'The answers were refused too often. Run it again.': 'Die Antworten wurden zu oft abgelehnt. Starte den Lauf erneut.', 'The run failed. The Jobs page and the log show why.': 'Der Lauf ist fehlgeschlagen. Die Seite Aufträge und das Protokoll zeigen warum.',
+  'The answer was not accepted.': 'Die Antwort wurde nicht angenommen.', 'The answer could not be sent.': 'Die Antwort konnte nicht gesendet werden.',
 };
 
 export const tr = (s) => (lang.code === 'de' && typeof s === 'string' ? (de[s] ?? s) : s);
