@@ -2392,5 +2392,9 @@ Started	Gestartet
 The job was cancelled.	Der Job wurde abgebrochen.
 The test-lab is off. Switch it on with the capability testlab (hs config set capabilities, then hs rebuild).	Das Testlabor ist aus. Schalte die Funktion testlab ein (hs config set capabilities, dann hs rebuild).
 This builds an installer image and boots virtual machines: it takes a long time and puts load on this server.	Das baut ein Installer-Abbild und startet virtuelle Maschinen: es dauert lange und belastet diesen Server.
-usage: hs testlab run [--ref <branch|tag|commit>] [--stage 1|2|all] [--dry-run] [--yes] [--background|--foreground]	Aufruf: hs testlab run [--ref <branch|tag|commit>] [--stage 1|2|all] [--dry-run] [--yes] [--background|--foreground]
+usage: hs testlab run [--ref <branch|tag|commit>] [--stage 1|2|all|upgrade] [--from <vX.Y.Z>] [--dry-run] [--yes] [--background|--foreground]	Aufruf: hs testlab run [--ref <branch|tag|commit>] [--stage 1|2|all|upgrade] [--from <vX.Y.Z>] [--dry-run] [--yes] [--background|--foreground]
 2. check that this machine can run nested VMs (KVM, Incus)	2. prüfen, ob dieser Rechner verschachtelte VMs starten kann (KVM, Incus)
+3. build the installer ISO of the RELEASE (nix, long)	3. das Installer-ISO des RELEASES bauen (nix, dauert lange)
+From release	Ab Release
+Upgrading from %s to %s	Update von %s auf %s
+no release tag (vX.Y.Z) exists yet: nothing to upgrade from	es gibt noch kein Release (vX.Y.Z): nichts, von dem aus ein Update geprüft werden kann
