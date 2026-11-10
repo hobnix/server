@@ -49,6 +49,7 @@ uptime-kuma,RUNNING,CONTAINER,10.10.95.21 (eth0)
 webapp,RUNNING,CONTAINER,10.10.95.22 (eth0)
 pelican-panel,RUNNING,CONTAINER,10.10.95.30 (eth0)
 noss,RUNNING,CONTAINER,10.10.95.50 (eth0)
+claude-vm,RUNNING,VIRTUAL-MACHINE,10.10.95.45 (enp5s0)
 dc1,RUNNING,VIRTUAL-MACHINE,10.10.95.40 (enp5s0)
 old,STOPPED,CONTAINER,
 EOF
@@ -57,6 +58,10 @@ printf 'tcp LISTEN 0 511 *:80 *:* users:(("node",pid=1,fd=3))\ntcp LISTEN 0 511 
 printf 'tcp LISTEN 0 511 *:80 *:* users:(("nginx",pid=1,fd=3))\n' > "$B/ss-uptime-kuma"
 printf 'tcp LISTEN 0 511 *:8080 *:* users:(("app",pid=1,fd=3))\ntcp LISTEN 0 511 127.0.0.1:9000 *:*\n' > "$B/ss-webapp"
 printf 'tcp LISTEN 0 511 *:80 *:* users:(("nginx",pid=1,fd=3))\n' > "$B/ss-pelican-panel"
+printf 'tcp LISTEN 0 128 0.0.0.0:22 0.0.0.0:* users:(("sshd",pid=1,fd=3))
+tcp LISTEN 0 128 0.0.0.0:3389 0.0.0.0:* users:(("xrdp",pid=2,fd=3))
+tcp LISTEN 0 128 0.0.0.0:5555 0.0.0.0:*
+' > "$B/ss-claude-vm"
 cat > "$B/zoraxy-rules" <<'EOF'
 ## /opt/zoraxy/conf/proxy/arcane.example.com.config
 {"RootOrMatchingDomain":"arcane.example.com","Domain":"10.10.95.20:80","RequireTLS":false}
@@ -89,6 +94,9 @@ check_eq "Zoraxy's admin port is an admin interface in its container" "admin" "$
 check_eq "port 80 of the docker container is Arcane" "admin" "$(awk -F'\t' '$1=="listen" && $2=="docker" && $4==80 {print $7}' <<<"$out")"
 check_eq "docker apps are expected on any port" "expected" "$(awk -F'\t' '$1=="listen" && $2=="docker" && $4==3333 {print $7}' <<<"$out")"
 check_eq "a webapp port outside the list is unexpected" "unexpected" "$(awk -F'\t' '$1=="listen" && $2=="webapp" && $4==8080 {print $7}' <<<"$out")"
+check_eq "Remote Desktop of the Claude VM is an admin interface" "admin" "$(awk -F'\t' '$1=="listen" && $2=="claude-vm" && $4==3389 {print $7}' <<<"$out")"
+check_eq "SSH of the Claude VM is an admin interface, SSH elsewhere is not" "admin" "$(awk -F'\t' '$1=="listen" && $2=="claude-vm" && $4==22 {print $7}' <<<"$out")"
+check_eq "another port of the Claude VM stays unexpected" "unexpected" "$(awk -F'\t' '$1=="listen" && $2=="claude-vm" && $4==5555 {print $7}' <<<"$out")"
 check_eq "a container without ss is reported" "no-ss" "$(awk -F'\t' '$1=="listen" && $2=="noss" {print $7}' <<<"$out")"
 check_eq "a stopped container is not asked" "0" "$(awk -F'\t' '$2=="old"' <<<"$out" | grep -c .)"
 printf 'webapp 8080\nwebapp 9000-9100\n' > "$B/state/ports-expected"
