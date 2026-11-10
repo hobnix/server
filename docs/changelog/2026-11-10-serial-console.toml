@@ -1,0 +1,6 @@
+date  = "2026-11-10"
+type  = "feature"
+title = "Login prompt on the serial port"
+body  = """An installed server now also offers a login prompt on its first serial port, as the installer already did. This helps on a server without a screen (serial over LAN) and when Hobnix runs in a virtual machine (incus console). The screen stays the main console: boot messages and the emergency shell appear there as before. It takes effect at the next restart after an update.
+
+Not tested on hardware yet."""

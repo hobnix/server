@@ -140,7 +140,10 @@ in
   # The second SATA controller (PCI 02:00.0, the 120 GB backup disk is on its port 5 = ata12) reports 32 ports, 26 of them empty; the kernel
   # waits about 0.3 s for each at every boot (about 8 s in the initrd). Keep only ports 0-5 (mask 0x3f). A disk plugged into one of that
   # controller's ports above 5 would not show up: remove this line then (or move the cable to ports 0-5).
-  boot.kernelParams = lib.optionals isHome [ "ahci.mask_port_map=0000:02:00.0=0x3f" ];
+  # Console: the screen stays the main console (the last entry: boot messages and the emergency shell go there), the first serial port gets
+  # the kernel messages and a login prompt. For a server without a screen (serial over LAN) and for `incus console` of a Hobnix in a VM;
+  # a machine without a serial port ignores it. The installer ISO sets the same (installer/iso.nix).
+  boot.kernelParams = [ "console=ttyS0,115200n8" "console=tty0" ] ++ lib.optionals isHome [ "ahci.mask_port_map=0000:02:00.0=0x3f" ];
   nix.gc = { automatic = true; dates = "weekly"; options = "--delete-older-than 30d"; };
   # Pre-built packages from the project's cache (config/binary-cache.nix). Only an extra source: if it is unreachable or empty, Nix builds locally.
   nix.settings = let c = import ./config/binary-cache.nix; in lib.mkIf (c.name != "" && c.publicKey != "") {
