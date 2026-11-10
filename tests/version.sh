@@ -35,5 +35,5 @@ for b in unlock jobs cache smart monitor incus; do printf '#!/usr/bin/env bash\n
 out=$(HS_UNLOCK=$WORK/unlock HS_JOBS=$WORK/jobs HS_SHARE_CACHE=$WORK/cache HS_DISK_HEALTH=$WORK/smart HS_MONITOR=$WORK/monitor HS_INCUS=$WORK/incus bash "$SCRIPTS/overview-status.sh")
 check_out "sys status ends with the version row" '^version	v0\.1\.0-1-g' bash -c 'echo "$1" | tail -n 1' _ "$out"
 check "the web shows it on the Overview" grep -q "m.version" "$ROOT/web/src/pages/Summary.svelte"
-check "iso.nix puts the version in the file name and /etc/hs-installer-version" bash -c 'grep -q "homeserver-installer-\${describe}.iso" "$1/installer/iso.nix" && grep -q "hs-installer-version" "$1/installer/iso.nix"' _ "$ROOT"
+check "iso.nix puts the version in the file name and /etc/hs-installer-version" bash -c 'grep -q "image.baseName = .*\"homeserver-installer-\${describe}\"" "$1/installer/iso.nix" && grep -q "hs-installer-version" "$1/installer/iso.nix"' _ "$ROOT"
 finish

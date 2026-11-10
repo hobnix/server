@@ -29,8 +29,9 @@ in
   imports = [ "${modulesPath}/installer/cd-dvd/installation-cd-minimal.nix" ];
 
   # homeserver-installer-v0.1.0.iso (the tag of a release build); homeserver-installer.iso without a version. The volume label stays
-  # HS_INSTALLER (at most 32 characters, and the boot menu looks for it).
-  image.fileName = lib.mkForce (if describe == "" then "homeserver-installer.iso" else "homeserver-installer-${describe}.iso");
+  # HS_INSTALLER (at most 32 characters, and the boot menu looks for it). The image module names the file "<image.baseName>.iso": setting
+  # image.fileName has no effect on the file (seen on NixOS 26.05, 2026-11-10: the ISO was called nixos-minimal-26.05...iso).
+  image.baseName = lib.mkForce (if describe == "" then "homeserver-installer" else "homeserver-installer-${describe}");
   isoImage.volumeID = lib.mkForce "HS_INSTALLER";
 
   # the console also on the serial port: a server without a screen, and `incus console` of a test VM, show the installer
