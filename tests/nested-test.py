@@ -127,10 +127,27 @@ class ScenarioTests(unittest.TestCase):
         for flag in ("--role ", "--hostname ", "--key ", "--timezone ", "--preset "):
             self.assertIn(flag, inst["text"])
 
-    def test_serial_console_is_set_before_power_off(self):
-        texts = [s["text"] for s in n.build_scenario("iso", self.P)]
-        serial = [i for i, x in enumerate(texts) if "console=ttyS0" in x]
-        self.assertTrue(serial and serial[0] < texts.index("sync && poweroff"))
+    def test_no_step_edits_the_boot_entries(self):
+        # the installed system brings its own serial console (install.nix): the harness tests it as it is
+        self.assertFalse([s for s in n.build_scenario("iso", self.P) if "/mnt/boot" in s["text"]])
+
+    def test_console_that_closes_at_power_off_is_not_a_failure(self):
+        class Off(FakeTransport):
+            def write(self, text):
+                if "poweroff" in text:
+                    self.closed, self.queue = True, []
+                else:
+                    super().write(text)
+        t = Off(banner="[nixos@nixos:~]$ ", outputs={"lsblk": "sda 21474836480\n"})
+        ok, res = n.run_steps(n.Console(t, clock=Clock()), n.build_scenario("iso", self.P))
+        self.assertTrue(ok, res)
+        self.assertTrue(res[-1].get("closed"))
+
+    def test_console_that_closes_elsewhere_is_an_error(self):
+        t = FakeTransport()
+        t.closed = True
+        with self.assertRaises(n.Closed):
+            n.run_steps(n.Console(t, clock=Clock()), [n.step("wait", "login:", timeout=5, what="w")])
 
     def test_unknown_stage(self):
         with self.assertRaises(KeyError):
