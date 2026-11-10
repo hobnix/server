@@ -41,7 +41,15 @@ case "$cmd" in
         [ "$tag" = host ] || exit 1
         d=$target$HS_STATE_DIR/backup-dc; mkdir -p "$d" "$target/pk/private"
         if [ -n "${FAKE_DC_BAD:-}" ]; then echo nothing > "$target/pk/private/other.txt"; else echo ldb > "$target/pk/private/sam.ldb"; fi
-        tar -cjf "$d/domain-backup.tar.bz2" -C "$target/pk" private ;;
+        if [ -n "${FAKE_DC_MANY:-}" ]; then
+          # sam.ldb first, then a listing far larger than a pipe buffer: tar is still writing when grep -q has its match
+          pad=$(printf 'x%.0s' $(seq 1 200))
+          for n in $(seq 1 1500); do : > "$target/pk/private/${pad}_$n"; done
+          ( cd "$target/pk" && { echo private/sam.ldb; ls private | grep -v '^sam\.ldb$' | sed 's|^|private/|'; } > "$target/list" &&
+            tar -cjf "$d/domain-backup.tar.bz2" -T "$target/list" )
+        else
+          tar -cjf "$d/domain-backup.tar.bz2" -C "$target/pk" private
+        fi ;;
     esac ;;
 esac
 FAKE
@@ -60,6 +68,8 @@ case "$1" in
       delete) grep -qx "$3" "$FAKEDIR/images" || exit 1; sed -i "/^${3}\$/d" "$FAKEDIR/images" ;;
     esac ;;
   init) case "$*" in *--no-profiles*) ;; *) exit 1 ;; esac
+        # Incus 7: an instance without profiles needs its root disk made by init itself (--storage)
+        case " $* " in *" --storage "*|*" -s "*) ;; *) echo "Error: Failed creating instance record: Failed initializing instance: Failed getting root disk: No root device could be found" >&2; exit 1 ;; esac
         case "$*" in *network*|*nic*) exit 1 ;; esac
         echo "$3" >> "$FAKEDIR/instances"; rm -f "$FAKEDIR/started" ;;
   config) ;;
@@ -87,7 +97,7 @@ check_eq "the smaller one came first" small "$(st drill_ct_name)"
 check "the throwaway instance, its image and the temp folder are gone" clean
 check "the newest snapshot of the tag was restored (not the old one)" grep -q "^restic restore aaa2 " "$LOG"
 check "the instance got no profiles (no network card)" grep -q "^incus init hs-drill-img-small hs-drill-small --no-profiles" "$LOG"
-check "only a root disk was added" bash -c "grep '^incus config device add' $LOG | grep -vq ' root disk '; [ \$? -ne 0 ]"
+check "the root disk comes from init (--storage), not from a later device add" bash -c "grep -q '^incus init .* --storage default ' $LOG && ! grep -q '^incus config device add' $LOG"
 check "the instance was started and run" grep -q "^incus exec hs-drill-small -- true" "$LOG"
 check "ok time is recorded" test -n "$(st drill_ct_ok)"
 check "no domain controller here: no dc state" test -z "$(st drill_dc_ok)"
@@ -142,6 +152,9 @@ FAKE_DC=1 FAKE_DC_BAD=1 hsb drill ct small >/dev/null 2>&1; rc=$?
 check_eq "a domain backup without sam.ldb fails the drill" 1 "$rc"
 check_eq "drill_dc_ok did not move" "$dc_before" "$(st drill_dc_ok)"
 check "but the container part was still done" test "$(st drill_ct_ok)" != "$ok_before"
+check "temp folder removed" clean
+FAKE_DC=1 FAKE_DC_MANY=1 hsb drill ct small >/dev/null 2>&1; rc=$?
+check_eq "a long listing with sam.ldb first is not a false alarm (grep -q closing the pipe)" 0 "$rc"
 check "temp folder removed" clean
 check_out "drill ct dc1 checks only the domain backup" "Domain backup" env FAKE_DC=1 bash "$SCRIPTS/backup.sh" drill ct dc1
 

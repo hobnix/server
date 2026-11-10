@@ -659,9 +659,9 @@ drill_ct_one() {   # drill_ct_one <name> <snapshot id> <bytes>
   inc image import "$drill_tmp/image.tar.gz" --alias "$img" >/dev/null </dev/null || { warn "$(t '%s: could not import the image' "$name")"; drill_img=""; drill_cleanup; return 1; }
   rm -f "$drill_tmp/image.tar.gz"
   drill_inst=$inst
-  # no profiles = no network card, no GPU, no shares, no autostart; only a root disk
-  if ! { inc init "$img" "$inst" --no-profiles -c user.hs-drill=1 -c boot.autostart=false </dev/null >/dev/null &&
-         inc config device add "$inst" root disk path=/ pool="${HS_DRILL_POOL:-default}" </dev/null >/dev/null; }; then
+  # no profiles = no network card, no GPU, no shares, no autostart; only a root disk (--storage adds it: Incus 7 refuses
+  # an init without a root disk, so it cannot be added afterwards)
+  if ! inc init "$img" "$inst" --no-profiles --storage "${HS_DRILL_POOL:-default}" -c user.hs-drill=1 -c boot.autostart=false </dev/null >/dev/null; then
     warn "$(t '%s: could not create the throwaway instance' "$name")"; drill_cleanup; return 1
   fi
   inc start "$inst" </dev/null >/dev/null || { warn "$(t '%s: the throwaway instance did not start' "$name")"; drill_cleanup; return 1; }
@@ -688,14 +688,16 @@ drill_ct_one() {   # drill_ct_one <name> <snapshot id> <bytes>
 # look for sam.ldb. Putting it into a new domain controller stays manual.
 drill_dc() {
   inc info "$DC" >/dev/null 2>&1 </dev/null || { note "$(t 'No domain controller %s here, nothing to check' "$DC")"; return 0; }
-  local dcfile
+  local dcfile listing
   drill_tmp=$(mktemp -d "${HS_DRILL_TMP:-/var/tmp}/hs-drill.XXXXXX") || { warn "Could not make a temporary folder"; return 1; }
   step "$(t 'Domain controller backup file (%s)' "$DC")"
   R restore latest --tag host --target "$drill_tmp/restore" --include "$STATE/backup-dc" >/dev/null 2>&1 || { warn "The restore of the domain backup failed"; drill_cleanup; return 1; }
   dcfile=$drill_tmp/restore$STATE/backup-dc/domain-backup.tar.bz2
   [ -s "$dcfile" ] || { warn "The host backup holds no domain backup file (run hs backup now while the domain controller runs)"; drill_cleanup; return 1; }
   mkdir -p "$drill_tmp/x"
-  tar -tjf "$dcfile" 2>/dev/null | grep -q 'sam\.ldb' || { warn "The domain backup does not list a sam.ldb"; drill_cleanup; return 1; }
+  # read the whole listing first: grep -q would close the pipe early and pipefail would count tar's SIGPIPE as a miss
+  listing=$(tar -tjf "$dcfile" 2>/dev/null || true)
+  grep -q 'sam\.ldb' <<<"$listing" || { warn "The domain backup does not list a sam.ldb"; drill_cleanup; return 1; }
   tar -xjf "$dcfile" -C "$drill_tmp/x" 2>/dev/null || { warn "The domain backup could not be unpacked"; drill_cleanup; return 1; }
   if [ -z "$(find "$drill_tmp/x" -name 'sam.ldb*' -size +0 -print -quit)" ]; then warn "The unpacked domain backup has no sam.ldb"; drill_cleanup; return 1; fi
   drill_cleanup
