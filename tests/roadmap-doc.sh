@@ -34,6 +34,18 @@ check "write from a fixture" $GEN write --board "$T/board.json" --todo "$T/TODO.
 check "a fresh page is current" $GEN check --board "$T/board.json" --todo "$T/TODO.md" --doc "$T/roadmap.md"
 check_out "a milestone is a heading" "### 0.1 — First" cat "$T/roadmap.md"
 check_out "an issue without a milestone is listed" "### No milestone" cat "$T/roadmap.md"
+# milestones are in the order of their versions, not of their text: 0.2 before 0.10
+python3 - "$T/board.json" <<'PY'
+import json, sys
+p = sys.argv[1]
+d = json.load(open(p, encoding="utf-8"))
+for n, ms in ((7, "0.10 — Tenth"), (8, "0.2 — Second")):
+    d["items"].append({"title": "T%d" % n, "status": "Backlog", "milestone": {"title": ms},
+                       "content": {"number": n, "repository": "hobnix/server", "url": "https://github.com/hobnix/server/issues/%d" % n}})
+json.dump(d, open(p, "w", encoding="utf-8"), ensure_ascii=False)
+PY
+$GEN write --board "$T/board.json" --todo "$T/TODO.md" --doc "$T/roadmap.md" >/dev/null
+check_eq "milestones are sorted by version" "0.1 0.2 0.10" "$(grep -oE '^### [0-9.]+' "$T/roadmap.md" | cut -d' ' -f2 | paste -sd' ')"
 check_out "done issues are listed in one line" 'Done: .#2' cat "$T/roadmap.md"
 check_out "a TODO item is listed with its state" "| A2 | in progress | Half done |" cat "$T/roadmap.md"
 sed -i 's/Epic: One/Epic: Renamed/' "$T/board.json"
