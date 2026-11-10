@@ -160,6 +160,65 @@ class Csrf(Base):
         self.assertEqual(self.req("GET", "/api/session")[0], 401)
 
 
+class CsrfGate(Base):
+    """Issue #433: every changing request needs a session and the CSRF token, whatever its handler does. The list is every POST path of do_POST."""
+    SESSION_POSTS = ["/api/plan", "/api/start", "/api/unlock", "/api/terminal", "/api/vmconsole", "/api/changes/seen", "/api/live/refresh"]
+
+    def test_every_changing_request_needs_session_and_token(self):
+        _, d, r = self.login()
+        ck = {"Cookie": self.cookie(r)}
+        for path in self.SESSION_POSTS:
+            self.assertEqual(self.req("POST", path, {}, headers={})[0], 401, path)                       # no session
+            self.assertEqual(self.req("POST", path, {}, headers=ck)[0], 403, path)                       # no token
+            self.assertEqual(self.req("POST", path, {}, headers=dict(ck, **{"X-CSRF-Token": "x"}))[0], 403, path)
+            self.assertEqual(self.req("POST", path, {}, headers=dict(ck, **{"X-CSRF-Token": d["csrf"]}), origin=False)[0], 403, path)     # no Origin
+            self.assertEqual(self.req("POST", path, {}, headers=dict(ck, **{"X-CSRF-Token": d["csrf"], "Origin": "http://evil.example"}))[0], 403, path)
+
+    def test_the_token_of_another_session_is_refused(self):
+        _, d1, _ = self.login()
+        _, d2, r2 = self.login()
+        s = self.req("POST", "/api/start", {}, headers={"Cookie": self.cookie(r2), "X-CSRF-Token": d1["csrf"]})[0]
+        self.assertEqual(s, 403)
+
+    def test_every_post_path_of_the_handler_is_in_the_list(self):
+        """A new POST path must be added to SESSION_POSTS (and so is covered by the gate): the path list of do_POST is read from the source."""
+        import re
+        with open(os.path.join(here, "..", "scripts", "web-serve.py"), encoding="utf-8") as f:
+            src = f.read()
+        m = re.search(r'if path not in \(("/api/login".*?)\):\n\s+return self._json\(404', src)
+        paths = set(re.findall(r'"(/api/[a-z/]+)"', m.group(1)))
+        self.assertEqual(paths - {"/api/login", "/api/logout", "/api/setup"}, set(self.SESSION_POSTS))
+
+    def test_a_login_replaces_the_cookie_it_came_with(self):
+        _, _, r = self.login()
+        old = {"Cookie": self.cookie(r)}
+        self.assertEqual(self.req("GET", "/api/session", headers=old)[0], 200)
+        self.login(headers=old)
+        self.assertEqual(self.req("GET", "/api/session", headers=old)[0], 401)
+
+    def test_cookie_flags(self):
+        _, _, r = self.login()
+        c = r.getheader("Set-Cookie")
+        for flag in ("HttpOnly", "SameSite=Strict", "Path=/", "Max-Age="):
+            self.assertIn(flag, c)
+
+
+class ThrottleBounds(unittest.TestCase):
+    def test_the_table_does_not_grow_without_a_bound(self):
+        t = ws.Throttle()
+        for i in range(ws.Throttle.MAX_KEYS * 3):
+            t.failed("user:local:name%d" % i)
+        self.assertLessEqual(len(t.fails), ws.Throttle.MAX_KEYS + 1)
+
+    def test_a_locked_key_survives_a_flood_of_other_names(self):
+        t = ws.Throttle()
+        for _ in range(8):
+            t.failed("ip:1.2.3.4")
+        for i in range(ws.Throttle.MAX_KEYS * 2):
+            t.failed("user:local:n%d" % i)
+        self.assertGreater(t.wait("ip:1.2.3.4"), 0)
+
+
 class Pages(Base):
     def test_hello_needs_no_login(self):
         s, d, _ = self.req("GET", "/api/hello")
@@ -614,6 +673,17 @@ class Tls(Base):
         # another client behind the same proxy is not locked out by the first one's address, only by the user name
         s, _, _ = self.login(user="bob", headers={"X-Forwarded-For": "100.64.0.8"})
         self.assertEqual(s, 403)
+
+    def test_unlock_throttle_counts_the_forwarded_client(self):
+        self.auth.locked = True
+        seen = []
+        orig = self.app.throttle.wait
+        self.app.throttle.wait = lambda *k: (seen.append(k), orig(*k))[1]
+        s, d, r = self.login(realm="local", user="adminuser", password="local pw")
+        self.assertEqual(s, 200)
+        h = {"Cookie": self.cookie(r), "X-CSRF-Token": d["csrf"], "X-Forwarded-For": "100.64.0.5"}
+        self.req("POST", "/api/unlock", {"passphrase": "x"}, headers=h)
+        self.assertIn(("unlock-ip:100.64.0.5", "unlock"), seen)
 
     def test_a_forged_header_is_ignored_without_the_proxy(self):
         self.cfg.trust_proxy = False
