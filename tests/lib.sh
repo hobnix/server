@@ -20,6 +20,9 @@ skip() {
   if [ -n "${REQUIRE_ALL:-}" ]; then T_FAIL=$((T_FAIL + 1)); echo "  FAIL  (cannot be skipped in CI) $*"
   else T_SKIP=$((T_SKIP + 1)); echo "  skip  $*"; fi
 }
+# free_port: prints a TCP port nobody listens on (asks the kernel for one). A test never hard-codes a port: two tests at the same time, or a
+# leftover process, would make it fail for no reason.
+free_port() { python3 -c 'import socket; s=socket.socket(); s.bind(("127.0.0.1",0)); print(s.getsockname()[1])'; }
 check() {   # check "what" command...: passes when the command succeeds
   local what=$1; shift
   if "$@" >/dev/null 2>&1; then pass "$what"; else fail "$what"; fi
