@@ -47,7 +47,9 @@ def board_block(data):
         by_ms.setdefault(ms, []).append(it)
 
     def msort(k):
-        return (k == "No milestone", k)
+        # by version, not by text: "0.10" comes after "0.9" (a title is "<version> <dash> <name>")
+        nums = [int(x) for x in re.findall(r"\d+", k.split(" ")[0])]
+        return (k == "No milestone", nums, k)
 
     out = []
     for ms in sorted(by_ms, key=msort):
@@ -152,7 +154,7 @@ def main(argv):
             print("docs/roadmap.md is stale: python3 scripts/roadmap-gen.py write", file=sys.stderr)
             return 1
         return 0
-    with open(doc, "w", encoding="utf-8") as f:
+    with open(doc, "w", encoding="utf-8", newline="\n") as f:
         f.write(new)
     return 0
 
