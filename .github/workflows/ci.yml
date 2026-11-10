@@ -1,13 +1,17 @@
 name: ci
 on:
-  # Pull requests, the merge queue, and `develop` after each merge (two pull requests that pass alone can fail together); a tag builds
-  # the ISO release. A push to a feature branch runs nothing: its pull request does.
+  # Pull requests (into any branch: develop, 0.2, main), the merge queue, and `develop` and `0.2` after each merge (two pull requests that
+  # pass alone can fail together); a tag builds the ISO release; every night the full set runs on `develop` (a schedule runs on the default
+  # branch only; the release branch `0.2` gets its full run from the merge queue and from a manual run of this workflow on it).
+  # A push to a feature branch runs nothing: its pull request does.
   push:
     tags: ['v*']
-    branches: [develop]
+    branches: [develop, '0.2']
   pull_request:
     types: [opened, synchronize, reopened, ready_for_review]
   merge_group:
+  schedule:
+    - cron: '17 2 * * *'
   workflow_dispatch:
 
 concurrency:
@@ -21,7 +25,8 @@ env:
 
 jobs:
   # What did the change touch? Draft pull requests run nothing (mark one ready for review to start CI); the slow jobs run only when they can
-  # be affected. A tag, a push to develop or a manual run always runs everything.
+  # be affected. A pull request runs the tests that mention its files (scripts/dev/tests-for.sh); a push to develop or 0.2, the merge
+  # queue, a tag, the nightly run and a manual run always run everything.
   changes:
     if: github.event_name != 'pull_request' || !github.event.pull_request.draft
     runs-on: ubuntu-latest
@@ -29,6 +34,10 @@ jobs:
       nix: ${{ steps.f.outputs.nix }}
       root: ${{ steps.f.outputs.root }}
       rust: ${{ steps.f.outputs.rust }}
+      pkg: ${{ steps.f.outputs.pkg }}
+      shellcheck_files: ${{ steps.f.outputs.shellcheck_files }}
+      test_names: ${{ steps.f.outputs.test_names }}
+      test_matrix: ${{ steps.f.outputs.test_matrix }}
     steps:
       - uses: actions/checkout@v5
         with:
@@ -37,19 +46,45 @@ jobs:
         env:
           BASE: ${{ github.event.pull_request.base.sha || github.event.merge_group.base_sha }}
         run: |
-          nix=true root=true rust=true
+          nix=true root=true rust=true pkg=true
+          # only a pull request is narrowed; everything else gets the full set (the merge queue, `develop`, the nightly run)
+          [ "${{ github.event_name }}" = pull_request ] || BASE=""
           if [ -n "$BASE" ] && git cat-file -e "$BASE" 2>/dev/null; then
             files=$(git diff --name-only "$BASE" HEAD)
             # nix: the system configuration and the web build (web/ is built by pkgs/hs-web.nix); root: scripts and root tests (loop devices, packages against this core)
             echo "$files" | grep -qvE '^(docs/|tests/|\.claude/|\.github/ISSUE_TEMPLATE/)|\.md$' || nix=false
             echo "$files" | grep -qvE '^(web/|docs/|\.claude/|\.github/ISSUE_TEMPLATE/)|\.md$' || root=false
             # rust: the Cargo workspace, the scripts it stands in for, or this workflow
+            # pkg: what the package repositories are checked against (the core's helpers and libraries, the package folders and their tests)
+            echo "$files" | grep -qE '^(scripts/pkg|scripts/lib/|scripts/recipes/|packages/|capabilities/|config/package-repos\.toml|tests/lib|tests/pkg|\.github/workflows/ci\.yml)' || pkg=false
             echo "$files" | grep -qE '^rust/|^\.github/workflows/ci\.yml$|^scripts/vault-change\.sh$|^tests/vault-change(-rust)?\.sh$|^tests/lib\.sh$|^scripts/lib/job\.sh$|^scripts/job-record\.py$|^scripts/jobs-change\.sh$|^scripts/job-reconcile\.sh$|^tests/job-(record|reconcile)(-rust)?\.sh$|^tests/jobs-change\.sh$' || rust=false
+          fi
+          # shellcheck: a pull request checks the shell files it changed (the empty list: nothing to check); everything else checks every file
+          sc=all
+          if [ -n "$BASE" ] && git cat-file -e "$BASE" 2>/dev/null; then
+            sc=$(git diff --name-only --diff-filter=d "$BASE" HEAD | grep -E '^(scripts/(lib/|recipes/)?[^/]+|vps/[^/]+|tests/[^/]+)\.sh$' | tr '\n' ' ' || true)
+            sc=${sc:-none}
+          fi
+          # tests: the names a pull request needs, or all; the shards are as many as the work needs (6 tests or so per runner, 4 at most)
+          names=$(bash scripts/dev/tests-for.sh "$BASE")
+          if [ "$names" = all ]; then matrix='[1,2,3,4]'
+          else
+            n=$(wc -w <<<"$names")
+            if [ "$n" -eq 0 ]; then matrix='[]'
+            elif [ "$n" -le 6 ]; then matrix='[1]'
+            elif [ "$n" -le 12 ]; then matrix='[1,2]'
+            else matrix='[1,2,3,4]'; fi
           fi
           echo "nix=$nix" >> "$GITHUB_OUTPUT"
           echo "root=$root" >> "$GITHUB_OUTPUT"
           echo "rust=$rust" >> "$GITHUB_OUTPUT"
-          echo "evaluate the system: $nix; root tests and packages: $root; rust: $rust"
+          echo "pkg=$pkg" >> "$GITHUB_OUTPUT"
+          echo "shellcheck_files=$sc" >> "$GITHUB_OUTPUT"
+          echo "test_names=$names" >> "$GITHUB_OUTPUT"
+          echo "test_matrix=$matrix" >> "$GITHUB_OUTPUT"
+          echo "evaluate the system: $nix; root tests: $root; packages: $pkg; rust: $rust"
+          echo "shellcheck: $sc"
+          echo "tests: $names (shards $matrix)"
 
   # The Rust workspace (docs/adr/0001-rust-strangler.md): format, clippy without warnings, tests; the lock file must be up to date.
   rust:
@@ -90,39 +125,53 @@ jobs:
         run: |
           bash scripts/dev/changelog-check.sh "$BASE" || echo "::warning::No docs/changelog entry: add one if users see this change (CONTRIBUTING.md)."
       - name: shellcheck (errors only)
+        env:
+          FILES: ${{ needs.changes.outputs.shellcheck_files }}
         run: |
-          # every file, four processes at a time (one process for all of them took about 90 s)
-          echo scripts/*.sh scripts/lib/*.sh scripts/recipes/*.sh vps/*.sh tests/*.sh | xargs -n 25 -P 4 shellcheck -S error -x
+          # a pull request: the changed files only (`none`: no shell file changed). Anything else: every file, four processes at a time
+          # (one process for all of them took about 90 s)
+          case "$FILES" in
+            none) echo "no shell file changed" ;;
+            all|"") echo scripts/*.sh scripts/lib/*.sh scripts/recipes/*.sh vps/*.sh tests/*.sh | xargs -n 25 -P 4 shellcheck -S error -x ;;
+            *) echo $FILES | xargs -n 25 -P 4 shellcheck -S error -x ;;
+          esac
       - name: shellcheck warnings in the pool scripts (informational, counts only)
+        if: needs.changes.outputs.shellcheck_files == 'all'
         continue-on-error: true
         run: |
           shellcheck -x -S warning -f gcc scripts/manage-pool.sh tests/pool-*.sh > /tmp/pool-shellcheck.txt || true
           echo "shellcheck warnings in manage-pool.sh and tests/pool-*.sh: $(wc -l < /tmp/pool-shellcheck.txt)"
           cut -d: -f4- /tmp/pool-shellcheck.txt | sort | uniq -c | sort -rn | head -10
 
-  # The tests that need no root (every tests/*.sh; tests/run-all.sh lists them, root tests are skipped here), split over four runners:
-  # one runner took about 9 minutes. A new test needs no entry here, --shard takes every fourth one.
+  # The tests that need no root (tests/run-all.sh lists them, root tests are skipped here), split over up to four runners: one runner took
+  # about 9 minutes. A pull request runs the tests that mention its files (job `changes`), everything else all of them. A new test needs
+  # no entry here, --shard takes every Nth one. `shards` is [] when no test matches: the job is skipped and counts as fine.
   tests:
     needs: changes
+    if: needs.changes.outputs.test_matrix != '[]'
     runs-on: ubuntu-latest
     strategy:
       fail-fast: false
       matrix:
-        shard: [1, 2, 3, 4]
+        shard: ${{ fromJSON(needs.changes.outputs.test_matrix) }}
     steps:
       - uses: actions/checkout@v5
         with:
           fetch-depth: 0
-      - name: Tests, part ${{ matrix.shard }} of 4
+      - name: Tests, part ${{ matrix.shard }} of ${{ strategy.job-total }}
+        env:
+          NAMES: ${{ needs.changes.outputs.test_names }}
         run: |
           sudo apt-get update -qq && sudo apt-get install -y -qq jq python3-pil
-          HS_TEST_CI=1 bash tests/run-all.sh --jobs 2 --shard ${{ matrix.shard }}/4
+          only=()
+          if [ "$NAMES" != all ]; then for n in $NAMES; do only+=(--only "$n"); done; fi
+          HS_TEST_CI=1 bash tests/run-all.sh --jobs 2 --shard ${{ matrix.shard }}/${{ strategy.job-total }} "${only[@]}"
 
   # The default package repositories at their latest main, checked against this core: manifests, indexes and their own tests. A core change
   # that breaks a package is seen here, before a release (docs/PLAN-packages.md, "Compatibility and CI across repositories").
   packages:
     needs: changes
-    if: needs.changes.outputs.root == 'true'
+    if: needs.changes.outputs.pkg == 'true'
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v5

@@ -125,7 +125,7 @@ check_out "hs sys deck runs it" '"schema": 1' env HS_CALLER=test bash "$SCRIPTS/
 echo "-- the endpoint hands out that file and nothing else"
 if command -v python3 >/dev/null; then
   $D > "$WORK/deck.json"
-  port=$((20000 + RANDOM % 20000))
+  port=$(free_port)
   python3 "$SCRIPTS/deck-serve.py" "$port" "$WORK/deck.json" & srv=$!
   sleep 1
   get() { python3 - "$port" "$1" "${2:-GET}" <<'PY'

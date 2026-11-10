@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Live test of the gateway proxy with a real Traefik (exit 77 = skipped when `traefik` is not installed). Traefik listens on 127.0.0.1:18080 with a
+# Live test of the gateway proxy with a real Traefik (exit 77 = skipped when `traefik` is not installed). Traefik listens on a free 127.0.0.1 port with a
 # test static file; the base file of the module (same rules as capabilities/gateway/module.nix) and a local route file go to python http.server
 # stand-ins. Checks the route, that an unknown name gets 404, that X-Forwarded-For does not matter, the allowlist (403) and a websocket upgrade.
 # shellcheck source=tests/lib.sh
@@ -7,7 +7,7 @@
 command -v traefik >/dev/null 2>&1 || { echo "traefik is not installed: skipped"; exit 77; }
 command -v curl >/dev/null 2>&1 || { echo "curl is not installed: skipped"; exit 77; }
 export HS_PYTHON=python3
-APP=18091 WEBUI=18092 PORT=18080 PORT2=18081
+APP=$(free_port) WEBUI=$(free_port) PORT=$(free_port) PORT2=$(free_port)   # free ports, never fixed ones
 R="python3 $SCRIPTS/gateway_render.py"
 mkdir -p "$WORK/routes" "$WORK/routes2"
 pids=()
