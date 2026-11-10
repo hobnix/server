@@ -11953,7 +11953,7 @@
   "/testlab/start/{action}": {
    "post": {
     "operationId": "testlab.start.by_action",
-    "summary": "start it (hs sys testlab start run [--ref R] [--stage 1|2|all]) as a background job; status started + unit",
+    "summary": "start it (hs sys testlab start run [--ref R] [--stage 1|2|3|4|5|6|<name>|all]) as a background job; status started + unit",
     "x-hs-exit": true,
     "x-hs-sys": {
      "words": [

@@ -1,0 +1,6 @@
+date  = "2026-11-10"
+type  = "security"
+title = "Web interface: one request-forgery gate, a bounded login throttle"
+body  = """Every changing request of the web interface now passes one check for a session and its token before any handler runs. The unlock attempt limit counts the real client behind the proxy, the table of failed sign-ins has an upper size, and a sign-in ends the cookie it arrived with. The threat model is written down in docs/THREAT-MODEL-web.md.
+
+Not tested on hardware yet."""

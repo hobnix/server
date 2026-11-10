@@ -102,16 +102,19 @@ The same model in hobnix/server, hobnix/recipes and hobnix/extensions.
 | Job | What | When |
 | --- | --- | --- |
 | `changes` | decides which jobs can be affected | always (not on a draft pull request) |
-| `scripts` | `bash -n`, shellcheck (errors), the changelog warning | always |
-| `tests` | the tests that need no root, in four parts on four runners (`tests/run-all.sh --shard I/4`) | always |
+| `scripts` | `bash -n`, shellcheck (errors; only the changed files on a pull request), the changelog warning | always |
+| `tests` | the tests that need no root, in one to four parts on separate runners (`tests/run-all.sh --shard I/N`). A pull request runs the tests that mention its files (`scripts/dev/tests-for.sh`, the local cousin is `t changed`); everything else runs all | always (skipped when no test matches) |
 | `rust` | format, clippy, tests of the Cargo workspace | Rust files or the scripts they stand in for changed |
-| `packages` | hobnix/recipes and hobnix/extensions against this core | not for web-only or docs-only changes |
+| `packages` | hobnix/recipes and hobnix/extensions against this core | the package helpers, `scripts/lib/`, `packages/`, `capabilities/` or their tests changed |
 | `integration` | the root tests on loop devices | not for web-only or docs-only changes |
 | `nixos` | evaluates the system, builds the Rust program and the web frontend, evaluates the ISO | not for docs-only or tests-only changes |
 | `ci-ok` | fails when one of the jobs above failed or was cancelled | always |
 | `iso` | builds the ISO and the release | a tag `v*`, after every job above |
 
-A push to `develop`, a tag and a manual run always run every job. A new test needs no entry in the workflow.
+A push to `develop` or `0.2`, the merge queue, the nightly run on `develop` (02:17 UTC), a tag and a manual run always run every job and every
+test: a pull request gets the quick answer (the tests are picked by the file names a change touches, not by a call graph), the full set runs
+before and after the merge. A change to `scripts/lib/`, `tests/lib*.sh`, `config/` or a workflow runs every test even in a pull request.
+A new test needs no entry in the workflow. A test never hard-codes a TCP port: `free_port` in tests/lib.sh asks the kernel for one.
 
 ### The nixpkgs pin
 

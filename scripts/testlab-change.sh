@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # help: start the test-lab without asking anything: what would happen (plan), then do it as a background job (start)
 # help.de: das Testlabor starten, ohne etwas zu fragen: was passieren würde (plan), dann als Hintergrundjob (start)
-# args: plan|start run [--ref <branch|tag|commit>] [--stage 1|2|all]
+# args: plan|start run [--ref <branch|tag|commit>] [--stage 1|2|3|4|5|6|<name>|all]
 # System command (hs sys testlab plan|start): for the interface and tests. It never asks and prints plain key<TAB>value lines like admin-change.sh.
 # The work is scripts/testlab.sh's (checks of ref and repository are its own and are repeated here before the job starts).
 # plan: exit 0 = allowed, 1 = refused. Output: status ok|refused, reason<TAB><text>, heading|step|note|warn|command<TAB><line>, long<TAB>yes.
@@ -13,7 +13,7 @@ here=$(cd "$(dirname "$0")" && pwd)
 refuse() { printf 'status\trefused\nreason\t%s\n' "$1"; exit 1; }
 
 verb=${1:-}; action=${2:-}
-case "$verb" in plan|start) ;; *) echo "usage: testlab-change.sh plan|start run [--ref <ref>] [--stage 1|2|all]" >&2; exit 1 ;; esac
+case "$verb" in plan|start) ;; *) echo "usage: testlab-change.sh plan|start run [--ref <ref>] [--stage 1|2|3|4|5|6|<name>|all]" >&2; exit 1 ;; esac
 [ "$action" = run ] || refuse "unknown action (run)"
 shift 2 || true
 ref=develop; stage=all
@@ -24,7 +24,7 @@ while [ $# -gt 0 ]; do
     *) refuse "unknown option $1" ;;
   esac
 done
-case "$stage" in 1|2|all) ;; *) refuse "stage must be 1, 2 or all" ;; esac
+case "$stage" in [1-6]|install|smoke|rollback|backup|pool|browser|all) ;; *) refuse "stage must be 1 to 6, a stage name or all" ;; esac
 
 export HS_PLAIN=1 HS_LANG=en HS_CALLER=${HS_CALLER:-ui}
 unset HS_GUIDED_TTY
@@ -41,8 +41,11 @@ if [ "$verb" = start ]; then
 fi
 printf 'status\tok\nheading\trun the test-lab on %s\n' "$ref"
 printf 'step\tfetch %s from the Hobnix repository and build the installer ISO\n' "$ref"
-if [ "$stage" = 1 ]; then printf 'step\tboot the ISO in a throwaway VM and install it unattended (stage 1)\n'
-else printf 'step\tinstall in a throwaway VM, boot the result and run the smoke check (stages 1 and 2)\n'; fi
+case "$stage" in
+  1|install) printf 'step\tboot the ISO in a throwaway VM and install it unattended (stage 1)\n' ;;
+  all) printf 'step\tinstall in a throwaway VM, boot the result and run the smoke check, a bad update, backup and restore, a pool and the file manager, and the web pages in a browser (stages 1 to 6)\n' ;;
+  *) printf 'step\tinstall in a throwaway VM, boot the result, run the smoke check and then stage %s (stages 1, 2 and %s)\n' "$stage" "$stage" ;;
+esac
 printf 'step\tdelete the VM; keep the result per stage\n'
 printf 'note\tIt takes a long time and loads the server. A failure sends a push message. Not tested on hardware yet.\n'
 printf 'command\ths testlab run --ref %s --stage %s\nlong\tyes\n' "$ref" "$stage"

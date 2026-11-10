@@ -39,6 +39,10 @@ b=${FAKE_DIR:?}
 echo "nested $*" >> "$b/nested.log"
 d=$root/.work/nested/run1; mkdir -p "$d"; ln -sfn run1 "$root/.work/nested/latest"
 echo secret > "$d/password"; echo key > "$d/key"
+case "$3" in iso|smoke|all) ;; *)   # an extra stage (rollback, backup, restore, pool)
+  env | grep -E '^HS_NESTED_(DISKS|BACKUP_PASS_FILE|PASSWORD_FILE)=' >> "$b/nested.env.log"
+  if [ "${FAKE_FAIL_STAGE:-}" = "$3" ]; then echo "{\"stage\":\"$3\",\"ok\":false}" > "$d/result-$3.json"; exit 1; fi
+  echo "{\"stage\":\"$3\",\"ok\":true}" > "$d/result-$3.json"; exit 0 ;; esac
 case "${FAKE_MODE:-ok}" in
   iso-fail) echo '{"stage":"iso","ok":false}' > "$d/result-iso.json"; exit 1 ;;
   *) echo '{"stage":"iso","ok":true}' > "$d/result-iso.json" ;;
@@ -50,6 +54,15 @@ case "${FAKE_MODE:-ok}" in
 esac
 exit 0
 FAKE
+cat > "$B/tree/scripts/dev/testlab-browser.py" <<'FAKE'
+import json, os, sys
+a = sys.argv
+open(os.path.join(os.environ["FAKE_DIR"], "browser.log"), "a").write(" ".join(a[1:]) + "\n")
+rc = int(os.environ.get("FAKE_BROWSER_RC", "0"))
+if rc in (0, 1):
+    json.dump({"stage": "browser", "ok": rc == 0}, open(a[a.index("--out") + 1], "w"))
+sys.exit(rc)
+FAKE
 cat > "$B/tree/scripts/dev/build-iso.sh" <<'FAKE'
 #!/usr/bin/env bash
 echo build >> "${FAKE_DIR:?}/build.log"; [ -z "${FAKE_BUILD_FAIL:-}" ] || exit 1; mkdir -p result-iso; exit 0
@@ -57,6 +70,11 @@ FAKE
 cat > "$B/incus" <<'FAKE'
 #!/usr/bin/env bash
 echo "$*" >> "$(dirname "$0")/incus.log"
+case "$1 $2" in
+  "list hs-testlab-"*) echo "10.0.0.5 (enp5s0)" ;;
+  "file pull") echo throwaway-restic-password > "$4" ;;
+esac
+exit 0
 FAKE
 cat > "$B/notify.sh" <<'FAKE'
 #!/usr/bin/env bash
@@ -69,7 +87,7 @@ FAKE
 chmod +x "$B/git" "$B/incus" "$B/notify.sh" "$B/bin/systemd-run" "$B/tree/scripts/dev/"*.sh
 export FAKE_DIR=$B PATH="$B/bin:$PATH"
 
-reset() { rm -rf "$B/state" "$B"/*.log "$B/state.db" "$B/jobs"/*; unset FAKE_MODE FAKE_PREFLIGHT_RC FAKE_FETCH_FAIL FAKE_BUILD_FAIL; }
+reset() { rm -rf "$B/state" "$B"/*.log "$B/state.db" "$B/jobs"/*; unset FAKE_FAIL_STAGE FAKE_BROWSER_RC FAKE_MODE FAKE_PREFLIGHT_RC FAKE_FETCH_FAIL FAKE_BUILD_FAIL; }
 lastrun() { ls -1 "$B/state/runs" | tail -n1; }
 res() { python3 -I -c 'import json,sys; print(json.load(open(sys.argv[1]))["result"])' "$B/state/runs/$(lastrun)/stage-$1.json"; }
 events() { python3 "$SCRIPTS/state-db.py" event-list 2>/dev/null | awk -F'\t' '{print $4}' | tr '\n' ' '; }
@@ -102,10 +120,11 @@ echo "-- the plan"
 out=$($T run --dry-run 2>&1); rc=$?
 check_eq "dry run exits 0" "0" "$rc"
 check_out "names the ref" "Ref +develop" echo "$out"
-check_out "names both stages" "Stages +1 \(install\) and 2" echo "$out"
+check_out "names the stages" "Stages +1 \(install\) 2 \(smoke\) 3 \(rollback\)" echo "$out"
 check_out "says nothing was done" "Dry run: nothing was fetched" echo "$out"
-check_out "stage 1 alone" "Stages +1 \(the ISO boots" $T run --stage 1 --dry-run
-check_out "a stage that does not exist" "usage" $T run --stage 3 --dry-run
+check_out "stage 1 alone" "Stages +1 \(install\) $" $T run --stage 1 --dry-run
+check_out "a stage that does not exist" "usage" $T run --stage 9 --dry-run
+check_out "a stage by name" "6 \(browser\)" $T run --stage browser --dry-run
 check_eq "the dry run changed nothing" "" "$(nlog git)$(ls "$B/state" 2>/dev/null)"
 check_out "no terminal and no --yes: nothing starts" "without --yes" $T run
 
@@ -132,6 +151,63 @@ $T run --stage 1 --yes --foreground >/dev/null 2>&1; rc=$?
 check_eq "exit 0" "0" "$rc"
 check_out "the harness only runs the ISO stage" "stage iso" cat "$B/nested.log"
 check_eq "no stage 2 file" "no" "$([ -f "$B/state/runs/$(lastrun)/stage-2.json" ] && echo yes || echo no)"
+
+echo "-- stages 3 to 6"
+reset
+$T run --yes --foreground >/dev/null 2>&1; rc=$?
+check_eq "all six stages pass: exit 0" "0" "$rc"
+for n in 1 2 3 4 5 6; do check_eq "stage $n ok" "ok" "$(res $n)"; done
+check_out "the harness runs the installed VM once for rollback" "nested run --stage rollback --name hs-testlab-" cat "$B/nested.log"
+check_out "backup on the first VM" "nested run --stage backup --name hs-testlab-" cat "$B/nested.log"
+check_out "a second clean VM is installed" "nested run --stage all --name hs-testlab-[0-9-]*-b --keep" cat "$B/nested.log"
+check_out "restore runs on the second VM" "nested run --stage restore --name hs-testlab-[0-9-]*-b" cat "$B/nested.log"
+check_out "the pool stage" "nested run --stage pool" cat "$B/nested.log"
+check_out "the disks of the stage are named" "HS_NESTED_DISKS=pool1=p1 pool2=p2" cat "$B/nested.env.log"
+check_out "the backup password goes by file" "HS_NESTED_BACKUP_PASS_FILE=.*backup-pass" cat "$B/nested.env.log"
+check_out "virtual disks are made" "storage volume create default hs-testlab-[0-9-]*-bk --type=block" cat "$B/incus.log"
+check_out "the backup disk moves to the second VM" "config device add hs-testlab-[0-9-]*-b bk disk" cat "$B/incus.log"
+check_out "the password is pulled with incus file pull" "file pull hs-testlab-[0-9-]*/var/lib/hs/restic-password" cat "$B/incus.log"
+check_out "the disks are deleted afterwards" "storage volume delete default hs-testlab-[0-9-]*-p1" cat "$B/incus.log"
+check_out "the second VM is deleted" "delete -f hs-testlab-[0-9-]*-b" cat "$B/incus.log"
+check_out "the browser gets the VM address" "run --url http://10.0.0.5:8480" cat "$B/browser.log"
+check_eq "the backup password is not kept" "0" "$(find "$B/state/runs" -name '*backup-pass*' | wc -l | tr -d ' ')"
+
+echo "-- one stage by name needs 1 and 2 first"
+reset
+$T run --stage rollback --yes --foreground >/dev/null 2>&1; rc=$?
+check_eq "exit 0" "0" "$rc"
+check_eq "stages 1, 2 and 3 ran" "ok ok ok" "$(res 1) $(res 2) $(res 3)"
+check_eq "no stage 4 file" "no" "$([ -f "$B/state/runs/$(lastrun)/stage-4.json" ] && echo yes || echo no)"
+reset
+$T run --stage 5 --yes --foreground >/dev/null 2>&1
+check_eq "a number works too" "ok" "$(res 5)"
+
+echo "-- a stage fails"
+reset; export FAKE_FAIL_STAGE=rollback
+$T run --yes --foreground >/dev/null 2>&1; rc=$?
+check_eq "exit 1" "1" "$rc"
+check_eq "stage 3 failed" "failed" "$(res 3)"
+check_eq "the stages after it still ran" "ok ok" "$(res 4) $(res 5)"
+check_out "a push message names stage 3" "Stage 3 of the test-lab" cat "$B/notify.log"
+reset; export FAKE_FAIL_STAGE=restore
+$T run --yes --foreground >/dev/null 2>&1; rc=$?
+check_eq "a failed restore fails stage 4" "failed" "$(res 4)"
+
+echo "-- no browser on this server: stage 6 is skipped, not failed"
+reset; export FAKE_BROWSER_RC=3
+$T run --yes --foreground >/dev/null 2>&1; rc=$?
+check_eq "exit 3" "3" "$rc"
+check_eq "stage 6 skipped" "skipped" "$(res 6)"
+check_eq "no push message" "" "$(nlog notify)"
+reset; export FAKE_BROWSER_RC=1
+$T run --yes --foreground >/dev/null 2>&1; rc=$?
+check_eq "a page that fails is exit 1" "1" "$rc"
+check_eq "stage 6 failed" "failed" "$(res 6)"
+
+echo "-- stage 1 fails: later stages are skipped"
+reset; export FAKE_MODE=iso-fail
+$T run --yes --foreground >/dev/null 2>&1
+check_eq "stages 2 to 6 skipped" "skipped skipped skipped skipped skipped" "$(res 2) $(res 3) $(res 4) $(res 5) $(res 6)"
 
 echo "-- stage 2 fails"
 reset; export FAKE_MODE=smoke-fail
@@ -195,7 +271,7 @@ check_out "empty" "No test-lab run yet" $T results
 check_eq "empty list" "" "$($T results --list)"
 $T run --yes --foreground >/dev/null 2>&1
 lines=$($T results --list)
-check_eq "two lines for one run" "2" "$(wc -l <<<"$lines" | tr -d ' ')"
+check_eq "one line per stage for one run" "6" "$(wc -l <<<"$lines" | tr -d ' ')"
 check_out "tab separated: run, stage, result, exit, ref, commit" $'^[0-9-]+\t1\tok\t0\tdevelop\t0123456789abcdef' echo "$lines"
 have column && check_out "a table for people" "Result" $T results
 

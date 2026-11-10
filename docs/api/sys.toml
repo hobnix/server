@@ -93,10 +93,10 @@ note = "The last test-lab runs (capability testlab), oldest first, one line per 
 kind = "tsv"
 records = { status = ["status"], reason = ["text"], heading = ["text"], step = ["text"], note = ["text"], command = ["text"], long = ["yes"] }
 enums = { status = ["ok", "refused"] }
-note = "What a test-lab run would do: hs sys testlab plan run [--ref R] [--stage 1|2|all]. Exit 0 ok, 1 refused. Never asks."
+note = "What a test-lab run would do: hs sys testlab plan run [--ref R] [--stage 1|2|3|4|5|6|<name>|all]. Exit 0 ok, 1 refused. Never asks."
 
 ["testlab start <action>"]
 kind = "tsv"
 records = { status = ["status"], reason = ["text"], unit = ["unit"] }
 enums = { status = ["started", "refused"] }
-note = "Start a test-lab run as a background job: hs sys testlab start run [--ref R] [--stage 1|2|all]; status started + the job unit."
+note = "Start a test-lab run as a background job: hs sys testlab start run [--ref R] [--stage 1|2|3|4|5|6|<name>|all]; status started + the job unit."

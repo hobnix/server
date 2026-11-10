@@ -3,12 +3,15 @@
 # docs/adr/0023-nested-test-harness.md). First run on hardware 2026-11-10 (issue #430): both stages passed
 # once, on NixOS 26.05 with Incus 7.0.1, after the fixes of that day. Not verified on any other machine.
 #
-#   scripts/dev/nested.sh run [--iso <file>] [--stage iso|smoke|all] [--keep] [--name <vm>]
+#   scripts/dev/nested.sh run [--iso <file>] [--stage iso|smoke|all|<extra>] [--keep] [--name <vm>]
 #   scripts/dev/nested.sh preflight       can this machine run it? (exit 3: no, fall back to `scripts/dev/t vm`)
 #   scripts/dev/nested.sh plan [stage]    print the steps without running anything
 #
 # Exit codes: 0 passed, 1 a check failed, 2 usage, 3 cannot run here (no KVM/nested virtualization/incus), 4 harness or Incus error.
 # Logs: .work/nested/<run-id>/ (run.log, console-<stage>.log, result-<stage>.json); .work/nested/latest points at the newest run.
+# Extra stages (nested_stages.py: rollback, backup, restore, pool, ...) work like smoke: on an installed VM, so --name and the password
+# (HS_NESTED_PASSWORD_FILE) are needed. HS_NESTED_DISKS="name=device ..." names the Incus devices of virtual disks a stage may use,
+# HS_NESTED_BACKUP_PASS_FILE holds the restic password for the stage restore.
 # Knobs: HS_NESTED_ISO (default result-iso/iso/homeserver-installer.iso), HS_NESTED_INCUS (the incus command), HS_NESTED_CPU, _MEM, _DISK.
 set -uo pipefail
 root=$(cd "$(dirname "$0")/../.." && pwd)
@@ -18,7 +21,7 @@ py=${HS_PYTHON:-python3}
 cmd=${1:-}
 [ $# -eq 0 ] || shift
 
-usage() { echo "usage: scripts/dev/nested.sh run [--iso <file>] [--stage iso|smoke|all] [--keep] [--name <vm>] | preflight | plan [stage]" >&2; }
+usage() { echo "usage: scripts/dev/nested.sh run [--iso <file>] [--stage iso|smoke|all|<extra>] [--keep] [--name <vm>] | preflight | plan [stage]" >&2; }
 
 case "$cmd" in
   preflight) exec "$py" -I "$lib" preflight ;;
@@ -43,8 +46,10 @@ while [ $# -gt 0 ]; do
     *) usage; exit 2 ;;
   esac
 done
-case $stage in iso|smoke|all) ;; *) usage; exit 2 ;; esac
-[ "$stage" != smoke ] || [ -n "$name" ] || { echo "--stage smoke needs --name <vm> of an installed VM (kept with --keep)" >&2; exit 2; }
+case $stage in iso|smoke|all) ;; *) "$py" -I "$lib" plan "$stage" >/dev/null 2>&1 || { usage; exit 2; } ;; esac
+# smoke and every extra stage run on an installed VM
+installed=false; case $stage in iso|all) ;; *) installed=true ;; esac
+$installed && [ -z "$name" ] && { echo "--stage $stage needs --name <vm> of an installed VM (kept with --keep)" >&2; exit 2; }
 
 runid=$(date +%Y%m%d-%H%M%S)-$$
 logdir=$root/.work/nested/$runid
@@ -53,19 +58,21 @@ exec > >(tee -a "$logdir/run.log") 2>&1
 
 echo "== preflight"
 "$py" -I "$lib" preflight || { echo "Cannot run nested VMs here: use scripts/dev/t vm (docs/dev-environment.md)."; exit 3; }
-if [ "$stage" != smoke ]; then
+if ! $installed; then
   "$py" -I "$lib" iso-check "$iso" || { echo "no usable ISO: build it with scripts/dev/build-iso.sh or pass --iso"; exit 4; }
 fi
 
 [ -n "$name" ] || name=hs-nested-$$
 # a throwaway password and key for this run only; the password never appears in argv, only in the environment of the driver
 HS_NESTED_PASSWORD=$(head -c 18 /dev/urandom | base64 | tr -d '/+=\n'); export HS_NESTED_PASSWORD
-if [ "$stage" != smoke ]; then
+if ! $installed; then
   ssh-keygen -q -t ed25519 -N '' -C hs-nested -f "$logdir/key" || { echo "ssh-keygen failed"; exit 4; }
   HS_NESTED_PUBKEY=$(cat "$logdir/key.pub"); export HS_NESTED_PUBKEY
 else
   [ -n "${HS_NESTED_PASSWORD_FILE:-}" ] && HS_NESTED_PASSWORD=$(cat "$HS_NESTED_PASSWORD_FILE")
 fi
+if [ -n "${HS_NESTED_BACKUP_PASS_FILE:-}" ]; then HS_NESTED_BACKUP_PASS=$(cat "$HS_NESTED_BACKUP_PASS_FILE"); export HS_NESTED_BACKUP_PASS; fi
+diskargs=(); for d in ${HS_NESTED_DISKS:-}; do diskargs+=(--disk "$d"); done
 echo "$HS_NESTED_PASSWORD" > "$logdir/password" && chmod 600 "$logdir/password"
 
 cleanup() {
@@ -84,7 +91,7 @@ wait_state() {   # wait_state <STATE> <seconds>
 infra() { echo "ERROR: $*"; exit 4; }
 
 rc=0
-if [ "$stage" != smoke ]; then
+if ! $installed; then
   echo "== create the VM $name from the ISO"
   "$incus" init "$name" --empty --vm \
     -c security.secureboot=false -c "limits.cpu=${HS_NESTED_CPU:-2}" -c "limits.memory=${HS_NESTED_MEM:-3GiB}" \
@@ -98,9 +105,10 @@ if [ "$stage" != smoke ]; then
   "$incus" config device remove "$name" iso || infra "detaching the ISO failed"
 fi
 if [ "$stage" != iso ]; then
-  echo "== stage smoke: boot the installed system"
+  ds=smoke; case $stage in all) ;; smoke) ;; *) ds=$stage ;; esac
+  echo "== stage $ds: boot the installed system"
   if [ "$(vm_state)" != RUNNING ]; then "$incus" start "$name" || infra "incus start failed"; fi
-  "$py" -I "$lib" drive smoke --vm "$name" --logdir "$logdir"; rc=$?
+  "$py" -I "$lib" drive "$ds" --vm "$name" --logdir "$logdir" ${diskargs[@]+"${diskargs[@]}"}; rc=$?
 fi
 echo "== result: exit $rc (logs: $logdir)"
 exit "$rc"
