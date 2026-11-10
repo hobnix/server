@@ -101,6 +101,10 @@ The payload is optional extra data for programs. Rules:
 | `power.stopping` | info | none | the server is going down (subject: reboot or poweroff) |
 | `unlock.needed` | warn | none | encrypted storage is locked and waits for hs unlock (subject: storage; once per boot) |
 | `unlock.done` | info | none | encrypted storage was unlocked (subject: storage) |
+| `testlab.started` | info | `ref`, `stage` | a test-lab run started (subject: the run id) |
+| `testlab.ok` | info | `ref`, `stage` | a test-lab run passed (subject: the run id) |
+| `testlab.failed` | error | `ref`, `stage` | a test-lab run failed or hit an error (subject: the run id; payload: the stage that failed) |
+| `testlab.skipped` | warn | `ref`, `stage` | a test-lab run could not run on this machine (no KVM, no nested virtualization or no incus; subject: the run id) |
 
 <!-- END generated -->
 

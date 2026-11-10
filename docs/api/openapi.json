@@ -11802,6 +11802,216 @@
     }
    }
   },
+  "/testlab/plan/{action}": {
+   "post": {
+    "operationId": "testlab.plan.by_action",
+    "summary": "what a test-lab run would do, as data: status, plan lines (never asks; exit 0 ok, 1 refused)",
+    "x-hs-exit": true,
+    "x-hs-sys": {
+     "words": [
+      "testlab",
+      "plan",
+      "<action>"
+     ],
+     "script": "testlab-change.sh",
+     "args": "plan {1} {rest}",
+     "class": "plan",
+     "rest": true
+    },
+    "parameters": [
+     {
+      "name": "action",
+      "in": "path",
+      "required": true,
+      "schema": {
+       "type": "string"
+      }
+     }
+    ],
+    "responses": {
+     "0": {
+      "description": "allowed",
+      "content": {
+       "text/tab-separated-values": {
+        "schema": {
+         "$ref": "#/components/schemas/ChangeLines"
+        }
+       }
+      }
+     },
+     "1": {
+      "description": "refused; the reason line says why",
+      "content": {
+       "text/tab-separated-values": {
+        "schema": {
+         "$ref": "#/components/schemas/ChangeLines"
+        }
+       }
+      }
+     },
+     "2": {
+      "description": "something is missing; the needs lines say what",
+      "content": {
+       "text/tab-separated-values": {
+        "schema": {
+         "$ref": "#/components/schemas/ChangeLines"
+        }
+       }
+      }
+     }
+    }
+   }
+  },
+  "/testlab/results": {
+   "get": {
+    "operationId": "testlab.results",
+    "summary": "the last test-lab runs as data: run, stage (1|2), result (ok|failed|skipped|error), exit, ref, commit, started, ended; empty: no run yet",
+    "x-hs-exit": true,
+    "x-hs-sys": {
+     "words": [
+      "testlab",
+      "results"
+     ],
+     "script": "testlab.sh",
+     "args": "results --list {rest}",
+     "class": "read",
+     "rest": true
+    },
+    "x-hs-web": {
+     "path": "/api/sys/testlab/results",
+     "kind": "tsv",
+     "ttl": 10,
+     "query": []
+    },
+    "description": "The last test-lab runs (capability testlab), oldest first, one line per run and stage. started and ended are UTC times; empty fields are -.",
+    "responses": {
+     "0": {
+      "description": "ok",
+      "content": {
+       "text/tab-separated-values": {
+        "schema": {
+         "type": "array",
+         "items": {
+          "type": "array",
+          "prefixItems": [
+           {
+            "$ref": "#/components/schemas/Field",
+            "title": "run"
+           },
+           {
+            "$ref": "#/components/schemas/Field",
+            "title": "stage",
+            "enum": [
+             "1",
+             "2"
+            ]
+           },
+           {
+            "$ref": "#/components/schemas/Field",
+            "title": "result",
+            "enum": [
+             "ok",
+             "failed",
+             "skipped",
+             "error"
+            ]
+           },
+           {
+            "$ref": "#/components/schemas/Field",
+            "title": "exit"
+           },
+           {
+            "$ref": "#/components/schemas/Field",
+            "title": "ref"
+           },
+           {
+            "$ref": "#/components/schemas/Field",
+            "title": "commit"
+           },
+           {
+            "$ref": "#/components/schemas/Field",
+            "title": "started"
+           },
+           {
+            "$ref": "#/components/schemas/Field",
+            "title": "ended"
+           }
+          ],
+          "minItems": 8,
+          "maxItems": 8
+         }
+        }
+       }
+      }
+     },
+     "default": {
+      "description": "failed; stderr says why, stdout may be empty"
+     }
+    }
+   }
+  },
+  "/testlab/start/{action}": {
+   "post": {
+    "operationId": "testlab.start.by_action",
+    "summary": "start it (hs sys testlab start run [--ref R] [--stage 1|2|all]) as a background job; status started + unit",
+    "x-hs-exit": true,
+    "x-hs-sys": {
+     "words": [
+      "testlab",
+      "start",
+      "<action>"
+     ],
+     "script": "testlab-change.sh",
+     "args": "start {1} {rest}",
+     "class": "start",
+     "rest": true,
+     "confirm": "--confirm <name>, the name the plan's confirm_name line asks for"
+    },
+    "parameters": [
+     {
+      "name": "action",
+      "in": "path",
+      "required": true,
+      "schema": {
+       "type": "string"
+      }
+     }
+    ],
+    "description": "a long change starts a job; the `unit` line names it; follow it with `jobs tail`",
+    "responses": {
+     "0": {
+      "description": "done or started",
+      "content": {
+       "text/tab-separated-values": {
+        "schema": {
+         "$ref": "#/components/schemas/ChangeLines"
+        }
+       }
+      }
+     },
+     "1": {
+      "description": "refused",
+      "content": {
+       "text/tab-separated-values": {
+        "schema": {
+         "$ref": "#/components/schemas/ChangeLines"
+        }
+       }
+      }
+     },
+     "2": {
+      "description": "something is missing",
+      "content": {
+       "text/tab-separated-values": {
+        "schema": {
+         "$ref": "#/components/schemas/ChangeLines"
+        }
+       }
+      }
+     }
+    }
+   }
+  },
   "/unifi/clients": {
    "get": {
     "operationId": "unifi.clients",

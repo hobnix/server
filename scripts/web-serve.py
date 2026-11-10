@@ -765,6 +765,7 @@ READS = {
     ("live", "inspect"): {"kind": "json", "ttl": 0, "redis": True},      # the Live state page; ttl 0: never cached nor warmed, re-read on each change of topic live
     ("live", "raw"): {"kind": "json", "ttl": 0, "redis": True, "args": [NAME]},      # one topic's stored output for the Live state page (capped in live_state.py)
     ("state", "events"): {"kind": "tsv", "ttl": 10, "query": {"n": (r"^[0-9]{1,4}$", "")}},
+    ("testlab", "results"): {"kind": "tsv", "ttl": 10},      # the Test-lab page (capability testlab)
     ("event", "list"): {"kind": "tsv", "ttl": 10, "query": {"n": (r"^[0-9]{1,4}$", ""), "source": (r"^[a-z][a-z0-9-]{0,30}$", "--source"), "after": (r"^[0-9]{1,9}$", "--after")}},      # the event log (docs/adr/0005-events.md)
     ("ct", "list"): {"kind": "tsv", "ttl": 5, "topic": "ct-list"},
     ("ct", "profiles"): {"kind": "tsv", "ttl": 30, "topic": "ct-profiles"},
@@ -1033,6 +1034,8 @@ CHANGES = {
     # the vault and the secrets (vault-change.sh): a header backup, move secrets in (optionally by name), close (red), root-only permissions; init, bind and open are not here
     "secrets": [[r"^(header-backup|close|secrets-fix)$"], [r"^move$"], [r"^move$", r"^[A-Za-z0-9][A-Za-z0-9._-]{0,60}$"]],
     # small chores (admin-change.sh): a test push message, pin the MACs, move the upload cache now, clean the fans
+    # the test-lab (testlab-change.sh, the capability testlab): start a run as a job; the ref is a branch, tag or commit name (testlab.sh checks it again and the allowlist of repositories)
+    "testlab": [{"fixed": [r"^run$"], "opts": {"--ref": (r"^[A-Za-z0-9][A-Za-z0-9._/-]{0,99}$", False), "--stage": (r"^(1|2|all)$", False)}}],
     "admin": [[r"^(test-push|pin-macs|cache-mover)$"], {"fixed": [r"^fans-clean$"], "opts": {"--seconds": (r"^[0-9]{1,2}$", False)}}],
     # the certificates of the domain controller (dc-change.sh): make the CA once, renew the certificate of a controller on this server (red: Samba restarts)
     "dc": [[r"^ca$"], {"fixed": [r"^renew$"], "opts": {"--dc": (r"^[A-Za-z0-9][A-Za-z0-9-]{0,62}$", False)}}],

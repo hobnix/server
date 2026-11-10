@@ -1,0 +1,6 @@
+date  = "2026-11-10"
+type  = "feature"
+title = "Test-lab: build the installer ISO and check it in a virtual machine"
+body  = """A new optional part, the test-lab, fetches a Hobnix branch, builds the installer image, installs it unattended in a virtual machine and runs the smoke check. Start it with hs testlab run, from Monitoring > Test-lab, or let it run every night. It is off by default and meant for a build server.
+
+Not tested on hardware yet."""

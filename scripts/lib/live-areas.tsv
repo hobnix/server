@@ -29,3 +29,4 @@ config	system
 system	system
 parts	system
 pkg	system
+testlab	system

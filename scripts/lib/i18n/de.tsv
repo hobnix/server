@@ -2368,3 +2368,29 @@ SSH host keys not restored (this server keeps its own). Run the command again to
 That is not an address like 10.10.95.25.	Das ist keine Adresse wie 10.10.95.25.
 That value does not fit here.	Dieser Wert passt hier nicht.
 UniFi does not accept that address (taken, or inside the range the router hands out).	UniFi nimmt diese Adresse nicht an (schon vergeben oder im Bereich, den der Router verteilt).
+       hs testlab results [--list [N]]	       hs testlab results [--list [N]]
+3. build the installer ISO (nix, can take a long time and needs tens of GiB)	3. die Installer-ISO bauen (nix, dauert lange und braucht einige zehn GiB)
+A failure sends a push message. Not tested on hardware yet.	Ein Fehler schickt eine Push-Nachricht. Noch nicht auf Hardware getestet.
+Building the installer ISO (this takes a long time)	Installer-ISO bauen (das dauert lange)
+Checked out %s	%s ausgecheckt
+Commit %s, run folder %s	Commit %s, Lauf-Ordner %s
+Ended	Beendet
+Exit	Exit-Code
+Fetching %s	%s wird geholt
+No test-lab run yet. Start one with: hs testlab run	Noch kein Testlabor-Lauf. Starte einen mit: hs testlab run
+Nothing is started without --yes when there is no terminal.	Ohne Terminal wird ohne --yes nichts gestartet.
+Ref	Stand
+Run	Lauf
+Run %s: can this machine run nested VMs?	Lauf %s: kann dieser Rechner verschachtelte VMs starten?
+Run the test-lab now?	Das Testlabor jetzt ausführen?
+Running the nested harness, VM %s	Verschachtelter Test läuft, VM %s
+Stage	Stufe
+Stage 1	Stufe 1
+Stage 2	Stufe 2
+Stages	Stufen
+Started	Gestartet
+The job was cancelled.	Der Job wurde abgebrochen.
+The test-lab is off. Switch it on with the capability testlab (hs config set capabilities, then hs rebuild).	Das Testlabor ist aus. Schalte die Funktion testlab ein (hs config set capabilities, dann hs rebuild).
+This builds an installer image and boots virtual machines: it takes a long time and puts load on this server.	Das baut ein Installer-Abbild und startet virtuelle Maschinen: es dauert lange und belastet diesen Server.
+usage: hs testlab run [--ref <branch|tag|commit>] [--stage 1|2|all] [--dry-run] [--yes] [--background|--foreground]	Aufruf: hs testlab run [--ref <branch|tag|commit>] [--stage 1|2|all] [--dry-run] [--yes] [--background|--foreground]
+2. check that this machine can run nested VMs (KVM, Incus)	2. prüfen, ob dieser Rechner verschachtelte VMs starten kann (KVM, Incus)
