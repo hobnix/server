@@ -33,6 +33,8 @@ cat > "$WORK/bin/restic" <<'FAKE'
 #!/usr/bin/env bash
 # fake: -r REPO --password-file F snapshots|restore ...; the right password is "right-pass"; restore copies the --include paths from $FIX
 args=("$@"); repo=""; pf=""; cmd=""; target=""; inc=()
+printf '%s\n' "$*" >> "$FIX/../restic-calls"
+case " $* " in *" --no-lock "*) ;; *) echo "fake restic: --no-lock is missing" >> "$FIX/../restic-nolock-missing" ;; esac
 for ((i = 0; i < ${#args[@]}; i++)); do
   case "${args[$i]}" in
     -r) repo=${args[$((i + 1))]} ;;
@@ -87,6 +89,17 @@ echo "-- what it refuses"
 out=$($R --password-file "$WORK/badpass" --disk sda --confirm-disk sda --target "$WORK/t2" --repo "$REPO" </dev/null 2>&1 || true)
 check_out "a wrong password" "could not be opened" echo "$out"
 check "and writes nothing" test ! -e "$WORK/t2/etc/nixos"
+if grep -q "Traceback" <<<"$out"; then fail "a wrong password prints no traceback"; else pass "a wrong password prints no traceback"; fi
+check "every restic call had --no-lock (the backup disk is read-only)" test ! -e "$WORK/restic-nolock-missing"
+check "restic was called" test -s "$WORK/restic-calls"
+
+echo "-- umask 077 does not change the modes of the new folders"
+( umask 077; $R --password-file "$WORK/pass" --disk sda --confirm-disk sda --target "$WORK/t4" --repo "$REPO" </dev/null >/dev/null 2>&1 ) || fail "the restore under umask 077 failed"
+check_eq "/etc/ssh is 755" "755" "$(stat -c %a "$WORK/t4/etc/ssh" 2>/dev/null)"
+check_eq "/etc/nixos is 755" "755" "$(stat -c %a "$WORK/t4/etc/nixos" 2>/dev/null)"
+check_eq "/var/lib/hs is 755" "755" "$(stat -c %a "$WORK/t4/var/lib/hs" 2>/dev/null)"
+check_eq "the host key keeps its mode" "600" "$(stat -c %a "$WORK/t4/etc/ssh/ssh_host_ed25519_key" 2>/dev/null)"
+check "still no nolock miss after that" test ! -e "$WORK/restic-nolock-missing"
 out=$(HS_INSTALL_SKIP_DISK= $R --password-file "$WORK/pass" --disk sda --target "$WORK/t2" --repo "$REPO" </dev/null 2>&1 || true)
 check_out "no terminal and no --confirm-disk: the disk name is asked" "asks for its name" echo "$out"
 out=$($R --password-file "$WORK/pass" --disk sda --confirm-disk sdb --target "$WORK/t2" --repo "$REPO" </dev/null 2>&1 || true)
