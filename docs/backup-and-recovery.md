@@ -217,7 +217,9 @@ sudo hs backup drill ct radarr
 - `drill ct` restores the container that was checked longest ago (smallest first) into a throwaway instance without a network, boots it
   and deletes it. It needs about twice the container's size free in `/var/tmp` (`HS_DRILL_TMP` changes the place). It also checks the
   domain controller backup file and the export file of one VM. It prints the date and age of the snapshot it restored and warns when that
-  is older than 3 days (the report then adds "snapshot N days old" and a `!` line when no container is in the backup any more).
+  is older than 3 days (the report then adds "snapshot N days old"). Without a name it picks only containers that are in the backup;
+  a container you switched off is not drilled (name it to drill it anyway), and the report shows an info line, not a warning, when
+  no container is in the backup.
   Not tested on hardware yet.
 - On the 25th of every month a push message reports the state of the drills; `sudo hs backup report` sends it now (`--dry-run` only
   shows it).

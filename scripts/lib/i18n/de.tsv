@@ -1537,7 +1537,7 @@ Virtual machine drill	Wiederherstellungsprobe (virtuelle Maschine)
 Domain controller backup file	Sicherungsdatei des Domänencontrollers
 ! Drills that failed in the last 35 days: %s	! Proben, die in den letzten 35 Tagen fehlschlugen: %s
 snapshot %s days old	Snapshot %s Tage alt
-! No container is in the backup now (newest container snapshot: %s days old)	! Kein Container ist jetzt im Backup (neuester Container-Snapshot: %s Tage alt)
+No container is in the backup (chosen); the newest container snapshot is %s days old	Kein Container ist im Backup (so gewählt); der neueste Container-Snapshot ist %s Tage alt
 Snapshot from %s (%s days old)	Snapshot vom %s (%s Tage alt)
 Snapshot from %s (%s days old); this container is still in the backup, so its backup has not run for days	Snapshot vom %s (%s Tage alt); dieser Container ist noch im Backup, sein Backup lief aber seit Tagen nicht
 Snapshot from %s (%s days old); this container is no longer in the backup (hs backup ct %s on)	Snapshot vom %s (%s Tage alt); dieser Container ist nicht mehr im Backup (hs backup ct %s on)
