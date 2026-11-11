@@ -53,7 +53,7 @@ echo "-- runbook step: shares with hs backup restore, in place (--to /)"
 check "docs, media come back" hsb restore latest "$WORK/bulk/shares" --to /
 check "sensitive comes back" hsb restore latest "$WORK/bulk/sensitive" --to /
 check_eq "the files are identical to before the disaster" "$before" "$(sums)"
-check_eq "owned by adminuser" "adminuser" "$(stat -c %U "$WORK/bulk/shares/docs/d1.bin")"
+check_eq "in place: the owner of the snapshot is kept (issue 532)" "root" "$(stat -c %U "$WORK/bulk/shares/docs/d1.bin")"
 
 echo "-- the chown stays inside what was restored"
 mkdir -p "$WORK/target"; touch "$WORK/target/sentinel"; chown nobody "$WORK/target/sentinel" 2>/dev/null
