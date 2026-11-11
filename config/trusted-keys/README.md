@@ -29,4 +29,31 @@ Make a release: `git tag -s v1.2.0 -m "recipes 1.2.0"` with `gpg.format = ssh` a
 `server.allowed_signers` in this folder, in the same format as the other files. The file holds the release key (one line). A server whose checkout lacks the file or its key
 refuses to move onto any tag, so servers need an `hs update` that brings the file before the first tag. Servers without a release tag, and the `edge` channel, do not use it.
 
-The release workflow (`.github/workflows/release.yml`, docs/RELEASE-PROCESS.md "Release from GitHub") signs with a second key, principal `release-ci`, kept as a secret in the GitHub environment `release`. Its line is added here by a pull request, next to `release`; it is checked by the same `uc_verify`.
+The release workflow (`.github/workflows/release.yml`, docs/RELEASE-PROCESS.md "Release from GitHub") signs with a second key, principal `release-ci`, kept as a secret in the GitHub environment `release`. Its line is here, next to `release`; it is checked by the same `uc_verify`.
+
+## The keys of the release workflows: `release-ci`
+
+A release can also be cut from GitHub (Actions, the workflow `release` of each repository), so that it does not need the maintainer's
+machine. The workflow signs with a key of its own, never with the maintainer's key:
+
+- **One key per repository**, principal `release-ci`, as one more line of that repository's file here (`server`, `recipes`, `extensions`,
+  `capabilities`). The maintainer's line stays: a release from the maintainer's machine keeps working, and both are checked the same way.
+- **Where the private key is.** Only in the secret `RELEASE_SIGNING_KEY` of the GitHub environment `release` of that repository. The
+  environment has a required reviewer and allows the branch `main` only, so the job that signs waits for the maintainer's approval.
+- **Making one** (the maintainer, once per repository; the key has no passphrase because the workflow cannot type one):
+  ```bash
+  ssh-keygen -t ed25519 -N '' -C hobnix-release-ci -f release-ci
+  ```
+  The line for the file here is `release-ci namespaces="git" ` followed by the first two fields of `release-ci.pub`. Put the content of
+  `release-ci` into the secret, then delete both files.
+- **What this changes.** With the maintainer's key alone, a stolen GitHub account cannot get code onto a server. With a `release-ci` line,
+  somebody who can run the workflow **and** pass the approval of the environment can sign for that repository. The guards are the approval,
+  the checks the workflow runs before it signs, and that the key is one line that can be removed without touching the maintainer's key.
+- **Replacing it** follows the order above: add the new line, merge, let servers run `hs update`, change the secret, release, remove the old
+  line later.
+- **A leaked or lost key.** Remove its line by a pull request at once and delete the secret. A server that updated afterwards refuses every
+  tag signed with it, also the ones already published: release again (the next number) with the maintainer's key or a new one. A pushed tag
+  is never moved or deleted.
+
+The lines are added before the first release, because a server learns a key only through `hs update` of the core. The four `release-ci` lines
+are in the files (2026-11-11), but no workflow has signed with such a key and no server has checked such a tag: **Not tested on hardware yet.**
