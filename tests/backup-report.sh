@@ -54,6 +54,35 @@ check_out "problems go out with high priority" "to look at.*high" cat "$FAKE_SEN
 check_out "and as a problem" "^problem[|]" cat "$FAKE_SENT"
 check_out "event: the report with problems is a warn" "backup report problem warn {\"problems\":[1-9]" evs
 
+echo "-- the age of the drilled snapshot, and no container in the backup"
+cat > "$ST/backup.state" <<S
+status=ok
+last_ok=$((now - 3600))
+drill_ok=$((now - 10 * day))
+drill_ct_ok=$((now - 2 * day))
+drill_ct_name=arr
+drill_ct_snap=$((now - 11 * day))
+used_pct=40
+S
+rm -f "$ST/backup-drill-ct"
+echo arr > "$ST/backup-instances"
+out=$(hsb report --dry-run 2>&1)
+check_out "an old snapshot adds its age (at the time of the drill)" "Container restore drill: 2 days ago \(arr, snapshot 9 days old\)" echo "$out"
+check "no 'no container' line while one is in the backup" bash -c "! grep -q 'No container is in the backup' <<<'$out'"
+sed -i "s/^drill_ct_snap=.*/drill_ct_snap=$((now - 3 * day))/" "$ST/backup.state"
+check_out "a fresh snapshot adds nothing" "Container restore drill: 2 days ago \(arr\)" hsb report --dry-run
+sed -i '/^drill_ct_snap=/d' "$ST/backup.state"
+check_out "a state without the field still parses" "Container restore drill: 2 days ago \(arr\)" hsb report --dry-run
+: > "$ST/backup-instances"
+echo $((now - 9 * day)) > "$ST/backup-ct-newest"
+out=$(hsb report --dry-run 2>&1)
+check_out "snapshots but no container in the backup: a warning" "! No container is in the backup now \(newest container snapshot: 9 days old\)" echo "$out"
+check_out "and it is counted" "1 thing\(s\) to look at" echo "$out"
+echo 0 > "$ST/backup-ct-newest"
+check "never had container backups: no line" bash -c "! bash '$SCRIPTS/backup.sh' report --dry-run 2>&1 | grep -q 'No container is in the backup'"
+rm -f "$ST/backup-ct-newest" "$ST/backup-instances"
+check "no state file at all: no line" bash -c "! bash '$SCRIPTS/backup.sh' report --dry-run 2>&1 | grep -q 'No container is in the backup'"
+
 echo "-- the schedule"
 check_eq "a server without a backup does nothing on the timer" "" "$(HS_STATE_DIR=$WORK/none bash "$SCRIPTS/backup.sh" report --scheduled 2>&1)"
 unit=$(grep -h -A12 'systemd.services.hs-backup-report' "$ROOT/configuration.nix" "$ROOT"/capabilities/*/module.nix)   # the timers moved to capabilities/backup/module.nix

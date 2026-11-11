@@ -21,6 +21,10 @@ cmd=$1; shift
 echo "restic $cmd $*" >> "$LOG"
 case "$cmd" in
   snapshots)
+    if [ -n "${FAKE_AGE:-}" ]; then
+      t=$(date -u -d "$FAKE_AGE days ago" +%Y-%m-%dT%H:%M:%S.123456789+00:00)
+      printf '[{"id":"aaa1","time":"%s","tags":["ct:big"]},{"id":"aaa2","time":"%s","tags":["ct:small"]}]\n' "$t" "$t"; exit 0
+    fi
     printf '[{"id":"aaa0","time":"2026-09-01T00:00:00Z","tags":["ct:small"]},{"id":"aaa1","time":"2026-10-01T00:00:00Z","tags":["ct:big"]},{"id":"aaa2","time":"2026-10-02T00:00:00Z","tags":["ct:small"]},{"id":"hhh1","time":"2026-10-02T00:00:00Z","tags":["host"]}]\n' ;;
   stats)
     id=${!#}
@@ -164,6 +168,23 @@ check_out "--state has the container drill" "^drill_ct_name	" echo "$out"
 check_out "and the old keys are still there" "^drill_ok	" echo "$out"
 check_out "status shows a line" "Container drill" hsb status
 
+echo "-- the age of the restored snapshot"
+: > "$HS_STATE_DIR/backup-instances"
+out=$(FAKE_AGE=9 hsb drill ct small 2>&1)
+check_out "an old snapshot names its date and age" "Snapshot from [0-9-]+ \(9 days old\)" echo "$out"
+check_out "and says the container is not in the backup" "no longer in the backup" echo "$out"
+check_eq "an old snapshot that restores is still a pass" 0 "$(FAKE_AGE=9 hsb drill ct small >/dev/null 2>&1; echo $?)"
+check_eq "the snapshot time is noted for the report" 9 "$(( ($(st drill_ct_ok) - $(st drill_ct_snap)) / 86400 ))"
+FAKE_AGE=9 hsb drill ct >/dev/null 2>&1
+check_eq "the newest container snapshot is noted" 9 "$(( ($(date +%s) - $(cat "$HS_STATE_DIR/backup-ct-newest")) / 86400 ))"
+echo small > "$HS_STATE_DIR/backup-instances"
+out=$(FAKE_AGE=9 hsb drill ct small 2>&1)
+check_out "a container still in the backup is said so" "still in the backup" echo "$out"
+out=$(FAKE_AGE=1 hsb drill ct small 2>&1)
+check_out "a fresh snapshot shows its age" "\(1 days old\)" echo "$out"
+check "and gets no warning" bash -c "! grep -q 'still in the backup\|no longer in the backup' <<<'$out'"
+rm -f "$HS_STATE_DIR/backup-instances"
+
 echo "-- the image: ids are unshifted, metadata and the folders the backup leaves out are there"
 mkdir -p "$WORK/rf/etc"; echo h > "$WORK/rf/etc/hostname"
 python3 "$SCRIPTS/lib/ct-image.py" build "$WORK/rf" "$WORK/img.tar.gz" web
@@ -172,5 +193,7 @@ check_eq "a host id is brought back to the container's" 5 "$(python3 -c "import 
 check_eq "an id outside the range is left alone" 7 "$(python3 -c "import sys; exec(open(sys.argv[1]).read().split('if __name__')[0]); print(unshift(7, 1000000))" "$SCRIPTS/lib/ct-image.py")"
 check_eq "the newest snapshot per container" "big	aaa1
 small	aaa2" "$(printf '[{"id":"a","time":"1","tags":["ct:small"]},{"id":"b","time":"2","tags":["ct:small"]},{"id":"c","time":"1","tags":["ct:big","x"]}]' | python3 "$SCRIPTS/lib/ct-image.py" newest | sed 's/\tb$/\taaa2/; s/\tc$/\taaa1/')"
+check_eq "the snapshot time as epoch (Z and offset)" "a	1000000000
+b	1000000000" "$(printf '[{"id":"a","time":"2001-09-09T01:46:40Z","tags":["ct:a"]},{"id":"b","time":"2001-09-09T03:46:40.5+02:00","tags":["ct:b"]}]' | python3 "$SCRIPTS/lib/ct-image.py" newest ct --time | cut -f1,3)"
 
 finish

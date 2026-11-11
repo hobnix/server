@@ -607,6 +607,7 @@ cmd_drill() {
 # and started from `incus init --no-profiles` with only a root disk: no NIC, so no MAC or address can clash with the
 # real container. Then everything is deleted, also on an error and on Ctrl-C (drill_cleanup, called from cleanup()).
 CTDRILL=$STATE/backup-drill-ct        # one line per try: <container> <epoch> ok|failed (the rotation)
+CTNEWEST=$STATE/backup-ct-newest      # epoch of the newest container snapshot in the repository, written by the container drill (0 = none)
 CTIMG=$(dirname "$0")/lib/ct-image.py
 drill_tmp=""; drill_inst=""; drill_img=""; dc_checked=false
 inc() { "${HS_INCUS:-incus}" "$@"; }
@@ -618,23 +619,27 @@ drill_cleanup() {
 }
 
 # The container drilled longest ago (never drilled first, the smaller one first), or the one asked for.
-# Prints "<name> <snapshot id> <bytes>", nothing when there is none.
+# Prints "<name> <snapshot id> <bytes> <snapshot epoch>", nothing when there is none.
+# A pick of all containers also records the time of the newest container snapshot (backup-ct-newest, 0 = none) for the report.
 drill_pick() {   # drill_pick [<name>] [ct|vm]
-  local want=${1:-} kind=${2:-ct} name id size last rows=""
-  while IFS=$'\t' read -r name id; do
+  local want=${1:-} kind=${2:-ct} name id size last when newest=0 rows=""
+  while IFS=$'\t' read -r name id when; do
     [ -n "$name" ] || continue
+    [[ "$when" =~ ^[0-9]+$ ]] || when=0
+    [ "$when" -le "$newest" ] || newest=$when
     if [ -n "$want" ] && [ "$name" != "$want" ]; then continue; fi
     size=$(R stats --mode restore-size --json "$id" 2>/dev/null | python3 "$CTIMG" field total_size 2>/dev/null | tr -d '\r' || true)
     last=$(awk -v n="$name" '$1 == n { t = $2 } END { print t + 0 }' "$CTDRILL" 2>/dev/null || true)
-    rows+="${last:-0}"$'\t'"${size:-0}"$'\t'"$name"$'\t'"$id"$'\n'
-  done < <(R snapshots --json 2>/dev/null | python3 "$CTIMG" newest "$kind" | tr -d '\r')
+    rows+="${last:-0}"$'\t'"${size:-0}"$'\t'"$name"$'\t'"$id"$'\t'"$when"$'\n'
+  done < <(R snapshots --json 2>/dev/null | python3 "$CTIMG" newest "$kind" --time | tr -d '\r')
+  if [ "$kind" = ct ] && [ -z "$want" ]; then echo "$newest" > "$CTNEWEST" 2>/dev/null || true; fi
   [ -n "$rows" ] || return 0
-  printf '%s' "$rows" | sort -t$'\t' -k1,1n -k2,2n | awk -F'\t' 'NR == 1 { print $3, $4, $2 }'
+  printf '%s' "$rows" | sort -t$'\t' -k1,1n -k2,2n | awk -F'\t' 'NR == 1 { print $3, $4, $2, $5 }'
 }
 
 # One container. Returns 1 with a warning (never exits), so the domain controller check still runs.
-drill_ct_one() {   # drill_ct_one <name> <snapshot id> <bytes>
-  local name=$1 id=$2 size=$3 root avail i st="" wait=${HS_DRILL_WAIT:-90}
+drill_ct_one() {   # drill_ct_one <name> <snapshot id> <bytes> <snapshot epoch>
+  local name=$1 id=$2 size=$3 when=${4:-0} root avail i st="" wait=${HS_DRILL_WAIT:-90} age
   local inst="hs-drill-$name" img="hs-drill-img-$name"
   inst=${inst:0:63}
   drill_cleanup
@@ -649,6 +654,16 @@ drill_ct_one() {   # drill_ct_one <name> <snapshot id> <bytes>
     drill_cleanup; return 1
   fi
   step "$(t 'Container restore drill: %s' "$name")"
+  if [ "$when" -gt 0 ]; then
+    age=$(( ($(date +%s) - when) / 86400 ))
+    if [ "$age" -le 3 ]; then
+      note "$(t 'Snapshot from %s (%s days old)' "$(date -d "@$when" +%F)" "$age")"
+    elif grep -qxF "$name" "$CTS" 2>/dev/null; then
+      warn "$(t 'Snapshot from %s (%s days old); this container is still in the backup, so its backup has not run for days' "$(date -d "@$when" +%F)" "$age")"
+    else
+      warn "$(t 'Snapshot from %s (%s days old); this container is no longer in the backup (hs backup ct %s on)' "$(date -d "@$when" +%F)" "$age" "$name")"
+    fi
+  fi
   R restore "$id" --target "$drill_tmp/restore" >/dev/null || { warn "$(t '%s: the restore itself failed' "$name")"; drill_cleanup; return 1; }
   root=$drill_tmp/restore$INCUS_ROOT/$name/rootfs
   if [ ! -d "$root/etc" ]; then warn "$(t '%s: the snapshot holds no root file system (no etc folder)' "$name")"; drill_cleanup; return 1; fi
@@ -717,7 +732,7 @@ drill_vm_one() {   # drill_vm_one <name> <snapshot id> <bytes>
 }
 
 cmd_drill_ct() {   # hs backup drill ct [<name>]
-  local want=${1:-} pick name id size rc=0 vmpick
+  local want=${1:-} pick name id size when rc=0 vmpick
   [ $# -le 1 ] || usage
   need_repo
   trap 'exit 130' INT TERM
@@ -727,7 +742,7 @@ cmd_drill_ct() {   # hs backup drill ct [<name>]
     vmpick=$(drill_pick "" vm)
   fi
   if [ -n "${vmpick:-}" ]; then
-    read -r name id size <<<"$vmpick"
+    read -r name id size _ <<<"$vmpick"
     if drill_vm_one "$name" "$id" "$size"; then
       printf '%s %s ok\n' "$name" "$(date +%s)" >> "$CTDRILL"
       note_state "drill_vm_ok=$(date +%s)" "drill_vm_name=$name"
@@ -743,10 +758,10 @@ cmd_drill_ct() {   # hs backup drill ct [<name>]
       [ -z "$want" ] || die "$(t 'No backup of a container called %s (see: hs backup list)' "$want")"
       [ -n "${vmpick:-}" ] || note "No container is in the backup, nothing to restore (hs backup ct <name> on)"
     else
-      read -r name id size <<<"$pick"
-      if drill_ct_one "$name" "$id" "$size"; then
+      read -r name id size when <<<"$pick"
+      if drill_ct_one "$name" "$id" "$size" "$when"; then
         printf '%s %s ok\n' "$name" "$(date +%s)" >> "$CTDRILL"
-        note_state "drill_ct_ok=$(date +%s)" "drill_ct_name=$name"
+        note_state "drill_ct_ok=$(date +%s)" "drill_ct_name=$name" "drill_ct_snap=${when:-0}"
       else
         printf '%s %s failed\n' "$name" "$(date +%s)" >> "$CTDRILL"
         rc=1
@@ -766,7 +781,7 @@ cmd_drill_ct() {   # hs backup drill ct [<name>]
 # Priority "high" and category problem when something is overdue or failed, otherwise a quiet "info". --dry-run prints instead of sending.
 # HS_BACKUP_NOTIFY: another program for sending (tests); gets the same arguments as notify.sh.
 cmd_report() {
-  local scheduled=false now d lines="" problems=0 k v when limit title prio cat msg
+  local scheduled=false now d lines="" problems=0 k v when limit title prio cat msg cname csnap cok cage cnew
   [ "${1:-}" = --scheduled ] && scheduled=true
   if [ ! -f "$PASSFILE" ] && [ "$(pass_state)" != locked ]; then
     $scheduled && return 0
@@ -791,7 +806,19 @@ cmd_report() {
   check_age "$(t 'File restore drill')" drill_ok 45
   # the container drill is only expected when containers are in the backup
   if [ -s "$CTS" ] || [ -n "$(get drill_ct_ok)" ]; then
-    check_age "$(t 'Container restore drill')" drill_ct_ok 90 "$([ -z "$(get drill_ct_name)" ] || echo "($(get drill_ct_name))")"
+    # the age of the snapshot the drill restored (at the time of the drill), only when it was old
+    cname=$(get drill_ct_name); csnap=$(get drill_ct_snap); cok=$(get drill_ct_ok); cage=""
+    if [[ "$csnap" =~ ^[0-9]+$ && "$cok" =~ ^[0-9]+$ && "$csnap" -gt 0 && "$cok" -ge "$csnap" ]]; then
+      cage=$(( (cok - csnap) / 86400 ))
+      [ "$cage" -gt 3 ] || cage=""
+    fi
+    if [ -n "$cage" ]; then cname="${cname:+$cname, }$(t 'snapshot %s days old' "$cage")"; fi
+    check_age "$(t 'Container restore drill')" drill_ct_ok 90 "$([ -z "$cname" ] || echo "($cname)")"
+  fi
+  # containers were backed up once, none is in the backup now (the newest container snapshot was noted by the container drill)
+  cnew=$(cat "$CTNEWEST" 2>/dev/null || true)
+  if [ ! -s "$CTS" ] && [[ "$cnew" =~ ^[0-9]+$ ]] && [ "$cnew" -gt 0 ]; then
+    add "$(t '! No container is in the backup now (newest container snapshot: %s days old)' "$(( (now - cnew) / 86400 ))")"; problems=$((problems + 1))
   fi
   if [ -n "$(get drill_vm_ok)" ]; then check_age "$(t 'Virtual machine drill')" drill_vm_ok 90 "($(get drill_vm_name))"; fi
   if incus info "$DC" >/dev/null 2>&1 </dev/null || [ -n "$(get drill_dc_ok)" ]; then check_age "$(t 'Domain controller backup file')" drill_dc_ok 90; fi
