@@ -19,9 +19,10 @@ usage: hs backup [status]                    what is in the backup, last run, sp
                                              free space in /var/tmp or HS_VM_EXPORT_DIR)
        hs backup list                        snapshots (id, time, tag, size)
        hs backup find <name>                 which snapshots contain a file name
-       hs backup restore <snapshot|latest> <path> [--tag T] [--to DIR]
+       hs backup restore <snapshot|latest> <path> [--tag T] [--to DIR] [--keep-owner]
                                              restore one file or folder, by default
-                                             into /bulk/shares/restored (never over the live copy)
+                                             into /bulk/shares/restored (never over the live copy), owned by adminuser;
+                                             --keep-owner keeps the owners of the snapshot, --to / (in place) always does
        hs backup config                      the host snapshots and which settings files each holds
        hs backup config restore [<snapshot|latest>] [--with-state] [--dry-run]
        hs backup config restore --from-disk <device> [<snapshot|latest>] [--with-samba] [--dry-run]
@@ -908,9 +909,10 @@ cmd_find() {
 }
 
 cmd_restore() {
-  local snap="" path="" tag=shares to=$BULK/shares/restored
+  local snap="" path="" tag=shares to=$BULK/shares/restored keep=false
   while [ $# -gt 0 ]; do
     case "$1" in
+      --keep-owner) keep=true; shift ;;
       --tag) [ $# -ge 2 ] || usage; tag=$2; shift 2 ;;
       --to)  [ $# -ge 2 ] || usage; to=$2; shift 2 ;;
       -*)    usage ;;
@@ -924,9 +926,13 @@ cmd_restore() {
   R restore "$snap" --tag "$tag" --target "$to" --include "$path"
   # restic is happy to restore nothing when the path is not in the snapshot
   [ -e "$to/${path#/}" ] || die "$(t "Nothing restored: '%s' is not in that snapshot. Use the full original path (for example %s/shares/<share>/<file>); look it up with: hs backup find <name>" "$path" "$BULK")"
-  # only what was restored: with --to / (restore in place after a disaster) the target is the whole system
-  chown -R adminuser:users "$to/${path#/}" 2>/dev/null || true
+  # --to / is a restore in place: restic as root already put the owners of the snapshot back (container-owned folders
+  # of sensitive/ must stay 1000000:1000000), and the target is the whole system. --keep-owner asks for the same elsewhere.
+  [ -n "${to%/}" ] || keep=true
+  # only what was restored, and only for a folder meant for a person or for incus file push
+  $keep || chown -R adminuser:users "$to/${path#/}" 2>/dev/null || true
   ok "$(t 'Restored into %s (the full original path is recreated below it).' "$to")"
+  if $keep; then note "$(t 'Owners kept as in the snapshot.')"; fi
 }
 
 # ── The settings only: hs backup config [restore] ──
