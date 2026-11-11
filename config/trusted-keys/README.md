@@ -53,5 +53,5 @@ machine. The workflow signs with a key of its own, never with the maintainer's k
   tag signed with it, also the ones already published: release again (the next number) with the maintainer's key or a new one. A pushed tag
   is never moved or deleted.
 
-The lines are added before the first release, because a server learns a key only through `hs update` of the core. The `release-ci` lines are
-not in the files yet, and no workflow has signed with such a key: **Not tested on hardware yet.**
+The lines are added before the first release, because a server learns a key only through `hs update` of the core. The four `release-ci` lines
+are in the files (2026-11-11), but no workflow has signed with such a key and no server has checked such a tag: **Not tested on hardware yet.**

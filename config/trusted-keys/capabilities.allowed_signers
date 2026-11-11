@@ -1,3 +1,4 @@
 # Who may sign release tags of hobnix/capabilities (ssh-keygen allowed-signers format). Rotation: add the new key, release, then remove the old one.
 # The repository is not in config/package-repos.toml yet: the file is here so that every server already trusts its keys when it is added.
 release@hobnix namespaces="git" ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIG5pGTaKaPaKLPVvoDIRpXRT3Cc+xQdBugmf2PxO0f9a
+release-ci namespaces="git" ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIHzfB8+jIyHFbE0wDr3V3opHPNtwt8XShA1EzlIF6m0x
