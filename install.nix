@@ -56,6 +56,7 @@ in
   environment.systemPackages = with pkgs; [
     vim
     git
+    python3         # the scripts behind `hs` (machine.toml is read with it): without it the first `hs rebuild` fails
     (import ./hs-command.nix { inherit pkgs; })   # the `hs` command from the first boot on (also in configuration.nix)
   ] ++ lib.optionals home [
     smartmontools   # smartctl, to check the disks before creating the pools

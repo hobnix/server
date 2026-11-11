@@ -351,6 +351,9 @@ a small partition for the vault, so a new one is built the same way, and the ser
    sudo hs rebuild
    ```
 
+   Connect the data disks **before** this build. Without them the pool import and the Incus setup fail, `hs rebuild` ends with an error
+   and Incus is left without a storage pool. The system from `install.nix` carries `python3` since 2026-11-11; an older install
+   fails here with "python: command not found" (a VM rehearsal, fixed in `install.nix`, not tested again).
 9. **Make the vault and put back the secrets that are deliberately not in the backup.** The command needs `cryptsetup` (if it is
    missing it stops and changes nothing) and a terminal, or `--yes`. It renames the partition label `vault` to `hs-vault` once the vault
    is about to be made; if the vault cannot be made, the old label is put back, so the path below stays valid for a second try.
@@ -366,7 +369,8 @@ a small partition for the vault, so a new one is built the same way, and the ser
    in the vault. Not tested on hardware yet: writing the password through the link into a fresh vault; if the link is missing, `hs vault list` shows
    what exists. Everything else is made again: the router credentials with `hs net setup`, the monitoring password, the off-site access with
    `hs backup offsite set`.
-10. **Pools.** ZFS: `sudo zpool import -f fast bulk`. SnapRAID: disks are found by their labels and mounted automatically; check with
+10. **Pools.** ZFS: with the disks connected, the rebuild has usually imported the pools already; look with `zpool list` and import only
+    what is missing (`sudo zpool import -f fast bulk` says "no such pool available" for a pool that is already there). SnapRAID: disks are found by their labels and mounted automatically; check with
     `hs pool bulk`. Encrypted: `sudo hs unlock`.
 11. **Containers and VMs.** Not tested on hardware yet. If they live in `fast`, the new Incus does not know them; this finds and registers
     them again:
@@ -375,6 +379,10 @@ a small partition for the vault, so a new one is built the same way, and the ser
     sudo incus admin recover
     hs ct list
     ```
+
+    In a VM rehearsal the containers came back (`hs ct list`, they start, checksums equal). The recover dialog asks for the pool: name
+    `default`, driver `zfs`, dataset `fast/incus`. Afterwards the default profile was empty, and
+    `hs ct add` said "No root device could be found". `sudo systemctl restart incus-preseed` fixed that. Not tested on hardware yet.
 
     Check the MAC addresses (`hs mac`) and the router reservations.
 12. **Finish.** `hs first-run`, `hs doctor`, `hs health`; open a share from a computer (users sign in again); `sudo tailscale up` if you
@@ -413,9 +421,16 @@ purpose, and `hs update` and `hs rebuild` end with an error. `hs unlock --status
    `ct:<name>` and copy them in:
 
    ```bash
+   mkdir -p /var/tmp/restore
    sudo hs backup restore latest <path-in-container> --tag ct:<name> --to /var/tmp/restore
-   incus file push -r /var/tmp/restore/<path> <name>/<path>
+   incus file push -r /var/tmp/restore/<path> <name>/<parent-folder>/
    ```
+
+   The folder `--to` must exist. The snapshot holds the path **on the host**, not inside the container (for a ZFS container
+   `/var/lib/incus/storage-pools/default/containers/<name>/rootfs/<path-in-container>`): look it up with `hs backup find <name>` and give that
+   full path. `incus file push -r` puts the folder you name **into** the target, so give the parent folder as the target, not the folder
+   itself. The restore re-owns the files (1000:100 in the VM); check the owners inside the container. In a VM rehearsal 12 of 12 files
+   came back with equal checksums. Not tested on hardware yet.
 
    Docker applications: restore the project folders and load the databases from the dumps in `/var/lib/hs/backup-dump/<container>`.
    `hs backup drill ct` proves each month that a container boots from its snapshot; restoring into a new container is not covered by it.
@@ -451,7 +466,8 @@ checksums. This is the part nobody has run on real hardware yet.
 
 A rehearsal in two VMs (Case A, 2026-11-11) went through to a booting system with the old SSH key and host keys. Open: on a read-only
 backup disk `hs backup status` reported the repository as missing (the cause is not known; use a writable mount for it), and the
-`hs` command did not exist on a fresh install until the first `nixos-rebuild switch` (changed: it is part of `install.nix` now; not tested in a VM yet).
+`hs` command did not exist on a fresh install until the first `nixos-rebuild switch` (changed: it is part of `install.nix` now, seen in a VM
+on 2026-11-11). Case B and the containers (steps 8, 10, 11) also ran in VMs that day; the findings are in the steps above.
 
 The repository has a partial rehearsal, `tests/rebuild-vm.sh` (`scripts/dev/t vm`): a clean VM gets only the backup volume and the passphrase and
 must bring back the host files and the shares with the same checksums. It does not cover the reinstall, boot, vault or pools. Not tested on hardware yet: it has not been run. Write down what did not match this guide and report it.
@@ -471,7 +487,7 @@ must bring back the host files and the shares with the same checksums. It does n
 | the container is not in the backup | it was not running, or not switched on | `sudo hs backup ct <name> on` while it runs |
 | restic cannot open the repository | wrong password or the wrong disk | check the password in the password manager and the disk label |
 | the first restore after a rebuild shows no `host` snapshot | the wrong repository or an empty backup | `restic snapshots` and check `RESTIC_REPOSITORY` |
-| the `hs` command does not exist on the new system | the first `hs rebuild` has not run | `sudo nixos-rebuild switch`, then `hs` is there |
+| the `hs` command does not exist on the new system | the system was installed with an older `install.nix` | `sudo nixos-rebuild switch`, then `hs` is there |
 | everything is locked after the rebuild | normal | `sudo hs unlock` |
 
 ## Next
