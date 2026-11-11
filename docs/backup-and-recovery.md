@@ -283,33 +283,28 @@ a small partition for the vault, so a new one is built the same way, and the ser
    git clone <your-repository> /mnt/etc/nixos
    ```
 
-4. **Restore the host files.** Where `hs` exists (the Hobnix installer, or a fresh install after its first boot), one command does it from
-   only the backup disk and the passphrase: look at the plan, then run it, and type `machine.toml` and `ssh host keys` when asked
-   (details: [the settings section above](#back-up-and-restore-only-the-settings)). Not tested on hardware yet.
-
-   ```bash
-   sudo hs backup config restore --from-disk /dev/disk/by-label/backup --dry-run
-   sudo hs backup config restore --from-disk /dev/disk/by-label/backup
-   ```
-
-   The command writes to the running system (`/etc/nixos`, `/etc/ssh`, `/var/lib/hs`), not to `/mnt`. On a plain NixOS ISO without `hs`
-   use restic directly, as follows. A snapshot with the tag `host`
-   must be listed.
+4. **Restore the host files.** The Hobnix installer stick has no `hs` command (it has `hs-install` and `hs-restore` only). So do this with restic, as follows. A snapshot with the tag `host` must be
+   listed. Attach the backup disk read-only if you like: `--no-lock` is then needed, otherwise restic tries to write a lock and waits
+   forever.
 
    ```bash
    mkdir -p /mnt-backup && mount LABEL=backup /mnt-backup
    export RESTIC_REPOSITORY=/mnt-backup/restic
    export RESTIC_PASSWORD='<from the password manager>'
-   nix-shell -p restic --run 'restic snapshots'
-   nix-shell -p restic --run 'restic restore latest --tag host --target /tmp/host'
+   nix-shell -p restic --run 'restic snapshots --no-lock'
+   nix-shell -p restic --run 'restic restore latest --tag host --target /tmp/host --no-lock'
    ```
+
+   On a system that already has `hs` (not the installer), `sudo hs backup config restore --from-disk /dev/disk/by-label/backup --dry-run`
+   does the same ([the settings section above](#back-up-and-restore-only-the-settings)); it writes to the running system, not to `/mnt`.
+   Not tested on hardware yet.
 
    The files come back with their old full paths under `/tmp/host`. Copy them into the new root:
 
    ```bash
    cp -a /tmp/host/etc/nixos/machine.toml /mnt/etc/nixos/machine.toml
    mkdir -p /mnt/var/lib/hs && cp -a /tmp/host/var/lib/hs/. /mnt/var/lib/hs/
-   cp -a /tmp/host/etc/ssh/ssh_host_* /mnt/etc/ssh/
+   mkdir -p /mnt/etc/ssh && cp -a /tmp/host/etc/ssh/ssh_host_* /mnt/etc/ssh/
    ```
 
    Copying the SSH host keys keeps your computers from warning about a "new server". `/var/lib/hs` also holds `vault-uuid` (the UUID of the
@@ -327,10 +322,22 @@ a small partition for the vault, so a new one is built the same way, and the ser
 
    ```bash
    nixos-install --no-root-passwd
-   umount /mnt/boot /mnt /mnt-backup
    ```
 
    If name resolution fails during the install, write a `nameserver` line to `/mnt/etc/resolv.conf`.
+
+   `--no-root-passwd` leaves `adminuser` without a password and root locked, so `sudo` would not work after the first boot. Set the
+   password of `adminuser` before you unmount (it is the one `sudo` asks for; the SSH key still logs you in):
+
+   ```bash
+   nixos-enter --root /mnt -c 'passwd adminuser'
+   ```
+
+   If you forgot it, boot the installer again, mount the root partition on `/mnt` and run the same command. Then unmount:
+
+   ```bash
+   umount /mnt/boot /mnt /mnt-backup
+   ```
 7. **Set the boot order.** The firmware now knows a new "Linux Boot Manager" entry and still the one of the dead disk. Put the new disk
    first in the firmware menu, or with `efibootmgr` (`nix-shell -p efibootmgr`): `efibootmgr -v` lists the entries, `efibootmgr -n <number>`
    tests one boot (look for `BootNext:`), `efibootmgr -o <n>,<n>` sets the order, `efibootmgr -b <number> -B` removes the old entry.
@@ -338,19 +345,23 @@ a small partition for the vault, so a new one is built the same way, and the ser
 8. **First boot.** The server starts as far as SSH on port 22; everything encrypted is locked. Log in and build the system:
 
    ```bash
-   ssh admin@homeserver
+   ssh adminuser@homeserver
    sudo hs rebuild
    ```
 
-9. **Make the vault and put back the secrets that are deliberately not in the backup.**
+9. **Make the vault and put back the secrets that are deliberately not in the backup.** The command needs `cryptsetup` (if it is
+   missing it stops and changes nothing) and a terminal, or `--yes`. It renames the partition label `vault` to `hs-vault` once the vault
+   is about to be made; if the vault cannot be made, the old label is put back, so the path below stays valid for a second try.
 
    ```bash
    sudo hs vault init /dev/disk/by-partlabel/vault
    printf '%s' '<backup password>' | sudo tee /var/lib/hs/restic-password >/dev/null
+   sudo hs vault move
    hs vault status
    ```
 
-   Not tested on hardware yet: writing the password through the link into a fresh vault; if the link is missing, `hs vault list` shows
+   Until `hs vault move` has run, `hs vault list` shows `restic-password  secret  not moved`: the password is a plain file and not yet
+   in the vault. Not tested on hardware yet: writing the password through the link into a fresh vault; if the link is missing, `hs vault list` shows
    what exists. Everything else is made again: the router credentials with `hs net setup`, the monitoring password, the off-site access with
    `hs backup offsite set`.
 10. **Pools.** ZFS: `sudo zpool import -f fast bulk`. SnapRAID: disks are found by their labels and mounted automatically; check with
@@ -423,10 +434,15 @@ Afterwards set up a new backup disk with `hs backup init` and the off-site copy 
 
 ### Practise
 Once a year, rehearse in a throwaway VM: a virtual machine with the NixOS installer, two small virtual data disks and a virtual `backup`
-disk (a copy of the repository, or a fresh `hs backup init` with test data). Do Case A (disk with a vault partition, clone the
+disk (a copy of the repository, or a fresh `hs backup init` with test data; the installer has no `hs` and no `restic` on `PATH`:
+use `nix-shell -p restic`, and attach the disk read-only with `--no-lock` on every restic command). Do Case A (disk with a vault partition, clone the
 repository, host files with restic, a new `hardware-configuration.nix`, `nixos-install`, boot order, `hs vault init`, the password by
 hand, `sudo hs unlock`, `hs rebuild`, pools). Then Case B: empty the data disks, add the pool, restore the shares and compare
 checksums. This is the part nobody has run on real hardware yet.
+
+A rehearsal in two VMs (Case A, 2026-11-11) went through to a booting system with the old SSH key and host keys. Open: on a read-only
+backup disk `hs backup status` reported the repository as missing (the cause is not known; use a writable mount for it), and the
+`hs` command did not exist on a fresh install until the first `nixos-rebuild switch` (changed: it is part of `install.nix` now; not tested in a VM yet).
 
 The repository has a partial rehearsal, `tests/rebuild-vm.sh` (`scripts/dev/t vm`): a clean VM gets only the backup volume and the passphrase and
 must bring back the host files and the shares with the same checksums. It does not cover the reinstall, boot, vault or pools. Not tested on hardware yet: it has not been run. Write down what did not match this guide and report it.

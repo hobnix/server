@@ -149,6 +149,8 @@ cmd_init() {
     esac
     shift
   done
+  # the tool first: a missing cryptsetup must not be found out after something was changed
+  command -v cryptsetup >/dev/null 2>&1 || fail "$(t 'cryptsetup is not installed on this system, so a vault cannot be made. Nothing was changed.')"
   if [ -z "$dev" ]; then
     interactive || fail "$(t 'Missing: %s (give it as an option)' 'the partition')"
     mapfile -t cand < <(candidates)
@@ -193,10 +195,17 @@ cmd_init() {
     confirm_name "$disk" "the disk" || fail "cancelled"
   fi
   [ "$wipe" != true ] || wipefs -a "$dev" >/dev/null 2>&1 || true
+  # the partition label changes only right before the vault is made, and goes back if that fails
+  local oldlabel="" relabeled=false
   if [ -n "$pk" ] && [ -n "$partn" ] && command -v sfdisk >/dev/null 2>&1; then
-    sfdisk --part-label "/dev/$pk" "$partn" "$vault_label" >/dev/null 2>&1 || note "The partition label could not be set (not important)."
+    oldlabel=$(lsblk -dn -o PARTLABEL "$dev" 2>/dev/null | sed 's/^ *//; s/ *$//')
+    if sfdisk --part-label "/dev/$pk" "$partn" "$vault_label" >/dev/null 2>&1; then relabeled=true
+    else note "The partition label could not be set (not important)."; fi
   fi
-  vault_create "$dev" || fail "The vault could not be made (the passphrase, or the disk)."
+  if ! vault_create "$dev"; then
+    if [ "$relabeled" = true ] && [ -n "$oldlabel" ]; then sfdisk --part-label "/dev/$pk" "$partn" "$oldlabel" >/dev/null 2>&1 || true; fi
+    fail "The vault could not be made (the passphrase, or the disk)."
+  fi
   ok "$(t 'Vault made on %s and open at %s' "$dev" "$vault_dir")"
   if vault_header_backup; then ok "$(t 'LUKS header saved in %s' "$vault_header_file")"; else warn "The LUKS header could not be saved: run hs vault header-backup"; fi
   live_refresh status encryption vault-list vault-usage vault-uses || true

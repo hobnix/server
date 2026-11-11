@@ -56,6 +56,7 @@ in
   environment.systemPackages = with pkgs; [
     vim
     git
+    (import ./hs-command.nix { inherit pkgs; })   # the `hs` command from the first boot on (also in configuration.nix)
   ] ++ lib.optionals home [
     smartmontools   # smartctl, to check the disks before creating the pools
     newt            # whiptail, the disk menu of scripts/manage-pool.sh
