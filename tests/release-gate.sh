@@ -34,7 +34,7 @@ check_out "a beta passes too" "next version" gate check v0.1.0-beta.1
 check_out "a bad version is refused" "Name a version" gate check 0.1.0
 check_out "a version with a prefix is refused" "Name a version" gate check v0.1.0-rc.1
 check_out "ci that is not green is refused" "ci-ok is not green" env FAKE_CI=failure $GATE check v0.1.0
-check_out "ci is not asked when skipped (not on GitHub)" "not checked" env HS_GATE_CI=skip $GATE check v0.1.0
+check_out "ci is not asked when skipped (not on GitHub)" "not checked" env -u GITHUB_ACTIONS HS_GATE_CI=skip $GATE check v0.1.0
 check_out "skipping ci is refused on GitHub" "not allowed on GitHub" env HS_GATE_CI=skip GITHUB_ACTIONS=true $GATE check v0.1.0
 check_out "a commit that is not the tip of main is refused" "not the tip" gate check v0.1.0 --sha HEAD~1
 git checkout -q -b plain main; echo x > x; git add -A; git commit -q -m plain; git checkout -q main; git merge -q --ff-only plain; git push -q origin main
