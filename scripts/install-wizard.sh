@@ -284,7 +284,7 @@ if [ -n "$restore_from" ]; then
 fi
 note "Take the stick out and reboot. Then, from your PC:  ssh adminuser@$hostname_.local   (or the address your router gave it)"
 if [ "$role" = homeserver ]; then
-  note "Next: create the pools (zpool create, as in section 3 of the Homeserver guide; the hs command only exists after the first nixos-rebuild switch), then sudo nixos-rebuild switch. The guide: docs/install.md."
+  note "Next: create the pools (the hs command is there from the first boot: sudo hs pool bulk add; or zpool create, as in section 3 of the Homeserver guide), then sudo hs rebuild. The guide: docs/install.md."
 else
   note "Next: fill the section \"Edge node\" of /etc/nixos/machine.toml, put the Tailscale auth key into /var/lib/hs/tailscale-authkey (mode 0600), then sudo nixos-rebuild switch. The guide: docs/operations.md."
 fi
