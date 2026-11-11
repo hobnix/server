@@ -387,18 +387,25 @@ purpose, and `hs update` and `hs rebuild` end with an error. `hs unlock --status
 ### Case B: a data pool or disks are lost
 1. Install the new disks (and, if the system is new too, do Case A up to step 10).
 2. **Create the pool again.** The dialog asks for the filesystem and encryption; do not forget the parity disk with SnapRAID.
+   A ZFS pool needs at least two disks ("Pick at least two disks." with one).
 
    ```bash
    sudo hs pool bulk add
    ```
 
-3. **Bring the shares back to their old place** (the backup knows the full paths), publish them and set permissions:
+3. **Bring the shares back to their old place** (the backup knows the full paths), publish them and set permissions.
+   `/var/lib/hs/restic-password` must exist first (after a new system disk, Case A step 9 puts it back). Without it `hs backup restore`
+   says "Not set up yet. Run: hs backup init <device>"; do **not** run that, it erases the backup disk. The backup disk must be
+   writable: restic writes a lock, and on a disk attached read-only the restore waits for minutes.
 
    ```bash
    sudo hs backup restore latest /bulk/shares --to /
    sudo hs backup restore latest /bulk/sensitive --to /
    sudo hs share repair
    ```
+
+   The restore sets the owner of what it restored to `adminuser:users`; in a VM that also changed `/bulk/sensitive` from root. Check
+   with `ls -ld /bulk/sensitive/*` after `hs share repair`. Steps 1 to 3 ran in a VM with ZFS and a test backup; not on hardware yet.
 
    Then `sudo hs share <share> perm` for permissions, and `sudo hs pool bulk sync`. Only one share or file: `hs share <share> restore
    [<path>]` puts it into the share `restored`.
