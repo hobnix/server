@@ -95,6 +95,7 @@ hsb() { bash "$SCRIPTS/backup.sh" "$@"; }
 st() { sed -n "s/^$1=//p" "$HS_STATE_DIR/backup.state" 2>/dev/null | tail -n1; }
 clean() { [ ! -s "$FAKEDIR/instances" ] && [ ! -s "$FAKEDIR/images" ] && [ -z "$(ls -A "$HS_DRILL_TMP" 2>/dev/null)" ]; }
 
+printf 'big\nsmall\n' > "$HS_STATE_DIR/backup-instances"   # both containers are in the backup (a pick without a name takes only these)
 echo "-- rotation: the smaller container first, then the other, then the oldest again"
 check "first drill works" hsb drill ct
 check_eq "the smaller one came first" small "$(st drill_ct_name)"
@@ -183,6 +184,21 @@ check_out "a container still in the backup is said so" "still in the backup" ech
 out=$(FAKE_AGE=1 hsb drill ct small 2>&1)
 check_out "a fresh snapshot shows its age" "\(1 days old\)" echo "$out"
 check "and gets no warning" bash -c "! grep -q 'still in the backup\|no longer in the backup' <<<'$out'"
+rm -f "$HS_STATE_DIR/backup-instances"
+
+echo "-- a container that is switched off is not drilled without a name"
+echo big > "$HS_STATE_DIR/backup-instances"
+: > "$LOG"
+hsb drill ct >/dev/null 2>&1
+check_eq "only the container in the backup is drilled" big "$(st drill_ct_name)"
+check "the one that is off was not restored" bash -c "! grep -q '^restic restore aaa2 ' '$LOG'"
+: > "$HS_STATE_DIR/backup-instances"
+: > "$LOG"
+out=$(hsb drill ct 2>&1); rc=$?
+check_eq "no container in the backup: no failure" 0 "$rc"
+check_out "and it says there is nothing to restore" "No container is in the backup, nothing to restore" echo "$out"
+check "nothing was restored" bash -c "! grep -q '^restic restore ' '$LOG'"
+check "a named container may still be drilled" hsb drill ct small
 rm -f "$HS_STATE_DIR/backup-instances"
 
 echo "-- the image: ids are unshifted, metadata and the folders the backup leaves out are there"

@@ -628,6 +628,8 @@ drill_pick() {   # drill_pick [<name>] [ct|vm]
     [[ "$when" =~ ^[0-9]+$ ]] || when=0
     [ "$when" -le "$newest" ] || newest=$when
     if [ -n "$want" ] && [ "$name" != "$want" ]; then continue; fi
+    # without a name only containers that are in the backup now (switching one off is a choice); virtual machines are not switched this way
+    if [ "$kind" = ct ] && [ -z "$want" ] && ! is_ct_on "$name"; then continue; fi
     size=$(R stats --mode restore-size --json "$id" 2>/dev/null | python3 "$CTIMG" field total_size 2>/dev/null | tr -d '\r' || true)
     last=$(awk -v n="$name" '$1 == n { t = $2 } END { print t + 0 }' "$CTDRILL" 2>/dev/null || true)
     rows+="${last:-0}"$'\t'"${size:-0}"$'\t'"$name"$'\t'"$id"$'\t'"$when"$'\n'
@@ -818,14 +820,16 @@ cmd_report() {
   # containers were backed up once, none is in the backup now (the newest container snapshot was noted by the container drill)
   cnew=$(cat "$CTNEWEST" 2>/dev/null || true)
   if [ ! -s "$CTS" ] && [[ "$cnew" =~ ^[0-9]+$ ]] && [ "$cnew" -gt 0 ]; then
-    add "$(t '! No container is in the backup now (newest container snapshot: %s days old)' "$(( (now - cnew) / 86400 ))")"; problems=$((problems + 1))
+    add "$(t 'No container is in the backup (chosen); the newest container snapshot is %s days old' "$(( (now - cnew) / 86400 ))")"
   fi
   if [ -n "$(get drill_vm_ok)" ]; then check_age "$(t 'Virtual machine drill')" drill_vm_ok 90 "($(get drill_vm_name))"; fi
   if incus info "$DC" >/dev/null 2>&1 </dev/null || [ -n "$(get drill_dc_ok)" ]; then check_age "$(t 'Domain controller backup file')" drill_dc_ok 90; fi
   if [ -s "$OFFSITE" ]; then check_age "$(t 'Off-site copy')" offsite_ok 3; fi
   # tries that failed lately (the container drills keep a list)
   if [ -s "$CTDRILL" ]; then
-    k=$(awk -v lim=$((now - 35 * 86400)) '$3 == "failed" && $2 >= lim { n[$1]++ } END { for (c in n) printf "%s%s", (s++ ? ", " : ""), c }' "$CTDRILL")
+    # only containers that are in the backup now (switching one off is a choice; its old failures do not count)
+    # (the list holds virtual machines too: the one the VM drill used last always counts)
+    k=$(awk -v lim=$((now - 35 * 86400)) -v cts="$CTS" -v vm="$(get drill_vm_name)" 'BEGIN { while ((getline l < cts) > 0) on[l] = 1 } $3 == "failed" && $2 >= lim && (($1 in on) || $1 == vm) { n[$1]++ } END { for (c in n) printf "%s%s", (s++ ? ", " : ""), c }' "$CTDRILL")
     if [ -n "$k" ]; then add "$(t '! Drills that failed in the last 35 days: %s' "$k")"; problems=$((problems + 1)); fi
   fi
   v=$(get used_pct)

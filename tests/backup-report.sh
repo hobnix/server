@@ -76,8 +76,15 @@ check_out "a state without the field still parses" "Container restore drill: 2 d
 : > "$ST/backup-instances"
 echo $((now - 9 * day)) > "$ST/backup-ct-newest"
 out=$(hsb report --dry-run 2>&1)
-check_out "snapshots but no container in the backup: a warning" "! No container is in the backup now \(newest container snapshot: 9 days old\)" echo "$out"
-check_out "and it is counted" "1 thing\(s\) to look at" echo "$out"
+check_out "snapshots but no container in the backup: an info line" "^No container is in the backup \(chosen\); the newest container snapshot is 9 days old" echo "$out"
+check "and it is not a problem" bash -c "! grep -q 'to look at' <<<'$out'"
+check_out "the title stays fine" "restore drills are fine" echo "$out"
+echo "arr $((now - 2 * day)) failed" > "$ST/backup-drill-ct"
+check "a failure of a container that is off is not named" bash -c "! bash '$SCRIPTS/backup.sh' report --dry-run 2>&1 | grep -q 'failed in the last 35 days'"
+echo arr > "$ST/backup-instances"
+check_out "a failure of a container that is in the backup is named" "failed in the last 35 days: arr" hsb report --dry-run
+: > "$ST/backup-instances"
+rm -f "$ST/backup-drill-ct"
 echo 0 > "$ST/backup-ct-newest"
 check "never had container backups: no line" bash -c "! bash '$SCRIPTS/backup.sh' report --dry-run 2>&1 | grep -q 'No container is in the backup'"
 rm -f "$ST/backup-ct-newest" "$ST/backup-instances"
