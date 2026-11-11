@@ -241,7 +241,8 @@ Boot the VM from the installer image with the backup disk attached and run (see 
 sudo hs-restore --dry-run
 ```
 
-Expect the disk labelled `backup` mounted **read-only**, the password asked without echo, a list of host snapshots, and a plan that names
+The dry run also asks for the name of the new system disk (or pass `--disk <name>`), because the plan names it. Not tested on hardware yet.
+Expect the disk labelled `backup` mounted **read-only** (restic runs with `--no-lock`, so it does not hang on a lock), the password asked without echo, a list of host snapshots, and a plan that names
 the system disk to be erased, the server name, role, time zone and SSH key from the restored `machine.toml`, and no `restic-password`.
 Then the real run (it asks for the **name of the system disk**; unattended it needs `--disk <name> --confirm-disk <same name>`):
 
