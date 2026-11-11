@@ -36,7 +36,7 @@ fi
 if [ -n "$notify" ]; then cfg set notifyUrl "$notify"; else note "Notifications unchanged."; fi
 
 step "Core packages"
-if "$hsbin" pkg install --core; then :; else warn "Some core packages could not be fetched; try again with: hs pkg install --core"; fi
+if bash "$hsbin" pkg install --core; then :; else warn "Some core packages could not be fetched; try again with: hs pkg install --core"; fi
 
 step "What is still to do"
 check() {   # check <label> <command to run when open> <test...>

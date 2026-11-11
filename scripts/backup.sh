@@ -1195,7 +1195,10 @@ cmd_prune() {
 
 # ── Setting up a disk ──
 cmd_init() {
-  local dev bad pass
+  local dev bad pass tool missing=()
+  # the tools first: a missing restic must not be found out after the disk is erased
+  for tool in restic mkfs.ext4 wipefs; do command -v "$tool" >/dev/null 2>&1 || missing+=("$tool"); done
+  [ ${#missing[@]} -eq 0 ] || die "$(t 'Missing on this system: %s. Nothing was changed.' "${missing[*]}")"
   # the password is created inside the vault: with a closed vault nothing is asked and nothing is erased
   if vault_configured && ! vault_is_open && [ ! -e "$PASSFILE" ]; then secret_locked_exit; fi
   [ "$(pass_state)" != locked ] || secret_locked_exit
