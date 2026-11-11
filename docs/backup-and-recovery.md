@@ -283,8 +283,7 @@ a small partition for the vault, so a new one is built the same way, and the ser
    git clone <your-repository> /mnt/etc/nixos
    ```
 
-4. **Restore the host files.** The Hobnix installer stick has no `hs` command (it has `hs-install` and `hs-restore` only), and a fresh
-   install has none until its first `nixos-rebuild switch`. So do this with restic, as follows. A snapshot with the tag `host` must be
+4. **Restore the host files.** The Hobnix installer stick has no `hs` command (it has `hs-install` and `hs-restore` only). So do this with restic, as follows. A snapshot with the tag `host` must be
    listed. Attach the backup disk read-only if you like: `--no-lock` is then needed, otherwise restic tries to write a lock and waits
    forever.
 
@@ -443,7 +442,7 @@ checksums. This is the part nobody has run on real hardware yet.
 
 A rehearsal in two VMs (Case A, 2026-11-11) went through to a booting system with the old SSH key and host keys. Open: on a read-only
 backup disk `hs backup status` reported the repository as missing (the cause is not known; use a writable mount for it), and the
-`hs` command does not exist on a fresh install until the first `nixos-rebuild switch`.
+`hs` command did not exist on a fresh install until the first `nixos-rebuild switch` (changed: it is part of `install.nix` now; not tested in a VM yet).
 
 The repository has a partial rehearsal, `tests/rebuild-vm.sh` (`scripts/dev/t vm`): a clean VM gets only the backup volume and the passphrase and
 must bring back the host files and the shares with the same checksums. It does not cover the reinstall, boot, vault or pools. Not tested on hardware yet: it has not been run. Write down what did not match this guide and report it.
