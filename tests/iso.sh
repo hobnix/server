@@ -61,6 +61,10 @@ check_out "a name that does not end in .iso" "not a usable image name" $C plan a
 check_out "ftp is not a URL we take" "absolute path of a file" $C plan add ftp://example.org/a.iso --no-checksum
 check_out "a user name in the URL" "invalid URL" $C plan add https://user:pw@example.org/a.iso --no-checksum
 check_out "the server itself" "does not download from itself" $C plan add http://127.0.0.1/a.iso --no-checksum
+for h in 2130706433 0x7f.1 0177.0.0.1 127.1 0 0.0.0.0 127.000.000.001 localhost.; do
+  check_out "loopback written as $h" "does not download from itself|write an IP address" $C plan add "http://$h/a.iso" --no-checksum
+done
+check_out "a LAN mirror by its address is fine" "^status.ok" $C plan add http://10.0.0.5/a.iso --no-checksum
 check_out "a plain HTTP URL shows a warning" "^warn.This is a plain HTTP address" $C plan add http://example.org/debian-13.iso --checksum "$SUM"
 out=$($C plan add https://example.org/debian-13.iso --checksum "$SUM")
 check_eq "an HTTPS URL has no HTTP warning" "0" "$(grep -c 'plain HTTP' <<<"$out")"

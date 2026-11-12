@@ -114,6 +114,8 @@ check_key() {
   [ -n "$type" ] || refuse "'$key' is not an option of machine.toml.example."
 
   toml=""; off=false
+  # one line: a newline in a value would write a second line into machine.toml (and grep -E below checks every line)
+  [[ "$value" != *[[:cntrl:]]* ]] || refuse "A value is one line without control characters."
   if [ -z "$value" ]; then off=true
   else
     case "$type" in

@@ -81,7 +81,7 @@ check_eq "wrong token exit" 1 "$rc"
 [ ! -e "$HS_STATE_DIR/docker-registries.tsv" ] && pass "no tsv written" || fail "tsv written"
 
 echo "-- plan: bad shapes"
-for b in "plan add Bad_Host --user wolf" "plan add ghcr.io --user" "plan add ghcr.io --user -x" "plan remove nothere.io"; do
+for b in "plan add -h --user wolf" "plan add --help --user wolf" "plan add .x.io --user wolf" "plan add Bad_Host --user wolf" "plan add ghcr.io --user" "plan add ghcr.io --user -x" "plan remove nothere.io"; do
   rc=0; out=$($R $b </dev/null 2>&1) || rc=$?
   check_eq "refused: $b" 1 "$rc"
 done
@@ -109,7 +109,7 @@ export HS_VAULT_OPEN=1
   DOCKER_AUTH_DIR=$WORK/app docker_with_auth paperless pull
 ) >/dev/null 2>&1 || true
 check_eq "exactly one login for one registry (the last line is read too)" 1 "$(grep -c '^login ' "$DLOG")"
-grep -q '^login -u wolf --password-stdin ghcr.io CFG='"$WORK"'/auth\.' "$DLOG" && pass "login with a throwaway DOCKER_CONFIG" || fail "login line: $(cat "$DLOG")"
+grep -q '^login -u wolf --password-stdin -- ghcr.io CFG='"$WORK"'/auth\.' "$DLOG" && pass "login with a throwaway DOCKER_CONFIG" || fail "login line: $(cat "$DLOG")"
 grep -q "$SECRET" "$DLOG" && fail "token in the docker argv" || pass "token not in the docker argv"
 grep -q "^compose -p paperless pull CFG=$WORK/auth\." "$DLOG" && pass "compose runs with that DOCKER_CONFIG" || fail "compose line: $(cat "$DLOG")"
 grep -q "PWD=$WORK/app" "$DLOG" && pass "compose runs in the app directory" || fail "compose dir"
@@ -151,6 +151,17 @@ unset HS_VAULT_OPEN
 check_eq "remove with confirm" 0 "$rc"
 [ ! -e "$HS_STATE_DIR/docker-registry-ghcr.io" ] && [ ! -e "$HS_VAULT_DIR/secrets/docker-registry-ghcr.io" ] && pass "token deleted" || fail "token kept"
 check_eq "tsv empty" "" "$(cat "$HS_STATE_DIR/docker-registries.tsv" 2>/dev/null)"
+
+echo "-- removing a registry never removes another whose name only matches as a pattern (a dot is not a wildcard)"
+printf 'a.b.io	u1
+axb.io	u2
+' > "$HS_STATE_DIR/docker-registries.tsv"
+echo t > "$HS_STATE_DIR/docker-registry-a.b.io"; echo t > "$HS_STATE_DIR/docker-registry-axb.io"
+export HS_VAULT_OPEN=1
+rc=0; out=$($R start remove a.b.io --confirm a.b.io </dev/null 2>&1) || rc=$?
+unset HS_VAULT_OPEN
+check_eq "remove a.b.io" 0 "$rc"
+check_eq "axb.io is kept" "axb.io${T}u2" "$(cat "$HS_STATE_DIR/docker-registries.tsv" 2>/dev/null)"
 
 echo "passed $T_PASS, failed $T_FAIL"
 [ "$T_FAIL" -eq 0 ]

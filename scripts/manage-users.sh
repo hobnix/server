@@ -194,6 +194,8 @@ case "${1:-}" in
       esac
     done
     valid_user "$user"
+    re_full_add="^([[:alnum:]_][[:alnum:]_ .'-]{0,63})?\$"
+    [[ "$full" =~ $re_full_add ]] || fail "Invalid full name: letters, digits, spaces, dot, dash and apostrophe only."
     ! has_user "$user" || fail "$(t "A user called '%s' exists already." "$user")"
     cmd=(samba-tool user create "$user")
     if [ -n "$full" ]; then

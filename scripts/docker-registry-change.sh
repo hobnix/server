@@ -15,7 +15,7 @@ here=$(cd "$(dirname "$0")" && pwd)
 . "$here/lib/setting.sh"
 . "$here/lib/docker-auth.sh"
 
-HOST_RE='^[a-z0-9.-]{1,100}(:[0-9]{1,5})?$'
+HOST_RE='^[a-z0-9][a-z0-9.-]{0,99}(:[0-9]{1,5})?$'   # starts with a letter or digit: it is an argument of docker login
 USER_RE='^[A-Za-z0-9][A-Za-z0-9._@+-]{0,99}$'
 TOKEN_RE='^[^[:cntrl:]]{1,256}$'
 tab=$'\t'
@@ -66,7 +66,7 @@ d=$(mktemp -d /run/hs-auth.XXXX) || exit 1
 trap "rm -rf -- \"\$d\"" EXIT HUP INT TERM
 chmod 700 "$d"; export DOCKER_CONFIG=$d
 IFS= read -r tok
-printf "%s" "$tok" | docker login -u "$1" --password-stdin "$2" >/dev/null 2>&1'
+printf "%s" "$tok" | docker login -u "$1" --password-stdin -- "$2" >/dev/null 2>&1'
 
 login_test() {   # login_test <host> <user> <token>
   printf '%s\n' "$3" | timeout 60 "${HS_INCUS:-incus}" exec docker -- sh -c "$LOGIN_TEST" sh "$2" "$1"
@@ -79,7 +79,7 @@ store() {   # store <host> <user> <token>; 0 stored, 1 vault closed or the write
   ( umask 077; printf '%s\n' "$tok" >"$f" ) || return 1
   chmod 600 "$f" 2>/dev/null || true
   tmp=$(docker_registries_file).new
-  { grep -v "^$host$tab" "$(docker_registries_file)" 2>/dev/null || true; printf '%s\t%s\n' "$host" "$user"; } >"$tmp"
+  { awk -F'	' -v h="$host" '$1 != h' "$(docker_registries_file)" 2>/dev/null || true; printf '%s\t%s\n' "$host" "$user"; } >"$tmp"
   chmod 644 "$tmp"; mv -f "$tmp" "$(docker_registries_file)"
 }
 
@@ -90,7 +90,7 @@ forget() {   # forget <host>; 1 (nothing changed) when the vault is closed
   if secret_in_vault "$f"; then tgt=$(readlink "$f"); rm -f -- "$tgt" 2>/dev/null || true; fi
   rm -f -- "$f"
   tmp=$(docker_registries_file).new
-  { grep -v "^$host$tab" "$(docker_registries_file)" 2>/dev/null || true; } >"$tmp"
+  { awk -F'	' -v h="$host" '$1 != h' "$(docker_registries_file)" 2>/dev/null || true; } >"$tmp"
   chmod 644 "$tmp"; mv -f "$tmp" "$(docker_registries_file)"
 }
 

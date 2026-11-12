@@ -70,6 +70,9 @@ check_eq "--groups stays: name, members" "Domain Users	anna
 Staff	anna" "$($US --groups)"
 check_out "a user that exists" "✗ A user called 'anna' exists already\." $US --add anna
 check_out "an invalid login name" "✗ Invalid login name 'Bad Name'" $US --add 'Bad Name'
+check_out "a full name that starts with a dash" "✗ Invalid full name" $US --add newbie --full '--help'
+check_out "a full name with a control character" "✗ Invalid full name" $US --add newbie --full $'a
+b'
 check_out "no such user" "✗ No user called 'zed'\." $US --password zed
 check_out "no such group" "✗ No group called 'Nope'\." $US --member Nope anna add
 check_out "Administrator can't be locked" "✗ Not possible: locking Administrator" env FAKE_ADMIN=1 $US --disable Administrator

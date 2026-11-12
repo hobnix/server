@@ -1,0 +1,4 @@
+date  = "2026-11-12"
+type  = "security"
+title = "Review of the scripts behind the web interface's change list"
+body  = """Every change the web interface may start was checked in the script that runs it. Fixed: a registry address that starts with a dash, the check against downloading from the server itself (ISO library) written as 2130706433 or 0x7f.1, a newline in a setting, a path with .. when restoring a share folder, a notification channel value that named a file instead of a setting, and a full name that was not checked when a user is created from the command line."""

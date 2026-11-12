@@ -42,7 +42,9 @@ _chan_setting() {
       v=${HS_NOTIFY_SECOND_MIN-$(setting_get notifySecondMinPriority 2>/dev/null || true)}
       printf '%s' "${v:-high}" ;;
     heartbeatUrl) printf '%s' "${HS_HEARTBEAT_URL-$(setting_get heartbeatUrl 2>/dev/null || true)}" ;;
-    *) printf '%s' "$(setting_get "$1" 2>/dev/null || true)" ;;
+    # a channel file can say url=@setting:<key>; <key> is a setting name, never a path (the value of --set is free text)
+    *) [[ "$1" =~ ^[A-Za-z][A-Za-z0-9]{0,40}$ ]] || return 0
+       printf '%s' "$(setting_get "$1" 2>/dev/null || true)" ;;
   esac
 }
 

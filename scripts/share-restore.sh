@@ -29,6 +29,7 @@ while [ $# -gt 0 ]; do
   esac
 done
 [ -n "$share" ] || usage
+case "/$sub/" in */../*) fail "$(t "The folder must lie inside the share (no \"..\").")" ;; esac
 
 # where the share lives: the folder under shares or sensitive (it may be gone: that is why we restore)
 if path=$(share_dir "$share"); then kind=$(share_kind "$share")

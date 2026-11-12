@@ -249,6 +249,10 @@ run start set syncEveryHours 12 --confirm whatever; check_eq "other keys: an ext
 cp -p "$HS_MACHINE_FILE.nicbak" "$HS_MACHINE_FILE"; rm -f "$HS_MACHINE_FILE.nicbak"
 run plan set siteName Home;            check_eq "siteName: capital letters are refused" 1 "$rc"
 run plan set siteName -x;              check_eq "siteName: a leading hyphen is refused" 1 "$rc"
+run plan set siteName $'lab
+setupDone = true'; check_eq "siteName: a newline is refused" 1 "$rc"
+run plan set loginMessage $'hi
+there'; check_eq "loginMessage: a newline is refused" 1 "$rc"
 run plan set siteName lab;             check_eq "siteName: plan ok" 0 "$rc"
 has "^warn${T}" && fail "siteName without gateway warns: $out" || pass "siteName: no warning while the gateway is off"
 echo gateway >"$HS_CAPABILITIES_FILE"
