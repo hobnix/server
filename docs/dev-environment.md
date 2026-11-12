@@ -97,8 +97,8 @@ The same model in hobnix/server, hobnix/recipes and hobnix/extensions.
 8. One milestone is *released* at a time, and at most three issues are In Progress. The next milestone may be built on its own long-lived
    branch (now `0.2`; `develop` is merged into it after every change). Right after the release tag, `main` is merged back into `develop` and
    the milestone branch is merged into `develop` (docs/RELEASE-PROCESS.md).
-9. A pull request opened by an AI session carries the label `agent-pr` from the start (`gh pr create --label agent-pr`); the DCO job is
-   skipped for it and the maintainer who merges it takes the responsibility (CONTRIBUTING.md).
+9. Every commit, also one made by an AI session, carries `Signed-off-by` of the configured git user: `git commit -s`, or let the hook
+   from `bash scripts/dev/install-guards.sh` add it. The DCO job has no exemption (CONTRIBUTING.md).
 
 ### Release rhythm
 

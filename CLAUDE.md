@@ -25,7 +25,7 @@ hobnix/extensions (docs/PLAN-packages.md); the core fetches them with `hs pkg`.
 - **Branches:** `develop` is the default branch: feature branches start from it and pull requests target it. `main` holds released code
   only and takes nothing but a release pull request (develop into main, merge commit, no squash) followed by a signed `vX.Y.Z` tag on
   main. A hotfix branches from main, goes into main, then back into develop. Details: docs/dev-environment.md "Branches and releases".
-- **Git:** never edit, commit or switch branches in the primary checkout (stays on main; work in your own worktree; guard: scripts/dev/guard-primary-checkout.sh, `bash scripts/dev/install-guards.sh` once per clone); stage files by name after `git status`; no `Co-Authored-By` or "generated with" lines about any AI tool in commits or PRs; open pull requests against `develop` with `gh pr create --label agent-pr` (the DCO job is skipped for that label, an AI tool never signs off).
+- **Git:** never edit, commit or switch branches in the primary checkout (stays on main; work in your own worktree; guard: scripts/dev/guard-primary-checkout.sh, `bash scripts/dev/install-guards.sh` once per clone); stage files by name after `git status`; no `Co-Authored-By` or "generated with" lines about any AI tool in commits or PRs; every commit carries `Signed-off-by` of the configured git user (`git commit -s`, or the hook from install-guards.sh adds it); the DCO check has no exemption for agent PRs.
 - **Honest reports:** say what failed or was not run. Never claim a result that was not seen.
 
 ## Where the detail is
