@@ -21,13 +21,14 @@ Issue: hobnix/server#213 (epic #207). Records the branch model in CLAUDE.md and 
 4. **A hotfix** branches from `main`, goes into `main` and is tagged; `main` is then merged back into `develop`.
 5. **The primary checkout stays on `main`.** Work happens in worktrees (guard: scripts/dev/guard-primary-checkout.sh).
 6. **Update channels sit on top** (docs/PLAN-channels.md): `stable` follows the newest signed tag on `main`, `beta` a signed prerelease tag cut
-   from `develop`, `edge` the head of `develop`. Stable is the default.
+   from the milestone branch `X.Y` (owner decision 2026-11-13; first written as `develop`), `edge` the head of `develop`. Stable is the default.
 
 ## Amendment (issue #233, owner decision 2026-11-10): milestone branch, no release branch
 
 - **There is no `release/*` branch.** `develop` is the release candidate: while a release is tested only fixes go into `develop`; the release
   is a pull request `develop` -> `main` (merge commit) -> signed tag -> `main` merged back into `develop`. Beta tags are cut from `develop`
-  (rule 6).
+  (rule 6). *Changed by the owner 2026-11-13: a beta `vX.Y.Z-beta.N` is cut from the milestone branch `X.Y`, because `develop` holds the release
+  being tested; the beta ships the ISO and is a GitHub prerelease.*
 - **One milestone is released at a time; the next may be built on its own long-lived branch `0.N`.** `develop` is merged into it after every
   change (merge commit); it never lacks anything `develop` or `main` has. Right after the tag of the release before it, `main` is merged back
   into `develop` and the milestone branch is merged into `develop`, then deleted.

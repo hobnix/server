@@ -11,11 +11,12 @@
 #   release-core.sh tag <vX.Y.Z | vX.Y.Z-beta.N> [--yes] [--key <file.pub>] [--signers <file>] [--no-ci-check]
 #       Sign the tip of origin/main as the tag, verify the signature against config/trusted-keys/server.allowed_signers (as it is on
 #       origin/main), push the tag. Refuses a tag that exists, a tag not above the newest stable tag, a main that does not contain the
-#       newest stable tag, a red or missing ci-ok on the commit or its pull request head. A stable push starts the ISO build.
-#       A beta (vX.Y.Z-beta.N): X.Y.Z must be above the newest stable tag (not equal), N above the earlier betas of X.Y.Z; the push
-#       builds no ISO; the next step is a GitHub prerelease (gh release create --prerelease) with docs/RELEASE-NOTES-X.Y.md.
+#       newest stable tag, a red or missing ci-ok on the commit or its pull request head. The push starts the ISO build.
+#       A beta (vX.Y.Z-beta.N) is cut from the milestone branch origin/X.Y (ADR 0007), not main: X.Y.Z must be above the newest stable
+#       tag (not equal), N above the earlier betas of X.Y.Z, the branch must contain the newest stable tag. The push builds the ISO too and
+#       the ISO job publishes the GitHub release as a prerelease with docs/RELEASE-NOTES-X.Y.md.
 #   release-core.sh verify <vX.Y.Z | vX.Y.Z-beta.N>
-#       Fetch tags; check the signature, that the tag is on origin/main and that it names itself. Changes nothing.
+#       Fetch tags; check the signature, that the tag is on origin/main (a beta: on origin/X.Y) and that it names itself. Changes nothing.
 #   release-core.sh follow-check [<vX.Y.Z>] [--after]
 #       Run ON A SERVER (it reads `hs sys release show`, changes nothing): is the stable channel set, does it point at the tag, is the
 #       tag signed, has the server installed it. --after also demands that it has.
@@ -159,8 +160,10 @@ tag)
   beta=false
   if [[ "$tag" =~ $beta_re ]]; then beta=true; elif [[ ! "$tag" =~ $stable_re ]]; then fail "Name a release tag: vX.Y.Z or vX.Y.Z-beta.N"; fi
   bver=${tag%%-beta.*}   # the version a beta is for (the tag itself for a stable one)
+  minor=${bver#v}; minor=${minor%.*}
+  src=$base; $beta && src=$minor   # a stable tag is cut from main, a beta from its milestone branch
   fetch
-  ref_ok "$remote/$base" || fail "$remote/$base does not exist."
+  ref_ok "$remote/$src" || fail "$remote/$src does not exist."
   git rev-parse -q --verify "refs/tags/$tag" >/dev/null && fail "$tag exists already: a pushed tag is never moved; cut the next one."
   last=$(newest_stable)
   if [ -n "$last" ] && [ "$(printf '%s\n%s\n' "$last" "$bver" | sort -V | tail -n1)" != "$bver" ]; then fail "$tag is not above the newest stable tag $last."; fi
@@ -169,12 +172,12 @@ tag)
     top=$(git tag -l "$bver-beta.*" | sed 's/.*-beta\.//' | sort -n | tail -n1)
     [ -z "$top" ] || [ "${tag##*-beta.}" -gt "$top" ] || fail "$tag is not above the earlier beta $bver-beta.$top."
   fi
-  sha=$(git rev-parse "$remote/$base")
-  [ -z "$last" ] || git merge-base --is-ancestor "$last^{commit}" "$sha" || fail "$remote/$base does not contain $last: main must keep every earlier release as an ancestor."
+  sha=$(git rev-parse "$remote/$src")
+  [ -z "$last" ] || git merge-base --is-ancestor "$last^{commit}" "$sha" || fail "$remote/$src does not contain $last: $src must keep every earlier release as an ancestor."
   [ -f "$key" ] || fail "The release key $key does not exist (HS_RELEASE_KEY or --key)."
   if [ -z "$signers" ]; then
     signers=$(mktemp "${TMPDIR:-/tmp}/hs-signers.XXXXXX")
-    git show "$remote/$base:config/trusted-keys/server.allowed_signers" > "$signers" 2>/dev/null || { rm -f "$signers"; fail "$remote/$base has no config/trusted-keys/server.allowed_signers."; }
+    git show "$remote/$src:config/trusted-keys/server.allowed_signers" > "$signers" 2>/dev/null || { rm -f "$signers"; fail "$remote/$src has no config/trusted-keys/server.allowed_signers."; }
     trap 'rm -f "$signers"' EXIT
   fi
   [ -s "$signers" ] || fail "The allowed-signers file is empty."
@@ -194,16 +197,15 @@ tag)
       note "ci-ok was not checked (no GitHub remote or no gh): look at the pull request before you go on"
     fi
   fi
-  minor=${bver#v}; minor=${minor%.*}
   if ! git cat-file -e "$sha:docs/RELEASE-NOTES-$minor.md" 2>/dev/null; then
-    $beta && fail "docs/RELEASE-NOTES-$minor.md is not on $base: a beta release is made from that file."
-    warn "docs/RELEASE-NOTES-$minor.md is not on $base: the release gets generated notes"
+    $beta && fail "docs/RELEASE-NOTES-$minor.md is not on $src: a beta release is made from that file."
+    warn "docs/RELEASE-NOTES-$minor.md is not on $src: the release gets generated notes"
   fi
   step "What goes into the release"
   kv "Release" "${last:-none} -> $tag"
   kv "Commit" "$(git log -1 --format='%h %s' "$sha" | cut -c1-70)"
   kv "Key" "$key"
-  if $beta; then danger "The push publishes the beta tag (no ISO is built). A pushed tag is never moved."
+  if $beta; then danger "The push builds the ISO and publishes a prerelease. A pushed tag is never moved."
   else danger "The push starts the ISO build and publishes the release. A pushed tag is never moved."; fi
   confirm "$tag" "the release"
   git -c gpg.format=ssh -c user.signingkey="$key" tag -s "$tag" "$sha" -m "Hobnix ${tag#v}" || fail "Signing failed (is the key in ssh-agent, or unencrypted?)."
@@ -217,10 +219,6 @@ tag)
     exit 1
   fi
   ok "$tag pushed"
-  if $beta; then
-    next_step "gh release create $tag --verify-tag --prerelease --notes-file docs/RELEASE-NOTES-$minor.md   (no ISO; then release-core.sh verify $tag)"
-    exit 0
-  fi
   next_step "gh run watch --repo ${slug:-hobnix/server}; then release-core.sh verify $tag"
   ;;
 verify)
@@ -235,7 +233,8 @@ verify)
   fi
   bad=0
   if git -c gpg.format=ssh -c gpg.ssh.allowedSignersFile="$signers" tag -v "$tag" >/dev/null 2>&1; then ok "$tag: good signature"; else warn "$tag: the signature does not verify"; bad=1; fi
-  if git merge-base --is-ancestor "$tag^{commit}" "$remote/$base"; then ok "$tag is on $base"; else warn "$tag is not on $base"; bad=1; fi
+  vsrc=$base; [[ "$tag" =~ $beta_re ]] && vsrc=$(printf '%s' "${tag#v}" | cut -d. -f1,2)   # a beta lives on its milestone branch
+  if git merge-base --is-ancestor "$tag^{commit}" "$remote/$vsrc"; then ok "$tag is on $vsrc"; else warn "$tag is not on $vsrc"; bad=1; fi
   [ "$(git cat-file -t "$tag")" = tag ] && ok "$tag is an annotated tag" || { warn "$tag is not annotated"; bad=1; }
   [ $bad -eq 0 ] || exit 1
   ;;

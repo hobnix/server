@@ -164,7 +164,7 @@ that are still open in their own pull requests, so this one is 0017.
 27. **Flow** (ADR 0007 made concrete, no `release/*` branch, owner decision 2026-11-10): `feature/*` → `develop`; `develop` is the release
     candidate (bug fixes only while a release is tested; the next milestone is built on its own long-lived branch); a pull request
     `develop` → `main` with a **merge commit**, signed `vX.Y.Z` tag on `main`, `main` merged back into `develop`. Beta tags
-    `vX.Y.Z-beta.N` are signed on `develop`, as ADR 0007 says. The same flow applies to hobnix/recipes, hobnix/extensions and
+    `vX.Y.Z-beta.N` are signed on the milestone branch `X.Y` (ADR 0007, amended 2026-11-13). The same flow applies to hobnix/recipes, hobnix/extensions and
     hobnix/capabilities via `release.sh` (which gains `beta`).
 28. **Branch protection** (settings, `gh api`):
     - `main`: pull request required (1 approval, none for the sole owner while the team is one person: open question 5), required status checks
@@ -209,7 +209,7 @@ Phases 1 to 3 are core-only and can run in parallel after phase 0 (they touch `p
 1. **Pilot capability:** `network`, if its manifest has no `module.nix` dependency (checked in phase 4); otherwise `docs`.
 2. **Vendor location:** `/etc/nixos/vendor/capabilities/`, ignored by git.
 3. **Licence:** AGPL-3.0 (as set).
-4. **No `release/*` branches.** `develop` is the release candidate; beta tags come from `develop` (rule 27 as above).
+4. **No `release/*` branches.** `develop` is the release candidate; beta tags come from the milestone branch `X.Y` (ADR 0007, amended 2026-11-13).
 5. **Approvals on `main`:** status checks and the pull request only, no required review while the team is one person.
 6. **Trust key:** the core release key; the core lists it in `config/trusted-keys/capabilities.allowed_signers`.
 7. **Cross-repository CI pairing:** a branch of the same name if it exists, else `develop` (rule 17).
