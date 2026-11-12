@@ -196,15 +196,15 @@ it do what the guide says, how long did it take, and what was missing.
 
 | Guide step | What to check | Expected |
 | --- | --- | --- |
-| 1. Passwords | the backup password opens the repository | `restic snapshots` lists snapshots, one tagged `host` |
+| 1. Passwords | the backup password opens the repository | `restic snapshots --no-lock` lists snapshots, one tagged `host` (`--no-lock` when the disk is attached read-only) |
 | 2. Disk | partitions as written | ESP, root, a third partition labelled `vault`; `lsblk` shows them |
 | 3. Repository | `git clone` of your configuration repository works | `/mnt/etc/nixos` exists |
-| 4. Host files | `hs backup config restore --from-disk <device>` (where `hs` exists; else the manual restic copy) brings back `machine.toml`, `/var/lib/hs` and, after typing `ssh host keys`, the SSH host keys | the plan lists them, the files exist, safety copies `.before-restore-*` for replaced ones |
+| 4. Host files | the manual restic copy (the installer has no `hs`; use `--no-lock` on a read-only disk; `mkdir -p /mnt/etc/ssh` first) brings back `machine.toml`, `/var/lib/hs` and, after typing `ssh host keys`, the SSH host keys | the plan lists them, the files exist, safety copies `.before-restore-*` for replaced ones |
 | 5. Hardware config | generated again, no `boot.initrd.luks` block | UUIDs of the new disk |
 | 6. Install | `nixos-install --no-root-passwd` ends without an error | unmount works |
 | 7. Boot order | the VM boots from the new disk | login prompt or SSH on port 22 |
-| 8. First boot | `ssh admin@homeserver`, `sudo hs rebuild` | the build ends; storage is locked |
-| 9. Vault | `sudo hs vault init /dev/disk/by-partlabel/vault`, password put back | `hs vault status` shows an open vault |
+| 8. First boot | `ssh adminuser@homeserver`, `sudo hs rebuild` (the password of `adminuser` was set with `nixos-enter` before the unmount) | the build ends; storage is locked |
+| 9. Vault | `sudo hs vault init /dev/disk/by-partlabel/vault`, password put back, `sudo hs vault move` | `hs vault status` shows an open vault |
 | 10. Pools | with virtual data disks: import or create | `hs pool bulk` is happy |
 | 11. Containers | `sudo incus admin recover`, `hs ct list` | instances listed (only if you attached the pool) |
 | 12. Finish | `hs first-run`, `hs doctor`, `hs health` | green, or a list of what is open |
@@ -241,7 +241,8 @@ Boot the VM from the installer image with the backup disk attached and run (see 
 sudo hs-restore --dry-run
 ```
 
-Expect the disk labelled `backup` mounted **read-only**, the password asked without echo, a list of host snapshots, and a plan that names
+The dry run also asks for the name of the new system disk (or pass `--disk <name>`), because the plan names it. Not tested on hardware yet.
+Expect the disk labelled `backup` mounted **read-only** (restic runs with `--no-lock`, so it does not hang on a lock), the password asked without echo, a list of host snapshots, and a plan that names
 the system disk to be erased, the server name, role, time zone and SSH key from the restored `machine.toml`, and no `restic-password`.
 Then the real run (it asks for the **name of the system disk**; unattended it needs `--disk <name> --confirm-disk <same name>`):
 

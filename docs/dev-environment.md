@@ -16,7 +16,7 @@ scripts/dev/t quick pkg docs
 | `scripts/dev/t quick [name...]` | the tests that need no root (all of them without names) |
 | `scripts/dev/t changed` | the tests that mention a file you changed (at most 25; name the rest yourself) |
 | `scripts/dev/t root [name...]` | the root tests: loop devices, dm-crypt, mounts (Linux and root, or passwordless sudo) |
-| `scripts/dev/t vm` | the throwaway Incus VM tests (`zfs-vm`, and `rebuild-vm`: restore from only the backup volume and the passphrase; need KVM and the internet) |
+| `scripts/dev/t vm [name...]` | the throwaway Incus VM tests (`zfs-vm`, and `rebuild-vm`: restore from only the backup volume and the passphrase; need KVM and the internet); no name runs both; 900 s per test |
 | `scripts/dev/t wsl quick\|changed\|root` | the same, run inside a Debian WSL (Windows only) |
 | `scripts/dev/t list` | the names of the quick, root and vm tests |
 

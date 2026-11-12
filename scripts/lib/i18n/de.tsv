@@ -159,7 +159,8 @@ Recipes (run with: hs recipe <name>):	Rezepte (ausführen mit: hs recipe <Name>)
 No recipe called '%s'.	Kein Rezept namens '%s'.
                                              /var/lib/hs/backup-offsite.env. offsite now / off	                                              /var/lib/hs/backup-offsite.env. offsite now / off
                                              disk, sftp:user@host:/path, b2:bucket:path ...); keys in	                                              Platte, sftp:benutzer@rechner:/pfad, b2:bucket:pfad ...); Zugangsdaten in
-                                             into /bulk/shares/restored (never over the live copy)	                                              nach /bulk/shares/restored (nie über die Originale)
+                                             into /bulk/shares/restored (never over the live copy), owned by adminuser;	                                              nach /bulk/shares/restored (nie über die Originale), Besitzer adminuser;
+                                             --keep-owner keeps the owners of the snapshot, --to / (in place) always does	                                              --keep-owner behält die Besitzer der Sicherung, --to / (an Ort und Stelle) immer
                                              restore one file or folder, by default	                                              holt eine Datei oder einen Ordner zurück, standardmäßig
                                              without a device the free disks are listed to pick from	                                              ohne Platte werden die freien Platten zur Auswahl angezeigt
           The data on the disk is never formatted or changed by mounting.	          Die Daten auf der Platte werden durch das Einhängen nie formatiert oder verändert.
@@ -175,7 +176,7 @@ No recipe called '%s'.	Kein Rezept namens '%s'.
        hs backup list                        snapshots (id, time, tag, size)	        hs backup list                        Sicherungen (Nummer, Zeit, Art, Größe)
        hs backup now [--dry-run]             back up right now (also runs every night)	        hs backup now [--dry-run]             sofort sichern (läuft auch jede Nacht)
        hs backup offsite set <repo>          also copy every backup to a second repository (a folder on another	        hs backup offsite set <Lager>         jede Sicherung zusätzlich in ein zweites Lager kopieren (ein Ordner auf einer anderen
-       hs backup restore <snapshot|latest> <path> [--tag T] [--to DIR]	        hs backup restore <Sicherung|latest> <Pfad> [--tag T] [--to ORDNER]
+       hs backup restore <snapshot|latest> <path> [--tag T] [--to DIR] [--keep-owner]	        hs backup restore <Sicherung|latest> <Pfad> [--tag T] [--to ORDNER] [--keep-owner]
        hs backup verify                      check part of the stored data	        hs backup verify                      prüft einen Teil der gespeicherten Daten
        hs disk temp copy <name> <share> [--dry-run]	        hs disk temp copy <Name> <Freigabe> [--dry-run]
        hs disk temp eject [name]	        hs disk temp eject [Name]
@@ -1536,6 +1537,11 @@ Container restore drill	Wiederherstellungsprobe (Container)
 Virtual machine drill	Wiederherstellungsprobe (virtuelle Maschine)
 Domain controller backup file	Sicherungsdatei des Domänencontrollers
 ! Drills that failed in the last 35 days: %s	! Proben, die in den letzten 35 Tagen fehlschlugen: %s
+snapshot %s days old	Snapshot %s Tage alt
+No container is in the backup (chosen); the newest container snapshot is %s days old	Kein Container ist im Backup (so gewählt); der neueste Container-Snapshot ist %s Tage alt
+Snapshot from %s (%s days old)	Snapshot vom %s (%s Tage alt)
+Snapshot from %s (%s days old); this container is still in the backup, so its backup has not run for days	Snapshot vom %s (%s Tage alt); dieser Container ist noch im Backup, sein Backup lief aber seit Tagen nicht
+Snapshot from %s (%s days old); this container is no longer in the backup (hs backup ct %s on)	Snapshot vom %s (%s Tage alt); dieser Container ist nicht mehr im Backup (hs backup ct %s on)
 ! Backup disk: %s%% full	! Backup-Platte: %s%% voll
 Backup disk: %s%% full	Backup-Platte: %s%% voll
 Guides checked on the server: %s of %s%s	Anleitungen am Server geprüft: %s von %s%s
@@ -2407,3 +2413,12 @@ this ref has no scripts/dev/testlab-browser.py	dieser Stand hat kein scripts/dev
 usage: hs testlab run [--ref <branch|tag|commit>] [--stage 1|2|3|4|5|6|7|<name>|all] [--from <vX.Y.Z>] [--dry-run] [--yes] [--background|--foreground]	Aufruf: hs testlab run [--ref <branch|tag|commit>] [--stage 1|2|3|4|5|6|7|<name>|all] [--from <vX.Y.Z>] [--dry-run] [--yes] [--background|--foreground]
 3. build the installer ISO of the RELEASE (nix, long) and install it in a throwaway VM	3. das Installer-ISO des RELEASES bauen (nix, dauert lange) und in einer Wegwerf-VM installieren
 Installing %s in VM %s	%s wird in der VM %s installiert
+Missing on this system: %s. Nothing was changed.	Auf diesem System fehlt: %s. Nichts wurde geändert.
+cryptsetup is not installed on this system, so a vault cannot be made. Nothing was changed.	cryptsetup ist auf diesem System nicht installiert, daher kann kein Tresor angelegt werden. Nichts wurde geändert.
+Owners kept as in the snapshot.	Die Besitzer bleiben wie im Snapshot.
+Could not list %s in the snapshot.	%s konnte im Snapshot nicht aufgelistet werden.
+%s is a plain folder with files, left as it is.	%s ist ein normaler Ordner mit Dateien und bleibt, wie er ist.
+Share datasets that are missing and will be created first	Fehlende Freigabe-Datasets, die zuerst angelegt werden
+Could not create the dataset %s. Nothing was restored.	Das Dataset %s konnte nicht angelegt werden. Es wurde nichts wiederhergestellt.
+Created %s share datasets. After the restore: sudo hs share repair	%s Freigabe-Datasets angelegt. Nach der Wiederherstellung: sudo hs share repair
+plain folder, not a share (make a share of it with hs share add, or move its files into one)	Ordner, keine Freigabe (mit hs share add zur Freigabe machen oder die Dateien in eine Freigabe verschieben)

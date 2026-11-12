@@ -1,0 +1,6 @@
+date  = "2026-11-11"
+type  = "fix"
+title = "Containers switched off in the backup are a choice: no warning in the report, not drilled"
+body  = """When no container is in the backup on purpose, the monthly drill report now shows an information line instead of a warning and the title stays "restore drills are fine". Failed drills are named only for containers that are in the backup, and the container restore drill (hs backup drill ct) without a name no longer restores snapshots of containers that are switched off; with a name it still does.
+
+Not tested on hardware yet."""

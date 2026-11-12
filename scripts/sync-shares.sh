@@ -146,6 +146,15 @@ for parent in shares sensitive; do
     existing+=("$name")
     row "$name" "$(t 'added (%s)' "$path")"
   done < <(children "$tier" "$parent")
+
+  # On ZFS only datasets are shares: a plain folder next to them is skipped (never published, never handed over)
+  if [ "$tier" = fast ] || [ "$bulk_type" != snapraid ]; then
+    while read -r name; do
+      case "$name" in *.deleted-*) continue ;; esac
+      row "$name" "$(t 'plain folder, not a share (make a share of it with hs share add, or move its files into one)')"
+    done < <(comm -23 <(find "$(share_root "$tier")/$parent" -mindepth 1 -maxdepth 1 -type d ! -name 'lost+found' -printf '%f\n' 2>/dev/null | sort) \
+                      <(children "$tier" "$parent" | sort))
+  fi
 done
 done < <(share_tiers)
 

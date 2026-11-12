@@ -530,7 +530,8 @@ sudo hs-restore --dry-run
 It mounts the backup disk **read-only**, asks for the backup password (no echo; or `--password-file <file>`), lists the host snapshots and
 reads the settings of one (`latest` unless you pass `--snapshot`). It then shows the plan: the backup, the snapshot, the new system disk
 (erased), the server name, role, time zone and SSH key taken from the restored `machine.toml`, and the files that come back.
-`--dry-run` stops there and changes nothing. Without it you type the **name of the system disk** to continue; an unattended run needs
+The backup disk stays read-only the whole time, so restic runs with `--no-lock` and writes nothing to it. `--dry-run` also asks for the name of
+the new system disk (the plan names it), then stops and changes nothing; with `--disk <name>` it does not ask. Without `--dry-run` you type the **name of the system disk** to continue; an unattended run needs
 `--disk <name> --confirm-disk <same name>`. The data disks and the backup disk are never touched; the backup disk is refused as a target.
 
 After the confirmation the normal installer runs with the restored settings: the same disk layout and `nixos-install` as a new install, and

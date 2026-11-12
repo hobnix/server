@@ -1,0 +1,6 @@
+date  = "2026-11-10"
+type  = "fix"
+title = "Container restore drill works on Incus 7"
+body  = """The container restore drill (hs backup drill ct) failed on Incus 7 because the throwaway instance could not be created without a root disk; it now gets the root disk when it is created. The check of the domain controller backup file also reported a missing sam.ldb although the file was there; that false alarm is gone.
+
+Not tested on hardware yet."""
