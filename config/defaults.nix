@@ -13,6 +13,7 @@
   updateChannel = "stable";
   webUi = false;
   webPort = 8480;
+  webAllowedHosts = "";
   webAccent = "#9184d9";
   webTailscale = false;
   webLan = true;

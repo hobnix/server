@@ -244,6 +244,25 @@ webPort = 8480'''
 
 [[item]]
 kind = "option"
+key = "webAllowedHosts"
+page = "access"
+type = "string"
+required = false
+settable = true
+secret = false
+store = "settings"
+default = '""'
+pattern = '^(\*|[A-Za-z0-9.:\[\]-]+(,[A-Za-z0-9.:\[\]-]+)*)?$'
+hint = "host names separated by commas, or * to switch the check off"
+doc = '''
+# Extra names the web interface answers to (the Host header), besides IP addresses, the server's own name, <name>.local,
+# the Tailscale name and the gateway's local domain. Other names are refused (protection against DNS rebinding). Use it when
+# the page is reached by another name, for example "nas.example.org,files.lan". "*" switches the check off. Default empty. No rebuild.'''
+value = '''
+webAllowedHosts = ""'''
+
+[[item]]
+kind = "option"
 key = "webAccent"
 type = "string"
 required = false

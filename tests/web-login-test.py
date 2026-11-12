@@ -623,6 +623,52 @@ class HelperLine(unittest.TestCase):
         self.assertIsNone(self.run_with(b"")[0])
 
 
+class HostAllowlist(Base):
+    """DNS rebinding: a Host header that does not name this server is refused for every request (421), before any handler."""
+
+    def setUp(self):
+        super().setUp()
+        self.sd = tempfile.mkdtemp()
+        os.environ["HS_SETTINGS_DIR"] = self.sd
+        os.environ["HS_WEB_HOSTNAME"] = "homebox"
+
+    def tearDown(self):
+        os.environ.pop("HS_SETTINGS_DIR", None)
+        os.environ.pop("HS_WEB_HOSTNAME", None)
+        super().tearDown()
+
+    def get(self, host, path="/api/hello"):
+        return self.req("GET", path, headers={"Host": host})[0]
+
+    def test_own_names_pass(self):
+        for h in ("127.0.0.1:8080", "192.168.1.5", "[::1]:8080", "homebox", "homebox:8080", "homebox.local", "HOMEBOX.LOCAL."):
+            self.assertEqual(self.get(h), 200, h)
+
+    def test_a_foreign_name_is_refused_for_get_and_post(self):
+        for path in ("/api/hello", "/", "/api/session"):
+            self.assertEqual(self.get("evil.example.com", path), 421, path)
+        s, d, r = self.req("POST", "/api/login", {"realm": "domain", "user": "anna", "password": "pw"},
+                           headers={"Host": "evil.example.com", "Origin": "http://evil.example.com"})
+        self.assertEqual(s, 421)
+        self.assertIn(b"webAllowedHosts", d)
+        self.assertEqual(self.get(""), 421)
+
+    def test_a_tailnet_name_needs_our_machine_name_without_tailscale_serve(self):
+        self.assertEqual(self.get("homebox.tail1234.ts.net"), 200)
+        self.assertEqual(self.get("other.tail1234.ts.net"), 421)
+
+    def test_the_setting_lets_a_name_in_and_star_switches_off(self):
+        self.assertEqual(self.get("nas.example.org"), 421)
+        with open(os.path.join(self.sd, "webAllowedHosts"), "w") as f:
+            f.write("nas.example.org, files.lan\n")
+        self.assertEqual(self.get("nas.example.org"), 200)
+        self.assertEqual(self.get("FILES.lan:8080"), 200)
+        self.assertEqual(self.get("evil.example.com"), 421)
+        with open(os.path.join(self.sd, "webAllowedHosts"), "w") as f:
+            f.write("*\n")
+        self.assertEqual(self.get("evil.example.com"), 200)
+
+
 class Tls(Base):
     """Behind `tailscale serve` (HS_WEB_SECURE, HS_WEB_TRUST_PROXY): Secure cookie, HSTS, throttle by the forwarded client address."""
 
@@ -673,6 +719,17 @@ class Tls(Base):
         # another client behind the same proxy is not locked out by the first one's address, only by the user name
         s, _, _ = self.login(user="bob", headers={"X-Forwarded-For": "100.64.0.8"})
         self.assertEqual(s, 403)
+
+    def test_a_spoofed_first_entry_does_not_choose_the_throttle_key(self):
+        """A proxy that appends keeps what the client wrote in front; the entry our proxy added is the last one."""
+        for i in range(5):
+            self.login(password="bad", headers={"X-Forwarded-For": "10.9.9.%d, 100.64.0.7" % i})
+        s, _, _ = self.login(password="bad", headers={"X-Forwarded-For": "10.1.1.1, 100.64.0.7"})
+        self.assertEqual(s, 429)
+
+    def test_any_tailnet_name_is_ours_behind_tailscale_serve(self):
+        s, _, _ = self.req("GET", "/api/hello", headers={"Host": "box-2.tail1234.ts.net"})
+        self.assertEqual(s, 200)
 
     def test_unlock_throttle_counts_the_forwarded_client(self):
         self.auth.locked = True

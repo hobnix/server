@@ -54,7 +54,8 @@ An entrypoint `lan-https` on :443 (free, because the router forwards to 4443); l
 provider (`tls.certificates` in a `00-hs-tls.yml`) or ACME DNS-01. The route files change only in their `entryPoints` line.
 
 ## Web interface behind Traefik
-`HS_WEB_TRUST_PROXY` is set while the capability is on: Traefik sends X-Forwarded-For from 127.0.0.1 and web-serve.py trusts it only from loopback.
+`HS_WEB_TRUST_PROXY` is set while the capability is on: Traefik sends X-Forwarded-For from 127.0.0.1 and web-serve.py trusts it only from loopback and takes the LAST entry (the one Traefik added).
+A Host name of the gateway's local domain is accepted by web-serve.py's Host check; another name needs the setting `webAllowedHosts`.
 Risk: if web-serve ever trusts X-Forwarded-For from more than loopback the login throttle can be fooled.
 
 ## Tunnel entrypoint (reverseProxy = traefik-public)

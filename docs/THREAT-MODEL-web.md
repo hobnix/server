@@ -16,7 +16,7 @@ serves the Svelte frontend and wraps `hs sys ...` (reads) and `plan`/`start` (ch
 | A signed-in Domain Admin | every read, every change in the `CHANGES` allowlist, unlock, the browser terminal if `webTerminal` is on | **root-equivalent**: the terminal is a shell as adminuser with sudo, and changes start root commands |
 | The local `adminuser` | the same; the only way in while the storage is locked | the same |
 | A browser of a signed-in admin, driven by another web page | only what SameSite and the Origin check let through (below) | nothing, if those hold |
-| A process or user on the server itself | the loopback port, as any other client; `X-Forwarded-For` is trusted from loopback only with `HS_WEB_TRUST_PROXY` | sign-in attempts; no session without a password |
+| A process or user on the server itself | the loopback port, as any other client; `X-Forwarded-For` (last entry) is trusted from loopback only with `HS_WEB_TRUST_PROXY` | sign-in attempts; no session without a password |
 
 There is one role: admin. There is no read-only role; "viewer" does not exist, so every account that can sign in is root-equivalent.
 Trust therefore sits in the Domain Admins group and in the local admin password.
@@ -52,10 +52,11 @@ Fixed in this change:
 3. **Throttle table unbounded.** A client could fill memory with made-up user names. Capped at 4096 keys.
 4. **Session fixation hygiene.** A login now ends the cookie it arrived with.
 
+5. **DNS rebinding (#501).** Every request (GET, HEAD, POST, before any handler) needs a `Host` that names this server: an IP literal, the host name, `<host>.local`, a name below the gateway's local domain, or `<host>.<tailnet>.ts.net` (any `*.ts.net` name behind `tailscale serve`, where the machine name there can differ). Anything else gets 421. A correct setup is not locked out: the list is built from what the server knows, and the escape is the runtime setting `webAllowedHosts` (`hs config set webAllowedHosts nas.example.org,files.lan`, no rebuild; `*` switches the check off; the refusal is logged with the name and the answer names the setting). Test: `HostAllowlist` in `web-login-test.py`.
+6. **`X-Forwarded-For` (#503).** From loopback the LAST entry is the client: the one our own proxy added. `tailscale serve` and Traefik (entry points without trusted forwarders) set the header from the peer they saw; a proxy that appends keeps the client's own text in front, so the first entry is spoofable. Not run on hardware yet: check what `tailscale serve` sends. A local process can still write any header; it is a client like any other (see above).
+
 Open (filed as issues in milestone 0.2, see the pull request):
-- DNS rebinding and the missing Host allowlist: `Origin == Host` is true for an attacker's own name.
 - Per-user lockout lets a LAN client keep the one admin account locked out (denial of service).
-- `X-Forwarded-For` first entry is trusted from loopback; a proxy that appends makes it spoofable (throttle bypass by address).
 - One role only: no read-only account, and the browser terminal is root-equivalent by design.
 - No `__Host-` cookie prefix and no `Secure` flag on plain HTTP (by design on the home network; HTTP sends the cookie in clear).
 - Session list and a "sign out everywhere" button do not exist; sessions of the same admin are never ended by a password change.
