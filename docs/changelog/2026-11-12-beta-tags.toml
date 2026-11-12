@@ -1,0 +1,4 @@
+date  = "2026-11-12"
+type  = "change"
+title = "Beta releases can be tagged and published like stable ones"
+body  = """A beta tag (vX.Y.Z-beta.N) is signed, checked and published as a prerelease. It builds no installer image. Servers on the stable channel never see it."""

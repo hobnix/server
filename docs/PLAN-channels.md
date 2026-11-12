@@ -5,7 +5,7 @@ tests/update-channel.sh), the operations guide has the section "Update channels"
 issue #286: `hs sys release show|plan|start`, scripts/release-channel.sh, scripts/release-change.sh; the plan checks the tag signature from
 the tags already fetched and asks for the channel name when the channel is newer). Decision 2026-11-04: when the new channel is older than the
 installed version, the server stays on the installed version until the channel catches up; a downgrade is out of scope for now, and the page
-says so. Built 2026-11-05: `hs pkg` on a channel (scripts/pkg_repo.py, beta tags). Built 2026-11-12: the Updates page shows the channel, the ref it would install and the beta/edge warning. Not built yet: the installer ISO, the `beta` mode of `release.sh`. The release key file `config/trusted-keys/server.allowed_signers` holds a key since commit 3d2c07a. Open questions 1 to 3 are still open; question 4 is built as proposed (a tag older than the installed version is refused).
+says so. Built 2026-11-05: `hs pkg` on a channel (scripts/pkg_repo.py, beta tags). Built 2026-11-12: the Updates page shows the channel, the ref it would install and the beta/edge warning. Built 2026-11-12: beta tags end to end (`release-core.sh tag vX.Y.Z-beta.N`, the `release` workflow, no ISO for a beta tag). Proposal 2026-11-12, awaiting the owner: a beta is cut from `main`, not `develop`, so the stable-tag rules and the signed-tag check stay one path. Not built yet: the installer ISO. The release key file `config/trusted-keys/server.allowed_signers` holds a key since commit 3d2c07a. Open questions 1 to 3 are still open; question 4 is built as proposed (a tag older than the installed version is refused).
 Open questions at the end are for the owner. The branch model it rests on (`develop`, `main`, signed
 tags) is in docs/dev-environment.md "Branches and releases".
 
@@ -19,7 +19,7 @@ the working branch there must be a way to choose how new a server wants to be, a
 | Channel | Core follows | Package repositories (recipes, extensions) follow | For |
 |---|---|---|---|
 | `stable` (default) | the newest signed `vX.Y.Z` tag on `main` | the newest signed `vX.Y.Z` tag | every server that holds data |
-| `beta` | the newest signed prerelease tag `vX.Y.Z-beta.N` (cut from `develop`), or the stable tag when it is newer | the same rule | a second server or a test VM |
+| `beta` | the newest signed prerelease tag `vX.Y.Z-beta.N` (cut from `main`), or the stable tag when it is newer | the same rule | a second server or a test VM |
 | `edge` | the head of `develop` | not offered: packages stay on beta at most | the developer's own test server |
 
 Why packages have no edge: docs/PLAN-packages.md checks out only a signed tag or commit, never a branch head. That trust rule stays. A
@@ -28,8 +28,8 @@ package author who needs to try an unreleased recipe uses a beta tag.
 ## Tags
 
 - Stable `vX.Y.Z`, created on `main` after a release pull request (`git tag -s`, or `release.sh` in the package repositories).
-- Beta `vX.Y.Z-beta.N`, created on `develop`, signed with the same release key, so `hs pkg` and the update path verify it the same way.
-  `release.sh` gets a `beta` mode; it refuses a beta tag on `main` and a stable tag on `develop`.
+- Beta `vX.Y.Z-beta.N`, created on `main` (proposal 2026-11-12, awaiting the owner; the first plan said `develop`), signed with the same release key, so `hs pkg` and the update path verify it the same way.
+  `release-core.sh tag` and the `release` workflow take a beta tag the same way as a stable one (tip of `main`, same signature check).
 - Version order is plain semver: `v1.4.0-beta.2` < `v1.4.0`. A beta server that sees `v1.4.0` moves to it.
 
 ## What changes in the code (steps)
@@ -54,7 +54,7 @@ package author who needs to try an unreleased recipe uses a beta tag.
 
 ## Open questions for the owner
 
-1. Should the installer ISO exist for beta tags too, or for stable only? (Proposal: stable only; a beta server installs stable first.)
+1. Should the installer ISO exist for beta tags too, or for stable only? (Proposal: stable only; a beta server installs stable first. Built as proposed, awaiting the owner: `ci.yml` builds no ISO for a `-beta.` tag.)
 2. Does edge need a signed head? (Proposal: no for the core, since the owner controls the server; yes is possible with signed commits on
    `develop` later.)
 3. How long do beta tags live before they are deleted? (Proposal: they stay; a stable tag supersedes them.)

@@ -252,11 +252,12 @@ jobs:
   # The installer ISO (installer/iso.nix, docs/PLAN-modular-core.md step 10): built when a version tag is pushed and attached to the release.
   # It waits for every test job. `!cancelled()` replaces the implicit success() so that a skipped `rust` job does not skip this one; the
   # other jobs must have succeeded (a failed or skipped one stops the release). On a tag `changes` turns every job on, so `rust` is only
-  # skipped if that ever changes.
+  # skipped if that ever changes. A beta tag pushed by hand builds no ISO (stable only, docs/PLAN-channels.md question 1); the tests still run.
   iso:
     needs: [changes, rust, scripts, tests, packages, nixos, integration]
     if: >-
       !cancelled() && startsWith(github.ref, 'refs/tags/v')
+      && !contains(github.ref_name, '-beta.')
       && needs.changes.result == 'success'
       && (needs.rust.result == 'success' || needs.rust.result == 'skipped')
       && needs.scripts.result == 'success'

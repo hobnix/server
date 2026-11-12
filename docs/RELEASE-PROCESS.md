@@ -29,7 +29,7 @@ where everything stands.
    rebase: the earlier releases must stay ancestors of `main`).
 3. **Tag.** On the owner's machine `bash scripts/dev/release-core.sh tag v0.1.0`, or from GitHub with the workflow `release` (section "Release from GitHub"). It checks that `ci-ok` is green on the tip of `origin/main`, signs it, verifies the
    signature against `config/trusted-keys/server.allowed_signers` as `main` has it, asks you to type the tag, and pushes. The push builds the
-   ISO and the GitHub release (the `iso` job of `ci.yml`). A pushed tag is never moved: a bad release gets the next number.
+   ISO and the GitHub release (the `iso` job of `ci.yml`). A beta tag (`release-core.sh tag v0.2.0-beta.1`) follows the same rules for its base version (above the newest stable tag, `N` above earlier betas) but builds no ISO: the `iso` job skips `-beta.` tags, and the script ends with `gh release create <tag> --verify-tag --prerelease --notes-file docs/RELEASE-NOTES-0.2.md`. A pushed tag is never moved: a bad release gets the next number.
 4. **Check.** `gh run watch`, then `bash scripts/dev/release-core.sh verify v0.1.0`.
 5. **Merge back.** `main` carries the release merge commit, which `develop` lacks. Open a pull
    request `main` into `develop` (`git switch -c chore/main-into-develop origin/develop && git merge --no-ff origin/main`, merge commit),
@@ -84,8 +84,8 @@ What it does (`scripts/dev/release-gate.sh`, tested by `tests/release-gate.sh`):
    tag with `gh workflow run`: a push made with the workflow's token starts no workflow, so the test jobs and the ISO job would not run
    otherwise. The ISO job attaches the ISO to the release this workflow made. A beta gets no ISO (open question 1 of PLAN-channels).
 
-Beta tags are cut from `main` by this workflow (after the release pull request, before the stable tag), which differs from PLAN-channels
-(beta on `develop`); say so if you want it the other way. "The version matches the changelog" is checked as: the notes file for that `X.Y`
+Beta tags are cut from `main` by this workflow (after the release pull request, before the stable tag), which differs from the first PLAN-channels
+draft (beta on `develop`); it is a proposal until the owner confirms. "The version matches the changelog" is checked as: the notes file for that `X.Y`
 exists, names it, and the changelog entries validate; there is no version field in the entries.
 
 ### One-time setup (the owner; nothing in this repository can do it)
