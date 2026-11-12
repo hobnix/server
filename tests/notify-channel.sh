@@ -102,6 +102,12 @@ C add main --provider ntfy --secret url; check_eq "also the derived name" 1 "$rc
 C add Bad_Name --provider ntfy; check_eq "a bad name is refused" 1 "$rc"
 C add y --provider nope; check_eq "an unknown provider is refused" 1 "$rc"
 C add y --provider ntfy --set url=https://ntfy.test/x; check_eq "a secret cannot be given on the command line" 1 "$rc"
+mkdir -p "$WORK/state/settings"; echo SECRETVALUE > "$WORK/outside-setting"; echo fine > "$WORK/state/settings/someKey"
+got=$( . "$SCRIPTS/lib/ui.sh"; . "$SCRIPTS/lib/setting.sh"; . "$SCRIPTS/lib/channels.sh"; export HS_STATE_DIR=$WORK/state
+  chan_load_text x $'a=@setting:../../outside-setting
+b=@setting:someKey
+c=@setting:/etc/hostname'; printf '[%s][%s][%s]' "${CH[a]}" "${CH[b]}" "${CH[c]}" )
+check_eq "@setting: names a setting, not a path" "[][fine][]" "$got"
 check "and says why" has stdin
 CIN "not-a-url" add y --provider ntfy --secret url; check_eq "the provider's check refuses a bad value" 1 "$rc"
 check "nothing was written for it" test ! -f "$WORK/state/notify-channels/y.conf"
