@@ -412,8 +412,10 @@ purpose, and `hs update` and `hs rebuild` end with an error. `hs unlock --status
    sudo hs share repair
    ```
 
-   The restore sets the owner of what it restored to `adminuser:users`; in a VM that also changed `/bulk/sensitive` from root. Check
-   with `ls -ld /bulk/sensitive/*` after `hs share repair`. Steps 1 to 3 ran in a VM with ZFS and a test backup; not on hardware yet.
+   A restore with `--to /` keeps the owners of the snapshot (restic restores them as root), so the container-owned folders in
+   `/bulk/sensitive` stay container-owned (for example 1000000:1000000); `hs share repair` does not hand `sensitive` over. A first run of
+   this step in a VM re-owned everything to `adminuser:users` and broke those folders (issue #532); that is fixed. Check with
+   `ls -ld /bulk/sensitive/*`. Steps 1 to 3 ran in a VM with ZFS and a test backup; not on hardware yet.
 
    Then `sudo hs share <share> perm` for permissions, and `sudo hs pool bulk sync`. Only one share or file: `hs share <share> restore
    [<path>]` puts it into the share `restored`.
@@ -429,7 +431,8 @@ purpose, and `hs update` and `hs rebuild` end with an error. `hs unlock --status
    The folder `--to` must exist. The snapshot holds the path **on the host**, not inside the container (for a ZFS container
    `/var/lib/incus/storage-pools/default/containers/<name>/rootfs/<path-in-container>`): look it up with `hs backup find <name>` and give that
    full path. `incus file push -r` puts the folder you name **into** the target, so give the parent folder as the target, not the folder
-   itself. The restore re-owns the files (1000:100 in the VM); check the owners inside the container. In a VM rehearsal 12 of 12 files
+   itself. The default restore re-owns the files to `adminuser:users` (1000:100 in the VM); check the owners inside the container, and add
+   `--keep-owner` to keep the owners of the snapshot. In a VM rehearsal 12 of 12 files
    came back with equal checksums. Not tested on hardware yet.
 
    Docker applications: restore the project folders and load the databases from the dumps in `/var/lib/hs/backup-dump/<container>`.
