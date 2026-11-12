@@ -23,6 +23,7 @@
   "updateChannel": "updates",
   "webUi": "general",
   "webPort": "general",
+  "webAllowedHosts": "access",
   "webAccent": "general",
   "webTailscale": "cap:tailscale",
   "webLan": "access",

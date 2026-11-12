@@ -1,0 +1,6 @@
+date  = "2026-11-12"
+type  = "security"
+title = "Web interface: refuses foreign Host names (DNS rebinding), takes the right forwarded address"
+body  = """The web interface now answers only to names that belong to the server: IP addresses, the host name, its .local name, the Tailscale name and the gateway's local domain. A page on any other name that points at the server (DNS rebinding) gets "421 unknown host name". If you reach the page by another name, add it with `hs config set webAllowedHosts nas.example.org,files.lan` (no rebuild; `*` switches the check off). The sign-in throttle now takes the last X-Forwarded-For entry, the one the proxy added, not the first, which a client can write itself. Details in docs/THREAT-MODEL-web.md.
+
+Not tested on hardware yet."""

@@ -145,14 +145,14 @@ class Board(unittest.TestCase):
 
     def test_session_from_public_address(self):
         self.login()
-        self.assertEqual(self.get(fwd="8.8.8.8", host="evil.example", cookie=True)[0], 200)
+        self.assertEqual(self.get(fwd="8.8.8.8", cookie=True)[0], 200)
 
     def test_host_header(self):
         for host in ("192.168.1.9:8480", "[fd7a::1]:8480", "homeserver", "homeserver:8480", "homeserver.local", "main.home.lan",
                      "jellyfin.main.home.lan", "homeserver.tail1234.ts.net"):
             self.assertEqual(self.get(fwd="192.168.1.5", host=host)[0], 200, host)
         for host in ("evil.example", "evil.example:8480", "homeserver.evil.example", "other.tail1234.ts.net", "main.home.lan.evil.com"):
-            self.assertEqual(self.get(fwd="192.168.1.5", host=host)[0], 403, host)
+            self.assertEqual(self.get(fwd="192.168.1.5", host=host)[0], 421, host)   # refused for every request now, with or without a session
 
     def test_shape(self):
         s, d = self.get(fwd="192.168.1.5")
