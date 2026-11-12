@@ -908,6 +908,53 @@ cmd_find() {
   R find "*$1*" | sed 's/^/  /'
 }
 
+# In-place restore of shares on the ZFS layout: every share is its own dataset (hs share add), but restic brings folders back as
+# plain folders of the parent dataset. Create the datasets that are missing first, so restic writes into them (hs share repair
+# publishes them afterwards). Only creates; nothing is destroyed or overwritten.
+restore_make_datasets() {   # restore_make_datasets <snapshot> <tag> <path>
+  local snap=$1 tag=$2 path=${3%/} parent name names="" listed d want=() skipped=()
+  case "$path" in
+    "$BULK/shares"|"$BULK/sensitive") parent=${path##*/} ;;
+    "$BULK/shares/"*|"$BULK/sensitive/"*)
+      name=${path#"$BULK"/*/}
+      case "$name" in */*) return 0 ;; esac
+      parent=${path#"$BULK"/}; parent=${parent%%/*} ;;
+    *) return 0 ;;
+  esac
+  [ "$tag" = shares ] || return 0
+  [ "$(cat "${HS_BULK_TYPE_FILE:-/etc/hs/bulk-type}" 2>/dev/null || echo zfs)" != snapraid ] || return 0
+  command -v zfs >/dev/null 2>&1 || return 0
+  if [ -n "${name:-}" ]; then
+    names=$name
+  else
+    # one level below the parent: the share names of the snapshot
+    listed=$(R ls "$snap" --tag "$tag" "$path") || die "$(t 'Could not list %s in the snapshot.' "$path")"
+    names=$(awk -v p="$path/" 'index($0, p) == 1 { n = substr($0, length(p) + 1); if (n != "" && index(n, "/") == 0) print n }' <<<"$listed")
+  fi
+  while IFS= read -r name; do
+    [ -n "$name" ] || continue
+    case "$name" in *.deleted-*|lost+found) continue ;; esac
+    case "${name,,}" in shares|sensitive|global|homes|printers) continue ;; esac
+    if zfs list -H -o name "bulk/$parent/$name" >/dev/null 2>&1; then continue; fi
+    d=$BULK/$parent/$name
+    if [ -d "$d" ] && [ -n "$(ls -A "$d" 2>/dev/null)" ]; then skipped+=("$d"); continue; fi
+    want+=("$name")
+  done <<<"$names"
+  for d in "${skipped[@]}"; do note "$(t '%s is a plain folder with files, left as it is.' "$d")"; done
+  [ "${#want[@]}" -gt 0 ] || return 0
+  step "$(t 'Share datasets that are missing and will be created first')"
+  for name in "${want[@]}"; do note "bulk/$parent/$name"; done
+  for name in "${want[@]}"; do
+    zfs create -p "bulk/$parent/$name" || die "$(t 'Could not create the dataset %s. Nothing was restored.' "bulk/$parent/$name")"
+    # as hs share add: shares are written as adminuser, sensitive folders keep the owner of the snapshot
+    if [ "$parent" = shares ]; then
+      chown adminuser:users "$BULK/$parent/$name" 2>/dev/null || true
+      chmod 2775 "$BULK/$parent/$name" 2>/dev/null || true
+    fi
+  done
+  ok "$(t 'Created %s share datasets. After the restore: sudo hs share repair' "${#want[@]}")"
+}
+
 cmd_restore() {
   local snap="" path="" tag=shares to=$BULK/shares/restored keep=false
   while [ $# -gt 0 ]; do
@@ -922,6 +969,7 @@ cmd_restore() {
   [ -n "$snap" ] && [ -n "$path" ] || usage
   [ -d "$to" ] || die "$(t '%s does not exist. For the default: hs share add restored' "$to")"
   need_repo
+  [ -n "${to%/}" ] || restore_make_datasets "$snap" "$tag" "$path"
   # "latest" means the newest snapshot with that tag (shares, host, ct:<name>)
   R restore "$snap" --tag "$tag" --target "$to" --include "$path"
   # restic is happy to restore nothing when the path is not in the snapshot

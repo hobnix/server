@@ -417,6 +417,13 @@ purpose, and `hs update` and `hs rebuild` end with an error. `hs unlock --status
    this step in a VM re-owned everything to `adminuser:users` and broke those folders (issue #532); that is fixed. Check with
    `ls -ld /bulk/sensitive/*`. Steps 1 to 3 ran in a VM with ZFS and a test backup; not on hardware yet.
 
+   On the ZFS layout every share is its own dataset. The restore of `/bulk/shares`, `/bulk/sensitive` or one share folder below them
+   therefore creates the datasets that are missing (`bulk/shares/<name>`, `bulk/sensitive/<name>`) before it writes the files, so
+   they come back as shares and not as plain folders. It prints the list first, skips names that already are datasets, leaves a
+   plain folder that already holds files alone, and stops before restoring if a dataset cannot be created. The datasets are new:
+   `sudo hs share repair` publishes them, and like every new share they are open to Domain Admins only until you set permissions.
+   On SnapRAID the folders are the shares and nothing is created. Not tested on hardware yet.
+
    Then `sudo hs share <share> perm` for permissions, and `sudo hs pool bulk sync`. Only one share or file: `hs share <share> restore
    [<path>]` puts it into the share `restored`.
 4. **Containers.** Not tested on hardware yet. Create a container of the same kind (`hs ct add <name>`), restore the files from the snapshot
