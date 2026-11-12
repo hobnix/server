@@ -117,7 +117,7 @@ Read, not run.
 | `iso` | **only a tag `v*`**, after `changes`, `scripts`, `tests`, `packages`, `nixos`, `integration` succeeded and `rust` succeeded or was skipped | the same pinned nixpkgs revision as `nixos` (`config/nixpkgs-pin.toml`), `permissions: contents: write`, enough runner disk for the image; builds `result-iso/iso/*.iso`, writes `.sha256` with the bare file name, runs `gh release create --notes-file docs/RELEASE-NOTES-<major>.<minor>.md` (or uploads to an existing release) |
 | `nested` (nested.yml) | manual only | an ISO URL (a release asset), a runner with `/dev/kvm`; never run, UNVERIFIED |
 | `ci-ok` | always | fails when a job above failed or was cancelled; the one check the branch rule asks for |
-| `dco` | pull requests | `Signed-off-by` on every commit, unless the PR has the label `agent-pr` |
+| `dco` | pull requests | `Signed-off-by` on every commit |
 
 On a tag, `ci.yml` runs every test job in parallel; the `iso` job waits for them (`needs:`) and is skipped, with no release, if one failed
 or was skipped (blocker B2, issue #397). The ISO is built against the same pinned revision the `nixos` job evaluates (blocker B3, #398).
