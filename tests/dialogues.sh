@@ -138,6 +138,8 @@ check_out "restores the whole share from latest" "backup restore latest $HS_BULK
 check_out "the target share is created when missing" "create-share restored" bash -c "rm -rf $HS_BULK/shares/restored; $R docs --yes"
 check_out "a folder inside the share and a snapshot" "backup restore ab12cd34 $HS_BULK/shares/docs/2024/tax --to" $R docs 2024/tax --snapshot ab12cd34 --yes
 check_out "a bad snapshot id is refused" "not a snapshot id" $R docs --snapshot "x y" --yes
+check_out "a folder with .. is refused" "must lie inside the share" $R docs ../../etc --yes
+check_out "a name that merely contains .. is fine" "backup restore latest" $R docs "a..b" --yes
 check_out "no terminal and no --yes: nothing happens" "without --yes" $R docs
 mkdir -p "$HS_BULK/sensitive/photos"
 check_out "a sensitive share is found" "$HS_BULK/sensitive/photos" $R photos --yes
