@@ -19,7 +19,10 @@ class FakeAuth:
     """Domain: anna (admin) and bob (no admin), password 'pw'. Local: adminuser, password 'local pw'."""
 
     def __init__(self, cfg):
-        self.cfg, self.locked = cfg, False
+        self.cfg, self.locked, self.fp = cfg, False, "fp-1"
+
+    def local_fingerprint(self, user, fresh=False):
+        return self.fp
 
     def storage_locked(self):
         return self.locked
@@ -162,7 +165,8 @@ class Csrf(Base):
 
 class CsrfGate(Base):
     """Issue #433: every changing request needs a session and the CSRF token, whatever its handler does. The list is every POST path of do_POST."""
-    SESSION_POSTS = ["/api/plan", "/api/start", "/api/unlock", "/api/terminal", "/api/vmconsole", "/api/changes/seen", "/api/live/refresh"]
+    SESSION_POSTS = ["/api/plan", "/api/start", "/api/unlock", "/api/terminal", "/api/vmconsole", "/api/changes/seen", "/api/live/refresh",
+                     "/api/sessions/end", "/api/sessions/end-others"]
 
     def test_every_changing_request_needs_session_and_token(self):
         _, d, r = self.login()
@@ -186,7 +190,7 @@ class CsrfGate(Base):
         with open(os.path.join(here, "..", "scripts", "web-serve.py"), encoding="utf-8") as f:
             src = f.read()
         m = re.search(r'if path not in \(("/api/login".*?)\):\n\s+return self._json\(404', src)
-        paths = set(re.findall(r'"(/api/[a-z/]+)"', m.group(1)))
+        paths = set(re.findall(r'"(/api/[a-z/-]+)"', m.group(1)))
         self.assertEqual(paths - {"/api/login", "/api/logout", "/api/setup"}, set(self.SESSION_POSTS))
 
     def test_a_login_replaces_the_cookie_it_came_with(self):
@@ -217,6 +221,193 @@ class ThrottleBounds(unittest.TestCase):
         for i in range(ws.Throttle.MAX_KEYS * 2):
             t.failed("user:local:n%d" % i)
         self.assertGreater(t.wait("ip:1.2.3.4"), 0)
+
+
+class ThrottleUserKey(Base):
+    """#502 option C: only the address refuses; the user name key records and slows wrong answers but never blocks the right password."""
+
+    def test_a_stranger_failing_for_anna_does_not_lock_anna_out(self):
+        for _ in range(20):
+            self.app.throttle.failed("user:domain:anna")
+        self.assertEqual(self.login()[0], 200)
+        self.assertEqual(self.login(password="nope")[0], 401)
+
+    def test_the_address_still_refuses(self):
+        for _ in range(5):
+            self.assertEqual(self.login(password="bad")[0], 401)
+        self.assertEqual(self.login(password="bad")[0], 429)
+
+    def test_a_success_clears_the_user_key(self):
+        for _ in range(4):
+            self.app.throttle.failed("user:domain:anna")
+        self.assertEqual(self.login()[0], 200)
+        self.assertNotIn("user:domain:anna", self.app.throttle.fails)
+
+    def test_wrong_answers_are_recorded_on_the_user_key(self):
+        self.login(password="bad")
+        self.assertEqual(len(self.app.throttle.fails["user:domain:anna"]["times"]), 1)
+
+    def test_slow(self):
+        t = ws.Throttle()
+        self.assertEqual(t.slow("k", 1.0), 0)
+        for n in range(1, 12):
+            t.failed("k")
+            if n < 3:
+                self.assertEqual(t.slow("k", 1.0), 0)
+        self.assertEqual(t.slow("k", 1.0), 4.0)                       # 11 failures: capped
+        self.assertEqual(t.slow("k", 0), 0)                           # no delay configured, no sleeping
+        u = ws.Throttle()
+        for _ in range(3):
+            u.failed("k")
+        self.assertEqual(u.slow("k", 1.0), 1.0)
+        u.failed("k")
+        self.assertEqual(u.slow("k", 1.0), 2.0)
+
+
+class PasswordChange(Base):
+    def test_a_changed_local_password_ends_the_local_session(self):
+        _, _, r = self.login(realm="local", user="adminuser", password="local pw")
+        ck = {"Cookie": self.cookie(r)}
+        self.assertEqual(self.req("GET", "/api/session", headers=ck)[0], 200)
+        self.auth.fp = "fp-2"
+        self.assertEqual(self.req("GET", "/api/session", headers=ck)[0], 401)
+
+    def test_a_domain_session_has_no_fingerprint_and_stays(self):
+        _, _, r = self.login()
+        ck = {"Cookie": self.cookie(r)}
+        self.auth.fp = "fp-2"
+        self.assertEqual(self.req("GET", "/api/session", headers=ck)[0], 200)
+
+    def test_an_unreadable_fingerprint_fails_open(self):
+        _, _, r = self.login(realm="local", user="adminuser", password="local pw")
+        self.auth.fp = ""
+        self.assertEqual(self.req("GET", "/api/session", headers={"Cookie": self.cookie(r)})[0], 200)
+
+    def test_a_session_without_fp_stays_valid(self):
+        _, _, r = self.login(realm="local", user="adminuser", password="local pw")
+        for s in self.app.sessions.items.values():
+            s.pop("fp", None)
+        self.auth.fp = "fp-2"
+        self.assertEqual(self.req("GET", "/api/session", headers={"Cookie": self.cookie(r)})[0], 200)
+
+    def test_fp_survives_a_restart(self):
+        self.cfg.session_file = os.path.join(tempfile.mkdtemp(), "sessions.json")
+        a = ws.Sessions(self.cfg)
+        a.fp_of = self.auth.local_fingerprint
+        token = a.create("adminuser", "local", "1.2.3.4", "Firefox")
+        b = ws.Sessions(self.cfg)
+        b.fp_of = self.auth.local_fingerprint
+        self.assertIsNotNone(b.get(token, False))
+        self.auth.fp = "fp-2"
+        c = ws.Sessions(self.cfg)
+        c.fp_of = self.auth.local_fingerprint
+        self.assertIsNone(c.get(token, False))
+
+    def test_a_sign_in_right_after_a_password_change_stores_the_new_fingerprint(self):
+        sh = os.path.join(tempfile.mkdtemp(), "shadow")
+        open(sh, "w").write("adminuser:$6$old:19000:0:99999:7:::\n")
+        self.cfg.shadow = sh
+        a = ws.Auth(self.cfg)
+        sess = ws.Sessions(self.cfg)
+        sess.fp_of = a.local_fingerprint
+        a.local_fingerprint("adminuser")                                  # warms the 30 s cache with the old fingerprint
+        open(sh, "w").write("adminuser:$6$new:19000:0:99999:7:::\n")
+        token = sess.create("adminuser", "local", "1.2.3.4")
+        self.assertIsNotNone(sess.get(token, False))
+        with sess.lock:
+            self.assertFalse(sess.fp_changed(sess.items[token]))
+        open(sh, "w").write("adminuser:$6$newer:19000:0:99999:7:::\n")
+        a._fp_cache.clear()
+        with sess.lock:
+            self.assertTrue(sess.fp_changed(sess.items[token]))           # the check _term_alive shares with get()
+
+    def test_local_fingerprint_reads_the_password_field_and_caches(self):
+        sh = os.path.join(tempfile.mkdtemp(), "shadow")
+        open(sh, "w").write("root:x:1:::::\nadminuser:$6$abc:19000:0:99999:7:::\n")
+        self.cfg.shadow = sh
+        a = ws.Auth(self.cfg)
+        fp = a.local_fingerprint("adminuser")
+        self.assertEqual(len(fp), 64)
+        open(sh, "w").write("adminuser:$6$changed:19000:0:99999:7:::\n")
+        self.assertEqual(a.local_fingerprint("adminuser"), fp)             # cached for 30 s
+        a._fp_cache.clear()
+        self.assertNotEqual(a.local_fingerprint("adminuser"), fp)
+        self.assertEqual(a.local_fingerprint("nobody"), "")
+        self.cfg.shadow = sh + ".missing"
+        self.assertEqual(ws.Auth(self.cfg).local_fingerprint("adminuser"), "")
+
+
+class SessionList(Base):
+    def two(self):
+        _, d1, r1 = self.login(headers={"User-Agent": "Mozilla/5.0 Firefox/130.0"})
+        _, d2, r2 = self.login(realm="local", user="adminuser", password="local pw", headers={"User-Agent": "curl/8"})
+        return ({"Cookie": self.cookie(r1)}, d1["csrf"]), ({"Cookie": self.cookie(r2)}, d2["csrf"])
+
+    def post(self, who, path, body):
+        return self.req("POST", path, body, headers=dict(who[0], **{"X-CSRF-Token": who[1]}))
+
+    def test_the_list_shows_both_with_current_marked_and_no_secret(self):
+        a, b = self.two()
+        s, d, _ = self.req("GET", "/api/sessions", headers=a[0])
+        self.assertEqual(s, 200)
+        rows = json.loads(d)["sessions"]
+        self.assertEqual(len(rows), 2)
+        self.assertEqual([r["current"] for r in rows].count(True), 1)
+        cur = next(r for r in rows if r["current"])
+        self.assertEqual((cur["user"], cur["ua"]), ("HOME\\anna", "Firefox"))
+        self.assertTrue(all(len(r["id"]) == 16 for r in rows))
+        raw = d.decode()
+        for token in self.app.sessions.items:
+            self.assertNotIn(token, raw)
+            self.assertNotIn(ws._h(token), raw)
+            self.assertNotIn(ws.csrf_for(token), raw)
+
+    def test_the_list_needs_a_session(self):
+        self.assertEqual(self.req("GET", "/api/sessions")[0], 401)
+
+    def test_end_one_other(self):
+        a, b = self.two()
+        other = next(r["id"] for r in json.loads(self.req("GET", "/api/sessions", headers=a[0])[1])["sessions"] if not r["current"])
+        s, d, r = self.post(a, "/api/sessions/end", {"id": other})
+        self.assertEqual(s, 200)
+        self.assertIsNone(r.getheader("Set-Cookie"))
+        self.assertEqual(self.req("GET", "/api/session", headers=b[0])[0], 401)
+        self.assertEqual(self.req("GET", "/api/session", headers=a[0])[0], 200)
+
+    def test_end_current_clears_the_cookie(self):
+        a, b = self.two()
+        cur = next(r["id"] for r in json.loads(self.req("GET", "/api/sessions", headers=a[0])[1])["sessions"] if r["current"])
+        s, d, r = self.post(a, "/api/sessions/end", {"id": cur})
+        self.assertEqual(s, 200)
+        self.assertIn("Max-Age=0", r.getheader("Set-Cookie"))
+        self.assertEqual(self.req("GET", "/api/session", headers=a[0])[0], 401)
+        self.assertEqual(self.req("GET", "/api/session", headers=b[0])[0], 200)
+
+    def test_end_others(self):
+        a, b = self.two()
+        s, d, _ = self.post(a, "/api/sessions/end-others", {})
+        self.assertEqual((s, json.loads(d)["ended"]), (200, 1))
+        self.assertEqual(self.req("GET", "/api/session", headers=b[0])[0], 401)
+        self.assertEqual(self.req("GET", "/api/session", headers=a[0])[0], 200)
+
+    def test_unknown_id_is_404(self):
+        a, _ = self.two()
+        for bad in ({"id": "0" * 16}, {"id": "nothex"}, {}):
+            self.assertEqual(self.post(a, "/api/sessions/end", bad)[0], 404, bad)
+
+    def test_an_old_session_file_without_ua_and_fp_loads(self):
+        path = os.path.join(tempfile.mkdtemp(), "sessions.json")
+        now = __import__("time").time()
+        h = ws._h("tok")
+        json.dump({h: {"user": "adminuser", "realm": "local", "created": now, "seen": now}}, open(path, "w"))
+        self.cfg.session_file = path
+        a = ws.Sessions(self.cfg)
+        a.fp_of = self.auth.local_fingerprint
+        rows = a.listing("")
+        self.assertEqual((len(rows), rows[0]["ua"], rows[0]["id"]), (1, "", h[:16]))
+        self.assertIsNotNone(a.get("tok", False))
+        self.assertEqual(a.end(h[:16]), 1)
+        self.assertEqual(a.end(h[:16]), 0)
 
 
 class Pages(Base):

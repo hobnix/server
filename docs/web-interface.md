@@ -64,6 +64,30 @@ Choose **Domain account** or **Local admin** on the sign-in page. With storage l
 `adminuser`, and the summary shows a box to unlock the storage (type the passphrase; after five wrong tries the page makes you wait).
 Sessions end after 8 hours without activity, after 12 hours at most, and when the page restarts.
 
+## If the sign-in is locked
+
+Five wrong passwords from one address make the page refuse that address for 30 seconds, then longer (up to 15 minutes). A wrong guess
+for your user name from somewhere else does not lock you out: the right password always works from an address that is not locked. If you
+are locked out and cannot wait, run this on the server console (over `ssh` or at the keyboard):
+
+```
+sudo hs web unlock-login
+```
+
+It restarts the page (the same as `sudo systemctl restart hs-web`), which clears the lock. Sessions that are signed in stay signed in.
+`sudo hs web unlock-login --dry-run` shows what it would do and changes nothing. Not tested on hardware yet.
+
+## See who is signed in
+
+**Settings > Users and access** has a **Sessions** table: user, browser, address, when each signed in and was last seen. Your own is marked
+**this browser**. **Sign out** ends one session (ending your own returns you to the sign-in page); **Sign out all other sessions** ends
+every one but yours. Do this when you left a browser signed in somewhere else, or after you changed a password.
+
+- Changing the password of the local admin (`adminuser`) ends its web sessions within 30 seconds, and an open browser terminal ends too; sign in again with the new password.
+- Changing a domain password does **not** end web sessions. Use **Sign out all other sessions**, or wait: a session ends after 12 hours at most.
+
+Not tested on hardware yet.
+
 ## Find your way around
 
 The tree on the left, the task panel at the bottom (Tasks, Jobs, Logs, disk events, reports) and search on top (press `/`). The top bar
@@ -254,6 +278,7 @@ says so. The page updates over the same stream as the others and polls every 5 s
 | Symptom | Cause | Fix |
 | --- | --- | --- |
 | "Domain sign-in is not available" | storage is locked or the controller VM is not running | sign in as `adminuser`, unlock, start `dc1` |
+| "Too many tries. Wait ... seconds." and you are sure of the password | five wrong tries from your address | wait, or run `sudo hs web unlock-login` on the server |
 | A page stays empty or says "could not be read" | the command behind it does not answer, for example storage is locked | run it in a terminal: `sudo hs sys <area> <command>` |
 | A list looks old right after a change | the page re-reads every few seconds | wait, or press the refresh button |
 | The build stops with `hash mismatch ... got: sha256-...` | the frontend's dependencies changed | put the shown value into `npmDepsHash` in `pkgs/hs-web.nix`, rebuild |

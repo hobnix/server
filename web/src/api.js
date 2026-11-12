@@ -53,6 +53,11 @@ export const markChangesSeen = (rev) => call('POST', '/api/changes/seen', { rev 
 
 export const hello = () => call('GET', '/api/hello');
 
+// the web sessions (Settings > Users and access): list, end one, end all but this one
+export const sessions = () => call('GET', '/api/sessions');
+export const endSession = (id) => call('POST', '/api/sessions/end', { id });
+export const endOtherSessions = () => call('POST', '/api/sessions/end-others', {});
+
 export async function session() {
   try {
     const s = await call('GET', '/api/session');
