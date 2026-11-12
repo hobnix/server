@@ -28,12 +28,12 @@ data of every share and instance.
 ## Protections and where they are
 | Threat | Protection | Where | Test |
 | --- | --- | --- | --- |
-| Password guessing | 5 failures in 10 min lock the client address and the user name for 30 s, doubling to 15 min; the right password also waits; every failure waits `HS_WEB_FAIL_DELAY`; the same throttle covers unlock and first setup; the table is capped at 4096 keys | `Throttle` | `web-login-test.py` Login, ThrottleBounds |
+| Password guessing | 5 failures in 10 min from one client address lock that address for 30 s, doubling to 15 min (the right password also waits). The user name never locks a sign-in (#502): wrong answers for a name are counted and, from the third in 10 min, wait up to 4 s longer, but the right password is never delayed, so a stranger cannot lock the admin out. Every failure waits `HS_WEB_FAIL_DELAY`; unlock and first setup keep their own refusing keys; the table is capped at 4096 keys. Break-glass on the console: `hs web unlock-login` | `Throttle`, `_login` | `web-login-test.py` (`ThrottleUserKey`, `ThrottleBounds`) |
 | Cross-site request forgery | Cookie `HttpOnly; SameSite=Strict` (`Secure` behind tailscale serve); every POST needs `Content-Type: application/json`, an `Origin` equal to `Host`, and, except login, setup and logout, a session and the `X-CSRF-Token` of that session. One gate in `do_POST` runs before any handler, so a new handler cannot forget it. The test lists every POST path and fails when one is not covered. | `do_POST` | `CsrfGate` |
 | Cross-site WebSocket hijack (terminal, VM console) | `Origin` must equal `Host`; the upgrade also needs a one-time ticket from a CSRF-checked POST, bound to the session | `_terminal_ws`, `_vmconsole_ws` | `web-terminal-test.py`, `web-vmconsole-test.py` |
 | Session theft by script | token is random (256 bit), `HttpOnly`; only a SHA-256 of it is written to disk (`/run/hs-web`, 0600); CSP, `nosniff`, `no-referrer`, `no-store` | `Sessions`, `_headers` | `SessionFile`, `Pages` |
 | Session fixation | a login or setup discards the cookie that came with it and makes a new token | `_login`, `_setup` | `test_a_login_replaces_the_cookie_it_came_with` |
-| Stale sessions | idle 8 h, absolute 12 h; a domain session ends when the storage locks | `Sessions.get` | `Login` |
+| Stale sessions | idle 8 h, absolute 12 h; a domain session ends when the storage locks; a changed password of the local admin ends its sessions (the session keeps a fingerprint of the `/etc/shadow` password field, checked on every request, read from the file at most every 30 s, so a changed local password ends the sessions and an open browser terminal within 30 s; a new sign-in always reads it fresh); the Settings page lists all sessions and ends one or all the others (`/api/sessions`, `/api/sessions/end`, `/api/sessions/end-others`; an id is 16 hex characters of the token hash, never the token) | `Sessions.get`, `Sessions.listing`, `Auth.local_fingerprint` | `Login`, `PasswordChange`, `SessionList` |
 | Command injection through a change | closed allowlist (`CHANGES`), every word a full-match regex, no shell, secrets on stdin only, `--by`/`--role` added by the server | `validate_change` | `Changes` |
 | A read that changes something | `READS` allowlist, each entry must be a `sys` row of kind read | `READS` | `test_every_entry_is_a_registry_row_and_none_changes_anything` |
 | Admin page made public | `ADMIN_TARGETS` guard in `services.py` | services | `services.sh` |
@@ -117,7 +117,6 @@ Fixed in this change:
 6. **`X-Forwarded-For` (#503).** From loopback the LAST entry is the client: the one our own proxy added. `tailscale serve` and Traefik (entry points without trusted forwarders) set the header from the peer they saw; a proxy that appends keeps the client's own text in front, so the first entry is spoofable. Not run on hardware yet: check what `tailscale serve` sends. A local process can still write any header; it is a client like any other (see above).
 
 Open (filed as issues in milestone 0.2, see the pull request):
-- Per-user lockout lets a LAN client keep the one admin account locked out (denial of service).
 - One role only: no read-only account, and the browser terminal is root-equivalent by design.
 - No `__Host-` cookie prefix and no `Secure` flag on plain HTTP (by design on the home network; HTTP sends the cookie in clear).
-- Session list and a "sign out everywhere" button do not exist; sessions of the same admin are never ended by a password change.
+- A changed domain password does not end web sessions (accepted: the domain controller is the source of truth and the web interface keeps no copy; use "sign out all other sessions" or wait the 12 h).

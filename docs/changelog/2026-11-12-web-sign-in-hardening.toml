@@ -1,0 +1,6 @@
+date  = "2026-11-12"
+type  = "security"
+title = "Web interface: no lock-out by strangers, sessions list, password change ends sessions"
+body  = """A stranger who types wrong passwords for your user name can no longer lock you out of the web interface: only a client address is refused after five wrong tries, the user name only makes wrong answers slower. If your own address is locked, `sudo hs web unlock-login` on the server clears it at once (signed-in sessions stay). Changing the password of the local admin now ends its web sessions. Settings > Users and access lists all sessions, ends one, or ends all the others. A changed domain password does not end web sessions: use "Sign out all other sessions". Details in docs/THREAT-MODEL-web.md and docs/web-interface.md.
+
+Not tested on hardware yet."""

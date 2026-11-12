@@ -2422,3 +2422,9 @@ Share datasets that are missing and will be created first	Fehlende Freigabe-Data
 Could not create the dataset %s. Nothing was restored.	Das Dataset %s konnte nicht angelegt werden. Es wurde nichts wiederhergestellt.
 Created %s share datasets. After the restore: sudo hs share repair	%s Freigabe-Datasets angelegt. Nach der Wiederherstellung: sudo hs share repair
 plain folder, not a share (make a share of it with hs share add, or move its files into one)	Ordner, keine Freigabe (mit hs share add zur Freigabe machen oder die Dateien in eine Freigabe verschieben)
+Usage: hs web unlock-login [--dry-run]	Aufruf: hs web unlock-login [--dry-run]
+Would run: systemctl restart hs-web (clears the sign-in lockout; signed-in sessions stay). Nothing was changed.	Würde ausführen: systemctl restart hs-web (hebt die Sperre der Anmeldung auf; angemeldete Sitzungen bleiben). Es wurde nichts geändert.
+This needs root: sudo hs web unlock-login	Das braucht root: sudo hs web unlock-login
+Restarting the web interface to clear the sign-in lockout	Weboberfläche wird neu gestartet, um die Sperre der Anmeldung aufzuheben
+Could not restart hs-web. See: journalctl -u hs-web	hs-web konnte nicht neu gestartet werden. Siehe: journalctl -u hs-web
+The sign-in is open again. Signed-in sessions stay.	Die Anmeldung ist wieder frei. Angemeldete Sitzungen bleiben.

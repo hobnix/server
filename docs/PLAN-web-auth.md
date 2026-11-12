@@ -1,7 +1,6 @@
 # Plan: web sign-in hardening (lockout, session control, roles)
 
-Status: options for the owner; nothing is built. Issues: hobnix/server#502 (login lockout), hobnix/server#504 (roles, session list, sign out
-everywhere). Found in the security review #433 (docs/THREAT-MODEL-web.md, "Known gaps"). Milestone 0.2. Not tested on hardware yet.
+Status: built in 0.2 (hobnix/server#502, #504 parts 1 to 3). Owner decisions: #502 option C (only the client address refuses; the user name slows wrong answers, never the right one) plus `hs web unlock-login`; #504 parts 1 to 3 only (a changed local password ends local sessions, session list, sign out one or everywhere), roles stay in 0.8 (#434); the list shows ALL sessions; a changed domain password not ending web sessions is accepted and documented.
 
 ## Goal
 Decide what ships in 0.2 and what waits. The role model itself is already decided: ADR 0012 (viewer, app-manager, admin; checked in the web

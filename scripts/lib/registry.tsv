@@ -23,6 +23,7 @@ user	recipe	recipe.sh	-	-	-	topic:instances,changes,capability:incus
 user	recipe orchestrate	recipe-orchestrate.sh	{rest}	-	-	nohelp,topic:instances,changes,capability:incus
 user	status	status.sh	-	-	-	topic:system,reads,cheat:server
 user	unlock	unlock.sh	-	-	-	topic:security,changes,cheat:trouble
+user	web unlock-login	web-unlock-login.sh	-	-	-	topic:security,changes
 user	vault	vault.sh	status	status of the vault (the encrypted partition with the secrets) and what is in it	Status des Tresors (der verschlüsselten Partition mit den Geheimnissen) und was darin liegt	topic:security,changes
 user	vault status	vault.sh	status	is the vault open, which secrets are in it	ist der Tresor offen, welche Geheimnisse liegen darin	topic:security,reads
 user	vault list	vault.sh	list	what is in the vault, one line each (tab separated when piped)	was im Tresor liegt, eine Zeile je Eintrag (Tab-getrennt in einer Pipe)	topic:security,reads
