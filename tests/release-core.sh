@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# scripts/dev/release-core.sh: release branch, milestone sync, signed core tag and its refusals, verify, follow-check. A local bare
+# scripts/dev/release-core.sh: milestone sync, signed core tag and its refusals, verify, follow-check. A local bare
 # repository stands in for GitHub (so the ci-ok check is skipped), a fake `hs sys release show` stands in for a server.
 # shellcheck source=tests/lib.sh
 . "$(dirname "$0")/lib.sh"
@@ -23,14 +23,6 @@ land() {   # land <branch> <text>: a commit on a remote branch
   git fetch -q origin; git checkout -q -B tmp "origin/$1"; echo "$2" >> "f-$1.txt" 2>/dev/null || echo "$2" >> "f-${1//\//-}.txt"
   git add -A; git commit -q -m "$2"; git push -q origin "tmp:$1"; git checkout -q main
 }
-
-echo "-- branch"
-check_out "refuses a bad name" "Name the release" rel branch zero
-check_out "refuses main as the source" "not from main" rel branch 0.1 --from main --yes
-check_out "cuts release/0.1 from develop" "release/0.1 pushed" rel branch 0.1 --yes
-check_out "it is on the remote" "release/0.1" git ls-remote --heads origin
-check_out "an existing one is refused" "exists already" rel branch 0.1 --yes
-check_out "without a terminal and without --yes it refuses" "pass --yes" bash -c "$REL branch 0.3 </dev/null 2>&1; true"
 
 echo "-- sync"
 check_out "in step: nothing to do" "already holds" rel sync --yes

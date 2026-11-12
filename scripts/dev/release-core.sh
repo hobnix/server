@@ -1,12 +1,10 @@
 #!/usr/bin/env bash
-# Releases of the core (hobnix/server): release branch, milestone branch sync, signed tag, checks. Guide: docs/RELEASE-PROCESS.md.
+# Releases of the core (hobnix/server): milestone branch sync, signed tag, checks. Guide: docs/RELEASE-PROCESS.md.
 # Not an `hs` command. Works from any checkout or worktree of the repository and never switches its branch (it uses origin/* refs and,
 # where a merge is needed, a temporary worktree). The package repositories keep scripts/dev/release.sh.
 #
 #   release-core.sh status
 #       Where develop, main and the milestone branches stand, the newest tag, and what is not merged forward. Changes nothing.
-#   release-core.sh branch <X.Y> [--from <branch>] [--yes]
-#       Cut release/X.Y from origin/<branch> (default develop; a milestone branch such as 0.2 is fine) and push it.
 #   release-core.sh sync [--from develop] [--to 0.2] [--pr] [--yes]
 #       Merge origin/<from> into origin/<to> (merge commit) on a branch chore/sync-<from>-into-<to>-<rev> and push it; --pr opens the pull
 #       request. Does nothing when <to> already holds <from>. Stops on a conflict and leaves nothing behind.
@@ -104,7 +102,7 @@ status)
     ref_ok "$remote/$b" || { warn "$remote/$b does not exist"; continue; }
     kv "$b" "$(git log -1 --format='%h %s' "$remote/$b" | cut -c1-60)"
   done
-  git for-each-ref --format='%(refname:short)' "refs/remotes/$remote/release/" "refs/remotes/$remote/hotfix/" | while read -r r; do kv "${r#"$remote"/}" "$(git log -1 --format='%h %s' "$r" | cut -c1-60)"; done
+  git for-each-ref --format='%(refname:short)' "refs/remotes/$remote/hotfix/" | while read -r r; do kv "${r#"$remote"/}" "$(git log -1 --format='%h %s' "$r" | cut -c1-60)"; done
   git for-each-ref --format='%(refname:short)' "refs/remotes/$remote/" | sed "s#^$remote/##" | grep -E '^[0-9]+\.[0-9]+$' | while read -r m; do kv "$m (milestone)" "$(git log -1 --format='%h %s' "$remote/$m" | cut -c1-60)"; done
   step "Tags"
   last=$(newest_stable)
@@ -122,22 +120,6 @@ status)
     n=$(git rev-list --count "$remote/$m..$remote/develop"); k=$(git rev-list --count "$remote/$m..$remote/$base")
     if [ "$n" = 0 ] && [ "$k" = 0 ]; then ok "$m holds develop and $base"; else warn "$m is missing $n commit(s) of develop and $k of $base: release-core.sh sync --to $m"; fi
   done
-  ;;
-branch)
-  [[ "$arg" =~ ^[0-9]+\.[0-9]+$ ]] || fail "Name the release: release-core.sh branch X.Y (for example 0.1)"
-  src=${from:-develop}
-  fetch
-  ref_ok "$remote/$src" || fail "$remote/$src does not exist."
-  [ "$src" != "$base" ] || fail "A release branch is cut from develop or a milestone branch, not from $base."
-  ref_ok "$remote/release/$arg" && fail "release/$arg exists already."
-  git rev-parse -q --verify "refs/tags/v$arg.0" >/dev/null && fail "v$arg.0 exists: $arg is released; a fix goes through a hotfix branch."
-  step "Cut the release branch"
-  kv "Branch" "release/$arg"; kv "From" "$src ($(git log -1 --format='%h %s' "$remote/$src" | cut -c1-60))"
-  last=$(newest_stable); [ -z "$last" ] || kv "Since $last" "$(git rev-list --count "$last..$remote/$src") commit(s)"
-  confirm "release/$arg" "the release branch"
-  git push -q "$remote" "$remote/$src:refs/heads/release/$arg" || fail "The push failed."
-  ok "release/$arg pushed"
-  note "Only fixes go in now: pull requests with base release/$arg. Then: gh pr create --base $base --head release/$arg"
   ;;
 sync)
   src=${from:-develop}; dst=${to:-0.2}

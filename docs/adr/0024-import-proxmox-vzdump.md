@@ -24,7 +24,7 @@ against an archive from a real Proxmox.
    `etc/vzdump/pct.conf` (limit 64 KB, `[pve:pending]` and snapshot sections ignored) and prints what maps and what does not. Nothing is
    unpacked, nothing is created, a zstd archive is piped through the `zstd` binary. A `.vma` is recognised by its magic and reported
    as "separate decision".
-2. **Restore into an Incus instance (not built; proposed shape).** A later `hs ct import-vzdump <archive> --restore --name <ct>`:
+2. **Restore into an Incus instance (not built; proposed shape; NOT decided by this record: owner 2026-11-10, only step 1 is accepted and the restore gets its own record before it is built).** A later `hs ct import-vzdump <archive> --restore --name <ct>`:
    - shows the plan from step 1 and starts nothing before the typed name of the new instance (the destructive-command rule);
    - creates an empty instance with the mapped limits, then unpacks the root file system into it with `incus file push --recursive`
      or a tar piped into `incus exec`, so the id shift of an unprivileged instance applies; extraction runs with `--no-same-owner` fallback
