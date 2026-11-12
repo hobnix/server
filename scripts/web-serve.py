@@ -983,7 +983,7 @@ def area_refresh(area):
 
 
 # the keys of the docker steps (capabilities/docker/capability.toml; scripts/docker-setup.sh accepts the same ones)
-DOCKER_REGISTRY_HOST = r"^[a-z0-9.-]{1,100}(:[0-9]{1,5})?$"
+DOCKER_REGISTRY_HOST = r"^[a-z0-9][a-z0-9.-]{0,99}(:[0-9]{1,5})?$"
 DOCKER_SET = r"^(dockerManager=(webui|arcane|portainer|none)|dockerSize=[sml])$"
 CHANGES = {
     "jobs": [[r"^(run|stop)$", UNIT],
