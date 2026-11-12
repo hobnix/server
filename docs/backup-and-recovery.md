@@ -216,7 +216,11 @@ sudo hs backup drill ct radarr
   quarter).
 - `drill ct` restores the container that was checked longest ago (smallest first) into a throwaway instance without a network, boots it
   and deletes it. It needs about twice the container's size free in `/var/tmp` (`HS_DRILL_TMP` changes the place). It also checks the
-  domain controller backup file and the export file of one VM.
+  domain controller backup file and the export file of one VM. It prints the date and age of the snapshot it restored and warns when that
+  is older than 3 days (the report then adds "snapshot N days old"). Without a name it picks only containers that are in the backup;
+  a container you switched off is not drilled (name it to drill it anyway), and the report shows an info line, not a warning, when
+  no container is in the backup.
+  Not tested on hardware yet.
 - On the 25th of every month a push message reports the state of the drills; `sudo hs backup report` sends it now (`--dry-run` only
   shows it).
 
@@ -281,33 +285,28 @@ a small partition for the vault, so a new one is built the same way, and the ser
    git clone <your-repository> /mnt/etc/nixos
    ```
 
-4. **Restore the host files.** Where `hs` exists (the Hobnix installer, or a fresh install after its first boot), one command does it from
-   only the backup disk and the passphrase: look at the plan, then run it, and type `machine.toml` and `ssh host keys` when asked
-   (details: [the settings section above](#back-up-and-restore-only-the-settings)). Not tested on hardware yet.
-
-   ```bash
-   sudo hs backup config restore --from-disk /dev/disk/by-label/backup --dry-run
-   sudo hs backup config restore --from-disk /dev/disk/by-label/backup
-   ```
-
-   The command writes to the running system (`/etc/nixos`, `/etc/ssh`, `/var/lib/hs`), not to `/mnt`. On a plain NixOS ISO without `hs`
-   use restic directly, as follows. A snapshot with the tag `host`
-   must be listed.
+4. **Restore the host files.** The Hobnix installer stick has no `hs` command (it has `hs-install` and `hs-restore` only). So do this with restic, as follows. A snapshot with the tag `host` must be
+   listed. Attach the backup disk read-only if you like: `--no-lock` is then needed, otherwise restic tries to write a lock and waits
+   forever.
 
    ```bash
    mkdir -p /mnt-backup && mount LABEL=backup /mnt-backup
    export RESTIC_REPOSITORY=/mnt-backup/restic
    export RESTIC_PASSWORD='<from the password manager>'
-   nix-shell -p restic --run 'restic snapshots'
-   nix-shell -p restic --run 'restic restore latest --tag host --target /tmp/host'
+   nix-shell -p restic --run 'restic snapshots --no-lock'
+   nix-shell -p restic --run 'restic restore latest --tag host --target /tmp/host --no-lock'
    ```
+
+   On a system that already has `hs` (not the installer), `sudo hs backup config restore --from-disk /dev/disk/by-label/backup --dry-run`
+   does the same ([the settings section above](#back-up-and-restore-only-the-settings)); it writes to the running system, not to `/mnt`.
+   Not tested on hardware yet.
 
    The files come back with their old full paths under `/tmp/host`. Copy them into the new root:
 
    ```bash
    cp -a /tmp/host/etc/nixos/machine.toml /mnt/etc/nixos/machine.toml
    mkdir -p /mnt/var/lib/hs && cp -a /tmp/host/var/lib/hs/. /mnt/var/lib/hs/
-   cp -a /tmp/host/etc/ssh/ssh_host_* /mnt/etc/ssh/
+   mkdir -p /mnt/etc/ssh && cp -a /tmp/host/etc/ssh/ssh_host_* /mnt/etc/ssh/
    ```
 
    Copying the SSH host keys keeps your computers from warning about a "new server". `/var/lib/hs` also holds `vault-uuid` (the UUID of the
@@ -325,10 +324,22 @@ a small partition for the vault, so a new one is built the same way, and the ser
 
    ```bash
    nixos-install --no-root-passwd
-   umount /mnt/boot /mnt /mnt-backup
    ```
 
    If name resolution fails during the install, write a `nameserver` line to `/mnt/etc/resolv.conf`.
+
+   `--no-root-passwd` leaves `adminuser` without a password and root locked, so `sudo` would not work after the first boot. Set the
+   password of `adminuser` before you unmount (it is the one `sudo` asks for; the SSH key still logs you in):
+
+   ```bash
+   nixos-enter --root /mnt -c 'passwd adminuser'
+   ```
+
+   If you forgot it, boot the installer again, mount the root partition on `/mnt` and run the same command. Then unmount:
+
+   ```bash
+   umount /mnt/boot /mnt /mnt-backup
+   ```
 7. **Set the boot order.** The firmware now knows a new "Linux Boot Manager" entry and still the one of the dead disk. Put the new disk
    first in the firmware menu, or with `efibootmgr` (`nix-shell -p efibootmgr`): `efibootmgr -v` lists the entries, `efibootmgr -n <number>`
    tests one boot (look for `BootNext:`), `efibootmgr -o <n>,<n>` sets the order, `efibootmgr -b <number> -B` removes the old entry.
@@ -336,22 +347,30 @@ a small partition for the vault, so a new one is built the same way, and the ser
 8. **First boot.** The server starts as far as SSH on port 22; everything encrypted is locked. Log in and build the system:
 
    ```bash
-   ssh admin@homeserver
+   ssh adminuser@homeserver
    sudo hs rebuild
    ```
 
-9. **Make the vault and put back the secrets that are deliberately not in the backup.**
+   Connect the data disks **before** this build. Without them the pool import and the Incus setup fail, `hs rebuild` ends with an error
+   and Incus is left without a storage pool. The system from `install.nix` carries `python3` since 2026-11-11; an older install
+   fails here with "python: command not found" (a VM rehearsal, fixed in `install.nix`, not tested again).
+9. **Make the vault and put back the secrets that are deliberately not in the backup.** The command needs `cryptsetup` (if it is
+   missing it stops and changes nothing) and a terminal, or `--yes`. It renames the partition label `vault` to `hs-vault` once the vault
+   is about to be made; if the vault cannot be made, the old label is put back, so the path below stays valid for a second try.
 
    ```bash
    sudo hs vault init /dev/disk/by-partlabel/vault
    printf '%s' '<backup password>' | sudo tee /var/lib/hs/restic-password >/dev/null
+   sudo hs vault move
    hs vault status
    ```
 
-   Not tested on hardware yet: writing the password through the link into a fresh vault; if the link is missing, `hs vault list` shows
+   Until `hs vault move` has run, `hs vault list` shows `restic-password  secret  not moved`: the password is a plain file and not yet
+   in the vault. Not tested on hardware yet: writing the password through the link into a fresh vault; if the link is missing, `hs vault list` shows
    what exists. Everything else is made again: the router credentials with `hs net setup`, the monitoring password, the off-site access with
    `hs backup offsite set`.
-10. **Pools.** ZFS: `sudo zpool import -f fast bulk`. SnapRAID: disks are found by their labels and mounted automatically; check with
+10. **Pools.** ZFS: with the disks connected, the rebuild has usually imported the pools already; look with `zpool list` and import only
+    what is missing (`sudo zpool import -f fast bulk` says "no such pool available" for a pool that is already there). SnapRAID: disks are found by their labels and mounted automatically; check with
     `hs pool bulk`. Encrypted: `sudo hs unlock`.
 11. **Containers and VMs.** Not tested on hardware yet. If they live in `fast`, the new Incus does not know them; this finds and registers
     them again:
@@ -360,6 +379,10 @@ a small partition for the vault, so a new one is built the same way, and the ser
     sudo incus admin recover
     hs ct list
     ```
+
+    In a VM rehearsal the containers came back (`hs ct list`, they start, checksums equal). The recover dialog asks for the pool: name
+    `default`, driver `zfs`, dataset `fast/incus`. Afterwards the default profile was empty, and
+    `hs ct add` said "No root device could be found". `sudo systemctl restart incus-preseed` fixed that. Not tested on hardware yet.
 
     Check the MAC addresses (`hs mac`) and the router reservations.
 12. **Finish.** `hs first-run`, `hs doctor`, `hs health`; open a share from a computer (users sign in again); `sudo tailscale up` if you
@@ -372,12 +395,16 @@ purpose, and `hs update` and `hs rebuild` end with an error. `hs unlock --status
 ### Case B: a data pool or disks are lost
 1. Install the new disks (and, if the system is new too, do Case A up to step 10).
 2. **Create the pool again.** The dialog asks for the filesystem and encryption; do not forget the parity disk with SnapRAID.
+   A ZFS pool needs at least two disks ("Pick at least two disks." with one).
 
    ```bash
    sudo hs pool bulk add
    ```
 
-3. **Bring the shares back to their old place** (the backup knows the full paths), publish them and set permissions:
+3. **Bring the shares back to their old place** (the backup knows the full paths), publish them and set permissions.
+   `/var/lib/hs/restic-password` must exist first (after a new system disk, Case A step 9 puts it back). Without it `hs backup restore`
+   says "Not set up yet. Run: hs backup init <device>"; do **not** run that, it erases the backup disk. The backup disk must be
+   writable: restic writes a lock, and on a disk attached read-only the restore waits for minutes.
 
    ```bash
    sudo hs backup restore latest /bulk/shares --to /
@@ -385,15 +412,35 @@ purpose, and `hs update` and `hs rebuild` end with an error. `hs unlock --status
    sudo hs share repair
    ```
 
+   A restore with `--to /` keeps the owners of the snapshot (restic restores them as root), so the container-owned folders in
+   `/bulk/sensitive` stay container-owned (for example 1000000:1000000); `hs share repair` does not hand `sensitive` over. A first run of
+   this step in a VM re-owned everything to `adminuser:users` and broke those folders (issue #532); that is fixed. Check with
+   `ls -ld /bulk/sensitive/*`. Steps 1 to 3 ran in a VM with ZFS and a test backup; not on hardware yet.
+
+   On the ZFS layout every share is its own dataset. The restore of `/bulk/shares`, `/bulk/sensitive` or one share folder below them
+   therefore creates the datasets that are missing (`bulk/shares/<name>`, `bulk/sensitive/<name>`) before it writes the files, so
+   they come back as shares and not as plain folders. It prints the list first, skips names that already are datasets, leaves a
+   plain folder that already holds files alone, and stops before restoring if a dataset cannot be created. The datasets are new:
+   `sudo hs share repair` publishes them, and like every new share they are open to Domain Admins only until you set permissions.
+   On SnapRAID the folders are the shares and nothing is created. Not tested on hardware yet.
+
    Then `sudo hs share <share> perm` for permissions, and `sudo hs pool bulk sync`. Only one share or file: `hs share <share> restore
    [<path>]` puts it into the share `restored`.
 4. **Containers.** Not tested on hardware yet. Create a container of the same kind (`hs ct add <name>`), restore the files from the snapshot
    `ct:<name>` and copy them in:
 
    ```bash
+   mkdir -p /var/tmp/restore
    sudo hs backup restore latest <path-in-container> --tag ct:<name> --to /var/tmp/restore
-   incus file push -r /var/tmp/restore/<path> <name>/<path>
+   incus file push -r /var/tmp/restore/<path> <name>/<parent-folder>/
    ```
+
+   The folder `--to` must exist. The snapshot holds the path **on the host**, not inside the container (for a ZFS container
+   `/var/lib/incus/storage-pools/default/containers/<name>/rootfs/<path-in-container>`): look it up with `hs backup find <name>` and give that
+   full path. `incus file push -r` puts the folder you name **into** the target, so give the parent folder as the target, not the folder
+   itself. The default restore re-owns the files to `adminuser:users` (1000:100 in the VM); check the owners inside the container, and add
+   `--keep-owner` to keep the owners of the snapshot. In a VM rehearsal 12 of 12 files
+   came back with equal checksums. Not tested on hardware yet.
 
    Docker applications: restore the project folders and load the databases from the dumps in `/var/lib/hs/backup-dump/<container>`.
    `hs backup drill ct` proves each month that a container boots from its snapshot; restoring into a new container is not covered by it.
@@ -421,10 +468,16 @@ Afterwards set up a new backup disk with `hs backup init` and the off-site copy 
 
 ### Practise
 Once a year, rehearse in a throwaway VM: a virtual machine with the NixOS installer, two small virtual data disks and a virtual `backup`
-disk (a copy of the repository, or a fresh `hs backup init` with test data). Do Case A (disk with a vault partition, clone the
+disk (a copy of the repository, or a fresh `hs backup init` with test data; the installer has no `hs` and no `restic` on `PATH`:
+use `nix-shell -p restic`, and attach the disk read-only with `--no-lock` on every restic command). Do Case A (disk with a vault partition, clone the
 repository, host files with restic, a new `hardware-configuration.nix`, `nixos-install`, boot order, `hs vault init`, the password by
 hand, `sudo hs unlock`, `hs rebuild`, pools). Then Case B: empty the data disks, add the pool, restore the shares and compare
 checksums. This is the part nobody has run on real hardware yet.
+
+A rehearsal in two VMs (Case A, 2026-11-11) went through to a booting system with the old SSH key and host keys. Open: on a read-only
+backup disk `hs backup status` reported the repository as missing (the cause is not known; use a writable mount for it), and the
+`hs` command did not exist on a fresh install until the first `nixos-rebuild switch` (changed: it is part of `install.nix` now, seen in a VM
+on 2026-11-11). Case B and the containers (steps 8, 10, 11) also ran in VMs that day; the findings are in the steps above.
 
 The repository has a partial rehearsal, `tests/rebuild-vm.sh` (`scripts/dev/t vm`): a clean VM gets only the backup volume and the passphrase and
 must bring back the host files and the shares with the same checksums. It does not cover the reinstall, boot, vault or pools. Not tested on hardware yet: it has not been run. Write down what did not match this guide and report it.
@@ -444,7 +497,7 @@ must bring back the host files and the shares with the same checksums. It does n
 | the container is not in the backup | it was not running, or not switched on | `sudo hs backup ct <name> on` while it runs |
 | restic cannot open the repository | wrong password or the wrong disk | check the password in the password manager and the disk label |
 | the first restore after a rebuild shows no `host` snapshot | the wrong repository or an empty backup | `restic snapshots` and check `RESTIC_REPOSITORY` |
-| the `hs` command does not exist on the new system | the first `hs rebuild` has not run | `sudo nixos-rebuild switch`, then `hs` is there |
+| the `hs` command does not exist on the new system | the system was installed with an older `install.nix` | `sudo nixos-rebuild switch`, then `hs` is there |
 | everything is locked after the rebuild | normal | `sudo hs unlock` |
 
 ## Next

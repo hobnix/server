@@ -1,0 +1,6 @@
+date  = "2026-11-11"
+type  = "fix"
+title = "Container restore drill says how old the restored snapshot is"
+body  = """The container restore drill (hs backup drill ct) now prints the date and age of the snapshot it restored and warns when it is older than three days, also saying whether the container is still in the backup. The monthly drill report adds the snapshot age to the container line and warns when no container is in the backup any more although container snapshots exist.
+
+Not tested on hardware yet."""

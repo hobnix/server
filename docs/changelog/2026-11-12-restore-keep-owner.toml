@@ -1,0 +1,5 @@
+date  = "2026-11-12"
+type  = "fix"
+title = "hs backup restore --to / keeps the owners of the snapshot; new --keep-owner for other folders"
+docs  = "backup-and-recovery#case-a-the-system-disk-is-gone-the-data-disks-are-fine"
+body  = """A restore in place (--to /) no longer sets the owner of the restored files to adminuser:users, so container-owned folders in /bulk/sensitive keep their owners and work again. The option --keep-owner does the same for any other target folder; without it a restore into a folder (the default is /bulk/shares/restored) still hands the files to adminuser. hs share repair now also lists plain folders directly under shares and sensitive on ZFS that are not shares (they were skipped without a word)."""

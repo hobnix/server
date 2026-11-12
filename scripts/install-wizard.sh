@@ -224,8 +224,10 @@ fi
 step "Configuration"
 etc=$target/etc/nixos
 mkdir -p "$etc"
+chmod 755 "$target/etc" "$etc"   # not the caller's umask: sshd and the services must read /etc on the new system
 # the whole repository (install.nix and configuration.nix read config/, capabilities/, pkgs/, web/ ...), not the .git folder or build leftovers
 ( cd "$repo" && tar -cf - --exclude=.git --exclude=node_modules --exclude=target --exclude=tests --exclude=__pycache__ --exclude='result*' . ) | ( cd "$etc" && tar -xf - )
+chmod 755 "$etc"   # tar gave it the mode of the source folder
 cp "$etc/machine.toml.example" "$etc/machine.toml"
 ok "A copy of the repository is in $etc"
 # the git checkout: best effort, never a reason to stop (the server boots without it)
@@ -238,6 +240,7 @@ case "$rc" in
 esac
 export HS_MACHINE_FILE=$etc/machine.toml HS_STATE_DIR=${HS_STATE_DIR:-$target/var/lib/hs} HS_SETTINGS_DIR=${HS_SETTINGS_DIR:-$target/var/lib/hs/settings}
 mkdir -p "$HS_STATE_DIR" "$HS_SETTINGS_DIR"
+chmod 755 "$HS_STATE_DIR"   # again independent of the umask
 hostid=$(head -c4 /dev/urandom | od -A none -t x1 | tr -d ' \n')
 mset() { machine_set "$1" "$2" installer >/dev/null || fail "$(t "'%s' could not be written to machine.toml." "$1")"; }
 [ "$role" != homeserver ] || mset hostId "\"$hostid\""   # ZFS needs it; the other roles have no pools
@@ -281,7 +284,7 @@ if [ -n "$restore_from" ]; then
 fi
 note "Take the stick out and reboot. Then, from your PC:  ssh adminuser@$hostname_.local   (or the address your router gave it)"
 if [ "$role" = homeserver ]; then
-  note "Next: create the pools (zpool create, as in section 3 of the Homeserver guide; the hs command only exists after the first nixos-rebuild switch), then sudo nixos-rebuild switch. The guide: docs/install.md."
+  note "Next: create the pools (the hs command is there from the first boot: sudo hs pool bulk add; or zpool create, as in section 3 of the Homeserver guide), then sudo hs rebuild. The guide: docs/install.md."
 else
   note "Next: fill the section \"Edge node\" of /etc/nixos/machine.toml, put the Tailscale auth key into /var/lib/hs/tailscale-authkey (mode 0600), then sudo nixos-rebuild switch. The guide: docs/operations.md."
 fi

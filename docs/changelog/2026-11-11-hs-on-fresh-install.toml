@@ -1,0 +1,4 @@
+date  = "2026-11-11"
+type  = "fix"
+title = "A freshly installed server has the hs command from its first boot"
+body  = """The minimal system that the installer puts on a new server (install.nix) did not contain the hs command: it appeared only after the first nixos-rebuild switch. Both systems now take the command from one shared definition (hs-command.nix), so hs works at once, for example to restore the settings from a backup."""

@@ -1,0 +1,89 @@
+# Cuts a release from GitHub, so the owner's PC is not needed (issue #233, docs/RELEASE-PROCESS.md "Release from GitHub"). Run it by hand:
+# Actions, release, "Run workflow", branch main, version vX.Y.Z (a release or a hotfix) or vX.Y.Z-beta.N.
+#
+# 1. `gate` (no secret, no approval): the checks of scripts/dev/release-gate.sh check: main's tip is a merge commit, ci-ok is green, the notes
+#    docs/RELEASE-NOTES-X.Y.md name the release, the tag is new and in order.
+# 2. `release` waits for the owner's approval (the environment `release`), runs the checks again (main may have moved), signs the tag with the
+#    secret RELEASE_SIGNING_KEY, runs the check `hs update` uses against config/trusted-keys/server.allowed_signers (a tag that fails is
+#    deleted, nothing is pushed), pushes the tag, creates the GitHub release from docs/RELEASE-NOTES-X.Y.md and, for a stable tag, starts
+#    ci.yml on the tag: a push made with GITHUB_TOKEN starts no workflow, so ci.yml (tests, ISO) is started by hand from here.
+#
+# One-time setup by the owner (not done by this file): the environment `release` with required reviewers and the secret RELEASE_SIGNING_KEY
+# in it; the public key in config/trusted-keys/server.allowed_signers by a pull request; if the ruleset `protect-release-tags` gets the rule
+# `creation`, the GitHub Actions app as a bypass actor. UNVERIFIED: this workflow has never run.
+name: release
+on:
+  workflow_dispatch:
+    inputs:
+      version:
+        description: "vX.Y.Z (release, hotfix) or vX.Y.Z-beta.N"
+        required: true
+
+concurrency:
+  group: release
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+jobs:
+  gate:
+    if: github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      checks: read
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          ref: ${{ github.sha }}
+          fetch-depth: 0
+      - name: Fetch the tags
+        run: git fetch --tags --force origin
+      - name: Check the release
+        env:
+          GH_TOKEN: ${{ github.token }}
+          VERSION: ${{ inputs.version }}
+        run: bash scripts/dev/release-gate.sh check "$VERSION" --sha "${{ github.sha }}"
+
+  release:
+    needs: gate
+    runs-on: ubuntu-latest
+    environment: release
+    permissions:
+      contents: write
+      checks: read
+      actions: write
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          ref: ${{ github.sha }}
+          fetch-depth: 0
+      - name: Fetch the tags
+        run: git fetch --tags --force origin
+      - name: Check again (main may have moved while this waited)
+        env:
+          GH_TOKEN: ${{ github.token }}
+          VERSION: ${{ inputs.version }}
+        run: bash scripts/dev/release-gate.sh check "$VERSION" --sha "${{ github.sha }}"
+      - name: Sign the tag and verify it like hs update does
+        env:
+          RELEASE_SIGNING_KEY: ${{ secrets.RELEASE_SIGNING_KEY }}
+          VERSION: ${{ inputs.version }}
+        run: bash scripts/dev/release-gate.sh sign "$VERSION" --sha "${{ github.sha }}"
+      - name: Push the tag and create the release
+        env:
+          GH_TOKEN: ${{ github.token }}
+          VERSION: ${{ inputs.version }}
+        run: |
+          git push origin "refs/tags/$VERSION"
+          notes=$(bash scripts/dev/release-gate.sh notes "$VERSION")
+          flags=()
+          case "$VERSION" in *-beta.*) flags+=(--prerelease) ;; esac
+          gh release create "$VERSION" --verify-tag --title "$VERSION" --notes-file "$notes" "${flags[@]}"
+      - name: Start CI on the tag (tests, installer ISO)
+        if: ${{ !contains(inputs.version, '-beta.') }}
+        env:
+          GH_TOKEN: ${{ github.token }}
+          VERSION: ${{ inputs.version }}
+        run: gh workflow run ci.yml --ref "$VERSION"

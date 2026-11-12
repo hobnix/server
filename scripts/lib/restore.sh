@@ -15,14 +15,17 @@ restore_skip() {   # restore_skip <path relative to the state folder>
 }
 
 restore_snapshots() {   # restore_snapshots <repo> <passfile>: id<TAB>time of the host snapshots, newest last
-  restic -r "$1" --password-file "$2" snapshots --tag host --json 2>/dev/null |
-    python3 -I -c 'import json,sys
+  # --no-lock: the installer mounts the backup disk read-only, restic could not write its lock there (and would retry for minutes)
+  local json
+  json=$(restic -r "$1" --password-file "$2" --no-lock snapshots --tag host --json 2>/dev/null) || return 1
+  [ -n "$json" ] || return 1   # nothing to parse: no traceback, the caller says what is wrong
+  python3 -I -c 'import json,sys
 for s in sorted(json.load(sys.stdin), key=lambda s: s["time"]):
-    print(s["id"][:8] + "\t" + s["time"][:16].replace("T", " "))'
+    print(s["id"][:8] + "\t" + s["time"][:16].replace("T", " "))' <<<"$json" 2>/dev/null
 }
 
 restore_fetch() {   # restore_fetch <repo> <passfile> <snapshot|latest> <dir>: the settings of the host snapshot below <dir>
-  restic -r "$1" --password-file "$2" restore "$3" --tag host --target "$4" \
+  restic -r "$1" --password-file "$2" --no-lock restore "$3" --tag host --target "$4" \
     --include /etc/nixos/machine.toml --include /etc/nixos/machine.nix \
     --include /var/lib/hs --include '/etc/ssh/ssh_host_*' >/dev/null 2>&1
 }
@@ -41,9 +44,14 @@ restore_files() {   # restore_files <dir>: the files restore_apply would put in 
 }
 
 restore_apply() {   # restore_apply <dir> <target root>: copy the files of restore_files into the new system, keeping modes
-  local d=$1 t=$2 f
+  local d=$1 t=$2 f p c
   while IFS= read -r f; do
-    mkdir -p "$t$(dirname "$f")"
+    # parent folders get explicit modes: the result must not depend on the caller's umask (sshd needs a readable /etc/ssh)
+    p=""
+    for c in $(dirname "$f" | tr / ' '); do   # top down, one folder at a time
+      p=$p/$c
+      [ -d "$t$p" ] || install -d -m 755 "$t$p"
+    done
     cp -a "$d$f" "$t$f"
   done < <(restore_files "$d")
 }

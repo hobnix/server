@@ -11,7 +11,7 @@
 #   release-core.sh tag <vX.Y.Z> [--yes] [--key <file.pub>] [--signers <file>] [--no-ci-check]
 #       Sign the tip of origin/main as <vX.Y.Z>, verify the signature against config/trusted-keys/server.allowed_signers (as it is on
 #       origin/main), push the tag. Refuses a prerelease tag, a tag that exists, a tag not above the newest stable tag,
-#       a main that does not contain the newest stable tag, a red or missing ci-ok on the commit. The push starts the ISO build.
+#       a main that does not contain the newest stable tag, a red or missing ci-ok on the commit or its pull request head. The push starts the ISO build.
 #   release-core.sh verify <vX.Y.Z>
 #       Fetch tags; check the signature, that the tag is on origin/main and that it names itself. Changes nothing.
 #   release-core.sh follow-check [<vX.Y.Z>] [--after]
@@ -171,9 +171,15 @@ tag)
   if $ci_check; then
     slug=$(repo_slug)
     if [ -n "$slug" ] && command -v gh >/dev/null 2>&1; then
-      concl=$(gh api "repos/$slug/commits/$sha/check-runs" --jq '[.check_runs[] | select(.name == "ci-ok")] | sort_by(.started_at) | last | .conclusion // "none"' 2>/dev/null || echo unknown)
-      [ "$concl" = success ] || fail "ci-ok on ${sha:0:7} is '$concl', not success. Wait for CI (--no-ci-check skips this check)."
-      ok "ci-ok is green on ${sha:0:7}"
+      green=""
+      # CI does not run on a push to main: the result sits on the pull request head, the second parent of the merge commit
+      for c in "$sha" "$(git rev-parse -q --verify "$sha^2" 2>/dev/null || true)"; do
+        [ -n "$c" ] || continue
+        concl=$(gh api "repos/$slug/commits/$c/check-runs" --jq '[.check_runs[] | select(.name == "ci-ok")] | sort_by(.started_at) | last | .conclusion // "none"' 2>/dev/null || echo unknown)
+        [ "$concl" = success ] && { green=$c; break; }
+      done
+      [ -n "$green" ] || fail "ci-ok is '${concl:-none}' on ${sha:0:7} and on the head of its pull request, not success. Wait for CI (--no-ci-check skips this check)."
+      ok "ci-ok is green on ${green:0:7}"
     else
       note "ci-ok was not checked (no GitHub remote or no gh): look at the pull request before you go on"
     fi

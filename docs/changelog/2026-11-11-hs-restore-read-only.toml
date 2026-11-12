@@ -1,0 +1,5 @@
+date  = "2026-11-11"
+type  = "fix"
+title = "hs-restore no longer hangs on the read-only backup disk and keeps /etc/ssh readable"
+docs  = "install#restore-from-a-backup"
+body  = """hs-restore runs restic with --no-lock, so reading the read-only backup disk no longer waits on a lock. A wrong password prints only the friendly message, no Python traceback. The folders it creates on the new system (/etc/ssh, /etc/nixos, /var/lib/hs) always get mode 755, whatever the umask. The guide now says that --dry-run also asks for the new system disk."""
