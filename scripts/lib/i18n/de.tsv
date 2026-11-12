@@ -2403,4 +2403,9 @@ usage: hs testlab run [--ref <branch|tag|commit>] [--stage 1|2|all] [--dry-run] 
 Missing on this system: %s. Nothing was changed.	Auf diesem System fehlt: %s. Nichts wurde geändert.
 cryptsetup is not installed on this system, so a vault cannot be made. Nothing was changed.	cryptsetup ist auf diesem System nicht installiert, daher kann kein Tresor angelegt werden. Nichts wurde geändert.
 Owners kept as in the snapshot.	Die Besitzer bleiben wie im Snapshot.
+Could not list %s in the snapshot.	%s konnte im Snapshot nicht aufgelistet werden.
+%s is a plain folder with files, left as it is.	%s ist ein normaler Ordner mit Dateien und bleibt, wie er ist.
+Share datasets that are missing and will be created first	Fehlende Freigabe-Datasets, die zuerst angelegt werden
+Could not create the dataset %s. Nothing was restored.	Das Dataset %s konnte nicht angelegt werden. Es wurde nichts wiederhergestellt.
+Created %s share datasets. After the restore: sudo hs share repair	%s Freigabe-Datasets angelegt. Nach der Wiederherstellung: sudo hs share repair
 plain folder, not a share (make a share of it with hs share add, or move its files into one)	Ordner, keine Freigabe (mit hs share add zur Freigabe machen oder die Dateien in eine Freigabe verschieben)
