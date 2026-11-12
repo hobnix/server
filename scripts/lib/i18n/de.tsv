@@ -2409,3 +2409,4 @@ Share datasets that are missing and will be created first	Fehlende Freigabe-Data
 Could not create the dataset %s. Nothing was restored.	Das Dataset %s konnte nicht angelegt werden. Es wurde nichts wiederhergestellt.
 Created %s share datasets. After the restore: sudo hs share repair	%s Freigabe-Datasets angelegt. Nach der Wiederherstellung: sudo hs share repair
 plain folder, not a share (make a share of it with hs share add, or move its files into one)	Ordner, keine Freigabe (mit hs share add zur Freigabe machen oder die Dateien in eine Freigabe verschieben)
+Samba is not installed on this system, so there are no shares to publish. Install the full system first (hs rebuild).	Samba ist auf diesem System nicht installiert, es gibt also keine Freigaben zu veröffentlichen. Zuerst das vollständige System installieren (hs rebuild).
