@@ -415,7 +415,10 @@ purpose, and `hs update` and `hs rebuild` end with an error. `hs unlock --status
    A restore with `--to /` keeps the owners of the snapshot (restic restores them as root), so the container-owned folders in
    `/bulk/sensitive` stay container-owned (for example 1000000:1000000); `hs share repair` does not hand `sensitive` over. A first run of
    this step in a VM re-owned everything to `adminuser:users` and broke those folders (issue #532); that is fixed. Check with
-   `ls -ld /bulk/sensitive/*`. Steps 1 to 3 ran in a VM with ZFS and a test backup; not on hardware yet.
+   `ls -ld /bulk/sensitive/*`. `hs share repair` does hand the folders under `/bulk/shares` over to `adminuser:users` (the share root
+   gets mode 2775, files of another owner or group, such as 1000:1000, become `adminuser:users`); that is intended, because everything
+   in a share is written as `adminuser`. It needs the full system with Samba; on the minimal system it says so and stops.
+   Steps 1 to 3 ran in a VM with ZFS and a test backup; not on hardware yet.
 
    On the ZFS layout every share is its own dataset. The restore of `/bulk/shares`, `/bulk/sensitive` or one share folder below them
    therefore creates the datasets that are missing (`bulk/shares/<name>`, `bulk/sensitive/<name>`) before it writes the files, so
