@@ -29,7 +29,7 @@ where everything stands.
    rebase: the earlier releases must stay ancestors of `main`).
 3. **Tag.** On the owner's machine `bash scripts/dev/release-core.sh tag v0.1.0`, or from GitHub with the workflow `release` (section "Release from GitHub"). It checks that `ci-ok` is green on the tip of `origin/main`, signs it, verifies the
    signature against `config/trusted-keys/server.allowed_signers` as `main` has it, asks you to type the tag, and pushes. The push builds the
-   ISO and the GitHub release (the `iso` job of `ci.yml`). A pushed tag is never moved: a bad release gets the next number.
+   ISO and the GitHub release (the `iso` job of `ci.yml`). A beta tag (`release-core.sh tag v0.2.0-beta.1`) is cut from the milestone branch `origin/0.2`, not `main` (it must contain the newest stable tag and have `docs/RELEASE-NOTES-0.2.md`; the base version is above the newest stable tag, `N` above earlier betas). It builds the ISO like a stable tag, and the `iso` job publishes the GitHub release as a prerelease. A pushed tag is never moved: a bad release gets the next number.
 4. **Check.** `gh run watch`, then `bash scripts/dev/release-core.sh verify v0.1.0`.
 5. **Merge back.** `main` carries the release merge commit, which `develop` lacks. Open a pull
    request `main` into `develop` (`git switch -c chore/main-into-develop origin/develop && git merge --no-ff origin/main`, merge commit),
@@ -75,17 +75,17 @@ What it does (`scripts/dev/release-gate.sh`, tested by `tests/release-gate.sh`):
 1. **`gate`** (no secret, no approval): `check` refuses unless the run is on `main`, the commit is the tip of `origin/main` and a merge commit,
    `ci-ok` is green on it or on its second parent (CI does not run on a push to `main`, the pull request head carries the result),
    `docs/RELEASE-NOTES-X.Y.md` exists and names `X.Y`, the changelog entries validate, the tag does not exist (here or on the remote), the version is
-   above the newest stable tag and `main` contains that tag. A beta must be for a version not released yet, with a higher `N` than the earlier betas.
+   above the newest stable tag and `main` contains that tag. A beta must be for a version not released yet, with a higher `N` than the earlier betas; it is checked on the tip of the milestone branch `X.Y` (run the workflow on that branch, not on `main`), which must contain the newest stable tag and hold `docs/RELEASE-NOTES-X.Y.md`.
 2. **`release`** waits for the owner's approval (environment `release`), runs the checks again (main may have moved), then `sign`: the tag is
    made with the private key in the secret, then **the check `hs update` uses** (`uc_verify`: a good signature by a key in
    `config/trusted-keys/server.allowed_signers`, and the signed name equals the tag) runs on it. A tag that fails is deleted and nothing is
    pushed. A tag signed by GitHub itself (its web-flow key) or by any key that is not in the file never passes.
-3. It pushes the tag, creates the GitHub release with the notes file (`--prerelease` for a beta) and, for a stable tag, starts `ci.yml` on the
+3. It pushes the tag, creates the GitHub release with the notes file (`--prerelease` for a beta) and starts `ci.yml` on the
    tag with `gh workflow run`: a push made with the workflow's token starts no workflow, so the test jobs and the ISO job would not run
-   otherwise. The ISO job attaches the ISO to the release this workflow made. A beta gets no ISO (open question 1 of PLAN-channels).
+   otherwise. The ISO job attaches the ISO to the release this workflow made. A beta gets the ISO too (owner decision 2026-11-13); its release is a prerelease.
 
-Beta tags are cut from `main` by this workflow (after the release pull request, before the stable tag), which differs from PLAN-channels
-(beta on `develop`); say so if you want it the other way. "The version matches the changelog" is checked as: the notes file for that `X.Y`
+Beta tags are cut from the milestone branch (`0.2` for `v0.2.0-beta.N`, ADR 0007: no `release/*` branch), not from `main` and not from `develop`.
+If the environment `release` restricts deployment branches to `main`, add `0.*` for betas. "The version matches the changelog" is checked as: the notes file for that `X.Y`
 exists, names it, and the changelog entries validate; there is no version field in the entries.
 
 ### One-time setup (the owner; nothing in this repository can do it)

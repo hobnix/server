@@ -30,7 +30,8 @@ sign() { RELEASE_SIGNING_KEY=$(cat "$WORK/${KEY:-good}") $GATE sign "$@" 2>&1; }
 
 echo "-- check"
 check_out "a good release passes" "ci-ok is green" gate check v0.1.0
-check_out "a beta passes too" "next version" gate check v0.1.0-beta.1
+git push -q origin main:refs/heads/0.1
+check_out "a beta passes on the tip of its milestone branch (no merge commit needed)" "tip of the milestone branch" gate check v0.1.0-beta.1
 check_out "a bad version is refused" "Name a version" gate check 0.1.0
 check_out "a version with a prefix is refused" "Name a version" gate check v0.1.0-rc.1
 check_out "ci that is not green is refused" "ci-ok is not green" env FAKE_CI=failure $GATE check v0.1.0
@@ -62,8 +63,13 @@ echo "-- order of versions"
 git checkout -q -b hot main; echo fix > fix.txt; git add -A; git commit -q -m fix; git checkout -q main; git merge -q --no-ff -m "Merge hotfix" hot; git push -q origin main
 check_out "a hotfix tag is the next patch" "next version after v0.1.0" gate check v0.1.1
 check_out "a lower version is refused" "not above the newest stable" gate check v0.0.9
+git push -q origin main:refs/heads/0.1; git push -q origin main:refs/heads/0.2
 check_out "a beta of a released version is refused" "released already" gate check v0.1.0-beta.2
 check_out "a beta of the next version passes" "next version" gate check v0.2.0-beta.1
+git checkout -q -b m2 main; echo m > m.txt; git add -A; git commit -q -m m2work; git push -q origin m2:refs/heads/0.2; git checkout -q main
+check_out "a beta is refused when HEAD is not the tip of its milestone branch" "not the tip of origin/0[.]2" gate check v0.2.0-beta.1
+git branch -q -D m2; git push -q origin main:refs/heads/0.2 --force
+check_out "a beta without its milestone branch is refused" "origin/0[.]3 is not here" gate check v0.3.0-beta.1
 git tag v0.2.0-beta.3 main; check_out "an older beta number is refused" "not above the earlier beta" gate check v0.2.0-beta.2
 git tag -d v0.2.0-beta.3 >/dev/null
 check_out "a version that is on the remote is refused" "exists already" gate check v0.1.0

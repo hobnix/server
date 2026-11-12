@@ -4,10 +4,10 @@
 #
 #   release-gate.sh check <version> [--sha <commit>]
 #       <version> is vX.Y.Z (stable, hotfix) or vX.Y.Z-beta.N. Refuses unless: the commit (default HEAD) is the tip of origin/main and a merge
-#       commit (the merged release or hotfix pull request); `ci-ok` is green on it, or on its second parent (the pull request head: CI does
+#       commit (the merged release or hotfix pull request); a beta instead: the tip of the milestone branch origin/X.Y (ADR 0007); `ci-ok` is green on it, or on its second parent (the pull request head: CI does
 #       not run on a push to main); docs/RELEASE-NOTES-X.Y.md exists and names X.Y; the changelog entries validate; the tag does not exist;
 #       the version is above the newest stable tag (a beta: above the earlier betas of its version, and its version not released yet);
-#       main contains the newest stable tag.
+#       main (a beta: the milestone branch) contains the newest stable tag.
 #   release-gate.sh sign <version> [--sha <commit>]
 #       Create the annotated tag, signed with the SSH private key in $RELEASE_SIGNING_KEY (the key text, never a file name, never logged), then
 #       run the very check `hs update` runs (uc_verify of scripts/lib/update-channel.sh: a good signature by a key of
@@ -46,15 +46,20 @@ sha=$(git rev-parse --verify -q "${sha:-HEAD}^{commit}") || fail "That commit is
 case $cmd in
 notes) echo "$notes" ;;
 check)
-  main=$(git rev-parse --verify -q "refs/remotes/$remote/main^{commit}") || fail "$remote/main is not here (fetch it, full history)."
-  [ "$sha" = "$main" ] || fail "${sha:0:7} is not the tip of $remote/main (${main:0:7}): a release is cut from main as it is now."
-  [ "$(git rev-list --parents -n1 "$sha" | wc -w)" -ge 3 ] || fail "${sha:0:7} is not a merge commit: main must end in the merged release or hotfix pull request (merge commit, no squash)."
-  ok "${sha:0:7} is the tip of main and a merge commit"
+  src=main; $beta && src=$mm   # a beta is cut from its milestone branch (X.Y), a release or hotfix from main
+  main=$(git rev-parse --verify -q "refs/remotes/$remote/$src^{commit}") || fail "$remote/$src is not here (fetch it, full history)."
+  [ "$sha" = "$main" ] || fail "${sha:0:7} is not the tip of $remote/$src (${main:0:7}): a release is cut from $src as it is now."
+  if $beta; then
+    ok "${sha:0:7} is the tip of the milestone branch $src"
+  else
+    [ "$(git rev-list --parents -n1 "$sha" | wc -w)" -ge 3 ] || fail "${sha:0:7} is not a merge commit: main must end in the merged release or hotfix pull request (merge commit, no squash)."
+    ok "${sha:0:7} is the tip of main and a merge commit"
+  fi
   git rev-parse -q --verify "refs/tags/$ver" >/dev/null && fail "$ver exists already: a pushed tag is never moved; cut the next number."
   [ "$(git ls-remote --tags "$remote" "refs/tags/$ver" | wc -l)" = 0 ] || fail "$ver exists on $remote already."
   last=$(git tag -l 'v[0-9]*' | grep -E '^v[0-9]+\.[0-9]+\.[0-9]+$' | sort -V | tail -n1)
   if [ -n "$last" ]; then
-    git merge-base --is-ancestor "$last^{commit}" "$sha" || fail "main does not contain $last: every earlier release must be an ancestor."
+    git merge-base --is-ancestor "$last^{commit}" "$sha" || fail "$src does not contain $last: every earlier release must be an ancestor."
     if $beta; then
       [ "$(printf '%s\n%s\n' "$last" "$base_ver" | sort -V | tail -n1)" = "$base_ver" ] && [ "$last" != "$base_ver" ] || fail "$base_ver is released already (newest stable $last): a beta must be for a later version."
     else
@@ -67,7 +72,7 @@ check)
     [ -z "$top" ] || [ "$n" -gt "$top" ] || fail "$ver is not above the earlier beta $base_ver-beta.$top."
   fi
   ok "$ver is the next version${last:+ after $last}"
-  git cat-file -e "$sha:$notes" 2>/dev/null || fail "$notes is not on main: the release has no notes (write them in the release pull request)."
+  git cat-file -e "$sha:$notes" 2>/dev/null || fail "$notes is not on $src: the release has no notes (write them in the release pull request, a beta: on the milestone branch)."
   git show "$sha:$notes" | head -n 3 | grep -qF "$mm" || fail "The first lines of $notes do not name $mm: the notes belong to another release."
   ok "$notes names $mm"
   python3 -I "$core/scripts/lib/changelog.py" validate "$repo_dir" >/dev/null 2>&1 || fail "The changelog entries do not validate (python3 -I scripts/lib/changelog.py validate .)."

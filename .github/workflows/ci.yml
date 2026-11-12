@@ -6,7 +6,7 @@ on:
   # A push to a feature branch runs nothing: its pull request does.
   push:
     tags: ['v*']
-    branches: [develop, '0.2']
+    branches: [develop, '0.2', '0.[3-9]', '[1-9].[0-9]*']
   pull_request:
     types: [opened, synchronize, reopened, ready_for_review]
   merge_group:
@@ -252,7 +252,7 @@ jobs:
   # The installer ISO (installer/iso.nix, docs/PLAN-modular-core.md step 10): built when a version tag is pushed and attached to the release.
   # It waits for every test job. `!cancelled()` replaces the implicit success() so that a skipped `rust` job does not skip this one; the
   # other jobs must have succeeded (a failed or skipped one stops the release). On a tag `changes` turns every job on, so `rust` is only
-  # skipped if that ever changes.
+  # skipped if that ever changes. A beta tag (vX.Y.Z-beta.N, cut from the milestone branch) builds the ISO too and its release is a prerelease (owner decision 2026-11-13).
   iso:
     needs: [changes, rust, scripts, tests, packages, nixos, integration]
     if: >-
@@ -313,7 +313,9 @@ jobs:
           if gh release view "$GITHUB_REF_NAME" >/dev/null 2>&1; then
             gh release upload "$GITHUB_REF_NAME" "$iso" "$iso.sha256" --clobber
           else
-            gh release create "$GITHUB_REF_NAME" "$iso" "$iso.sha256" --title "$GITHUB_REF_NAME" "${notes_args[@]}"
+            pre=()
+            case "$GITHUB_REF_NAME" in *-beta.*) pre=(--prerelease) ;; esac
+            gh release create "$GITHUB_REF_NAME" "$iso" "$iso.sha256" --title "$GITHUB_REF_NAME" "${pre[@]}" "${notes_args[@]}"
           fi
 
   # The storage scripts on loop devices with the real tools: xfs, btrfs, ext4, LUKS (dm-crypt),
