@@ -150,5 +150,33 @@ class Changes(unittest.TestCase):
         self.assertFalse(os.path.exists(self.file))
 
 
+class WordsThatStartWithADash(unittest.TestCase):
+    """#505: a positional word of a change or read that a script receives as an argument must not accept a value that starts with '-'
+    (the script would read it as an option). Values that follow their option as a separate word (--title -x) are fine: the script takes the
+    next word whatever it looks like. Short list of the words that are values on purpose."""
+    # (area, word index in the entry): the value of `config set <key> <value>`, the text after --label, the --label values
+    VALUES_ON_PURPOSE = {("config", 2)}
+
+    def test_positional_words_do_not_start_with_a_dash(self):
+        import re
+        bad = []
+        for area, entries in ws.CHANGES.items():
+            for n, e in enumerate(entries):
+                words = e["fixed"] if isinstance(e, dict) else e
+                for i, rx in enumerate(words):
+                    if rx is None or (area, i) in self.VALUES_ON_PURPOSE or (i > 0 and words[i - 1].startswith("^--")):
+                        continue
+                    if re.fullmatch(rx, "-x") or re.fullmatch(rx, "--x"):
+                        bad.append((area, n, i, rx))
+        self.assertEqual(bad, [])
+
+    def test_read_arguments_do_not_start_with_a_dash(self):
+        import re
+        # backup find: the word is wrapped in *...* before restic sees it
+        bad = [(k, a) for k, v in ws.READS.items() for a in v.get("args", []) or []
+               if k != ("backup", "find") and re.fullmatch(a, "-x")]
+        self.assertEqual(bad, [])
+
+
 if __name__ == "__main__":
     unittest.main()
