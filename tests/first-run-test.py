@@ -132,6 +132,9 @@ class FakeAuth:
     def storage_locked(self):
         return False
 
+    def local_fingerprint(self, user, fresh=False):
+        return ""
+
     def local_password_ok(self, user, password):
         return False
 

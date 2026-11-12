@@ -29,6 +29,9 @@ class FakeAuth:
     def domain_is_admin(self, user):
         return False
 
+    def local_fingerprint(self, user, fresh=False):
+        return ""
+
     def local_password_ok(self, user, password):
         return user == "adminuser" and password == "pw"
 

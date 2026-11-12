@@ -2321,7 +2321,8 @@ class App:
         self.cfg = cfg or Config()
         self.auth = auth or Auth(self.cfg)
         self.sessions, self.throttle, self.facts, self.reads = Sessions(self.cfg), Throttle(), Facts(self.cfg), Reads(self.cfg)
-        self.sessions.fp_of = lambda user, fresh=False: self.auth.local_fingerprint(user, fresh=fresh)      # looked up at call time: tests swap self.auth methods
+        # looked up at call time: tests swap self.auth methods; a stand-in auth without the method means "no password check" (fail open, as an unreadable shadow)
+        self.sessions.fp_of = lambda user, fresh=False: getattr(self.auth, "local_fingerprint", lambda u, fresh=False: "")(user, fresh=fresh)
         self.plans = Plans(self.cfg.plan_ttl)
         self.changes_seen = ChangesSeen(self.cfg)
         self.first_run = fr.FirstRun(self.cfg.first_run_file)
