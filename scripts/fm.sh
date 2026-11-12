@@ -219,7 +219,7 @@ SEL=()
 read_selection() {
   local nm src=/dev/stdin
   if [ -n "$selfile" ]; then
-    case "$selfile" in "$fm_dir"/jobs/*.sel) ;; *) refuse "bad selection file" ;; esac
+    case "$selfile" in *..*) refuse "bad selection file" ;; "$fm_dir"/jobs/*.sel) ;; *) refuse "bad selection file" ;; esac     # a * also matches / : no .. may climb out of the folder
     [ -f "$selfile" ] || refuse "the selection is gone"
     src=$selfile
   elif [ -t 0 ]; then refuse "the selection comes on stdin, NUL separated"; fi
