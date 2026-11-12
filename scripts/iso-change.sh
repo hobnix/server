@@ -138,7 +138,11 @@ case "$arg" in
     [ ${#arg} -le 1000 ] || refuse "the URL is too long"
     [[ "$arg" =~ ^https?://[A-Za-z0-9._~-]+(:[0-9]{1,5})?(/[A-Za-z0-9._~%/+=:@,\;\&?-]*)?$ ]] || refuse "invalid URL (http or https, no user name or password in it)"
     host=${arg#*://}; host=${host%%[/:?]*}
-    case "$host" in localhost|127.*|0.0.0.0|169.254.*|*.localhost) refuse "this server does not download from itself ($host)" ;; esac
+    # curl also reads 2130706433, 0x7f.1 and 0177.0.0.1 as 127.0.0.1: a host of digits and dots must be a plain a.b.c.d, a hex part is refused
+    if [[ "$host" =~ ^[0-9.]+$ ]] && ! [[ "$host" =~ ^(0|[1-9][0-9]{0,2})(\.(0|[1-9][0-9]{0,2})){3}$ ]]; then refuse "write an IP address as a.b.c.d (or use a name): $host"; fi
+    [[ ! "$host" =~ (^|\.)0[xX] ]] || refuse "write an IP address as a.b.c.d (or use a name): $host"
+    host=${host%.}
+    case "$host" in localhost|127.*|0.*|169.254.*|*.localhost) refuse "this server does not download from itself ($host)" ;; esac
     kind=url ;;
   /*)
     [[ "$arg" != *..* ]] || refuse "no \"..\" in a path"
