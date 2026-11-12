@@ -38,3 +38,15 @@ export function nextUpdate(m) {
 
 // The plan arguments for choosing a channel (the web asks `hs sys release plan channel <name>`)
 export const planArgs = (channel) => ['channel', channel];
+
+// The warning under the channel on the Updates page: only beta and edge have one (stable is the safe default)
+export const CHANNEL_WARN = {
+  beta: 'Beta can break things. Use it on a second server or a test machine, not on the one that holds your data. Updates are never applied by themselves.',
+  edge: 'Edge is the development branch and can break at any time. Use it only on a server whose data may be lost. Updates are never applied by themselves.',
+};
+
+// The channel card of the Updates page: the channel, the ref the next update installs, and the warning (null while the rows are not read)
+export function channelCard(m) {
+  if (!m) return null;
+  return { channel: m.channel, ref: m.ref, warn: CHANNEL_WARN[m.channel] ?? '' };
+}

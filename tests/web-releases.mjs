@@ -2,7 +2,7 @@
 // i18n.js (runes) cannot be imported, so the route and the German dictionary are checked in their source text.
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
-import { CHANNELS, WHO, releaseModel, nextUpdate, planArgs } from '../web/src/settings/releases.js';
+import { CHANNELS, WHO, CHANNEL_WARN, channelCard, releaseModel, nextUpdate, planArgs } from '../web/src/settings/releases.js';
 import { mainTree } from '../web/src/nav.js';
 
 const src = (p) => readFileSync(new URL(`../web/src/${p}`, import.meta.url), 'utf8');
@@ -23,6 +23,14 @@ assert.deepEqual(['current', 'kept', 'update', 'unknown', 'none'].map((s) => nex
 assert.match(nextUpdate({ state: 'kept' }).text, /no downgrade/);
 assert.deepEqual(planArgs('edge'), ['channel', 'edge']);
 
+// the Updates page: channel card with the ref, a warning for beta and edge only
+assert.equal(channelCard(null), null);
+assert.deepEqual(channelCard({ channel: 'stable', ref: 'v1.0.0' }), { channel: 'stable', ref: 'v1.0.0', warn: '' });
+assert.equal(channelCard({ channel: 'edge', ref: 'origin/develop' }).ref, 'origin/develop');
+assert.match(channelCard({ channel: 'beta', ref: 'v1.1.0-beta.1' }).warn, /second server/);
+assert.match(channelCard({ channel: 'edge', ref: 'x' }).warn, /data may be lost/);
+assert.match(src('settings/SettingsPage.svelte'), /\/api\/sys\/release\/show/);
+
 // the page is in the tree under Settings and has a route
 const settings = mainTree.find((i) => i.path === '/settings');
 assert.ok(settings.children.some((c) => c.path === '/settings/releases' && c.label === 'Releases'));
@@ -31,6 +39,6 @@ assert.match(src('routes.js'), /'\/settings\/releases': Releases,/);
 // German: every sentence of the page is in the dictionary of i18n.js
 const i18n = src('i18n.js');
 const words = [...Object.values(WHO), ...['current', 'kept', 'update', 'unknown', 'none'].map((s) => nextUpdate({ state: s }).text),
-  'Releases', 'Installed version', 'Next update', 'Signature', 'Would install', 'Switch to'];
+  ...Object.values(CHANNEL_WARN), 'Update channel', 'Choose which version this server follows', 'Releases', 'Installed version', 'Next update', 'Signature', 'Would install', 'Switch to'];
 for (const w of words) assert.ok(i18n.includes(`'${w}':`) || i18n.includes(` ${w}:`) || i18n.includes(`{ ${w}:`), `no German for: ${w}`);
 console.log('  ok    web releases');
