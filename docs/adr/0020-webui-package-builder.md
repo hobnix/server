@@ -1,6 +1,6 @@
 # 0020: The web package builder: a form over the CLI validator, drafts kept apart, publish by pull request or archive
 
-Status: Proposed. Step 1 (check a manifest draft through the API, a form with live findings) is built in the pull request that adds this record.
+Status: Accepted (2026-11-10). Step 1 (check a manifest draft through the API, a form with live findings) is built; steps 2 and 3 are not.
 Issue: hobnix/server#268 (part of #205). Builds on ADR 0006 (the `hs sys` contract is the API), ADR 0008 (packages, signed releases) and ADR 0014
 (permissions); it does not repeat them. Numbers 0018 and 0019 are taken by records that are still open in their own pull requests.
 

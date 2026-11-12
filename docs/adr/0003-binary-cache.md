@@ -1,6 +1,6 @@
 # 0003: Binary cache on Cachix, filled by CI
 
-Status: Proposed
+Status: Accepted (2026-11-10)
 Issue: hobnix/server#253 (epic #121)
 
 ## Context

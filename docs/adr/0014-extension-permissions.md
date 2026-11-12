@@ -1,6 +1,6 @@
 # 0014: Extension permissions: declare and disclose first, confine services next
 
-Status: Proposed. Step 1 (declare, validate, disclose) is built in hobnix/server#239; steps 2 and 3 and the open points below are still the owner's decisions.
+Status: Accepted (2026-11-10): declare and disclose (step 1 and 1b, built in hobnix/server#239). Step 2 (confining services) and step 3 (a command broker) are not decided; open points 2 and 3 stay open until third-party packages are a goal.
 Step 1 as built: `permissions = [...]` in package.toml (optional for now: absent shows as "not declared"), vocabulary and checks in scripts/lib/pkg_perms.py, validated by `pkg.py validate`, `repo-check` and at install; shown by `hs ext list`, `hs pkg install|update`; new permissions in an update need the typed package name or `--accept-permissions`. A declared permission is NOT a sandbox: commands run as root.
 Step 1b (#239): the declaration is enforced against the manifest at run time. `hs_ext.ext_declarations` (web reads, changes, pages, live topics) skips a package whose `permissions` do not cover what its manifests use, and `hs ext enable` refuses it (`pkg.py perms-check`); a package without `permissions` is not checked. Not tested on hardware yet.
 Issue: hobnix/server#239 (epic #197). Related: ADR 0010 (command protocol, #237), ADR 0011 (service lifecycle, #238); both Proposed in their own pull requests.

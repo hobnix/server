@@ -1,6 +1,6 @@
 # 0022: First-run web setup with a one-time console token
 
-Status: Proposed
+Status: Accepted (2026-11-10), with the plain-HTTP limit under Open points.
 Issue: hobnix/server#183 (part of #173, Installation and Onboarding). The owner decides.
 
 Numbers 0018 to 0021 are taken by other records (interactive recipe runs and the open #260, #268, #261); this one depends on none of them.

@@ -1,6 +1,6 @@
 # 0012: Roles and API tokens: viewer, app manager, admin
 
-Status: Proposed
+Status: Accepted (2026-11-10)
 Issue: hobnix/server#257 (part of #195). The owner decides; nothing here is built.
 
 ## Context

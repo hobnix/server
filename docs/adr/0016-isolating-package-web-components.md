@@ -1,6 +1,6 @@
 # 0016: Package UI stays declarative; third-party code, if it ever comes, runs in a sandboxed iframe
 
-Status: Proposed
+Status: Accepted (2026-11-10)
 Issue: hobnix/server#267 (epic #195). Related: ADR 0006 (API in front of CLI), ADR 0012 (roles and tokens), ADR 0014 (extension permissions).
 
 This is a research record. Nothing was built; the iframe sketch in "If code is ever allowed" was not tried in a browser.

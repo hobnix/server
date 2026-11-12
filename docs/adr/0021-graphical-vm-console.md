@@ -1,6 +1,6 @@
 # 0021: Graphical VM console: Incus's own VGA console (SPICE) relayed through the web interface
 
-Status: Proposed. The server side (ticket, relay, limits) is built and tested with a fake Incus; it is NOT VERIFIED against a real Incus VM. The picture in the browser is not built (rule 6).
+Status: Accepted (2026-11-10), on condition: it stays behind the `webTerminal` setting and is not announced until run against a real Incus VM (#261). The server side (ticket, relay, limits) is built and tested with a fake Incus; it is NOT VERIFIED against a real Incus VM. The picture in the browser is not built (rule 6).
 Issue: hobnix/server#261 (part of #199). Builds on the browser terminal (docs/PLAN-web-backend.md, scripts/web_terminal.py).
 
 ## Context (checked 2026-11-08 on develop)

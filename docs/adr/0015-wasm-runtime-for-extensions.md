@@ -1,6 +1,6 @@
 # 0015: WebAssembly for extension scripts: defer, keep the protocol transport-neutral
 
-Status: Proposed
+Status: Accepted (2026-11-10)
 Issue: hobnix/server#266 (epic #197). Related: ADR 0010 (command protocol, #237), ADR 0011 (service lifecycle, #238), ADR 0014 (permissions, #239), Rust SDK #240.
 
 This is a research record. The recommendation is "defer, with named triggers". Nothing in it was run on a NixOS host: the size and build

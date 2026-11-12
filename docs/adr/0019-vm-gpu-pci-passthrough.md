@@ -1,6 +1,6 @@
 # 0019: VM hardware step: detect first, pass through second, bridge by default
 
-Status: Proposed
+Status: Accepted (2026-11-10) as an approach; unverified: written without a machine that has IOMMU, only scripts/lib/iommu.py against fixtures is built.
 Issue: hobnix/server#260 (research). Written without a machine that has a second GPU or an enabled IOMMU: every statement about real behaviour
 is from the Incus documentation or general Linux knowledge and is marked **Unverified** where it matters. Not tested on hardware.
 
