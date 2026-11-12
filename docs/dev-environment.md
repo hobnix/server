@@ -98,6 +98,13 @@ The same model in hobnix/server, hobnix/recipes and hobnix/extensions.
 9. A pull request opened by an AI session carries the label `agent-pr` from the start (`gh pr create --label agent-pr`); the DCO job is
    skipped for it and the maintainer who merges it takes the responsibility (CONTRIBUTING.md).
 
+### Release rhythm
+
+There is no fixed rhythm and there are no due dates (owner decision 2026-11-10; maybe after 1.0). **What is verified ships, what is not moves
+on.** A release holds only what ran on a real server or VM, with the date recorded; anything else is behind a switch that is off, or says
+"Not tested on hardware yet." On release day an issue with every "Done when" box ticked is closed; one that is merged but not run stays open
+(In Review) and moves to the next milestone, listed in the release notes as not verified; one that is not merged moves on with its branch.
+
 ### What CI runs (.github/workflows/ci.yml)
 
 | Job | What | When |
