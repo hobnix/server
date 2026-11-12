@@ -1,6 +1,6 @@
 # 0017: The capabilities repository: layout, vendored Nix modules, regeneration on the machine, CI across repositories, channels and release flow
 
-Status: Proposed
+Status: Accepted (2026-11-10)
 Issue: hobnix/server#217 (epic), with #221, #224, #225, #228, #229, #231 and #233. Builds on ADR 0007 (branches and releases), ADR 0008
 (capabilities and packages) and ADR 0009 (a capability is a package kind); it does not repeat them.
 
@@ -161,19 +161,16 @@ that are still open in their own pull requests, so this one is 0017.
 
 ### G. Release flow and branch protection (#233; write-up only for hobnix/server)
 
-27. **Flow** (ADR 0007 made concrete): `feature/*` → `develop`; when `develop` is releasable, cut **`release/vX.Y.Z`** from it (bug-fix only
-    on that branch, version bump, changelog, beta tags `vX.Y.Z-beta.N` signed on it); then a pull request `release/vX.Y.Z` → `main` with a
-    **merge commit**, signed `vX.Y.Z` tag on `main`, and `main` merged back into `develop`. The `release/*` branch is what the beta channel
-    follows between rc and stable: **this adds a step to ADR 0007**, which says beta tags are cut from `develop`; the plan is that
-    beta tags come from `release/*` only while a release is open and from `develop` otherwise. The same flow, without the extra branch if
-    the owner prefers (open question 4), applies to hobnix/recipes, hobnix/extensions and hobnix/capabilities via `release.sh`
-    (which gains `beta`).
+27. **Flow** (ADR 0007 made concrete, no `release/*` branch, owner decision 2026-11-10): `feature/*` → `develop`; `develop` is the release
+    candidate (bug fixes only while a release is tested; the next milestone is built on its own long-lived branch); a pull request
+    `develop` → `main` with a **merge commit**, signed `vX.Y.Z` tag on `main`, `main` merged back into `develop`. Beta tags
+    `vX.Y.Z-beta.N` are signed on `develop`, as ADR 0007 says. The same flow applies to hobnix/recipes, hobnix/extensions and
+    hobnix/capabilities via `release.sh` (which gains `beta`).
 28. **Branch protection** (settings, `gh api`):
     - `main`: pull request required (1 approval, none for the sole owner while the team is one person: open question 5), required status checks
       (core: the jobs of ci.yml; packages: `check`), **linear history not required** (merge commits), no force pushes, no deletion,
       admins included, signed commits not required (tags are signed, ADR 0007), only the release pull request and hotfixes target it.
     - `develop`: pull request required, required checks, no force pushes, no deletion, auto-delete of merged branches.
-    - `release/*`: a ruleset with the same checks, creatable by maintainers only.
     - **hobnix/capabilities (new repository): applied by this task.** **hobnix/server, hobnix/recipes, hobnix/extensions: not applied; this
       record is the write-up (the owner decides).**
 29. **Required for the first release:** the real public key in `config/trusted-keys/server.allowed_signers` and the first signed tag on
@@ -191,7 +188,7 @@ that are still open in their own pull requests, so this one is 0017.
 | 4 | Pilot: move one capability without `module.nix`; the core's list of capabilities shrinks by one; CI both ways | #225, #228 | both repositories green, a server installs it from the stable tag |
 | 5 | Wizard step (rules 21 to 23) with the installer ISO carrying the index | #229 | tested on a throwaway VM and on hardware ("Not tested on hardware yet." until then) |
 | 6 | Channels complete for capabilities and compatibility gating (rules 24 to 26), first signed core release, `release.sh beta` | #231, #235 | stable followed on a real server |
-| 7 | Release flow with `release/*` and protection on the remaining repositories (rules 27, 28) | #233 | owner approval |
+| 7 | Release flow and protection on the remaining repositories (rules 27, 28) | #233 | owner approval |
 | 8 | Move the capabilities that have a `module.nix`, one at a time, starting with the least entangled (decided per capability, ADR 0009 rule 2) | #217 follow-ups | each: matrix green with it removed from the core |
 
 Phases 1 to 3 are core-only and can run in parallel after phase 0 (they touch `pkg.py`, `nix-matrix.sh`/`default.nix`, `schema-gen.py`).
@@ -207,16 +204,15 @@ Phases 1 to 3 are core-only and can run in parallel after phase 0 (they touch `p
   old. Rule 25 and rule 9 turn that into a refused rebuild with a named package instead of a silent breakage.
 - hobnix/capabilities carries AGPL while the other package repositories are MIT: a recipe author moving to capabilities relicenses.
 
-## Open points (questions for the owner)
+## Decided by the owner (2026-11-10)
 
-1. **Pilot capability:** `ad`, `network`, `docs`, or another without `module.nix`? (`ad` is computed from `adDomain` in `configuration.nix`;
-   `docs` is tied to `webDocs`.) The recommendation is `network`, if its manifest has no `module.nix` dependency; to be checked in phase 4.
-2. **Vendor location:** `/etc/nixos/vendor/capabilities/` ignored by git (proposed) or tracked in a local branch? Proposed keeps `hs update` simple.
-3. **Licence of the repository:** AGPL-3.0 (already set; consistent with the core) or MIT like recipes/extensions?
-4. **`release/*` branches:** introduce them (rule 27; changes ADR 0007's "beta from develop") or keep develop → main with beta tags on `develop`?
-5. **Approvals on `main`:** require one approving review (blocks a sole maintainer) or only status checks plus the pull request?
-6. **Which repository does the first signed capability release use as its trust key,** the core release key (proposed) or a separate one?
-7. **Cross-repository branch pairing in CI** (rule 17): a branch of the same name, a marker in the pull request description, or always `develop`?
-8. **Silent patch updates** of capability packages without a module: allowed for default repositories (rule 26)? (open point of PLAN-packages)
-9. **Does `edge` follow capabilities' `develop`?** The proposal says no (tags only); developers of a capability would use a beta tag.
-10. **Backup of `vendor/`:** part of `hs backup config` (#337 area) or regenerated from the lock only?
+1. **Pilot capability:** `network`, if its manifest has no `module.nix` dependency (checked in phase 4); otherwise `docs`.
+2. **Vendor location:** `/etc/nixos/vendor/capabilities/`, ignored by git.
+3. **Licence:** AGPL-3.0 (as set).
+4. **No `release/*` branches.** `develop` is the release candidate; beta tags come from `develop` (rule 27 as above).
+5. **Approvals on `main`:** status checks and the pull request only, no required review while the team is one person.
+6. **Trust key:** the core release key; the core lists it in `config/trusted-keys/capabilities.allowed_signers`.
+7. **Cross-repository CI pairing:** a branch of the same name if it exists, else `develop` (rule 17).
+8. **Silent patch updates** of packages without a module: no, until a real server has run the flow once; then default repositories only.
+9. **`edge` does not follow** capabilities' `develop` (tags only).
+10. **Backup of `vendor/`:** `hs backup config` includes `vendor/` and its lock, so a rebuild does not depend on reaching a repository.

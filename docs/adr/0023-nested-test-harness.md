@@ -1,6 +1,6 @@
 # 0023: Hobnix-in-Hobnix test harness: nested instances from the ISO
 
-Status: Proposed
+Status: Accepted (2026-11-10)
 Issue: hobnix/server#262 (part of #199). Builds on #185 (answers file format), #163 / TODO A5 (rebuild rehearsal) and #175 (ISO boot check).
 
 **UNVERIFIED.** Nothing in this record or in the harness has been run against a real VM: the machine it was written on has no nix, docker,

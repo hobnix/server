@@ -87,7 +87,7 @@ hs_auth_login() {
       chmod 700 "$hs_auth_d"
       export DOCKER_CONFIG=$hs_auth_d
     fi
-    printf "%s" "$hs_t" | docker login -u "$hs_u" --password-stdin "$hs_h" >/dev/null 2>&1 || { echo "The login to $hs_h failed." >&2; return 1; }
+    printf "%s" "$hs_t" | docker login -u "$hs_u" --password-stdin -- "$hs_h" >/dev/null 2>&1 || { echo "The login to $hs_h failed." >&2; return 1; }
   done
 }
 '

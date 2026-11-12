@@ -1,6 +1,6 @@
 # 0001: Rust behind the hs sys contract (strangler)
 
-Status: Proposed
+Status: Accepted (2026-11-10)
 Issue: hobnix/server#122 (epic #121)
 
 ## Context

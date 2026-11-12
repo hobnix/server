@@ -82,7 +82,7 @@ The same model in hobnix/server, hobnix/recipes and hobnix/extensions.
 
 1. Start a worktree from `origin/develop`, name the branch `feature/<topic>`, open the pull request against `develop`. CI runs on every
    pull request, whatever its target.
-2. To release, cut `release/X.Y` from `develop` (`scripts/dev/release-core.sh branch X.Y`), open a pull request from it into `main` and merge it with a **merge commit** (no squash, so `develop` stays an
+2. To release, open a pull request from `develop` into `main` (there is no `release/*` branch: `develop` is the release candidate) and merge it with a **merge commit** (no squash, so `develop` stays an
    ancestor of `main`). Then, on `main`, tag it: core `git tag -s vX.Y.Z`, package repositories `bash <core>/scripts/dev/release.sh`
    (it refuses unless you are on `main`, clean and equal to `origin/main`). The tag on the core builds the installer ISO. The core's tag:
    `scripts/dev/release-core.sh tag vX.Y.Z`. Steps, hotfixes, the milestone branch (`0.2`) and the ruleset proposals: docs/RELEASE-PROCESS.md.
@@ -94,9 +94,18 @@ The same model in hobnix/server, hobnix/recipes and hobnix/extensions.
    after each merge: two pull requests that pass alone can fail together. A red `develop` is fixed before anything else is merged.
 6. Code for a decision record (`docs/adr/`) is merged after the record is Accepted, or behind a switch that is off by default.
 7. An issue is closed when every box under "Done when" is ticked. Merged but not run: it stays open, in the board column In Review.
-8. One milestone at a time, and at most three issues In Progress. Work for a later milestone waits until the current one is released.
+8. One milestone is *released* at a time, and at most three issues are In Progress. The next milestone may be built on its own long-lived
+   branch (now `0.2`; `develop` is merged into it after every change). Right after the release tag, `main` is merged back into `develop` and
+   the milestone branch is merged into `develop` (docs/RELEASE-PROCESS.md).
 9. A pull request opened by an AI session carries the label `agent-pr` from the start (`gh pr create --label agent-pr`); the DCO job is
    skipped for it and the maintainer who merges it takes the responsibility (CONTRIBUTING.md).
+
+### Release rhythm
+
+There is no fixed rhythm and there are no due dates (owner decision 2026-11-10; maybe after 1.0). **What is verified ships, what is not moves
+on.** A release holds only what ran on a real server or VM, with the date recorded; anything else is behind a switch that is off, or says
+"Not tested on hardware yet." On release day an issue with every "Done when" box ticked is closed; one that is merged but not run stays open
+(In Review) and moves to the next milestone, listed in the release notes as not verified; one that is not merged moves on with its branch.
 
 ### What CI runs (.github/workflows/ci.yml)
 

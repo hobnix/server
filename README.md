@@ -7,6 +7,20 @@ This is the server repository. Apps (recipes) and optional parts (extensions) ar
 [recipes](https://github.com/hobnix/recipes) and [extensions](https://github.com/hobnix/extensions);
 `hs pkg` installs them from signed releases.
 
+## Who Hobnix is for
+
+Hobnix is for people who run a home server today, for example with Unraid, and want apps, shares and backups on a system they can read and
+rebuild. It is a home NAS with apps first, not a virtualization platform.
+
+What Hobnix does better than Unraid and Proxmox:
+
+1. **Roll back the whole system**, not one app. Every update is a NixOS generation. Not tested on hardware yet.
+2. **Rebuild the server from a backup disk and a passphrase.** Not tested on hardware yet.
+3. **The server is a readable git repository.** One `machine.toml`; every change shows a plan first, and a destructive one asks you to type the name.
+
+What it does not do before 1.0: clusters with shared state, high availability, live migration. One server, or a few servers that each
+stay the owner of their own things (ADR 0013).
+
 NixOS + Incus + ZFS home server configuration, shared between machines.
 Each server keeps its own `machine.toml` and `hardware-configuration.nix`
 (both git-ignored); everything else comes from this repo.

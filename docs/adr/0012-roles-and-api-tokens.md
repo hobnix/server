@@ -1,6 +1,6 @@
 # 0012: Roles and API tokens: viewer, app manager, admin
 
-Status: Proposed
+Status: Accepted (2026-11-10)
 Issue: hobnix/server#257 (part of #195). The owner decides; nothing here is built.
 
 ## Context
@@ -73,11 +73,11 @@ There is one verifier (the web server on the node). Signed tokens solve a proble
    that `scripts/openapi-gen.py` reads and copies into `docs/api/openapi.json` as `x-hs-role`). A test fails when a row in `registry.tsv` has
    no role field and is not on the explicit admin list, and when a row that runs a change (`plan`, `start`) is marked `viewer`. A new row cannot
    ship without a decision. Reads that expose a secret or a key are `admin` even though they change nothing: `vault`, `secrets`, `unlock`,
-   `ssh-key list`, `node keyline`, `users details`. Initial assignment by group (of 235 rows: 118 `viewer`, 11 `app-manager`, 106 `admin`) (the full list of all rows is in `docs/adr/0012-roles-sys-rows.tsv`, generated from this rule and from the verbs below; the owner reviews it with the record):
+   `ssh-key list`, `node keyline`, `users details`. Initial assignment by group (of 238 rows in the file: 116 `viewer`, 14 `app-manager`, 108 `admin`) (the full list of all rows is in `docs/adr/0012-roles-sys-rows.tsv`, generated from this rule and from the verbs below; the owner reviews it with the record):
 
    | Group of rows | Read | Change |
    | --- | --- | --- |
-   | state, health, jobs, event, disk, pool, shares, backup, logs, deck, status, monitor, fm (browse) | viewer | admin |
+   | state, health, jobs, event, disk, pool, shares, backup, deck, status, monitor, fm (browse) | viewer | admin |
    | ct, docker, docker-app, recipes, pkg (recipes) | viewer | app-manager |
    | users, vault, secrets, unlock, ssh-key, admin, config, system, release, net, dc, edge, gateway, vps, node, peers, remote, power | admin | admin |
 
@@ -116,13 +116,13 @@ There is one verifier (the web server on the node). Signed tokens solve a proble
 - A person who is `app-manager` can start code of an app they installed. They are trusted with the apps, not with the host; a recipe that mounts
   a share or opens a port is still a change an admin has to accept, and a rule for that is not written here.
 
-## Open points
+## Decided by the owner (2026-11-10)
 
-- Whether `viewer` may read logs (`logs`, `ct logs`, `docker logs`): logs can hold secrets. The table lists them as `viewer`; proposed: review before accepting.
-- Whether `viewer` may read the audit log (it names people). Proposed: admin only.
-- Whether `app-manager` may see the logs of an app (probably yes, through the app's own page) and the console of an instance (probably no).
-- Per-object scope (this app, this share) instead of a global role. Not proposed: three global roles first.
-- Names of the AD groups and how `hs users` creates them without surprising an existing domain.
-- Rate limits and lockout for token use (AD lockout does not apply to a token).
-- Follow-up issues once accepted: the role field and its test, the check in `web-serve.py`, `HS_ACTOR` from the web server, `hs token`
-  (create, list, revoke) with its `sys` rows, the role-aware web interface, the AD groups, extension manifests.
+- **Logs are not for `viewer`.** `logs units` and `logs show` are `admin`; `ct logs` and `docker logs` are `app-manager` (the app's own page).
+  Logs can hold secrets. The rows in `0012-roles-sys-rows.tsv` follow.
+- **The audit log is `admin` only** (it names people).
+- **`app-manager` sees an app's logs, never the console of an instance.**
+- **Three global roles first;** no per-object scope (this app, this share).
+- **Still open, as follow-up issues once accepted:** the names of the AD groups and how `hs users` creates them without surprising an
+  existing domain; a rate limit and lockout for token use (AD lockout does not apply to a token); the role field and its test, the check in
+  `web-serve.py`, `HS_ACTOR` from the web server, `hs token` (create, list, revoke) with its `sys` rows, the role-aware web interface, extension manifests.

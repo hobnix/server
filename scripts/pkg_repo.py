@@ -149,7 +149,7 @@ class Repos:
             git("fetch", "--quiet", "--tags", "--force", "origin", cwd=d)
         else:
             os.makedirs(os.path.dirname(d), exist_ok=True)
-            git("clone", "--quiet", "--no-checkout", r["url"], d)
+            git("clone", "--quiet", "--no-checkout", "--", r["url"], d)
             git("fetch", "--quiet", "--tags", "--force", "origin", cwd=d)
 
     def tags(self, r):

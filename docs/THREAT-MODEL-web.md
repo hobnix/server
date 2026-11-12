@@ -42,8 +42,69 @@ data of every share and instance.
 Method: the matching rules of `READS` and `CHANGES` were checked as a whole, not value by value. Checked: every word is matched with
 `fullmatch` (a trailing newline cannot slip through); the names and ids sampled start with a letter or digit; free-text option values
 (`FM_PATH`, `--title`, `--description`) may start with `-` but always follow their option as a separate word; paths cannot contain `..` (`CT_PATH`, `SHARE_PATH`, `DISKPATH`) or are checked again by the script (file manager);
-passphrases, passwords and the SSH/package keys use stdin; `--request-header` and similar fields are one printable line. Not done: a
-row-by-row review of every script behind every row (several hundred). What the review found is under "Findings".
+passphrases, passwords and the SSH/package keys use stdin; `--request-header` and similar fields are one printable line. The scripts behind the rows were reviewed afterwards, see the next section. What the first review found is under "Findings".
+
+## Row-by-row review of the scripts behind the allowlists (#505)
+Method: for every `CHANGES` area the script behind it (`hs sys <area> plan|start` in `scripts/lib/registry.tsv`) was read for how it takes
+each option value: is the value checked again inside the script (so it does not depend on the web pattern), is it handed on as ONE argument
+(never in a string that is parsed again), does a value that starts with `-` reach a command as an option (`--` or a fixed prefix), can a path
+leave its folder (`..`, links), does the root script write the value into a file that is read again (TOML, conf, `.env`, LDIF). hs-web.service
+and so every script below runs as root; none of them reads a value as shell code (`eval` / `bash -c` / `sh -c` are only used with constant
+text and the values as positional parameters; the one `eval` in fm.sh expands fixed variable names).
+
+What stays in the test suite: `WordsThatStartWithADash` in tests/web-changes-test.py (no positional word of a change and no read argument
+accepts a leading dash; a value that follows its option as a separate word is the intended exception) and the per-script tests added with
+each fix (tests/docker-registry.sh, iso.sh, manage-legacy.sh, web-data-settings.sh, dialogues.sh, fm.sh, notify-channel.sh).
+
+Depth: **read** = the argument handling and every place the value is used was read. **outline** = the validation lines and the commands that
+receive the values were read, not every line of the script. Verdict: **ok**, **fixed** (in this change), **note** (a remark).
+
+| Row (`CHANGES` area: verbs) | Script | Depth | Verdict |
+|---|---|---|---|
+| `jobs`: run, stop, answer | jobs-change.sh, jobs-answer.sh | read | ok. The unit must match `hs-*.service`; `systemctl start/stop` get it last. The answer is one line on stdin. |
+| `fm`: copy, move, delete, rename, mkdir | fm.sh | read | ok. `fm_clean_path` refuses `..`, empty parts and control characters; the real path (`readlink -f`) must stay below the location root; the selection comes on stdin, NUL separated, names hold no `/`. **fixed:** `--sel-file` (not in the web allowlist) accepted `<jobs>/../../x.sel` because `*` in a `case` pattern matches `/`. |
+| `ssh-key`: add, remove | ssh-key-change.sh | read | ok. One line, no control characters, the key line is matched again in the script and `ssh-keygen -lf` must accept it. |
+| `pool`: add, adopt, replace, remove, ... | pool-change.sh | outline | ok. Pool name `^[a-z][a-z0-9_-]*$`; disk ids have no `/` or `..`; the passphrase is stdin. |
+| `incident` | storage-incident.sh | web pattern only | ok. Fixed verbs in the allowlist. |
+| `disk`: format, mount, temp-mount, ... | disk-change.sh | outline | ok. Disk name starts with a letter or digit and holds no `..`; partitions `^[a-z0-9][a-z0-9-]*$`; mount names and share names re-checked. |
+| `peers`: offer, add, remove, revoke, attach, detach | peer-change.sh | read | ok. Every value goes through `valid` (peer, host, share, login, domain, path); the password is stdin. note: `attach --path` is a path inside an instance and may hold `..` (the instance's own file system). |
+| `secrets`: header-backup, move, close, fix | vault-change.sh (called by the Rust `secrets`) | read | ok. Secret names `^[A-Za-z0-9][A-Za-z0-9._-]{0,60}$`; an option that starts with `-` is refused. |
+| `testlab`: run | testlab-change.sh, testlab.sh | outline | ok. `--stage` is a fixed list; `--ref` is a dry run of testlab.sh, which refuses anything that is not a branch, tag or commit name (never an option or a refspec). |
+| `admin`: fans-clean, ... | admin-change.sh | outline | ok. `--seconds` is a number 3 to 30. |
+| `dc`: renew, ca | dc-change.sh | outline | ok. `--dc` is an instance name that starts with a letter or digit. |
+| `net`: set router | net-change.sh | outline | ok. Address `^https?://[A-Za-z0-9._:-]+$`; the key is stdin. |
+| `routes`: apply, adopt, import, remove, set, add, edit | services-change.sh, services.py | read | ok. Every value reaches services.py as one argument; the descriptor is written with `q()` (backslash and quote escaped, one line), so a title, header or description cannot add a key. `--request-header` / `--response-header` are `Name: value` on one printable line. note: services.py finds an option by its name in the argument list, so a title that is literally `--port` can confuse the parsing of the SAME call (it ends in an error or a wrong field of that service); it cannot reach another service. |
+| `pkg`: install, update, remove, fetch, repo-add, repo-remove, check-draft | pkg-change.sh, pkg_repo.py | read | ok. The repository address must start `https://`, `ssh://git@` or `git@` and holds no `..`; only a tag whose signature verifies is used. **fixed:** `git clone` got no `--` before the address (defence in depth). |
+| `recipes`: run | recipe-change.sh | read | ok. `--set KEY=value`: KEY is `[A-Z][A-Z0-9_]*` and must be a question of the recipe (or a `DASH_` / `PUBLIC_` / `PUBLIC_NAME_` key with its own pattern); the value must fit the recipe's pattern and holds no control character; it reaches the job as ONE `RECIPE_KEY=value` line of the job environment, never in argv. A secret goes into a root-only file. `--name` is a container name that starts with a letter or digit. |
+| `vps`: update, watch | vps-change.sh | outline | ok. The host comes from machine.toml and is checked; the key is forced to two words. |
+| `parts`: enable, disable | part-change.sh | web pattern only | ok. |
+| `node`: add, remove, ... | node-change.sh | outline | ok. Name `^[a-z][a-z0-9-]*$`, host starts with a letter or digit and holds no `..`, port is a number. |
+| `ct`: start, stop, snapshot, restore, add-storage, set, ip, create, delete, ... | ct-change.sh, manage-ct.sh | outline | ok. Names, labels and snapshot names are checked again (`^[A-Za-z0-9][A-Za-z0-9._-]*$`); binds match a pattern without `..`; the path inside the instance is one argument (`path=<value>`) of incus. |
+| `backup`: now, restore, offsite-set, init, drill, ... | backup-change.sh | outline | ok. The restic repository may not start with `-` or hold `..`; disk ids and counts are checked. |
+| `shares`: add, rename, snapshot, rollback, perm, restore, purge, ... | share-change.sh, share-snap.sh, share-restore.sh | read | ok. Share names, labels, snapshot ids, SIDs and `--as` are checked again. **fixed:** `restore <folder>` joined a folder with `..` to the share path (the web interface and share-change.sh refused it, share-restore.sh did not). |
+| `users`: user-add, user-edit, group-*, password, membership, ... | user-change.sh, manage-users.sh | read | ok. A name must be in the real list (`grep -qixF`) before it reaches an LDAP filter; `samba-tool` gets each value as one argument; `--edit` writes LDIF with base64 values. **fixed:** `--add --full` was not checked in manage-users.sh (only the web interface and `--edit` had the pattern). |
+| `expiry`: add, remove | expiry-change.sh, expiry.sh | read | ok. Name from a small character set; the hint holds no tab or newline; written with `printf '%s\t%s\t%s'`. |
+| `iso`: add, remove | iso-change.sh | read | ok. URL pattern without user name; `curl --proto =http,https -- <url>`; a path holds no `..`; the name ends in `.iso`; the image must carry the ISO 9660 mark; a checksum is required unless `--no-checksum`. **fixed:** the check "this server does not download from itself" was bypassed by `2130706433`, `0x7f.1`, `0177.0.0.1` and `localhost.` (curl reads them as 127.0.0.1). A name that only resolves to a loopback or private address (DNS) is still accepted: a LAN mirror is a legitimate source. |
+| `health`: ack, unack, resume | health-change.sh | web pattern only | ok. |
+| `release`: set channel | release-change.sh | web pattern only | ok. |
+| `system`: sync, scrub, update, rebuild, gc, rollback, reboot, shutdown | system-change.sh | outline | ok. Pool `^[a-z][a-z0-9_-]*$`, `--days` is a number. |
+| `gateway`: set, ... | gateway-setup.sh | web pattern only | ok. `GW_SET` is a fixed key and `[A-Za-z0-9.,@_+-]` as the value. |
+| `docker`: set, ... | docker-setup.sh | web pattern only | ok. `DOCKER_SET` lists the keys and their values. |
+| `docker-app`: start, stop, app-save, app-write, rebuild, delete | docker-app-change.sh | outline | ok. App name `^[a-z0-9][a-z0-9_-]*$`; paths and the project name go to `incus exec ... -- sh -c '<constant>' sh "$arg"` as positional parameters, never into the script text; the document comes as bytes on stdin. |
+| `docker-registry`: add, remove | docker-registry-change.sh, lib/docker-auth.sh | read | ok. Token on stdin, in a throwaway `DOCKER_CONFIG`. **fixed:** the address could be `-h` or `--help` (handed to `docker login` as an option, in the check and in the app login) and was used as a regex in `grep -v` (a dot matched any character: removing `a.b.io` could delete `axb.io`). It now starts with a letter or digit, `docker login ... -- <host>`, exact match with awk. |
+| `config`: set, apply, sync, migrate | config-change.sh | read | ok. The key must be in the settable list; quotes and backslashes are refused; numbers and booleans are matched; the file is checked (`hs config check`) and put back when it fails. **fixed:** a newline in a string value passed the pattern check (`grep -E` on a here-string matches any line) and would have written a second line into machine.toml. |
+| `notify`: add, set, remove, test, migrate | notify-change.sh, notify-channel.sh, lib/channels.sh | read | ok. Secrets are stdin; a channel file is read as data (never `source`d). **fixed:** a `--set` value of `@setting:../../x` made `chan_load_text` read an arbitrary file as a setting; the key must be a plain setting name now. |
+
+`READS` (124 rows, all `hs sys <words>` rows of kind read): checked mechanically (tests/web-changes-test.py `WordsThatStartWithADash`) and by
+reading the scripts of the free-text arguments. No read takes a value from the client that is not matched by a pattern that starts with a
+letter or digit, except `fm ls --path` (checked again by fm.sh, see `fm`), `backup find <word>` (wrapped as `*word*` before restic sees it;
+control characters refused) and `logs show --unit` (a value after its option). The reads that take a name (`ct logs/bindings/snapshots/
+storage/users`, `node show/keyline/status`, `shares acl/visible/mounts/history`, `users access/details`, `state smart`, `disk results/ls`,
+`docker app/rev/logs`, `recipes asks/steps`, `jobs record/tail`, `live raw`) were not each read to the last line; their patterns are
+`NAME`/`UNIT`/fixed forms that start with a letter or digit.
+
+Not done: a line-by-line read of the rows marked "outline" or "web pattern only". Not tested on hardware yet: every fix is covered by a test
+with fakes that ran on Linux (WSL), none ran on a server.
 
 ## Findings
 Fixed in this change:
@@ -59,4 +120,3 @@ Open (filed as issues in milestone 0.2, see the pull request):
 - One role only: no read-only account, and the browser terminal is root-equivalent by design.
 - No `__Host-` cookie prefix and no `Secure` flag on plain HTTP (by design on the home network; HTTP sends the cookie in clear).
 - Session list and a "sign out everywhere" button do not exist; sessions of the same admin are never ended by a password change.
-- Row-by-row review of the scripts behind the allowlists, and free-text answers (`recipes --set`, `routes --request-header`).
