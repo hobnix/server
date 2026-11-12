@@ -1,0 +1,5 @@
+date  = "2026-11-12"
+type  = "feature"
+title = "The Updates page shows the update channel and the version it would install"
+body  = """Settings > Updates now shows the update channel, the ref the next update would install (from the refs already fetched) and, for beta and edge, a plain warning: they can break things and are never applied by themselves. A button opens the Releases page to change the channel. Not tested on hardware yet."""
+docs  = "web-interface"

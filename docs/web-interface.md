@@ -92,7 +92,7 @@ Not tested on hardware yet.
 
 **Settings** has subpages in the left tree: **General** (name, language, look, the Nodes link), **Network and DNS**, **Storage**, **Backups**,
 **Users and access** (SSH keys, web access, the terminal, Active Directory), **Updates** (installed revision, how many changes are
-waiting upstream, **Update**, a link to What's new, and **Sync new options** for new keys in `machine.toml`), **Capabilities** (every optional
+waiting upstream, the update channel with the version the next update would install (beta and edge carry a warning: they can break things and are never applied by themselves), **Update**, a link to What's new, and **Sync new options** for new keys in `machine.toml`), **Capabilities** (every optional
 part and extension with its switch) and **Advanced** (every key, read-only ones too, and **Check** for typos in `machine.toml`). Each
 capability that is switched on and has settings of its own (the gateway, metrics, Tailscale ...) also gets a page under **Capabilities**:
 the switch, then its keys. A capability that is off keeps its page, so you can switch it on there. The address `/settings` shows an overview of

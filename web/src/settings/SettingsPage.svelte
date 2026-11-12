@@ -10,7 +10,9 @@
   import PageHeader from '../shell/PageHeader.svelte';
   import Button from '../ui/Button.svelte';
   import StatusDot from '../ui/StatusDot.svelte';
+  import { tr } from '../i18n.js';
   import { updatesTag } from './tag.js';
+  import { releaseModel, channelCard } from './releases.js';
   import Fields from './Fields.svelte';
   import WizardSteps from './WizardSteps.svelte';
   import layout from './layout.gen.json';
@@ -56,6 +58,9 @@
   const behind = $derived(Number(upd.behind) || 0);
   const fetched = $derived(upd.fetched && upd.fetched !== '-' ? new Date(Number(upd.fetched) * 1000).toLocaleString() : 'never');
   $effect(() => { if (page === 'updates' && !changes.loaded) load(); });
+  // Updates: the channel and the ref the next update installs (`hs sys release show`, fetched refs only)
+  const release = poll(() => (page === 'updates' && !deck?.data?.locked ? '/api/sys/release/show' : ''), 60000);
+  const chan = $derived(channelCard(releaseModel(rows(release))));
 
   // Advanced: check machine.toml
   let chk = $state(null);          // { text, rc } of the last check
@@ -99,9 +104,15 @@
         <div class="kv"><span>Installed revision</span><code>{changes.head ? changes.head.slice(0, 7) : '-'}</code></div>
         <div class="kv"><span>Upstream</span><code>{upd.upstream && upd.upstream !== '-' ? upd.upstream : 'none'}</code></div>
         <div class="kv"><span>Last looked</span><span>{fetched}</span></div>
+        {#if chan}
+          <div class="kv"><span>{tr('Update channel')}</span><span>{tr(chan.channel === 'stable' ? 'Stable' : chan.channel === 'beta' ? 'Beta' : 'Edge')}</span></div>
+          <div class="kv"><span>{tr('Would install')}</span><code>{chan.ref}</code></div>
+          {#if chan.warn}<p class="hp2 warnt">{tr(chan.warn)}</p>{/if}
+        {/if}
         <p class="hp2">{updates.loaded ? (behind > 0 ? `${behind} new change${behind === 1 ? '' : 's'} upstream.` : 'Up to date as of the last look.') : 'Loading…'}</p>
         <div class="acts">
           <Button variant="primary" class="settingspage-b13" icon="arrow-circle-up" busy={jobRunning('system', ['update'])} busyLabel="Updating…" tooltip={'Update the server (snapshots first; shows the plan)'} disabled={!!deck?.data?.locked} onpointerenter={() => prefetchPlan('system', ['update'])} onfocus={() => prefetchPlan('system', ['update'])} onclick={() => openPlan('system', ['update'], 'Update')}>Update…</Button>
+          <Button class="settingspage-b13" tooltip={tr('Choose which version this server follows')} onclick={() => go('/settings/releases')}><i class="ph ph-git-branch"></i>{tr('Update channel')}…</Button>
           <Button class="settingspage-b13" tooltip={'Read what is new, change by change'} onclick={() => go('/operations/whats-new')}><i class="ph ph-sparkle"></i>What's new</Button>
         </div>
       </div>
@@ -135,6 +146,7 @@
 <style>
   .page { display: flex; flex-direction: column; gap: 14px; }
   :global(.btn.settingspage-b13) { font-size: 13px; }
+  .warnt { color: var(--st-warn); }
   .hp2 { margin: 0; font-size: 12.5px; color: var(--color-neutral-500); }
   .cols { column-width: 400px; column-gap: 14px; }
   .sec { padding: 14px 16px; gap: 10px; break-inside: avoid; margin-bottom: 14px; }
