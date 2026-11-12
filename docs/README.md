@@ -50,6 +50,7 @@ Docs page shows them under *Apps* and *Extensions*.
 | [RELEASE-NOTES-0.1](RELEASE-NOTES-0.1.md) | Draft release notes of 0.1.0, with the hardware-UNVERIFIED parts |
 | [PLAN-docker-instances](PLAN-docker-instances.md) | Docker as a capability: locked instances, child apps, recipes with `runs` |
 | [PLAN-selfservice](PLAN-selfservice.md) | Self-service password change for domain users |
+| [PLAN-web-auth](PLAN-web-auth.md) | Sign-in and sessions for the web interface |
 | [roadmap](roadmap.md) | Milestones and open work, a snapshot of the GitHub project board and TODO.md |
 | [Architecture decisions](adr/README.md) | Decision records (ADRs), starting with Rust behind the `hs sys` contract |
 | [CLI-DESIGN](CLI-DESIGN.md) | The look of every `hs` command |
