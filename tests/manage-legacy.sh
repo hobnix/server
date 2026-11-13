@@ -3,7 +3,7 @@
 # the messages for people use the styled helpers (plain text here), failures still exit 1. Fake incus, no root.
 # shellcheck source=tests/lib.sh
 . "$(dirname "$0")/lib.sh"
-export HS_LANG=en HS_PLAIN=1
+export HS_LANG=en HS_PLAIN=1 HS_USERS_BACKEND=ad   # these tests cover the domain path; tests/users-local.sh the local one
 BIN=$WORK/bin; mkdir -p "$BIN"
 LOG=$WORK/incus.log; : > "$LOG"; export LOG
 cat > "$BIN/incus" <<'FAKE'

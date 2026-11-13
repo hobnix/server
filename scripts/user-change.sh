@@ -31,6 +31,8 @@ mu=${HS_MANAGE_USERS:-$here/manage-users.sh}
 access=${HS_USER_ACCESS:-$here/user-access.sh}
 mshares=${HS_MANAGE_SHARES:-$here/manage-shares.sh}
 wb=${HS_WBINFO:-wbinfo}
+. "$here/lib/users-backend.sh"
+local_be=false; [ "$(users_backend)" != local ] || local_be=true   # no domain: local accounts (lib/users-local.sh)
 
 # the job: apply the memberships one by one, stop at the first that fails, then flush the caches
 if [ "${1:-}" = apply ]; then
@@ -117,7 +119,7 @@ done
 if [ ${#groups[@]} -gt 0 ]; then
   known=$(bash "$mu" --groups 2>/dev/null | cut -f1 || true)
   for g in "${groups[@]}"; do
-    ! has_line "$g" "domain users" || refuse "Every user is in Domain Users; that can't be chosen here."
+    $local_be || ! has_line "$g" "domain users" || refuse "Every user is in Domain Users; that can't be chosen here."
     has_line "$known" "$g" || refuse "No group called '$g'."
   done
 fi
@@ -169,8 +171,8 @@ case "$action" in
       user=${c%%:*}; rest=${c#*:}; group=${rest%=*}; mode=${rest##*=}
       if ! has_line "$users" "$user"; then dry="No user called '$user'."; rc=1; break; fi
       if ! has_line "$groups" "$group"; then dry="No group called '$group'."; rc=1; break; fi
-      if has_line "$group" "domain users"; then dry="Every user is in Domain Users; that can't be changed here."; rc=1; break; fi
-      if [ "$mode" = remove ] && has_line "$user" administrator && has_line "$group" "domain admins"; then dry="Not possible: Administrator must stay in Domain Admins."; rc=1; break; fi
+      if ! $local_be && has_line "$group" "domain users"; then dry="Every user is in Domain Users; that can't be changed here."; rc=1; break; fi
+      if ! $local_be && [ "$mode" = remove ] && has_line "$user" administrator && has_line "$group" "domain admins"; then dry="Not possible: Administrator must stay in Domain Admins."; rc=1; break; fi
     done ;;
 esac
 if [ "$rc" -ne 0 ]; then
@@ -196,7 +198,8 @@ esac
 
 danger=""
 case "$action" in
-  user-delete)  danger="The user '$name' is deleted from the domain. His files on the shares stay, his share permissions become dead entries; a new user with the same name does not get them back." ;;
+  user-delete)  if $local_be; then danger="The user '$name' and its Samba password are deleted. His files on the shares stay, his share permissions become dead entries; a new user with the same name does not get them back."
+                else danger="The user '$name' is deleted from the domain. His files on the shares stay, his share permissions become dead entries; a new user with the same name does not get them back."; fi ;;
   group-delete) danger="The group '$name' is deleted. Its members stay; they lose the access the group gave them." ;;
 esac
 
@@ -224,20 +227,23 @@ echo "status	ok"
 case "$action" in
   lock)   printf "heading\tlock %s\nstep\tlock the account: it can't log in or open shares any more\nnote\tConnections that are already open stay until they are closed.\n" "$name" ;;
   unlock) printf 'heading\tunlock %s\nstep\tunlock the account: it can log in again\n' "$name" ;;
-  group-add) printf 'heading\tnew group %s\nstep\tcreate the group on the domain controller\nnote\tGive it access to shares in the Shares tab, and add members.\n' "$name"
+  group-add) printf 'heading\tnew group %s\nstep\tcreate the group%s\nnote\tGive it access to shares in the Shares tab, and add members.\n' "$name" "$($local_be || echo ' on the domain controller')"
     for a in ${grant[@]+"${grant[@]}"}; do printf 'step\tgive the group %s access to %s\n' "${a#*=}" "${a%%=*}"; done ;;
   flush)  printf 'heading\tforget cached users\nstep\tthe file server asks the domain controller again from now on\n' ;;
-  password) printf 'heading\tnew password for %s\nstep\tset the new password on the domain controller\nnote\tThe password is typed once in the interface, goes straight into samba-tool and is never shown or written to a log. The domain'"'"'s password rules apply (length and complexity); the job says if it is refused.\n' "$name" ;;
-  user-add) printf 'heading\tcreate the user %s\nstep\tcreate the account%s\nstep\tset its password\nnote\tThe user is in the group Domain Users and has no access to any share yet; use the Shares tab (permissions) and the groups of the user.\n' "$name" "${full:+ ($full)}"
+  password) printf 'heading\tnew password for %s\nstep\tset the new password %s\nnote\tThe password is typed once in the interface, goes straight into %s and is never shown or written to a log. %s the job says if it is refused.\n' "$name" \
+      "$($local_be && echo "for the Samba login" || echo "on the domain controller")" "$($local_be && echo smbpasswd || echo samba-tool)" \
+      "$($local_be && echo "It must not be empty;" || echo "The domain's password rules apply (length and complexity);")" ;;
+  user-add) printf 'heading\tcreate the user %s\nstep\tcreate the account%s\nstep\tset its password\nnote\t%s has no access to any share yet; use the Shares tab (permissions) and the groups of the user.\n' "$name" "${full:+ ($full)}" \
+      "$($local_be && echo "The user can open shares and nothing else (no shell, no home, no web sign-in); it" || echo "The user is in the group Domain Users and")"
     for g in ${groups[@]+"${groups[@]}"}; do printf 'step\tadd %s to %s\n' "$name" "$g"; done ;;
   user-delete)
-    printf 'heading\tdelete the user %s\nstep\tdelete the account from the domain\n' "$name"
+    printf 'heading\tdelete the user %s\nstep\tdelete the account%s\n' "$name" "$($local_be && echo ' and its Samba password' || echo ' from the domain')"
     g=$(bash "$mu" --list 2>/dev/null | awk -F'\t' -v u="$name" '$1 == u { print $4 }' | sed 's/,/, /g' || true)
     [ -z "$g" ] || printf 'warn\tHe is in these groups: %s\n' "$g"
     s=$(bash "$access" user "$name" 2>/dev/null | cut -f1 | paste -sd, - | sed 's/,/, /g' || true)
     [ -z "$s" ] || printf 'warn\tHe reaches these shares: %s\n' "$s" ;;
   group-delete)
-    printf 'heading\tdelete the group %s\nstep\tdelete the group from the domain\n' "$name"
+    printf 'heading\tdelete the group %s\nstep\tdelete the group%s\n' "$name" "$($local_be || echo ' from the domain')"
     m=$(bash "$mu" --groups 2>/dev/null | awk -F'\t' -v g="$name" '$1 == g { print $2 }' | sed 's/,/, /g' || true)
     [ -z "$m" ] || printf 'warn\tMembers who lose what the group gave them: %s\n' "$m"
     s=$(bash "$access" group "$name" 2>/dev/null | cut -f1 | paste -sd, - | sed 's/,/, /g' || true)

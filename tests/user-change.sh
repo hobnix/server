@@ -3,7 +3,7 @@
 # Fake manage-users and systemd-run: no domain controller, no root.
 # shellcheck source=tests/lib.sh
 . "$(dirname "$0")/lib.sh"
-export HS_PLAIN=1 HS_LANG=en
+export HS_PLAIN=1 HS_LANG=en HS_USERS_BACKEND=ad   # these tests cover the domain path; tests/users-local.sh the local one
 unset HS_CALLER HS_GUIDED_TTY
 BIN=$WORK/bin; mkdir -p "$BIN"
 printf '#!/usr/bin/env bash\nprintf "%%s\\n" "$*" >> "%s/jobcalls"\n' "$WORK" > "$BIN/systemd-run"; chmod +x "$BIN/systemd-run"

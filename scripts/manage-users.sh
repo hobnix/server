@@ -5,7 +5,7 @@
 set -euo pipefail
 
 # The users live on the domain controller (the instance dc1); this script
-# runs samba-tool there. Passwords are typed on the terminal, straight into
+# runs samba-tool there. Without a domain (no adDomain) lib/users-local.sh does the same with local accounts. Passwords are typed on the terminal, straight into
 # samba-tool on the controller: they never pass through this script.
 #
 # Used by the web interface (Users):
@@ -29,8 +29,7 @@ set -euo pipefail
 
 . "$(dirname "$0")/lib/ui.sh"
 . "$(dirname "$0")/lib/dc.sh"
-dc=$(dc_name)        # the instance that is the domain controller (dc1, dc2, HS_DC, dcName: lib/dc.sh)
-db=/var/lib/samba/private/sam.ldb
+. "$(dirname "$0")/lib/users-backend.sh"
 
 usage() {
   say "usage: hs user list [--plain]"
@@ -53,6 +52,15 @@ for a in "$@"; do
   esac
 done
 set -- "${args[@]}"
+
+# without a domain (no adDomain) the users are local Unix accounts with a Samba password: lib/users-local.sh, same options and output
+if [ "$(users_backend)" = local ]; then
+  . "$(dirname "$0")/lib/users-local.sh"
+  users_local_main "$@"
+  exit $?
+fi
+dc=$(dc_name)        # the instance that is the domain controller (dc1, dc2, HS_DC, dcName: lib/dc.sh)
+db=/var/lib/samba/private/sam.ldb
 
 if [ "${1:-}" = --flush ]; then
   # winbind keeps names, groups and memberships for a while; after this the

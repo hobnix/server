@@ -217,8 +217,10 @@ values_of() {   # values_of <placeholder>
     "<share>") cached shares sh -c 'ls "${HS_BULK:-/bulk}/shares" "${HS_BULK:-/bulk}/sensitive" 2>/dev/null | grep -v "^$\|:$"' | sort -u ;;
     "<pool>")  cached pools sh -c '{ zpool list -H -o name 2>/dev/null; printf "bulk\nfast\n"; } | sort -u' ;;
     "<ct>")    cached cts sh -c 'incus list -f csv -c n 2>/dev/null' ;;
-    "<user>")  cached users sh -c 'wbinfo -u 2>/dev/null | sed "s/^.*\\\\//"' ;;
-    "<group>") cached groups sh -c 'wbinfo -g 2>/dev/null | sed "s/^.*\\\\//"' ;;
+    "<user>")  if capability_on ad; then cached users sh -c 'wbinfo -u 2>/dev/null | sed "s/^.*\\\\//"'
+               else cached users sh -c 'pdbedit -L 2>/dev/null | cut -d: -f1'; fi ;;
+    "<group>") if capability_on ad; then cached groups sh -c 'wbinfo -g 2>/dev/null | sed "s/^.*\\\\//"'
+               else cached groups sh -c 'getent group 2>/dev/null | awk -F: "\$3 >= 2000 && \$3 <= 2999 { print \$1 }"'; fi ;;
     "<disk>")  cached disks sh -c 'ls /dev/disk/by-id 2>/dev/null | grep -v -- "-part[0-9]*$\|^wwn-"' ;;
     "<package>") ext_package_names ;;
   esac
