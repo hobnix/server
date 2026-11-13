@@ -1,0 +1,5 @@
+date  = "2026-11-13"
+type  = "change"
+title = "Recovery guide: incus admin recover brought back a virtual machine too"
+docs  = "backup-and-recovery#case-a-the-system-disk-is-gone-the-data-disks-are-fine"
+body  = """A VM rehearsal of Case A step 11 now covers a virtual machine as well as containers: after the Incus database was lost, incus admin recover listed the VM, it started and its data was identical. Not tested on hardware yet."""
