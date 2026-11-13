@@ -1,11 +1,11 @@
 #!/usr/bin/env python3
 """Counts shared components vs raw markup per folder of web/src (plain static scan, stdlib only).
 
-  web-inventory.py [--root DIR] [--tsv] [--classes [N]]
+  web-inventory.py [--root DIR] [--tsv | --files | --classes [N]]
 
 Default: a short table. --tsv: header + one row per folder (ui:<Name> columns, empty field "-").
 --classes [N]: the N (default 20) most repeated static class names in pages/ as "count<TAB>class".
-The row "outside ui" is the number the ratchet test uses.
+--files: per file outside ui, the baseline format of tests/web-ratchet.tsv (the ratchet test, tests/web-ratchet.sh).
 """
 import argparse
 import re
@@ -43,23 +43,31 @@ def strip_lines(text):
     return "\n".join(l for l in text.split("\n") if not l.lstrip().startswith("//"))
 
 
-def scan(root):
+def scan(root, per_file=None):
+    """per_file (optional dict) receives path -> Counter of that file's own numbers."""
     names = ui_names(root)
     cols = {}
-
-    def row(folder):
-        return cols.setdefault(folder, Counter())
 
     for path in sorted(root.rglob("*")):
         if path.suffix not in (".svelte", ".css") or not path.is_file():
             continue
         folder = folder_of(root, path)
-        r = row(folder)
+        r = Counter()
+        cols.setdefault(folder, Counter()).update(r)
+        scan_file(root, path, folder, names, r)
+        cols[folder].update(r)
+        if per_file is not None:
+            per_file[path] = r
+    return names, cols
+
+
+def scan_file(root, path, folder, names, r):
+    if True:
         raw = path.read_text(encoding="utf-8", errors="replace")
         if path.name != "tokens.css":
             r["hex"] += len(HEX.findall(URL.sub("", strip_lines(raw))))
         if path.suffix != ".svelte":
-            continue
+            return
         r["files"] += 1
         text = strip_lines(raw)
         for tag in RAW:
@@ -72,7 +80,21 @@ def scan(root):
                 c = len(re.findall(r"<%s(?![\w.-])" % n, text))
                 if c:
                     r["ui:" + n] += c
-    return names, cols
+
+
+def files_tsv(root):
+    per = {}
+    scan(root, per)
+    print("\t".join(["file", "input", "select", "textarea", "style", "hex"]))
+    rows = []
+    for path, r in per.items():
+        if folder_of(root, path) == "ui":
+            continue
+        vals = [r[k] for k in ("input", "select", "textarea", "style", "hex")]
+        if any(vals):
+            rows.append([path.relative_to(root).as_posix()] + [str(v) for v in vals])
+    for row in sorted(rows):
+        print("\t".join(row))
 
 
 def classes(root, limit):
@@ -90,11 +112,15 @@ def main():
     ap.add_argument("--root", default=str(DEFAULT_ROOT))
     ap.add_argument("--tsv", action="store_true")
     ap.add_argument("--classes", nargs="?", const=20, type=int, metavar="N")
+    ap.add_argument("--files", action="store_true", help="per file outside ui: input select textarea style hex (TSV)")
     a = ap.parse_args()
     root = Path(a.root)
     if not root.is_dir():
         print("no such directory: %s" % root, file=sys.stderr)
         return 2
+    if a.files:
+        files_tsv(root)
+        return 0
     if a.classes is not None:
         classes(root, a.classes)
         return 0
