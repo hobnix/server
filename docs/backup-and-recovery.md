@@ -380,7 +380,9 @@ a small partition for the vault, so a new one is built the same way, and the ser
     hs ct list
     ```
 
-    In a VM rehearsal the containers came back (`hs ct list`, they start, checksums equal). The recover dialog asks for the pool: name
+    In a VM rehearsal the containers came back (`hs ct list`, they start, checksums equal), and so did a virtual machine (it was listed as
+    stopped, started, and the file inside had the same checksum; the default profile was empty after the recover, as below, but the VM
+    still started because it carries its own root disk). The recover dialog asks for the pool: name
     `default`, driver `zfs`, dataset `fast/incus`. Afterwards the default profile was empty, and
     `hs ct add` said "No root device could be found". `sudo systemctl restart incus-preseed` fixed that. Not tested on hardware yet.
 
