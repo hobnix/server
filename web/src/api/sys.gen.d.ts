@@ -2450,6 +2450,17 @@ export interface SysOperations {
     exit: number;
     lines: string[][];
   };
+  "storage.discover": {
+    /** what the server finds on its disks: one line per whole disk with size, bus, model, what it holds and in which state (read only) */
+    words: ["storage", "discover"];
+    path: "/storage/discover";
+    method: "get";
+    class: "read";
+    params: { };
+    stdin: "none";
+    exit: number;
+    lines: ([disk: Field, size: Field, bus: "sata" | "nvme" | "usb" | "sas" | "virtio" | "other", model: Field, kind: "os" | "empty" | "zfs" | "snapraid" | "backup" | "luks" | "foreign", label: Field, state: "system" | "free" | "imported" | "importable" | "damaged" | "mounted" | "unmounted" | "protected" | "locked" | "open" | "has-data"])[];
+  };
   "system.cleanup": {
     /** the cleanup report as plain text (read only, changes nothing) */
     words: ["system", "cleanup"];

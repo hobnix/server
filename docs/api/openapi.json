@@ -11446,6 +11446,103 @@
     }
    }
   },
+  "/storage/discover": {
+   "get": {
+    "operationId": "storage.discover",
+    "summary": "what the server finds on its disks: one line per whole disk with size, bus, model, what it holds and in which state (read only)",
+    "x-hs-exit": true,
+    "x-hs-sys": {
+     "words": [
+      "storage",
+      "discover"
+     ],
+     "script": "storage-discover.sh",
+     "args": "-",
+     "class": "read",
+     "rest": false
+    },
+    "responses": {
+     "0": {
+      "description": "ok",
+      "content": {
+       "text/tab-separated-values": {
+        "schema": {
+         "type": "array",
+         "items": {
+          "type": "array",
+          "prefixItems": [
+           {
+            "$ref": "#/components/schemas/Field",
+            "title": "disk"
+           },
+           {
+            "$ref": "#/components/schemas/Field",
+            "title": "size"
+           },
+           {
+            "$ref": "#/components/schemas/Field",
+            "title": "bus",
+            "enum": [
+             "sata",
+             "nvme",
+             "usb",
+             "sas",
+             "virtio",
+             "other"
+            ]
+           },
+           {
+            "$ref": "#/components/schemas/Field",
+            "title": "model"
+           },
+           {
+            "$ref": "#/components/schemas/Field",
+            "title": "kind",
+            "enum": [
+             "os",
+             "empty",
+             "zfs",
+             "snapraid",
+             "backup",
+             "luks",
+             "foreign"
+            ]
+           },
+           {
+            "$ref": "#/components/schemas/Field",
+            "title": "label"
+           },
+           {
+            "$ref": "#/components/schemas/Field",
+            "title": "state",
+            "enum": [
+             "system",
+             "free",
+             "imported",
+             "importable",
+             "damaged",
+             "mounted",
+             "unmounted",
+             "protected",
+             "locked",
+             "open",
+             "has-data"
+            ]
+           }
+          ],
+          "minItems": 7,
+          "maxItems": 7
+         }
+        }
+       }
+      }
+     },
+     "default": {
+      "description": "failed; stderr says why, stdout may be empty"
+     }
+    }
+   }
+  },
   "/system/cleanup": {
    "get": {
     "operationId": "system.cleanup",

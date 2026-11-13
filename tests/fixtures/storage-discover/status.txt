@@ -1,0 +1,10 @@
+  pool: media
+ state: ONLINE
+config:
+
+	NAME                                  STATE     READ WRITE CKSUM
+	media                                 ONLINE       0     0     0
+	  mirror-0                            ONLINE       0     0     0
+	    /dev/disk/by-id/ata-D-part1       ONLINE       0     0     0
+
+errors: No known data errors
