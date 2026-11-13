@@ -1,0 +1,5 @@
+date  = "2026-11-12"
+type  = "fix"
+title = "hs share repair says so when Samba is not installed"
+docs  = "backup-and-recovery#case-a-the-system-disk-is-gone-the-data-disks-are-fine"
+body  = """On the minimal system (no Samba) hs share repair stopped with "net: command not found" and exit code 127. It now says that Samba is not installed and that the full system is needed, and exits with 1 before it changes anything. The recovery guide also states that hs share repair hands the folders under /bulk/shares over to adminuser:users."""

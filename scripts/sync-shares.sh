@@ -22,6 +22,9 @@ for a in "$@"; do
   esac
 done
 
+# The installed minimal system has no Samba: say so instead of failing with "net: command not found"
+command -v net >/dev/null 2>&1 || fail "$(t 'Samba is not installed on this system, so there are no shares to publish. Install the full system first (hs rebuild).')"
+
 # Shares created here live in Samba's registry (`include = registry`), next
 # to the two config-defined shares that span each parent directory.
 mapfile -t existing < <(net conf listshares)
