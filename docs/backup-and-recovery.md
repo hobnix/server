@@ -447,9 +447,48 @@ purpose, and `hs update` and `hs rebuild` end with an error. `hs unlock --status
 
    Docker applications: restore the project folders and load the databases from the dumps in `/var/lib/hs/backup-dump/<container>`.
    `hs backup drill ct` proves each month that a container boots from its snapshot; restoring into a new container is not covered by it.
-5. **Domain controller.** Not tested on hardware yet. Make a new `dc1` VM with the recipe `domain`, then apply the backup file
-   `/var/lib/hs/backup-dc/*.tar.bz2` with `samba-tool domain backup restore` (see the Samba documentation for `--targetdir` and the new
-   server name).
+5. **Domain controller.** Ran in a VM with a test domain (a user and a group came back, `samba-ad-dc` answered); not tested on
+   hardware, with a real router or with a Windows client yet.
+
+   1. Get the backup file out of the host snapshot. `--tag host` and `--to` are required; the full original path is recreated below
+      the folder:
+
+      ```bash
+      sudo hs backup restore latest /var/lib/hs/backup-dc --tag host --to /var/tmp/dc-restore
+      sudo hs backup restore latest /var/lib/samba/private --tag host --to /var/tmp/dc-restore
+      ```
+
+      The file is `/var/tmp/dc-restore/var/lib/hs/backup-dc/domain-backup.tar.bz2`. It holds the keys of your domain: keep it private
+      and delete the folder when you are done.
+   2. Install the recipe if the system does not have it yet (`sudo hs pkg fetch`, then `sudo hs pkg install domain`), and make a new `dc1`
+      VM with it: `sudo hs recipe domain`. This builds a new, empty domain and joins this server to it. The first run of the recipe can
+      stop with a failed rebuild (`samba-winbindd`) or a failed join; start it again, it continues.
+   3. Put the host's own domain secrets back. The join in 2 replaced them with those of the empty domain, and the server is no longer
+      a member of the real one until you do:
+
+      ```bash
+      sudo install -m 600 -o root -g root /var/tmp/dc-restore/var/lib/samba/private/secrets.tdb /var/lib/samba/private/secrets.tdb
+      ```
+
+   4. Copy the backup file into `dc1` and restore it there. The target folder must not exist yet, so the new, empty domain of 2 is
+      moved aside first. The name must be a new one: the old name (`DC1`) is still in the domain data and Samba refuses it ("already
+      exists"). The restored controller then answers as `dc1new.<domain>` and `dc1.<domain>` does not resolve any more:
+
+      ```bash
+      incus file push /var/tmp/dc-restore/var/lib/hs/backup-dc/domain-backup.tar.bz2 dc1/root/
+      incus exec dc1 -- systemctl stop samba-ad-dc
+      incus exec dc1 -- mv /var/lib/samba /var/lib/samba.fresh
+      incus exec dc1 -- samba-tool domain backup restore --backup-file=/root/domain-backup.tar.bz2 --targetdir=/var/lib/samba --newservername=DC1NEW
+      incus exec dc1 -- sh -c 'cp /var/lib/samba/etc/smb.conf /etc/samba/smb.conf; cp /var/lib/samba/private/krb5.conf /etc/krb5.conf'
+      incus exec dc1 -- systemctl restart samba-ad-dc
+      ```
+
+      Samba says "check the smb.conf settings": that is what the `cp` line is for; it worked in the rehearsal.
+   5. Check: `incus exec dc1 -- samba-tool user list` shows your users, `wbinfo -u` on the server lists them, and
+      `sudo hs backup now` makes a backup of the restored controller. Because the name changed, point the router's DNS entry at the
+      new address and check the name your clients use.
+
+   The rehearsal did not cover a client domain join, a reboot or the real router.
 
 ### Case C: the server and the backup disk are both gone
 Only the off-site copy is left. Do Case A with a new vault, but read the host files from the off-site repository:

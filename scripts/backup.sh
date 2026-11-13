@@ -272,6 +272,7 @@ dc_backup() {
   incus exec "$DC" -- bash -c 'rm -rf /root/hs-dc-backup && samba-tool domain backup offline --targetdir=/root/hs-dc-backup >/dev/null' </dev/null
   incus exec "$DC" -- bash -c 'cat /root/hs-dc-backup/*.tar.bz2 && rm -rf /root/hs-dc-backup' </dev/null > "$out/domain-backup.tar.bz2"
   [ -s "$out/domain-backup.tar.bz2" ] || { echo "empty domain backup from $DC" >&2; return 1; }
+  chmod 700 "$out"; chmod 600 "$out/domain-backup.tar.bz2"     # it holds the keys of the domain: root only
 }
 
 # ── Incus layout and disks as text, so a lost server can be rebuilt: part of the host files ──
