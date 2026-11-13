@@ -7,6 +7,7 @@ set -euo pipefail
 . "$(dirname "$0")/lib/instance.sh"
 . "$(dirname "$0")/lib/live.sh"
 . "$(dirname "$0")/lib/sharepath.sh"
+. "$(dirname "$0")/lib/pools.sh"
 live_refresh_shares() { live_refresh status shares-overview shares-deleted fm-locations pool-info-bulk; }
 
 usage() {
@@ -49,6 +50,13 @@ while [ $# -gt 0 ]; do
 done
 
 [[ "$name" =~ ^[A-Za-z0-9][A-Za-z0-9._-]*$ ]] || fail "$(t "invalid name '%s'" "$name")"
+
+# no pool of the needed role: say so before anything changes (a server without a `pools` line has the legacy rows and never gets here)
+if ! pool_default data >/dev/null; then
+  fail "Shares need a pool, and this server has none. Add one: hs pool <name> add (free disks: hs storage discover)."
+elif [ "$tier" = fast ] && ! pool_default apps >/dev/null; then
+  fail "$(t 'There is no SSD pool (role apps). Leave out --fast to put the share on %s.' "$(pool_default data)")"
+fi
 
 # "zfs": one dataset per share. "snapraid": a plain folder on the merged disks.
 bulk_type=$(cat "${HS_BULK_TYPE_FILE:-/etc/hs/bulk-type}" 2>/dev/null || echo zfs)
