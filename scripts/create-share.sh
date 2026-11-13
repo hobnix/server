@@ -82,7 +82,13 @@ if [ "$tier" = fast ]; then
   zfs list -H -o name "fast/$parent/$name" >/dev/null 2>&1 || zfs create "fast/$parent/$name"
 elif [ "$bulk_type" = snapraid ]; then
   mountpoint -q /bulk || fail "/bulk is not mounted. Add disks first: hs pool bulk add"
-  mkdir -p "$dir"
+  if ! mk_err=$(mkdir -p "$dir" 2>&1); then
+    # mergerfs refuses to create anything when every data disk has less free space than minfreespace (10 GiB): small test disks
+    case "$mk_err" in
+      *"No space left"*) fail "$(t "Cannot create the share folder: no data disk has more free space than the reserve (minfreespace, 10 GiB), so the pool refuses new folders. Free space or add a bigger disk: hs pool bulk add")" ;;
+    esac
+    fail "$mk_err"
+  fi
 else
   # -p also creates bulk/sensitive the first time it's needed
   zfs create -p "bulk/$parent/$name"

@@ -88,7 +88,7 @@ Fetching the latest configuration	Neueste Konfiguration holen
 Key file removed. After a boot, run hs unlock.	Schlüsseldatei gelöscht. Nach einem Neustart: hs unlock.
 Mounted and shared as %s	Eingehängt und freigegeben als %s
 Moving the files can take hours. The disk itself is not erased, only unlabelled.	Das Verschieben der Dateien kann Stunden dauern. Die Platte selbst wird nicht gelöscht, nur ihr Etikett entfernt.
-New data is protected after the next sync (three times a day, or now: hs pool bulk sync).	Neue Daten sind nach der nächsten Synchronisation geschützt (dreimal am Tag, oder sofort: hs pool bulk sync).
+New data is protected after the next sync (every night, or now: hs pool bulk sync).	Neue Daten sind nach der nächsten Synchronisation geschützt (jede Nacht, oder sofort: hs pool bulk sync).
 New shares are closed (only %s) until you set who may read or write	Neue Freigaben sind geschlossen (nur %s), bis du festlegst, wer lesen oder schreiben darf
 New shares are open to every Samba user until you set who may read or write	Neue Freigaben sind für jeden Samba-Benutzer offen, bis du festlegst, wer lesen oder schreiben darf
 Next: hs pool bulk add --role adopt --dry-run	Als Nächstes: hs pool bulk add --role adopt --dry-run
@@ -705,7 +705,7 @@ No share called '%s' under /bulk/shares or /bulk/sensitive.	Keine Freigabe namen
 The cache could not be mounted over /bulk/%s.	Der Cache ließ sich nicht über /bulk/%s einbinden.
 Now restart: %s (hs ct <ct> restart)	Jetzt neu starten: %s (hs ct <ct> restart)
 '%s' does not use the cache.	'%s' benutzt den Cache nicht.
-Done. The moved files get parity with the next sync (three times a day, or now: hs pool bulk sync).	Fertig. Die verschobenen Dateien bekommen mit der nächsten Synchronisation Parität (dreimal am Tag, oder jetzt: hs pool bulk sync).
+Done. The moved files get parity with the next sync (every night, or now: hs pool bulk sync).	Fertig. Die verschobenen Dateien bekommen mit der nächsten Synchronisation Parität (jede Nacht, oder jetzt: hs pool bulk sync).
 Some files are still open and stay in the cache for now. The mover finishes this on its next run.	Einige Dateien sind noch offen und bleiben vorerst im Cache. Der Mover erledigt das bei seinem nächsten Lauf.
 Address of the UniFi router	Adresse des UniFi-Routers
 Port of the web page of %s	Port der Webseite von %s
@@ -994,7 +994,7 @@ none yet	noch keine
 restic check found a problem	restic check hat ein Problem gefunden
 the last try failed	der letzte Versuch ist fehlgeschlagen
 usage: hs cache-mover [share] [--now] [--if-full] [--no-sync]	Aufruf: hs cache-mover [Freigabe] [--now] [--if-full] [--no-sync]
-usage: hs pool bulk sync [--force] [--scrub] [--no-mover]	Aufruf: hs pool bulk sync [--force] [--scrub] [--no-mover]
+usage: hs pool bulk sync [--force] [--force-uuid] [--scrub] [--no-mover]	Aufruf: hs pool bulk sync [--force] [--scrub] [--no-mover]
 watch: %s	beobachten: %s
 %s in total, the backup needs about 1.2x the data	%s insgesamt, das Backup braucht etwa das 1,2-fache der Daten
 %s, last copied %s	%s, zuletzt kopiert %s
@@ -2413,3 +2413,12 @@ Samba is not installed on this system, so there are no shares to publish. Instal
 %s: the domain controller is always in the backup, as samba backup file (the machine itself is not exported)	%s: Der Domänencontroller ist immer im Backup, als Samba-Sicherungsdatei (die Maschine selbst wird nicht exportiert)
 '%s' is not a number of files. To try a container or virtual machine: hs backup drill ct %s	'%s' ist keine Dateianzahl. Einen Container oder eine virtuelle Maschine prüfst du mit: hs backup drill ct %s
 ! Virtual machine drill: never	! Test der virtuellen Maschine: noch nie
+machine.toml says bulkType = "%s", but this server was installed with "%s".	machine.toml sagt bulkType = "%s", aber dieser Server wurde mit "%s" installiert.
+The layout of /bulk cannot be switched by a rebuild. Set bulkType back to "%s", or reinstall the server.	Der Aufbau von /bulk lässt sich nicht mit einem Rebuild umstellen. Setze bulkType zurück auf "%s" oder installiere den Server neu.
+The pool fast does not exist on this server. The configuration imports it, so the rebuild would fail.	Den Pool fast gibt es auf diesem Server nicht. Die Konfiguration importiert ihn, der Rebuild würde scheitern.
+Create it first: hs pool fast add (SSD pool; see docs/storage-and-disks.md)	Lege ihn zuerst an: hs pool fast add (SSD-Pool; siehe docs/storage-and-disks.md)
+Cannot create the share folder: no data disk has more free space than the reserve (minfreespace, 10 GiB), so the pool refuses new folders. Free space or add a bigger disk: hs pool bulk add	Der Freigabe-Ordner kann nicht angelegt werden: keine Datenplatte hat mehr freien Platz als die Reserve (minfreespace, 10 GiB), deshalb lehnt der Pool neue Ordner ab. Schaffe Platz oder füge eine größere Platte hinzu: hs pool bulk add
+SnapRAID refuses: too many disks have changed UUIDs since the last sync (the disks were formatted again).	SnapRAID lehnt ab: zu viele Platten haben seit der letzten Synchronisation andere UUIDs (die Platten wurden neu formatiert).
+If you replaced or rebuilt the disks on purpose and every disk in 'hs pool bulk' is the right one, run once: hs pool bulk sync --force-uuid	Wenn du die Platten absichtlich ersetzt oder neu aufgebaut hast und jede Platte in 'hs pool bulk' die richtige ist, führe einmal aus: hs pool bulk sync --force-uuid
+If you did not change any disk, stop: a disk may be mounted in the wrong place.	Wenn du keine Platte geändert hast, höre auf: eine Platte könnte am falschen Ort eingehängt sein.
+Disks were replaced or formatted again and you said so (--force-uuid). Syncing again with --force-uuid.	Platten wurden ersetzt oder neu formatiert und du hast es mit --force-uuid bestätigt. Synchronisiere erneut mit --force-uuid.

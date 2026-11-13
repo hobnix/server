@@ -76,6 +76,32 @@ config_check() {
   HS_QUIET_OK=1 bash "$(dirname "$0")/machine-sync.sh" check || exit 1
 }
 
+# bulkType is chosen at install time: a rebuild would switch /etc/hs/bulk-type and the whole /bulk layout (ZFS pool vs. disks with
+# parity) under a running server. Refuse the change; the way is a reinstall (docs/storage-and-disks.md).
+bulk_type_check() {
+  local now want
+  [ -f "$(machine_file)" ] || return 0
+  now=$(cat "${HS_BULK_TYPE_FILE:-/etc/hs/bulk-type}" 2>/dev/null || true)
+  [ -n "$now" ] || return 0
+  want=$(machine_get bulkType 2>/dev/null || true)
+  want=${want:-zfs}
+  [ "$want" != "$now" ] || return 0
+  warn "$(t 'machine.toml says bulkType = "%s", but this server was installed with "%s".' "$want" "$now")"
+  note "$(t 'The layout of /bulk cannot be switched by a rebuild. Set bulkType back to "%s", or reinstall the server.' "$now")"
+  exit 1
+}
+
+# The pool fast must exist before the config is applied: the system imports it at boot and the rebuild would fail on it.
+fast_check() {
+  [ "${HS_FAST_CHECK:-1}" = 1 ] || return 0
+  command -v zpool >/dev/null 2>&1 || return 0
+  capability_on storage || return 0
+  zpool list -H -o name fast >/dev/null 2>&1 && return 0
+  warn "The pool fast does not exist on this server. The configuration imports it, so the rebuild would fail."
+  note "Create it first: hs pool fast add (SSD pool; see docs/storage-and-disks.md)"
+  exit 1
+}
+
 # Since the `gpu` setting exists, a graphics driver is only installed when machine.toml says so.
 # A server that had the NVIDIA driver before would lose it silently: say so before the rebuild.
 gpu_check() {
@@ -201,6 +227,8 @@ link_check() {
 generation() { { readlink /nix/var/nix/profiles/system 2>/dev/null || true; } | sed -n 's/^system-\([0-9]*\)-link$/\1/p'; }
 
 config_check
+bulk_type_check
+fast_check
 gpu_check
 link_check
 
