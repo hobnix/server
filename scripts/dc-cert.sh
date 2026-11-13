@@ -98,7 +98,7 @@ case "$verb" in
     secret_prepare dc-ca-key || exit 1
     ( umask 077
       openssl req -x509 -newkey rsa:4096 -nodes -keyout "$ca_key" -out "$ca_cert" -days 3650 -sha256 \
-        -subj "/O=homeserver/CN=$realm CA (hs)" \
+        -subj "/O=$realm/CN=$realm CA (hs)" \
         -addext "basicConstraints=critical,CA:TRUE" -addext "keyUsage=critical,keyCertSign,cRLSign" \
         -addext "nameConstraints=critical,permitted;DNS:$realm" 2>"$state/dc-ca.err" >/dev/null ) ||
       { tail -n 3 "$state/dc-ca.err" 2>/dev/null | sed 's/^/    /' >&2; rm -f "$state/dc-ca.err"; fail "openssl could not make the CA."; }
