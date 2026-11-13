@@ -202,9 +202,11 @@ Tests: new `tests/admin-user.sh` and `tests/users-local.sh` with fake `useradd`,
 - `passdb.tdb` is in the folder that is bind-mounted into the vault.
 - The navigation filter in `web/src/nav.js` also applies to child entries.
 
-### Owner decisions for Q2
+### Owner decisions for Q2 (answered 2026-11-13)
 
 - **D1 Rights mechanism.** A: share ACLs (`sharesec`) with local SIDs, as with the domain: one mechanism, the Shares page, `user-access.sh` and the health check stay as they are. B: `valid users` / `write list` per share, as the first plan text said: easier to read in `smb.conf`, but a second rights model next to the ACLs. **Recommended: A**, B only if the VM probe fails.
 - **D2 Migration to a domain.** A: documented manual steps only. B: a command `hs user migrate-to-domain`. **Recommended: A**; B only when someone needs it.
 
 Decided without asking (say if you disagree): back end derived from `adDomain`; `adminUser` is install-time only; share users have no shell, home or web sign-in; ids 2000-2999; new shares start closed to the admin in local mode.
+
+**Answered:** D1 = A (share rights through `sharesec`, with a fallback to B only if the VM probe fails), D2 = A (migration to a domain as documented steps, no `hs` command). The "decided without asking" list stands.
