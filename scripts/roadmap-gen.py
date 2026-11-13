@@ -1,8 +1,8 @@
 #!/usr/bin/env python3
-"""The generated parts of docs/roadmap.md, from the GitHub project board and TODO.md.
+"""The generated parts of docs/roadmap.md, from the GitHub project board.
 
-  roadmap-gen.py write [--board FILE] [--todo FILE] [--doc FILE]   rewrite the generated blocks in docs/roadmap.md
-  roadmap-gen.py check --board FILE [--todo FILE] [--doc FILE]     change nothing: exit 1 when a block is stale (tests/roadmap-doc.sh)
+  roadmap-gen.py write [--board FILE] [--doc FILE]   rewrite the generated blocks in docs/roadmap.md
+  roadmap-gen.py check --board FILE [--doc FILE]     change nothing: exit 1 when a block is stale (tests/roadmap-doc.sh)
 
 The board is the source of truth. Without --board, `write` runs `gh project item-list 1 --owner hobnix --limit 500 --format json`
 (needs the gh CLI and a login). With --board it reads that JSON from a file, which is what the test does. The text between the markers is
@@ -16,11 +16,9 @@ import sys
 
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 DOC = os.path.join(ROOT, "docs", "roadmap.md")
-TODO = os.path.join(ROOT, "TODO.md")
 BOARD_CMD = ["gh", "project", "item-list", "1", "--owner", "hobnix", "--limit", "500", "--format", "json"]
 BLOCKS = {
     "board": ("<!-- BEGIN board (python3 scripts/roadmap-gen.py write) -->", "<!-- END board -->"),
-    "todo": ("<!-- BEGIN todo (python3 scripts/roadmap-gen.py write) -->", "<!-- END todo -->"),
 }
 ORDER = ["In Progress", "In Review", "Ready", "Backlog", "Done"]
 
@@ -78,44 +76,6 @@ def board_block(data):
     return "\n".join(out).rstrip("\n")
 
 
-def short_text(t):
-    t = t.strip()
-    t = re.sub(r"^\([^)]*\)\s*", "", t)          # a leading "(merged #325 ...)" note
-    t = re.sub(r"\*\*|`", "", t)
-    m = re.search(r"(\. |: )", t)
-    if m and m.start() >= 20:
-        t = t[: m.start()]
-    t = t.rstrip(".:")
-    return t if len(t) <= 110 else t[:107].rstrip() + "..."
-
-
-def todo_block(path):
-    section = ""
-    marks = {" ": "open", "~": "in progress", "?": "needs a decision"}
-    rows = []
-    counts = {}
-    with open(path, encoding="utf-8") as f:
-        for line in f:
-            h = re.match(r"^## ([A-Z])\. (.*)", line)
-            if h:
-                section = h.group(1)
-                counts[section] = [h.group(2).strip(), 0, 0]
-                continue
-            m = re.match(r"^(\d+)\. \[(.)\] (.*)", line)
-            if not m or not section:
-                continue
-            counts[section][1] += 1
-            if m.group(2) == "x":
-                counts[section][2] += 1
-                continue
-            rows.append("| %s%s | %s | %s |" % (section, m.group(1), marks.get(m.group(2), m.group(2)), cell(short_text(m.group(3)))))
-    out = ["| Section | Done | Items |", "| --- | --- | --- |"]
-    for k, (title, n, d) in counts.items():
-        out.append("| %s. %s | %d | %d |" % (k, cell(title), d, n))
-    out += ["", "Not done yet:", "", "| Item | State | What |", "| --- | --- | --- |"] + rows
-    return "\n".join(out)
-
-
 def replace(doc, name, body):
     b, e = BLOCKS[name]
     i, j = doc.find(b), doc.find(e)
@@ -128,15 +88,13 @@ def main(argv):
     if not argv or argv[0] not in ("write", "check"):
         raise SystemExit(__doc__)
     mode, args = argv[0], argv[1:]
-    board = todo = None
+    board = None
     doc = DOC
     while args:
         if args[0] == "--board" and len(args) > 1:
             board, args = args[1], args[2:]
         elif args[0] == "--doc" and len(args) > 1:
             doc, args = args[1], args[2:]
-        elif args[0] == "--todo" and len(args) > 1:
-            todo, args = args[1], args[2:]
         else:
             raise SystemExit(__doc__)
     if board:
@@ -148,7 +106,7 @@ def main(argv):
         raise SystemExit("error: check needs --board FILE (the board is not fetched in a check)")
     with open(doc, encoding="utf-8") as f:
         old = f.read()
-    new = replace(replace(old, "board", board_block(data)), "todo", todo_block(todo or TODO))
+    new = replace(old, "board", board_block(data))
     if mode == "check":
         if new != old:
             print("docs/roadmap.md is stale: python3 scripts/roadmap-gen.py write", file=sys.stderr)

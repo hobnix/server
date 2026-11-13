@@ -154,10 +154,9 @@ The main session orchestrates and keeps its context small. It delegates to the a
 | `reviewer` | Opus, high | reviews the diff against the spec; read-only |
 | `docs-writer` | Sonnet, low | writes guides to `GUIDE-TEMPLATE.md` |
 
-`/work <id>` runs the loop for one task of `TODO.md`: spec, code, test, review. A task id is the section letter and the item number
-(`## A.` item 1 is `A1`). Specs and reports are files in `.work/<id>/` (git-ignored); an agent's final message is at most 150 words.
+`/work <issue number>` runs the loop for one issue of the project board: spec, code, test, review (`scripts/dev/board.sh open` lists them). Specs and reports are files in `.work/<id>/` (git-ignored); an agent's final message is at most 150 words.
 
-A session starts with a short summary from `scripts/dev/session-context.sh`: the branch, the changed files and the next open tasks.
+A session starts with a short summary from `scripts/dev/session-context.sh`: the branch, the changed files and the next open issues of the milestone.
 
 ## Keep the context small
 

@@ -1,5 +1,5 @@
 // The links between the guides: every [text](Other guide.md) in the built pages resolves to a page (web/src/docs/docs.js makeResolver),
-// except the few that point at files outside docs/ (README.md, TODO.md, CLAUDE.md ...). Usage: node web-docs-links.mjs <built docs folder>
+// except the few that point at files outside docs/ (README.md, CLAUDE.md ...). Usage: node web-docs-links.mjs <built docs folder>
 import { readFileSync, readdirSync } from 'node:fs';
 import { makeResolver, parsePath, firstPage } from '../web/src/docs/docs.js';
 
@@ -8,7 +8,7 @@ const index = JSON.parse(readFileSync(`${out}/index.json`, 'utf8'));
 let ok = 0, bad = 0;
 const check = (name, cond, extra = '') => { if (cond) { ok++; console.log(`  ok    ${name}`); } else { bad++; console.log(`  FAIL  ${name} ${extra}`); } };
 
-const OUTSIDE = new Set(['README.md', 'TODO.md', 'CLAUDE.md', 'machine.toml.example', 'NOTES.md', 'NOTES-a.md']);
+const OUTSIDE = new Set(['README.md', 'CLAUDE.md', 'machine.toml.example', 'NOTES.md', 'NOTES-a.md']);
 let total = 0;
 const unresolved = [];
 for (const lang of Object.keys(index.langs)) {

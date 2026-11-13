@@ -1,6 +1,6 @@
 # vps (proxyserver)
 
-DEPRECATED (2026-10-27): the proxyserver repo is being replaced by an edge node of this repo (TODO.md section D).
+DEPRECATED (2026-10-27): the proxyserver repo is being replaced by an edge node of this repo (the former TODO.md section D, now the epic of the nodes on the board).
 This capability stays until the cutover.
 
 The proxyserver is a separate machine (repo `proxyserver`) that is the public front door; this server only talks to it.
