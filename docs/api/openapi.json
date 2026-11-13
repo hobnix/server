@@ -7868,6 +7868,76 @@
     }
    }
   },
+  "/pool/list": {
+   "get": {
+    "operationId": "pool.list",
+    "summary": "the pools with their state: name, role (data|apps), kind (zfs|snapraid), state (online|degraded|missing|locked|unmounted); no pool = no output",
+    "x-hs-exit": true,
+    "x-hs-sys": {
+     "words": [
+      "pool",
+      "list"
+     ],
+     "script": "pool-list.sh",
+     "args": "-",
+     "class": "read",
+     "rest": false
+    },
+    "responses": {
+     "0": {
+      "description": "ok",
+      "content": {
+       "text/tab-separated-values": {
+        "schema": {
+         "type": "array",
+         "items": {
+          "type": "array",
+          "prefixItems": [
+           {
+            "$ref": "#/components/schemas/Field",
+            "title": "name"
+           },
+           {
+            "$ref": "#/components/schemas/Field",
+            "title": "role",
+            "enum": [
+             "data",
+             "apps"
+            ]
+           },
+           {
+            "$ref": "#/components/schemas/Field",
+            "title": "kind",
+            "enum": [
+             "zfs",
+             "snapraid"
+            ]
+           },
+           {
+            "$ref": "#/components/schemas/Field",
+            "title": "state",
+            "enum": [
+             "online",
+             "degraded",
+             "missing",
+             "locked",
+             "unmounted"
+            ]
+           }
+          ],
+          "minItems": 4,
+          "maxItems": 4
+         }
+        }
+       }
+      }
+     },
+     "default": {
+      "description": "failed; stderr says why, stdout may be empty"
+     }
+    }
+   }
+  },
   "/pool/members": {
    "get": {
     "operationId": "pool.members",

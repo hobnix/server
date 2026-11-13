@@ -55,6 +55,11 @@ kind = "tsv"
 columns = ["name", "type", "state", "address", "ram", "cpu", "autostart", "mac_pinned", "docker", "disk", "snapshots",
            "last_snapshot", "memory_in_use", "cpu_time", "bindings", "last_start_utc", "owner"]
 
+["pool list"]
+kind = "tsv"
+columns = ["name", "role", "kind", "state"]
+enums = { role = ["data", "apps"], kind = ["zfs", "snapraid"], state = ["online", "degraded", "missing", "locked", "unmounted"] }
+
 ["pool state"]
 kind = "tsv"
 records = { lock = ["state", "text"], paused = ["state", "text"], scrub = ["pool", "state", "text"], sync = ["pool", "state", "text"] }
