@@ -1,11 +1,11 @@
 file	count
 capabilities/backup/module.nix	1
-capabilities/incus/module.nix	2
+capabilities/incus/module.nix	1
 capabilities/metrics/module.nix	1
-capabilities/samba/module.nix	4
-capabilities/storage/module.nix	16
-config/schema.toml	6
-configuration.nix	12
+capabilities/samba/module.nix	2
+capabilities/storage/module.nix	14
+config/schema.toml	7
+configuration.nix	15
 install.nix	3
 scripts/admin-change.sh	2
 scripts/backup.sh	14

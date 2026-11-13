@@ -31,6 +31,7 @@
   sshOverIp = true;
   tailscaleRouter = false;
   bulkType = "zfs";
+  pools = null;
   syncEveryHours = 24;
   shareSnapshots = false;
   zfsArcMaxGB = 12;

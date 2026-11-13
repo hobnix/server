@@ -141,6 +141,13 @@ vlans = { home = { id = 95, default = true } }
 # Disks are added with `hs manage-pool` in both cases, never listed here.
 # bulkType = "snapraid"
 
+# The storage pools of this server: the key is the pool name (a lower case letter, then up to 11 letters or digits),
+# `role` is "data" (shares) or "apps" (Incus storage, SSD shares), `kind` is "zfs" or "snapraid" (at most one,
+# named bulk). Without this line the two classic rows apply, derived from bulkType.
+# `pools = {}` is a server without any pool: apps run on the system disk, no shares. The line is written by
+# the installer and `hs pool`, not by hand.
+# pools = { tank = { role = "data", kind = "zfs" }, ssd = { role = "apps", kind = "zfs" } }
+
 # How often the SnapRAID parity is updated, in hours. Default 24 (once a night at 03:00, so the
 # disks can sleep the rest of the day); allowed 1 2 3 4 6 8 12 24.
 # It starts at 03:00, so 4 means 03:00 07:00 11:00 15:00 19:00 23:00. New and changed files are

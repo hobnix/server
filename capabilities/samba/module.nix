@@ -1,7 +1,7 @@
 { config, lib, pkgs, hs, ... }:
 
 let
-  inherit (hs) machine adminUser bulkReady whenUnlocked notifyFailure ad;
+  inherit (hs) machine adminUser bulkReady dataPool whenUnlocked notifyFailure ad;
   scripts = hs.scripts;
   smbAllow = machine.smbAllow;
   # Who may open the two catch-all shares. In a domain that's the admins only:
@@ -45,9 +45,10 @@ in
         "idmap config ${ad.workgroup} : range" = "10000-999999";
         "template shell" = "/run/current-system/sw/bin/nologin";
       };
-
+    # The two catch-all shares need a data pool; a server without one has none of them.
+    } // lib.optionalAttrs (dataPool != null) {
       shares = {
-        "path" = "/bulk/shares";
+        "path" = "/${dataPool}/shares";
         "browseable" = "yes";
         "read only" = "no";
         "guest ok" = "no";
@@ -63,7 +64,7 @@ in
       # read-only for every Samba user, so Windows can't alter what they manage.
       # The fast pool is deliberately not shared (Incus-managed).
       sensitive = {
-        "path" = "/bulk/sensitive";
+        "path" = "/${dataPool}/sensitive";
         "browseable" = "yes";
         "read only" = "yes";
         "guest ok" = "no";

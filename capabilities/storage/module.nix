@@ -1,7 +1,7 @@
 { config, lib, pkgs, hs, ... }:
 
 let
-  inherit (hs) machine bulkSnapraid bulkReady whenUnlocked notifyFailure ad;
+  inherit (hs) machine bulkSnapraid bulkReady extraPools zfsAppsPools whenUnlocked notifyFailure ad;
   scripts = hs.scripts;
   zfsArcMaxGB = machine.zfsArcMaxGB;
   syncEveryHours = machine.syncEveryHours;
@@ -22,7 +22,7 @@ in
   # zfs-mount.service mounts their datasets (no fileSystems entries needed).
   # They must exist before this config is applied: a new server is installed
   # with install.nix first (see README, "New server").
-  boot.zfs.extraPools = [ "fast" ] ++ lib.optional (!bulkSnapraid) "bulk";
+  boot.zfs.extraPools = extraPools;
 
   # No disk is listed in the config: each array member carries a filesystem
   # label (bulk-data-NN, bulk-parity-N) written by `hs pool bulk`. At boot
@@ -280,7 +280,7 @@ in
   systemd.services.hs-pci-bind = lib.mkIf (pciBind != [ ]) {
     description = "Attach PCI devices that stay without a driver at boot";
     wantedBy = [ "sysinit.target" ];
-    before = [ "sysinit.target" "zfs-import.target" "zfs-import-fast.service" "hs-unlock.service" "bulk-mount.service" ];
+    before = [ "sysinit.target" "zfs-import.target" ] ++ map (n: "zfs-import-${n}.service") zfsAppsPools ++ [ "hs-unlock.service" "bulk-mount.service" ];
     after = [ "systemd-modules-load.service" "systemd-udevd.service" "systemd-udev-trigger.service" ];
     unitConfig.DefaultDependencies = false;
     path = with pkgs; [ coreutils gnugrep util-linux kmod systemd ];
