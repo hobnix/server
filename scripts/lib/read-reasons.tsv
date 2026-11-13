@@ -55,6 +55,7 @@ docker registries	no producer for a topic yet
 docker status	no producer for a topic yet; polled every 15 s
 incident state	no producer for a topic yet
 logs units	no producer for a topic yet
+net check	no producer for a topic yet
 net nics	no producer for a topic yet
 parts pending	no producer for a topic yet
 rebuild pending	no producer for a topic yet
