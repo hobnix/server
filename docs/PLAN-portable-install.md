@@ -95,7 +95,7 @@ holds no user data once a pool exists. B stays a question for after A has been r
 
 ## Pools as data: design and owner decisions (#573, #574, #576, #581)
 
-Status: design only, written 2026-11-13. No storage behaviour changed. Not tested on hardware yet. The full spec (inventory with file counts, Nix
+Status: Accepted 2026-11-13 (owner accepted D1-D10 as recommended); building step by step. No storage behaviour changed. Not tested on hardware yet. The full spec (inventory with file counts, Nix
 changes, exact content of step 1) is `.work/pools/spec.md` in the working tree of the session that wrote it; this section is the part that
 outlasts it.
 
@@ -140,7 +140,7 @@ SnapRAID differ: SnapRAID has one config, one mergerfs unit, one lock and labels
 SnapRAID pool. Incus never changes the driver or source of `default`, so later apps pools become extra Incus pools. Web contract lines
 (`hs sys setup list`, `hs sys pool ...`, health ids, live topics) keep their shape.
 
-### Decisions for the owner (recommendation first)
+### Decisions for the owner (Accepted 2026-11-13: all recommendations D1-D10)
 
 | Id | Question | Options | Recommended |
 | --- | --- | --- | --- |
