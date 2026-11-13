@@ -1,0 +1,6 @@
+date  = "2026-11-13"
+type  = "change"
+title = "A server without a pool says so and refuses shares"
+body  = """A server whose pool list has no pool now says so in hs doctor and at login, and hs share add refuses with the command to add one. Without an SSD pool, hs doctor notes that apps run on the system disk, and the upload cache and shares on SSD refuse. Servers that never had a pool list see no change.
+
+Not tested on hardware yet."""

@@ -14,6 +14,7 @@ set -euo pipefail
 here=$(dirname "$0")
 . "$here/lib/ui.sh"
 . "$(dirname "$0")/lib/live.sh"
+. "$here/lib/pools.sh"
 live_refresh_shares() { live_refresh status shares-overview shares-deleted fm-locations pool-info-bulk; }
 cache=/mnt/bulk/cache      # ZFS dataset fast/hs-cache; its quota is the size of the cache
 dataset=fast/hs-cache
@@ -122,6 +123,16 @@ esac
 share="$1"; want="$2"
 [ "$want" = on ] || [ "$want" = off ] || usage
 supported || fail "The upload cache exists only on the snapraid layout. With /bulk on ZFS every file is protected the moment it is written."
+if [ "$want" = on ]; then
+  # a missing pool role (never for the legacy rows, which have both)
+  have_data=true; have_apps=true
+  pool_default data >/dev/null || have_data=false
+  pool_default apps >/dev/null || have_apps=false
+  if ! $have_data || ! $have_apps; then
+    if ! $have_data && ! $have_apps; then miss="neither"; elif ! $have_data; then miss="no SnapRAID pool"; else miss="no SSD pool"; fi
+    fail "$(t 'The upload cache needs a SnapRAID pool and an SSD pool; this server has %s.' "$miss")"
+  fi
+fi
 rel=$(rel_of "$share") || fail "$(t "No share called '%s' under /bulk/shares or /bulk/sensitive." "$share")"
 [ -d "/bulk/$rel" ] || fail "$(t '/bulk/%s does not exist.' "$rel")"
 share=${rel##*/}

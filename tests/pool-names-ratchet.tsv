@@ -12,7 +12,7 @@ scripts/backup.sh	14
 scripts/bulk-mount.sh	45
 scripts/bulk-sync.sh	9
 scripts/cache-mover.sh	5
-scripts/create-share.sh	26
+scripts/create-share.sh	27
 scripts/ct-bindings.sh	8
 scripts/ct-change.sh	5
 scripts/ct-guided.sh	6

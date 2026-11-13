@@ -13,6 +13,7 @@ state=${HS_STATE_DIR:-/var/lib/hs}
 health=${HS_HEALTH_STATE:-$state/health.state}
 backup=${HS_BACKUP_STATE:-$state/backup.state}
 . "$here/lib/setting.sh"
+. "$here/lib/pools.sh"
 switch=${HS_LOGIN_MESSAGE:-}   # a file holding "off" (tests); else the runtime setting loginMessage
 locked=${HS_LOCKED_MARKER:-/run/hs/storage-locked}
 
@@ -69,6 +70,9 @@ else
     ok "$(t 'Last successful backup %s' "$(ago "$last")")"
   fi
 fi
+
+# 2b. no pool at all (a server without a `pools` line has the legacy rows and stays quiet)
+[ -n "$(pool_names)" ] || note "No storage pool yet: apps on the system disk, no shares. hs storage discover"
 
 # 3. system: uptime and the system disk
 up=$(awk '{ s = int($1); d = int(s / 86400); h = int(s % 86400 / 3600); m = int(s % 3600 / 60); o = ""

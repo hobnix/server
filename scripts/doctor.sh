@@ -7,6 +7,7 @@ here=$(dirname "$0")
 . "$here/lib/ui.sh"
 . "$here/lib/machine.sh"
 . "$here/lib/vault.sh"
+. "$here/lib/pools.sh"
 
 bad=0
 # A section collects its lines, then prints its summary (status_line) first and the details underneath.
@@ -50,6 +51,14 @@ n=0
 if [ -e /run/hs/storage-locked ]; then n=1; d warn "The encrypted storage is locked: hs unlock"; fi
 if [ -s /var/lib/hs/removals ]; then
   d note "$(t 'Parity work is waiting for the next sync (removed or converted disks: %s). Now: hs pool bulk sync' "$(paste -sd' ' /var/lib/hs/removals)")"
+fi
+# a setup state, not a fault: no pool at all, or no SSD pool (never a problem, the exit status stays)
+if [ -z "$(pool_names)" ]; then
+  d note "Storage: no pool. Apps run on the system disk."
+  d note "Missing: a pool for shares, redundancy, encryption of data."
+  d note "Free disks: hs storage discover, then: hs pool <name> add"
+elif ! pool_default apps >/dev/null; then
+  d note "No SSD pool: apps run on the system disk (no redundancy); the upload cache and shares on SSD need one: hs pool <name> add"
 fi
 [ "$n" -eq 0 ] || bad=1
 if [ "$n" -eq 0 ]; then status_line "Storage" "Unlocked" ok; else status_line "Storage" "Locked" bad; fi

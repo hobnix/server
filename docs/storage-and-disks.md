@@ -114,6 +114,19 @@ sudo hs share add app-backups --sensitive
 With ZFS each share is its own dataset; with SnapRAID it is an ordinary folder. The command is the same. `hs share repair` hands the
 files of every share back to the right owner, and `hs share cleanup --dry-run` lists shares whose folder is gone.
 
+## A server without a pool
+A server can run without any pool, for example after an install on one disk. Apps then run on the system disk, without redundancy, and
+there is no place for shares: `hs share add` says so and changes nothing. `hs doctor` and the login message show the same as a note, not
+as a problem. To add a pool, look for free disks and create one:
+
+```bash
+sudo hs storage discover
+sudo hs pool <name> add
+```
+
+With a data pool but no SSD pool, apps still run on the system disk, and the upload cache and shares on SSD refuse until you add an SSD
+pool. Not tested on hardware yet.
+
 ## Add disks
 ```bash
 sudo hs pool bulk add --dry-run
