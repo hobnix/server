@@ -172,7 +172,7 @@ bash "$here/cache-mover.sh" "${rel##*/}" --now --no-sync || true
 if $restart; then restart_users; fi
 live_refresh_shares
 if [ "$(state_of "$rel")" = off ]; then
-  ok "Done. The moved files get parity with the next sync (three times a day, or now: hs pool bulk sync)."
+  ok "Done. The moved files get parity with the next sync (every night, or now: hs pool bulk sync)."
 else
   warn "Some files are still open and stay in the cache for now. The mover finishes this on its next run."
 fi

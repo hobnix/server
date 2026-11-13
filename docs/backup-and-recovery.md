@@ -431,6 +431,18 @@ purpose, and `hs update` and `hs rebuild` end with an error. `hs unlock --status
 
    Then `sudo hs share <share> perm` for permissions, and `sudo hs pool bulk sync`. Only one share or file: `hs share <share> restore
    [<path>]` puts it into the share `restored`.
+
+   **SnapRAID: the first sync after new disks.** The disks are formatted again, so their UUIDs differ from the ones SnapRAID remembers,
+   and `sudo hs pool bulk sync` stops with "Too many disks have changed UUIDs since the last 'sync'". Nothing is wrong with the
+   restored data. SnapRAID has this check to catch a disk mounted in the wrong place, so `hs` never overrides it by itself. Check
+   with `hs pool bulk` that every data disk and the parity disk are the ones you just added, then run once:
+
+   ```bash
+   sudo hs pool bulk sync --force-uuid
+   ```
+
+   Do not use it when you did not change any disk: then a disk may be mounted in the wrong place. Not tested on hardware yet (a VM
+   rehearsal found the message).
 4. **Containers.** Not tested on hardware yet. Create a container of the same kind (`hs ct add <name>`), restore the files from the snapshot
    `ct:<name>` and copy them in:
 

@@ -60,4 +60,14 @@ check_eq "the parent exists: only the dataset" "zfs create fast/shares/fresh" "$
 check_eq "exit 0 (sensitive)" 0 "$($C vault2 --fast --sensitive >/dev/null 2>&1; echo $?)"
 check_eq "parent made on first use, then the dataset" "zfs create -o mountpoint=/fast/sensitive fast/sensitive
 zfs create fast/sensitive/vault2" "$(grep 'zfs create' "$CALLS")"
+
+echo "-- SnapRAID, no space for a folder: the message says why (minfreespace)"
+echo snapraid > "$WORK/bulk-type"
+mkdir -p "$WORK/bin2"
+printf '#!/usr/bin/env bash\nexit 0\n' > "$WORK/bin2/mountpoint"
+printf '#!/usr/bin/env bash\necho "mkdir: cannot create directory: No space left on device" >&2\nexit 1\n' > "$WORK/bin2/mkdir"
+/usr/bin/chmod +x "$WORK/bin2"/*
+rc=0; out=$(PATH=$WORK/bin2:$PATH $C tiny 2>&1) || rc=$?
+check_eq "exit 1" 1 "$rc"
+grep -q "minfreespace" <<<"$out" && pass "names minfreespace" || fail "no reason: $out"
 finish

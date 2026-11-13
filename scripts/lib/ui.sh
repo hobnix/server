@@ -36,6 +36,9 @@
 
 . "${BASH_SOURCE[0]%/*}/i18n.sh"
 
+# --plain on the command line of the script that sources this file means the same as HS_PLAIN: no gum, also in what it starts
+for _a in "$@"; do [ "$_a" != --plain ] || export HS_PLAIN=1; done
+unset _a
 ui=plain
 if [ -t 1 ] && [ -z "${HS_PLAIN:-}" ] && command -v gum >/dev/null 2>&1; then ui=gum; fi
 # Catppuccin Mocha, like the interface
