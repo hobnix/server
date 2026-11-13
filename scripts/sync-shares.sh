@@ -6,6 +6,8 @@ set -euo pipefail
 . "$(dirname "$0")/lib/ui.sh"
 . "$(dirname "$0")/lib/live.sh"
 . "$(dirname "$0")/lib/sharepath.sh"
+. "$(dirname "$0")/lib/admin.sh"
+adm="$(admin_user)"
 live_refresh_shares() { live_refresh status shares-overview shares-deleted fm-locations pool-info-bulk; }
 
 check=false
@@ -16,8 +18,8 @@ for a in "$@"; do
     --fix-owner) fix_all=true ;;
     *) say "usage: hs share repair [--check] [--fix-owner]"
        say "  --check      only list what is missing or wrong, change nothing"
-       say "  --fix-owner  also hand over every file of every share to adminuser (slow on big shares);"
-       say "               without it, files are only handed over in folders that do not belong to adminuser yet"
+       say "  --fix-owner  also hand over every file of every share to $adm (slow on big shares);"
+       say "               without it, files are only handed over in folders that do not belong to $adm yet"
        exit 1 ;;
   esac
 done
@@ -85,33 +87,33 @@ for parent in shares sensitive; do
     # sudo belongs to root, one adopted from Unraid to nobody: the share shows up,
     # but nobody can add files. Then the whole folder is handed over: the files
     # first and the folder itself last, so an interrupted run starts again.
-    if [ "$parent" = shares ] && { $fix_all || [ "$(stat -c %U "$path")" != adminuser ]; }; then
+    if [ "$parent" = shares ] && { $fix_all || [ "$(stat -c %U "$path")" != "$adm" ]; }; then
       owner=$(stat -c %U "$path")
       if [ "$name" = apps ] && [ "$tier" = fast ]; then
         # the files of the Docker apps keep the owners their containers gave them: only the top folder is handed over
-        if [ "$owner" != adminuser ]; then
+        if [ "$owner" != "$adm" ]; then
           if $check; then
             row "$name" "$(t 'belongs to %s, nobody can write (hs share repair hands the files over)' "$owner")"
           else
-            chown adminuser:users "$path"
+            chown "$adm":users "$path"
             chmod 2775 "$path"
-            row "$name" "$(t "belonged to %s, now adminuser's: writable for the share" "$owner")"
+            row "$name" "$(t "belonged to %s, now %s's: writable for the share" "$owner" "$adm")"
           fi
         fi
         if $fix_all; then row "$name" "$(t 'left as it is: the files of the Docker apps keep their owners')"; fi
       elif $check; then
-        if [ "$owner" != adminuser ]; then
+        if [ "$owner" != "$adm" ]; then
           row "$name" "$(t 'belongs to %s, nobody can write (hs share repair hands the files over)' "$owner")"
         fi
       else
         # the count and the current path trail under the spinner (every 500th file)
-        spin "Handing over '$name' to adminuser (all its files, can take a while)" \
-          bash -c 'stdbuf -oL find "$1" -mindepth 1 \( ! -user adminuser -o ! -group users \) -print -exec chown -h adminuser:users {} + |
-                   awk "NR % 500 == 1 { print NR \" files so far, now: \" \$0; fflush() }"' _ "$path"
-        chown adminuser:users "$path"
+        spin "Handing over '$name' to $adm (all its files, can take a while)" \
+          bash -c 'stdbuf -oL find "$1" -mindepth 1 \( ! -user "$2" -o ! -group users \) -print -exec chown -h "$2":users {} + |
+                   awk "NR % 500 == 1 { print NR \" files so far, now: \" \$0; fflush() }"' _ "$path" "$adm"
+        chown "$adm":users "$path"
         chmod 2775 "$path"
-        if [ "$owner" != adminuser ]; then
-          row "$name" "$(t "belonged to %s, now adminuser's: writable for the share" "$owner")"
+        if [ "$owner" != "$adm" ]; then
+          row "$name" "$(t "belonged to %s, now %s's: writable for the share" "$owner" "$adm")"
         fi
       fi
     fi
@@ -136,7 +138,7 @@ for parent in shares sensitive; do
     # /bulk/sensitive is read as root and never writable.
     if [ "$parent" = shares ]; then
       net conf addshare "$name" "$path" writeable=y guest_ok=n
-      net conf setparm "$name" "force user" adminuser
+      net conf setparm "$name" "force user" "$adm"
     else
       net conf addshare "$name" "$path" writeable=n guest_ok=n
       net conf setparm "$name" "force user" root

@@ -6,6 +6,8 @@
 set -euo pipefail
 . "$(dirname "$0")/lib/ui.sh"
 . "$(dirname "$0")/lib/live.sh"
+. "$(dirname "$0")/lib/admin.sh"
+adm="$(admin_user)"
 
 live_refresh_temp() {
   live_refresh status monitor-disks temp-disks shares-overview fm-locations
@@ -190,7 +192,7 @@ cmd_copy() {
 
   # Written as adminuser like everything on the shares; Windows leftovers skipped
   local r=(rsync -rltD --partial --info=progress2 --human-readable
-           --chmod=D775,F664 --chown=adminuser:users
+           --chmod=D775,F664 --chown="$adm":users
            --exclude='$RECYCLE.BIN' --exclude='System Volume Information')
   $dry && r+=(--dry-run)
   "${r[@]}" "$src/" "$target/"

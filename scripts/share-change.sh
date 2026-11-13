@@ -29,6 +29,8 @@ here=$(dirname "$0")
 manage=${HS_MANAGE_SHARES:-$here/manage-shares.sh}
 backup=${HS_BACKUP:-$here/backup.sh}
 . "$here/lib/sharepath.sh"
+. "$here/lib/admin.sh"
+adm="$(admin_user)"
 snap=${HS_SHARE_SNAP:-$here/share-snap.sh}
 auto=${HS_SNAPSHOTS_AUTO:-$here/snapshots-auto.sh}
 sync=${HS_SYNC_SHARES:-$here/sync-shares.sh}
@@ -212,7 +214,7 @@ case "$action" in
   rollback) printf 'heading\tgo back to %s on %s\n' "$snapname" "$share"
             [ "${newer:-0}" -eq 0 ] || printf 'step\tdelete the %s newer snapshot(s)\n' "$newer"
             printf 'step\troll the share back to the snapshot\n' ;;
-  repair) printf 'heading\thand every share over to adminuser\nstep\tchange the owner of the files of every share that is not adminuser'"'"'s\nnote\tThis can take a long time on big shares.\n' ;;
+  repair) printf 'heading\thand every share over to %s\nstep\tchange the owner of the files of every share that is not %s'"'"'s\nnote\tThis can take a long time on big shares.\n' "$adm" "$adm" ;;
   perm)
     printf '%s\n' "$dry" | awk '
       /^[ \t]*$/ { next }

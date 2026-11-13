@@ -18,6 +18,8 @@ here=$(dirname "$0")
 sshkey=${HS_SSH_KEY:-$here/ssh-key.sh}
 . "$here/lib/machine.sh"
 . "$here/lib/effect.sh"
+. "$here/lib/admin.sh"
+adm="$(admin_user)"
 export HS_PLAIN=1
 
 refuse() { printf 'status\trefused\nreason\t%s\n' "$1"; exit 1; }
@@ -66,7 +68,7 @@ case "$action" in
     [ "$count" -gt 1 ] || refuse "that is the last key: without a key nobody could log in over SSH again. Add the new one first."
     [ "$(cut -f4 <<<"$line")" != yes ] || refuse "that is the key your current SSH session used. Log in with another key first, then remove this one."
     comment=$(cut -f3 <<<"$line"); type=$(cut -f2 <<<"$line")
-    danger="Whoever has the private key of '$comment' ($type) can no longer log in as adminuser once the server is rebuilt. Make sure you can still get in with another key." ;;
+    danger="Whoever has the private key of '$comment' ($type) can no longer log in as $adm once the server is rebuilt. Make sure you can still get in with another key." ;;
 esac
 
 if [ "$verb" = start ]; then

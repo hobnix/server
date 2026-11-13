@@ -27,6 +27,8 @@ here=$(cd "$(dirname "$0")" && pwd)   # absolute: the background job runs from a
 . "$here/lib/capability.sh"
 . "$here/lib/bulklock.sh"
 . "$here/lib/setting.sh"
+. "$here/lib/admin.sh"
+adm="$(admin_user)"
 
 # The safety switch (runtime setting fileManagerWrite, default off): this code has never run on real disks. Browsing, pairs and plans work either way.
 write_on() { [ "$(setting_get fileManagerWrite 2>/dev/null || true)" = true ]; }
@@ -583,7 +585,7 @@ setup_chown() {
   esac
   if [ "${S_KIND:-}" = temp ]; then chown_mode=admin; fi
   if [ "$(id -u)" = 0 ] && [ "$fm_test" != 1 ]; then
-    admin_ids="$(id -u adminuser 2>/dev/null || echo 0):$(id -g adminuser 2>/dev/null || echo 0)"
+    admin_ids="$(id -u "$adm" 2>/dev/null || echo 0):$(id -g "$adm" 2>/dev/null || echo 0)"
   fi
 }
 fm_arel_for() { if [ -n "$1" ] && [ -n "$2" ]; then AREL=$1/$2; elif [ -n "$1" ]; then AREL=$1; else AREL=$2; fi; }

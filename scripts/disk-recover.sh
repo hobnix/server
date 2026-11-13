@@ -18,6 +18,8 @@ set -euo pipefail
 here=$(cd "$(dirname "$0")" && pwd)   # absolute: the background job runs from another folder
 . "$here/lib/bulkpath.sh"
 . "$here/lib/live.sh"
+. "$here/lib/admin.sh"
+adm="$(admin_user)"
 
 live_refresh_recover() {
   live_refresh status monitor-disks disk-inventory disk-marks pool-info-bulk pool-members-bulk pool-state-bulk shares-overview fm-locations
@@ -236,7 +238,7 @@ while IFS= read -r -d '' f; do
   count[${kind%%/*}]=$(( ${count[${kind%%/*}]:-0} + 1 ))
 done < <(find "$raw" -type f ! -name '*.se2' ! -name '*.log' -print0)
 find "$raw" -depth -type d -empty -delete 2>/dev/null || true
-chown -R adminuser:users "$out" 2>/dev/null || true
+chown -R "$adm":users "$out" 2>/dev/null || true
 chmod -R g+rwX "$out" 2>/dev/null || true
 
 total=0; summary=""
