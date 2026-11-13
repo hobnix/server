@@ -1,15 +1,15 @@
 { config, lib, pkgs, hs, ... }:
 
 let
-  inherit (hs) machine bulkReady whenUnlocked notifyFailure ad;
+  inherit (hs) machine adminUser bulkReady whenUnlocked notifyFailure ad;
   scripts = hs.scripts;
   smbAllow = machine.smbAllow;
   # Who may open the two catch-all shares. In a domain that's the admins only:
   # everyone else gets per-dataset shares with their own permissions.
   smbValid =
     if ad != null
-    then ''adminuser @"${ad.workgroup}\Domain Admins"''
-    else "adminuser";
+    then ''${adminUser} @"${ad.workgroup}\Domain Admins"''
+    else adminUser;
 in
 {
   # ──────────────────────── Samba ────────────────────────
@@ -54,7 +54,7 @@ in
         "valid users" = smbValid;
         # Whoever logs in, files are written as adminuser on disk, so
         # ownership never gets mixed up. Who gets in is decided per share.
-        "force user" = "adminuser";
+        "force user" = adminUser;
       };
 
       # Container-owned data (backups, app state): one dataset per folder,
@@ -149,7 +149,7 @@ in
     path = [ "/run/current-system/sw" ];
     serviceConfig.Type = "oneshot";
     script = ''
-      for cmd in 'getent initgroups adminuser' 'getent group "domain admins"' 'getent hosts ${lib.toLower ad.realm}'; do
+      for cmd in 'getent initgroups ${adminUser}' 'getent group "domain admins"' 'getent hosts ${lib.toLower ad.realm}'; do
         s=$(date +%s%N)
         eval "$cmd" >/dev/null 2>&1 || true
         ms=$(( ($(date +%s%N) - s) / 1000000 ))

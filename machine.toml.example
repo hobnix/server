@@ -179,6 +179,11 @@ vlans = { home = { id = 95, default = true } }
 #   sudo net ads join -U Administrator
 # adDomain = { realm = "AD.HOME.LAN", workgroup = "HOME" }
 
+# The login for SSH, sudo, the web interface (local sign-in) and the owner of every file on the shares.
+# Chosen at install. Changing it on an installed server is not supported: the old account, its home
+# and the owner of all share files would stay.
+# adminUser = "adminuser"
+
 # ═══ History and status ═══════════════════════════════════════════════════
 
 # Hand out numbers about load, disks and pools and collect them with Prometheus ON THIS SERVER

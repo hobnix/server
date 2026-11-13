@@ -27,6 +27,7 @@ let
   webUi = machine.webUi;
   webPort = machine.webPort;
   hsWeb = pkgs.callPackage ./pkgs/hs-web.nix { };
+  adminUser = machine.adminUser;
   hsCommand = import ./hs-command.nix { inherit pkgs; };
 in
 {
@@ -71,7 +72,7 @@ in
       HS_WEB_ROOT = "${hsWeb}";
       HS_WEB_BIND = "";
       HS_WEB_SECURE = "";
-      HS_WEB_LOCAL_USER = "adminuser";
+      HS_WEB_LOCAL_USER = adminUser;
       HS_WEB_UNLOCK_IN_UNIT = "1";
       HS_WEB_SESSION_FILE = "/run/hs-web/sessions.json";
     };
@@ -115,7 +116,9 @@ in
     };
   };
 
-  users.users.adminuser = {
+  environment.etc."hs/admin-user".text = adminUser;
+
+  users.users.${adminUser} = {
     isNormalUser = true;
     extraGroups = [ "wheel" ];
     openssh.authorizedKeys.keys = machine.sshKeys;
