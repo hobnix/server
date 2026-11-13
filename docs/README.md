@@ -51,6 +51,7 @@ Docs page shows them under *Apps* and *Extensions*.
 | [PLAN-docker-instances](PLAN-docker-instances.md) | Docker as a capability: locked instances, child apps, recipes with `runs` |
 | [PLAN-selfservice](PLAN-selfservice.md) | Self-service password change for domain users |
 | [PLAN-web-auth](PLAN-web-auth.md) | Sign-in and sessions for the web interface |
+| [PLAN-website](PLAN-website.md) | Public website: pages, build from the same Markdown, hosting options, release hookup, owner decisions |
 | [roadmap](roadmap.md) | Milestones and open work, a snapshot of the GitHub project board |
 | [Architecture decisions](adr/README.md) | Decision records (ADRs), starting with Rust behind the `hs sys` contract |
 | [CLI-DESIGN](CLI-DESIGN.md) | The look of every `hs` command |
