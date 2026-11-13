@@ -13,6 +13,11 @@ export { default as Kv } from './Kv.svelte';
 export { default as Split } from './Split.svelte';
 export { default as Wizard } from './Wizard.svelte';          // one question per screen: progress, back, question, children, primary button
 export { default as ChoiceList } from './ChoiceList.svelte';    // radio rows: label, recommended chip, grey line
+export { default as Field } from './Field.svelte';             // label, hint, error, required marker; gives its id and aria to the control inside
+export { default as TextInput } from './TextInput.svelte';     // native input.input, reads the Field context
+export { default as Select } from './Select.svelte';           // native select.input, options as data or <option> children
+export { default as Textarea } from './Textarea.svelte';       // native textarea.input
+export { default as Checkbox } from './Checkbox.svelte';       // native checkbox with a clickable label (forms; Switch box is for table cells)
 // elsewhere, kept at their old paths so pages keep working:
 //   shell/Table.svelte, shell/UsageBar.svelte, shell/Spark.svelte, shell/PlanDialog.svelte (opened with openPlan), forms/unlock/UnlockForm.svelte
 // new in shell/: Halftone, PageHeader, PageState (loading, empty, error with stale data), PageFrame (locked, off, unreachable: the shell does it)

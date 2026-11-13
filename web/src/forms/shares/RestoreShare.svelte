@@ -3,6 +3,7 @@
   // The files go into the share `restored`; the original is not touched.
   import CreateDialog from '../../shell/CreateDialog.svelte';
   import { poll, rows } from '../../data.svelte.js';
+  import { Field, TextInput, Select } from '../../ui';
 
   let { share, onclose, ondone = () => {} } = $props();
 
@@ -23,23 +24,19 @@
 
 <CreateDialog title="Restore {share} from backup" kicker="Restore" area="shares" {args} {onclose} {ondone}>
   {#snippet form()}
-    <div class="field">
-      <label for="rs-snap">Restore point</label>
-      <select id="rs-snap" class="input" bind:value={snapshot}>
+    <Field label="Restore point">
+      <Select bind:value={snapshot}>
         <option value="latest">latest</option>
         {#each list as s}<option value={s.id}>{s.id} · {s.time}</option>{/each}
-      </select>
-    </div>
-    <div class="field">
-      <label for="rs-path">Folder or file inside the share (optional)</label>
-      <input id="rs-path" class="input" bind:value={path} placeholder="whole share" autocomplete="off" spellcheck="false" />
-      {#if !pathOk}<div class="err">A path inside the share, without “..”.</div>{/if}
-    </div>
+      </Select>
+    </Field>
+    <Field label="Folder or file inside the share (optional)" error={pathOk ? '' : 'A path inside the share, without “..”.'}>
+      <TextInput bind:value={path} placeholder="whole share" autocomplete="off" spellcheck={false} />
+    </Field>
     <div class="hint">The files are restored into the share <code>restored</code>; the original is not touched.</div>
   {/snippet}
 </CreateDialog>
 
 <style>
-  .err { font-size: 12px; color: var(--st-bad); margin-top: 4px; }
   .hint { font-size: 12.5px; color: var(--color-neutral-400); }
 </style>

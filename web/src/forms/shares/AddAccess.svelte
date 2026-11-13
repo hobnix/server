@@ -2,6 +2,7 @@
   // Give a user or group access: `hs sys shares plan|start <share> perm --set <sid>=<level>`; the principals come from /api/sys/shares/principals.
   import CreateDialog from '../../shell/CreateDialog.svelte';
   import { poll, rows } from '../../data.svelte.js';
+  import { Field, Select } from '../../ui';
 
   // taken: the SIDs that already have an entry
   let { share, taken = [], onclose, ondone = () => {} } = $props();
@@ -17,14 +18,12 @@
 
 <CreateDialog title="Add access to {share}" kicker="Permissions" area="shares" {args} {onclose} {ondone}>
   {#snippet form()}
-    <div class="field">
-      <label for="aa-who">User or group</label>
-      <select id="aa-who" class="input" bind:value={sid}>
+    <Field label="User or group" help={pr.loaded && !people.length ? (pr.error ? 'The users could not be read.' : 'Everyone already has an entry.') : ''}>
+      <Select bind:value={sid}>
         <option value="">{pr.loaded ? 'Choose…' : 'Loading…'}</option>
         {#each people as p}<option value={p.sid}>{p.name} ({p.type})</option>{/each}
-      </select>
-      {#if pr.loaded && !people.length}<div class="hint">{pr.error ? 'The users could not be read.' : 'Everyone already has an entry.'}</div>{/if}
-    </div>
+      </Select>
+    </Field>
     <div class="field">
       <label for="aa-level">Access</label>
       <div class="seg" id="aa-level">
