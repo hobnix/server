@@ -1,0 +1,5 @@
+date  = "2026-11-13"
+type  = "fix"
+title = "hs backup: honest messages for the domain controller and VM drills"
+docs  = "backup-and-recovery#case-a-the-system-disk-is-gone-the-data-disks-are-fine"
+body  = """hs backup ct dc1 on no longer says the machine is exported as one file: the domain controller is always in the backup as samba's backup file, and the command now says so and does not add it to the list. hs backup status shows a "Virtual machine drill" line and shows "Container drill" only when a container is in the backup (it showed "never" after a good VM drill). The monthly report likewise asks for a container drill only for containers and reports a VM that was never drilled. hs backup drill vmt (a name without "ct") now says what to type instead of printing the whole usage."""

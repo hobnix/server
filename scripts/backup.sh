@@ -210,7 +210,11 @@ cmd_toggle_ct() {
   local name=$1 mode=$2
   incus info "$name" >/dev/null 2>&1 </dev/null || die "$(t 'No instance called %s' "$name")"
   case "$mode" in
-    on)  set_line "$CTS" "$name" add
+    on)  if [ "$name" = "$DC" ]; then
+           ok "$(t '%s: the domain controller is always in the backup, as samba backup file (the machine itself is not exported)' "$name")"
+           return 0
+         fi
+         set_line "$CTS" "$name" add
          if [ "$(ct_kind "$name")" = virtual-machine ]; then
            ok "$(t '%s: included in the backup (the whole virtual machine as one export file, every night)' "$name")"
          else
@@ -320,6 +324,16 @@ ct_kind() {   # ct_kind <instance>: virtual-machine | container (a container whe
   local k
   k=$("${HS_INCUS:-incus}" query "/1.0/instances/$1" </dev/null 2>/dev/null | jq -r '.type // empty' 2>/dev/null || true)
   [ "$k" = virtual-machine ] && echo virtual-machine || echo container
+}
+has_ct=false; has_vm=false
+ct_kinds() {   # sets has_ct and has_vm: which kinds of instance are in the backup now (the list $CTS)
+  local n
+  has_ct=false; has_vm=false
+  [ -s "$CTS" ] || return 0
+  while read -r n; do
+    [ -n "$n" ] || continue
+    if [ "$(ct_kind "$n")" = virtual-machine ]; then has_vm=true; else has_ct=true; fi
+  done < "$CTS"
 }
 vm_backup() {   # vm_backup <name> <restic backup options...>
   local name=$1 file used avail bad=0 status
@@ -509,9 +523,14 @@ cmd_status() {
   kv "Disk used" "$(sed -n 's/^used_pct=//p' "$RESULT" 2>/dev/null || echo '?')% $(t '(as of the last run)')"
   drill=$(sed -n 's/^last_drill=//p' "$RESULT" 2>/dev/null || true)
   kv "Restore drill" "$(ago "$drill")$([ -n "$drill" ] || echo "   $(t '(try: hs backup drill)')")"
+  ct_kinds
   drill=$(sed -n 's/^drill_ct_ok=//p' "$RESULT" 2>/dev/null || true)
-  if [ -n "$drill" ] || [ -s "$CTS" ]; then
+  if [ -n "$drill" ] || $has_ct; then
     kv "Container drill" "$(ago "$drill")$([ -n "$drill" ] || echo "   $(t '(try: hs backup drill ct)')")"
+  fi
+  drill=$(sed -n 's/^drill_vm_ok=//p' "$RESULT" 2>/dev/null || true)
+  if [ -n "$drill" ] || $has_vm; then
+    kv "Virtual machine drill" "$(ago "$drill")$([ -n "$drill" ] || echo "   $(t '(try: hs backup drill ct)')")"
   fi
   read -r inc unk <<<"$(included_bytes)"
   if [ "$inc" -gt 0 ] || [ "$unk" -gt 0 ]; then
@@ -580,7 +599,8 @@ cmd_offsite() {
 cmd_drill() {
   [ "${1:-}" != ct ] || { shift; cmd_drill_ct "$@"; return; }
   local n=${1:-5} tmp picked f live size ok_n=0 bad=0 args=()
-  [[ "$n" =~ ^[0-9]+$ ]] && [ "$n" -ge 1 ] || usage
+  [[ "$n" =~ ^[0-9]+$ ]] || die "$(t "'%s' is not a number of files. To try a container or virtual machine: hs backup drill ct %s" "$n" "$n")"
+  [ "$n" -ge 1 ] || usage
   need_repo
   mapfile -t picked < <(R ls --json latest --tag shares 2>/dev/null | jq -r 'select(.type == "file" and .size > 0) | .path' | shuf -n "$n")
   [ ${#picked[@]} -gt 0 ] || die "No file in the newest shares backup to try."
@@ -808,7 +828,8 @@ cmd_report() {
   check_age "$(t 'Backup')" last_ok 2
   check_age "$(t 'File restore drill')" drill_ok 45
   # the container drill is only expected when containers are in the backup
-  if [ -s "$CTS" ] || [ -n "$(get drill_ct_ok)" ]; then
+  ct_kinds
+  if $has_ct || [ -n "$(get drill_ct_ok)" ]; then
     # the age of the snapshot the drill restored (at the time of the drill), only when it was old
     cname=$(get drill_ct_name); csnap=$(get drill_ct_snap); cok=$(get drill_ct_ok); cage=""
     if [[ "$csnap" =~ ^[0-9]+$ && "$cok" =~ ^[0-9]+$ && "$csnap" -gt 0 && "$cok" -ge "$csnap" ]]; then
@@ -823,7 +844,8 @@ cmd_report() {
   if [ ! -s "$CTS" ] && [[ "$cnew" =~ ^[0-9]+$ ]] && [ "$cnew" -gt 0 ]; then
     add "$(t 'No container is in the backup (chosen); the newest container snapshot is %s days old' "$(( (now - cnew) / 86400 ))")"
   fi
-  if [ -n "$(get drill_vm_ok)" ]; then check_age "$(t 'Virtual machine drill')" drill_vm_ok 90 "($(get drill_vm_name))"; fi
+  if $has_vm && [ -z "$(get drill_vm_ok)" ]; then add "$(t '! Virtual machine drill: never')"; problems=$((problems + 1))
+  elif [ -n "$(get drill_vm_ok)" ]; then check_age "$(t 'Virtual machine drill')" drill_vm_ok 90 "($(get drill_vm_name))"; fi
   if incus info "$DC" >/dev/null 2>&1 </dev/null || [ -n "$(get drill_dc_ok)" ]; then check_age "$(t 'Domain controller backup file')" drill_dc_ok 90; fi
   if [ -s "$OFFSITE" ]; then check_age "$(t 'Off-site copy')" offsite_ok 3; fi
   # tries that failed lately (the container drills keep a list)
