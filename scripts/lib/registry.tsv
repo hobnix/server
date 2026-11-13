@@ -208,6 +208,7 @@ sys	sys pool info	manage-pool.sh	--info	layout and state of the pools	-
 sys	sys pool members	manage-pool.sh	--members	members of the bulk pool	-
 sys	sys pool info <pool>	manage-pool.sh	{1} --info	layout and state of one pool	-
 sys	sys pool members <pool>	manage-pool.sh	{1} --members	members of one pool	-
+sys	sys pool list	pool-list.sh	-	the pools with their state: name, role (data|apps), kind (zfs|snapraid), state (online|degraded|missing|locked|unmounted); no pool = no output	-
 sys	sys pool state	pool-state.sh	-	what the pools are doing: the bulk lock, the health-check pause, last scrub and last parity sync (lock, paused, scrub <pool>, sync bulk; read only)	-
 sys	sys pool state <pool>	pool-state.sh	{1}	the same for one pool	-
 sys	sys storage discover	storage-discover.sh	-	-	-

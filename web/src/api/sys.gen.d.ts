@@ -1636,6 +1636,17 @@ export interface SysOperations {
     exit: number;
     lines: string[][];
   };
+  "pool.list": {
+    /** the pools with their state: name, role (data|apps), kind (zfs|snapraid), state (online|degraded|missing|locked|unmounted); no pool = no output */
+    words: ["pool", "list"];
+    path: "/pool/list";
+    method: "get";
+    class: "read";
+    params: { };
+    stdin: "none";
+    exit: number;
+    lines: ([name: Field, role: "data" | "apps", kind: "zfs" | "snapraid", state: "online" | "degraded" | "missing" | "locked" | "unmounted"])[];
+  };
   "pool.members": {
     /** members of the bulk pool */
     words: ["pool", "members"];

@@ -81,6 +81,7 @@ default_probes() {
     $'hs sys jobs records\tsys jobs records\t0' \
     $'hs sys jobs children\tsys jobs children 20200101-000000-x-aaaa\t0' \
     $'hs pool bulk\tpool bulk\t0 1' \
+    $'hs sys pool list\tsys pool list\t0' \
     $'hs sys pool state\tsys pool state\t0' \
     $'hs sys storage discover\tsys storage discover\t0' \
     $'hs storage incident\tstorage incident\t0 1' \
