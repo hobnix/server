@@ -9,6 +9,7 @@ here=$(dirname "$0")
 . "$here/lib/ui.sh"
 . "$here/lib/machine.sh"
 . "$here/lib/vault.sh"
+. "$here/lib/pools.sh"
 hsbin=${HS_BIN:-$here/lib/hs.sh}
 cfg() { HS_CALLER="" bash "$hsbin" config "$@"; }
 
@@ -43,9 +44,21 @@ check() {   # check <label> <command to run when open> <test...>
   local label=$1 cmd=$2; shift 2
   if "$@" >/dev/null 2>&1; then printf '%s\t%s\t%s\n' "$label" "$(_tr 'done')" "-"; else printf '%s\t%s\t%s\n' "$label" "$(_tr 'open')" "$cmd"; fi
 }
+main_pool=$(pool_default data 2>/dev/null || pool_default apps 2>/dev/null || true)
+pools_ready() {
+  local set n
+  set=$(pool_names data); [ -n "$set" ] || set=$(pool_names)
+  [ -n "$set" ] || return 1
+  while IFS= read -r n; do pool_mounted "$n" || return 1; done <<<"$set"
+}
+has_share() {
+  local n
+  for n in $(pool_names data); do ls "$(pool_root "$n")/shares" 2>/dev/null | grep -q . && return 0; done
+  return 1
+}
 rows=$(
-  check "Storage pools"        "hs pool bulk add"            mountpoint -q /bulk
-  check "A first share"        "hs share add <name>"         bash -c 'ls /bulk/shares 2>/dev/null | grep -q .'
+  check "Storage pools"        "hs pool ${main_pool:-<name>} add" pools_ready
+  check "A first share"        "hs share add <name>"         has_share
   check "Domain users"         "hs recipe domain"            machine_has adDomain
   check "Backup disk"          "hs backup init <device>"     bash -c '[ -s "$1" ] || [ -L "$1" ]' _ "${HS_STATE_DIR:-/var/lib/hs}/restic-password"
   # with a vault (secrets of this server) it has to be open for backup, UniFi and the like
