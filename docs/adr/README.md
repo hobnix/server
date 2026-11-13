@@ -44,5 +44,5 @@ Issue: hobnix/server#<n>
 | [0022](0022-first-run-console-token.md) | First-run web setup: one-time console token, single use, expiry, burn counter, bound to the local admin | Accepted (2026-11-10) |
 | [0023](0023-nested-test-harness.md) | Hobnix-in-Hobnix: boot the ISO in a nested Incus VM, drive it over the serial console, manual CI job, `t vm` as fallback | Accepted (2026-11-10) |
 | [0024](0024-import-proxmox-vzdump.md) | Proxmox vzdump import: read-only plan built, restore into an Incus instance and VM archives proposed | Accepted (2026-11-10), step 1 only |
-| [0026](0026-live-state-one-mode-one-store.md) | Live state always on, one mode, one store: the state database instead of Redis; no `liveState` setting | Proposed |
+| [0026](0026-live-state-one-mode-one-store.md) | Live state always on, one mode, one store: the state database instead of Redis; no `liveState` setting | Accepted (2026-11-13), measurement first |
 | [0025](0025-translation-scope.md) | Where translation lives: `hs` commands, web, or both; freeze `de.tsv`, web translates, codes only where the web needs them | Accepted (2026-11-10) |

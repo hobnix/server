@@ -1,11 +1,11 @@
 # 0026: Live state is always on, one mode, one store (the state database, not Redis)
 
-Status: Proposed
+Status: Accepted (2026-11-13), option A. The measurement in migration step 1 is still to do; all code for #481 stays behind a switch that is off until it is measured.
 Issue: hobnix/server#481 (part of #480)
 
-The owner has decided: live state is on by default, with one mode and one store. This record proposes which store. Nothing is built and nothing
-here was run on a server; the numbers below were counted in the code on `origin/0.3` (2026-11-13). Code for this decision merges only after the
-record is Accepted.
+The owner decided: live state is on by default, with one mode and one store, and accepted the state database as that store (2026-11-13).
+Nothing is built and nothing here was run on a server; the numbers below were counted in the code on `origin/0.3` (2026-11-13). The code for
+#481 merges behind a switch that stays off until the measurement in migration step 1 is done.
 
 ## Context
 
@@ -106,8 +106,7 @@ anticipated.
 
 ## Migration outline (not built)
 
-1. Measure first, on a real server and before this record is Accepted: write cost and watcher latency of option A (the existing counters, 67
-   topics). Then accept this record.
+1. Measure first, on a real server (the code of the following steps stays behind a switch that is off until this is done): write cost and watcher latency of option A (the existing counters, 67 topics).
 2. Store: documents in the state database for every topic, including the 27 `reads` keys; migrate the `reads` table (rows are rebuildable, a
    migration may drop them).
 3. Collector without Redis: `live-collect.py` writes to SQLite, bumps `topics.gen`; the hooks (`live_refresh`) keep their one-line call.
@@ -121,9 +120,9 @@ anticipated.
    terminal (`hs ct create`, `hs share add`, or stop a container) and the open page shows it within a few seconds without a reload; (c) stop the
    collector and the page marks its data as stale; (d) upgrade a server that had `liveState = "redis"`. Not tested on hardware yet.
 
-## Follow-up issues to file (after Accepted)
+## Follow-up issues to file
 
-1. Measure on a real server, before this record is Accepted: SQLite write load and `changed` latency with all topics (spike, input to the open
+1. Measure on a real server, before the switch is turned on: SQLite write load and `changed` latency with all topics (spike, input to the open
    point on the file).
 2. Collector writes documents to the state database; take over the 27 `reads` keys (`reads-collect.sh` and timer removed).
 3. Web: topic reads and `/api/events` from the database only; remove the `StateStore` modes and the 503 path.
