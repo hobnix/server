@@ -1,0 +1,6 @@
+date  = "2026-11-13"
+type  = "feature"
+title = "Installer: choose the name of the admin account"
+body  = """The installer asks for the name of the admin account (hs-install --admin <name>; the default stays adminuser). The name is written to machine.toml as adminUser only when it is not the default, and the password and the ssh hint use it. root, nobody and names that are not lowercase letters, digits, _ and - are refused.
+
+Not tested on hardware yet."""
