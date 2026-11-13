@@ -77,6 +77,27 @@ df -h /bulk
 - With SnapRAID `zpool status` lists only `fast`; that is correct. `hs pool bulk` lists every data disk and the parity disk, and `df -h /bulk`
   shows the size of all data disks together.
 
+## What the server finds on your disks
+```bash
+hs sys storage discover
+```
+
+The command looks at every whole disk and prints one line per disk: its name under `/dev/disk/by-id/`, size in bytes, bus (sata, nvme,
+usb, sas, virtio, other), model, what it holds (kind), a label and a state. It only reads: nothing is imported, mounted or erased.
+
+| Kind | Label | State |
+| --- | --- | --- |
+| `os` (the system disk or the install stick) | - | `system` |
+| `empty` (no partitions, no signature) | - | `free` |
+| `zfs` | the name of the pool, whatever it is called | `imported`, `importable` (found, not imported) or `damaged` (a device is missing) |
+| `snapraid` | `bulk-data-NN` or `bulk-parity-N` | `mounted` or `unmounted` |
+| `backup` | `backup` | `protected` |
+| `luks` (encrypted, contents unknown) | - | `locked` or `open` |
+| `foreign` (any other filesystem or partition table) | the filesystems, for example `ntfs` | `has-data` |
+
+A field without a value shows `-`. Without ZFS installed, a disk with a ZFS label shows `importable` and no pool name. A ZFS pool on top of LUKS or another device-mapper layer, made outside `hs`, shows as `importable` even when it is imported. Not tested on
+hardware yet.
+
 ## Where shares live
 `bulk` has two top folders. Each folder below them is one network share ([Users and shares](users-and-shares.md)).
 

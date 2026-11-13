@@ -1,0 +1,6 @@
+date  = "2026-11-13"
+type  = "change"
+title = "New command: hs sys storage discover lists what is on your disks"
+body  = """hs sys storage discover looks at every whole disk and says what it holds: an empty disk, the system disk, a ZFS pool (with its own name, imported or not), SnapRAID data and parity disks, the backup disk, an encrypted disk or a disk with other files. It only reads: nothing is imported, mounted or erased. The web interface will use it to offer your existing disks.
+
+Not tested on hardware yet."""

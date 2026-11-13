@@ -1,0 +1,30 @@
+   pool: tank
+     id: 11111111111111111
+  state: ONLINE
+ action: The pool can be imported using its name or numeric identifier.
+ config:
+
+	tank             ONLINE
+	  ata-C-part1    ONLINE
+
+   pool: old
+     id: 22222222222222222
+  state: DEGRADED
+status: One or more devices are missing from the system.
+ action: The pool can be imported despite missing or damaged devices.
+ config:
+
+	old                       DEGRADED
+	  mirror-0                DEGRADED
+	    ata-K-part1           ONLINE
+	    3333333333333333333   UNAVAIL  cannot open
+
+   pool: media
+     id: 44444444444444444
+  state: DEGRADED
+ config:
+
+	media                     DEGRADED
+	  mirror-0                DEGRADED
+	    ata-X-part1           ONLINE
+	    5555555555555555555   UNAVAIL  cannot open

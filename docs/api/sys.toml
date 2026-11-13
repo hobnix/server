@@ -65,6 +65,11 @@ kind = "tsv"
 records = { lock = ["state", "text"], paused = ["state", "text"], scrub = ["pool", "state", "text"], sync = ["pool", "state", "text"] }
 enums = { "lock.state" = ["pool-change", "free", "busy", "unknown"], "paused.state" = ["yes", "no"] }
 
+["storage discover"]
+kind = "tsv"
+columns = ["disk", "size", "bus", "model", "kind", "label", "state"]
+enums = { bus = ["sata", "nvme", "usb", "sas", "virtio", "other"], kind = ["os", "empty", "zfs", "snapraid", "backup", "luks", "foreign"], state = ["system", "free", "imported", "importable", "damaged", "mounted", "unmounted", "protected", "locked", "open", "has-data"] }
+
 ["incident state"]
 kind = "tsv"
 records = { ok = ["scope", "text"], incident = ["id", "pool", "kind", "severity", "text"], member = ["pool", "name", "state", "group", "disk", "why"], target = ["pool", "member", "dev", "disk"], share = ["pool", "name", "path", "impact"], app = ["pool", "name", "state", "via", "writes"], progress = ["pool", "kind", "percent", "text"], paused = ["paused", "instances"], free = ["disk", "bytes", "role"], phase = ["pool", "phase"], step = ["n", "state", "title"], next = ["command", "text"] }

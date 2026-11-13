@@ -210,6 +210,7 @@ sys	sys pool info <pool>	manage-pool.sh	{1} --info	layout and state of one pool	
 sys	sys pool members <pool>	manage-pool.sh	{1} --members	members of one pool	-
 sys	sys pool state	pool-state.sh	-	what the pools are doing: the bulk lock, the health-check pause, last scrub and last parity sync (lock, paused, scrub <pool>, sync bulk; read only)	-
 sys	sys pool state <pool>	pool-state.sh	{1}	the same for one pool	-
+sys	sys storage discover	storage-discover.sh	-	-	-
 sys	sys pool plan <pool> <action>	pool-change.sh	plan {1} {2} {rest}	what a change of a pool would do, as data: status, plan lines, confirm_name (never asks; exit 2 = something is missing)	-
 sys	sys pool start <pool> <action>	pool-change.sh	start {1} {2} {rest}	do a change of a pool as a background job; needs --confirm <name> (passphrase on stdin with --encrypt)	-
 sys	sys backup state	backup.sh	--state	backup state as key and value	-
