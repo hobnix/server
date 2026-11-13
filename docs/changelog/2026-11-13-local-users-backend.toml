@@ -1,0 +1,6 @@
+date  = "2026-11-13"
+type  = "feature"
+title = "Users and groups without a domain controller"
+body  = """A server without a domain (no adDomain) can now create share users and groups with hs user and hs group: a user is a local account with a Samba password (it can open shares and nothing else, no shell, no home), a group is a Unix group. The admin account cannot be locked or deleted. Mail and description fields and hs user flush need a domain. Servers with a domain work as before. Per-share rights for local users follow in a later step.
+
+Not tested on hardware yet."""

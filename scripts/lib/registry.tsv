@@ -103,15 +103,15 @@ user	ct <ct> exec	ct-access.sh	{1} exec {rest}	run one command inside: hs ct <ct
 user	ct <ct> logs	ct-access.sh	{1} logs {rest}	the last lines of the journal inside: hs ct <ct> logs [lines]	die letzten Zeilen des Journals darin: hs ct <ct> logs [Zeilen]	guided,topic:instances,reads,cheat:trouble,capability:incus
 user	ct <ct> console	ct-access.sh	{1} console	the console of the instance (leave with Ctrl+a q)	die Konsole der Instanz (Beenden mit Strg+a q)	guided,topic:instances,changes,capability:incus
 user	ct update-all	ct-update-all.sh	{rest}	snapshot and update every running container, with a report and the way back: hs ct update-all [--dry-run] [--yes]	jeden laufenden Container per Schnappschuss sichern und aktualisieren, mit Bericht und Rückweg: hs ct update-all [--dry-run] [--yes]	topic:instances,changes,capability:incus
-user	user list	users-show.sh	users	users of the domain with state and groups	Benutzer der Domäne mit Zustand und Gruppen	topic:users,reads,cheat:users,capability:ad
-user	user <user> show	users-show.sh	users {1}	one user with state and groups	ein Benutzer mit Zustand und Gruppen	topic:users,reads,capability:ad
-user	user add	user-guided.sh	add {rest}	create a user (guided; the password is asked next): hs user add [name] [--full "Full Name"]	Benutzer anlegen (geführt; danach das Passwort): hs user add [Name] [--full "Voller Name"]	guided,topic:users,changes,cheat:users,capability:ad
-user	user <user> passwd	manage-users.sh	--password {1}	set a new password (typed on the terminal)	neues Passwort setzen (wird am Terminal getippt)	guided,topic:users,changes,cheat:users,capability:ad
-user	user <user> lock	user-guided.sh	lock {1} {rest}	lock or unlock an account (shows what it will do)	Konto sperren oder entsperren (zeigt, was passiert)	guided,topic:users,changes,capability:ad
-user	user <user> unlock	manage-users.sh	--enable {1}	unlock an account	Konto entsperren	topic:users,changes,capability:ad
-user	user <user> remove	manage-users.sh	--delete {1}	delete an account (asks you to type the name)	Konto löschen (der Name muss getippt werden)	guided,topic:users,changes,capability:ad
-user	user <user> join <group>	manage-users.sh	--member {2} {1} add	put a user into a group	Benutzer in eine Gruppe aufnehmen	topic:users,changes,capability:ad
-user	user <user> leave <group>	manage-users.sh	--member {2} {1} remove	take a user out of a group	Benutzer aus einer Gruppe nehmen	topic:users,changes,capability:ad
+user	user list	users-show.sh	users	users of the domain with state and groups	Benutzer der Domäne mit Zustand und Gruppen	topic:users,reads,cheat:users,capability:samba
+user	user <user> show	users-show.sh	users {1}	one user with state and groups	ein Benutzer mit Zustand und Gruppen	topic:users,reads,capability:samba
+user	user add	user-guided.sh	add {rest}	create a user (guided; the password is asked next): hs user add [name] [--full "Full Name"]	Benutzer anlegen (geführt; danach das Passwort): hs user add [Name] [--full "Voller Name"]	guided,topic:users,changes,cheat:users,capability:samba
+user	user <user> passwd	manage-users.sh	--password {1}	set a new password (typed on the terminal)	neues Passwort setzen (wird am Terminal getippt)	guided,topic:users,changes,cheat:users,capability:samba
+user	user <user> lock	user-guided.sh	lock {1} {rest}	lock or unlock an account (shows what it will do)	Konto sperren oder entsperren (zeigt, was passiert)	guided,topic:users,changes,capability:samba
+user	user <user> unlock	manage-users.sh	--enable {1}	unlock an account	Konto entsperren	topic:users,changes,capability:samba
+user	user <user> remove	manage-users.sh	--delete {1}	delete an account (asks you to type the name)	Konto löschen (der Name muss getippt werden)	guided,topic:users,changes,capability:samba
+user	user <user> join <group>	manage-users.sh	--member {2} {1} add	put a user into a group	Benutzer in eine Gruppe aufnehmen	topic:users,changes,capability:samba
+user	user <user> leave <group>	manage-users.sh	--member {2} {1} remove	take a user out of a group	Benutzer aus einer Gruppe nehmen	topic:users,changes,capability:samba
 user	user flush	manage-users.sh	--flush	make the file server forget cached users and groups	den Dateiserver gecachte Benutzer und Gruppen vergessen lassen	topic:users,changes,capability:ad
 user	group list	users-show.sh	groups	groups of the domain with their members	Gruppen der Domäne mit ihren Mitgliedern	topic:users,reads
 user	group <group> show	users-show.sh	groups {1}	one group with its members	eine Gruppe mit ihren Mitgliedern	topic:users,reads
@@ -198,7 +198,7 @@ user	setup-code	setup-code.sh	{rest}	the one-time code of the first web setup: i
 user	pool <pool> sync	bulk-sync.sh	{rest}	update the parity now (snapraid layout), or --scrub	die Parität jetzt aktualisieren (snapraid) oder --scrub	long,topic:disks,changes,capability:storage
 user	ct <ct> edit	ct-guided.sh	edit {1} {rest}	change memory, CPU, disk, autostart, Docker (guided, shows the current values)	Speicher, CPU, Platte, Autostart, Docker ändern (geführt, zeigt die aktuellen Werte)	guided,topic:instances,changes,capability:incus
 user	ct <ct> storage list	manage-ct.sh	{1} --storage	disks and shares mounted into an instance (list)	in eine Instanz eingehängte Platten und Freigaben (Liste)	nohelp,topic:instances,reads,capability:incus
-user	user <user> groups	user-guided.sh	groups {1} {rest}	the groups of a user (guided multi-select)	die Gruppen eines Benutzers (geführte Mehrfachauswahl)	guided,topic:users,changes,capability:ad
+user	user <user> groups	user-guided.sh	groups {1} {rest}	the groups of a user (guided multi-select)	die Gruppen eines Benutzers (geführte Mehrfachauswahl)	guided,topic:users,changes,capability:samba
 user	disk selftest	selftest.sh	{rest}	start a SMART self-test in every disk: hs disk selftest short|long	SMART-Selbsttest in jeder Platte starten: hs disk selftest short|long	topic:disks,changes,capability:storage
 user	secrets	secrets.sh	-	which secrets the server keeps, who can read them, which to store elsewhere	welche Geheimnisse der Server aufbewahrt, wer sie lesen kann, welche man woanders sichern sollte	topic:security,reads
 user	secrets fix	secrets.sh	fix	set root-only permissions on the secrets	nur-root-Rechte für die Geheimnisse setzen	nohelp,topic:security,changes
