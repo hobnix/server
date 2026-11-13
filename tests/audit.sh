@@ -10,7 +10,6 @@ export HS_STATE_DB=$(wp "$WORK/state.db")
 
 fake=$WORK/fake; mkdir -p "$fake/lib"
 for f in hs.sh capability.sh registry-load.sh ui.sh i18n.sh setting.sh live.sh audit.sh event.sh event-kinds.tsv; do cp "$SCRIPTS/lib/$f" "$fake/lib/"; done
-cp -r "$SCRIPTS/lib/i18n" "$fake/lib/"
 cp "$SCRIPTS/state-db.py" "$SCRIPTS/audit.sh" "$fake/"
 printf 'echo "ran:$*"\n[ "${1:-}" != boom ]\n' > "$fake/x.sh"
 printf 'user\tthing do\tx.sh\t-\t-\t-\ttopic:system,changes\nuser\tthing show\tx.sh\t-\t-\t-\ttopic:system,reads\nuser\tthing hook\tx.sh\t-\t-\t-\tnohelp,topic:system,changes\nuser\tthing <name> set\tx.sh\tset\t-\t-\ttopic:system,changes\n' > "$fake/lib/registry.tsv"

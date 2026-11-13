@@ -136,8 +136,7 @@ legacy = "language"
 default = '"en"'
 choices = ["en", "de"]
 doc = '''
-# Language of the descriptions and messages of the hs commands and the interface: "en" or "de".
-# Commands, options and file names stay English. Default "en".'''
+# Default language of the web interface: "en" or "de". The hs commands print English only. Default "en".'''
 value = '''
 language = "de"'''
 
@@ -1928,21 +1927,21 @@ id = "general"
 [[page.steps]]
 id = "language"
 title = "Language"
-question = "Which language should hs and the web interface use?"
-text = "Commands, options and file names stay English."
+question = "Which language should the web interface start with?"
+text = "The hs commands print English only; everyone can change the language in the browser."
 keys = ["language"]
 
 [[page.steps.options]]
 id = "en"
 label = "English"
-text = "Messages and descriptions are in English."
+text = "The web interface starts in English."
 set = { language = "en" }
 recommended = true
 
 [[page.steps.options]]
 id = "de"
 label = "Deutsch"
-text = "Messages and descriptions are in German."
+text = "The web interface starts in German."
 set = { language = "de" }
 
 [[page.steps]]

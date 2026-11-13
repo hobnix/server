@@ -126,10 +126,5 @@ check_eq "four parallel first starts: no error output" "" "$(cat "$WORK"/p?.err)
 check_eq "all rows there" "5" "$(q 'SELECT count(*) FROM events')"
 check_eq "no write lock left behind" "ok" "$(python3 -c 'import sqlite3,sys; c=sqlite3.connect(sys.argv[1], timeout=0); c.execute("BEGIN IMMEDIATE"); c.rollback(); print("ok")' "$HS_STATE_DB")"
 
-echo "-- german texts and the i18n list"
-for k in "No events yet." "Could not write the event %s (exit %s)" "Writing to the event log needs root: sudo hs event emit ..."; do
-  check "German text: $k" grep -qF "$k	" "$SCRIPTS/lib/i18n/de.tsv"
-done
-check "event.sh is in the i18n CORE list" grep -q ' event lib/event"' "$ROOT/tests/i18n.sh"
 check "sys event list is a GET read" python3 -c 'import json,sys; d=json.load(open(sys.argv[1])); assert "get" in d["paths"]["/event/list"]' "$ROOT/docs/api/openapi.json"
 finish

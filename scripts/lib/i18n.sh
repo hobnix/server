@@ -1,63 +1,33 @@
 # shellcheck shell=bash
-# Language of what the hs commands print. Sourced by lib/ui.sh, so every script has it.
+# The text helpers of the hs commands. Sourced by lib/ui.sh, so every script has them.
 #
-# The language comes from machine.toml (`language = "de"` -> /etc/hs/language), or from the
-# environment for one call:  HS_LANG=de hs rebuild.   English is the default and the fallback.
-# Commands, options and file names are never translated, only the sentences around them.
-#
-# How a text is translated: English is the key. scripts/lib/i18n/<lang>.tsv has one line per text,
-# English <TAB> translation; \n stands for a line break; %s and %d keep their order. A text without
-# a line prints in English. In a script:
-#   ok "Backup finished."                       (ui.sh functions look the text up by themselves)
+# The hs commands print English only (ADR 0025). Translation lives in the web interface (web/src/i18n.js).
+# `_tr`, `t` and `say` stay as pass-through helpers because packages call them (ADR 0008, rule 4); they are
+# deprecated: write the English text with printf/echo-style helpers of ui.sh (`ok`, `note`, `warn`, `fail`, ...)
+# and use `t` only to fill a format. HS_LANG is accepted and ignored. The `language` setting of machine.toml
+# only sets the default language of the web interface.
+#   ok "Backup finished."
 #   say "Plain line, like echo"
-#   die "Not set up yet."
-#   warn "$(t 'Disk %s is full (%s%%)' "$name" "$pct")"      (a text with values: write it as a
-#                                                             format in single quotes, then t fills it)
+#   warn "$(t 'Disk %s is full (%s%%)' "$name" "$pct")"
 # Machine-readable output (lists the interface reads) is never translated.
 
-# Every lib that sources ui.sh (vault.sh, crypt.sh, secret.sh ...) sources this file again. A second run would empty _T and drop the texts a
-# recipe read in between (recipes/_lib.sh reads <package>/i18n/<lang>.tsv, then sources docker-auth.sh): once per shell is enough.
 [ -z "${_hs_i18n_loaded:-}" ] || return 0
 _hs_i18n_loaded=1
 
-hs_lang=${HS_LANG:-}
-. "${BASH_SOURCE[0]%/*}/setting.sh"
-[ -n "$hs_lang" ] || hs_lang=$(setting_get language 2>/dev/null || true)
-hs_lang=${hs_lang:-en}
-declare -gA _T=()
+. "${BASH_SOURCE[0]%/*}/setting.sh"   # setting_get: ui.sh and the scripts that source it rely on it being loaded
+hs_lang=en   # deprecated: always en (kept so a package that reads it still works)
+declare -gA _T=()   # deprecated: always empty
 
-_i18n_read() {   # _i18n_read <file>: the lines of one translation file
-  local k v
-  [ -r "$1" ] || return 0
-  while IFS=$'\t' read -r k v; do
-    [ -n "$k" ] && [ "${k:0:1}" != "#" ] || continue
-    _T[$k]=${v//\\n/$'\n'}
-  done < "$1"
-}
-_i18n_load() {
-  local d n
-  [ "$hs_lang" != en ] || return 0
-  d=${BASH_SOURCE[0]%/*}
-  _i18n_read "$d/i18n/$hs_lang.tsv"
-  # the translations of the extension packages that are on (capabilities/<name>/i18n/<lang>.tsv, docs/PLAN-extensions.md)
-  [ -f "$d/registry-load.sh" ] || return 0
-  . "$d/registry-load.sh"
-  while IFS= read -r n; do
-    ext_package_on "$n" || continue
-    _i18n_read "$(ext_package_dir "$n")/i18n/$hs_lang.tsv"
-  done < <(ext_package_names)
-}
-_i18n_load
+_i18n_read() { :; }   # deprecated no-op: a package's i18n/<lang>.tsv is no longer read
 
-_tr() {   # _tr <text>: the translation, or the text itself
+_tr() {   # _tr <text>: the text itself (deprecated pass-through)
   local s=$*
   [ -n "$s" ] || return 0
-  printf '%s' "${_T[$s]:-$s}"
+  printf '%s' "$s"
 }
-t() {     # t <format> [values...]: translated format, filled in
+t() {     # t <format> [values...]: the format, filled in
   local f=$1
   shift
-  [ -z "$f" ] || f=${_T[$f]:-$f}
   if [ $# -eq 0 ]; then printf '%s' "$f"; else printf -- "$f" "$@"; fi
 }
-say() { printf '%s\n' "$(_tr "$*")"; }
+say() { printf '%s\n' "$*"; }

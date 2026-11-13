@@ -48,7 +48,7 @@ check_out "an unknown member is refused" "not a member" $R --member nothing --di
 
 echo "-- registry templates (real rows, stand-in scripts)"
 fake=$WORK/reg; mkdir -p "$fake/lib"
-cp "$SCRIPTS"/lib/hs.sh "$SCRIPTS"/lib/capability.sh "$SCRIPTS"/lib/registry-load.sh "$SCRIPTS"/lib/ui.sh "$SCRIPTS"/lib/i18n.sh "$SCRIPTS"/lib/setting.sh "$SCRIPTS"/lib/job.sh "$fake/lib/"; cp -r "$SCRIPTS"/lib/i18n "$fake/lib/"
+cp "$SCRIPTS"/lib/hs.sh "$SCRIPTS"/lib/capability.sh "$SCRIPTS"/lib/registry-load.sh "$SCRIPTS"/lib/ui.sh "$SCRIPTS"/lib/i18n.sh "$SCRIPTS"/lib/setting.sh "$SCRIPTS"/lib/job.sh "$fake/lib/"
 for s in manage-pool health disk-health temp-disk disk-replace create-share sync-shares share-perm share-cache manage-shares manage-ct manage-users status users-show ct-access ct-guided user-guided; do printf 'echo "%s $*"\n' "$s" > "$fake/$s.sh"; done
 cp "$SCRIPTS/lib/registry.tsv" "$fake/lib/"
 F="env HS_CALLER=t bash $fake/lib/hs.sh"

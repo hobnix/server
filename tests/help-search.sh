@@ -10,8 +10,7 @@ check_out "finds a command by its help text" "^  hs ssh-key add" $HS help --sear
 check_out "case does not matter" "^  hs ssh-key add" $HS help --search "ONE MORE ssh KEY"
 check_out "finds by path" "^  hs share <share> rename" $HS help --search "share <share> rename"
 check_out "the group heading" "^commands:" $HS help --search ssh-key
-check_out "German help text in German" "^  hs ssh-key list" env HS_LANG=de $HS help --search "Fingerabdruck"
-check_eq "the other language is not searched" "0" "$($HS help --search Fingerabdruck | grep -c '^  hs ssh-key list' || true)"
+check_eq "German descriptions are not searched" "0" "$(HS_LANG=de $HS help --search Fingerabdruck | grep -c '^  hs ssh-key list' || true)"
 
 echo "-- guides"
 fakeroot=$WORK/root; mkdir -p "$fakeroot/docs"

@@ -420,7 +420,7 @@ home network only.
 
 ## Work through the first-run checklist
 
-The first-run command asks for the language of the messages and a notification address, then lists what is still open, with the command
+The first-run command asks for the default language of the web interface and a notification address, then lists what is still open, with the command
 for each item:
 
 ```bash
@@ -431,7 +431,7 @@ The same list is the **Setup** page of the web interface. Each open item leads t
 
 | Item | What it is for | Command |
 | --- | --- | --- |
-| Language | The language of the messages (`en` or `de`) | `hs config set language de` |
+| Language | The default language of the web interface (`en` or `de`); the `hs` commands print English only | `hs config set language de` |
 | Time zone | Without it times in messages are UTC | `hs config set timeZone Europe/Berlin` |
 | Notifications | A push address, so you hear about a disk problem | `hs config set notifications true` |
 | Storage pool | A pool, if you skipped it | `hs pool bulk add` |

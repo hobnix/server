@@ -35,7 +35,6 @@ rm -f "$HS_STATE_DIR/vault-uuid"
 echo off > "$HS_LOGIN_MESSAGE"
 check_eq "switched off: silent" "" "$($M)"
 check_out "--force shows it anyway" "Last successful backup" $M --force
-check_out "German" "Läuft seit" env HS_LANG=de $M --force
 check_out "a wrong option is refused" "usage: hs motd" $M --nope
 
 finish

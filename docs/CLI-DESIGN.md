@@ -35,7 +35,7 @@ time. Everything comes from `scripts/lib/ui.sh`; a script never prints its own c
 | a plain sentence | `line "text"` | indent 2, normal colour |
 | output of another program (journal, log, a tool's lines) | `trail` (stdin) | indent 6, dimmed: the "trailing output" of rule 2; `spin` prints its failure tail the same way |
 | closing text | `box` | |
-| where to go next | `next_step "hs rebuild"` | dim line at indent 4: `Next: hs rebuild` (German: Als Nächstes) |
+| where to go next | `next_step "hs rebuild"` | dim line at indent 4: `Next: hs rebuild` |
 | a failure with its fix | `fail_fix "text" "hs command"` | red `✗` line, then `Fix: hs command` dim, both on stderr, exit 1 |
 | how long it took | `elapsed_line` | `  ✓ Finished in 2:05`; counted from the first source of ui.sh (`HS_T0`, kept across `exec`, so `hs update` includes the rebuild); silent under 5 s |
 
@@ -68,7 +68,7 @@ time. Everything comes from `scripts/lib/ui.sh`; a script never prints its own c
    (`--list`, `--info`, `--members`, `--dry-run`) stays plain and unchanged.
 4. **Destructive commands** show what happens (a plan), then `danger`, then `confirm_name` with the name of the disk or object, then
    (for long work) the offer of a background job. Never a bare "y/N" for erasing.
-5. **Text is the key for the German translation** (`scripts/lib/i18n/de.tsv`): static text goes through the components, text with
+5. **English only** (ADR 0025): static text goes through the components, text with
    values through `$(t 'Copied %s files' "$n")`.
 6. **Long steps show where they are** (progress lines, `SPIN_STREAM`), never a silent minute.
 

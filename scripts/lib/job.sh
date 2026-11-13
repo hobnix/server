@@ -95,7 +95,7 @@ hs_job() {
   [ -z "${HS_JOB_RECORD:-}" ] || extra+=(-E "HS_JOB_RECORD=$HS_JOB_RECORD")
   systemd-run --quiet --unit="$unit" --description="$desc" \
     --property="OnFailure=hs-notify-failure@$unit.service" \
-    -E HS_CALLER=job -E "HS_JOB_UNIT=$unit" -E "HS_LANG=${hs_lang:-en}" -E "PATH=$PATH" ${extra[@]+"${extra[@]}"} \
+    -E HS_CALLER=job -E "HS_JOB_UNIT=$unit" -E HS_LANG=en -E "PATH=$PATH" ${extra[@]+"${extra[@]}"} \
     bash -c 'd=$1; shift   # $0 = scripts dir, $1 = description, the rest = the command
              . "$0/lib/job.sh"   # hs_job_record
              [ -z "${HS_JOB_ID:-}" ] || hs_job_record run "$HS_JOB_ID" 2>/dev/null || true

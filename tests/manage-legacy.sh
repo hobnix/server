@@ -62,7 +62,6 @@ check_out "a bad storage name" "✗ invalid storage name" $CT web --add-storage 
 check_out "a restore says where it ends up" "✓ 'web' is back at 'snap-b'" $CT web --restore snap-b
 check_out "a typed delete asks and deletes" "✓ Deleted\." bash -c "echo web | bash $SCRIPTS/manage-ct.sh web --delete"
 check_out "the wrong name cancels" "✗ cancelled" bash -c "echo nope | bash $SCRIPTS/manage-ct.sh web --delete"
-check_out "German" "✗ 'nope' gibt es nicht\." env HS_LANG=de $CT nope --start
 
 echo "-- manage-users"
 check_eq "--list stays: name, full name, state, groups" "anna	Anna A	enabled	Domain Users,Staff" "$($US --list)"
@@ -78,6 +77,5 @@ check_out "no such group" "✗ No group called 'Nope'\." $US --member Nope anna 
 check_out "Administrator can't be locked" "✗ Not possible: locking Administrator" env FAKE_ADMIN=1 $US --disable Administrator
 check_out "a dry-run delete keeps the plain lines" "on dc1: samba-tool user delete anna" $US --delete anna --dry-run
 check_out "a delete asks for the name" "✗ cancelled" bash -c "echo nope | bash $SCRIPTS/manage-users.sh --delete anna"
-check_out "German" "✗ Keinen Benutzer namens|✗ Kein Benutzer namens|✗ Es gibt keinen Benutzer namens|No user called" env HS_LANG=de $US --password zed
 
 finish

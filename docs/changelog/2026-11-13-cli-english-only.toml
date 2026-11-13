@@ -1,0 +1,6 @@
+date  = "2026-11-13"
+type  = "change"
+title = "The hs commands print English only"
+body  = """The German translation of the hs commands is gone: hs help, the messages, the installer wizard, hs first-run and the login message are English. The setting `language` now only sets the default language of the web interface (each browser can still choose its own); HS_LANG is accepted and ignored. For packages, `_tr`, `t` and `say` stay as plain pass-through helpers (deprecated), and a package's i18n/<lang>.tsv is no longer read; the API level is 8. The German command descriptions (`# help.de:`) stay for the German cheat sheet.
+
+Not tested on hardware yet."""

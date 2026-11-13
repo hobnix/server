@@ -43,11 +43,9 @@ Each server keeps its own `machine.toml` and `hardware-configuration.nix`
 
 ## Language
 
-Descriptions and messages of the `hs` commands are English by default. Set `language = "de"` in `machine.toml`
-(then `hs rebuild`) for German; commands, options and file names stay English. One call:
-`HS_LANG=de hs help`. Texts live in `scripts/lib/i18n/de.tsv` (English text, tab, German text), command
-descriptions in `# help.de:` and recipes in `# recipe.de:` lines. A text without translation prints in English;
-`bash tests/run.sh i18n` lists what is missing. Push messages and `hs health` problems stay English.
+The `hs` commands print English only (ADR 0025). The web interface is translated (`web/src/i18n.js`); `language` in `machine.toml`
+(`en` or `de`) only sets its default, and each browser can choose its own. `HS_LANG` is accepted and ignored. German command
+descriptions stay in `# help.de:` for the German cheat sheet (`hs cheatsheet`).
 
 ## Helper commands
 

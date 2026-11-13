@@ -425,9 +425,9 @@ the checkout (or name it with `--dir <path>`):
 hs pkg new my-app --template recipe --title "My app: what it does"
 ```
 
-A recipe gets `package.toml`, `run.sh` (creates the container `my-app` and runs one step in it), `guide.md` and `i18n/de.tsv`. An
+A recipe gets `package.toml`, `run.sh` (creates the container `my-app` and runs one step in it), and `guide.md`. An
 extension (`--template extension`) gets `package.toml`, `capability.toml` with one web read, `commands.tsv` with `hs ext <name> list` and
-its data twin `hs sys ext <name> list`, `list.sh`, `NOTES.md`, `guide.md` and `i18n/de.tsv`. Both get an entry in `index.toml` with the
+its data twin `hs sys ext <name> list`, `list.sh`, `NOTES.md`, and `guide.md`. Both get an entry in `index.toml` with the
 version `0.1.0`. The command never overwrites: a folder or an index entry with the same name stops it. A template for capabilities follows
 with the service extensions.
 

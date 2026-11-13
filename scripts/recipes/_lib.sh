@@ -13,9 +13,6 @@
 . "${BASH_SOURCE[0]%/*}/../lib/recipe-runs.sh"   # recipe_runs_default: lxc or docker (recipe_runtime)
 . "${BASH_SOURCE[0]%/*}/../lib/ask.sh"   # ask_q: one question for the terminal and for the web (ADR 0018)
 . "${BASH_SOURCE[0]%/*}/../lib/internal-link.sh"   # link_get, link_overlaps: the internal link of Incus (internal_link)
-# the recipe's own German texts: <package folder>/i18n/<lang>.tsv (the run.sh that sourced this file is BASH_SOURCE[1]); the texts of this file and of
-# the shared helpers are in the core catalog
-if [ "${hs_lang:-en}" != en ] && [ -n "${BASH_SOURCE[1]:-}" ]; then _i18n_read "$(dirname "${BASH_SOURCE[1]}")/i18n/$hs_lang.tsv"; fi
 
 # ── Preferences ──
 # A recipe asks a few things the first time it sets a container up: which
@@ -450,12 +447,11 @@ docs_hint() {   # docs_hint <slug of the guide: a core guide (containers-and-app
 
 # ── The same frame for every recipe ──
 # Every recipe opens with a heading that names it (the text before the first colon of its
-# "# recipe:" line, in the server's language) and closes with the same few facts and a box:
+# "# recipe:" line) and closes with the same few facts and a box:
 #   recipe_facts [web]   the container, its address and the web page, as `kv` rows
 #   box                  only the clicks that cannot wait, then $(docs_hint <guide slug>)
 recipe_title() {
   local d=""
-  [ "${hs_lang:-en}" = en ] || d=$(sed -n "s/^# recipe.$hs_lang: //p" "$0" 2>/dev/null | head -n1)
   [ -n "$d" ] || d=$(sed -n 's/^# recipe: //p' "$0" 2>/dev/null | head -n1)
   d=${d%%:*}
   echo "${d:-$ct}"

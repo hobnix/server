@@ -133,7 +133,7 @@ UP=$WORK/up.git; REPO=$WORK/repo; PUSHER=$WORK/pusher
 git init -q --bare "$UP"; git clone -q "$UP" "$PUSHER" 2>/dev/null
 mkdir -p "$PUSHER/scripts/lib"
 cp "$SCRIPTS"/machine-sync.sh "$SCRIPTS"/machine-toml.py "$PUSHER/scripts/"
-cp "$SCRIPTS"/lib/machine.sh "$SCRIPTS"/lib/ui.sh "$SCRIPTS"/lib/i18n.sh "$SCRIPTS"/lib/setting.sh "$PUSHER/scripts/lib/"; cp -r "$SCRIPTS"/lib/i18n "$PUSHER/scripts/lib/"
+cp "$SCRIPTS"/lib/machine.sh "$SCRIPTS"/lib/ui.sh "$SCRIPTS"/lib/i18n.sh "$SCRIPTS"/lib/setting.sh "$PUSHER/scripts/lib/"
 printf '#!/usr/bin/env bash\necho "REBUILD RAN"\n' > "$PUSHER/scripts/rebuild.sh"
 cp "$EX" "$PUSHER/machine.toml.example"
 ( cd "$PUSHER" && $G add -A && $G commit -q -m first && git push -q origin HEAD 2>/dev/null )

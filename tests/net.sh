@@ -121,7 +121,7 @@ check_eq "and nothing was sent" "" "$(cat "$CALLS")"
 
 echo "-- through the registry"
 fake=$WORK/reg; mkdir -p "$fake/lib"
-cp "$SCRIPTS"/lib/hs.sh "$SCRIPTS"/lib/capability.sh "$SCRIPTS"/lib/registry-load.sh "$SCRIPTS"/lib/ui.sh "$SCRIPTS"/lib/secret.sh "$SCRIPTS"/lib/vault.sh "$SCRIPTS"/lib/crypt.sh "$SCRIPTS"/lib/i18n.sh "$SCRIPTS"/lib/setting.sh "$SCRIPTS"/lib/job.sh "$SCRIPTS/lib/registry.tsv" "$fake/lib/"; cp -r "$SCRIPTS"/lib/i18n "$fake/lib/"
+cp "$SCRIPTS"/lib/hs.sh "$SCRIPTS"/lib/capability.sh "$SCRIPTS"/lib/registry-load.sh "$SCRIPTS"/lib/ui.sh "$SCRIPTS"/lib/secret.sh "$SCRIPTS"/lib/vault.sh "$SCRIPTS"/lib/crypt.sh "$SCRIPTS"/lib/i18n.sh "$SCRIPTS"/lib/setting.sh "$SCRIPTS"/lib/job.sh "$SCRIPTS/lib/registry.tsv" "$fake/lib/"
 cp "$SCRIPTS/unifi.sh" "$fake/"
 F="env HS_CALLER=t HS_COMPLETE_DIR=$WORK/complete bash $fake/lib/hs.sh"
 check_out "hs net check" "The connection to https://router.test works" $F net check

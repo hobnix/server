@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
-# help: after the installation: language, notifications, and a checklist of what is still to set up
-# help.de: nach der Installation: Sprache, Benachrichtigungen und eine Checkliste, was noch einzurichten ist
+# help: after the installation: web interface language, notifications, and a checklist of what is still to set up
+# help.de: nach der Installation: Sprache der Weboberfläche, Benachrichtigungen und eine Checkliste, was noch einzurichten ist
 # args: [--language en|de] [--notify <url|none>] [--yes]
 # Asks the two things that can be answered right away and shows the rest as a checklist with the command
 # for each open item. HS_BIN points tests at a stand-in for the hs dispatcher.
@@ -22,11 +22,11 @@ while [ $# -gt 0 ]; do
   esac
 done
 
-step "Language"
+step "Web interface language"
 if [ -z "$lang" ] && [ -t 0 ] && ! $yes; then
-  lang=$(choose "Language of the messages" en de) || lang=""
+  lang=$(choose "Default language of the web interface" en de) || lang=""
 fi
-if [ -n "$lang" ]; then cfg set language "$lang"; else note "Language unchanged."; fi
+if [ -n "$lang" ]; then cfg set language "$lang"; else note "Web interface language unchanged."; fi
 
 step "Notifications"
 if [ -z "$notify" ] && [ -t 0 ] && ! $yes; then
