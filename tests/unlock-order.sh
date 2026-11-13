@@ -57,4 +57,10 @@ echo "zfs-mount.service incus.service samba-smbd.service" > "$HS_UNLOCK_UNITS"
 run
 check "no probe" test "$(grep -c '^probe' "$LOG")" -eq 0
 check "samba-smbd still starts last" test "$(line 'start samba-smbd')" -gt "$(line 'start incus-startup')"
+
+echo "-- a closed vault: the Incus socket and the autostart wait with incus.service (else the socket hits its trigger limit)"
+mod=$(dirname "$0")/../capabilities/incus/module.nix
+check "incus.service waits for the unlock" grep -q 'systemd.services.incus.unitConfig = whenUnlocked' "$mod"
+check "incus.socket waits too" grep -q 'systemd.sockets.incus.unitConfig = whenUnlocked' "$mod"
+check "incus-startup waits too" grep -q 'systemd.services.incus-startup.unitConfig = whenUnlocked' "$mod"
 finish
