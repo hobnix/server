@@ -107,18 +107,18 @@ lsblk -o NAME,SIZE,MODEL
 ```
 
 **The next commands erase the disk you name.** Replace `<disk>` with the system disk, for example `sda` or `nvme0n1` (for NVMe the partitions
-are called `nvme0n1p1` and so on: add the `p`). The layout is 1 GB boot, 8 GB swap, the rest for the system:
+are called `nvme0n1p1` and so on: add the `p`). The layout is 1 GB boot, 8 GB swap, a 1 GB partition called `vault` (left empty; `hs vault init` uses it later), the rest for the system:
 
 ```bash
 parted /dev/<disk> -- mklabel gpt
 ```
 
 ```bash
-parted /dev/<disk> -- mkpart root ext4 1GB -8GB
+parted /dev/<disk> -- mkpart root ext4 1GB -9GB
 ```
 
 ```bash
-parted /dev/<disk> -- mkpart swap linux-swap -8GB 100%
+parted /dev/<disk> -- mkpart swap linux-swap -9GB -1GB
 ```
 
 ```bash
@@ -127,6 +127,10 @@ parted /dev/<disk> -- mkpart ESP fat32 1MB 1GB
 
 ```bash
 parted /dev/<disk> -- set 3 esp on
+```
+
+```bash
+parted /dev/<disk> -- mkpart vault -1GB 100%
 ```
 
 The message "You may need to update /etc/fstab" after each command is harmless. Format and mount (partition 1 is the system, 2 the swap,
@@ -420,14 +424,21 @@ home network only.
 
 ## Work through the first-run checklist
 
-The first-run command asks for the language of the messages and a notification address, then lists what is still open, with the command
-for each item:
+The first-run command does four things in this order: it asks for the language of the messages (the rest of the run is already in that
+language), asks for a notification address (`--notify none` removes it), fetches the **core packages** and lists what is still open, with
+the command for each item. The core packages are the few apps the core refers to by name (`hs pkg install --core`); they come from the
+package repositories, so the server needs internet. If that fails, the command says so and the rest still runs; try again later with
+`hs pkg install --core`.
 
 ```bash
 hs first-run
 ```
 
-The same list is the **Setup** page of the web interface. Each open item leads to the page where it is done:
+Over `ssh` without a terminal (`ssh <server> hs first-run`) `hs` stops with a message, because `sudo` would ask for a password and cannot
+here. Log in with `ssh -t <server>` instead, or use `--language`, `--notify` and `--yes` as `root`. Not tested on hardware yet.
+
+The same list is the **Setup** page of the web interface and the output of `hs sys setup list`. Each open item leads to the page where it is
+done:
 
 | Item | What it is for | Command |
 | --- | --- | --- |
@@ -437,7 +448,10 @@ The same list is the **Setup** page of the web interface. Each open item leads t
 | Storage pool | A pool, if you skipped it | `hs pool bulk add` |
 | A first share | A folder you see from Windows | `hs share add <name>` |
 | Backup disk | A disk for `hs backup` | `hs backup init <device>` |
-| Optional parts | Metrics, Tailscale and so on | `hs config set capabilities ...` |
+| Vault (secrets) | Only with a vault: the vault must be open for backup and the like | `hs unlock` |
+| Optional parts (capabilities) | Metrics, Tailscale and so on | `hs config set capabilities ...` |
+| Wildcard DNS for the gateway proxy | Only with the gateway part on: names of the proxy must resolve | `hs gateway check` |
+| Setup finished | Your own decision; the last row of the list | `hs config set setupDone true` |
 
 When everything you want is done, press **Mark setup as finished** on the Setup page (or run `hs config set setupDone true`) and the
 reminder on the summary page disappears. Everything can also happen later; the page only keeps the list. The machine-readable form for
@@ -546,8 +560,7 @@ installer: the backup password (put it into the new vault by hand), the vault it
 boot, continue with step 8 of Case A: `sudo hs rebuild`, `sudo hs vault init ...`, import the pools, `sudo hs unlock`, then
 `sudo hs backup restore` for the shares (Case B).
 
-Known gaps: the installer's disk layout has no vault partition (Case A creates one; make it by hand or point `hs vault init` at another
-disk); a BIOS-only machine only works for the `edge` role, as in a new install; the `adminuser` password file of the answers file is not
+Known gaps: a BIOS-only machine only works for the `edge` role, as in a new install; the `adminuser` password file of the answers file is not
 read yet; a restored `machine.toml` that names hardware of the old machine (`nic`) needs a look after the first boot.
 
 The answers file (format above) may carry `[restore]` and `secrets.backup_passphrase_file`: `hs-restore --answers answers.toml`.

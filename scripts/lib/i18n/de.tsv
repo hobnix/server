@@ -1049,7 +1049,7 @@ Key file: yes (in the vault, for the other disks)	Schlüsseldatei: ja (im Tresor
 Mounted at	Eingehängt unter
 Move secrets into the vault	Geheimnisse in den Tresor verschieben
 Moved %s	%s verschoben
-No free partition found. Make one of about 1 GiB on the system disk first.	Keine freie Partition gefunden. Lege zuerst eine von etwa 1 GiB auf der System-SSD an.
+No free partition found. Make an empty one of about 1 GiB on the system disk (docs/encryption-and-vault.md, Set up the vault), or name one: hs vault init /dev/<partition>.	Keine freie Partition gefunden. Lege eine leere von etwa 1 GiB auf der System-SSD an (docs/encryption-and-vault.md, Tresor einrichten) oder nenne eine: hs vault init /dev/<Partition>.
 No such folder: %s	Diesen Ordner gibt es nicht: %s
 No vault is set up (hs vault init).	Es gibt keinen Tresor (hs vault init).
 Not a block device: %s	Kein Blockgerät: %s
@@ -1247,6 +1247,7 @@ Realloc	Neu zugewiesen
 Pending	Ausstehend
 Could not fetch the configuration: GitHub not reachable, or local changes in %s that Git can't combine?	Konfiguration nicht geladen: GitHub nicht erreichbar, oder lokale Änderungen in %s, die Git nicht zusammenführen kann?
 %s is set.	%s ist gesetzt.
+%s is removed.	%s ist entfernt.
 The result would not parse. Nothing was changed.	Das Ergebnis wäre ungültig. Es wurde nichts geändert.
 Freed about %s.	Etwa %s freigegeben.
 Rolled back. The newer generation is still there.	Zurückgesetzt. Die neuere Generation ist noch da.

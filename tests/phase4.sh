@@ -21,6 +21,7 @@ $C set notifyUrl https://ntfy.sh/t >/dev/null 2>&1
 check_eq "the push address goes to its old file" "https://ntfy.sh/t" "$(cat "$HS_STATE_DIR/notify-url")"
 check_eq "and is there" "https://ntfy.sh/t" "$($C get notifyUrl)"
 $C set notifyUrl none >/dev/null 2>&1
+check_out "none says removed, not set" "notifyUrl is removed" $C set notifyUrl none
 check_eq "none removes it" "no" "$(test -e "$HS_STATE_DIR/notify-url" && echo yes || echo no)"
 $C set gpu intel >/dev/null 2>&1; $C set gpu none >/dev/null 2>&1
 check_eq "gpu none comments the line out" "# gpu = \"intel\"" "$(grep 'gpu' "$M" | head -n1)"
@@ -150,6 +151,8 @@ echo "-- first-run (stand-in for hs)"
 bash "$S/first-run.sh" --language de --notify https://ntfy.sh/x >/dev/null 2>&1
 check_out "the language is set" "hs config set language de" cat "$LOGF"
 check_out "and the notification address" "hs config set notifyUrl https://ntfy.sh/x" cat "$LOGF"
+check_out "after de the rest is German" "Benachrichtigungen unverändert" bash "$S/first-run.sh" --language de --yes
+check_out "without a language the rest stays English" "Notifications unchanged" bash "$S/first-run.sh" --yes
 check_out "the checklist names the commands" "hs backup init" bash "$S/first-run.sh" --yes
 
 echo "-- old names are gone"

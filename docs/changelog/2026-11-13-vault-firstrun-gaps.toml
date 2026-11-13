@@ -1,0 +1,7 @@
+date  = "2026-11-13"
+type  = "fix"
+title = "The installer leaves a vault partition; hs first-run speaks the chosen language"
+docs  = "encryption-and-vault#set-up-the-vault"
+body  = """hs-install and the manual layout in the install guide now leave an empty 1 GB partition called vault at the end of the disk, so hs vault init finds it. The guides say what to do on a server without one, that hs vault move leaves samba-private out while Samba runs, and that init asks you to type the disk name.
+
+hs first-run switches to the language you choose for the rest of its output, no longer says "is set" after --notify none, lists the same items as the Setup page, and over ssh without a terminal says that sudo needs one. The proxyserver buttons now see vpsHost set with hs config set vpsHost at once; hs vps key says so."""
