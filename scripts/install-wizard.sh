@@ -247,6 +247,7 @@ mset() { machine_set "$1" "$2" installer >/dev/null || fail "$(t "'%s' could not
 [ "$role" = homeserver ] || mset role "\"$role\""
 ! $bios || mset bootDevice "\"/dev/$disk\""
 mset hostName "\"$hostname_\""
+mset webUi true   # the minimal system serves the web interface from the first boot (install.nix; docs/PLAN-first-run-wizard.md decision 1)
 mset sshKeys "[ \"$key\" ]"
 [ -z "$nic" ] || [ "$role" != homeserver ] || mset nic "\"$nic\""
 [ -z "$smb" ] || [ "$role" != homeserver ] || mset smbAllow "\"$smb\""
@@ -255,6 +256,12 @@ if [ "$role" != homeserver ]; then   # the example's pool and network lines mean
   for k in hostId nic smbAllow vlans; do machine_unset "$k" installer >/dev/null || true; done
 fi
 ok "machine.toml: server name, SSH key, network card and the rest"
+# the flag of the one-time setup code (docs/adr/0022): the boot unit shows the code while it says pending. Not on a restore: that server
+# already has its settings and its password.
+if [ -z "$restore_from" ]; then
+  HS_FIRST_RUN_FILE=$HS_STATE_DIR/first-run.json bash "$here/setup-code.sh" arm || fail "The first-setup flag could not be written."
+  ok "$(t 'The first web setup is armed: the code appears on the screen after the first boot')"
+fi
 HS_PRESETS_DIR=${HS_PRESETS_DIR:-$etc/presets} bash "$here/preset.sh" apply "$preset" --yes >/dev/null || fail "The preset could not be applied."
 ok "$(t "Preset '%s' applied (only what was not set yet)" "$preset")"
 
@@ -282,7 +289,11 @@ step "Done"
 if [ -n "$restore_from" ]; then
   note "After the first boot: sudo hs rebuild, make the vault (hs vault init), put the backup password back, import the pools, sudo hs unlock. The checklist: docs/backup-and-recovery.md Case A, from step 8."
 fi
-note "Take the stick out and reboot. Then, from your PC:  ssh adminuser@$hostname_.local   (or the address your router gave it)"
+if [ -z "$restore_from" ]; then
+  note "Take the stick out and reboot. The screen then shows an address and a one-time code: open the address in a browser on your network (http://$hostname_.local:8480, or the IP shown) and enter the code. If the page does not open, the IP works, or: ssh adminuser@$hostname_.local"
+else
+  note "Take the stick out and reboot. Then, from your PC:  ssh adminuser@$hostname_.local   (or the address your router gave it)"
+fi
 if [ "$role" = homeserver ]; then
   note "Next: create the pools (the hs command is there from the first boot: sudo hs pool bulk add; or zpool create, as in section 3 of the Homeserver guide), then sudo hs rebuild. The guide: docs/install.md."
 else

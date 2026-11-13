@@ -116,6 +116,15 @@ class FirstRun:
             self._write({"state": "pending", "hash": _hash(normalize(token)), "issued": self.clock(), "expires": self.clock() + self.ttl, "fails": 0})
             return token
 
+    def arm(self):
+        """Mark a fresh install as waiting for its first setup, without a token (the installer has none to show). The state reads `expired`
+        until the boot unit issues the first one. Never touches a flag that exists (a done setup stays done)."""
+        with self.lock:
+            if self._read() is not None:
+                return False
+            self._write({"state": "pending", "hash": "", "issued": 0, "expires": 0, "fails": 0})
+            return True
+
     def reset(self):
         with self.lock:
             try:
@@ -149,7 +158,7 @@ class FirstRun:
             return OK, user
 
 
-def banner(token, ttl):
+def banner(token, ttl, urls=()):
     """The text for the console: nothing else ever carries the token."""
     return "\n".join([
         "",
@@ -157,6 +166,7 @@ def banner(token, ttl):
         " Open the server's web address in a browser and enter",
         " this one-time code (valid %d minutes, works once):" % (ttl // 60),
         "",
+    ] + [" Address: %s" % u for u in urls] + ([""] if urls else []) + [
         "     %s" % token,
         "",
         " Not you? Do not enter it anywhere else. Run",
@@ -171,11 +181,17 @@ def main(argv):
     fr = FirstRun(path)
     cmd = argv[1] if len(argv) > 1 else "status"
     if cmd == "issue":
+        urls = [a[len("--url="):] for a in argv[2:] if a.startswith("--url=")]
+        if "--only-pending" in argv[2:] and fr.status()["state"] == NONE:
+            return 1   # the boot unit: no flag means not a first-run server, print nothing
         token = fr.issue()
         if token is None:
             sys.stderr.write("The first setup is already done.\n")
             return 1
-        sys.stdout.write(banner(token, fr.ttl))
+        sys.stdout.write(banner(token, fr.ttl, urls))
+        return 0
+    if cmd == "arm":
+        fr.arm()
         return 0
     if cmd == "status":
         s = fr.status()
@@ -184,7 +200,7 @@ def main(argv):
     if cmd == "reset":
         fr.reset()
         return 0
-    sys.stderr.write("usage: first_run.py issue|status|reset\n")
+    sys.stderr.write("usage: first_run.py issue|status|arm|reset\n")
     return 2
 
 
