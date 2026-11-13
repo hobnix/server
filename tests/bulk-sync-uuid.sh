@@ -32,4 +32,8 @@ echo "-- with the flag: one more sync with --force-uuid"
 sync_ --force-uuid
 check_eq "exit 0" 0 "$rc"
 check_eq "snapraid got --force-uuid" 1 "$(grep -c 'sync --force-uuid' "$CALLS" || true)"
+echo "-- --plain is accepted"
+sync_ --plain --force-uuid
+check_eq "exit 0 with --plain" 0 "$rc"
+grep -q "usage:" <<<"$out" && fail "usage printed: $out" || pass "no usage error"
 finish

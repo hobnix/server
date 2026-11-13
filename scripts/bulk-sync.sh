@@ -22,7 +22,8 @@ while [ $# -gt 0 ]; do
     --force-uuid) force_uuid=true; shift ;;
     --scrub) scrub=true; shift ;;
     --no-mover) mover=false; shift ;;
-    *) say "usage: hs pool bulk sync [--force] [--force-uuid] [--scrub] [--no-mover]"; exit 1 ;;
+    --plain) shift ;;   # ui.sh has read it already
+    *) say "usage: hs pool bulk sync [--force] [--force-uuid] [--scrub] [--no-mover] [--plain]"; exit 1 ;;
   esac
 done
 

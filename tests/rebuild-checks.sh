@@ -43,7 +43,19 @@ exit 1
 printf '#!/usr/bin/env bash\nexit 0\n' > "$WORK/bin/zpool"
 run fast_check; check_eq "pool fast exists: fine" 0 "$rc"
 printf '#!/usr/bin/env bash\nexit 1\n' > "$WORK/bin/zpool"
-: > "$HS_CAPABILITIES_FILE"
+printf 'role = "minimal"
+' > "$HS_MACHINE_FILE"; : > "$HS_CAPABILITIES_FILE"
 run fast_check; check_eq "storage is off: not checked" 0 "$rc"
 [ -z "$out" ] && pass "storage off: no message" || fail "message: $out"
+echo "-- first rebuild: no capabilities file yet, the role decides"
+rm -f "$HS_CAPABILITIES_FILE"; printf 'role = "homeserver"
+' > "$HS_MACHINE_FILE"
+printf '#!/usr/bin/env bash
+exit 1
+' > "$WORK/bin/zpool"
+run fast_check; check_eq "homeserver, no capabilities file: warns, goes on" 0 "$rc"
+grep -q "hs pool fast add" <<<"$out" && pass "the warning appears on the first rebuild" || fail "no warning: $out"
+printf 'role = "minimal"
+' > "$HS_MACHINE_FILE"
+run fast_check; [ -z "$out" ] && pass "role minimal: not checked" || fail "message: $out"
 finish

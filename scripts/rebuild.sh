@@ -94,9 +94,12 @@ bulk_type_check() {
 # The configuration imports the pool fast. After a lost system disk it is on the disks but not imported yet (the rebuild imports it),
 # so a missing pool only warns: the rebuild goes on and may fail on zfs-import-fast when no such pool exists.
 fast_check() {
+  local role
   [ "${HS_FAST_CHECK:-1}" = 1 ] || return 0
   command -v zpool >/dev/null 2>&1 || return 0
-  capability_on storage || return 0
+  # the intended state: /etc/hs/capabilities is only written by the first rebuild, so the role in machine.toml counts too
+  role=$(machine_get role 2>/dev/null || true)
+  capability_on storage || [ "${role:-homeserver}" = homeserver ] || return 0
   zpool list -H -o name fast >/dev/null 2>&1 && return 0
   { zpool import 2>/dev/null || true; } | grep -Eq '^[[:space:]]*pool:[[:space:]]*fast[[:space:]]*$' && return 0
   warn "$(t 'The configuration imports the pool fast, but no such pool is imported or found on the disks. The rebuild may fail on zfs-import-fast.')"
