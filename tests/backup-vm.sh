@@ -75,10 +75,13 @@ hsb() { bash "$SCRIPTS/backup.sh" "$@"; }
 echo "-- switching a VM on"
 check_out "a VM is said to be exported whole" "virtual machine as one export file" hsb ct vm1 on
 check_out "the VM is in the list" "^vm1$" cat "$ST/backup-instances"
+check_out "the domain controller is said to be always in, as a samba file" "always in the backup, as samba backup file" hsb ct dc1 on
+check "and it is not put on the list" bash -c "! grep -q '^dc1$' '$ST/backup-instances'"
 
 echo "-- the nightly run"
 printf '# dump:db\nhs-dump postgres vm1 vm1\n' > "$ST/backup-dump/vm1"
-hsb ct dc1 on >/dev/null 2>&1; hsb ct ct1 on >/dev/null 2>&1
+echo dc1 >> "$ST/backup-instances"      # a list from before: dc1 in it must still not be exported
+hsb ct ct1 on >/dev/null 2>&1
 : > "$FAKE_LOG"
 hsb now >"$WORK/now.out" 2>&1 || true
 check_out "the dump command runs inside the VM" "incus exec vm1 -- sh -c hs-dump postgres vm1 vm1" cat "$FAKE_LOG"

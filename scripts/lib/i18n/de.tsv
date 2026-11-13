@@ -2410,3 +2410,6 @@ Could not create the dataset %s. Nothing was restored.	Das Dataset %s konnte nic
 Created %s share datasets. After the restore: sudo hs share repair	%s Freigabe-Datasets angelegt. Nach der Wiederherstellung: sudo hs share repair
 plain folder, not a share (make a share of it with hs share add, or move its files into one)	Ordner, keine Freigabe (mit hs share add zur Freigabe machen oder die Dateien in eine Freigabe verschieben)
 Samba is not installed on this system, so there are no shares to publish. Install the full system first (hs rebuild).	Samba ist auf diesem System nicht installiert, es gibt also keine Freigaben zu veröffentlichen. Zuerst das vollständige System installieren (hs rebuild).
+%s: the domain controller is always in the backup, as samba backup file (the machine itself is not exported)	%s: Der Domänencontroller ist immer im Backup, als Samba-Sicherungsdatei (die Maschine selbst wird nicht exportiert)
+'%s' is not a number of files. To try a container or virtual machine: hs backup drill ct %s	'%s' ist keine Dateianzahl. Einen Container oder eine virtuelle Maschine prüfst du mit: hs backup drill ct %s
+! Virtual machine drill: never	! Test der virtuellen Maschine: noch nie
