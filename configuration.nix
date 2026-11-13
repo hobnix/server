@@ -18,7 +18,20 @@ let
   # How /bulk is built. "zfs": a pool like fast (mirror pairs). "snapraid":
   # single disks of any size, merged with mergerfs, protected by SnapRAID parity.
   bulkType = machine.bulkType;
-  bulkSnapraid = bulkType == "snapraid";
+  # The pool rows (machine.toml: pools; no line = the two classic rows, the data pool of kind bulkType and the apps pool on ZFS). docs/PLAN-portable-install.md
+  legacyPools = { bulk = { role = "data"; kind = bulkType; }; fast = { role = "apps"; kind = "zfs"; }; };
+  pools = if machine.pools == null then legacyPools else machine.pools;
+  poolNames = pred: lib.sort (a: b: a < b) (lib.attrNames (lib.filterAttrs (_: pred) pools));
+  zfsNames = role: poolNames (p: (p.kind or "") == "zfs" && (p.role or "") == role);
+  zfsAppsPools = zfsNames "apps";
+  extraPools = zfsAppsPools ++ zfsNames "data";   # no line: apps pool first, then the data pool (not when it is SnapRAID)
+  snapraidNames = poolNames (p: (p.kind or "") == "snapraid");
+  snapraidPool = if snapraidNames == [ ] then null else builtins.head snapraidNames;
+  bulkSnapraid = snapraidPool != null;
+  appsNames = poolNames (p: (p.role or "") == "apps");
+  dataNames = poolNames (p: (p.role or "") == "data");
+  appsPool = if appsNames == [ ] then null else builtins.head appsNames;
+  dataPool = if dataNames == [ ] then null else builtins.head dataNames;
   # what has to be up before anything touches /bulk
   bulkReady = if bulkSnapraid then "bulk-mount.service" else "zfs-mount.service";
   # Hours between two parity syncs (machine.toml: syncEveryHours, default 24 = once a night at 03:00, so the HDDs can sleep
@@ -60,7 +73,7 @@ let
   adminUser = machine.adminUser;
   # what the modules in capabilities/ get as their `hs` argument (the helpers are shared by storage, incus, samba and backup)
   hs = {
-    inherit machine adminUser hostName siteName ad bulkSnapraid bulkReady whenUnlocked notifyFailure;
+    inherit machine adminUser hostName siteName ad bulkSnapraid bulkReady pools zfsAppsPools extraPools snapraidPool appsPool dataPool whenUnlocked notifyFailure;
     enabled = name: builtins.elem name capabilities;
     scripts = ./scripts;
   };
@@ -161,7 +174,7 @@ in
 
   # ──────────────────────── /bulk on SnapRAID + mergerfs ────────────────────────
   # The scripts read the layout from here (hs pool bulk, create-share, ...).
-  environment.etc."hs/bulk-type".text = bulkType;
+  environment.etc."hs/bulk-type".text = if bulkSnapraid then "snapraid" else "zfs";
   environment.etc."hs/share-snapshots".text = if shareSnapshots then "on" else "off";
   environment.etc."hs/incus-ui".text = if incusUi then "on" else "off";
   environment.etc."hs/site-name".text = siteName;
@@ -216,6 +229,18 @@ in
   } {
     assertion = builtins.elem bulkType [ "zfs" "snapraid" ];
     message = "machine.toml: bulkType must be \"zfs\" or \"snapraid\" (found \"${bulkType}\").";
+  } {
+    assertion = lib.all (n: builtins.match "[a-z][a-z0-9]{0,11}" n != null) (builtins.attrNames pools);
+    message = "machine.toml: pools: a pool name is a lower case letter and up to 11 letters or digits (found ${builtins.toJSON (builtins.attrNames pools)}).";
+  } {
+    assertion = lib.all (p: builtins.elem (p.role or "") [ "data" "apps" ]) (builtins.attrValues pools);
+    message = "machine.toml: pools: role must be \"data\" or \"apps\".";
+  } {
+    assertion = lib.all (p: builtins.elem (p.kind or "") [ "zfs" "snapraid" ]) (builtins.attrValues pools);
+    message = "machine.toml: pools: kind must be \"zfs\" or \"snapraid\".";
+  } {
+    assertion = snapraidNames == [ ] || snapraidNames == [ "bulk" ];
+    message = "machine.toml: pools: at most one pool may be of kind \"snapraid\", and it must be named bulk (found ${builtins.toJSON snapraidNames}).";
   } {
     assertion = lib.all (g: builtins.elem g [ "nvidia" "amd" "intel" ]) gpus;
     message = "machine.toml: gpu must be \"nvidia\", \"amd\", \"intel\" or a list of them (found ${builtins.toJSON gpuSetting}).";
@@ -381,7 +406,7 @@ in
   # the system disk while there was no pool yet, and `zpool create` then
   # refused the non-empty /bulk.
   systemd.tmpfiles.rules =
-    lib.optional (hasStorage && !bulkSnapraid) "z /bulk/shares 2775 ${adminUser} users -"
+    lib.optional (hasStorage && dataPool != null && pools.${dataPool}.kind == "zfs") "z /${dataPool}/shares 2775 ${adminUser} users -"
     # where hs health leaves its numbers for node-exporter
     # the live ARC limit (zfsArcMaxGB), see boot.extraModprobeConfig above
     ++ lib.optional (hasStorage && zfsArcMaxGB > 0) "w /sys/module/zfs/parameters/zfs_arc_max - - - - ${toString (zfsArcMaxGB * 1073741824)}"

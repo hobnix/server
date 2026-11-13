@@ -620,6 +620,23 @@ bulkType = "snapraid"'''
 
 [[item]]
 kind = "option"
+key = "pools"
+type = "table"
+required = false
+settable = false
+secret = false
+default = 'null'
+doc = '''
+# The storage pools of this server: the key is the pool name (a lower case letter, then up to 11 letters or digits),
+# `role` is "data" (shares) or "apps" (Incus storage, SSD shares), `kind` is "zfs" or "snapraid" (at most one,
+# named bulk). Without this line the two classic rows apply, derived from bulkType.
+# `pools = {}` is a server without any pool: apps run on the system disk, no shares. The line is written by
+# the installer and `hs pool`, not by hand.'''
+value = '''
+pools = { tank = { role = "data", kind = "zfs" }, ssd = { role = "apps", kind = "zfs" } }'''
+
+[[item]]
+kind = "option"
 key = "syncEveryHours"
 type = "int"
 required = false

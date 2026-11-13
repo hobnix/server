@@ -45,6 +45,7 @@
   "sshOverIp": "access",
   "tailscaleRouter": "cap:tailscale",
   "bulkType": "storage",
+  "pools": "storage",
   "syncEveryHours": "storage",
   "shareSnapshots": "storage",
   "zfsArcMaxGB": "storage",

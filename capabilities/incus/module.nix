@@ -1,7 +1,7 @@
 { config, lib, pkgs, hs, ... }:
 
 let
-  inherit (hs) machine whenUnlocked notifyFailure;
+  inherit (hs) machine appsPool whenUnlocked notifyFailure;
   scripts = hs.scripts;
   incusUi = machine.incusUi;
   link = import ./internal-link.nix { inherit lib machine; };
@@ -14,6 +14,9 @@ let
     "snapshots.expiry" = "7d";
     "snapshots.pattern" = "auto-{{ creation_date|date:'2006-01-02' }}";
   };
+
+  # A dir pool (no apps pool) copies a whole instance per snapshot: no nightly schedule there (system disk).
+  profileSnapshots = if appsPool != null then autoSnapshots else { };
 
   defaultVlanNames = builtins.attrNames (lib.filterAttrs (_: v: v.default or false) vlans);
   defaultVlan =
@@ -45,10 +48,14 @@ in
       # Incus doesn't listen on the network by default; the UI and remote `incus` need it
       config = lib.optionalAttrs incusUi { "core.https_address" = ":8443"; };
 
-      storage_pools = [{
+      # With an apps pool: ZFS on it. Without one: Incus' own folder on the system disk (no redundancy).
+      storage_pools = if appsPool != null then [{
         name = "default";
         driver = "zfs";
-        config.source = "fast/incus";          # Incus creates/mounts child datasets itself
+        config.source = "${appsPool}/incus";   # Incus creates/mounts child datasets itself
+      }] else [{
+        name = "default";
+        driver = "dir";
       }];
 
       # "default" profile uses the VLAN marked `default = true` in machine.toml.
@@ -57,12 +64,12 @@ in
       profiles =
         [{
           name = "default";
-          config = autoSnapshots;
+          config = profileSnapshots;
           devices = { eth0 = nicDevice defaultVlan; } // rootDevice;
         }]
         ++ lib.mapAttrsToList (name: _: {
           inherit name;
-          config = autoSnapshots;
+          config = profileSnapshots;
           devices = { eth0 = nicDevice name; } // rootDevice;
         }) vlans;
 
