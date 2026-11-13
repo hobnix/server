@@ -12,7 +12,7 @@ This file is the whole HTTP side of the entry page:
   POST /api/live/refresh   {topic}: ask the live collector to read that topic again (mode redis; 409 otherwise); session + CSRF
   GET  /api/sys/...   a read-only `hs sys` call from the allowlist READS below (session needed), e.g. /api/sys/ct/list
   GET  /api/sys/jobs/stream/<unit>  the same job journal as `sys jobs tail`, as server-sent events (one JSON {rows} per look, `event: end` when the unit ended), session needed
-  GET  /api/events    server-sent events `changed` ({topic, gen}) in every mode (a watcher reads the table `topics` of state.db once a second; Redis, when on, is the fast path), `down`/`up` when Redis goes; session, same Origin
+  GET  /api/events    server-sent events `changed` ({topic, gen}) in every mode (a watcher reads the table `topics` of state.db once a second; Redis, when on, is the fast path), `down`/`up` when Redis goes (mode db: when the heartbeat of hs-live-db stops or returns); session, same Origin
   GET  /api/board     the dashboard tiles and their stats, only while the dashboard variant is web; a session, or (setting dashboardOpen) a private address
   GET  /api/proxy/status  the VPS status document (machine.toml proxyStatusUrl, env HS_WEB_PROXY_URL; 404 while not configured), session needed
   GET  /api/docs/index|page/<lang>/<slug>|search?q=  the guides (capability docs; `hs docs build` writes them), session needed
@@ -317,8 +317,10 @@ class Config:
         self.stream_every = float(env("HS_WEB_STREAM_EVERY", "1"))        # seconds between two looks at the journal
         self.stream_max = int(env("HS_WEB_STREAM_MAX", "6"))              # streams open at once (one thread each)
         self.stream_hours = float(env("HS_WEB_STREAM_HOURS", "6"))        # a stream ends after this long; the page reconnects or falls back
-        # live state (capability live-state): "redis" serves topic reads from Redis and pushes changes on /api/events; anything else = off
+        # live state (capability live-state): "redis" serves topic reads from Redis and pushes changes on /api/events; anything else = off;
+        # "db" (ADR 0026 step 1): topic reads stay direct, `down`/`up` come from the heartbeat row of the collector hs-live-db in state.db
         self.live = env("HS_WEB_LIVE", "")
+        self.probe_file = env("HS_WEB_PROBE_FILE", "/run/hs-web/probe.tsv")      # hs live measure: when a live:probe counter reached the streams ("" = off)
         self.live_socket = env("HS_LIVE_SOCKET", "/run/redis-hobnix/redis.sock")
         self.events_watch = 1.0                                           # seconds between two reads of the change counters (table topics of state.db)
         self.events_ping = 15.0                                           # seconds of silence before a `: ping` on /api/events (tests shorten it)
@@ -2095,6 +2097,7 @@ class Events:
         self.redis_up = False        # the Redis subscription holds: it delivers the live topics, the counters are then only the fallback
         self.counters = None         # topic -> gen as the watcher saw it last; None = not read yet (the first read is the baseline, no event)
         self.last_event = None       # id of the newest event-log row the watcher saw; None = not read yet (the first read is the baseline)
+        self.collector_up = None     # mode db: the heartbeat of hs-live-db is fresh; None = not looked at yet
         self.on_change = None        # App sets it: called once per round that saw a change made outside the web (clears the read cache)
 
     def add(self):
@@ -2148,6 +2151,58 @@ class Events:
             return {} if "no such table" in str(e) else None
         except sqlite3.Error:
             return None
+
+    def read_heartbeat(self):
+        """-> (time, every) of the heartbeat row of the collector (mode db); () when there is no database, table or row; None when busy."""
+        db = env("HS_STATE_DB", os.path.join(env("HS_STATE_DIR", "/var/lib/hs"), "state.db"))
+        if not os.path.exists(db):
+            return ()
+        try:
+            c = sqlite3.connect("file:%s?mode=ro" % db.replace("\\", "/"), uri=True, timeout=2)
+            try:
+                c.execute("PRAGMA query_only=1")
+                row = c.execute("SELECT time, every FROM heartbeat WHERE name = 'hs-live'").fetchone()
+                return (int(row[0]), int(row[1])) if row else ()
+            finally:
+                c.close()
+        except sqlite3.OperationalError as e:
+            return () if "no such table" in str(e) else None
+        except sqlite3.Error:
+            return None
+
+    def poll_heartbeat(self, now=None):
+        """One round (mode db): the collector is down when its heartbeat is older than max(15, 3 x every) s. The first look is the baseline (`down`
+        only when it is already down); after that `down` or `up` once per change. `up` comes alone: the pages read again on their own timers."""
+        hb = self.read_heartbeat()
+        if hb is None:
+            return
+        t = time.time() if now is None else now
+        alive = bool(hb) and t - hb[0] <= max(15, 3 * hb[1])
+        before, self.collector_up = self.collector_up, alive
+        if before is None:
+            if not alive:
+                self.feed("down")
+        elif before != alive:
+            self.feed("up" if alive else "down")
+
+    def record_probe(self, topic, gen):
+        """hs live measure: one line (topic, gen, epoch ms, open streams) when a probe counter reached the stream queues. Best effort."""
+        path = self.cfg.probe_file
+        if not path:
+            return
+        with self.lock:
+            n = len(self.queues)
+        try:
+            mode = "a"
+            try:
+                if os.path.getsize(path) > 262144:
+                    mode = "w"
+            except OSError:
+                pass
+            with open(path, mode, encoding="utf-8") as f:
+                f.write("%s\t%d\t%d\t%d\n" % (topic, gen, int(time.time() * 1000), n))
+        except OSError:
+            pass
 
     def _event_db(self):
         return env("HS_STATE_DB", os.path.join(env("HS_STATE_DIR", "/var/lib/hs"), "state.db"))
@@ -2213,11 +2268,13 @@ class Events:
         if before is None:
             return
         moved = sorted((t, g) for t, g in now.items() if g != before.get(t))
-        if any(not t.startswith("reads:") for t, _ in moved) and self.on_change:
+        if any(not t.startswith(("reads:", "live:")) for t, _ in moved) and self.on_change:
             self.on_change()
         for t, g in moved:
-            if t.startswith("reads:") or not self.redis_up:
+            if t.startswith(("reads:", "live:")) or not self.redis_up:
                 self.feed("changed", t, g)
+            if t == "live:probe":
+                self.record_probe(t, g)
 
     def _watch(self):
         while True:
@@ -2229,6 +2286,11 @@ class Events:
                 self.poll_events()
             except Exception:
                 pass
+            if self.cfg.live == "db":
+                try:
+                    self.poll_heartbeat()
+                except Exception:
+                    pass
             time.sleep(self.cfg.events_watch)
 
     def _run(self):
@@ -2663,7 +2725,7 @@ def make_handler(app):
         def _events(self):
             """Server-sent events, in every liveState mode: `changed` {topic, gen} when a change counter moved (Events.poll_counters) or, in mode
             redis, the collector read a topic again; `domain` (id = event log id) per new log row, replayed after Last-Event-ID (up to 500, else `resync`,
-            also sent when a stream queue overflowed); `down` / `up` when Redis goes or comes back. One thread per stream (at most cfg.events_max). The page reads the topic again when `changed` arrives."""
+            also sent when a stream queue overflowed); `down` / `up` when Redis goes or comes back (mode db: when the heartbeat of the collector stops or returns). One thread per stream (at most cfg.events_max). The page reads the topic again when `changed` arrives."""
             if not self._session():
                 return self._json(401, {"error": "not signed in"})
             if self.headers.get("Origin") and not self._same_origin():
@@ -2677,6 +2739,8 @@ def make_handler(app):
                 self.close_connection = True
                 self._headers(200, "text/event-stream", None, (("Cache-Control", "no-cache"), ("Connection", "close"), ("X-Accel-Buffering", "no")))
                 self.wfile.write(b"retry: 3000\n\n")
+                if cfg.live == "db" and app.events.collector_up is False:
+                    self.wfile.write(b"event: down\ndata: {}\n\n")
                 sent = 0                                                     # the newest log id this stream has sent (a live row up to it is a repeat)
                 last = (self.headers.get("Last-Event-ID") or "").strip()
                 if last.isdigit():

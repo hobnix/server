@@ -8,6 +8,7 @@ user	smoke	smoke.sh	{rest}	quick check that the commands work here: needed progr
 user	cheatsheet	cheatsheet.sh	{rest}	one-page German cheat sheet of the most useful commands (Markdown, to print)	Spickzettel auf einer Seite mit den wichtigsten Befehlen (Markdown, zum Ausdrucken)	topic:docs,reads
 user	jobs reconcile	job-reconcile.sh	-	-	-	nohelp,topic:system,changes
 user	timing	read-timing.sh	{rest}	how long the reads of the interface take (every tab loads through them), slowest first; needs root	wie lange die Lesezugriffe der Oberfläche dauern (jeder Reiter lädt damit), die langsamsten zuerst	nohelp,topic:system,reads
+user	live measure	live-measure.sh	{rest}	measure the live state on the state database for a while (writes per minute, database growth, change latency) and write a result file; needs root	-	nohelp,long,topic:system,changes
 user	motd	motd.sh	{rest}	three status lines: problems, last backup, system (also shown at SSH login)	drei Statuszeilen: Probleme, letztes Backup, System (erscheint auch beim SSH-Login)	topic:system,reads
 user	docs build	docs-build.sh	{rest}	build the documentation pages again (guides and command reference)	Dokumentationsseiten neu bauen (Anleitungen und Befehlsübersicht)	topic:docs,changes
 user	docs verified	docs-verified.sh	{rest}	show when each guide was last checked on the real server, or mark one as checked: hs docs verified <guide> [YYYY-MM-DD]	zeigen, wann jede Anleitung zuletzt am echten Server geprüft wurde, oder eine als geprüft eintragen: hs docs verified <Anleitung> [JJJJ-MM-TT]	topic:docs,changes

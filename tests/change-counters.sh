@@ -32,6 +32,9 @@ check_eq "same output" "1" "$(q "SELECT gen FROM topics WHERE topic='reads:monit
 printf 'b' | sdb read-put "monitor disks"
 check_eq "other output" "2" "$(q "SELECT gen FROM topics WHERE topic='reads:monitor disks'")"
 
+echo "-- live: counters (ADR 0026 step 1) are counted like any topic"
+sdb topic-bump live:probe >/dev/null
+check_eq "live:probe gen 1" "1" "$(q "SELECT gen FROM topics WHERE topic='live:probe'")"
 echo "-- live_refresh counts up without Redis"
 unset HS_LIVE_LOG
 export HS_LIVE_SOCKET=$WORK/none.sock

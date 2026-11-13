@@ -228,6 +228,8 @@ password once), the sign-in to the reverse proxy, anything that asks questions, 
 
 ## Live state
 
+`liveState = "db"` is a third value, only for measuring the state database as the store of the live state: see [Measure the live state on the state database](operations.md#measure-the-live-state-on-the-state-database).
+
 With `liveState = "redis"` in `machine.toml` (default `off`) the Summary page updates within about a second after a change, without polling.
 The server keeps the status in a Redis service on a local socket (no network port) and tells the browser through `/api/events` when it changes.
 If the service is down, the status read answers "state service down" and the page retries every 15 seconds; "Live updates paused" shows when an already open live stream is lost. `sudo hs sys live status` shows the state.

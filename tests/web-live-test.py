@@ -909,5 +909,128 @@ class Counters(Base):
         self.assertEqual(self.app.reads.cache, {})
 
 
+class DbMode(Base):
+    """liveState = "db" (ADR 0026 step 1): the store stays off, `down`/`up` come from the heartbeat row of the collector, live: counters keep the cache."""
+
+    def setUp(self):
+        super().setUp()
+        self.db = os.path.join(self.tmp, "state.db")
+        os.environ["HS_STATE_DB"] = self.db
+        self.probe = os.path.join(self.tmp, "probe.tsv")
+        self.cfg.probe_file = self.probe
+        self.cfg.live = "db"
+        self.hub = self.app.events
+        self.q = self.hub.add()
+
+    def tearDown(self):
+        os.environ.pop("HS_STATE_DB", None)
+        super().tearDown()
+
+    def sql(self, *stmts):
+        import sqlite3
+        c = sqlite3.connect(self.db)
+        for st in stmts:
+            c.execute(*st) if isinstance(st, tuple) else c.execute(st)
+        c.commit()
+        c.close()
+
+    def beat(self, t, every=5):
+        self.sql("CREATE TABLE IF NOT EXISTS heartbeat (name TEXT PRIMARY KEY, time INTEGER NOT NULL, every INTEGER NOT NULL)",
+                 ("INSERT INTO heartbeat (name, time, every) VALUES ('hs-live', ?, ?) ON CONFLICT(name) DO UPDATE SET time = excluded.time, every = excluded.every",
+                  (t, every)))
+
+    def bump(self, topic, n=1):
+        self.sql("CREATE TABLE IF NOT EXISTS topics (topic TEXT PRIMARY KEY, gen INTEGER NOT NULL DEFAULT 0, time INTEGER NOT NULL DEFAULT 0)")
+        for _ in range(n):
+            self.sql(("INSERT INTO topics (topic, gen, time) VALUES (?, 1, 0) ON CONFLICT(topic) DO UPDATE SET gen = gen + 1", (topic,)))
+
+    def drain(self):
+        out = []
+        while not self.q.empty():
+            out.append(self.q.get())
+        return out
+
+    def test_db_mode_store_is_off_and_feature_false(self):
+        self.assertEqual(ws.Config().live, "")
+        cfg = ws.Config()
+        cfg.live = "db"
+        self.assertFalse(ws.features(cfg)["live"])
+        self.assertIsInstance(ws.App(cfg, FakeAuth(cfg)).store, ws.OffStore)
+
+    def test_heartbeat_fresh_then_old_feeds_down_then_up(self):
+        self.beat(1000)
+        self.hub.poll_heartbeat(now=1005)
+        self.assertEqual(self.drain(), [])                  # baseline, alive
+        self.hub.poll_heartbeat(now=1015)
+        self.assertEqual(self.drain(), [])                  # 15 s old: still within max(15, 3 x 5)
+        self.hub.poll_heartbeat(now=1016)
+        self.assertEqual(self.drain(), [("down",)])
+        self.hub.poll_heartbeat(now=1020)
+        self.assertEqual(self.drain(), [])                  # once
+        self.beat(1021)
+        self.hub.poll_heartbeat(now=1022)
+        self.assertEqual(self.drain(), [("up",)])
+
+    def test_heartbeat_missing_at_start_feeds_down(self):
+        self.hub.poll_heartbeat(now=1000)
+        self.assertEqual(self.drain(), [("down",)])
+        self.assertIs(self.hub.collector_up, False)
+
+    def test_no_heartbeat_poll_in_off_mode(self):
+        self.cfg.live = ""
+        calls = []
+        self.hub.poll_heartbeat = lambda now=None: calls.append(1)
+        self.hub.poll_counters = lambda: None
+        self.hub.poll_events = lambda: None
+        self.hub.cfg.events_watch = 0.01
+        threading.Thread(target=self.hub._watch, daemon=True).start()
+        time.sleep(0.2)
+        self.assertEqual(calls, [])
+        self.cfg.live = "db"
+        time.sleep(0.2)
+        self.assertTrue(calls)
+
+    def test_live_prefix_does_not_clear_cache(self):
+        cleared = []
+        self.hub.on_change = lambda: cleared.append(1)
+        self.hub.poll_counters()
+        self.bump("live:status")
+        self.hub.poll_counters()
+        self.assertEqual(self.drain(), [("changed", "live:status", 1)])
+        self.assertEqual(cleared, [])
+        self.bump("status")
+        self.hub.poll_counters()
+        self.assertEqual(cleared, [1])
+
+    def test_probe_is_recorded(self):
+        self.hub.poll_counters()
+        self.bump("live:probe")
+        self.hub.poll_counters()
+        with open(self.probe, encoding="utf-8") as f:
+            parts = f.read().rstrip("\n").split("\t")
+        self.assertEqual((parts[0], parts[1], parts[3]), ("live:probe", "1", "1"))
+        self.assertTrue(parts[2].isdigit())
+
+    def test_probe_off_with_empty_setting(self):
+        self.cfg.probe_file = ""
+        self.hub.poll_counters()
+        self.bump("live:probe")
+        self.hub.poll_counters()
+        self.assertFalse(os.path.exists(self.probe))
+
+    def test_stream_open_says_down_in_db_mode(self):
+        self.hub.collector_up = False
+        c = http.client.HTTPConnection("127.0.0.1", self.port, timeout=5)
+        c.request("GET", "/api/events", headers=self.ck)
+        r = c.getresponse()
+        try:
+            self.assertEqual(r.fp.readline(), b"retry: 3000\n")
+            r.fp.readline()
+            self.assertEqual(r.fp.readline(), b"event: down\n")
+            self.assertEqual(r.fp.readline(), b"data: {}\n")
+        finally:
+            c.close()
+
+
 if __name__ == "__main__":
     unittest.main()

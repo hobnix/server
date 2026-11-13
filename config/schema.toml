@@ -330,7 +330,7 @@ webDocs = false'''
 kind = "option"
 key = "liveState"
 type = "string"
-choices = ["redis", "off"]
+choices = ["redis", "off", "db"]
 required = false
 settable = false
 secret = false
@@ -339,6 +339,7 @@ default = '"off"'
 doc = '''
 # Live state for the web interface (the capability live-state): a collector reads `hs sys status` into Redis (unix socket only, nothing on
 # disk) and the web serves it from there and pushes changes to the browser. "off" (the default) keeps the direct reads. Needs webUi = true and a rebuild.
+# "db" (ADR 0026 step 1, for the measurement only): the collector hs-live-db writes the topics into the state database; the web is unchanged otherwise.
 # Not tested on hardware yet.'''
 value = '''
 liveState = "off"'''

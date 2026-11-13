@@ -7,13 +7,17 @@ live.collector-recovered), not one per failed run. Redis down: retry every 5 s, 
 A topic can name topics it needs (lib/live-topics.tsv column 7): when one of them gets a new gen, one wave thread reads the dependents once, in
 dependency order (a burst of changes is one wave); a wave never reads a topic sooner than HS_LIVE_MIN_GAP seconds (default 5) after its last read.
 DockerWatch follows the Docker event stream of the container docker and asks for @docker (#155); IncusWatch follows `incus monitor --type=lifecycle`,
-asks for @instances and writes ct.created/started/stopped/deleted events (#392)."""
+asks for @instances and writes ct.created/started/stopped/deleted events (#392).
+HS_LIVE_STORE=db (liveState = "db", ADR 0026 step 1, service hs-live-db) writes to the state database instead of Redis: a document only when its output
+changed (table live, counter live:<topic>) and one heartbeat row every HS_LIVE_BEAT seconds (default 5); no refresh channel."""
+import importlib.util
 import json
 import math
 import os
 import queue
 import re
 import shlex
+import sqlite3
 import subprocess
 import sys
 import threading
@@ -25,6 +29,14 @@ import live_state as ls  # noqa: E402
 
 def log(*a):
     print(*a, flush=True)
+
+
+def load_state_db():
+    """scripts/state-db.py as a module (its file name has a dash): the SQL of the live tables stays there, this process only calls it."""
+    spec = importlib.util.spec_from_file_location("state_db", os.path.join(ls.HERE, "state-db.py"))
+    mod = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(mod)
+    return mod
 
 
 def hs_run(words):
@@ -287,11 +299,81 @@ class IncusWatch(DockerWatch):
             self.writer.join(20)
 
 
+class DbStore:
+    """The state database as the store of the live documents (ADR 0026 step 1). One connection shared by all topic threads under one lock;
+    the documents are also kept in memory, so a read that changed nothing needs no SQL. Counts what it wrote, for the heartbeat row."""
+    SLOW_MS = 100
+
+    def __init__(self, sdb=None, every=None, clock=time.time):
+        self.sdb = sdb or load_state_db()
+        self.clock = clock
+        self.lock = threading.Lock()
+        try:
+            self.c = self.sdb.live_open()
+            self.docs = self.sdb.live_load(self.c)
+        except sqlite3.Error as e:
+            raise OSError("state.db: %s" % e)
+        self.started = int(clock())
+        self.counts = {"beats": 0, "docs": 0, "fails": 0, "bytes": 0, "slow": 0, "wait_ms": 0}
+
+    def _tx(self, fn, *a):
+        with self.lock:
+            t0 = time.monotonic()
+            try:
+                return fn(self.c, *a)
+            except sqlite3.Error as e:
+                raise OSError("state.db: %s" % e)
+            finally:
+                ms = int((time.monotonic() - t0) * 1000)
+                self.counts["wait_ms"] += ms
+                if ms > self.SLOW_MS:
+                    self.counts["slow"] += 1
+
+    def get(self, topic):
+        return self.docs.get(topic)
+
+    def put(self, topic, out, rc, ms, src, ttl, now):
+        gen = self._tx(self.sdb.live_put, topic, out, rc, ms, src, ttl, int(now))
+        self.docs[topic] = {"payload": out, "rc": rc, "err": None, "gen": gen, "updated": int(now), "ts_err": None}
+        self.counts["docs"] += 1
+        self.counts["bytes"] += len(out.encode())
+        return gen
+
+    def fail(self, topic, rc, ms, err, src, ttl, now):
+        self._tx(self.sdb.live_fail, topic, rc, ms, err, src, ttl, int(now))
+        old = self.docs.get(topic) or {"payload": "", "gen": 0, "updated": 0}
+        self.docs[topic] = dict(old, rc=rc, err=err, ts_err=int(now))
+        self.counts["fails"] += 1
+
+    def delete(self, topic):
+        self._tx(self.sdb.live_delete, topic)
+        self.docs.pop(topic, None)
+
+    def beat(self, every, read):
+        self.counts["beats"] += 1
+        self._tx(self.sdb.live_beat, "hs-live", every, self.started, int(self.clock()), dict(self.counts), read)
+
+    def close(self):
+        pass
+
+
+def beat_every():
+    try:
+        n = int(os.environ.get("HS_LIVE_BEAT", "5"))
+    except ValueError:
+        n = 5
+    return max(1, n)
+
+
 class Collector:
     RESCAN = 60.0         # seconds between looks at the extension packages that are on (their live reads)
     RESCAN_MIN = 3.0      # a refresh of an unknown ext- topic looks sooner, but not more often than this
 
-    def __init__(self, store, run=hs_run, topic_rows=None, connect=None, topic_info=None, ext_rows=None, emit=emit_event, topic_needs=None, watchers=None):
+    def __init__(self, store, run=hs_run, topic_rows=None, connect=None, topic_info=None, ext_rows=None, emit=emit_event, topic_needs=None, watchers=None, db=None):
+        self.db = db                             # a DbStore (liveState = "db"); then store is None
+        self.took = {}                           # topic -> milliseconds of its last read
+        self.backend = "state.db" if db else "redis"
+        self.beat_every = beat_every()
         self.watchers = watchers                 # objects with .run(); None = the defaults DockerWatch and IncusWatch
         self.emit = emit                         # (kind, subject, text) -> None; a test passes its own
         self.store = store                       # Resp (or a fake) for writing
@@ -373,7 +455,9 @@ class Collector:
             busy = self.busy.setdefault(topic, threading.Lock())
         with busy:      # a wave and the topic's own thread never read the same topic at once
             with self.sem:
+                t0 = time.monotonic()
                 rc, out, err = self.run(words)
+                self.took[topic] = int((time.monotonic() - t0) * 1000)
             now = time.time()
             self.last_read[topic] = now
             ev = []
@@ -390,7 +474,32 @@ class Collector:
                 return " ".join(r[1]), (self.info.get(topic) or {}).get("ttl") or 3 * r[2]
         return None, None
 
+    def _store_db(self, topic, rc, out, err, now, ev):
+        """Like the Redis branch, but nothing is written when nothing changed (the document keeps its time of the last change)."""
+        src, ttl = self._meta(topic)
+        ms = self.took.get(topic)
+        with self.lock:
+            old = self.db.get(topic) or {}
+            if rc == 0 or out:
+                if old.get("err"):
+                    ev.append(("live.collector-recovered", "live state '%s' reads again" % topic))
+                if old and old.get("rc") == rc and old.get("payload") == out and not old.get("err"):
+                    return False
+                self.db.put(topic, out, rc, ms, src, ttl, now)
+                return True
+            text = ls.clean(err or "no output")
+            if old.get("err") == text and old.get("rc") == rc:
+                log("topic %s failed (rc %s): %s" % (topic, rc, text))
+                return False
+            if not old.get("err"):
+                ev.append(("live.collector-failed", "live state '%s' failed (rc %s): %s" % (topic, rc, text)))
+            self.db.fail(topic, rc, ms, text, src, ttl, now)
+            log("topic %s failed (rc %s): %s" % (topic, rc, text))
+            return False
+
     def _store(self, topic, rc, out, err, now, ev):
+        if self.db is not None:
+            return self._store_db(topic, rc, out, err, now, ev)
         src, ttl = self._meta(topic)
         with self.lock:
             try:
@@ -465,7 +574,7 @@ class Collector:
                 try:
                     self.wave(roots)
                 except OSError as e:
-                    log("wave stopped, redis down (%s)" % e)
+                    log("wave stopped, %s down (%s)" % (self.backend, e))
 
     def loop(self, topic, words, interval, mode):
         ev, mine = self.events[topic], self.stops[topic]
@@ -474,7 +583,7 @@ class Collector:
                 if self.collect(topic, words, mode):
                     self.changed(topic)
             except OSError as e:
-                log("redis down (%s), retry in 5 s" % e)
+                log("%s down (%s), retry in 5 s" % (self.backend, e))
                 self.stop.wait(5)
                 if self.connect:
                     try:
@@ -536,7 +645,10 @@ class Collector:
             log("topic %s stopped" % t)
             try:
                 with self.lock:
-                    self.store.cmd("DEL", ls.KEY % t)      # the document of a topic that is gone is not served any more
+                    if self.db is not None:
+                        self.db.delete(t)
+                    else:
+                        self.store.cmd("DEL", ls.KEY % t)      # the document of a topic that is gone is not served any more
             except OSError:
                 pass
         for r in start:
@@ -559,10 +671,26 @@ class Collector:
                 log("refresh channel down (%s), retry in 5 s" % e)
                 self.stop.wait(5)
 
+    def beat(self):
+        """The heartbeat thread (db mode): one row every beat_every seconds; the web says `down` when it gets old."""
+        said = False
+        while not self.stop.is_set():
+            try:
+                self.db.beat(self.beat_every, int(max(self.last_read.values())) if self.last_read else None)
+                said = False
+            except OSError as e:
+                if not said:
+                    log("heartbeat not written (%s)" % e)
+                    said = True
+            self.stop.wait(self.beat_every)
+
     def start(self):
         for topic, words, interval, mode in list(self.rows):
             self._spawn(topic, words, interval, mode)
-        threading.Thread(target=self.listen, daemon=True).start()
+        if self.db is not None:
+            threading.Thread(target=self.beat, daemon=True).start()      # no Redis channel: topics are read at their intervals
+        else:
+            threading.Thread(target=self.listen, daemon=True).start()
         threading.Thread(target=self.watch, daemon=True).start()
         threading.Thread(target=self.waves, daemon=True).start()
         self.rescan()      # once now: a missing needs target is in the journal from the start
@@ -571,6 +699,20 @@ class Collector:
 
 
 def main():
+    if os.environ.get("HS_LIVE_STORE") == "db":
+        db = None
+        while db is None:
+            try:
+                db = DbStore()
+            except (OSError, sqlite3.Error) as e:
+                log("state.db not usable (%s), retry in 5 s" % e)
+                time.sleep(5)
+        c = Collector(None, db=db)
+        log("hs-live (state.db): %d topic(s)" % len(c.rows))
+        c.start()
+        while True:
+            time.sleep(3600)
+
     def connect():
         return ls.Resp(timeout=5.0)
     store = None

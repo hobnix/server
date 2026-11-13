@@ -134,3 +134,12 @@ capability gate (`incus` off = no process) are the Docker ones; the 10 s poll st
 - Not done: a separate "crashed" kind. Incus does not say whether a stop was requested; `ct.stopped` after no `hs` job is the hint. Decide with the catalogue (#145).
 
 Not tested on hardware yet.
+
+## State-database path (ADR 0026 step 1)
+
+`liveState = "db"` (only for the measurement, `hs live measure`) starts the unit `hs-live-db` (configuration.nix, not this capability: the capability, its `sys live *` rows,
+its Health check and its pages stay redis-only) running scripts/live-collect.py with `HS_LIVE_STORE=db`. It writes the table `live` (a document only when the output changed;
+`updated` is the time of the last change) and bumps the counter `live:<topic>` in the same transaction; the web feeds `live:` counters as `changed` and does not clear its read
+cache for them. One row of the table `heartbeat` every `HS_LIVE_BEAT` seconds (default 5); the web says `down` when it is older than max(15, 3 x every) and `up` when fresh again.
+There is no refresh channel in this mode: `live_refresh` and the web refresh do not wake topics. The SQL is in scripts/state-db.py (`live_*`), called in-process by the collector.
+Not tested on hardware yet.

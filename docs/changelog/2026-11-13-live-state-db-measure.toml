@@ -1,0 +1,7 @@
+date  = "2026-11-13"
+type  = "feature"
+title = "Measure live state on the state database before it becomes the default"
+docs  = "operations#measure-the-live-state-on-the-state-database"
+body  = """A new, optional setting `liveState = "db"` runs a collector that writes the live state into the state database instead of Redis: one heartbeat row, and a document only when its output changed. The new command `hs live measure` records the write load, the database growth and the change latency into a result file, so the numbers can be checked on a real server before the design (ADR 0026) goes further. The setting is off by default and the web interface does not change otherwise.
+
+Not tested on hardware yet."""
