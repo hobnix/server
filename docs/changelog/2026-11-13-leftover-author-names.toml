@@ -1,0 +1,6 @@
+date  = "2026-11-13"
+type  = "fix"
+title = "No fixed domain name in the SSH lookup warm-up and the CA subject"
+body  = """
+The unit hs-nss-warm exists only on a server with a domain and looks up the configured realm instead of a fixed name. The CA made by `hs dc cert ca` carries the realm as its organisation. Not tested on hardware yet.
+"""
