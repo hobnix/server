@@ -4,6 +4,10 @@
 
 <!-- Which tests you ran (`scripts/dev/t quick ...`), and anything you did not run or could not (a real server, root tests, Windows). -->
 
+## Hardware test
+
+<!-- Run on a real server? Say what you saw. Not run: the steps stand in the issue under "Hardware test", and the issue moves to the board column Testing at merge (not Done). Nothing to run on a server: "none". -->
+
 ## Touches packages?
 
 <!-- A change to scripts/recipes/_lib.sh, the loaders or scripts/lib/api-level: name the recipes and extensions it affects. -->

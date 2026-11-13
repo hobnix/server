@@ -93,7 +93,11 @@ The same model in hobnix/server, hobnix/recipes and hobnix/extensions.
 5. A pull request is merged only when the check `ci-ok` is green (it is the one check the branch rule asks for). CI also runs on `develop`
    after each merge: two pull requests that pass alone can fail together. A red `develop` is fixed before anything else is merged.
 6. Code for a decision record (`docs/adr/`) is merged after the record is Accepted, or behind a switch that is off by default.
-7. An issue is closed when every box under "Done when" is ticked. Merged but not run: it stays open, in the board column In Review.
+7. Development and testing are two columns of the board. In Review: the pull request is open. Testing: merged, not run on a real server
+   yet; the issue stays open. Done: the "Hardware test" boxes of the issue are ticked, a comment says what was seen, the
+   "Not tested on hardware yet." lines of that change are removed, the issue is closed. A change with nothing to run on a server (a
+   decision record, CI, a text) goes from In Review to Done. The Testing column is the queue for the next session at the server;
+   `python3 scripts/dev/untested.py --steps` lists the same from the guides' side (every marker with its heading).
 8. One milestone at a time, and at most three issues In Progress. Work for a later milestone waits until the current one is released.
 9. A pull request opened by an AI session carries the label `agent-pr` from the start (`gh pr create --label agent-pr`); the DCO job is
    skipped for it and the maintainer who merges it takes the responsibility (CONTRIBUTING.md).
