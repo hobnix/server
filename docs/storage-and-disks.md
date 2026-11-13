@@ -37,6 +37,7 @@ Check which layout the server has:
 cat /etc/hs/bulk-type
 ```
 
+`bulkType` is fixed at install time: `hs rebuild` refuses a `bulkType` in `machine.toml` that differs from this file and says so; the layout changes only by reinstalling.
 If it prints `zfs` but you wanted `snapraid`, stop: `bulkType` was missing at install time. Do not create `bulk` as a ZFS pool; reinstall
 with the value set.
 

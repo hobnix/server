@@ -1,0 +1,7 @@
+date = "2026-11-13"
+type = "fix"
+title = "SnapRAID after new disks: clear steps and messages for sync, rebuild and small disks"
+docs = "backup-and-recovery"
+body = """After the disks were rebuilt, hs pool bulk sync names the one step (hs pool bulk sync --force-uuid) instead of a raw SnapRAID refusal. Parity is updated every night, and the text now says so.
+
+hs rebuild refuses a bulkType in machine.toml that differs from the installed layout, and warns when the pool fast cannot be found, also on the first rebuild. A new share on disks smaller than 10 GiB says why it failed (minfreespace). --plain no longer shows gum, and hs pool bulk sync accepts it."""
