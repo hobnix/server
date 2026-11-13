@@ -32,6 +32,7 @@ echo "-- the CA"
 check "the CA is made" $D ca
 check "key and certificate exist" bash -c "test -s '$HS_STATE_DIR/dc-ca-key' && test -s '$HS_STATE_DIR/dc-ca.pem'"
 check_out "the CA says it may sign only inside the domain" "ad.home.lan" bash -c "openssl x509 -in '$HS_STATE_DIR/dc-ca.pem' -noout -text | grep -A3 'Name Constraints'"
+check_out "the CA subject uses the realm, not a fixed name" "O *= *ad.home.lan" bash -c "openssl x509 -in '$HS_STATE_DIR/dc-ca.pem' -noout -subject"
 check_out "again: it exists already" "exists already" $D ca
 
 echo "-- request, sign, install"

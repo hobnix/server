@@ -92,3 +92,119 @@ holds no user data once a pool exists. B stays a question for after A has been r
 2. **Q2:** local accounts (A), or keep `adminuser` only (B)? Recommended: A, rights at Samba level.
 3. **Q3:** honest minimum (A) now, partitioning the single disk (B) only later? Recommended: A.
 4. **N4:** keep the names `homeserver` and `homeserver-installer`? Recommended: keep.
+
+## Pools as data: design and owner decisions (#573, #574, #576, #581)
+
+Status: design only, written 2026-11-13. No storage behaviour changed. Not tested on hardware yet. The full spec (inventory with file counts, Nix
+changes, exact content of step 1) is `.work/pools/spec.md` in the working tree of the session that wrote it; this section is the part that
+outlasts it.
+
+### Where names are fixed
+
+About 290 files and 2800 hits for the pool names `bulk` and `fast`: scripts (62 files, `manage-pool.sh` the largest), `scripts/lib` (10),
+web pages and `web-serve.py` topics (41), tests (112), `capabilities/storage/module.nix` (`boot.zfs.extraPools`, import units), Incus
+(`fast/incus`), Samba (`/bulk/shares`), `configuration.nix` and docs. Internal identifiers that are not pool names (`bulkType`,
+`bulk-mount.service`, `hs-bulk-sync`, labels `bulk-data-NN`) stay.
+
+### Target model
+
+- Pools are rows in one `pools` table in `machine.toml`: name, `role` (`data` or `apps`), `kind` (`zfs` or `snapraid`). Nix reads it at
+  evaluation time, scripts through `scripts/lib/pools.sh`.
+- No `pools` line means the legacy rows `bulk` (data, kind from `bulkType`) and `fast` (apps, zfs). The author's server has no such line, so
+  nothing changes for it; the store path must stay equal (checked with `nix-instantiate` before and after).
+- `pools = {}` is a server with no pool. Code asks for a role ("the data pool", "the apps pool"), not a name.
+- No apps pool: nothing is imported at boot, Incus `default` is a `dir` pool on the system disk (no nightly snapshots there), and `hs doctor`,
+  `hs motd` and the dashboard say what is missing. This is a setup state, not a health problem.
+- Single disk: same state. Shares wait for a pool and `hs share add` says so; apps keep working. The first-run checklist (#581) reads the rows;
+  `hs sys setup list` keeps its shape.
+- Rows are written only by `hs pool` (create) and `hs pool record` (shows a plan, asks, never automatic).
+
+### Steps (small PRs, each behaviour-preserving until step 5)
+
+1. `scripts/lib/pools.sh` and `tests/pools.sh`, read-only, no caller.
+2. Ratchet guard: `tests/pool-names-ratchet-test.py` with a baseline of per-file counts that may only fall; new files may have none.
+3. Schema option `pools` and the Nix modules read the rows (store path equal without the line).
+4. First-run checklist from the rows (#581).
+5. The no-pool state: messages, refusals, `hs sys pool list`, `hs pool record`, installer writes `pools = {}` (#574, #576).
+6. Shares follow pools (`--pool`, `--fast` stays as alias).
+7. `hs pool` accepts any ZFS pool name (create path shows "a NEW pool", typed NAME stays).
+8. Readers loop over rows (health, backup, capacity, overview).
+9. Web pages and routes, two or three pages per PR.
+10. Instances (`hs ct` uses the apps pool).
+11. Only if D6 allows: a SnapRAID pool with another name.
+
+### Risks
+
+A wrong row can skip an import or publish the wrong folder, so absent means legacy forever and rows are never written silently. ZFS and
+SnapRAID differ: SnapRAID has one config, one mergerfs unit, one lock and labels `bulk-*` (xfs labels hold 12 characters), so at most one
+SnapRAID pool. Incus never changes the driver or source of `default`, so later apps pools become extra Incus pools. Web contract lines
+(`hs sys setup list`, `hs sys pool ...`, health ids, live topics) keep their shape.
+
+### Decisions for the owner (recommendation first)
+
+| Id | Question | Options | Recommended |
+| --- | --- | --- | --- |
+| D1 | Where the rows live (blocks step 3) | machine.toml table; runtime TSV read impurely by Nix; ZFS property | machine.toml |
+| D2 | Role names (step 1) | `data`/`apps`; `bulk`/`fast`; `hdd`/`ssd` | `data`/`apps` (CLI option `--use`, since `--role` already names disk roles) |
+| D3 | Shares on a one-disk server (step 5) | none until a pool; a pool kind `dir` on the system disk | none now, `dir` later if asked |
+| D4 | Default pool of a share (step 6) | first data pool, `--pool` to choose; every share names its pool; a setting | first data pool |
+| D5 | Incus `default` pool (steps 3, 10) | pinned to what it was first, later pools added beside it; rebuild `default` | pinned; no snapshot schedule on a `dir` default |
+| D6 | SnapRAID pools (steps 7, 11) | one, named `bulk`; one, any name; several | one named `bulk` now, any name as step 11 |
+| D7 | Pool name rule (step 1) | `^[a-z][a-z0-9]{0,11}$` minus reserved words | as written |
+| D8 | Are `bulk` and `fast` reserved? | plain names, legacy default only; reserved | plain names |
+| D9 | "No pool" in health | notes only; a health problem | notes only |
+| D10 | Legacy server missing a derived pool | doctor offers `hs pool record`; `hs update` writes the line | doctor offers it |
+
+Open for verification in step 3: whether `hs config check` accepts nested tables, and what the Incus preseed does when re-applied to an
+existing pool.
+
+## Q2 in detail: local users and Samba without a domain controller (#575)
+
+Status: design only (issue #575, step 1). No user or Samba behaviour was changed. Not tested on hardware yet: nothing here was run on a server or in a VM.
+This section is the design of option Q2-A above. It is kept separate from the pool design (Q1).
+
+### Where the domain controller is needed today
+
+- `scripts/manage-users.sh` runs every user and group operation through `samba-tool` and `ldbsearch` inside the DC instance; without it, it stops with "No domain controller". `scripts/user-change.sh` (group SID through `wbinfo`), `scripts/manage-shares.sh` (`describe`, `principals` through `wbinfo`), `scripts/sync-shares.sh`, `scripts/temp-disk.sh` and `scripts/backup.sh` ("Domain Admins only" for new shares when `security = ADS`) depend on winbind too.
+- The Users, Groups and Certificates pages and the `hs user` rows are hidden without the capability `ad` (`capability:ad` in `registry.tsv`, `capability: 'ad'` in `web/src/nav.js`).
+- The name `adminuser` is a literal in about 90 files: Samba `force user` and `valid users` (`capabilities/samba/module.nix`), `configuration.nix` and `install.nix` (account, tmpfiles, `HS_WEB_LOCAL_USER`), `scripts/install-wizard.sh`, `sync-shares.sh`, `create-share.sh`, `manage-pool.sh`, `backup.sh` and more.
+- Already independent of the domain: share ACLs through `sharesec`, the password hand-over (stdin, a 0600 file in `/run/hs`), `scripts/user-access.sh`.
+
+### Target model
+
+- **Back end:** derived, no new setting. `adDomain` set: the domain back end runs exactly as today. Not set: local back end. `adDomain` already switches Samba `security`, nss and krb5; a second key could disagree with it.
+- **Admin account:** new setting `adminUser`, default `adminuser`, chosen at install only (the installer asks). It is the SSH/sudo/web login and the owner of every file on the shares.
+- **Share user:** a Unix account (uid 2000-2999, no home, no shell, locked Unix password, not in wheel) plus a Samba password (`smbpasswd`). It can open shares and nothing else; it cannot sign in to the web interface (every web user is root-equivalent until roles, ADR 0012).
+- **Group:** a Unix group (gid 2000-2999), members through `gpasswd`. No "Domain Users" and no local admin group; the admin account is the admin.
+- **Rights:** per-share ACLs (`sharesec`) with local SIDs, as with the domain. Files stay `force user = <admin>` on disk, so per-person rights are Samba-level, not Unix-level; the guide says so. New shares start closed to the admin in local mode.
+- **Web and wizard:** the Users and Groups pages read the same `hs sys users ...` lines (shape unchanged) and only change wording and hide mail/description. The wizard sets the admin's login password; the Samba password of the admin and the first other person come after the first rebuild (`hs user <admin> passwd`, `hs user add`), shown as a setup item.
+- **AD only:** domain sign-in to the web, `hs user flush`, mail/description, group names with spaces, DNS and certificates, SSO.
+- **Coexistence:** one dispatch line in `manage-users.sh` after option parsing; with `adDomain` set the existing code path runs unchanged, and the Nix values for `adminUser = "adminuser"` must be identical to today's (store-path compare).
+- **Migration local to domain:** documented manual steps (list, set up domain, recreate users with new passwords and rights, remove old accounts and dead ACL entries); domain to local is not supported.
+- **Security:** passwords never on argv or in the environment (stdin only, `printf` is a builtin); `scripts/lib/secret.sh` is for secrets `hs` stores and `hs` stores no user password; hashes live in Samba's `passdb.tdb`. Names are validated by fixed patterns; deleting a user asks for the typed name.
+
+### Steps (each small and behaviour-preserving for a server with `adDomain`)
+
+1. `adminUser` setting (schema, Nix, `scripts/lib/admin.sh`), default unchanged.
+2. Scripts use `admin_user` instead of the literal; a test keeps new literals out.
+3. Installer asks the admin name.
+4. Local back end for users and groups (`users-backend.sh`, `users-local.sh`, dispatch line, registry tags).
+5. Share rights locally, after a VM probe (below).
+6. Web wording and navigation.
+7. Guide, notes, changelog.
+
+Tests: new `tests/admin-user.sh` and `tests/users-local.sh` with fake `useradd`, `smbpasswd`, `pdbedit` that check each argv and that the password only arrives on stdin; extensions of `tests/sync-shares.sh`; all through `scripts/dev/t quick`.
+
+### Not verified (checked first in the step that needs it)
+
+- A standalone `smbd` honours a share ACL that holds only `S-1-22-2-<gid>` (Unix group) or a passdb user SID (VM probe, step 5; fallback: `S-1-22-1-<uid>` or `net groupmap`).
+- NixOS (`users.mutableUsers` default) keeps accounts added by command across `hs rebuild` (step 4, VM).
+- `passdb.tdb` is in the folder that is bind-mounted into the vault.
+- The navigation filter in `web/src/nav.js` also applies to child entries.
+
+### Owner decisions for Q2
+
+- **D1 Rights mechanism.** A: share ACLs (`sharesec`) with local SIDs, as with the domain: one mechanism, the Shares page, `user-access.sh` and the health check stay as they are. B: `valid users` / `write list` per share, as the first plan text said: easier to read in `smb.conf`, but a second rights model next to the ACLs. **Recommended: A**, B only if the VM probe fails.
+- **D2 Migration to a domain.** A: documented manual steps only. B: a command `hs user migrate-to-domain`. **Recommended: A**; B only when someone needs it.
+
+Decided without asking (say if you disagree): back end derived from `adDomain`; `adminUser` is install-time only; share users have no shell, home or web sign-in; ids 2000-2999; new shares start closed to the admin in local mode.
