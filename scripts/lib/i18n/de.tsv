@@ -2414,3 +2414,12 @@ Samba is not installed on this system, so there are no shares to publish. Instal
 %s: the domain controller is always in the backup, as samba backup file (the machine itself is not exported)	%s: Der Domänencontroller ist immer im Backup, als Samba-Sicherungsdatei (die Maschine selbst wird nicht exportiert)
 '%s' is not a number of files. To try a container or virtual machine: hs backup drill ct %s	'%s' ist keine Dateianzahl. Einen Container oder eine virtuelle Maschine prüfst du mit: hs backup drill ct %s
 ! Virtual machine drill: never	! Test der virtuellen Maschine: noch nie
+Command	Befehl
+done	erledigt
+Set up notifications	Benachrichtigungen einrichten
+Storage pool	Speicherpool
+A first share	Eine erste Freigabe
+Setup finished	Einrichtung abgeschlossen
+Vault (secrets)	Tresor (Geheimnisse)
+Optional parts (capabilities)	Optionale Teile (Funktionen)
+Wildcard DNS for the gateway proxy	Wildcard-DNS für den Gateway-Proxy

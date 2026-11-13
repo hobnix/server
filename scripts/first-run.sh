@@ -27,7 +27,8 @@ if [ -z "$lang" ] && [ -t 0 ] && ! $yes; then
   lang=$(choose "Language of the messages" en de) || lang=""
 fi
 if [ -n "$lang" ]; then
-  cfg set language "$lang"
+  # HS_LANG: the messages of this very call are already in the new language
+  HS_LANG=$lang cfg set language "$lang"
   # the settings file is read once when ui.sh is sourced: read it again so the rest of this run speaks the new language
   hs_lang=$lang; _T=(); _i18n_load
 else note "Language unchanged."; fi
@@ -43,6 +44,7 @@ step "Core packages"
 if bash "$hsbin" pkg install --core; then :; else warn "Some core packages could not be fetched; try again with: hs pkg install --core"; fi
 
 step "What is still to do"
+# i18n: Set up notifications|Storage pool|A first share|Setup finished|Vault (secrets)|Optional parts (capabilities)|Wildcard DNS for the gateway proxy
 # the same list as the Setup page and `hs sys setup list` (one source: setup-list.sh); "finished" is the person's own decision
 rows=$(bash "$here/setup-list.sh" --list | awk -F'\t' '$1 != "finished" { print $3 "\t" $2 "\t" $4 }' | while IFS=$'\t' read -r label state cmd; do
   printf '%s\t%s\t%s\n' "$(_tr "$label")" "$(_tr "$state")" "$cmd"
