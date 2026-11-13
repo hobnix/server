@@ -59,6 +59,7 @@ export function readsFor(path, extPages = [], liveOn = false) {
     case '/storage/files': return [`${A}fm/locations`];
     case '/settings': return [`${A}config/list`];
     case '/setup': return [`${A}setup/list`];
+    case '/setup/first-run': return [`${A}preset/list`, `${A}parts/list`, `${A}setup/list`];
     case '/nodes': return [`${A}node/list`];
     default: return [];
   }

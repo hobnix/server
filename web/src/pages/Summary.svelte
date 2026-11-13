@@ -28,6 +28,7 @@
   const updates = poll(() => (deck.data?.locked ? '' : '/api/sys/system/updates'), 60000);
   const setupRows = $derived(rows(setup));
   const setupOpen = $derived(setupRows.length > 0 && setupRows.some((r) => r[0] === 'finished' && r[1] !== 'done') ? setupRows.filter((r) => r[0] !== 'finished' && r[1] === 'open').length : 0);
+  const setupLabels = $derived(setupRows.filter((r) => r[0] !== 'finished' && r[1] === 'open').slice(0, 3).map((r) => r[2]).join(', '));
   const behind = $derived(Number(rows(updates).find((r) => r[0] === 'behind')?.[1]) || 0);
 
   const d = $derived(deck.data);
@@ -133,7 +134,7 @@
   </PageHeader>
 
   {#if !locked && setupOpen}
-    <Banner tone="warn" icon="list-checks">Finish the setup: {setupOpen} item{setupOpen === 1 ? '' : 's'} still open.
+    <Banner tone="warn" icon="list-checks">Finish the setup: {setupOpen} item{setupOpen === 1 ? '' : 's'} still open{setupLabels ? ` (${setupLabels})` : ''}.
       {#snippet action()}<Button size="sm" tooltip={'Open the first-run checklist'} onclick={() => go('/setup')}>Open Setup<i class="ph ph-arrow-right"></i></Button>{/snippet}
     </Banner>
   {/if}

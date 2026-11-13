@@ -19,6 +19,7 @@ import Releases from './settings/Releases.svelte';
 import CapsOverview from './settings/CapsOverview.svelte';
 import CapabilitySettings from './settings/CapabilitySettings.svelte';
 import Setup from './pages/Setup.svelte';
+import FirstRun from './pages/FirstRun.svelte';
 import Expiry from './pages/Expiry.svelte';
 import IsoLibrary from './pages/IsoLibrary.svelte';
 import Extension from './pages/Extension.svelte';
@@ -90,6 +91,7 @@ export const routes = {
   '/monitoring/test-lab': TestLab,
   '/docs': Docs,
   '/setup': Setup,
+  '/setup/first-run': FirstRun,
   '/settings': Section,
   '/settings/general': SettingsPage,
   '/settings/network': SettingsPage,

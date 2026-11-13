@@ -10,6 +10,7 @@
   import Terminal from './shell/Terminal.svelte';
   import Tooltip from './ui/Tooltip.svelte';
   import Kiosk from './dashboard/Kiosk.svelte';
+  import { go } from './route.svelte.js';
 
   let user = $state(null);
   let ready = $state(false);
@@ -30,6 +31,7 @@
     try { user = await session(); } catch { user = null; }
     ui.features = user?.features ?? { terminal: false, vps: false };
     initLang(ui.features.language);
+    if (ui.features.setup_wizard) go('/setup/first-run');
     ready = true;
   });
 
@@ -46,7 +48,7 @@
 {:else if !ready}
   <div style="flex:1"></div>
 {:else if !user}
-  <Login onsignedin={(s) => { ui.features = s?.features ?? { terminal: false, vps: false }; initLang(ui.features.language); user = s; }} />
+  <Login onsignedin={(s) => { ui.features = s?.features ?? { terminal: false, vps: false }; initLang(ui.features.language); user = s; if (ui.features.setup_wizard) go('/setup/first-run'); }} />
 {:else if pop && ui.features.terminal}
   <Terminal target={pop} title={popTitle} page />
 {:else}

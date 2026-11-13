@@ -112,7 +112,9 @@ M=$TW/etc/nixos/machine.toml
 check_eq "machine.toml turns the web interface on" "true" "$(get webUi)"
 check "the first-setup flag is armed" test -s "$TW/var/lib/hs/first-run.json"
 check "and holds no code" bash -c "grep -q '\"state\": \"pending\"' '$TW/var/lib/hs/first-run.json' && ! grep -Eq '[A-HJ-NP-Z2-9]{5}-[A-HJ-NP-Z2-9]{5}' '$TW/var/lib/hs/first-run.json'"
-check_out "the last note names the address and the code" "one-time code.*webbox2.local:8480" bash -c "$W --disk sda --hostname webbox2 --key '$KEY' --target $WORK/web-target2 --repo $REPO 2>&1"
+out=$($W --disk sda --hostname webbox2 --key "$KEY" --target "$WORK/web-target2" --repo "$REPO" 2>&1)
+check_out "the last note names the address and the code" "one-time code.*webbox2.local:8480" echo "$out"
+check "arming is the last step before Done" awk '/Preset .* applied/{p=NR} /first web setup is armed/{a=NR} /Done/{d=NR} END{exit !(p && a>p && d>a)}' <<<"$out"
 
 echo "-- the role edge (a public VPS)"
 out=$($W --dry-run --role edge --bios --disk sda --hostname edge1 --key "$KEY" --target "$WORK/edge-dry" --repo "$REPO" 2>&1)

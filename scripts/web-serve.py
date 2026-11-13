@@ -211,9 +211,9 @@ def docs_search(query, lang=""):
     return out
 
 
-def features(cfg):
-    """what the server switched on, for the session answer"""
-    return {"terminal": cfg.terminal, "vps": cfg.vps, "capabilities": capabilities(), "extensions": ext_pages(), "host": socket.gethostname(), "language": runtime_setting("language") or "", "dashboard": runtime_setting("dashboard") or "", "live": cfg.live == "redis", "topics": live_topic_map() if cfg.live == "redis" else {}}   # host: the local node's name = the first part of every address (/node/<host>/...)
+def features(cfg, first_run=None):
+    """what the server switched on, for the session answer; setup_wizard = the first-run wizard is still to be shown (never token or expiry)"""
+    return {"setup_wizard": bool(first_run) and first_run.wizard() == "open", "terminal": cfg.terminal, "vps": cfg.vps, "capabilities": capabilities(), "extensions": ext_pages(), "host": socket.gethostname(), "language": runtime_setting("language") or "", "dashboard": runtime_setting("dashboard") or "", "live": cfg.live == "redis", "topics": live_topic_map() if cfg.live == "redis" else {}}   # host: the local node's name = the first part of every address (/node/<host>/...)
 
 
 def live_topic_map():
@@ -906,6 +906,7 @@ READS = {
     ("changes", "list"): {"kind": "tsv", "ttl": 60, "query": {"from": (r"^[0-9a-f]{7,40}$", "--from"), "since": (r"^[0-9]{4}-[0-9]{2}-[0-9]{2}$", "--since")}},   # What's new
     ("parts", "pending"): {"kind": "tsv", "ttl": 15},
     ("rebuild", "pending"): {"kind": "tsv", "ttl": 15},
+    ("preset", "list"): {"kind": "tsv", "ttl": 60},                                               # the presets (first-run wizard)
     ("net", "check"): {"kind": "tsv", "ttl": 5},                                                  # the network check rows (Network wizard)
     ("net", "nics"): {"kind": "tsv", "ttl": 15},                                                  # the physical network cards (Network wizard)
     ("parts", "list"): {"kind": "tsv", "ttl": 15, "topic": "parts-list"},                          # the optional parts and whether each is on (Settings)
@@ -1161,6 +1162,10 @@ CHANGES = {
     "admin": [[r"^(test-push|pin-macs|cache-mover)$"], {"fixed": [r"^fans-clean$"], "opts": {"--seconds": (r"^[0-9]{1,2}$", False)}}],
     # the certificates of the domain controller (dc-change.sh): make the CA once, renew the certificate of a controller on this server (red: Samba restarts)
     "dc": [[r"^ca$"], {"fixed": [r"^renew$"], "opts": {"--dc": (r"^[A-Za-z0-9][A-Za-z0-9-]{0,62}$", False)}}],
+    # close the first-run wizard (setup-change.sh): the one word, no argument
+    "setup": [[r"^wizard-done$"]],
+    # apply a preset (preset-change.sh): fills only what is not set yet; the name is a file name in presets/ (the script checks it exists)
+    "preset": [[r"^apply$", r"^[a-z0-9][a-z0-9-]{0,40}$"]],
     # posters (poster-change.sh) are the extension "posters": area "ext/posters", declared in its manifest; the picture is served by GET /api/poster/<file>
     # the router connection (net-change.sh): the address as an option, the API key as the one line on stdin
     "net": [{"fixed": [r"^setup$"], "opts": {"--address": (r"^https?://[A-Za-z0-9._:-]{1,100}/?$", False)}, "stdin": True}],
@@ -2530,7 +2535,7 @@ def make_handler(app):
                 s = self._session()
                 if not s:
                     return self._json(401, {"error": "not signed in"})
-                return self._json(200, {"user": s["user"], "realm": s["realm"], "csrf": s["csrf"], "features": features(cfg)})
+                return self._json(200, {"user": s["user"], "realm": s["realm"], "csrf": s["csrf"], "features": features(cfg, app.first_run)})
             if path == "/api/sessions":
                 if not self._session():
                     return self._json(401, {"error": "not signed in"})
@@ -3164,7 +3169,7 @@ def make_handler(app):
                 app.warmer.wake.set()
                 s = app.sessions.get(st, locked)
                 print("web setup done: %s from %s" % (user, ip), flush=True)      # never the token or the password
-                return self._json(200, {"user": user, "realm": "local", "csrf": s["csrf"], "features": features(cfg)}, (self._cookie(st, cfg.max_age),))
+                return self._json(200, {"user": user, "realm": "local", "csrf": s["csrf"], "features": features(cfg, app.first_run)}, (self._cookie(st, cfg.max_age),))
             if result in (fr.BAD, fr.BURNED):
                 app.throttle.failed(*keys)
                 time.sleep(cfg.fail_delay)
@@ -3223,7 +3228,7 @@ def make_handler(app):
             app.warmer.wake.set()
             s = app.sessions.get(token, locked)
             print("web login: %s from %s" % (name, ip), flush=True)
-            self._json(200, {"user": name, "realm": realm, "csrf": s["csrf"], "features": features(cfg)}, (self._cookie(token, cfg.max_age),))
+            self._json(200, {"user": name, "realm": realm, "csrf": s["csrf"], "features": features(cfg, app.first_run)}, (self._cookie(token, cfg.max_age),))
 
     return Handler
 

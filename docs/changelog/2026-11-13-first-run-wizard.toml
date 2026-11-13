@@ -1,0 +1,5 @@
+date  = "2026-11-13"
+type  = "feature"
+title = "A first-run wizard after the one-time setup code"
+docs  = "install"
+body  = """After you redeem the setup code and choose a password, the web interface opens a short wizard: account, preset, done. Network and storage steps are reserved for later. Finish closes it for good and the Setup page keeps the checklist. The boot unit that shows the code is now shared by both configurations, and a server that is already set up prints nothing at boot. Not tested on hardware yet."""

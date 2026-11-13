@@ -429,6 +429,15 @@ On a server whose setup is waiting, the sign-in page becomes **First setup**. Th
 code; type it into the page and choose a password for `adminuser`. The code works once and for 60 minutes, five wrong tries make it
 useless, and it is only ever printed on the console, never sent anywhere. You are then signed in.
 
+After the password the page leads you through the **first-run wizard** (`/setup/first-run`):
+
+1. **Account:** your administrator name, the server name (read only; a rename needs `hs config set hostName` and a rebuild) and the language of the interface.
+2. **Preset:** pick what the server is for. A preset fills in only what is not set yet and never overwrites a value. Single capabilities are shown greyed out; choosing them comes in a later version. Skip keeps the minimal setup.
+3. **Done:** lists what is still open. Machine settings of a preset take effect with `hs rebuild`; the wizard does not start it.
+
+Network and storage steps are reserved places and are not shown yet. **Finish** closes the wizard for good; the **Setup** page keeps the
+checklist (below). A server set up before the wizard existed never shows it. Not tested on hardware yet.
+
 Lost or expired code, or somebody else may have seen it: on the console run
 
 ```bash

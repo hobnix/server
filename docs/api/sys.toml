@@ -106,6 +106,35 @@ records = { status = ["status"], reason = ["text"], unit = ["unit"] }
 enums = { status = ["started", "refused"] }
 note = "Start a test-lab run as a background job: hs sys testlab start run [--ref R] [--stage 1|2|3|4|5|6|<name>|all]; status started + the job unit."
 
+["preset list"]
+kind = "tsv"
+columns = ["name", "title", "description", "capabilities"]
+note = "The presets: name, title, description, capabilities (space separated, - = none). Never translated; a - is an empty field."
+
+["preset plan <action>"]
+kind = "tsv"
+records = { status = ["status"], reason = ["text"], heading = ["text"], step = ["text"], note = ["text"], long = ["yes"] }
+enums = { status = ["ok", "refused"] }
+note = "What applying a preset would do: hs sys preset plan apply <name>. One step per option that would be set, one note per option kept. Exit 0 ok, 1 refused. Never asks."
+
+["preset start <action>"]
+kind = "tsv"
+records = { status = ["status"], reason = ["text"] }
+enums = { status = ["done", "refused"] }
+note = "Apply a preset: hs sys preset start apply <name>; fills only what is not set yet; status done."
+
+["setup plan <action>"]
+kind = "tsv"
+records = { status = ["status"], reason = ["text"], heading = ["text"], step = ["text"], long = ["yes"] }
+enums = { status = ["ok", "refused"] }
+note = "What closing the first-run wizard would do: hs sys setup plan wizard-done. Refused unless the wizard is open. Never asks."
+
+["setup start <action>"]
+kind = "tsv"
+records = { status = ["status"], reason = ["text"] }
+enums = { status = ["done", "refused"] }
+note = "Close the first-run wizard: hs sys setup start wizard-done; status done."
+
 ["net check"]
 kind = "tsv"
 columns = ["item", "state", "value", "fix"]

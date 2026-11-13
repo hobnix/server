@@ -64,6 +64,12 @@ Choose **Domain account** or **Local admin** on the sign-in page. With storage l
 `adminuser`, and the summary shows a box to unlock the storage (type the passphrase; after five wrong tries the page makes you wait).
 Sessions end after 8 hours without activity, after 12 hours at most, and when the page restarts.
 
+## Finish the first setup
+
+On a new server the sign-in page asks for the one-time code from the server's screen ([Install](install.md)). After you choose the password, the
+**First setup** wizard opens: account, preset, done. **Finish** (or skipping every step and finishing) removes it; it never comes back. What is
+still open stays on the **Setup** page. Not tested on hardware yet.
+
 ## If the sign-in is locked
 
 Five wrong passwords from one address make the page refuse that address for 30 seconds, then longer (up to 15 minutes). A wrong guess

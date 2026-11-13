@@ -2,6 +2,7 @@
 """Reads the presets (presets/<name>.toml) for scripts/preset.sh. Stdlib only.
 
   preset.py list [lang]              name<TAB>title
+  preset.py sysrows                  name, title, description, capabilities (space separated), tab separated, - = empty
   preset.py meta <name> [lang]       title, description and recipes as key<TAB>value lines
   preset.py rows <name>              machine<TAB>key<TAB>toml literal / setting<TAB>key<TAB>value, one per line; refuses a key
                                      that is not an option of config/schema.toml or sits in the wrong table
@@ -80,6 +81,14 @@ def main(argv):
         print("title\t%s" % (p.get("title_" + lang) or p.get("title", argv[2])))
         print("description\t%s" % (p.get("description_" + lang) or p.get("description", "")))
         print("recipes\t%s" % " ".join(p.get("recipes", [])))
+    elif cmd == "sysrows":   # hs sys preset list: never translated, no empty field
+        for fn in sorted(os.listdir(PRESETS)):
+            if not fn.endswith(".toml"):
+                continue
+            p = load(fn[:-5])
+            caps = p.get("machine", {}).get("capabilities", [])
+            cells = [fn[:-5], p.get("title") or fn[:-5], p.get("description", ""), " ".join(str(c) for c in caps) if isinstance(caps, list) else ""]
+            print("\t".join(" ".join(c.split()) or "-" for c in cells))
     elif cmd == "rows":
         p = load(argv[2])
         known = options()

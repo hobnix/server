@@ -58,6 +58,7 @@ logs units	no producer for a topic yet
 net check	no producer for a topic yet
 net nics	no producer for a topic yet
 parts pending	no producer for a topic yet
+preset list	no producer for a topic yet
 rebuild pending	no producer for a topic yet
 reads status	the Data page in polling mode (every 5 s); live mode uses the live status topic instead
 release show	no producer for a topic yet; polled every 10 s or 60 s by the settings pages

@@ -1741,6 +1741,39 @@ export interface SysOperations {
     exit: number;
     lines: string;
   };
+  "preset.list": {
+    /** the presets: name, title, description, capabilities (space separated, - = none) */
+    words: ["preset", "list"];
+    path: "/preset/list";
+    method: "get";
+    class: "read";
+    params: { };
+    stdin: "none";
+    exit: number;
+    lines: [name: Field, title: Field, description: Field, capabilities: Field][];
+  };
+  "preset.plan.by_action": {
+    /** what applying a preset would do, as data: status, plan lines (never asks; exit 0 ok, 1 refused) */
+    words: ["preset", "plan", "<action>"];
+    path: "/preset/plan/{action}";
+    method: "post";
+    class: "plan";
+    params: { action: string; };
+    stdin: "none";
+    exit: 0 | 1 | 2;
+    lines: ChangeLines;
+  };
+  "preset.start.by_action": {
+    /** do it (hs sys preset start apply <name>); fills only what is not set, answers done */
+    words: ["preset", "start", "<action>"];
+    path: "/preset/start/{action}";
+    method: "post";
+    class: "start";
+    params: { action: string; };
+    stdin: "none";
+    exit: 0 | 1 | 2;
+    lines: ChangeLines;
+  };
   "reads.collect": {
     /** read the slow reads of the web interface and keep their output in the state database (the timer hs-reads-collect does it every 15 s; --all ignores the intervals) */
     words: ["reads", "collect"];
@@ -2053,6 +2086,28 @@ export interface SysOperations {
     stdin: "none";
     exit: number;
     lines: string[][];
+  };
+  "setup.plan.by_action": {
+    /** what closing the first-run wizard would do, as data: status, plan lines (never asks; exit 0 ok, 1 refused) */
+    words: ["setup", "plan", "<action>"];
+    path: "/setup/plan/{action}";
+    method: "post";
+    class: "plan";
+    params: { action: string; };
+    stdin: "none";
+    exit: 0 | 1 | 2;
+    lines: ChangeLines;
+  };
+  "setup.start.by_action": {
+    /** do it (hs sys setup start wizard-done); answers done */
+    words: ["setup", "start", "<action>"];
+    path: "/setup/start/{action}";
+    method: "post";
+    class: "start";
+    params: { action: string; };
+    stdin: "none";
+    exit: 0 | 1 | 2;
+    lines: ChangeLines;
   };
   "shares.acl": {
     /** who may use a share */

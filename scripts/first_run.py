@@ -6,6 +6,8 @@ Used by web-serve.py (`POST /api/setup`, the `setup` part of `GET /api/hello`) a
   first_run.py issue    make a NEW token (the old one stops working), print it once between two marker lines; this is what a boot unit runs
   first_run.py status   one line: none | pending <seconds left> | expired | done <user>
   first_run.py reset    forget the flag (root on the console: the next `issue` starts a setup again)
+  first_run.py wizard   one line: open | done | none (is the web wizard after the password still to be shown)
+  first_run.py wizard-done   close the wizard (idempotent)
 
 The file ($HS_STATE_DIR/first-run.json, mode 0600, written atomically) holds only the sha256 of the token, never the token. No file means
 "not a first-run server": an upgraded server never shows the setup. Standard library only; the clock and the random source are
@@ -154,8 +156,27 @@ class FirstRun:
             user = action()
             if not user:
                 return FAILED, None
-            self._write({"state": "done", "user": user, "done": self.clock()})
+            self._write({"state": "done", "user": user, "done": self.clock(), "wizard": "open"})
             return OK, user
+
+    def wizard(self):
+        """none | open | done: whether the first-run web wizard is still to be shown. A done record without the field (a server set up before
+        the wizard existed) counts as done."""
+        d = self._read()
+        if d is None or d["state"] != "done":
+            return NONE
+        w = d.get("wizard", "done")
+        return w if w in ("open", "done") else "done"
+
+    def finish_wizard(self):
+        """Close the wizard: True when it was open, False otherwise (idempotent)."""
+        with self.lock:
+            d = self._read()
+            if d is None or d["state"] != "done" or d.get("wizard", "done") != "open":
+                return False
+            d["wizard"] = "done"
+            self._write(d)
+            return True
 
 
 def banner(token, ttl, urls=()):
@@ -182,8 +203,8 @@ def main(argv):
     cmd = argv[1] if len(argv) > 1 else "status"
     if cmd == "issue":
         urls = [a[len("--url="):] for a in argv[2:] if a.startswith("--url=")]
-        if "--only-pending" in argv[2:] and fr.status()["state"] == NONE:
-            return 1   # the boot unit: no flag means not a first-run server, print nothing
+        if "--only-pending" in argv[2:] and fr.status()["state"] in (NONE, DONE):
+            return 1   # the boot unit: no flag (not a first-run server) or a done setup: print nothing, not even on stderr
         token = fr.issue()
         if token is None:
             sys.stderr.write("The first setup is already done.\n")
@@ -200,7 +221,13 @@ def main(argv):
     if cmd == "reset":
         fr.reset()
         return 0
-    sys.stderr.write("usage: first_run.py issue|status|arm|reset\n")
+    if cmd == "wizard":
+        sys.stdout.write(fr.wizard() + "\n")
+        return 0
+    if cmd == "wizard-done":
+        fr.finish_wizard()
+        return 0
+    sys.stderr.write("usage: first_run.py issue|status|arm|reset|wizard|wizard-done\n")
     return 2
 
 

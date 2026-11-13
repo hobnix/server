@@ -77,8 +77,9 @@ Numbers 0018 to 0021 are taken by other records (interactive recipe runs and the
 
 ## Open points
 
-- The boot unit and the installer hook (create the flag, show the banner on tty1 and ttyS0). Not tested on hardware or in a real install.
-- Whether the setup should offer more steps after the password (language, server name, a notification address) as a wizard; the sign-in page only
-  does the first step now.
+- Built, not tested on hardware or in a real install: the boot unit (`setup-code-unit.nix`, shared by install.nix and configuration.nix) and the
+  installer hook (the flag is the last step of `hs-install`).
+- The wizard after the password exists (`/setup/first-run`: account, preset, done; slots for network and storage). Its state is the `wizard`
+  field of the flag file; it is gone after Finish. Not tested on hardware yet.
 - TLS or a self-signed certificate for the setup page. **Accepted limit (2026-11-10, owner):** the setup page is plain HTTP on the LAN until TLS is decided; the code and the new password cross the LAN once. The guide says so.
 - Whether `hs setup-code reset` should also be offered from the web while signed in (it is not).

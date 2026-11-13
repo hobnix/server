@@ -267,12 +267,6 @@ if [ "$role" != homeserver ]; then   # the example's pool and network lines mean
   for k in hostId nic smbAllow vlans; do machine_unset "$k" installer >/dev/null || true; done
 fi
 ok "machine.toml: server name, SSH key, network card and the rest"
-# the flag of the one-time setup code (docs/adr/0022): the boot unit shows the code while it says pending. Not on a restore: that server
-# already has its settings and its password.
-if [ -z "$restore_from" ] && [ "$role" = homeserver ]; then
-  HS_FIRST_RUN_FILE=$HS_STATE_DIR/first-run.json bash "$here/setup-code.sh" arm || fail "The first-setup flag could not be written."
-  ok "$(t 'The first web setup is armed: the code appears on the screen after the first boot')"
-fi
 HS_PRESETS_DIR=${HS_PRESETS_DIR:-$etc/presets} bash "$here/preset.sh" apply "$preset" --yes >/dev/null || fail "The preset could not be applied."
 ok "$(t "Preset '%s' applied (only what was not set yet)" "$preset")"
 
@@ -294,6 +288,13 @@ if [ -z "$skip" ]; then
   }
   printf '%s\n' "adminuser:$pw" | nixos-enter --root "$target" -c 'chpasswd' >/dev/null
   ok "adminuser has its password"
+fi
+
+# the flag of the one-time setup code (docs/adr/0022): the boot unit shows the code while it says pending. Last, so a failed install leaves
+# no armed flag. Not on a restore: that server already has its settings and its password.
+if [ -z "$restore_from" ] && [ "$role" = homeserver ]; then
+  HS_FIRST_RUN_FILE=$HS_STATE_DIR/first-run.json bash "$here/setup-code.sh" arm || fail "The first-setup flag could not be written."
+  ok "$(t 'The first web setup is armed: the code appears on the screen after the first boot')"
 fi
 
 step "Done"

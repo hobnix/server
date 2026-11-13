@@ -89,23 +89,7 @@ in
   # The one-time setup code (docs/adr/0022-first-run-console-token.md): shown on the screen and the serial port at every boot while the
   # installer's flag says `pending`. Rule 3 of the record: the output goes to the console device ONLY, never to the journal (StandardOutput=tty
   # instead of journal) and never to /etc/issue. A server without the flag (an upgraded one) prints nothing.
-  systemd.services.hs-setup-code = lib.mkIf webUi {
-    description = "Show the one-time setup code on the console (only while the first setup is pending)";
-    wantedBy = [ "multi-user.target" ];
-    after = [ "network.target" "hs-web.service" ];
-    wants = [ "hs-web.service" ];
-    path = [ hsCommand pkgs.bash pkgs.python3 pkgs.gnused pkgs.util-linux pkgs.findutils pkgs.iproute2 pkgs.gawk pkgs.gnugrep pkgs.coreutils pkgs.hostname ];
-    environment = { HS_WEB_PORT = toString webPort; HS_STATE_DIR = "/var/lib/hs"; };
-    unitConfig.ConditionPathExists = "/var/lib/hs/first-run.json";
-    serviceConfig = {
-      Type = "oneshot";
-      RemainAfterExit = true;
-      ExecStart = "${hsCommand}/bin/hs setup-code boot";
-      StandardOutput = "tty";
-      StandardError = "journal";   # only fixed refusal texts: the code goes to stdout only
-      TTYPath = "/dev/console";
-    };
-  };
+  systemd.services.hs-setup-code = lib.mkIf webUi (import ./setup-code-unit.nix { inherit pkgs hsCommand webPort; });
 
   services.openssh = {
     enable = true;

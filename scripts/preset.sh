@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # help: presets: ready-made choices for a server (list, show, apply; apply only fills what is not set yet)
 # help.de: Vorlagen: fertige Entscheidungen für einen Server (list, show, apply; apply füllt nur, was noch nicht gesetzt ist)
-# args: list | show <name> | apply <name> [--dry-run] [--yes]
+# args: list | show <name> | apply <name> [--dry-run] [--yes]   (--list: the machine-readable list of hs sys preset list)
 set -euo pipefail
 here=$(dirname "$0")
 . "$here/lib/ui.sh"
@@ -46,6 +46,7 @@ show_plan() {
 
 cmd=${1:-}; shift || true
 case "$cmd" in
+  --list) pre sysrows ;;   # hs sys preset list: machine-readable, never translated
   list)
     { thead 'Preset' 'What'; pre list "${hs_lang:-en}"; } | table ;;
   show)
