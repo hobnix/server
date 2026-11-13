@@ -1,0 +1,78 @@
+# Why a web read has no live-state topic (key<TAB>reason), checked by `python3 scripts/dev/reads-inventory.py --check` (tests/reads-ratchet.sh).
+# A key is a READS entry of scripts/web-serve.py without `topic`, or the path of a timed poll() call (path:<url>, dynamic:<file> when the
+# path is not a literal). Give the read a topic and delete its row; a stale row fails the check. Sorted by key inside each group.
+
+# Free arguments: one answer per container, share, user, app, node or disk, so there is no single fixed topic
+ct bindings	free argument: one answer per container name, no fixed topic
+ct logs	free argument: logs of one container, no fixed topic
+ct snapshots	free argument: one answer per container name, no fixed topic
+ct storage	free argument: one answer per container name, no fixed topic
+ct users	free argument: one answer per container name, no fixed topic
+disk results	free argument: one answer per disk, no fixed topic
+docker app	free argument: one app's compose and .env text, fetched when the editor opens, never cached and never in a topic
+docker logs	free argument: logs of one app, polled every 5 s while followed, may hold secrets, never cached and never in a topic
+docker rev	free argument: revision line of one app, polled every 30 s while its editor is open, never cached
+node keyline	free argument: one answer per node name, no fixed topic
+node show	free argument: one answer per node name, no fixed topic
+node status	free argument: a remote node is asked over ssh, no producer for a topic yet
+recipes asks	free argument: one answer per recipe name, fetched when the recipe dialog opens
+recipes steps	free argument: one answer per recipe name, fetched when the recipe dialog opens
+services show	free argument: one answer per service name, no fixed topic
+shares acl	free argument: one answer per share name, no fixed topic
+shares history	free argument: one answer per share name, no fixed topic
+shares mounts	free argument: one answer per share name, no fixed topic
+shares visible	free argument: one answer per share name, no fixed topic
+state smart	free argument: SMART history of one disk, no fixed topic
+users access	free argument: one answer per user name, no fixed topic
+users details	free argument: one answer per user name, no fixed topic
+users group-access	free argument: one answer per group name, no fixed topic
+users group-details	free argument: one answer per group name, no fixed topic
+
+# Free arguments with a query: a filter, a page or a cursor decides the answer
+backup find	free argument: a search term typed by the user, fetched per search
+backup snapshots	free query: depends on the chosen tag, no fixed topic
+changes list	free query: depends on the chosen range, no fixed topic
+disk ls	free argument: a folder of one data disk, polled every 10 s in the move-folder dialog
+event list	free query: depends on filters and the cursor, polled every 30 s as the safety net of the event stream
+fm ls	free argument: one page of a folder (path, cursor), no fixed topic
+fm pair	free argument: two places of the file manager, no fixed topic
+fm progress	free argument: state of one job unit, no fixed topic
+jobs record	free argument: one job record, fetched on demand
+jobs records	free query: filtered job list, fetched on demand
+jobs tail	free argument: output of one job unit from a cursor, fetched on demand while following a job
+live inspect	ttl 0 and never cached: the Live state page re-reads it on each change of topic live
+live raw	free argument: one topic's stored output, fetched on demand on the Live state page
+logs show	free query: unit, level and time chosen by the user, polled every 10 s while the logs tab is open
+pool disks	free query: depends on the role, no fixed topic
+state events	free query: the number of rows asked for, polled every 15 s while the events tab is open
+
+# No arguments and no topic yet: the page asks again on a timer or on demand
+cache state	no producer for a topic yet
+config check	no producer for a topic yet; fetched on demand by the settings page
+docker containers	no producer for a topic yet; polled every 30 s by the app editor
+docker health	no producer for a topic yet; polled every 30 s
+docker registries	no producer for a topic yet
+docker status	no producer for a topic yet; polled every 15 s
+incident state	no producer for a topic yet
+logs units	no producer for a topic yet
+net nics	no producer for a topic yet
+parts pending	no producer for a topic yet
+rebuild pending	no producer for a topic yet
+reads status	the Data page in polling mode (every 5 s); live mode uses the live status topic instead
+release show	no producer for a topic yet; polled every 10 s or 60 s by the settings pages
+shares list	no producer for a topic yet
+system cleanup	no producer for a topic yet
+system doctor	no producer for a topic yet
+system report	no producer for a topic yet
+testlab results	no producer for a topic yet; polled every 15 s while the Test-lab page is on
+
+# Polls whose path is built at runtime (a variable, a prop or a generated page), so the read behind them is not known here
+dynamic:settings/PartTag.svelte	the read is named by the capability or part, no producer for a topic yet
+dynamic:settings/StatusPanel.svelte	the read is named by the capability declaration, no producer for a topic yet
+dynamic:settings/WizardSteps.svelte	the read is named by a wizard step (options_from), no producer for a topic yet
+dynamic:shell/GenBlock.svelte	generated block: the read is named by the page declaration, no producer for a topic yet
+dynamic:shell/GenericPage.svelte	generic page: the read is named by the page declaration, no producer for a topic yet
+dynamic:shell/NodeSummary.svelte	the path depends on the node, remote nodes are asked over ssh
+
+# Other APIs than /api/sys
+path:/api/proxy/status	slow external probe of the VPS status document, no producer yet
