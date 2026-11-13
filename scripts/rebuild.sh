@@ -91,15 +91,17 @@ bulk_type_check() {
   exit 1
 }
 
-# The pool fast must exist before the config is applied: the system imports it at boot and the rebuild would fail on it.
+# The configuration imports the pool fast. After a lost system disk it is on the disks but not imported yet (the rebuild imports it),
+# so a missing pool only warns: the rebuild goes on and may fail on zfs-import-fast when no such pool exists.
 fast_check() {
   [ "${HS_FAST_CHECK:-1}" = 1 ] || return 0
   command -v zpool >/dev/null 2>&1 || return 0
   capability_on storage || return 0
   zpool list -H -o name fast >/dev/null 2>&1 && return 0
-  warn "The pool fast does not exist on this server. The configuration imports it, so the rebuild would fail."
-  note "Create it first: hs pool fast add (SSD pool; see docs/storage-and-disks.md)"
-  exit 1
+  { zpool import 2>/dev/null || true; } | grep -Eq '^[[:space:]]*pool:[[:space:]]*fast[[:space:]]*$' && return 0
+  warn "$(t 'The configuration imports the pool fast, but no such pool is imported or found on the disks. The rebuild may fail on zfs-import-fast.')"
+  note "$(t 'If this server never had it, create it: hs pool fast add (SSD pool; see docs/storage-and-disks.md)')"
+  return 0
 }
 
 # Since the `gpu` setting exists, a graphics driver is only installed when machine.toml says so.

@@ -137,15 +137,15 @@ for attempt in 1 2 3; do
     if [ ${#removals[@]} -gt 0 ]; then
       note "$(t 'Disks were reformatted on purpose (%s): their UUIDs changed. Syncing again with --force-uuid.' "${removals[*]}")"
     else
-      note "Disks were replaced or formatted again and you said so (--force-uuid). Syncing again with --force-uuid."
+      note "$(t 'Disks were replaced or formatted again and you said so (--force-uuid). Syncing again with --force-uuid.')"
     fi
     flags+=(--force-uuid)
   elif grep -q "Too many disks have changed UUIDs" <<<"$spin_out"; then
     # Case B (hs pool bulk add after the disks were lost): SnapRAID still has the old UUIDs. Never forced by itself:
     # the check also catches a disk mounted in the wrong place, so the user confirms the disks are the right ones.
-    warn "SnapRAID refuses: too many disks have changed UUIDs since the last sync (the disks were formatted again)."
-    note "If you replaced or rebuilt the disks on purpose and every disk in 'hs pool bulk' is the right one, run once: hs pool bulk sync --force-uuid"
-    note "If you did not change any disk, stop: a disk may be mounted in the wrong place."
+    warn "$(t 'SnapRAID refuses: too many disks have changed UUIDs since the last sync (the disks were formatted again).')"
+    note "$(t "If you replaced or rebuilt the disks on purpose and every disk in 'hs pool bulk' is the right one, run once: hs pool bulk sync --force-uuid")"
+    note "$(t 'If you did not change any disk, stop: a disk may be mounted in the wrong place.')"
     break
   else
     break

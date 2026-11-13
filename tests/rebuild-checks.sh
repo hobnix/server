@@ -29,11 +29,21 @@ echo "-- the pool fast"
 mkdir -p "$WORK/bin"; export PATH=$WORK/bin:$PATH
 printf 'storage\n' > "$HS_CAPABILITIES_FILE"
 printf '#!/usr/bin/env bash\nexit 1\n' > "$WORK/bin/zpool"; /usr/bin/chmod +x "$WORK/bin/zpool"
-run fast_check; check_eq "no pool fast: refused" 1 "$rc"
-grep -q "hs pool fast add" <<<"$out" && pass "says how to create it" || fail "message: $out"
+run fast_check; check_eq "no pool fast: only a warning" 0 "$rc"
+grep -q "hs pool fast add" <<<"$out" && grep -q "zfs-import-fast" <<<"$out" && pass "says what may fail and how to create it" || fail "message: $out"
+printf '#!/usr/bin/env bash
+[ "$1" = import ] && printf "   pool: fast\n     id: 1\n" && exit 0
+exit 1
+' > "$WORK/bin/zpool"
+run fast_check; check_eq "fast offered by zpool import (Case A): fine" 0 "$rc"
+[ -z "$out" ] && pass "and no message" || fail "message: $out"
+printf '#!/usr/bin/env bash
+exit 1
+' > "$WORK/bin/zpool"
 printf '#!/usr/bin/env bash\nexit 0\n' > "$WORK/bin/zpool"
 run fast_check; check_eq "pool fast exists: fine" 0 "$rc"
 printf '#!/usr/bin/env bash\nexit 1\n' > "$WORK/bin/zpool"
 : > "$HS_CAPABILITIES_FILE"
 run fast_check; check_eq "storage is off: not checked" 0 "$rc"
+[ -z "$out" ] && pass "storage off: no message" || fail "message: $out"
 finish
