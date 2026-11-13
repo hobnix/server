@@ -23,7 +23,7 @@ let
   # GRUB on a given disk for a machine that boots with BIOS (a VPS); the installer wizard writes bootDevice then
   grub = machine.bootDevice != "";
   # The web interface (docs/PLAN-first-run-wizard.md decision 1): the installer sets webUi = true in machine.toml, so the first dashboard needs
-  # no console rebuild. The package comes from the binary cache during nixos-install. LAN only, never a public route (.claude/rules/web.md).
+  # no console rebuild. The package is taken from the binary cache when it has it (ADR 0003), else built from web/ during nixos-install. LAN only, never a public route (.claude/rules/web.md).
   webUi = machine.webUi;
   webPort = machine.webPort;
   hsWeb = pkgs.callPackage ./pkgs/hs-web.nix { };

@@ -36,7 +36,13 @@ case "$cmd" in
     done
     mapfile -t u < <(urls)
     args=(); for x in "${u[@]}"; do args+=("--url=$x"); done
-    "$py" "$here/first_run.py" issue --only-pending "${args[@]}" || true ;;
+    # /dev/console (the unit's stdout) reaches only the last console= of the kernel line (the screen); the serial port gets its own copy
+    out=$("$py" "$here/first_run.py" issue --only-pending "${args[@]}") || exit 0
+    printf '%s
+' "$out"
+    serial=${HS_SETUP_SERIAL-/dev/ttyS0}
+    if [ -n "$serial" ] && [ -c "$serial" ] && [ -w "$serial" ]; then printf '%s
+' "$out" > "$serial" 2>/dev/null || true; fi ;;
   issue|reset)
     [ "$(id -u)" = 0 ] || [ -n "${HS_FIRST_RUN_FILE:-}" ] || fail "$(t 'This needs root: sudo hs setup-code %s' "$cmd")"
     args=(); if [ "$cmd" = issue ]; then mapfile -t u < <(urls); for x in "${u[@]}"; do args+=("--url=$x"); done; fi

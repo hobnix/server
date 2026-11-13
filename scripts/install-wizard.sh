@@ -247,7 +247,8 @@ mset() { machine_set "$1" "$2" installer >/dev/null || fail "$(t "'%s' could not
 [ "$role" = homeserver ] || mset role "\"$role\""
 ! $bios || mset bootDevice "\"/dev/$disk\""
 mset hostName "\"$hostname_\""
-mset webUi true   # the minimal system serves the web interface from the first boot (install.nix; docs/PLAN-first-run-wizard.md decision 1)
+[ "$role" != homeserver ] || mset webUi true   # (a public edge node serves no web page)
+# the minimal system serves the web interface from the first boot (install.nix; docs/PLAN-first-run-wizard.md decision 1)
 mset sshKeys "[ \"$key\" ]"
 [ -z "$nic" ] || [ "$role" != homeserver ] || mset nic "\"$nic\""
 [ -z "$smb" ] || [ "$role" != homeserver ] || mset smbAllow "\"$smb\""
@@ -258,7 +259,7 @@ fi
 ok "machine.toml: server name, SSH key, network card and the rest"
 # the flag of the one-time setup code (docs/adr/0022): the boot unit shows the code while it says pending. Not on a restore: that server
 # already has its settings and its password.
-if [ -z "$restore_from" ]; then
+if [ -z "$restore_from" ] && [ "$role" = homeserver ]; then
   HS_FIRST_RUN_FILE=$HS_STATE_DIR/first-run.json bash "$here/setup-code.sh" arm || fail "The first-setup flag could not be written."
   ok "$(t 'The first web setup is armed: the code appears on the screen after the first boot')"
 fi
@@ -289,7 +290,7 @@ step "Done"
 if [ -n "$restore_from" ]; then
   note "After the first boot: sudo hs rebuild, make the vault (hs vault init), put the backup password back, import the pools, sudo hs unlock. The checklist: docs/backup-and-recovery.md Case A, from step 8."
 fi
-if [ -z "$restore_from" ]; then
+if [ -z "$restore_from" ] && [ "$role" = homeserver ]; then
   note "Take the stick out and reboot. The screen then shows an address and a one-time code: open the address in a browser on your network (http://$hostname_.local:8480, or the IP shown) and enter the code. If the page does not open, the IP works, or: ssh adminuser@$hostname_.local"
 else
   note "Take the stick out and reboot. Then, from your PC:  ssh adminuser@$hostname_.local   (or the address your router gave it)"

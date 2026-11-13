@@ -123,6 +123,7 @@ TE=$WORK/edge-target
 $W --role edge --bios --disk sda --hostname edge1 --key "$KEY" --timezone Europe/Berlin --target "$TE" --repo "$REPO" >/dev/null 2>&1 || true
 M=$TE/etc/nixos/machine.toml
 check_eq "role" '"edge"' "$(get role)"
+check "an edge node serves no web page and arms no setup" bash -c "test -z \"$(get webUi)\" && test ! -e '$TE/var/lib/hs/first-run.json'"
 if [ "$(uname -o 2>/dev/null)" = Msys ]; then skip "bootDevice: Git Bash rewrites /dev/sda in arguments (Linux only)"
 else check_eq "bootDevice (GRUB, BIOS)" '"/dev/sda"' "$(get bootDevice)"; fi
 check_eq "the preset of the same name was applied: the edge capabilities" '["tailscale","edge-mail","edge-ports","edge-watcher","edge-status"]' "$(get capabilities | tr -d ' ')"
