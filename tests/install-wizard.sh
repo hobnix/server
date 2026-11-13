@@ -3,7 +3,7 @@
 # No disk is touched: HS_INSTALL_SKIP_DISK=1 leaves out partitioning, mounting and nixos-install; the target is a temporary folder.
 # shellcheck source=tests/lib.sh
 . "$(dirname "$0")/lib.sh"
-export HS_LANG=en HS_PLAIN=1 HS_CALLER=test HS_PYTHON=python3 PYTHONUTF8=1 HS_INSTALL_SKIP_DISK=1
+export HS_LANG=en HS_PLAIN=1 HS_CALLER=test HS_PYTHON=python3 PYTHONUTF8=1 HS_INSTALL_SKIP_DISK=1 HS_INSTALL_SKIP_NETCHECK=1
 W="bash $SCRIPTS/install-wizard.sh"
 KEY='ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAItestkey you@pc'
 REPO=$WORK/repo; mkdir -p "$REPO/presets" "$REPO/scripts"
@@ -134,4 +134,18 @@ check_eq "no ZFS host id for a node without pools" "" "$(get hostId)"
 check_eq "and no network card or Samba networks" "" "$(get nic)$(get smbAllow)"
 check_eq "the name and zone are there" '"edge1" "Europe/Berlin"' "$(get hostName) $(get timeZone)"
 check "machine.toml of an edge node passes hs config check without hostId, nic, smbAllow and vlans" bash -c 'out=$(python3 "$1/machine-toml.py" check "$2/machine.toml.example" "$3" 2>&1); ! grep -q "^error" <<<"$out"' _ "$SCRIPTS" "$ROOT" "$M"
+echo "-- the network check (issue #179)"
+NB=$WORK/netbin; mkdir -p "$NB" "$WORK/nonet"
+printf '#!/bin/sh
+exit 0
+' > "$NB/ip"; printf '#!/bin/sh
+exit 2
+' > "$NB/getent"; chmod +x "$NB/ip" "$NB/getent"
+nout=$(env -u HS_INSTALL_SKIP_NETCHECK PATH="$NB:$PATH" HS_SYS_NET="$WORK/nonet" $W --dry-run --disk sda --hostname myserver --key "$KEY" --preset minimal --target "$T" --repo "$REPO" 2>&1; echo "rc=$?")
+check_out "a failed check stops the installer and names the item" "network check failed \(link: " echo "$nout"
+check_out "with the fix" "network cable" echo "$nout"
+check_out "and a non-zero exit" "rc=1" echo "$nout"
+check_eq "nothing of the plan is shown" 0 "$(grep -c 'The plan' <<<"$nout")"
+nout=$(PATH="$NB:$PATH" HS_SYS_NET="$WORK/nonet" $W --dry-run --disk sda --hostname myserver --key "$KEY" --preset minimal --target "$T" --repo "$REPO" 2>&1)
+check_out "HS_INSTALL_SKIP_NETCHECK goes on to the plan" "Dry run" echo "$nout"
 finish

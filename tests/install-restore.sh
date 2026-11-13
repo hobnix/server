@@ -4,7 +4,7 @@
 # UNVERIFIED: this does NOT prove anything about real disks, a real restic repository or the ISO (manual checklist: docs/install.md).
 # shellcheck source=tests/lib.sh
 . "$(dirname "$0")/lib.sh"
-export HS_LANG=en HS_PLAIN=1 HS_CALLER=test HS_PYTHON=python3 PYTHONUTF8=1 HS_INSTALL_SKIP_DISK=1
+export HS_LANG=en HS_PLAIN=1 HS_CALLER=test HS_PYTHON=python3 PYTHONUTF8=1 HS_INSTALL_SKIP_DISK=1 HS_INSTALL_SKIP_NETCHECK=1
 unset HS_INSTALL_PASSWORD
 KEY='ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAItestkey you@pc'
 REPO=$WORK/repo; mkdir -p "$REPO/presets" "$REPO/scripts" "$REPO/config"

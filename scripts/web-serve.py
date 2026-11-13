@@ -907,7 +907,8 @@ READS = {
     ("parts", "pending"): {"kind": "tsv", "ttl": 15},
     ("rebuild", "pending"): {"kind": "tsv", "ttl": 15},
     ("preset", "list"): {"kind": "tsv", "ttl": 60},                                               # the presets (first-run wizard)
-    ("net", "nics"): {"kind": "tsv", "ttl": 15},                                              # the physical network cards (Network wizard)
+    ("net", "check"): {"kind": "tsv", "ttl": 5},                                                  # the network check rows (Network wizard)
+    ("net", "nics"): {"kind": "tsv", "ttl": 15},                                                  # the physical network cards (Network wizard)
     ("parts", "list"): {"kind": "tsv", "ttl": 15, "topic": "parts-list"},                          # the optional parts and whether each is on (Settings)
     ("node", "keyline"): {"kind": "tsv", "ttl": 5, "args": [NAME]},       # the public key line a node's owner has to allow (never the private key)
     ("node", "status"): {"kind": "json", "ttl": 10, "args": [NAME]},    # a remote node over ssh, the word status only

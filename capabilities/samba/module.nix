@@ -143,12 +143,13 @@ in
   # "Server accepts key" after idle gaps (user/group lookups through winbind, or DNS). Every minute
   # the same lookups sshd does, so nothing goes cold; one that takes over 1 s is logged with the tag
   # hs-nss-warm (journalctl -t hs-nss-warm). Remove once the cause is known.
-  systemd.services.hs-nss-warm = {
+  # Only with a domain: the realm comes from adDomain, nothing is looked up on a standalone server.
+  systemd.services.hs-nss-warm = lib.mkIf (ad != null) {
     description = "Keep winbind and DNS lookups warm for SSH logins (temporary)";
     path = [ "/run/current-system/sw" ];
     serviceConfig.Type = "oneshot";
     script = ''
-      for cmd in 'getent initgroups adminuser' 'getent group "domain admins"' 'getent hosts ad.home.lan'; do
+      for cmd in 'getent initgroups adminuser' 'getent group "domain admins"' 'getent hosts ${lib.toLower ad.realm}'; do
         s=$(date +%s%N)
         eval "$cmd" >/dev/null 2>&1 || true
         ms=$(( ($(date +%s%N) - s) / 1000000 ))

@@ -6234,6 +6234,81 @@
     }
    }
   },
+  "/net/check": {
+   "get": {
+    "operationId": "net.check",
+    "summary": "the network check of the installer as data: item (link|wireless|address|route|dns|clock), state (ok|warn|fail), value (- = none), fix (- = none)",
+    "x-hs-exit": true,
+    "x-hs-sys": {
+     "words": [
+      "net",
+      "check"
+     ],
+     "script": "net-check.sh",
+     "args": "--list",
+     "class": "read",
+     "rest": false
+    },
+    "x-hs-web": {
+     "path": "/api/sys/net/check",
+     "kind": "tsv",
+     "ttl": 5,
+     "query": []
+    },
+    "description": "Six rows in this order. value and fix are - when empty. Exit 1 when a row is fail (the rows are still printed).",
+    "responses": {
+     "0": {
+      "description": "ok",
+      "content": {
+       "text/tab-separated-values": {
+        "schema": {
+         "type": "array",
+         "items": {
+          "type": "array",
+          "prefixItems": [
+           {
+            "$ref": "#/components/schemas/Field",
+            "title": "item",
+            "enum": [
+             "link",
+             "wireless",
+             "address",
+             "route",
+             "dns",
+             "clock"
+            ]
+           },
+           {
+            "$ref": "#/components/schemas/Field",
+            "title": "state",
+            "enum": [
+             "ok",
+             "warn",
+             "fail"
+            ]
+           },
+           {
+            "$ref": "#/components/schemas/Field",
+            "title": "value"
+           },
+           {
+            "$ref": "#/components/schemas/Field",
+            "title": "fix"
+           }
+          ],
+          "minItems": 4,
+          "maxItems": 4
+         }
+        }
+       }
+      }
+     },
+     "default": {
+      "description": "failed; stderr says why, stdout may be empty"
+     }
+    }
+   }
+  },
   "/net/nics": {
    "get": {
     "operationId": "net.nics",

@@ -1295,6 +1295,17 @@ export interface SysOperations {
     exit: number;
     lines: string;
   };
+  "net.check": {
+    /** the network check of the installer as data: item (link|wireless|address|route|dns|clock), state (ok|warn|fail), value (- = none), fix (- = none) */
+    words: ["net", "check"];
+    path: "/net/check";
+    method: "get";
+    class: "read";
+    params: { };
+    stdin: "none";
+    exit: number;
+    lines: ([item: "link" | "wireless" | "address" | "route" | "dns" | "clock", state: "ok" | "warn" | "fail", value: Field, fix: Field])[];
+  };
   "net.nics": {
     /** the physical network cards: name, link (up|down), MAC (- = none), current (yes = the nic of machine.toml; listed first) */
     words: ["net", "nics"];

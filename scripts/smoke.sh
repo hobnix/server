@@ -89,6 +89,7 @@ default_probes() {
     $'hs sys rebuild pending\tsys rebuild pending\t0' \
     $'hs sys net nics\tsys net nics\t0' \
     $'hs sys preset list\tsys preset list\t0' \
+    $'hs sys net check\tsys net check\t0 1' \
     $'hs sys fm locations\tsys fm locations\t0 1' \
     $'hs user list\tuser list\t0' \
     $'hs user show\tuser Administrator show\t0 1' \

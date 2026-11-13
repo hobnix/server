@@ -62,6 +62,22 @@ disk is erased**, and you confirm by typing its name. Every question has an opti
 `--hostname`, `--key-file`, `--timezone`, `--preset`). It installs the base system, writes `machine.toml` with a generated `hostId` and
 applies the preset. Reboot, remove the stick, and continue with [First start](#first-start).
 
+#### Network check
+
+Not tested on hardware yet.
+
+`hs-install` checks the network before it asks for a disk, and stops when the check fails, so nothing is erased. Plug in a cable between
+the server and the router; the server gets its address by DHCP. The same check is available as data:
+
+```bash
+hs sys net check
+```
+
+It prints six rows: the cable (link), Wi-Fi, the address, the route to the router, the name lookup (DNS) and the clock. A `fail` row comes
+with a one-line fix: connect the cable, turn DHCP on in the router, or set the clock with `date -s "YYYY-MM-DD HH:MM:SS"`. A server needs
+a cable: Wi-Fi is not supported, so a wireless card alone only gets a warning. There is no offline install, because the system is not on
+the stick. When the check passes, reserve the shown address for this server on your router, so it keeps the same address.
+
 To bring back a dead server from its backup instead, see [Restore from a backup](#restore-from-a-backup).
 
 ### Option B: install by hand

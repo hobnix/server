@@ -309,6 +309,7 @@ sys	sys node status <name>	node.sh	--status {1}	the status document of a node, r
 sys	sys node keyline <name>	node.sh	--keyline {1}	the key of a node as data: key (ok|locked|missing), user, file (where the other server's owner puts the line) and line (the public half with the forced command; never the private key)	-
 sys	sys node plan <action>	node-change.sh	plan {1} {rest}	what adding, removing or making the key of a node would do, as data: status, plan lines (never asks; exit 0 ok, 1 refused, 2 = something is missing)	-
 sys	sys net nics	net-nics.sh	--list	the physical network cards: name, link (up|down), MAC (- = none), current (yes = the nic of machine.toml; listed first)	-
+sys	sys net check	net-check.sh	--list	the network check of the installer as data: item (link|wireless|address|route|dns|clock), state (ok|warn|fail), value (- = none), fix (- = none)	-
 sys	sys parts list	parts.sh	--list	the optional parts (capabilities) of this server, one per line: name, on|off, extension|part, nix (yes = needs a rebuild), switch (yes = machine.toml switches it), title	-
 sys	sys parts pending	parts.sh	--pending	the parts the next hs rebuild changes, one per line: name, on (switched on in machine.toml, not built yet) or off (taken out of machine.toml, still running); empty: nothing waits	-
 sys	sys rebuild pending	pending-rebuild.sh	--list	the machine.toml changes that wait for one hs rebuild, one per line: key, the value the running system was built with, the value now (- = not set); empty: nothing waits or no copy was kept yet	-
