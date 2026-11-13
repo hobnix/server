@@ -2428,3 +2428,4 @@ This needs root: sudo hs web unlock-login	Das braucht root: sudo hs web unlock-l
 Restarting the web interface to clear the sign-in lockout	Weboberfläche wird neu gestartet, um die Sperre der Anmeldung aufzuheben
 Could not restart hs-web. See: journalctl -u hs-web	hs-web konnte nicht neu gestartet werden. Siehe: journalctl -u hs-web
 The sign-in is open again. Signed-in sessions stay.	Die Anmeldung ist wieder frei. Angemeldete Sitzungen bleiben.
+Samba is not installed on this system, so there are no shares to publish. Install the full system first (hs rebuild).	Samba ist auf diesem System nicht installiert, es gibt also keine Freigaben zu veröffentlichen. Zuerst das vollständige System installieren (hs rebuild).
