@@ -35,6 +35,7 @@ Docs page shows them under *Apps* and *Extensions*.
 | [PLAN-packages](PLAN-packages.md) | Recipes and extensions as packages, repositories, signed releases |
 | [PLAN-capabilities-on-machine](PLAN-capabilities-on-machine.md) | Derived files of an installed capability package |
 | [PLAN-recipe-orchestrator](PLAN-recipe-orchestrator.md) | Interactive recipe runs: the orchestrator and its API contract |
+| [PLAN-first-run-wizard](PLAN-first-run-wizard.md) | From the ISO to the first dashboard: network, disks, one-time code |
 | [PLAN-web-backend](PLAN-web-backend.md) | The web interface backend |
 | [THREAT-MODEL-web](THREAT-MODEL-web.md) | Who can reach the web service, what each sign-in can start, protections and open findings |
 | [PLAN-disk-health](PLAN-disk-health.md) | Daily SMART baseline, and a disk and pool checklist |
