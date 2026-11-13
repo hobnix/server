@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # help: install a new server from the installer ISO: the OS disk, name, SSH key, preset (run on the ISO as root)
 # help.de: einen neuen Server vom Installer-Stick einrichten: Systemplatte, Name, SSH-Schlüssel, Vorlage (auf dem Stick als root)
-# args: [--role homeserver|edge|minimal] [--disk <name>] [--hostname <name>] [--key-file <file>] [--timezone <zone>] [--preset <name>] [--confirm-disk <name>] [--bios] [--restore-from <dir>] [--dry-run]
+# args: [--role homeserver|edge|minimal] [--disk <name>] [--hostname <name>] [--admin <name>] [--key-file <file>] [--timezone <zone>] [--preset <name>] [--confirm-disk <name>] [--bios] [--restore-from <dir>] [--dry-run]
 set -euo pipefail
 here=$(dirname "$0")
 . "$here/lib/ui.sh"
@@ -29,7 +29,7 @@ here=$(dirname "$0")
 # Test knobs: HS_INSTALLER_VERSION_FILE, HS_INSTALL_ORIGIN (the url to fetch from), HS_INSTALL_FETCH_TIMEOUT, HS_INSTALL_SKIP_NETCHECK=1 (no network check; without it a failed check stops the install before the disk questions), HS_INSTALL_SKIP_DISK=1 (no partitioning, no mounting, no nixos-install: only the files), HS_INSTALL_PASSWORD (the adminuser
 # password without asking), HS_PRESETS_DIR, HS_PYTHON.
 
-disk=""; hostname_=""; keyfile=""; key=""; tz=""; preset=""; confirm_disk=""; nic=""; smb=""; dry=false; role=""; bios=false
+disk=""; hostname_=""; admin=""; keyfile=""; key=""; tz=""; preset=""; confirm_disk=""; nic=""; smb=""; dry=false; role=""; bios=false
 target=${HS_INSTALL_TARGET:-/mnt}
 repo=""; restore_from=""
 # no arguments in a terminal: the entry menu, "New install" next to "Restore from backup" (UNVERIFIED: not tested on hardware)
@@ -43,6 +43,7 @@ while [ $# -gt 0 ]; do
     --bios) bios=true; shift ;;
     --disk) disk=${2:?}; shift 2 ;;
     --hostname) hostname_=${2:?}; shift 2 ;;
+    --admin) admin=${2:?}; shift 2 ;;
     --key-file) keyfile=${2:?}; shift 2 ;;
     --key) key=${2:?}; shift 2 ;;
     --timezone) tz=${2:?}; shift 2 ;;
@@ -54,7 +55,7 @@ while [ $# -gt 0 ]; do
     --repo) repo=${2:?}; shift 2 ;;
     --restore-from) restore_from=${2:?}; shift 2 ;;
     --dry-run) dry=true; shift ;;
-    *) say "usage: hs-install [--role homeserver|edge|minimal] [--disk <name>] [--hostname <name>] [--key-file <file>] [--timezone <zone>] [--preset <name>] [--confirm-disk <name>] [--dry-run]"; exit 1 ;;
+    *) say "usage: hs-install [--role homeserver|edge|minimal] [--disk <name>] [--hostname <name>] [--admin <name>] [--key-file <file>] [--timezone <zone>] [--preset <name>] [--confirm-disk <name>] [--dry-run]"; exit 1 ;;
   esac
 done
 skip=${HS_INSTALL_SKIP_DISK:-}
@@ -130,6 +131,19 @@ if [ -z "$hostname_" ]; then
 fi
 valid_host "$hostname_" || fail "$(t "'%s' is not a usable server name (letters, digits, dashes; at most 15 characters)." "$hostname_")"
 
+# the name of the admin account (machine.toml adminUser; the default adminuser is not written). A restore keeps the name of the backup.
+if [ -z "$admin" ] && [ -n "$restore_from" ] && [ -f "$restore_from/etc/nixos/machine.toml" ]; then
+  admin=$(sed -n 's/^adminUser[[:space:]]*=[[:space:]]*"\([^"]*\)".*/\1/p' "$restore_from/etc/nixos/machine.toml" | head -n1)
+fi
+if [ -z "$admin" ]; then
+  if $tty; then admin=$(ask "Name of the admin account (lowercase letters, digits, _ and -)" adminuser); else admin=adminuser; fi
+fi
+[[ "$admin" =~ ^[a-z_][a-z0-9_-]{0,30}$ ]] || fail "$(t "'%s' is not a usable account name (lowercase letters, digits, _ and -; starts with a letter or _; at most 31 characters)." "$admin")"
+case "$admin" in root|nobody) fail "$(t "'%s' cannot be the admin account." "$admin")" ;; esac
+if [ "$admin" != adminuser ] && [ -z "$skip" ] && getent passwd "$admin" >/dev/null 2>&1; then
+  fail "$(t "The name '%s' is already used by an account on this installer system. Choose another." "$admin")"
+fi
+
 if [ -z "$key" ] && [ -n "$keyfile" ]; then key=$(sed -n '/^ssh-/{p;q;}' "$keyfile" 2>/dev/null || true); fi
 if [ -z "$key" ]; then
   $tty || fail "No SSH key: give --key-file or --key."
@@ -166,6 +180,7 @@ if $bios; then kv "Layout" "1 MB BIOS boot, 8 GB swap, the rest for the system (
 else kv "Layout" "1 GB boot, 8 GB swap, the rest for the system (ext4)"; fi
 kv "Role" "$role"
 kv "Server name" "$hostname_"
+kv "Admin account" "$admin"
 kv "SSH key" "${key%% *} ... ${key##* }"
 kv "Time zone" "${tz:-UTC (not set)}"
 kv "Preset" "$preset"
@@ -190,11 +205,11 @@ if [ -z "$skip" ]; then
   fi
 fi
 
-# ---- the password of adminuser
+# ---- the password of the admin account
 pw=${HS_INSTALL_PASSWORD:-}
 if [ -z "$pw" ] && [ -z "$skip" ]; then
-  $tty || fail "No terminal and no HS_INSTALL_PASSWORD: the password of adminuser cannot be asked."
-  pw=$(ask_secret "Password of adminuser (for sudo; the SSH key is used to log in):")
+  $tty || fail "$(t "No terminal and no HS_INSTALL_PASSWORD: the password of %s cannot be asked." "$admin")"
+  pw=$(ask_secret "$(t "Password of %s (for sudo; the SSH key is used to log in):" "$admin")")
   pw2=$(ask_secret "Once more:")
   [ -n "$pw" ] && [ "$pw" = "$pw2" ] || fail "The passwords are empty or not the same. Nothing was changed."
 fi
@@ -257,6 +272,7 @@ mset() { machine_set "$1" "$2" installer >/dev/null || fail "$(t "'%s' could not
 [ "$role" = homeserver ] || mset role "\"$role\""
 ! $bios || mset bootDevice "\"/dev/$disk\""
 mset hostName "\"$hostname_\""
+[ "$admin" = adminuser ] || mset adminUser "\"$admin\""
 [ "$role" != homeserver ] || mset webUi true   # (a public edge node serves no web page)
 # the minimal system serves the web interface from the first boot (install.nix; docs/PLAN-first-run-wizard.md decision 1)
 mset sshKeys "[ \"$key\" ]"
@@ -286,8 +302,8 @@ if [ -z "$skip" ]; then
     tail -n 15 /tmp/hs-nixos-install.log | sed 's/^/      /' >&2
     fail "$(t 'nixos-install failed. The whole log: %s' /tmp/hs-nixos-install.log)"
   }
-  printf '%s\n' "adminuser:$pw" | nixos-enter --root "$target" -c 'chpasswd' >/dev/null
-  ok "adminuser has its password"
+  printf '%s\n' "$admin:$pw" | nixos-enter --root "$target" -c 'chpasswd' >/dev/null
+  ok "$(t "%s has its password" "$admin")"
 fi
 
 # the flag of the one-time setup code (docs/adr/0022): the boot unit shows the code while it says pending. Last, so a failed install leaves
@@ -302,9 +318,9 @@ if [ -n "$restore_from" ]; then
   note "After the first boot: sudo hs rebuild, make the vault (hs vault init), put the backup password back, import the pools, sudo hs unlock. The checklist: docs/backup-and-recovery.md Case A, from step 8."
 fi
 if [ -z "$restore_from" ] && [ "$role" = homeserver ]; then
-  note "Take the stick out and reboot. The screen then shows an address and a one-time code: open the address in a browser on your network (http://$hostname_.local:8480, or the IP shown) and enter the code. If the page does not open, the IP works, or: ssh adminuser@$hostname_.local"
+  note "Take the stick out and reboot. The screen then shows an address and a one-time code: open the address in a browser on your network (http://$hostname_.local:8480, or the IP shown) and enter the code. If the page does not open, the IP works, or: ssh $admin@$hostname_.local"
 else
-  note "Take the stick out and reboot. Then, from your PC:  ssh adminuser@$hostname_.local   (or the address your router gave it)"
+  note "Take the stick out and reboot. Then, from your PC:  ssh $admin@$hostname_.local   (or the address your router gave it)"
 fi
 if [ "$role" = homeserver ]; then
   note "Next: create the pools (the hs command is there from the first boot: sudo hs pool bulk add; or zpool create, as in section 3 of the Homeserver guide), then sudo hs rebuild. The guide: docs/install.md."

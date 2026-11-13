@@ -182,7 +182,7 @@ if [ -z "$skip" ]; then
   fi
 fi
 
-# ---- hand over to the installer: same layout, same nixos-install; it asks for the adminuser password itself (the answers file's admin_password_file is not read yet)
+# ---- hand over to the installer: same layout, same nixos-install; it asks for the admin account's password itself (the name comes from the backup's machine.toml) (the answers file's admin_password_file is not read yet)
 args=(--role "$role" --disk "$disk" --hostname "$hostname_" --key "$key" --restore-from "$fetched" --target "$target")
 if [ "$role" = homeserver ]; then args+=(--preset minimal); else args+=(--preset "$role"); fi
 [ -z "$wrepo" ] || args+=(--repo "$wrepo")

@@ -23,7 +23,7 @@ finish
 
 # no script spells the name out: they ask admin_user (comments, the lib itself and the files of other work are left out)
 left=$(cd "$ROOT" && git grep -n adminuser -- scripts/ ':!scripts/lib/admin.sh' ':!scripts/dev' ':!scripts/web-serve.py' ':!scripts/lib/registry.tsv' \
-  ':!scripts/manage-pool.sh' ':!scripts/create-share.sh' ':!scripts/install-wizard.sh' ':!scripts/install-restore.sh' |
+  ':!scripts/manage-pool.sh' ':!scripts/create-share.sh' |
   grep -Ev '^[^:]+:[0-9]+:[[:space:]]*#' || true)
 check_eq "no literal adminuser in the scripts" "" "$left"
 

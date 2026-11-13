@@ -116,6 +116,20 @@ out=$($W --disk sda --hostname webbox2 --key "$KEY" --target "$WORK/web-target2"
 check_out "the last note names the address and the code" "one-time code.*webbox2.local:8480" echo "$out"
 check "arming is the last step before Done" awk '/Preset .* applied/{p=NR} /first web setup is armed/{a=NR} /Done/{d=NR} END{exit !(p && a>p && d>a)}' <<<"$out"
 
+echo "-- the admin account name (issue #575)"
+check_eq "the default writes no adminUser line" "0" "$(grep -c '^adminUser' "$TW/etc/nixos/machine.toml" || true)"
+out=$($W --dry-run --disk sda --hostname webbox --key "$KEY" --target "$WORK/adm-dry" --repo "$REPO" 2>&1)
+check_out "the plan names the default admin" "Admin account .*adminuser" echo "$out"
+TA=$WORK/adm-target
+$W --disk sda --hostname admbox --admin anna --key "$KEY" --target "$TA" --repo "$REPO" >/dev/null 2>&1 || true
+check_eq "--admin anna writes adminUser" '"anna"' "$(HS_MACHINE_FILE=$TA/etc/nixos/machine.toml python3 "$SCRIPTS/machine-toml.py" get "$TA/etc/nixos/machine.toml" adminUser --json 2>/dev/null)"
+out=$($W --disk sda --hostname admbox2 --admin anna --key "$KEY" --target "$WORK/adm-target2" --repo "$REPO" 2>&1)
+check_out "the last note uses the name" "ssh anna@admbox2.local|one-time code" echo "$out"
+for bad in root nobody Anna 1anna "an na"; do
+  out=$($W --dry-run --disk sda --hostname admbox --admin "$bad" --key "$KEY" --target "$WORK/adm-bad" --repo "$REPO" 2>&1) && rc=0 || rc=$?
+  check_eq "--admin '$bad' is refused" "1" "$rc"
+done
+
 echo "-- the role edge (a public VPS)"
 out=$($W --dry-run --role edge --bios --disk sda --hostname edge1 --key "$KEY" --target "$WORK/edge-dry" --repo "$REPO" 2>&1)
 check_out "the plan names the role" "Role .*edge" echo "$out"
