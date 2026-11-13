@@ -96,7 +96,7 @@
 
   // grouped as the design shows them (storage, backup, system, network) and each with the page of the object it is about
   const GROUPS = [['Storage', 'hard-drive', ['hard-drive', 'database', 'lock', 'usb', 'folders']], ['Backup', 'cloud-arrow-up', ['cloud-arrow-up']], ['Network', 'network', []], ['System', 'gear-six', ['lightning', 'calendar-x', 'git-branch', 'gear-six', 'warning']]];
-  const OBJECT = { 'cloud-arrow-up': ['Backup', '/protection/backup'], 'hard-drive': ['Disks', '/storage/bulk/disks'], database: ['Pools', '/storage/bulk'], lock: ['Encryption', '/storage/encryption'], usb: ['Unassigned disks', '/storage/unassigned'], folders: ['Shares', '/storage/bulk/shares'], lightning: ['Hardware', '/monitoring/hardware'], 'calendar-x': ['Expiry dates', '/protection/expiry'] };
+  const OBJECT = { 'cloud-arrow-up': ['Backup', '/protection/backup'], 'hard-drive': ['Disks', '/storage/disks?pool=bulk'], database: ['Pools', '/storage/pools/bulk'], lock: ['Encryption', '/storage/encryption'], usb: ['Unassigned disks', '/storage/disks?pool=none'], folders: ['Shares', '/storage/shares?pool=bulk'], lightning: ['Hardware', '/monitoring/hardware'], 'calendar-x': ['Expiry dates', '/protection/expiry'] };
   const groups = $derived(GROUPS.map(([name, icon, icons]) => ({ name, icon, items: problems.filter((p) => icons.includes(p.icon)) })).filter((g) => g.items.length));
 </script>
 

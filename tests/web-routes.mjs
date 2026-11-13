@@ -1,5 +1,5 @@
-// The node addresses and the redirect table (web/src/redirects.js, pure) and the inner-path handling of readsFor, run with node.
-import { redirect, innerMoves } from '../web/src/redirects.js';
+// The node addresses and the node-less fallback (web/src/redirects.js, pure) and the inner-path handling of readsFor, run with node.
+import { redirect } from '../web/src/redirects.js';
 import { readsFor, innerPath } from '../web/src/readsfor.js';
 import { readFileSync } from 'node:fs';
 
@@ -8,42 +8,29 @@ const eq = (name, got, want) => { if (JSON.stringify(got) === JSON.stringify(wan
 
 const L = 'homeserver';
 eq('/ goes to the local node', redirect('/', L), '/node/homeserver');
-eq('an old inner path gets the node', redirect('/instances', L), '/node/homeserver/instances');
-eq('a moved storage page is redirected', redirect('/storage/bulk/disks', L), '/node/homeserver/storage/disks?pool=bulk');
-eq('also with the node already in front', redirect('/node/homeserver/storage/unassigned', L), '/node/homeserver/storage/disks?pool=none');
-eq('the pools move', [redirect('/storage', L), redirect('/storage/fast', L)], ['/node/homeserver/storage/pools', '/node/homeserver/storage/pools/fast']);
-eq('the shares move', [redirect('/storage/fast/shares', L), redirect('/protection/snapshots', L)], ['/node/homeserver/storage/shares?pool=fast', '/node/homeserver/storage/shares?view=snapshots']);
-eq('a query is joined to the new one', redirect('/storage/bulk/disks?x=1', L), '/node/homeserver/storage/disks?pool=bulk&x=1');
+eq('a node-less inner path gets the node', redirect('/instances', L), '/node/homeserver/instances');
 eq('the query is kept', redirect('/instances?x=1', L), '/node/homeserver/instances?x=1');
-eq('the vps pages belong to the proxyserver node, one level up', redirect('/proxy/ports', L), '/node/proxyserver/ports');
-eq('/proxy is the node summary', redirect('/proxy', L), '/node/proxyserver');
-eq('the old alias is the Ports page', redirect('/proxy/game-ports', L), '/node/proxyserver/ports');
-eq('every other proxy page', ['mail', 'watcher', 'certificate', 'tailscale', 'settings'].map((p) => redirect(`/proxy/${p}`, L)), ['mail', 'watcher', 'certificate', 'tailscale', 'settings'].map((p) => `/node/proxyserver/${p}`));
-eq('an address that already carries the node is moved too', redirect('/node/proxyserver/proxy/mail', L), '/node/proxyserver/mail');
-eq('a moved address is left alone afterwards', redirect('/node/proxyserver/mail', L), null);
-eq('the settings page of another node is its own', redirect('/node/edge1/settings', L), null);
+eq('a query on a new address is kept as it is', redirect('/storage/disks?pool=bulk', L), '/node/homeserver/storage/disks?pool=bulk');
 eq('the settings subpages of this server only get the node', [redirect('/settings', L), redirect('/settings/general', L)], ['/node/homeserver/settings', '/node/homeserver/settings/general']);
-eq('the query survives a move', redirect('/proxy/ports?x=1', L), '/node/proxyserver/ports?x=1');
 eq('a guide address', redirect('/docs/en/setup', L), '/node/homeserver/docs/en/setup');
 eq('a node address is left alone', redirect('/node/homeserver/instances', L), null);
 eq('the node root is left alone', redirect('/node/other', L), null);
+eq('the pages of another node are left alone', [redirect('/node/edge1/settings', L), redirect('/node/proxyserver/mail', L)], [null, null]);
 eq('without a local name nothing happens', redirect('/storage', ''), null);
-eq('hardware, diagnostics and the extension pages moved', [redirect('/hardware', L), redirect('/node/homeserver/operations/data', L), redirect('/games', L), redirect('/operations/posters', L)],
-  ['/node/homeserver/monitoring/hardware', '/node/homeserver/monitoring/diagnostics', '/node/homeserver/extensions/games', '/node/homeserver/extensions/posters']);
-eq('the storage moves are in the table', ['/storage/bulk', '/storage/unassigned', '/storage/bulk/shares', '/protection/snapshots'].every((k) => k in innerMoves), true);
-eq('every move is an inner path to an inner path', Object.entries(innerMoves).filter(([a, b]) => !a.startsWith('/') || !b.startsWith('/')), []);
-eq('Apps moved under Instances', redirect('/operations/apps', L), '/node/homeserver/instances/apps');
-eq('Services moved under Instances', redirect('/node/homeserver/operations/services', L), '/node/homeserver/instances/services');
+// old inner paths are no longer special: they only get the node in front
+eq('an old storage path only gets the node', redirect('/storage/bulk/disks', L), '/node/homeserver/storage/bulk/disks');
+eq('an old path with the node in front is left alone', redirect('/node/homeserver/storage/unassigned', L), null);
+eq('/proxy is no longer mapped to the proxyserver', [redirect('/proxy', L), redirect('/proxy/ports', L)], ['/node/homeserver/proxy', '/node/homeserver/proxy/ports']);
 eq('the new Apps page prefetches the recipes', readsFor('/node/homeserver/instances/apps').includes('/api/sys/recipes/list'), true);
 eq('the Apps page prefetches the versions', readsFor('/node/homeserver/instances/apps').includes('/api/sys/recipes/versions'), true);
-eq('the old Apps address prefetches the same', readsFor('/operations/apps'), readsFor('/instances/apps'));
-eq('the moves of phase 2D are in the table', ['/proxy', '/proxy/mail', '/proxy/ports', '/proxy/settings'].every((k) => k in innerMoves), true);
+eq('the old Apps address prefetches nothing', readsFor('/operations/apps'), []);
+
 
 eq('inner path strips node and query', innerPath('/node/homeserver/storage/bulk/disks?pool=bulk'), '/storage/bulk/disks');
 eq('inner path of a node root', innerPath('/node/homeserver'), '/');
 eq('inner path of a plain path', innerPath('/instances'), '/instances');
 eq('readsFor takes a node address', readsFor('/node/homeserver/instances'), readsFor('/instances'));
-eq('readsFor takes a pool address', readsFor('/node/hs/storage/fast').some((p) => p.endsWith('pool=fast')), true);
+eq('readsFor takes a pool address', readsFor('/node/hs/storage/pools/fast').some((p) => p.endsWith('pool=fast')), true);
 
 // every tree path has a route (the routes table is keyed by inner path), and the nav lines the shell relies on are there
 const nav = readFileSync(new URL('../web/src/nav.js', import.meta.url), 'utf8');

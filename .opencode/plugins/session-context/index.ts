@@ -2,7 +2,7 @@ import { Plugin } from "@opencode/plugin"
 import { execFile } from "node:child_process"
 
 // OpenCode equivalent of the Claude Code SessionStart hook (.claude/settings.json): injects the repo
-// orientation from scripts/dev/session-context.sh --plain (branch, open TODO.md items, last test log,
+// orientation from scripts/dev/session-context.sh --plain (branch, open issues of the current milestone, last test log,
 // specs in progress) into the first model request of a session. Zero tool calls. Subagent sessions are
 // skipped (they bring their own task prompt); after a server restart the context is injected again,
 // like a Claude Code resume. Keep the output small: it is paid for once per session.

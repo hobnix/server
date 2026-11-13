@@ -1,0 +1,6 @@
+date  = "2026-11-13"
+type  = "change"
+title = "Open work is read from the GitHub board, TODO.md is gone"
+body  = """The roadmap page no longer has a table made from TODO.md; open work is the issues and the project board. For maintainers: `/work <issue number>` and the session-start hook read the board through scripts/dev/board.sh.
+
+Not tested on hardware yet."""

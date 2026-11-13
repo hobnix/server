@@ -72,7 +72,4 @@ assert.ok(edgePaths.length >= 6);
 const edgeRoutes = routes.slice(routes.indexOf('const edgeRoutes'), routes.indexOf('const peerRoutes'));
 for (const p of [...edgePaths, '/', '/health']) assert.ok(edgeRoutes.includes(`'${p}':`), `no edge route for ${p}`);
 for (const p of Object.keys(m)) assert.ok(p === '/' || edgePaths.includes(p), `the tree has no row for ${p}`);
-// the old addresses are moved by redirects.js (tests/web-routes.mjs checks the table itself)
-const red = readFileSync(join(root, 'redirects.js'), 'utf8');
-for (const old of ['/proxy', ...edgePaths.map((p) => '/proxy' + p), '/proxy/game-ports']) assert.ok(red.includes(`'${old}':`), `no redirect for ${old}`);
 console.log('ok');

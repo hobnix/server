@@ -38,7 +38,7 @@
   const det = poll(() => (sel ? `/api/sys/users/group-details/${encodeURIComponent(sel.name)}` : ''), 30000);
   const descr = $derived((() => { const v = rows(det).find((r) => r[0] === 'description')?.[1]; return v && v !== '-' ? v : ''; })());
   const reachColumns =[{ key: 'share', label: 'Share' }, { key: 'level', label: 'Level' }, { key: 'via', label: 'Through' }];
-  const toShare = (s) => { setSelection('shares', s); go('/storage/bulk/shares'); };
+  const toShare = (s) => { setSelection('shares', s); go('/storage/shares?pool=bulk'); };
 
   const columns = [
     { key: 'name', label: 'Group' }, { key: 'count', label: 'Members', sort: 'num', align: 'right', value: (g) => g.members.length },

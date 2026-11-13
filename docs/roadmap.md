@@ -3,8 +3,7 @@
 Where Hobnix is going and what is open now. For people who want to help or to know what comes next.
 
 **The source is the GitHub project board** ([Hobnix Roadmap](https://github.com/orgs/hobnix/projects/1)), not this page. This page is a
-snapshot of it, made with `python3 scripts/roadmap-gen.py write` (it runs `gh project item-list`), and can be behind. The second table is made
-from `TODO.md` in the same way. Nothing between the markers is edited by hand. Status and priority of an issue are changed on the board.
+snapshot of it, made with `python3 scripts/roadmap-gen.py write` (it runs `gh project item-list`), and can be behind. Nothing between the markers is edited by hand. Status and priority of an issue are changed on the board.
 
 ## Positioning
 
@@ -20,14 +19,24 @@ The milestones are releases in order of work, not dates. An issue without a mile
 
 <!-- BEGIN board (python3 scripts/roadmap-gen.py write) -->
 
+### Later â€” after 1.0
+
+2 issues, 0 done.
+
+| Issue | Status | Priority | Title |
+| --- | --- | --- | --- |
+| [#201](https://github.com/hobnix/server/issues/201) | Backlog | P1 | Epic: Networking Management |
+| [#203](https://github.com/hobnix/server/issues/203) | Backlog | P2 | Epic: Multi-node Management |
+
 ### 0.1 â€” Trustworthy Foundation
 
-64 issues, 39 done.
+68 issues, 39 done.
 
 | Issue | Status | Priority | Title |
 | --- | --- | --- | --- |
 | [#128](https://github.com/hobnix/server/issues/128) | In Progress | P0 | Epic: Unified Job System |
 | [#139](https://github.com/hobnix/server/issues/139) | In Progress | P0 | Epic: Event Architecture |
+| [#163](https://github.com/hobnix/server/issues/163) | In Progress | P0 | Rebuild rehearsal in a VM from backup disk and passphrase (TODO A5) |
 | [#171](https://github.com/hobnix/server/issues/171) | In Review | P0 | Disk and pool failure handling review |
 | [#385](https://github.com/hobnix/server/issues/385) | In Review | - | Jobs page: show job records (history, step, progress, error) |
 | [#386](https://github.com/hobnix/server/issues/386) | In Review | - | File manager jobs: progress on the job record instead of own state files |
@@ -41,10 +50,13 @@ The milestones are releases in order of work, not dates. An issue without a mile
 | [#397](https://github.com/hobnix/server/issues/397) | In Review | - | CI: the ISO and release job must wait for the test jobs |
 | [#398](https://github.com/hobnix/server/issues/398) | In Review | - | CI: build the release ISO from the pinned nixpkgs revision |
 | [#399](https://github.com/hobnix/server/issues/399) | In Review | - | CI: release asset checksum with a bare file name, release notes from a file |
+| [#520](https://github.com/hobnix/server/issues/520) | In Review | - | Release the core from GitHub in 0.1 (bring the release workflow of #515 to develop, prove it with a beta tag) |
+| [#521](https://github.com/hobnix/server/issues/521) | In Review | - | Trust the CI release keys before v0.1.0 (release-ci in all allowed_signers files, environments and secrets) |
+| [#522](https://github.com/hobnix/server/issues/522) | Ready | - | Release the package repositories from GitHub (shared workflow for recipes, extensions, capabilities) |
+| [#523](https://github.com/hobnix/server/issues/523) | Ready | - | Package versions are raised by the release, not by hand (PR label, prepare-release workflow, CI check) |
 | [#147](https://github.com/hobnix/server/issues/147) | Backlog | P0 | Epic: Reactive Live-state |
 | [#159](https://github.com/hobnix/server/issues/159) | Backlog | P0 | Epic: Reliability and Recovery |
 | [#161](https://github.com/hobnix/server/issues/161) | Backlog | P0 | Run the auto-rollback on the real server and record the result |
-| [#163](https://github.com/hobnix/server/issues/163) | Backlog | P0 | Rebuild rehearsal in a VM from backup disk and passphrase (TODO A5) |
 | [#165](https://github.com/hobnix/server/issues/165) | Backlog | P0 | Run the first monthly restore-drill report |
 | [#169](https://github.com/hobnix/server/issues/169) | Backlog | P0 | Config backup and restore as a documented, tested flow |
 | [#415](https://github.com/hobnix/server/issues/415) | Backlog | - | Run the root and VM tests and record the result |
@@ -60,35 +72,36 @@ Done: [#121](https://github.com/hobnix/server/issues/121), [#122](https://github
 
 | Issue | Status | Priority | Title |
 | --- | --- | --- | --- |
-| [#231](https://github.com/hobnix/server/issues/231) | In Progress | P0 | Update channels: stable (tags), beta (release candidates), edge (develop); `hs update` follows the channel; web setting |
-| [#439](https://github.com/hobnix/server/issues/439) | In Progress | - | CI: test develop after each merge, faster quick tests, required checks |
-| [#233](https://github.com/hobnix/server/issues/233) | Backlog | P0 | Release process: develop -> release/* -> main + tag; branch protection on main and develop |
-| [#432](https://github.com/hobnix/server/issues/432) | Backlog | - | Test-lab: rollback, restore, pool and web page stages |
-| [#433](https://github.com/hobnix/server/issues/433) | Backlog | - | Security review of the web service: threat model, sessions, request forgery, rate limits |
-| [#435](https://github.com/hobnix/server/issues/435) | Backlog | - | Upgrade test: install the previous release, update to the new one |
-| [#436](https://github.com/hobnix/server/issues/436) | Backlog | - | Policy for the nixpkgs pin and NixOS release changes |
-| [#437](https://github.com/hobnix/server/issues/437) | Backlog | - | Decide the ADRs that already have merged code |
-| [#438](https://github.com/hobnix/server/issues/438) | Backlog | - | Decide how far the Rust migration goes per release |
-| [#458](https://github.com/hobnix/server/issues/458) | Backlog | - | Write down the positioning: who Hobnix is for, and what is out of scope before 1.0 |
-| [#464](https://github.com/hobnix/server/issues/464) | Backlog | - | Decide a release rhythm (a release every few weeks with what is verified) |
+| [#231](https://github.com/hobnix/server/issues/231) | In Review | P0 | Update channels: stable (tags), beta (release candidates), edge (develop); `hs update` follows the channel; web setting |
+| [#233](https://github.com/hobnix/server/issues/233) | In Review | P0 | Release process: develop -> release/* -> main + tag; branch protection on main and develop |
+| [#432](https://github.com/hobnix/server/issues/432) | In Review | - | Test-lab: rollback, restore, pool and web page stages |
+| [#433](https://github.com/hobnix/server/issues/433) | In Review | - | Security review of the web service: threat model, sessions, request forgery, rate limits |
+| [#435](https://github.com/hobnix/server/issues/435) | In Review | - | Upgrade test: install the previous release, update to the new one |
+| [#436](https://github.com/hobnix/server/issues/436) | In Review | - | Policy for the nixpkgs pin and NixOS release changes |
+| [#437](https://github.com/hobnix/server/issues/437) | In Review | - | Decide the ADRs that already have merged code |
+| [#438](https://github.com/hobnix/server/issues/438) | In Review | - | Decide how far the Rust migration goes per release |
+| [#458](https://github.com/hobnix/server/issues/458) | In Review | - | Write down the positioning: who Hobnix is for, and what is out of scope before 1.0 |
+| [#464](https://github.com/hobnix/server/issues/464) | In Review | - | Decide a release rhythm (a release every few weeks with what is verified) |
+| [#439](https://github.com/hobnix/server/issues/439) | Blocked | - | CI: test develop after each merge, faster quick tests, required checks |
 
 Done: [#185](https://github.com/hobnix/server/issues/185), [#219](https://github.com/hobnix/server/issues/219), [#254](https://github.com/hobnix/server/issues/254)
 
 ### 0.3 â€” Foundations
 
-9 issues, 0 done.
+9 issues, 1 done.
 
 | Issue | Status | Priority | Title |
 | --- | --- | --- | --- |
 | [#420](https://github.com/hobnix/server/issues/420) | Backlog | - | Notifications: run channels, routing and the web page on a server; choose the next providers |
 | [#423](https://github.com/hobnix/server/issues/423) | Backlog | - | Web: remove the old routes that still redirect |
 | [#431](https://github.com/hobnix/server/issues/431) | Backlog | - | Retire TODO.md: /work, the session hook and the roadmap page read the board |
-| [#442](https://github.com/hobnix/server/issues/442) | Backlog | - | Web: inventory script for shared components and raw markup |
 | [#443](https://github.com/hobnix/server/issues/443) | Backlog | - | Web: ratchet test, raw form elements and own styles may only go down |
 | [#444](https://github.com/hobnix/server/issues/444) | Backlog | - | Web: form field components (Field, text input, select, textarea, checkbox) |
 | [#481](https://github.com/hobnix/server/issues/481) | Backlog | - | Live state on by default, one mode, one store (decide: Redis or the state database) |
 | [#482](https://github.com/hobnix/server/issues/482) | Backlog | - | Every read has a topic or a written reason to poll (a check that only allows fewer timers) |
 | [#491](https://github.com/hobnix/server/issues/491) | Backlog | - | The `hs` commands print English only: remove the German catalog |
+
+Done: [#442](https://github.com/hobnix/server/issues/442)
 
 ### 0.4 â€” Install and Onboarding
 
@@ -139,7 +152,7 @@ Done: [#237](https://github.com/hobnix/server/issues/237), [#238](https://github
 
 ### 0.7 â€” Storage and NAS
 
-8 issues, 1 done.
+9 issues, 1 done.
 
 | Issue | Status | Priority | Title |
 | --- | --- | --- | --- |
@@ -150,6 +163,7 @@ Done: [#237](https://github.com/hobnix/server/issues/237), [#238](https://github
 | [#426](https://github.com/hobnix/server/issues/426) | Backlog | - | File manager: size calculation, pause, trash, `hs fm` commands, editable path |
 | [#460](https://github.com/hobnix/server/issues/460) | Backlog | - | Take over the disks of an Unraid server in place |
 | [#463](https://github.com/hobnix/server/issues/463) | Backlog | - | Disk spin-down and power use |
+| [#527](https://github.com/hobnix/server/issues/527) | Backlog | - | Back up only chosen parts of a container (include and exclude paths, like a .gitignore) |
 
 Done: [#255](https://github.com/hobnix/server/issues/255)
 
@@ -260,12 +274,10 @@ Done: [#258](https://github.com/hobnix/server/issues/258), [#259](https://github
 
 ### 0.16 â€” Networking and Multi-node
 
-5 issues, 1 done.
+3 issues, 1 done.
 
 | Issue | Status | Priority | Title |
 | --- | --- | --- | --- |
-| [#201](https://github.com/hobnix/server/issues/201) | Backlog | P1 | Epic: Networking Management |
-| [#203](https://github.com/hobnix/server/issues/203) | Backlog | P2 | Epic: Multi-node Management |
 | [#421](https://github.com/hobnix/server/issues/421) | Backlog | - | Node: a remote server owned by someone else as a read-only node |
 | [#422](https://github.com/hobnix/server/issues/422) | Backlog | - | Edge role: rehearse on a VM or a spare VPS |
 
@@ -293,58 +305,6 @@ Done: [#256](https://github.com/hobnix/server/issues/256)
 Done: [#209](https://github.com/hobnix/server/issues/209), [#211](https://github.com/hobnix/server/issues/211), [#213](https://github.com/hobnix/server/issues/213), [#216](https://github.com/hobnix/server/issues/216), [#270](https://github.com/hobnix/server/issues/270), [#315](https://github.com/hobnix/server/issues/315), [#316](https://github.com/hobnix/server/issues/316), [#317](https://github.com/hobnix/server/issues/317)
 
 <!-- END board -->
-
-## Open work from TODO.md
-
-`TODO.md` is the working list of the maintainers: bigger pieces than one issue, with the history of what was merged and what was run on a
-real server. An item can appear here and on the board.
-
-<!-- BEGIN todo (python3 scripts/roadmap-gen.py write) -->
-
-| Section | Done | Items |
-| --- | --- | --- |
-| A. Make what exists trustworthy | 1 | 7 |
-| B. Features that fit the design | 0 | 9 |
-| C. Recipes (when one is needed, we do it) | 0 | 0 |
-| D. Nodes: every server is a node of one repo (design agreed 2026-10-27) | 0 | 4 |
-| E. Notifications as a capability (decided 2026-10-27) | 0 | 3 |
-| F. Web interface: one source of truth per object (decided 2026-10-27) | 2 | 5 |
-| G. File manager (description 2026-10-28) | 2 | 5 |
-
-Not done yet:
-
-| Item | State | What |
-| --- | --- | --- |
-| A1 | in progress | CI on pull requests only (action minutes ran out when every push ran) |
-| A2 | needs a decision | Work through the guides on the real server (steps marked "Not tested on hardware yet.") in blocks (first hs... |
-| A3 | needs a decision | Run the recipes never run on the server, in this order |
-| A5 | open | Rebuild rehearsal in a VM from only the backup disk and the passphrase (turns docs/backup-and-recovery.md f... |
-| A6 | in progress | Monthly restore-drill report pushed to ntfy (the drills exist |
-| A7 | open | Housekeeping |
-| B8 | in progress | hs update with auto-rollback |
-| B9 | in progress | One interface for app-database dumps (Postgres for Immich / Synapse / Authentik, SQLite for the arr apps) s... |
-| B10 | in progress | VM coverage in hs backup ct (Incus VMs, not only the domain controller) |
-| B11 | open | Later: a cloud (or other) backup target next to the local disk. Not needed now. (The backup to the other se... |
-| B12 | in progress | Capacity and trend alerts (pool fill forecast, SSD wear, cache-mover backlog, backup growth, from state.db... |
-| B13 | in progress | Notification routing |
-| B14 | in progress | Web: the proxyserver pages need the keys the status document still lacks (mail, watcher, game_ports, certif... |
-| B15 | in progress | arr: Recycling Bin in Radarr and Sonarr (set by hand now), Remove Completed on the SABnzbd client, the Jell... |
-| B16 | open | Investigate the sudo stall of 3 to 5 s (winbind group lookup suspected; sampler log /tmp/slowsudo.log) |
-| D1 | in progress | Node registry (hs node add\|list\|remove, local node first), web tree with nodes at the top, the proxyserver... |
-| D2 | open | The cousin's server as a read-only node (reuses hs sys deck, the one-read status document) |
-| D3 | in progress | A minimal base profile (users, SSH, hs, Tailscale, health, notify) and the edge capabilities (mail, game po... |
-| D4 | open | Cut over side by side (the VPS carries the MX and the public ports) |
-| E1 | in progress | Plan and step 1 (channel store, provider interface, ntfy as provider #1, hs notify channel ...) |
-| E2 | in progress | The Notifications web page |
-| E3 | in progress | A second provider (Matrix or email), then the rest as needed |
-| F3 | in progress | ; not run in a browser against the real server) Redesign, then retire the duplicated routes |
-| F4 | in progress | Game streaming and Posters are capabilities games and posters, off by default (nothing in the tree on a fre... |
-| F5 | in progress | Extensions: a package manifest with a [web] section (page as data: reads, actions, a fixed layout; no JavaS... |
-| G1 | open | Design from the owner, answers to the open questions at the end of the plan |
-| G4 | open | Safety switch: fileManagerWrite is off by default. Run the file manager checks in a VM (copy, move, delete,... |
-| G5 | open | Not built: fm du and Calculate size, pause, trash, hs fm ... user commands, the editable path field, owner... |
-
-<!-- END todo -->
 
 ## How to take part
 

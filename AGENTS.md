@@ -12,13 +12,13 @@
   packages, commands, shell (any `*.sh`), config, monitoring, instances. Subagents get CLAUDE.md and this file as
   instructions, but not the area rules: name the rule file to read when you delegate.
 - **Session start:** the `session-context` plugin (`.opencode/plugins/session-context/`) injects branch, open
-  TODO.md items, last test log and specs in progress into the first request of a session (subagents excluded). If
+  issues of the current milestone, last test log and specs in progress into the first request of a session (subagents excluded). If
   it is not loaded, run `bash scripts/dev/session-context.sh --plain` once instead.
 - **Agents:** the roles from CLAUDE.md run as `.opencode/agents/` on opencode-go models — architect
   `kimi-k3.1-pro#high` (design, writes `.work/<id>/spec.md`), coder `kimi-k2.7-code` (implements one spec),
   implementer `gpt-6-luna#low` (mechanical edits), tester `beam-free#low` (free model: runs `scripts/dev/t`,
   failures only), reviewer `gemini-4-argon#high` (diff against spec, read-only), docs-writer `gpt-6-luna#medium`
-  (guides from the code). `/work <id>` runs the full loop for one TODO.md task.
+  (guides from the code). `/work <issue number>` runs the full loop for one board issue.
 - **Worktrees** are created under `.opencode/worktrees/` (git-ignored, like `.claude/worktrees/`). The rules,
   agents and plugin apply there too (tracked files, config from the canonical checkout); the session context
   reflects the worktree's own branch and status. Caveat: `bash` on this machine is WSL, and its Linux git cannot

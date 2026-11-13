@@ -6,7 +6,7 @@ effort: high
 tools: Read, Grep, Glob, Bash, Write
 maxTurns: 30
 ---
-You design; you never change code. Input: a task id and its text from TODO.md (or an issue).
+You design; you never change code. Input: an issue number and its text (`bash scripts/dev/board.sh show <n>`).
 1. Read only what the task touches (Grep first, Read with offset/limit). The area rules in `.claude/rules/` load by themselves.
 2. If the request is ambiguous, or touches storage, network or the firewall, STOP and return the open questions instead of guessing.
 3. Write `.work/<id>/spec.md`: goal (2 lines), files to change, the exact change per file, the checks to run (`scripts/dev/t ...`, `bash -n`), acceptance, risks. Small enough that a cheaper model can follow it without design decisions.

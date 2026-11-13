@@ -1,9 +1,9 @@
 // The page is the URL path (the backend answers every unknown path with the app, so a reload keeps the page).
 //
 // Every address lives under a node: /node/<name>/<inner path>, the local node too (name = its host name).
-//   route.full  the address as it is in the bar            /node/homeserver/storage/bulk/disks
+//   route.full  the address as it is in the bar            /node/homeserver/storage/disks
 //   route.node  the node's name                            homeserver        ('' = an address without a node: not yet redirected)
-//   route.path  the INNER path, which pages and tests use  /storage/bulk/disks   ('/' = the node's Summary)
+//   route.path  the INNER path, which pages and tests use  /storage/disks         ('/' = the node's Summary)
 //   route.query the search part as an object               { pool: 'bulk' }
 // go('/instances') on a page means "this page of the CURRENT node"; go('/node/other/health') names a node. url(path) gives the address for an <a href>.
 import { redirect } from './redirects.js';
@@ -37,7 +37,7 @@ export function go(path) {
   fix();
 }
 
-// An address without a node, or an old one (routes.js `redirects`), is replaced by the new one; Back keeps working because it is replaceState.
+// An address without a node (redirects.js) is replaced by the one with the local node; Back keeps working because it is replaceState.
 function fix() {
   if (!state.local || new URLSearchParams(location.search).has('terminal')) return;   // a popped-out terminal keeps its address
   const cur = route.full + (location.search || '');
