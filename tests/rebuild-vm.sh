@@ -35,7 +35,7 @@ launch() {   # launch <name>: a fresh Ubuntu VM with restic and the repository s
     || { fail "installing restic in $vm (internet?)"; return 1; }
 }
 backup_dev() {   # the block device of the volume, found by its serial; the volume has no label until VM A formats it
-  incus exec "$1" -- bash -c 'for d in /dev/disk/by-id/scsi-0QEMU_QEMU_HARDDISK_incus_*; do case $d in *-part*) ;; *) readlink -f "$d"; exit 0 ;; esac; done; exit 1'
+  incus exec "$1" -- bash -c 'for d in /dev/disk/by-id/scsi-0QEMU_QEMU_HARDDISK_incus_*; do case $d in *-part*|*_incus_root) ;; *) readlink -f "$d"; exit 0 ;; esac; done; exit 1'
 }
 
 echo "== volume and VM A (the old server)"
@@ -46,7 +46,7 @@ sleep 5
 echo "== A: seed shares and host files, back up"
 incus exec "$a" -- bash -s <<'INNER' || { echo "FAIL  seeding or backing up in A"; exit 1; }
 set -euo pipefail
-dev=$(for d in /dev/disk/by-id/scsi-0QEMU_QEMU_HARDDISK_incus_*; do case $d in *-part*) ;; *) readlink -f "$d"; break ;; esac; done)
+dev=$(for d in /dev/disk/by-id/scsi-0QEMU_QEMU_HARDDISK_incus_*; do case $d in *-part*|*_incus_root) ;; *) readlink -f "$d"; break ;; esac; done)
 mkfs.ext4 -q -L backup "$dev"
 mkdir -p /mnt/backup && mount "$dev" /mnt/backup
 mkdir -p /bulk/shares/photos/2024 /bulk/shares/docs /var/lib/hs /etc/hs
@@ -85,7 +85,7 @@ n=0
 pass() { n=$((n+1)); echo "  ok    $*"; }
 fail() { echo "  FAIL  $*"; bad=1; }
 bad=0
-dev=$(for d in /dev/disk/by-id/scsi-0QEMU_QEMU_HARDDISK_incus_*; do case $d in *-part*) ;; *) readlink -f "$d"; break ;; esac; done)
+dev=$(for d in /dev/disk/by-id/scsi-0QEMU_QEMU_HARDDISK_incus_*; do case $d in *-part*|*_incus_root) ;; *) readlink -f "$d"; break ;; esac; done)
 mkdir -p /mnt/backup && mount -o ro "$dev" /mnt/backup && pass "the backup volume mounts" || { fail "mount"; exit 1; }
 # the volume is read-only on purpose (the rehearsal must not write to the backup), so restic takes no lock and keeps no cache (as backup.sh does)
 R() { restic -r /mnt/backup/restic --password-file /root/pw --no-lock --no-cache "$@"; }
