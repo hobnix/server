@@ -27,6 +27,9 @@ hobnix/extensions (docs/PLAN-packages.md); the core fetches them with `hs pkg`.
   main. A hotfix branches from main, goes into main, then back into develop. Details: docs/dev-environment.md "Branches and releases".
 - **Git:** never edit, commit or switch branches in the primary checkout (stays on main; work in your own worktree; guard: scripts/dev/guard-primary-checkout.sh, `bash scripts/dev/install-guards.sh` once per clone); stage files by name after `git status`; no `Co-Authored-By` or "generated with" lines about any AI tool in commits or PRs; open pull requests against `develop` with `gh pr create --label agent-pr` (the DCO job is skipped for that label, an AI tool never signs off).
 - **Honest reports:** say what failed or was not run. Never claim a result that was not seen.
+- **Board:** In Review = pull request open; Testing = merged, not run on a real server (issue stays open); Done = the issue's "Hardware test"
+  boxes are ticked with a comment on what was seen, then closed. Never move an issue to Done for a run nobody saw. Write the "Hardware
+  test" steps into the issue when the pull request is opened. `python3 scripts/dev/untested.py` lists the untested steps per guide.
 
 ## Where the detail is
 Area rules load by themselves when you touch matching files (`.claude/rules/`): storage, web, packages, commands, shell, config, monitoring,
