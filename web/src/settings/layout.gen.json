@@ -54,6 +54,7 @@
   "backupNewShares": "backups",
   "backupNewInstances": "backups",
   "adDomain": "access",
+  "adminUser": "access",
   "notifyUrl": "cap:notifications",
   "heartbeatUrl": "cap:notifications",
   "notifyUrlSecond": "cap:notifications",

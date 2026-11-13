@@ -40,6 +40,7 @@
   backupNewShares = false;
   backupNewInstances = true;
   adDomain = null;
+  adminUser = "adminuser";
   notifyUrl = null;
   heartbeatUrl = null;
   notifyUrlSecond = null;

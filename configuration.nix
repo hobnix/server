@@ -12,8 +12,8 @@ let
   # Optional values with defaults, so an older machine.toml keeps working.
   hostName = machine.hostName;
   # Optional Active Directory membership: { realm = "AD.HOME.LAN"; workgroup = "HOME"; }
-  # Logins and groups then come from the domain. Without it, adminuser is the
-  # only Samba login (password: sudo smbpasswd -a adminuser).
+  # Logins and groups then come from the domain. Without it, the admin user (adminUser, default adminuser) is the
+  # only Samba login (password: sudo smbpasswd -a <adminUser>).
   ad = machine.adDomain;
   # How /bulk is built. "zfs": a pool like fast (mirror pairs). "snapraid":
   # single disks of any size, merged with mergerfs, protected by SnapRAID parity.
@@ -56,9 +56,11 @@ let
   hasStorage = builtins.elem "storage" capabilities;
   hasIncus = builtins.elem "incus" capabilities;
   hasSamba = builtins.elem "samba" capabilities;
+  # The admin account (machine.toml: adminUser, chosen at install; default adminuser): SSH, sudo, local web sign-in, owner of the share files
+  adminUser = machine.adminUser;
   # what the modules in capabilities/ get as their `hs` argument (the helpers are shared by storage, incus, samba and backup)
   hs = {
-    inherit machine hostName siteName ad bulkSnapraid bulkReady whenUnlocked notifyFailure;
+    inherit machine adminUser hostName siteName ad bulkSnapraid bulkReady whenUnlocked notifyFailure;
     enabled = name: builtins.elem name capabilities;
     scripts = ./scripts;
   };
@@ -319,7 +321,7 @@ in
       HS_WEB_TRUST_PROXY = if webTailscale || builtins.elem "gateway" capabilities then "1" else "";
       HS_WEB_WORKGROUP = if ad != null then ad.workgroup else "";
       HS_WEB_REALM = if ad != null then ad.realm else "";
-      HS_WEB_LOCAL_USER = "adminuser";
+      HS_WEB_LOCAL_USER = adminUser;
       # PrivateTmp gives hs-web its own mount namespace: the unlock (vault mount) must run outside it, in a transient unit
       HS_WEB_UNLOCK_IN_UNIT = "1";
       HS_WEB_SESSION_FILE = "/run/hs-web/sessions.json";
@@ -361,7 +363,7 @@ in
   };
   users.users.root.openssh.authorizedKeys.keys = lib.mkIf (isEdge && nodeLines != [ ]) nodeLines;
 
-  users.users.adminuser = {
+  users.users.${adminUser} = {
     isNormalUser = true;
     extraGroups = [ "wheel" ] ++ lib.optional hasIncus "incus-admin";
     openssh.authorizedKeys.keys = sshKeys ++ lib.optionals (!isEdge) nodeLines;
@@ -370,25 +372,28 @@ in
 
 
 
-  # Share directory owned by adminuser so it's writable over Samba
+  # The admin account name for scripts (scripts/lib/admin.sh: admin_user)
+  environment.etc."hs/admin-user".text = adminUser;
+
+  # Share directory owned by the admin user so it's writable over Samba
   # (on the snapraid layout bulk-mount.sh does this after merging the disks).
   # "z": only adjust it where it exists. Creating it ("d") made /bulk/shares on
   # the system disk while there was no pool yet, and `zpool create` then
   # refused the non-empty /bulk.
   systemd.tmpfiles.rules =
-    lib.optional (hasStorage && !bulkSnapraid) "z /bulk/shares 2775 adminuser users -"
+    lib.optional (hasStorage && !bulkSnapraid) "z /bulk/shares 2775 ${adminUser} users -"
     # where hs health leaves its numbers for node-exporter
     # the live ARC limit (zfsArcMaxGB), see boot.extraModprobeConfig above
     ++ lib.optional (hasStorage && zfsArcMaxGB > 0) "w /sys/module/zfs/parameters/zfs_arc_max - - - - ${toString (zfsArcMaxGB * 1073741824)}"
     ++ [
       # Without a ~/.zshrc zsh starts a setup wizard on the first login.
-      "f /home/adminuser/.zshrc 0644 adminuser users -"
+      "f /home/${adminUser}/.zshrc 0644 ${adminUser} users -"
       "f /root/.zshrc 0644 root root -"
       # micro copies through the terminal (OSC 52): over SSH there is no X server for
       # xclip. Written only when the file doesn't exist, so own settings are kept.
-      "d /home/adminuser/.config 0700 adminuser users -"
-      "d /home/adminuser/.config/micro 0755 adminuser users -"
-      "f /home/adminuser/.config/micro/settings.json 0644 adminuser users - {\"clipboard\":\"terminal\"}"
+      "d /home/${adminUser}/.config 0700 ${adminUser} users -"
+      "d /home/${adminUser}/.config/micro 0755 ${adminUser} users -"
+      "f /home/${adminUser}/.config/micro/settings.json 0644 ${adminUser} users - {\"clipboard\":\"terminal\"}"
     ];
 
 

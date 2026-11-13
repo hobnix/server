@@ -787,6 +787,23 @@ value = '''
 adDomain = { realm = "AD.HOME.LAN", workgroup = "HOME" }'''
 
 [[item]]
+kind = "option"
+key = "adminUser"
+type = "string"
+required = false
+settable = false
+secret = false
+default = '"adminuser"'
+pattern = '^[a-z_][a-z0-9_-]{0,30}$'
+hint = "lowercase letters, digits, _ and -; starts with a letter or _"
+doc = '''
+# The login for SSH, sudo, the web interface (local sign-in) and the owner of every file on the shares.
+# Chosen at install. Changing it on an installed server is not supported: the old account, its home
+# and the owner of all share files would stay.'''
+value = '''
+adminUser = "adminuser"'''
+
+[[item]]
 kind = "section"
 title = "Messages"
 page = "cap:notifications"

@@ -1,0 +1,4 @@
+date  = "2026-11-13"
+type  = "feature"
+title = "The admin account name is a setting (adminUser)"
+body  = """The login for SSH, sudo, the web interface and the owner of the share files can be chosen when the server is installed. The default stays adminuser, so existing servers do not change. Changing it on a server that is already installed is not supported."""
