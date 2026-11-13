@@ -3,6 +3,7 @@
   // The command has no switches for backup, cache or snapshots at creation: those are separate changes on the share afterwards.
   import CreateDialog from '../../shell/CreateDialog.svelte';
   import { poll, rows } from '../../data.svelte.js';
+  import { Field, TextInput, Select, Checkbox } from '../../ui';
 
   let { onclose, ondone = () => {} } = $props();
 
@@ -37,55 +38,46 @@
 
 <CreateDialog title="New share" area="shares" {args} {onclose} {ondone}>
   {#snippet form()}
-    <div class="field">
-      <label for="ns-name">Name</label>
-      <input id="ns-name" class="input" bind:value={name} placeholder="photos" autocomplete="off" spellcheck="false" />
-      {#if name && !nameOk}<div class="err">Lowercase letters, digits and “-”, starting with a letter or digit.</div>{/if}
-    </div>
+    <Field label="Name" error={name && !nameOk ? 'Lowercase letters, digits and “-”, starting with a letter or digit.' : ''}>
+      <TextInput bind:value={name} placeholder="photos" autocomplete="off" spellcheck={false} />
+    </Field>
 
-    <div class="field">
-      <label for="ns-kind">Kind</label>
+    <Field label="Kind" id="ns-kind" help={kind === 'sensitive' ? 'Container-owned data: read-only for the Samba users.' : 'Read and write; everyone acts as adminuser. Only Domain Admins may use it until you set permissions.'}>
       <div class="seg" id="ns-kind">
         <label class="seg-opt"><input type="radio" bind:group={kind} value="shares" /><i class="ph ph-folder"></i>Shared folder</label>
         <label class="seg-opt"><input type="radio" bind:group={kind} value="sensitive" /><i class="ph ph-folder-lock"></i>Sensitive</label>
       </div>
-      <div class="hint">{kind === 'sensitive' ? 'Container-owned data: read-only for the Samba users.' : 'Read and write; everyone acts as adminuser. Only Domain Admins may use it until you set permissions.'}</div>
-    </div>
+    </Field>
 
-    <div class="field">
-      <label for="ns-tier">Where</label>
+    <Field label="Where" id="ns-tier" help={tier === 'fast' ? 'Fast and small: for app data and files used often.' : 'The big pool of disks: for media, photos and backups.'}>
       <div class="seg" id="ns-tier">
         <label class="seg-opt"><input type="radio" bind:group={tier} value="bulk" /><i class="ph ph-hard-drives"></i>Disks (bulk)</label>
         <label class="seg-opt"><input type="radio" bind:group={tier} value="fast" /><i class="ph ph-lightning"></i>SSD (fast)</label>
       </div>
-      <div class="hint">{tier === 'fast' ? 'Fast and small: for app data and files used often.' : 'The big pool of disks: for media, photos and backups.'}</div>
-    </div>
+    </Field>
 
     <div class="field">
-      <label class="chk"><input type="checkbox" bind:checked={bind} />Mount it into an instance</label>
+      <Checkbox bind:checked={bind} label="Mount it into an instance" />
     </div>
 
     {#if bind}
-      <div class="field">
-        <label for="ns-ct">Instance</label>
-        <select id="ns-ct" class="input" bind:value={ct}>
+      <Field label="Instance">
+        <Select bind:value={ct}>
           <option value="">Choose…</option>
           {#each instances as i}<option value={i}>{i}</option>{/each}
-        </select>
-      </div>
+        </Select>
+      </Field>
+      <Field label="Path inside the instance">
+        <TextInput bind:value={path} placeholder="/mnt/photos" autocomplete="off" spellcheck={false} />
+      </Field>
       <div class="field">
-        <label for="ns-path">Path inside the instance</label>
-        <input id="ns-path" class="input" bind:value={path} placeholder="/mnt/photos" autocomplete="off" spellcheck="false" />
-      </div>
-      <div class="field">
-        <label class="chk"><input type="checkbox" bind:checked={mapUser} />Write as an app user (uid:gid)</label>
+        <Checkbox bind:checked={mapUser} label="Write as an app user (uid:gid)" hint={mapUser ? 'One such user per instance; the instance restarts when the mapping changes.' : ''} />
         {#if mapUser}
           <div class="row2">
-            <input class="input" aria-label="uid" bind:value={asUid} inputmode="numeric" />
+            <TextInput bind:value={asUid} ariaLabel="uid" inputmode="numeric" />
             <span>:</span>
-            <input class="input" aria-label="gid" bind:value={asGid} inputmode="numeric" />
+            <TextInput bind:value={asGid} ariaLabel="gid" inputmode="numeric" />
           </div>
-          <div class="hint">One such user per instance; the instance restarts when the mapping changes.</div>
         {/if}
       </div>
     {/if}
@@ -93,8 +85,5 @@
 </CreateDialog>
 
 <style>
-  .err { font-size: 12px; color: var(--st-bad); margin-top: 4px; }
-  .hint { font-size: 12px; color: var(--color-neutral-500); margin-top: 6px; }
-  .chk { display: inline-flex; align-items: center; gap: 8px; font-size: 14px; cursor: pointer; margin-bottom: 0 !important; }
   .row2 { display: flex; align-items: center; gap: 8px; margin-top: 8px; max-width: 220px; }
 </style>
