@@ -1,5 +1,7 @@
 # Plan: from the ISO to the first dashboard
 
+**Status: Accepted 2026-11-13.** The owner accepted the recommendation of every decision below (1A, 2, 3, 4, 5, 6, 7); no question is open.
+
 Design for the epic [#173](https://github.com/hobnix/server/issues/173) (Installation and Onboarding, milestone 0.4): someone who does not
 know NixOS boots the stick, installs, opens a web page, sets the first password and lands on a dashboard with the first choices made. This
 page decides what to keep, what to rework and in which order to build it. It changes no behaviour. **Nothing here was run on hardware or in a
@@ -109,7 +111,7 @@ Rules from the project: destructive commands show a plan and make the person typ
 
 Rule: every doc line for a step that only the lab ran says "Tested in a VM only", every line nobody ran says "Not tested on hardware yet."
 
-## Decisions for the owner
+## Decisions for the owner (all accepted 2026-11-13 as recommended)
 
 1. **Is the web interface part of the minimal installed system?** (the biggest one)
    - **A (recommended):** `install.nix` includes `hs-web` and the setup unit, fetched from the binary cache during `nixos-install`. First

@@ -23,6 +23,7 @@ en	Contributing	THREAT-MODEL-web
 en	Contributing	PLAN-disk-health
 en	Contributing	PLAN-hardware-runbook
 en	Contributing	PLAN-events
+en	Contributing	PLAN-portable-install
 en	Contributing	PLAN-jobs
 en	Contributing	events
 en	Contributing	roadmap
@@ -38,3 +39,4 @@ en	Contributing	PLAN-web-auth
 en	Contributing	CLI-DESIGN
 en	Contributing	Entwicklungsnotizen
 en	Contributing	PLAN-first-run-wizard
+en	Contributing	PLAN-website
