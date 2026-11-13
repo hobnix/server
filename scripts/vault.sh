@@ -154,7 +154,7 @@ cmd_init() {
   if [ -z "$dev" ]; then
     interactive || fail "$(t 'Missing: %s (give it as an option)' 'the partition')"
     mapfile -t cand < <(candidates)
-    [ ${#cand[@]} -gt 0 ] || fail "No free partition found. Make one of about 1 GiB on the system disk first."
+    [ ${#cand[@]} -gt 0 ] || fail "No free partition found. Make an empty one of about 1 GiB on the system disk (docs/encryption-and-vault.md, Set up the vault), or name one: hs vault init /dev/<partition>."
     pick=$(choose "Partition for the vault" "${cand[@]}") || fail "cancelled"
     dev=${pick%% *}
   fi

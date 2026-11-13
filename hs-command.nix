@@ -15,6 +15,12 @@
         sys) case "''${2:-}" in registry|complete|motd) exec bash "$dir/lib/hs.sh" "$@" ;; esac ;;   # read-only forms: no root
       esac
       if [ "$(id -u)" -ne 0 ]; then
+        # no terminal (ssh host hs ..., a script) and sudo would need a password: say so instead of stopping at its prompt
+        if [ ! -t 0 ] && ! sudo -n true 2>/dev/null; then
+          printf 'hs needs root, and sudo asks for a password but there is no terminal here.\n' >&2
+          printf 'Log in with a terminal (ssh -t <server> hs ...), or run it as root.\n' >&2
+          exit 1
+        fi
         mapfile -t vars < <(env | grep -E '^(var_[A-Za-z0-9_]+|HS_LANG|HS_CALLER)=' || true)
         exec sudo env "''${vars[@]}" "$0" "$@"
       fi

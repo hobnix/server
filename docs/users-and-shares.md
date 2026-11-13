@@ -203,7 +203,7 @@ Then give the people who should have access their level. `hs health` checks this
 New shares are hidden: they do not show up when someone browses the server, and whoever has access still opens them by typing
 `\\server\share`. In the web interface open Storage > Shares, pick the share, tab Permissions, and switch **Visibility** to Visible or
 Hidden (`hs sys shares plan <share> visibility --to visible|hidden`). It sets Samba's `browseable` for that share and applies the next time
-a computer looks at the server. Shares that existed before keep their current state.
+a computer looks at the server. A hidden share is also missing from `smbclient -L //server` (Samba `browseable = no`); that is expected, not an error. Shares that existed before keep their current state.
 
 A visible share is listed only for people who have at least read access to it (Samba's access-based share enumeration). The Domain Admins
 group has full access by default, so it sees every visible share. To keep a group or user from seeing a share, set them to **none** in the

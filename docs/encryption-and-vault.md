@@ -19,7 +19,7 @@ Data disks and the pool `fast` can be encrypted too. After a boot the vault and 
 
 | What | Where | Opened by |
 | --- | --- | --- |
-| the server's secrets | the vault, a LUKS2 partition of about 10 GiB on the system disk, mounted at `/var/lib/hs-vault` | `hs unlock` (the passphrase) |
+| the server's secrets | the vault, a LUKS2 partition of about 1 GiB on the system disk, mounted at `/var/lib/hs-vault` | `hs unlock` (the passphrase) |
 | encrypted data disks (SnapRAID layout) | LUKS on each disk | `hs unlock` |
 | encrypted ZFS pools (`fast`, ZFS `bulk`) | ZFS native encryption | `hs unlock` |
 
@@ -32,7 +32,12 @@ Not in the vault: the push address (`notify-url`, it must work while the vault i
 start) and `machine.toml` (public keys only).
 
 ## Set up the vault
-Do this once, on a free partition of the system disk named `vault`. If you partitioned the disk during [Install](install.md) it exists.
+Do this once, on a free partition of the system disk named `vault`. The installer (`hs-install`) and the manual layout of
+[Install](install.md) leave an empty partition of 1 GB with that name at the end of the disk. A server installed before that change has
+none: `hs vault init` then says "No free partition found". Make an empty partition of about 1 GiB yourself (for example on free space
+of the system disk, or on a spare disk or USB stick if you accept that the vault is then not on the system disk), name it with
+`parted /dev/<disk> -- mkpart vault <start> <end>`, and give that partition to `hs vault init` (below). The installer never shrinks an
+existing system for it. Not tested on hardware yet.
 The partition must be empty and never mounted.
 
 Look at the partition first:
@@ -41,7 +46,7 @@ Look at the partition first:
 lsblk -o NAME,SIZE,PARTLABEL,FSTYPE
 ```
 
-`vault` must be a partition of the system disk (about 10 GiB) without a filesystem. Then make the vault. You are asked for the
+`vault` must be a partition of the system disk (about 1 GiB) without a filesystem. Then make the vault. You are asked for the
 passphrase twice; type it **exactly as it applies to your encrypted data disks**, so one `hs unlock` opens everything.
 
 ```bash
@@ -52,6 +57,9 @@ Without an argument it lists free partitions to choose from. `--dry-run` shows t
 signature is refused; `--wipe` allows it, and only ever on the `vault` partition of the system disk. Name the partition by
 `/dev/disk/by-partlabel/vault` or by-id, never `/dev/sdX`. `init` also saves a copy of the LUKS header (below).
 
+Before it changes anything, `init` shows the plan and asks you to **type the name of the disk** (for example `sda`, not the partition);
+anything else cancels. After `init` the partition label is `hs-vault` instead of `vault`; that is expected, and `lsblk` shows it that way.
+
 Move the existing secrets into the vault and check:
 
 ```bash
@@ -60,7 +68,9 @@ hs vault status
 hs vault list
 ```
 
-`move` leaves a link at the old place so scripts still find each secret. Without names it moves the usual ones that exist. A whole
+`move` leaves a link at the old place so scripts still find each secret. While Samba runs, `move` leaves `samba-private` (the domain
+member secrets of Samba) out and says so. Stop Samba, run `sudo hs vault move samba-private`, then start Samba again; until then those
+secrets are still outside the vault. Without names it moves the usual ones that exist. A whole
 folder goes in with `hs vault bind <name> <folder>`. `hs vault open` and `hs vault close` open and close the vault by hand; closing is
 refused while something uses it.
 

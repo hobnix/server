@@ -194,18 +194,20 @@ if [ -z "$skip" ]; then
   step "Partitioning /dev/$disk"
   parted -s "/dev/$disk" -- mklabel gpt
   if $bios; then
-    parted -s "/dev/$disk" -- mkpart root ext4 2MB -8GB
-    parted -s "/dev/$disk" -- mkpart swap linux-swap -8GB 100%
+    parted -s "/dev/$disk" -- mkpart root ext4 2MB -9GB
+    parted -s "/dev/$disk" -- mkpart swap linux-swap -9GB -1GB
     parted -s "/dev/$disk" -- mkpart biosboot 1MB 2MB
     parted -s "/dev/$disk" -- set 3 bios_grub on
+    parted -s "/dev/$disk" -- mkpart vault -1GB 100%   # left empty for hs vault init (partition 4)
   else
-    parted -s "/dev/$disk" -- mkpart root ext4 1GB -8GB
-    parted -s "/dev/$disk" -- mkpart swap linux-swap -8GB 100%
+    parted -s "/dev/$disk" -- mkpart root ext4 1GB -9GB
+    parted -s "/dev/$disk" -- mkpart swap linux-swap -9GB -1GB
     parted -s "/dev/$disk" -- mkpart ESP fat32 1MB 1GB
     parted -s "/dev/$disk" -- set 3 esp on
+    parted -s "/dev/$disk" -- mkpart vault -1GB 100%   # left empty for hs vault init (partition 4)
   fi
   udevadm settle 2>/dev/null || true
-  ok "GPT with root, swap and boot"
+  ok "GPT with root, swap, boot and an empty partition called vault"
   step "Formatting and mounting"
   mkfs.ext4 -q -F -L nixos "/dev/${p}1"
   mkswap -L swap "/dev/${p}2" >/dev/null

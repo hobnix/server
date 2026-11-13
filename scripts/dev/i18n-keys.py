@@ -25,7 +25,7 @@ for path in sys.argv[1:]:
     for pat in (pat_static,pat_static1,pat_t,pat_t2):
         keys.update(m.group(1) for m in pat.finditer(s))
 # lines the interface reads or machine output: never translated
-skip=('Plan','Command','Note:','ALL DATA','Dry run','Current array','layout:','state:','not created yet')
+skip=('Plan','Command:','Command ','Commands','Note:','ALL DATA','Dry run','Current array','layout:','state:','not created yet')
 for k in sorted(keys):
     if k.strip() and not k.lstrip().startswith(skip) and k.strip() != '-':
         print(k)
