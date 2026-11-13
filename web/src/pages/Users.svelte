@@ -43,7 +43,7 @@
   const isAdmin =$derived(sel?.name.toLowerCase() === 'administrator' && !!sel?.enabled);
   const reachColumns = [{ key: 'share', label: 'Share' }, { key: 'level', label: 'Level' }, { key: 'via', label: 'Through' }];
   const stateOf = (u) => (u.enabled ? 'active' : 'locked');
-  const toShare = (s) => { setSelection('shares', s); go('/storage/bulk/shares'); };
+  const toShare = (s) => { setSelection('shares', s); go('/storage/shares?pool=bulk'); };
 
   const columns = [
     { key: 'name', label: 'User' }, { key: 'full', label: 'Name', optional: true }, { key: 'groups', label: 'Groups', optional: true, value: (u) => u.groups.join(', ') },

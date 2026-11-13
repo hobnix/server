@@ -113,8 +113,8 @@ const peerRoutes = {
 };
 export const nodeRoutes = { vps: edgeRoutes, edge: edgeRoutes, peer: peerRoutes };
 
-// Old address -> new address (redirects.js, pure so that a test can run it); route.svelte.js applies it.
-export { redirect, innerMoves, VPS_NODE } from './redirects.js';
+// Address without a node -> address with the local node (redirects.js, pure so that a test can run it); route.svelte.js applies it.
+export { redirect, VPS_NODE } from './redirects.js';
 
 // The page for an INNER path (route.path: the address without /node/<name>): the exact path, or a guide (/docs/<lang>/<slug>).
 export function pageFor(path, kind = 'main') {

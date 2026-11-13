@@ -36,8 +36,8 @@ has_caps() { [ -s "$etc/capabilities" ]; }
 row language      "Language"                   "hs config set language de"       /settings           set_nonempty language
 row timezone      "Time zone"                  "hs config set timeZone Europe/Vienna" /settings      machine_has timeZone
 row notifications "Set up notifications"       "hs config set notifications true" /operations/notifications has_notify
-row storage       "Storage pool"               "hs pool bulk add"                /storage/bulk       mountpoint -q "$bulk"
-row share         "A first share"              "hs share add <name>"             /storage/bulk/shares has_share
+row storage       "Storage pool"               "hs pool bulk add"                /storage/pools/bulk mountpoint -q "$bulk"
+row share         "A first share"              "hs share add <name>"             /storage/shares?pool=bulk has_share
 row backup        "Backup disk"                "hs backup init <device>"         /protection/backup  has_file "$state/restic-password"
 if vault_configured; then row vault "Vault (secrets)" "hs unlock" /storage/vault vault_is_open; fi
 row parts         "Optional parts (capabilities)" "hs config set capabilities ..." /settings         has_caps

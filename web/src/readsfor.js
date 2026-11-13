@@ -4,7 +4,7 @@ const DISKS = [`${A}monitor/disks`, `${A}disk-health/list`, `${A}state/disks`, `
 const SHARES = [`${A}shares/overview`, `${A}shares/deleted`, `${A}ct/list`];
 const pool = (p) => [`${A}pool/info?pool=${p}`, `${A}pool/members?pool=${p}`, `${A}monitor/disks`, `${A}disk/marks`];
 
-// The address may carry its node and a query (/node/homeserver/storage/bulk/disks?x=1); the table below is keyed by the INNER path.
+// The address may carry its node and a query (/node/homeserver/storage/disks?x=1); the table below is keyed by the INNER path.
 export const innerPath = (p) => (p || '').replace(/^\/node\/[^/]+(?=\/|$)/, '').replace(/[?#].*$/, '') || '/';
 
 // The first reads of an extension's page: every `read` its declaration names ([web.page] blocks of its manifest, features.extensions), as the
@@ -28,10 +28,6 @@ export function readsFor(path, extPages = [], liveOn = false) {
   let m;
   if ((m = path.match(/^\/extensions\/([a-z][a-z0-9-]*)$/))) return extReads(m[1], extPages);
   if ((m = path.match(/^\/storage\/pools\/([a-z0-9-]+)$/))) return pool(m[1]);
-  // the old addresses (redirected) keep their keys
-  if ((m = path.match(/^\/storage\/(bulk|fast)$/))) return pool(m[1]);
-  if ((m = path.match(/^\/storage\/(bulk|fast)\/disks$/))) return DISKS;
-  if ((m = path.match(/^\/storage\/(bulk|fast)\/shares$/))) return SHARES;
   if (path.startsWith('/settings/capabilities')) return [`${A}config/list`, `${A}parts/list`, `${A}parts/pending`];
   if (path.startsWith('/settings/')) return [`${A}config/list`];
   switch (path) {
@@ -44,12 +40,11 @@ export function readsFor(path, extPages = [], liveOn = false) {
     case '/identity/certificates': return [`${A}dc/state`];
     case '/monitoring/hardware': return [`${A}hardware`, `${A}monitor/disks`, `${A}ups/status`];
     case '/protection/backup': return [`${A}backup/state`, `${A}backup/overview`, `${A}backup/snapshots?tag=shares`, `${A}backup/snapshots?tag=host`];
-    case '/protection/snapshots': return SHARES;
     case '/protection/expiry': return [`${A}expiry/list`];
     case '/operations/health': return [`${A}health/next`, `${A}health/list`, `${A}jobs/list`, `${A}status`];
-    case '/instances/apps': case '/operations/apps': return [`${A}recipes/list`, `${A}recipes/versions`, `${A}ct/list`];
+    case '/instances/apps': return [`${A}recipes/list`, `${A}recipes/versions`, `${A}ct/list`];
     case '/marketplace': return [`${A}pkg/market`, `${A}pkg/repos`];
-    case '/instances/services': case '/operations/services': return [`${A}services/list`, `${A}services/routes`, `${A}ct/list`];
+    case '/instances/services': return [`${A}services/list`, `${A}services/routes`, `${A}ct/list`];
     case '/operations/events': return [`${A}event/list?n=100`];
     case '/operations/notifications': return [`${A}notify/channels`, `${A}notify/providers`];
     case '/monitoring/live-state': return liveOn ? [`${A}live/inspect`] : [];
@@ -59,7 +54,7 @@ export function readsFor(path, extPages = [], liveOn = false) {
     case '/storage/vault': return [`${A}status`, `${A}vault/list`, `${A}vault/usage`, `${A}vault/uses`];
     case '/storage/pools': return [`${A}pool/info?pool=bulk`, `${A}pool/info?pool=fast`, `${A}monitor/disks`];
     case '/storage/incident': return [`${A}incident/state`, `${A}pool/disks`];
-    case '/storage/disks': case '/storage/unassigned': return DISKS;
+    case '/storage/disks': return DISKS;
     case '/storage/shares': return SHARES;
     case '/storage/files': return [`${A}fm/locations`];
     case '/settings': return [`${A}config/list`];
