@@ -994,7 +994,7 @@ none yet	noch keine
 restic check found a problem	restic check hat ein Problem gefunden
 the last try failed	der letzte Versuch ist fehlgeschlagen
 usage: hs cache-mover [share] [--now] [--if-full] [--no-sync]	Aufruf: hs cache-mover [Freigabe] [--now] [--if-full] [--no-sync]
-usage: hs pool bulk sync [--force] [--force-uuid] [--scrub] [--no-mover]	Aufruf: hs pool bulk sync [--force] [--scrub] [--no-mover]
+usage: hs pool bulk sync [--force] [--force-uuid] [--scrub] [--no-mover] [--plain]	Aufruf: hs pool bulk sync [--force] [--force-uuid] [--scrub] [--no-mover] [--plain]
 watch: %s	beobachten: %s
 %s in total, the backup needs about 1.2x the data	%s insgesamt, das Backup braucht etwa das 1,2-fache der Daten
 %s, last copied %s	%s, zuletzt kopiert %s
