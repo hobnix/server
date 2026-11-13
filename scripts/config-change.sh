@@ -29,6 +29,8 @@ here=$(dirname "$0")
 . "$here/lib/capability.sh"
 . "$here/lib/nic.sh"
 . "$here/lib/effect.sh"
+. "$here/lib/admin.sh"
+adm="$(admin_user)"
 . "$here/lib/config-keys.sh"
 
 refuse() { printf 'status\trefused\nreason\t%s\n' "$1"; exit 1; }
@@ -214,7 +216,7 @@ print("in" if any(h.subnet_of(ipaddress.IPv4Network(t, strict=True)) for t in sy
     incusUi)
       [ "$v" != false ] || xline warn "Port 8443 closes: the Incus web UI and incus remote clients stop working. An address set earlier stays until incus config unset core.https_address." ;;
     webTerminal)
-      [ "$v" != true ] || xline warn "Everyone who can sign in to the web interface gets a shell as adminuser on this server." ;;
+      [ "$v" != true ] || xline warn "Everyone who can sign in to the web interface gets a shell as $adm on this server." ;;
     timeZone)
       if [ -n "$v" ]; then
         [[ "$v" != /* && "$v" != *..* ]] || refuse "'$v' is not a time zone such as Europe/Vienna."

@@ -7,6 +7,8 @@ set -euo pipefail
 . "$(dirname "$0")/lib/dc.sh"
 . "$(dirname "$0")/lib/bulkpath.sh"   # disks_root: the pool disks are mounted under /var/lib/hs, which is a host path
 . "$(dirname "$0")/lib/secret.sh"   # the password and the off-site keys may live in the vault
+. "$(dirname "$0")/lib/admin.sh"
+adm="$(admin_user)"
 . "$(dirname "$0")/lib/backup-dump.sh"   # dump_cmds: the commands of a container's dump descriptor
 
 usage() {
@@ -948,7 +950,7 @@ restore_make_datasets() {   # restore_make_datasets <snapshot> <tag> <path>
     zfs create -p "bulk/$parent/$name" || die "$(t 'Could not create the dataset %s. Nothing was restored.' "bulk/$parent/$name")"
     # as hs share add: shares are written as adminuser, sensitive folders keep the owner of the snapshot
     if [ "$parent" = shares ]; then
-      chown adminuser:users "$BULK/$parent/$name" 2>/dev/null || true
+      chown "$adm":users "$BULK/$parent/$name" 2>/dev/null || true
       chmod 2775 "$BULK/$parent/$name" 2>/dev/null || true
     fi
   done
@@ -978,7 +980,7 @@ cmd_restore() {
   # of sensitive/ must stay 1000000:1000000), and the target is the whole system. --keep-owner asks for the same elsewhere.
   [ -n "${to%/}" ] || keep=true
   # only what was restored, and only for a folder meant for a person or for incus file push
-  $keep || chown -R adminuser:users "$to/${path#/}" 2>/dev/null || true
+  $keep || chown -R "$adm":users "$to/${path#/}" 2>/dev/null || true
   ok "$(t 'Restored into %s (the full original path is recreated below it).' "$to")"
   if $keep; then note "$(t 'Owners kept as in the snapshot.')"; fi
 }

@@ -9,6 +9,8 @@ set -euo pipefail
 # Nothing about the disks is stored in the NixOS config; `hs pool bulk`
 # writes the labels, this script (at boot and after changes) does the rest.
 . "$(dirname "$0")/lib/bulkpath.sh"
+. "$(dirname "$0")/lib/admin.sh"
+adm="$(admin_user)"
 base=/mnt/bulk                 # the pool view (pool), the upload cache (cache)
 dbase=$(disks_root)           # the disks: data-NN, parity-N
 conf=/var/lib/snapraid/snapraid.conf
@@ -115,7 +117,7 @@ for m in /bulk "$base/pool"; do
 done
 
 mkdir -p /bulk/shares /bulk/sensitive
-chown adminuser:users /bulk/shares
+chown "$adm":users /bulk/shares
 chmod 2775 /bulk/shares
 
 # ── Upload caches (hs share <share> cache) ──

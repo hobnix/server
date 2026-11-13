@@ -23,6 +23,8 @@ here=$(dirname "$0")
 . "$here/lib/secret.sh"
 . "$here/lib/setting.sh"
 . "$here/lib/machine.sh"
+. "$here/lib/admin.sh"
+adm="$(admin_user)"
 state=${HS_STATE_DIR:-/var/lib/hs}
 nodes=$state/nodes.tsv
 ssh_bin=${HS_SSH:-ssh}
@@ -67,7 +69,7 @@ row_of() { all_rows | awk -F'\t' -v n="$1" '$1 == n { print; exit }'; }   # the 
 key_path() {   # key_path <name> <source>
   if [ "$2" = setting ]; then echo "$state/vps-key"; else echo "$state/node-key-$1"; fi
 }
-ssh_user() { if [ "$1" = vps ] || [ "$1" = edge ]; then echo root; else echo adminuser; fi; }
+ssh_user() { if [ "$1" = vps ] || [ "$1" = edge ]; then echo root; else echo "$adm"; fi; }
 known_hosts() { echo "$state/node-known-hosts"; }
 
 key_state() { secret_state "$1"; }
