@@ -906,6 +906,7 @@ READS = {
     ("changes", "list"): {"kind": "tsv", "ttl": 60, "query": {"from": (r"^[0-9a-f]{7,40}$", "--from"), "since": (r"^[0-9]{4}-[0-9]{2}-[0-9]{2}$", "--since")}},   # What's new
     ("parts", "pending"): {"kind": "tsv", "ttl": 15},
     ("rebuild", "pending"): {"kind": "tsv", "ttl": 15},
+    ("net", "check"): {"kind": "tsv", "ttl": 5},                                                  # the network check rows (Network wizard)
     ("net", "nics"): {"kind": "tsv", "ttl": 15},                                                  # the physical network cards (Network wizard)
     ("parts", "list"): {"kind": "tsv", "ttl": 15, "topic": "parts-list"},                          # the optional parts and whether each is on (Settings)
     ("node", "keyline"): {"kind": "tsv", "ttl": 5, "args": [NAME]},       # the public key line a node's owner has to allow (never the private key)

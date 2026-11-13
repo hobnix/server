@@ -1,0 +1,7 @@
+date  = "2026-11-13"
+type  = "feature"
+title = "Installer checks the network before it asks for a disk"
+docs  = "install#network-check"
+body  = """hs-install now checks the cable, the address (DHCP), the route to the router, the name lookup and the clock first, and stops with a short fix when one fails; nothing is erased. The same rows are available as hs sys net check. Reserve the shown address for the server on your router. Wi-Fi is not supported.
+
+Not tested on hardware yet."""

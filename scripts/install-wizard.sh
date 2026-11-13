@@ -26,7 +26,7 @@ here=$(dirname "$0")
 # needed), fetch with tags, HEAD = the commit the ISO was built from (/etc/hs-installer-version, written by installer/iso.nix). The files are
 # not changed, so `git status` is clean and hs update, the channels and the version work. Without a network, or for a stick built from
 # unpublished work, no .git is left and the install goes on: docs/install.md "Keep the configuration updatable" has the manual steps.
-# Test knobs: HS_INSTALLER_VERSION_FILE, HS_INSTALL_ORIGIN (the url to fetch from), HS_INSTALL_FETCH_TIMEOUT, HS_INSTALL_SKIP_DISK=1 (no partitioning, no mounting, no nixos-install: only the files), HS_INSTALL_PASSWORD (the adminuser
+# Test knobs: HS_INSTALLER_VERSION_FILE, HS_INSTALL_ORIGIN (the url to fetch from), HS_INSTALL_FETCH_TIMEOUT, HS_INSTALL_SKIP_NETCHECK=1 (no network check; without it a failed check stops the install before the disk questions), HS_INSTALL_SKIP_DISK=1 (no partitioning, no mounting, no nixos-install: only the files), HS_INSTALL_PASSWORD (the adminuser
 # password without asking), HS_PRESETS_DIR, HS_PYTHON.
 
 disk=""; hostname_=""; keyfile=""; key=""; tz=""; preset=""; confirm_disk=""; nic=""; smb=""; dry=false; role=""; bios=false
@@ -88,6 +88,16 @@ if [ -z "$skip" ] && ! $dry; then
     [ "$role" = edge ] || fail "This was not started in UEFI mode (ls /sys/firmware/efi shows nothing). Boot the stick in UEFI mode."
     bios=true
   fi
+fi
+
+# ---- the network (issue #179): the closure is not on the stick, so without a working network nothing can be installed; a failed check stops here,
+# before any disk question, and nothing is erased. DHCP only: no address form, no Wi-Fi. HS_INSTALL_SKIP_NETCHECK=1 skips it (tests).
+if [ -z "${HS_INSTALL_SKIP_NETCHECK:-}" ]; then
+  step "Network"
+  . "$here/lib/netcheck.sh"
+  netcheck_show
+  bad=$(netcheck_rows | awk -F'	' '$2 == "fail" && !d { print $1 ": " $4; d = 1 }')
+  [ -z "$bad" ] || fail "$(t "The network check failed (%s). Nothing was changed. Fix this, then run hs-install again." "$bad")"
 fi
 
 # ---- the disk

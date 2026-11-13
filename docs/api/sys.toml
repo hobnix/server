@@ -105,3 +105,9 @@ kind = "tsv"
 records = { status = ["status"], reason = ["text"], unit = ["unit"] }
 enums = { status = ["started", "refused"] }
 note = "Start a test-lab run as a background job: hs sys testlab start run [--ref R] [--stage 1|2|3|4|5|6|<name>|all]; status started + the job unit."
+
+["net check"]
+kind = "tsv"
+columns = ["item", "state", "value", "fix"]
+enums = { item = ["link", "wireless", "address", "route", "dns", "clock"], state = ["ok", "warn", "fail"] }
+note = "Six rows in this order. value and fix are - when empty. Exit 1 when a row is fail (the rows are still printed)."
