@@ -50,6 +50,8 @@ let
   roleCapabilities = lib.optionals isHome [ "storage" "incus" "samba" "backup" ];
   # live state (capability live-state): the web reads from Redis; off means direct reads (machine.toml liveState)
   liveOn = webUi && isHome && machine.liveState == "redis";
+  # ADR 0026 step 1: the collector writes to state.db (hs-live-db), no Redis
+  liveDb = webUi && isHome && machine.liveState == "db";
   capabilities = lib.unique (capabilitiesSetting ++ lib.optional metrics "metrics" ++ lib.optional (tailscaleRouter || webTailscale) "tailscale" ++ lib.optional (ad != null) "ad" ++ lib.optional (webUi && machine.webDocs) "docs" ++ lib.optional liveOn "live-state" ++ roleCapabilities);
   hasStorage = builtins.elem "storage" capabilities;
   hasIncus = builtins.elem "incus" capabilities;
@@ -200,6 +202,9 @@ in
     assertion = builtins.stringLength (bridgeOf name) <= 15;
     message = "machine.toml: VLAN name '${name}' is too long (max. 12 characters).";
   }) vlans) ++ [{
+    assertion = !(liveDb && builtins.elem "live-state" capabilities);
+    message = "machine.toml: liveState = \"db\" and the capability live-state cannot both be on (two collectors).";
+  } {
     # port 22 closed on the network cards and no private interface to reach it on = locked out
     assertion = sshOverIp || config.hs.privateInterfaces != [ ];
     message = "machine.toml: sshOverIp = false closes SSH on the network cards, so something must provide private access (capabilities = [\"tailscale\"]); otherwise nothing can reach this server over SSH.";
@@ -318,7 +323,7 @@ in
       # PrivateTmp gives hs-web its own mount namespace: the unlock (vault mount) must run outside it, in a transient unit
       HS_WEB_UNLOCK_IN_UNIT = "1";
       HS_WEB_SESSION_FILE = "/run/hs-web/sessions.json";
-      HS_WEB_LIVE = if builtins.elem "live-state" capabilities then "redis" else "";
+      HS_WEB_LIVE = if builtins.elem "live-state" capabilities then "redis" else if liveDb then "db" else "";
     };
     serviceConfig = {
       ExecStart = "${pkgs.python3}/bin/python3 ${./scripts}/web-serve.py";
@@ -565,6 +570,17 @@ in
     description = "Timer of hs-reads-collect";
     wantedBy = [ "timers.target" ];
     timerConfig = { OnBootSec = "1min"; OnUnitInactiveSec = "15s"; AccuracySec = "1s"; };
+  };
+
+  # ADR 0026 step 1 (liveState = "db", off by default): the live-state collector without Redis; it writes the topics and one heartbeat row into
+  # state.db (scripts/live-collect.py, HS_LIVE_STORE=db). Only for the measurement (hs live measure). Not tested on hardware yet.
+  systemd.services.hs-live-db = lib.mkIf liveDb {
+    description = "Live state collector into the state database (ADR 0026 step 1)";
+    wantedBy = [ "multi-user.target" ];
+    path = [ "/run/current-system/sw" pkgs.python3 ];
+    environment = { HS_CALLER = "ui"; HS_LIVE_STORE = "db"; };
+    serviceConfig = { ExecStart = "${pkgs.python3}/bin/python3 ${./scripts}/live-collect.py"; Restart = "always"; RestartSec = 5; };
+    onFailure = notifyFailure;
   };
 
   # Notifications are a subscriber of the event log (docs/adr/0005-events.md, docs/notify-rules.md): this reads the rows after its cursor,

@@ -26,6 +26,8 @@ Commands (machine readable output; scripts/state.sh makes the pretty version for
   topic-bump <topic|@group|--all>...  count one change up in the table `topics` (docs/adr/0005-events.md rule 5): live_refresh and the collector call it
   read-fail <key> --err TEXT [--ms N] [--rc N]  a run with no output: keeps the old output, records err and ts_err (#324)
   reads                      key TAB age in seconds (-1 = never read well) TAB milliseconds TAB exit code TAB bytes TAB status TAB gen TAB err TAB err age, oldest first
+  live_open, live_load, live_put, live_fail, live_delete, live_beat: in-process only, used by live-collect.py in liveState "db"
+                             (ADR 0026 step 1): the tables `live` and `heartbeat`; no command line
   baseline-run               the daily SMART check: read every disk through disk-health.sh --readings, compare with the stored reading,
                              update the table baseline (docs/PLAN-disk-health.md)
   baseline                   machine line per disk: serial dev kind level since last_read first_read wwn realloc pending uncorr crc
@@ -126,9 +128,9 @@ def migrate_schema(c):
             c.execute("PRAGMA user_version=%d" % version)
 
 
-def open_rw():
+def open_rw(threads=False):
     os.makedirs(os.path.dirname(DB) or ".", exist_ok=True)
-    c = sqlite3.connect(DB, timeout=30)
+    c = sqlite3.connect(DB, timeout=30, check_same_thread=not threads)
     c.execute("PRAGMA journal_mode=WAL")
     c.execute("PRAGMA synchronous=NORMAL")
     c.executescript(SCHEMA)
@@ -1131,6 +1133,66 @@ def bump(c, names):
     for n in names:
         c.execute("INSERT INTO topics (topic, gen, time) VALUES (?, 1, ?) "
                   "ON CONFLICT(topic) DO UPDATE SET gen = gen + 1, time = excluded.time", (n, t))
+
+
+# ADR 0026 step 1 (liveState = "db"): the documents of the live-state collector and its heartbeat. Created only by live_open(), so a server
+# with the switch off never gets the tables. In-process only: scripts/live-collect.py loads this file and calls these functions on one connection.
+LIVE_SCHEMA = """
+CREATE TABLE IF NOT EXISTS live (topic TEXT PRIMARY KEY, payload TEXT NOT NULL, updated INTEGER NOT NULL, ms INTEGER, rc INTEGER NOT NULL DEFAULT 0,
+  gen INTEGER NOT NULL DEFAULT 0, err TEXT, ts_err INTEGER, ttl INTEGER, src TEXT);
+CREATE TABLE IF NOT EXISTS heartbeat (name TEXT PRIMARY KEY, time INTEGER NOT NULL, every INTEGER NOT NULL, started INTEGER NOT NULL,
+  beats INTEGER NOT NULL DEFAULT 0, docs INTEGER NOT NULL DEFAULT 0, fails INTEGER NOT NULL DEFAULT 0, bytes INTEGER NOT NULL DEFAULT 0,
+  slow INTEGER NOT NULL DEFAULT 0, wait_ms INTEGER NOT NULL DEFAULT 0, read INTEGER);
+"""
+
+
+def live_open():
+    c = open_rw(threads=True)
+    c.executescript(LIVE_SCHEMA)
+    return c
+
+
+def live_load(c):
+    out = {}
+    for topic, payload, rc, err, gen, updated, ts_err in c.execute("SELECT topic, payload, rc, err, gen, updated, ts_err FROM live"):
+        out[topic] = {"payload": payload, "rc": rc, "err": err, "gen": gen, "updated": updated, "ts_err": ts_err}
+    return out
+
+
+def live_put(c, topic, payload, rc, ms, src, ttl, t):
+    """A document whose output changed: gen + 1, updated = t, the failure cleared, and the counter live:<topic> up, in one transaction."""
+    with c:
+        c.execute("INSERT INTO live (topic, payload, updated, ms, rc, gen, err, ts_err, ttl, src) VALUES (?, ?, ?, ?, ?, 1, NULL, NULL, ?, ?) "
+                  "ON CONFLICT(topic) DO UPDATE SET payload = excluded.payload, updated = excluded.updated, ms = excluded.ms, rc = excluded.rc, "
+                  "gen = gen + 1, err = NULL, ts_err = NULL, ttl = excluded.ttl, src = excluded.src",
+                  (topic, payload, t, ms, rc, ttl, src))
+        gen = c.execute("SELECT gen FROM live WHERE topic = ?", (topic,)).fetchone()[0]
+        bump(c, ["live:" + topic])
+    return gen
+
+
+def live_fail(c, topic, rc, ms, err, src, ttl, t):
+    """A run with no output: payload, updated and gen stay; rc, ms, err, ts_err (the time this failure started), src and ttl change. No counter."""
+    with c:
+        c.execute("INSERT INTO live (topic, payload, updated, ms, rc, gen, err, ts_err, ttl, src) VALUES (?, '', 0, ?, ?, 0, ?, ?, ?, ?) "
+                  "ON CONFLICT(topic) DO UPDATE SET rc = excluded.rc, ms = excluded.ms, err = excluded.err, ts_err = excluded.ts_err, "
+                  "src = excluded.src, ttl = excluded.ttl",
+                  (topic, ms, rc, err, t, ttl, src))
+
+
+def live_delete(c, topic):
+    with c:
+        c.execute("DELETE FROM live WHERE topic = ?", (topic,))
+
+
+def live_beat(c, name, every, started, t, counts, read):
+    """The one heartbeat row of the collector; counts are cumulative since `started`."""
+    with c:
+        c.execute("INSERT INTO heartbeat (name, time, every, started, beats, docs, fails, bytes, slow, wait_ms, read) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?) "
+                  "ON CONFLICT(name) DO UPDATE SET time = excluded.time, every = excluded.every, started = excluded.started, beats = excluded.beats, "
+                  "docs = excluded.docs, fails = excluded.fails, bytes = excluded.bytes, slow = excluded.slow, wait_ms = excluded.wait_ms, read = excluded.read",
+                  (name, t, every, started, counts.get("beats", 0), counts.get("docs", 0), counts.get("fails", 0), counts.get("bytes", 0),
+                   counts.get("slow", 0), counts.get("wait_ms", 0), read))
 
 
 def expand_topics(args):

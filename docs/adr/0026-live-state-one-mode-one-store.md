@@ -106,7 +106,7 @@ anticipated.
 
 ## Migration outline (not built)
 
-1. Measure first, on a real server (the code of the following steps stays behind a switch that is off until this is done): write cost and watcher latency of option A (the existing counters, 67 topics).
+1. Measure first, on a real server (the code of the following steps stays behind a switch that is off until this is done): write cost and watcher latency of option A (the existing counters, 67 topics). Built behind `liveState = "db"`, see the operations guide ("Measure the live state on the state database").
 2. Store: documents in the state database for every topic, including the 27 `reads` keys; migrate the `reads` table (rows are rebuildable, a
    migration may drop them).
 3. Collector without Redis: `live-collect.py` writes to SQLite, bumps `topics.gen`; the hooks (`live_refresh`) keep their one-line call.
