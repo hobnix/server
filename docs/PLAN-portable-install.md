@@ -92,3 +92,68 @@ holds no user data once a pool exists. B stays a question for after A has been r
 2. **Q2:** local accounts (A), or keep `adminuser` only (B)? Recommended: A, rights at Samba level.
 3. **Q3:** honest minimum (A) now, partitioning the single disk (B) only later? Recommended: A.
 4. **N4:** keep the names `homeserver` and `homeserver-installer`? Recommended: keep.
+
+## Pools as data: design and owner decisions (#573, #574, #576, #581)
+
+Status: design only, written 2026-11-13. No storage behaviour changed. Not tested on hardware yet. The full spec (inventory with file counts, Nix
+changes, exact content of step 1) is `.work/pools/spec.md` in the working tree of the session that wrote it; this section is the part that
+outlasts it.
+
+### Where names are fixed
+
+About 290 files and 2800 hits for the pool names `bulk` and `fast`: scripts (62 files, `manage-pool.sh` the largest), `scripts/lib` (10),
+web pages and `web-serve.py` topics (41), tests (112), `capabilities/storage/module.nix` (`boot.zfs.extraPools`, import units), Incus
+(`fast/incus`), Samba (`/bulk/shares`), `configuration.nix` and docs. Internal identifiers that are not pool names (`bulkType`,
+`bulk-mount.service`, `hs-bulk-sync`, labels `bulk-data-NN`) stay.
+
+### Target model
+
+- Pools are rows in one `pools` table in `machine.toml`: name, `role` (`data` or `apps`), `kind` (`zfs` or `snapraid`). Nix reads it at
+  evaluation time, scripts through `scripts/lib/pools.sh`.
+- No `pools` line means the legacy rows `bulk` (data, kind from `bulkType`) and `fast` (apps, zfs). The author's server has no such line, so
+  nothing changes for it; the store path must stay equal (checked with `nix-instantiate` before and after).
+- `pools = {}` is a server with no pool. Code asks for a role ("the data pool", "the apps pool"), not a name.
+- No apps pool: nothing is imported at boot, Incus `default` is a `dir` pool on the system disk (no nightly snapshots there), and `hs doctor`,
+  `hs motd` and the dashboard say what is missing. This is a setup state, not a health problem.
+- Single disk: same state. Shares wait for a pool and `hs share add` says so; apps keep working. The first-run checklist (#581) reads the rows;
+  `hs sys setup list` keeps its shape.
+- Rows are written only by `hs pool` (create) and `hs pool record` (shows a plan, asks, never automatic).
+
+### Steps (small PRs, each behaviour-preserving until step 5)
+
+1. `scripts/lib/pools.sh` and `tests/pools.sh`, read-only, no caller.
+2. Ratchet guard: `tests/pool-names-ratchet-test.py` with a baseline of per-file counts that may only fall; new files may have none.
+3. Schema option `pools` and the Nix modules read the rows (store path equal without the line).
+4. First-run checklist from the rows (#581).
+5. The no-pool state: messages, refusals, `hs sys pool list`, `hs pool record`, installer writes `pools = {}` (#574, #576).
+6. Shares follow pools (`--pool`, `--fast` stays as alias).
+7. `hs pool` accepts any ZFS pool name (create path shows "a NEW pool", typed NAME stays).
+8. Readers loop over rows (health, backup, capacity, overview).
+9. Web pages and routes, two or three pages per PR.
+10. Instances (`hs ct` uses the apps pool).
+11. Only if D6 allows: a SnapRAID pool with another name.
+
+### Risks
+
+A wrong row can skip an import or publish the wrong folder, so absent means legacy forever and rows are never written silently. ZFS and
+SnapRAID differ: SnapRAID has one config, one mergerfs unit, one lock and labels `bulk-*` (xfs labels hold 12 characters), so at most one
+SnapRAID pool. Incus never changes the driver or source of `default`, so later apps pools become extra Incus pools. Web contract lines
+(`hs sys setup list`, `hs sys pool ...`, health ids, live topics) keep their shape.
+
+### Decisions for the owner (recommendation first)
+
+| Id | Question | Options | Recommended |
+| --- | --- | --- | --- |
+| D1 | Where the rows live (blocks step 3) | machine.toml table; runtime TSV read impurely by Nix; ZFS property | machine.toml |
+| D2 | Role names (step 1) | `data`/`apps`; `bulk`/`fast`; `hdd`/`ssd` | `data`/`apps` (CLI option `--use`, since `--role` already names disk roles) |
+| D3 | Shares on a one-disk server (step 5) | none until a pool; a pool kind `dir` on the system disk | none now, `dir` later if asked |
+| D4 | Default pool of a share (step 6) | first data pool, `--pool` to choose; every share names its pool; a setting | first data pool |
+| D5 | Incus `default` pool (steps 3, 10) | pinned to what it was first, later pools added beside it; rebuild `default` | pinned; no snapshot schedule on a `dir` default |
+| D6 | SnapRAID pools (steps 7, 11) | one, named `bulk`; one, any name; several | one named `bulk` now, any name as step 11 |
+| D7 | Pool name rule (step 1) | `^[a-z][a-z0-9]{0,11}$` minus reserved words | as written |
+| D8 | Are `bulk` and `fast` reserved? | plain names, legacy default only; reserved | plain names |
+| D9 | "No pool" in health | notes only; a health problem | notes only |
+| D10 | Legacy server missing a derived pool | doctor offers `hs pool record`; `hs update` writes the line | doctor offers it |
+
+Open for verification in step 3: whether `hs config check` accepts nested tables, and what the Incus preseed does when re-applied to an
+existing pool.
