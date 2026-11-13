@@ -32,7 +32,6 @@ scripts/disk-replace.sh	3
 scripts/disk-spindown.sh	6
 scripts/docker.sh	7
 scripts/doctor.sh	1
-scripts/first-run.sh	3
 scripts/fm.sh	12
 scripts/health-change.sh	2
 scripts/health-check.sh	26
@@ -65,7 +64,6 @@ scripts/read-timing.sh	4
 scripts/rebuild.sh	9
 scripts/remote.sh	2
 scripts/report.sh	1
-scripts/setup-list.sh	7
 scripts/share-cache.sh	18
 scripts/share-change.sh	13
 scripts/share-cleanup.sh	8

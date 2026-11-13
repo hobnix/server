@@ -2,8 +2,12 @@
 # hs sys setup list (scripts/setup-list.sh): the first-run checklist as plain rows. No server: every place it looks at is a knob.
 # shellcheck source=tests/lib.sh
 . "$(dirname "$0")/lib.sh"
-export HS_STATE_DIR=$WORK/state HS_SETTINGS_DIR=$WORK/state/settings HS_ETC_DIR=$WORK/etc HS_MACHINE_FILE=$WORK/machine.toml HS_SETUP_BULK=$WORK/bulk HS_PYTHON=python3
-mkdir -p "$HS_SETTINGS_DIR" "$HS_ETC_DIR" "$WORK/bulk"
+export HS_STATE_DIR=$WORK/state HS_SETTINGS_DIR=$WORK/state/settings HS_ETC_DIR=$WORK/etc HS_MACHINE_FILE=$WORK/machine.toml HS_POOLS_ROOT=$WORK/root HS_MOUNTPOINT=$WORK/mp HS_PYTHON=python3
+mkdir -p "$HS_SETTINGS_DIR" "$HS_ETC_DIR" "$WORK/root/bulk"
+# mountpoint stand-in: a directory counts as mounted once it holds a file named .mounted
+printf '#!/bin/sh
+[ -e "$2/.mounted" ]
+' > "$WORK/mp"; chmod +x "$WORK/mp"
 : > "$HS_MACHINE_FILE"
 run() { bash "$SCRIPTS/setup-list.sh" --list 2>&1; }
 state_of() { run | awk -F'\t' -v id="$1" '$1 == id { print $2 }'; }
@@ -32,12 +36,45 @@ printf 'true' > "$HS_SETTINGS_DIR/notifications"
 check_eq "the entry is done once the part is on" done "$(state_of notifications)"
 rm -f "$HS_SETTINGS_DIR/notifications"
 printf 'https://ntfy.sh/x\n' > "$HS_STATE_DIR/notify-url"
-mkdir -p "$WORK/bulk/shares/media"
+check_eq "legacy: the storage command" "hs pool bulk add" "$(run | awk -F'	' '$1 == "storage" { print $4 }')"
+check_eq "legacy: the storage page" /storage/pools/bulk "$(run | awk -F'	' '$1 == "storage" { print $5 }')"
+check_eq "legacy: the share page" "/storage/shares?pool=bulk" "$(run | awk -F'	' '$1 == "share" { print $5 }')"
+check_eq "a first share is open while the folder is empty" open "$(state_of share)"
+mkdir -p "$WORK/root/bulk/shares/media"
+touch "$WORK/root/bulk/.mounted"
+check_eq "storage is done once the legacy pool is mounted" done "$(state_of storage)"
 check_eq "a first share is done" done "$(state_of share)"
 printf 'metrics\n' > "$HS_ETC_DIR/capabilities"
 check_eq "optional parts are done once any is on" done "$(state_of parts)"
 printf 'true' > "$HS_SETTINGS_DIR/setupDone"
 check_eq "finished follows setupDone" done "$(state_of finished)"
+echo "-- pools with other names"
+printf 'pools = { tank = { role = "data", kind = "zfs" }, ssd = { role = "apps", kind = "zfs" } }
+' > "$HS_MACHINE_FILE"
+mkdir -p "$WORK/root/tank" "$WORK/root/ssd"
+field() { run | awk -F'	' -v id="$1" -v n="$2" '$1 == id { print $n }'; }
+check_eq "tank: storage open, only ssd mounted" open "$(state_of storage)"
+touch "$WORK/root/ssd/.mounted"
+check_eq "tank: still open, tank not mounted" open "$(state_of storage)"
+check_eq "tank: command" "hs pool tank add" "$(field storage 4)"
+check_eq "tank: page" /storage/pools/tank "$(field storage 5)"
+check_eq "tank: share open, bulk shares do not count" open "$(state_of share)"
+check_eq "tank: share page" "/storage/shares?pool=tank" "$(field share 5)"
+touch "$WORK/root/tank/.mounted"
+check_eq "tank: storage done when both are mounted" done "$(state_of storage)"
+mkdir -p "$WORK/root/tank/shares/docs"
+check_eq "tank: a share on the data pool is done" done "$(state_of share)"
+echo "-- no pool at all"
+printf 'pools = {}
+' > "$HS_MACHINE_FILE"
+out=$(run)
+check_eq "pools = {}: every row has five fields" "" "$(awk -F'	' 'NF != 5' <<<"$out")"
+check_eq "pools = {}: storage open" open "$(state_of storage)"
+check_eq "pools = {}: storage command" "hs pool <name> add" "$(field storage 4)"
+check_eq "pools = {}: storage page" /storage/pools "$(field storage 5)"
+check_eq "pools = {}: share open" open "$(state_of share)"
+check_eq "pools = {}: share page" /storage/shares "$(field share 5)"
+: > "$HS_MACHINE_FILE"
 echo "-- the wildcard row exists only while the gateway proxy is on"
 printf 'cloud
 ' > "$HS_ETC_DIR/capabilities"
