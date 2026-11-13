@@ -142,4 +142,4 @@ Rule: every doc line for a step that only the lab ran says "Tested in a VM only"
 | [#181](https://github.com/hobnix/server/issues/181) Storage discovery and adoption | `hs sys storage discover`, classify, adopt, create, typed-name wipe | #459 (names), none for discovery |
 | [#183](https://github.com/hobnix/server/issues/183) First-run web wizard with token | Boot unit, installer flag, minimal system serves the web (decision 1), wizard pages, banner | decision 1; wizard steps need #179 and #181 |
 
-New sub-issues: *minimal system serves the web interface* and *checklist without fixed pool names*; see the issue comments.
+New sub-issues: [#580](https://github.com/hobnix/server/issues/580) (minimal system serves the web interface) and [#581](https://github.com/hobnix/server/issues/581) (checklist without fixed pool names).
