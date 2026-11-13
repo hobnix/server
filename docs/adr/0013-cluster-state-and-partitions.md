@@ -5,11 +5,11 @@ Issue: hobnix/server#256 (part of #203). The owner decides; nothing here is buil
 
 ## Context
 
-- Every server is a node of one repository (TODO.md section D). The roles are `homeserver`, `edge` and `minimal`; storage, Incus, Samba and
+- Every server is a node of one repository (the former TODO.md section D). The roles are `homeserver`, `edge` and `minimal`; storage, Incus, Samba and
   backup are capabilities (docs/adr/0008-capabilities-and-packages.md). Your server is the local node; the public VPS and another person's
   server are remote nodes. The proxyserver repository is deprecated and becomes an `edge` node.
 - Rules that exist: "the main node pulls from a peer through a narrow read allowlist; a peer never gets a shell or control of the main node; the
-  VPS key never gets more than fixed words; the cousin's server is another person's: read-only first; no shared control plane" (TODO.md D).
+  VPS key never gets more than fixed words; the cousin's server is another person's: read-only first; no shared control plane" (the former TODO.md section D).
 - Built: `hs node add|list|remove|show|key|status` (scripts/node.sh). A node is read over SSH with a key whose line in `authorized_keys`
   carries a forced command (`scripts/node-remote.sh`). The only word the main node ever sends is `status` (`NODE_WORDS`), the receiving
   side checks it again. The answer is one JSON status document, read at most 256 KiB (scripts/node.sh). Kinds: `vps` (the proxyserver, port 2222, forced command
@@ -119,11 +119,11 @@ forced command and the recorded host key are the only defence. #203 (security re
 
 - The polling interval and the silence limits (proposed: 60 s, `stale` at 3 intervals, alarm at 15 minutes, `unknown` at a day).
 - Who tells you that the home server itself is down, when everything on it, including notifications, is down: today a channel outside the
-  server (TODO.md section E asks for one) and the watcher on the edge node. Whether the edge node may run a watcher that only notifies, and
+  server (the former TODO.md section E asks for one) and the watcher on the edge node. Whether the edge node may run a watcher that only notifies, and
   where, is for the owner; it needs the outbound channel and nothing else.
 - Whether changes to a remote node are ever allowed (the owner of that node creates the key and the words, as written for the other person's
   server), and what a request while stale looks like.
 - Several nodes of the same owner that want one inventory page: covered by option A with more readers; no record needed unless a node must
   read a node it is not the main of.
 - Time: nodes should keep their clocks in line by NTP; nothing in this record depends on it (decision 5).
-- Not tested on hardware: nothing here was run; the Nodes page and the forced command are not run on a real VPS either (TODO.md D1).
+- Not tested on hardware: nothing here was run; the Nodes page and the forced command are not run on a real VPS either (the former TODO.md item D1).

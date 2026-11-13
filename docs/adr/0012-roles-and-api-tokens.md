@@ -24,7 +24,7 @@ Issue: hobnix/server#257 (part of #195). The owner decides; nothing here is buil
 - Packages declare web pages, reads and changes in their manifest (`[web.reads]`, `[web.changes]`, docs/PLAN-extensions.md); #239 asks that
   their declared permissions are enforced. That is a rule about a package, this record is about a person. Both end up as a check at the same
   place.
-- Nodes (TODO.md section D) read each other only through a forced SSH command with fixed words. That is a node-to-node trust, not a user role,
+- Nodes (the former TODO.md section D) read each other only through a forced SSH command with fixed words. That is a node-to-node trust, not a user role,
   and stays out of this record.
 
 ## Options
