@@ -85,7 +85,7 @@
       let dot, state = 'loading';
       if (n.key === 'missing' || n.key === 'locked') { dot = { state: 'off', title: n.key === 'locked' ? 'key locked (vault closed)' : 'no key yet' }; state = 'off'; }
       else if (n.name === VPS_NODE) {
-        const d = treeMeta(proxState, prox.data)['/proxy']?.dot;
+        const d = treeMeta(proxState, prox.data)['/']?.dot;
         state = proxState === 'down' ? 'down' : proxState;
         dot = proxState === 'down' ? { state: 'bad', title: 'does not answer' } : proxState === 'off' ? { state: 'off', title: 'not set up' } : d ? { state: d, title: d === 'ok' ? 'online' : 'needs a look' } : { state: 'off', title: 'reading' };
       } else { const r = reports[n.name]; dot = r?.dot ?? { state: 'off', title: 'reading' }; state = r?.state ?? 'loading'; }

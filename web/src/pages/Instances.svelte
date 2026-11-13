@@ -76,7 +76,7 @@
   const dash = (v) => (v && v !== '-' ? v : '–');
   const myServices = $derived(sel ? servicesOf(sel, services) : []);
   const myRecipes = $derived(sel ? recipes.filter((r) => r.cts.includes(sel.name)) : []);
-  const sharePath = (b) => (b.pool === 'fast' ? '/storage/fast/shares' : '/storage/bulk/shares');
+  const sharePath = (b) => (b.pool === 'fast' ? '/storage/shares?pool=fast' : '/storage/shares?pool=bulk');
 
   const columns = [
     { key: 'name', label: 'Name' }, { key: 'owner', label: 'Lock', width: '64px', value: (c) => c.owner }, { key: 'type', label: 'Type', value: kind, optional: true }, { key: 'state', label: 'State', value: (c) => word(c.state) },

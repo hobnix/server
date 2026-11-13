@@ -82,7 +82,7 @@
   const pools = $derived(['bulk', 'fast'].map((n) => ({ name: n, ...(d?.pools?.[n] ?? {}) })).filter((p) => p.size > 0));
 
   // --- one line per fact: icon, label, value, a note, the dot, and the page that owns it (a click opens it)
-  const OWNER = { Backup: '/protection/backup', Encryption: '/storage/encryption', Instances: '/instances', 'Upload cache': '/storage/bulk', 'Parity sync': '/storage/bulk', Scrub: '/storage/bulk', 'Disk health': '/storage/bulk/disks', 'Hottest disk': '/monitoring/hardware' };
+  const OWNER = { Backup: '/protection/backup', Encryption: '/storage/encryption', Instances: '/instances', 'Upload cache': '/storage/pools/bulk', 'Parity sync': '/storage/pools/bulk', Scrub: '/storage/pools/bulk', 'Disk health': '/storage/disks?pool=bulk', 'Hottest disk': '/monitoring/hardware' };
   const facts = $derived.by(() => {
     const m = {};
     const jobs = [];
@@ -183,7 +183,7 @@
       <div class="card">
         <div class="ctitle">Pools</div>
         {#each pools as p}
-          <button class="prow" onclick={() => go(`/storage/${p.name}`)}>
+          <button class="prow" onclick={() => go(`/storage/pools/${p.name}`)}>
             <span class="pn"><i class="ph {p.name === 'bulk' ? 'ph-cylinder' : 'ph-lightning'}"></i>{p.name}</span>
             <StatusDot state={p.health && p.health !== 'ONLINE' ? 'warn' : 'ok'} label={p.health && p.health !== 'ONLINE' ? p.health.toLowerCase() : 'online'} />
             <UsageBar used={p.used} size={p.size} width={180} />

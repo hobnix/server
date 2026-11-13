@@ -36,7 +36,7 @@
   {#if isStorage && pools.length && !locked}
     <div class="two">
       {#each pools as p}
-        <button class="card elev-sm pool" onclick={() => go(`/storage/${p.name}`)}>
+        <button class="card elev-sm pool" onclick={() => go(`/storage/pools/${p.name}`)}>
           <div class="row"><i class="ph ph-{p.name === 'fast' ? 'lightning' : 'cylinder'}" style="color:var(--color-accent)"></i><span class="nm">{p.name}</span><span class="sub" style="margin-left:auto">{pct(p)} % used</span></div>
           <div class="bar"><div style="width:{pct(p)}%"></div></div>
           <div class="sub">{bytes(p.used)} of {bytes(p.size)}</div>

@@ -1,0 +1,6 @@
+date  = "2026-11-13"
+type  = "change"
+title = "Web interface: old page addresses no longer redirect"
+body  = """The web interface no longer moves old page addresses to their new place. Bookmarks such as /storage/bulk/disks, /operations/apps or /proxy/ports now open an unknown page; /storage on its own now opens the Storage overview, not Pools. Use the new addresses (/storage/disks?pool=bulk, /instances/apps, and the proxyserver node's /ports). An address without /node/<name> still gets this server in front, so /instances works as before.
+
+Not tested on hardware yet."""

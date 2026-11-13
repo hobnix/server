@@ -7,8 +7,8 @@ The proxyserver is a separate machine (repo `proxyserver`) that is the public fr
 The capability is on when the runtime setting `vpsHost` or `proxyStatusUrl` is set (`hs config set vpsHost <host>`).
 
 - Web pages: the `proxyserver` node of the web interface (Mail entry, Ports, Outside watcher, Certificate, Tailscale of the
-  VPS, Settings; web/src/pages/Proxy*.svelte, pages/proxy/). The Ports page is `/proxy/ports` (`ports` key of the VPS status
-  document, alias `/proxy/game-ports`). The status document is read from `proxyStatusUrl` (`GET /api/proxy/status`; 404 while not set).
+  VPS, Settings; web/src/pages/Proxy*.svelte, pages/proxy/). The Ports page is `/node/<name>/ports` (`ports` key of the VPS status
+  document). The status document is read from `proxyStatusUrl` (`GET /api/proxy/status`; 404 while not set).
 - VPS buttons: `vpsHost` switches on `vps update` / `vps watch` on the proxyserver page: `sys vps plan|start`
   (scripts/vps-change.sh, `CHANGES["vps"]` in web-serve.py = exactly those two words) runs
   `ssh -i /var/lib/hs/vps-key ... root@<vpsHost> <verb>` as a job. The key is the vault secret `vps-key` made by `hs vps key`
