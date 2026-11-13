@@ -7,7 +7,7 @@
 export HS_LANG=en HS_PLAIN=1 TZ=UTC
 BIN=$WORK/bin; D=$WORK/scripts; mkdir -p "$BIN" "$D/lib"
 cp "$SCRIPTS/doctor.sh" "$SCRIPTS/jobs.sh" "$D/"
-cp "$SCRIPTS"/lib/ui.sh "$SCRIPTS"/lib/vault.sh "$SCRIPTS"/lib/crypt.sh "$SCRIPTS"/lib/secret.sh "$SCRIPTS"/lib/i18n.sh "$SCRIPTS"/lib/setting.sh "$SCRIPTS"/lib/live.sh "$D/lib/"; cp -r "$SCRIPTS"/lib/i18n "$D/lib/"
+cp "$SCRIPTS"/lib/ui.sh "$SCRIPTS"/lib/vault.sh "$SCRIPTS"/lib/crypt.sh "$SCRIPTS"/lib/secret.sh "$SCRIPTS"/lib/i18n.sh "$SCRIPTS"/lib/setting.sh "$SCRIPTS"/lib/live.sh "$D/lib/"
 cp "$SCRIPTS"/lib/machine.sh "$D/lib/"; cp "$SCRIPTS"/machine-toml.py "$D/"
 cat > "$D/health-check.sh" <<'FAKE'
 #!/usr/bin/env bash

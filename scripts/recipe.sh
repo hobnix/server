@@ -22,12 +22,11 @@ recipe_needs() {   # recipe_needs <file>: what it needs, and "(personal)" for a 
   echo "${n:--}"
 }
 
-recipes() {   # name<TAB>description<TAB>needs (in the language of machine.toml, English where there is none)
+recipes() {   # name<TAB>description<TAB>needs
   local f d n
   for n in $(recipe_names); do
     f=$(recipe_script "$n")
     d=""
-    [ "$hs_lang" = en ] || d=$(sed -n "s/^# recipe.$hs_lang: //p" "$f" | head -n1)
     printf '%s\t%s\t%s\n' "$n" "${d:-$(sed -n 's/^# recipe: //p' "$f" | head -n1)}" "$(recipe_needs "$f")"
   done
 }

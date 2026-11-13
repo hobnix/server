@@ -89,7 +89,7 @@ check_out "a failed build shows its last lines" "build of /nix/store/x.drv faile
 check_out "and where the rest is" "hs rebuild --verbose" echo "$out"
 check_eq "a failed build exits 1" "1" "$(REBUILD_FAIL=1 $R >/dev/null 2>&1; echo $?)"
 fake=$WORK/reg; mkdir -p "$fake/lib"
-cp "$SCRIPTS"/lib/hs.sh "$SCRIPTS"/lib/capability.sh "$SCRIPTS"/lib/registry-load.sh "$SCRIPTS"/lib/ui.sh "$SCRIPTS"/lib/i18n.sh "$SCRIPTS"/lib/setting.sh "$SCRIPTS"/lib/job.sh "$SCRIPTS"/lib/locked.sh "$SCRIPTS"/lib/machine.sh "$SCRIPTS"/lib/stamp.sh "$SCRIPTS"/lib/event.sh "$SCRIPTS"/lib/internal-link.sh "$SCRIPTS/lib/registry.tsv" "$fake/lib/"; cp -r "$SCRIPTS"/lib/i18n "$fake/lib/"
+cp "$SCRIPTS"/lib/hs.sh "$SCRIPTS"/lib/capability.sh "$SCRIPTS"/lib/registry-load.sh "$SCRIPTS"/lib/ui.sh "$SCRIPTS"/lib/i18n.sh "$SCRIPTS"/lib/setting.sh "$SCRIPTS"/lib/job.sh "$SCRIPTS"/lib/locked.sh "$SCRIPTS"/lib/machine.sh "$SCRIPTS"/lib/stamp.sh "$SCRIPTS"/lib/event.sh "$SCRIPTS"/lib/internal-link.sh "$SCRIPTS/lib/registry.tsv" "$fake/lib/"
 cp "$SCRIPTS/rebuild.sh" "$fake/"
 : > "$CALLS"
 env HS_CALLER=t HS_COMPLETE_DIR=$WORK/complete bash "$fake/lib/hs.sh" system rebuild >/dev/null 2>&1

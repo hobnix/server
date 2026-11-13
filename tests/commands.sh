@@ -67,7 +67,7 @@ samba
 backup
 ' > "$HS_CAPABILITIES_FILE"
 check_out "help --all lists them" "sys backup state" $HS help --all
-check_out "German help" "Befehle:" env HS_LANG=de $HS help
+check_out "HS_LANG=de is ignored: help stays English" "commands:" env HS_LANG=de $HS help
 check_out "unknown command fails" "unknown command" $HS nonsense
 
 echo "-- help for one command (the terminal's version of the docs site)"
@@ -76,14 +76,14 @@ check_eq "and only that one" "1" "$($HS help share rename | grep -c '^hs ')"
 check_out "a value in the middle works" "^hs share <share> perm" $HS help share docs
 check_out "a group lists its commands" "^hs ct <ct> start" $HS help ct
 check_out "the explanation of the script follows" "Only on the ZFS layout" $HS help share snapshot
-check_out "German text" "Freigabe umbenennen" env HS_LANG=de $HS help share rename
+check_out "HS_LANG=de is ignored: one command stays English" "^hs share <share> rename" env HS_LANG=de $HS help share rename
 check_out "an old name is unknown now" "No such command: hs create-share" $HS help create-share
 check_out "an unknown command says so" "No such command: hs nothing" $HS help nothing
 check_eq "and fails" "1" "$($HS help nothing >/dev/null 2>&1; echo $?)"
 
 echo "-- dispatch"
 fake=$WORK/fake; mkdir -p "$fake/lib"
-cp -r "$SCRIPTS"/lib/job.sh "$SCRIPTS"/lib/hs.sh "$SCRIPTS"/lib/capability.sh "$SCRIPTS"/lib/registry-load.sh "$SCRIPTS"/lib/ui.sh "$SCRIPTS"/lib/i18n.sh "$SCRIPTS"/lib/setting.sh "$SCRIPTS"/lib/i18n "$fake/lib/"
+cp -r "$SCRIPTS"/lib/job.sh "$SCRIPTS"/lib/hs.sh "$SCRIPTS"/lib/capability.sh "$SCRIPTS"/lib/registry-load.sh "$SCRIPTS"/lib/ui.sh "$SCRIPTS"/lib/i18n.sh "$SCRIPTS"/lib/setting.sh "$fake/lib/"
 printf 'echo "args:$*"\n' > "$fake/x.sh"
 printf '# kind\n# comment\nuser\tpool bulk add\tx.sh\t-\tadd\t-\t-\nuser\tslow thing\tx.sh\tgo\tslow\t-\tlong\nsys\tsys pool info\tx.sh\t--info\tinfo\t-\t-\nuser\tshare <share> rename\tx.sh\tren\trename\t-\t-\n' > "$fake/lib/registry.tsv"
 printf 'sys\tsys demo rs\trust:demo\tplan {rest}\tdemo\t-\tfallback:x.sh\nsys\tsys demo bare\trust:demo\tplan {rest}\tdemo\t-\t-\n' >> "$fake/lib/registry.tsv"
@@ -112,7 +112,7 @@ if HS_LANG=de $F help --all 2>&1 >/dev/null | grep -q "rust:"; then fail "help -
 
 echo "-- the REAL registry reaches the scripts with the right arguments (a wrong fixed-args field once sent "backup now" to backup.sh instead of "now")"
 real=$WORK/real; mkdir -p "$real/lib"
-cp -r "$SCRIPTS"/lib/job.sh "$SCRIPTS"/lib/hs.sh "$SCRIPTS"/lib/capability.sh "$SCRIPTS"/lib/registry-load.sh "$SCRIPTS"/lib/ui.sh "$SCRIPTS"/lib/i18n.sh "$SCRIPTS"/lib/setting.sh "$SCRIPTS"/lib/i18n "$SCRIPTS"/lib/registry.tsv "$real/lib/"
+cp -r "$SCRIPTS"/lib/job.sh "$SCRIPTS"/lib/hs.sh "$SCRIPTS"/lib/capability.sh "$SCRIPTS"/lib/registry-load.sh "$SCRIPTS"/lib/ui.sh "$SCRIPTS"/lib/i18n.sh "$SCRIPTS"/lib/setting.sh "$SCRIPTS"/lib/registry.tsv "$real/lib/"
 for s in backup unlock services; do printf 'echo "args:$*"
 ' > "$real/$s.sh"; done
 R="bash $real/lib/hs.sh"

@@ -18,7 +18,6 @@ dir=$(dirname "$here")
 . "$here/setting.sh"
 . "$here/capability.sh"
 . "$here/registry-load.sh"
-lang=${HS_LANG:-$(setting_get language 2>/dev/null || echo en)}
 
 rows() { registry_rows; }
 
@@ -62,57 +61,30 @@ header() {   # header <script> <key>
   case "$1" in rust:*) return 0 ;; esac
   sed -n "s/^# $2: //p" "$(script_file "$1")" | head -n1
 }
-help_of() {   # help_of <script> <help_en> <help_de>
-  local d=""
-  if [ "$lang" != en ]; then
-    d=$3
-    [ "$d" != "-" ] || d=$(header "$1" "help.$lang")
-  fi
-  if [ -z "$d" ] || [ "$d" = "-" ]; then
-    d=$2
-    [ "$d" != "-" ] || d=$(header "$1" help)
-  fi
+help_of() {   # help_of <script> <help_en>: the English description (the row, else the script header)
+  local d=$2
+  [ "$d" != "-" ] || d=$(header "$1" help)
   printf '%s' "$d"
 }
 
 tr_txt() {   # the few sentences of the dispatcher itself
-  if [ "$lang" = de ]; then
-    case "$1" in
-      usage) echo "Aufruf: hs <Befehl> [Argumente]" ;;
-      cmds) echo "Befehle:" ;;
-      sys) echo "Systembefehle (für die Oberfläche und Zeitpläne, mit: hs help --all):" ;;
-      list) echo "zeigt diese Liste" ;;
-      unknown) echo "hs: unbekannter Befehl" ;;
-      warn) echo "Das ist ein Systembefehl: er ist für die Oberfläche und Zeitpläne gedacht, nicht für die Hand." ;;
-      ask) echo "Trotzdem ausführen?" ;;
-      long) echo "Das kann lange dauern (Minuten bis Stunden) und belastet die Platten." ;;
-      bg) echo "Im Hintergrund als Auftrag ausführen? (Nein = hier warten)" ;;
-      nocmd) echo "Dazu gibt es keinen Befehl" ;;
-      s_cmds) echo "Befehle:" ;;
-      s_docs) echo "Anleitungen:" ;;
-      s_more) echo "... weitere Treffer, suche genauer" ;;
-      s_none) echo "Nichts gefunden für" ;;
-      s_usage) echo "Aufruf: hs help --search <Wort>" ;;
-    esac
-  else
-    case "$1" in
-      usage) echo "usage: hs <command> [args]" ;;
-      cmds) echo "commands:" ;;
-      sys) echo "system commands (for the interface and timers):" ;;
-      list) echo "show this list" ;;
-      unknown) echo "hs: unknown command" ;;
-      warn) echo "This is a system command: it is meant for the interface and timers, not for the hand." ;;
-      ask) echo "Run it anyway?" ;;
-      long) echo "This can take long (minutes to hours) and puts load on the disks." ;;
-      bg) echo "Run it in the background as a job? (No = wait here)" ;;
-      nocmd) echo "No such command" ;;
-      s_cmds) echo "commands:" ;;
-      s_docs) echo "guides:" ;;
-      s_more) echo "... more matches, search more precisely" ;;
-      s_none) echo "Nothing found for" ;;
-      s_usage) echo "usage: hs help --search <word>" ;;
-    esac
-  fi
+  case "$1" in
+    usage) echo "usage: hs <command> [args]" ;;
+    cmds) echo "commands:" ;;
+    sys) echo "system commands (for the interface and timers):" ;;
+    list) echo "show this list" ;;
+    unknown) echo "hs: unknown command" ;;
+    warn) echo "This is a system command: it is meant for the interface and timers, not for the hand." ;;
+    ask) echo "Run it anyway?" ;;
+    long) echo "This can take long (minutes to hours) and puts load on the disks." ;;
+    bg) echo "Run it in the background as a job? (No = wait here)" ;;
+    nocmd) echo "No such command" ;;
+    s_cmds) echo "commands:" ;;
+    s_docs) echo "guides:" ;;
+    s_more) echo "... more matches, search more precisely" ;;
+    s_none) echo "Nothing found for" ;;
+    s_usage) echo "usage: hs help --search <word>" ;;
+  esac
 }
 
 # A command of a capability that is off (flag capability:<name>, docs/PLAN-modular-core.md step 3) is left out of `hs help`;
@@ -136,14 +108,14 @@ usage() {   # usage [--all]
     [ "${path%% *}" = "${prev:-}" ] || { [ -z "${prev:-}" ] || echo; prev=${path%% *}; }
     a=""
     [ "$hen" != "-" ] || a=$(header "$(doc_script "$script" "${flags:-}")" args)
-    help_item "$path" "$(help_of "$script" "$hen" "$hde")" "$a"
+    help_item "$path" "$(help_of "$script" "$hen")" "$a"
   done < <(rows)
   help_item "help [--all]" "$(tr_txt list)"
   if [ "${1:-}" = --all ]; then
     help_section "$(tr_txt sys)"
     while IFS=$'\t' read -r kind path script args hen hde; do
       [ "$kind" = sys ] || continue
-      help_item "$path" "$(help_of "$script" "$hen" "$hde")"
+      help_item "$path" "$(help_of "$script" "$hen")"
     done < <(rows)
   fi
 }
@@ -177,7 +149,7 @@ help_for() {   # help_for <words...>
       a=""
       [ "$hen" != "-" ] || a=$(header "$(doc_script "$script" "${flags:-}")" args)
       [ "$a" != "(none)" ] || a=""
-      help_cmd "hs $path" "$a" "$(help_of "$script" "$hen" "$hde")"
+      help_cmd "hs $path" "$a" "$(help_of "$script" "$hen")"
       # the comment block under "# args:" explains how it works
       detail=$(awk '/^# args:/ { on = 1; next } on && /^# / { sub(/^# /, ""); print "    " $0; n++; if (n >= 14) exit } on && !/^#/ { exit }' "$(script_file "$(doc_script "$script" "${flags:-}")")" 2>/dev/null || true)
       [ -z "$detail" ] || help_note "$detail"
@@ -200,7 +172,7 @@ search() {   # search <words...>
   while IFS=$'\t' read -r kind path script args hen hde flags; do
     [ "$kind" = user ] || continue
     case ",${flags:-}," in *,nohelp,*) continue ;; esac
-    h=$(help_of "$script" "$hen" "$hde")
+    h=$(help_of "$script" "$hen")
     hay="hs ${path,,}${h,,}"
     case "$hay" in *"$lq"*) ;; *) continue ;; esac
     [ "$n" -gt 0 ] || help_section "$(tr_txt s_cmds)"

@@ -34,7 +34,7 @@ for c in chown chmod; do printf '#!/usr/bin/env bash\nexit 0\n' > "$BIN/$c"; don
 chmod +x "$BIN"/*
 export PATH=$BIN:$PATH
 echo zfs > "$WORK/bulk-type"; export HS_BULK_TYPE_FILE=$WORK/bulk-type
-cp "$SCRIPTS/create-share.sh" "$WORK/s/"; cp "$SCRIPTS"/lib/*.sh "$WORK/s/lib/"; cp -r "$SCRIPTS/lib/i18n" "$WORK/s/lib/"
+cp "$SCRIPTS/create-share.sh" "$WORK/s/"; cp "$SCRIPTS"/lib/*.sh "$WORK/s/lib/"
 printf '#!/usr/bin/env bash\nexit 0\n' > "$WORK/s/sync-shares.sh"
 C="bash $WORK/s/create-share.sh"
 

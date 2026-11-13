@@ -100,14 +100,6 @@ The recipe creates the container `{name}` and sets it up. Running it again chang
 - [Containers and apps](containers-and-apps.md)
 '''
 
-R_DE = '''# German texts of the recipe {name} (English text <TAB> translation; the core catalog has the texts of the shared helpers)
-Would:\tWürde:
-  create the container '%s' (1024 MB RAM limit) unless it exists\t  den Container '%s' anlegen (1024 MB RAM-Grenze), falls es ihn noch nicht gibt
-Set up %s\t%s einrichten
-Checking the container\tContainer wird geprüft
-Done: the container %s is ready.\tFertig: der Container %s ist bereit.
-'''
-
 X_PACKAGE = '''# Manifest of a package (docs/PLAN-packages.md of the core). Raise version here AND in index.toml with every change.
 name = "{name}"
 version = "0.1.0"
@@ -214,18 +206,11 @@ hs ext {name} list
 - [Containers and apps](containers-and-apps.md)
 '''
 
-X_DE = '''# German texts of the extension {name} (English text <TAB> translation; the core catalog has the texts of the shared helpers)
-Nothing saved yet.\tNoch nichts gespeichert.
-usage: hs ext {name} list\tAufruf: hs ext {name} list
-'''
-
 # (path inside the folder, text, mode)
 TEMPLATES = {
-    "recipe": [("package.toml", R_PACKAGE, 0o644), ("run.sh", R_RUN, 0o755), ("guide.md", R_GUIDE, 0o644),
-               ("i18n/de.tsv", R_DE, 0o644)],
+    "recipe": [("package.toml", R_PACKAGE, 0o644), ("run.sh", R_RUN, 0o755), ("guide.md", R_GUIDE, 0o644)],
     "extension": [("package.toml", X_PACKAGE, 0o644), ("capability.toml", X_CAP, 0o644), ("commands.tsv", X_COMMANDS, 0o644),
-                  ("list.sh", X_LIST, 0o755), ("NOTES.md", X_NOTES, 0o644), ("guide.md", X_GUIDE, 0o644),
-                  ("i18n/de.tsv", X_DE, 0o644)],
+                  ("list.sh", X_LIST, 0o755), ("NOTES.md", X_NOTES, 0o644), ("guide.md", X_GUIDE, 0o644)],
 }
 
 OPTIONS = ("--template", "--dir", "--title", "--title-de")

@@ -1,3 +1,0 @@
-# Every pull request appends lines to the German catalog; a union merge keeps both sides' lines
-# instead of conflicting. It can leave the same key twice: tests/i18n.sh fails on that.
-scripts/lib/i18n/de.tsv merge=union

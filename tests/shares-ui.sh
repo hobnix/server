@@ -108,7 +108,6 @@ HS_BULK_TYPE_FILE=$WORK/sr-type $MS --measure docs >/dev/null 2>&1 || true
 check_eq "--measure <share>: the other share keeps its size, the measured one is rewritten" "1 77" "$(grep -c '^/bulk/shares/docs' "$WORK/state/share-sizes") $(awk -F'\t' '$1 == "/bulk/sensitive/media" { print $2 }' "$WORK/state/share-sizes")"
 check_eq "--measure <share>: the old size of that share is gone" "0" "$(grep -c '^/bulk/shares/docs.5$' "$WORK/state/share-sizes" || true)"
 check_out "the overview has a heading per share" "── docs  \(/bulk/shares/docs\) ──" $MS
-check_out "German" "✗ Keine Freigabe namens 'nope'" env HS_LANG=de $MS nope --acl
 check_out "German: the plan stays English" "Rename 'docs' to 'newdocs':" env HS_LANG=de $MS docs --rename newdocs --dry-run
 
 echo "-- create-share"
@@ -118,7 +117,6 @@ check_out "an option is not a name" "✗ invalid name '--sensitive'" $CS --sensi
 check_out "an unknown container" "✗ 'nope' does not exist\." $CS notes --ct nope /data
 check_out "a bad --as" "usage: hs share add" $CS notes --ct web /data --as abc
 check_eq "exit status 1" "1" "$($CS 'bad name' >/dev/null 2>&1; echo $?)"
-check_out "German" "✗ ungültiger Name 'bad name'|✗ Ungültiger Name 'bad name'" env HS_LANG=de $CS 'bad name'
 
 echo "-- recipe"
 check_out "the list has a heading and a table" "Recipes \(run with: hs recipe <name>\):" bash "$SCRIPTS/recipe.sh" --list
@@ -126,7 +124,6 @@ check_out "the table has a header" "RECIPE +WHAT" bash "$SCRIPTS/recipe.sh" --li
 check_out "an unknown recipe says so, then lists" "! No recipe called 'nope'\." bash "$SCRIPTS/recipe.sh" nope
 check_eq "and exits 1" "1" "$(bash "$SCRIPTS/recipe.sh" nope >/dev/null 2>&1; echo $?)"
 check_out "a helper is not a recipe" "! No recipe called '_lib'\." bash "$SCRIPTS/recipe.sh" _lib
-check_out "German" "! Kein Rezept namens 'nope'\." env HS_LANG=de bash "$SCRIPTS/recipe.sh" nope
 
 echo "-- mac"
 cat > "$BIN/incus" <<'FAKE'
@@ -146,7 +143,6 @@ check_eq "mac: one line per container, then the hint" "    one: 00:16:3e:00:00:0
   ✓ two: 00:16:3e:00:00:02 pinned
   ! three: no MAC yet (never started?), skipped
     Give each new one a fixed IP: hs net ip <name> set, or in UniFi under Client Devices." "$out"
-check_out "mac, German" "! three: noch keine MAC" env HS_LANG=de bash "$SCRIPTS/mac.sh" three
 
 echo "-- hs job follow"
 # systemctl: ActiveState is 'active' for the first two asks, then 'inactive'; journalctl prints three lines and waits
@@ -189,7 +185,6 @@ out=$(FAKE_RESULT=exit-code FAKE_STATUS=3 $J hs-job-sync --follow 2>&1); rc=$?
 check_out "a failed job: failed and its exit status" "✗ Failed: exit-code, exit status 3 after 2:05" echo "$out"
 check_eq "and exit status 1" "1" "$rc"
 echo 0 > "$WORK_COUNT"
-check_out "German" "Erfolgreich beendet \(Exit-Status 0\)" env HS_LANG=de $J hs-job-sync --follow
 echo 5 > "$WORK_COUNT"
 check_out "a finished unit shows its journal and the result at once" "pass 1 of 3" $J hs-job-sync --follow
 check_out "a unit that is gone and has no journal" "✗ No job called 'hs-job-gone.service'\." env FAKE_JOURNAL=none $J hs-job-gone --follow

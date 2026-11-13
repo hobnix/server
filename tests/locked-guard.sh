@@ -22,7 +22,7 @@ done
 out=$(bash "$SCRIPTS/rebuild.sh" --verbose 2>&1) && rc=0 || rc=$?
 check_eq "rebuild --verbose exits 1" 1 "$rc"
 out=$(HS_LANG=de bash "$SCRIPTS/rebuild.sh" 2>&1) || true
-check "German message" grep -q "gesperrt" <<<"$out"
+check "HS_LANG=de is ignored: the message stays English" grep -q "hs unlock" <<<"$out"
 check_eq "nothing was called" 0 "$(wc -l < "$HS_FAKE_LOG" | tr -d ' ')"
 
 echo "-- unlocked"

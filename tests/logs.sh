@@ -42,7 +42,7 @@ check_eq "no argument is a usage error" "1" "$(L >/dev/null 2>&1; echo $?)"
 
 echo "-- through the registry (hs sys logs ...)"
 fake=$WORK/reg; mkdir -p "$fake/lib"
-cp "$SCRIPTS"/lib/hs.sh "$SCRIPTS"/lib/capability.sh "$SCRIPTS"/lib/registry-load.sh "$SCRIPTS"/lib/ui.sh "$SCRIPTS"/lib/i18n.sh "$SCRIPTS"/lib/setting.sh "$SCRIPTS"/lib/job.sh "$fake/lib/"; cp -r "$SCRIPTS"/lib/i18n "$fake/lib/"
+cp "$SCRIPTS"/lib/hs.sh "$SCRIPTS"/lib/capability.sh "$SCRIPTS"/lib/registry-load.sh "$SCRIPTS"/lib/ui.sh "$SCRIPTS"/lib/i18n.sh "$SCRIPTS"/lib/setting.sh "$SCRIPTS"/lib/job.sh "$fake/lib/"
 cp "$SCRIPTS/lib/registry.tsv" "$fake/lib/"; cp "$SCRIPTS/logs.sh" "$fake/"
 F="env HS_CALLER=t HS_COMPLETE_DIR=$WORK/complete bash $fake/lib/hs.sh"
 check_eq "hs sys logs units" "$(L units)" "$($F sys logs units)"

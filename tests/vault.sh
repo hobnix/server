@@ -168,7 +168,6 @@ cryptsetup close "$(basename "$mapper2")" 2>/dev/null
 echo "-- the helpers never fail cryptically"
 vault close --yes >/dev/null 2>&1
 check_out "the note is one sentence" "run hs unlock" lib vault_locked_note
-check_out "German" "Tresor ist geschlossen" env HS_LANG=de bash -c ". $SCRIPTS/lib/vault.sh; vault_locked_note"
 lib "vault_configured"; check_eq "vault_configured" 0 "$?"
 HS_VAULT_OPEN=1 lib "vault_is_open"; check_eq "HS_VAULT_OPEN=1 means open (test knob)" 0 "$?"
 lib "vault_is_open"; check_eq "without it a closed vault is closed" 1 "$?"

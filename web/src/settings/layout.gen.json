@@ -768,16 +768,16 @@
     {
      "id": "language",
      "title": "Language",
-     "text": "Commands, options and file names stay English.",
+     "text": "The hs commands print English only; everyone can change the language in the browser.",
      "keys": [
       "language"
      ],
-     "question": "Which language should hs and the web interface use?",
+     "question": "Which language should the web interface start with?",
      "options": [
       {
        "id": "en",
        "label": "English",
-       "text": "Messages and descriptions are in English.",
+       "text": "The web interface starts in English.",
        "set": {
         "language": "en"
        },
@@ -786,7 +786,7 @@
       {
        "id": "de",
        "label": "Deutsch",
-       "text": "Messages and descriptions are in German.",
+       "text": "The web interface starts in German.",
        "set": {
         "language": "de"
        },

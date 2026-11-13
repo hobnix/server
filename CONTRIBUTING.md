@@ -24,9 +24,8 @@ the loaders, `scripts/lib/api-level`) belongs here, and its pull request says wh
 - An issue is closed when every box under "Done when" is ticked. Code that is merged but was not run stays open, in the board column In Review.
 - Run the tests of the files you changed through the quiet runner, not raw: `scripts/dev/t quick [name...]` (`scripts/dev/t list` names
   them). Many tests need Linux (use WSL on Windows). Also `bash -n` on a script and `python3 scripts/pkg.py validate` for manifests.
-- `scripts/lib/i18n/de.tsv` is merged with git's `union` driver (`.gitattributes`), so pull requests that each append German texts do not conflict.
-  A union merge can leave the same key twice (for example when two pull requests translate the same text); `tests/i18n.sh` then fails and names the lines.
-  Keep one line per key. The driver is not used for `docs/adr/README.md`: two pull requests with the same ADR number should conflict.
+- Text printed by the `hs` commands is English only; there is no catalog to update. Web texts go into `web/src/i18n.js`.
+  Two pull requests with the same ADR number should conflict, so `docs/adr/README.md` has no merge driver.
 - Rules that every change follows (the full list is in `CLAUDE.md`):
   - **Admin pages are never public.** Incus, Zoraxy, Arcane, Grafana, Tdarr and the like get no public route (`ADMIN_TARGETS` in `scripts/services.py`).
   - **Destructive commands** make the user type the name of the thing that changes, show a plan first and offer a background job for long work.
