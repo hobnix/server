@@ -228,6 +228,11 @@ sys	sys ssh-key start <action>	ssh-key-change.sh	start {1} {rest}	do it (hs sys 
 sys	sys recipes list	recipes-list.sh	--list	the app recipes: name, description, instances, state (installed|partly|not installed|parked|unknown)	-
 sys	sys recipes versions	recipes-versions.sh	--list	the app recipes with versions: name, available version, applied version (- = not known), state (current|update|unknown)	-
 sys	sys setup list	setup-list.sh	--list	the first-run checklist: id, state (done|open), label, command, web page; the last line (finished) is done once setupDone is true	-
+sys	sys setup plan <action>	setup-change.sh	plan {1} {rest}	what closing the first-run wizard would do, as data: status, plan lines (never asks; exit 0 ok, 1 refused)	-
+sys	sys setup start <action>	setup-change.sh	start {1} {rest}	do it (hs sys setup start wizard-done); answers done	-
+sys	sys preset list	preset.sh	--list	the presets: name, title, description, capabilities (space separated, - = none)	-
+sys	sys preset plan <action>	preset-change.sh	plan {1} {rest}	what applying a preset would do, as data: status, plan lines (never asks; exit 0 ok, 1 refused)	-
+sys	sys preset start <action>	preset-change.sh	start {1} {rest}	do it (hs sys preset start apply <name>); fills only what is not set, answers done	-
 sys	sys config list	config-read.sh	list	every option of machine.toml.example: section, key, current value, default, type, help, settable (secrets only as (set))	-
 sys	sys config check	config-read.sh	check	the result of hs config check as plain text	-
 sys	sys config plan <action>	config-change.sh	plan {1} {rest}	what changing a setting of machine.toml would do, as data: status and plan lines (never asks; exit 0 ok, 1 refused)	-

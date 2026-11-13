@@ -8432,6 +8432,190 @@
     }
    }
   },
+  "/preset/list": {
+   "get": {
+    "operationId": "preset.list",
+    "summary": "the presets: name, title, description, capabilities (space separated, - = none)",
+    "x-hs-exit": true,
+    "x-hs-sys": {
+     "words": [
+      "preset",
+      "list"
+     ],
+     "script": "preset.sh",
+     "args": "--list",
+     "class": "read",
+     "rest": false
+    },
+    "x-hs-web": {
+     "path": "/api/sys/preset/list",
+     "kind": "tsv",
+     "ttl": 60,
+     "query": []
+    },
+    "description": "The presets: name, title, description, capabilities (space separated, - = none). Never translated; a - is an empty field.",
+    "responses": {
+     "0": {
+      "description": "ok",
+      "content": {
+       "text/tab-separated-values": {
+        "schema": {
+         "type": "array",
+         "items": {
+          "type": "array",
+          "prefixItems": [
+           {
+            "$ref": "#/components/schemas/Field",
+            "title": "name"
+           },
+           {
+            "$ref": "#/components/schemas/Field",
+            "title": "title"
+           },
+           {
+            "$ref": "#/components/schemas/Field",
+            "title": "description"
+           },
+           {
+            "$ref": "#/components/schemas/Field",
+            "title": "capabilities"
+           }
+          ],
+          "minItems": 4,
+          "maxItems": 4
+         }
+        }
+       }
+      }
+     },
+     "default": {
+      "description": "failed; stderr says why, stdout may be empty"
+     }
+    }
+   }
+  },
+  "/preset/plan/{action}": {
+   "post": {
+    "operationId": "preset.plan.by_action",
+    "summary": "what applying a preset would do, as data: status, plan lines (never asks; exit 0 ok, 1 refused)",
+    "x-hs-exit": true,
+    "x-hs-sys": {
+     "words": [
+      "preset",
+      "plan",
+      "<action>"
+     ],
+     "script": "preset-change.sh",
+     "args": "plan {1} {rest}",
+     "class": "plan",
+     "rest": true
+    },
+    "parameters": [
+     {
+      "name": "action",
+      "in": "path",
+      "required": true,
+      "schema": {
+       "type": "string"
+      }
+     }
+    ],
+    "responses": {
+     "0": {
+      "description": "allowed",
+      "content": {
+       "text/tab-separated-values": {
+        "schema": {
+         "$ref": "#/components/schemas/ChangeLines"
+        }
+       }
+      }
+     },
+     "1": {
+      "description": "refused; the reason line says why",
+      "content": {
+       "text/tab-separated-values": {
+        "schema": {
+         "$ref": "#/components/schemas/ChangeLines"
+        }
+       }
+      }
+     },
+     "2": {
+      "description": "something is missing; the needs lines say what",
+      "content": {
+       "text/tab-separated-values": {
+        "schema": {
+         "$ref": "#/components/schemas/ChangeLines"
+        }
+       }
+      }
+     }
+    }
+   }
+  },
+  "/preset/start/{action}": {
+   "post": {
+    "operationId": "preset.start.by_action",
+    "summary": "do it (hs sys preset start apply <name>); fills only what is not set, answers done",
+    "x-hs-exit": true,
+    "x-hs-sys": {
+     "words": [
+      "preset",
+      "start",
+      "<action>"
+     ],
+     "script": "preset-change.sh",
+     "args": "start {1} {rest}",
+     "class": "start",
+     "rest": true,
+     "confirm": "--confirm <name>, the name the plan's confirm_name line asks for"
+    },
+    "parameters": [
+     {
+      "name": "action",
+      "in": "path",
+      "required": true,
+      "schema": {
+       "type": "string"
+      }
+     }
+    ],
+    "description": "a long change starts a job; the `unit` line names it; follow it with `jobs tail`",
+    "responses": {
+     "0": {
+      "description": "done or started",
+      "content": {
+       "text/tab-separated-values": {
+        "schema": {
+         "$ref": "#/components/schemas/ChangeLines"
+        }
+       }
+      }
+     },
+     "1": {
+      "description": "refused",
+      "content": {
+       "text/tab-separated-values": {
+        "schema": {
+         "$ref": "#/components/schemas/ChangeLines"
+        }
+       }
+      }
+     },
+     "2": {
+      "description": "something is missing",
+      "content": {
+       "text/tab-separated-values": {
+        "schema": {
+         "$ref": "#/components/schemas/ChangeLines"
+        }
+       }
+      }
+     }
+    }
+   }
+  },
   "/reads/collect": {
    "post": {
     "operationId": "reads.collect",
@@ -9874,6 +10058,128 @@
      },
      "default": {
       "description": "failed; stderr says why, stdout may be empty"
+     }
+    }
+   }
+  },
+  "/setup/plan/{action}": {
+   "post": {
+    "operationId": "setup.plan.by_action",
+    "summary": "what closing the first-run wizard would do, as data: status, plan lines (never asks; exit 0 ok, 1 refused)",
+    "x-hs-exit": true,
+    "x-hs-sys": {
+     "words": [
+      "setup",
+      "plan",
+      "<action>"
+     ],
+     "script": "setup-change.sh",
+     "args": "plan {1} {rest}",
+     "class": "plan",
+     "rest": true
+    },
+    "parameters": [
+     {
+      "name": "action",
+      "in": "path",
+      "required": true,
+      "schema": {
+       "type": "string"
+      }
+     }
+    ],
+    "responses": {
+     "0": {
+      "description": "allowed",
+      "content": {
+       "text/tab-separated-values": {
+        "schema": {
+         "$ref": "#/components/schemas/ChangeLines"
+        }
+       }
+      }
+     },
+     "1": {
+      "description": "refused; the reason line says why",
+      "content": {
+       "text/tab-separated-values": {
+        "schema": {
+         "$ref": "#/components/schemas/ChangeLines"
+        }
+       }
+      }
+     },
+     "2": {
+      "description": "something is missing; the needs lines say what",
+      "content": {
+       "text/tab-separated-values": {
+        "schema": {
+         "$ref": "#/components/schemas/ChangeLines"
+        }
+       }
+      }
+     }
+    }
+   }
+  },
+  "/setup/start/{action}": {
+   "post": {
+    "operationId": "setup.start.by_action",
+    "summary": "do it (hs sys setup start wizard-done); answers done",
+    "x-hs-exit": true,
+    "x-hs-sys": {
+     "words": [
+      "setup",
+      "start",
+      "<action>"
+     ],
+     "script": "setup-change.sh",
+     "args": "start {1} {rest}",
+     "class": "start",
+     "rest": true,
+     "confirm": "--confirm <name>, the name the plan's confirm_name line asks for"
+    },
+    "parameters": [
+     {
+      "name": "action",
+      "in": "path",
+      "required": true,
+      "schema": {
+       "type": "string"
+      }
+     }
+    ],
+    "description": "a long change starts a job; the `unit` line names it; follow it with `jobs tail`",
+    "responses": {
+     "0": {
+      "description": "done or started",
+      "content": {
+       "text/tab-separated-values": {
+        "schema": {
+         "$ref": "#/components/schemas/ChangeLines"
+        }
+       }
+      }
+     },
+     "1": {
+      "description": "refused",
+      "content": {
+       "text/tab-separated-values": {
+        "schema": {
+         "$ref": "#/components/schemas/ChangeLines"
+        }
+       }
+      }
+     },
+     "2": {
+      "description": "something is missing",
+      "content": {
+       "text/tab-separated-values": {
+        "schema": {
+         "$ref": "#/components/schemas/ChangeLines"
+        }
+       }
+      }
      }
     }
    }

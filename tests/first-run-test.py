@@ -118,6 +118,25 @@ class Unit(unittest.TestCase):
         open(self.path, "w").write("{not json")
         self.assertEqual(self.fr.status(), {"state": "none"})
 
+    def test_wizard_state(self):
+        self.assertEqual(self.fr.wizard(), "none")
+        t = self.fr.issue()
+        self.assertEqual(self.fr.wizard(), "none")          # pending: no wizard yet
+        self.ok(t)
+        self.assertEqual(json.load(open(self.path))["wizard"], "open")
+        self.assertEqual(self.fr.wizard(), "open")
+        self.assertTrue(self.fr.finish_wizard())
+        self.assertEqual(self.fr.wizard(), "done")
+        self.assertFalse(self.fr.finish_wizard())           # only once
+        self.assertEqual(self.fr.status(), {"state": "done", "user": "adminuser"})
+
+    def test_old_done_record_has_no_wizard(self):
+        json.dump({"state": "done", "user": "adminuser", "done": 1}, open(self.path, "w"))
+        self.assertEqual(self.fr.wizard(), "done")
+        self.assertFalse(self.fr.finish_wizard())
+        json.dump({"state": "done", "user": "adminuser", "wizard": "weird"}, open(self.path, "w"))
+        self.assertEqual(self.fr.wizard(), "done")
+
     def test_password_rules(self):
         self.assertIsNotNone(fr.password_problem("short"))
         self.assertIsNotNone(fr.password_problem("x" * 300))
@@ -184,6 +203,16 @@ class Web(unittest.TestCase):
         self.assertEqual(self.hello()["setup"], {"open": False})
         self.app.first_run.issue()
         self.assertEqual(self.hello()["setup"], {"open": True})
+
+    def test_session_answer_carries_the_wizard_flag_only(self):
+        t = self.app.first_run.issue()
+        st, d, _ = self.post({"token": t, "password": "a long password"})
+        self.assertEqual(st, 200)
+        self.assertIs(d["features"]["setup_wizard"], True)
+        self.assertNotIn("setup_wizard", json.dumps(self.hello()))
+        self.app.first_run.finish_wizard()
+        self.assertIs(ws.features(self.cfg, self.app.first_run)["setup_wizard"], False)
+        self.assertIs(ws.features(self.cfg)["setup_wizard"], False)
 
     def test_no_flag_no_setup(self):
         st, _, _ = self.post({"token": "AAAAA-AAAAA-AAAAA-AAAAA", "password": "a long password"})

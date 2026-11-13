@@ -339,6 +339,10 @@ in
     };
   };
 
+  # The one-time setup code (docs/adr/0022-first-run-console-token.md): shown on the console at every boot while the installer's flag says
+  # `pending`; the unit is shared with install.nix (setup-code-unit.nix). Output to the console device only, never to the journal.
+  systemd.services.hs-setup-code = lib.mkIf webUi (import ./setup-code-unit.nix { inherit pkgs webPort; hsCommand = import ./hs-command.nix { inherit pkgs; }; });
+
   # HTTPS for the web interface through `tailscale serve` (webTailscale): the unit hs-web-tailscale is in capabilities/tailscale/module.nix.
 
   # ──────────────────────── Access ────────────────────────
