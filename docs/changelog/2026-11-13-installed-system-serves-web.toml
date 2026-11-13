@@ -1,0 +1,5 @@
+date  = "2026-11-13"
+type  = "feature"
+title = "A freshly installed server shows its web address and a one-time setup code"
+docs  = "install"
+body  = """A server made with hs-install now runs the web interface from its first boot, without a console rebuild. The screen and the serial console show http://<name>.local:8480, the IP address and a one-time code to set the first password. The code is never logged. Not tested on hardware yet."""

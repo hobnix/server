@@ -400,10 +400,14 @@ and is meant for your home network and Tailscale: never give it a public route. 
 the install; with a domain, members of Domain Admins can sign in too ([Users and shares](users-and-shares.md)). Not tested on hardware
 yet.
 
-### First setup with a one-time code (proposed)
+### First setup with a one-time code
 
-Design: ADR 0022 (`docs/adr/0022-first-run-console-token.md`). The server part is built; the boot step that shows the code on the screen is not
-yet, so a fresh install does not use this by itself. Not tested on hardware yet.
+Design: ADR 0022 (`docs/adr/0022-first-run-console-token.md`). A server made with `hs-install` serves the web interface from its first boot
+(the installer turns `webUi` on; the program is taken from the binary cache when it has it, otherwise built during the install, so the install needs a network). After the
+first boot the screen and the serial console show an address and the code: `http://<name>.local:8480` and the IP address of the server.
+If `<name>.local` does not open on your network, use the IP. The server takes its address by DHCP; reserve it on your router. The code is
+never written to the journal or a file. A server restored with `hs-restore` or updated from an older version has no waiting setup and shows
+nothing; an edge node (public VPS) serves no web page. The code goes to the screen and, as a second copy, to the first serial port. The installer also asks for an `adminuser` password for sudo; the setup then replaces it. Not tested on hardware yet.
 
 On a server whose setup is waiting, the sign-in page becomes **First setup**. The server's own screen (or serial console) shows a one-time
 code; type it into the page and choose a password for `adminuser`. The code works once and for 60 minutes, five wrong tries make it

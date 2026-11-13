@@ -141,6 +141,11 @@ def build_scenario(stage, params):
             step("run", "test -d /etc/nixos/scripts", what="the repository copy is in /etc/nixos"),
             step("run", "systemctl is-system-running --wait | grep -Eq '^(running|degraded)$'", timeout=300,
                  what="systemd finished starting (running or degraded)"),
+            # issue #580: the minimal system serves the web interface, the sign-in page says a setup is waiting, the code is not in the journal
+            step("run", "systemctl is-active --quiet hs-web", what="the web interface is running"),
+            step("run", "python3 -c \"import urllib.request as u,json,sys; sys.exit(0 if json.load(u.urlopen('http://127.0.0.1:8480/api/hello', timeout=10))['setup']['open'] else 1)\"",
+                 timeout=60, what="the sign-in page says a first setup is waiting"),
+            step("run", "! journalctl -b --no-pager | grep -Eq '[A-HJ-NP-Z2-9]{5}(-[A-HJ-NP-Z2-9]{5}){3}'", what="the setup code is not in the journal"),
         ]
     import nested_stages   # stages 3 to 5 (#432) live in their own module: one entry in SCENARIOS adds a stage
     fn = nested_stages.SCENARIOS.get(stage)

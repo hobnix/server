@@ -105,6 +105,15 @@ printf 'describe=-\ncommit=-\n' > "$vf"
 out=$(inst "$WORK/g5"); check "a stick without a revision: no .git, no failure" test ! -e "$WORK/g5/etc/nixos/.git"
 check_out "and the plan says so" "Git checkout.*none" bash -c "HS_INSTALL_ORIGIN=$PUB HS_INSTALLER_VERSION_FILE=$vf $W --dry-run --disk sda --hostname gitbox --key '$KEY' --target $WORK/g6 --repo $ISO 2>&1"
 
+echo "-- the web interface and the setup flag (issue #580)"
+TW=$WORK/web-target
+$W --disk sda --hostname webbox --key "$KEY" --target "$TW" --repo "$REPO" >/dev/null 2>&1 || true
+M=$TW/etc/nixos/machine.toml
+check_eq "machine.toml turns the web interface on" "true" "$(get webUi)"
+check "the first-setup flag is armed" test -s "$TW/var/lib/hs/first-run.json"
+check "and holds no code" bash -c "grep -q '\"state\": \"pending\"' '$TW/var/lib/hs/first-run.json' && ! grep -Eq '[A-HJ-NP-Z2-9]{5}-[A-HJ-NP-Z2-9]{5}' '$TW/var/lib/hs/first-run.json'"
+check_out "the last note names the address and the code" "one-time code.*webbox2.local:8480" bash -c "$W --disk sda --hostname webbox2 --key '$KEY' --target $WORK/web-target2 --repo $REPO 2>&1"
+
 echo "-- the role edge (a public VPS)"
 out=$($W --dry-run --role edge --bios --disk sda --hostname edge1 --key "$KEY" --target "$WORK/edge-dry" --repo "$REPO" 2>&1)
 check_out "the plan names the role" "Role .*edge" echo "$out"
@@ -114,6 +123,7 @@ TE=$WORK/edge-target
 $W --role edge --bios --disk sda --hostname edge1 --key "$KEY" --timezone Europe/Berlin --target "$TE" --repo "$REPO" >/dev/null 2>&1 || true
 M=$TE/etc/nixos/machine.toml
 check_eq "role" '"edge"' "$(get role)"
+check "an edge node serves no web page and arms no setup" bash -c "test -z \"$(get webUi)\" && test ! -e '$TE/var/lib/hs/first-run.json'"
 if [ "$(uname -o 2>/dev/null)" = Msys ]; then skip "bootDevice: Git Bash rewrites /dev/sda in arguments (Linux only)"
 else check_eq "bootDevice (GRUB, BIOS)" '"/dev/sda"' "$(get bootDevice)"; fi
 check_eq "the preset of the same name was applied: the edge capabilities" '["tailscale","edge-mail","edge-ports","edge-watcher","edge-status"]' "$(get capabilities | tr -d ' ')"

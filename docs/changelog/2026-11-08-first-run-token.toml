@@ -1,5 +1,5 @@
 date  = "2026-11-08"
 type  = "feature"
 title = "First setup in the browser with a one-time code from the console (server part)"
-docs  = "install#first-setup-with-a-one-time-code-proposed"
-body  = """A server whose setup is waiting shows a First setup page instead of the sign-in: type the one-time code that the server's console shows and choose the administrator password. The code works once, expires after an hour and is burned by five wrong tries; `sudo hs setup-code issue` makes a new one. The boot step that prints the code on a fresh install is not built yet. Not tested on hardware yet."""
+docs  = "install#first-setup-with-a-one-time-code"
+body  = """A server whose setup is waiting shows a First setup page instead of the sign-in: type the one-time code that the server's console shows and choose the administrator password. The code works once, expires after an hour and is burned by five wrong tries; `sudo hs setup-code issue` makes a new one. A fresh install shows the code on its console after the first boot. Not tested on hardware yet."""
