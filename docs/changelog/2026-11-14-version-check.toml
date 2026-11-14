@@ -1,0 +1,4 @@
+date  = "2026-11-14"
+type  = "change"
+title = "A release of a package repository stops when a package changed without a new version"
+body  = """The check of a release pull request (the one into main) of the recipes repository now lists every package whose folder changed since the last tag while its version in package.toml and index.toml did not rise. Raise it with release.sh bump <package>."""

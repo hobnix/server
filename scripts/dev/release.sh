@@ -9,6 +9,8 @@
 #   bash <core>/scripts/dev/release.sh bump <package> [patch|minor|major] [--pr]
 #       Raise the version of one package (package.toml and index.toml agree, the rule of CONTRIBUTING.md), commit it on the current
 #       branch (not main) and push the branch; --pr also opens the pull request.
+#   python3 <core>/scripts/pkg.py repo-unbumped <tag> [.]
+#       Packages whose folder changed since <tag> without a version rise in package.toml AND index.toml (CI of the release pull request).
 #
 # The key is $HS_RELEASE_KEY or ~/.ssh/hobnix_release.pub (the private key beside it, or in ssh-agent). Test knobs: --signers <file>
 # (allowed-signers file instead of the core's), HS_RELEASE_REMOTE (default origin).
@@ -31,7 +33,7 @@ while [ $# -gt 0 ]; do
     --pr) pr=true ;;
     --key) shift; key=${1:-} ;;
     --signers) shift; signers=${1:-} ;;
-    -h|--help) sed -n '2,17p' "$0" | sed 's/^# \{0,1\}//'; exit 0 ;;
+    -h|--help) sed -n '2,19p' "$0" | sed 's/^# \{0,1\}//'; exit 0 ;;
     *) fail "Unknown argument: $1 (see --help)" ;;
   esac
   shift
