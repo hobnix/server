@@ -1,0 +1,4 @@
+date  = "2026-11-14"
+type  = "fix"
+title = "An empty answer to an optional recipe question is accepted"
+body  = """A recipe question that may be left empty (for example the VPN server countries of qbittorrent) was asked again after an empty answer. The check for a value that is not allowed treated "nothing" as that value. An empty answer now counts when the question's pattern allows it."""

@@ -55,7 +55,7 @@ setting() {
   if $existed && [ -z "$saved" ]; then shown=$legacy; fi
   if [ -n "${!env:-}" ]; then
     value=${!env}
-    [[ "$value" =~ ^($pattern)$ ]] && [ "$value" != "$not" ] || fail "$(t "%s='%s' does not fit: %s" "$env" "$value" "$question")"
+    [[ "$value" =~ ^($pattern)$ ]] && { [ -z "$not" ] || [ "$value" != "$not" ]; } || fail "$(t "%s='%s' does not fit: %s" "$env" "$value" "$question")"
   elif { [ -n "$saved" ] || $existed; } && ! $ASK; then
     value=$shown
   elif interactive || ask_remote; then
@@ -64,7 +64,7 @@ setting() {
     while :; do
       # at a terminal this is `ask` as before; under an orchestrator the question goes to the web and waits (ask_q, ADR 0018)
       value=$(ASK_ERROR=$err ASK_ATTEMPT=$tries ask_q "$key" text "$question" "$shown" "$pattern") || exit $?
-      [[ "$value" =~ ^($pattern)$ ]] && [ "$value" != "$not" ] && break
+      [[ "$value" =~ ^($pattern)$ ]] && { [ -z "$not" ] || [ "$value" != "$not" ]; } && break
       if ask_remote; then err=$(t 'That value does not fit here.'); tries=$((tries + 1))   # the journal and the record never get the value
       else warn "$(t "'%s' does not fit here, try again." "$value")"; fi
     done
