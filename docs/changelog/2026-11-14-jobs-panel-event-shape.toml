@@ -1,0 +1,4 @@
+date  = "2026-11-14"
+type  = "fix"
+title = "The Jobs panel and the question dialog follow job events"
+body  = """The Jobs panel and the dialog for the questions of a recipe run looked for job events by the wrong field, so they never saw one and only changed after a reload or the 15 second poll while the live stream was down. A job that you start now shows at once and changes to its end state by itself."""
