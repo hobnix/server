@@ -48,10 +48,10 @@
     load();
     if (open) loadDetail(open);
   });
-  // a step or progress update counts `jobs-records` up (no log row, scripts/job-record.py); the first value is the baseline
-  let lastGen = live.gen['jobs-records'];
+  // a step or progress update counts `reads:jobs-records` up (no log row, scripts/job-record.py); the first value is the baseline
+  let lastGen = live.gen['reads:jobs-records'];
   $effect(() => {
-    const g = live.gen['jobs-records'];
+    const g = live.gen['reads:jobs-records'];
     if (g === lastGen) return;
     lastGen = g;
     load();
