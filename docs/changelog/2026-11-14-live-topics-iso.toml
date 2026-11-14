@@ -1,0 +1,4 @@
+date  = "2026-11-14"
+type  = "fix"
+title = "The ISO page and the pool choice load, and Diagnostics no longer marks working topics as failing"
+body  = """The ISO library page and the storage pool list in the new-instance form said "refreshing" forever because two live-state topics (iso-list, ct-pools) had no collector entry. Both are added. The Diagnostics page also showed a topic as failing when its command exited with a non-zero code but still printed a good result (the ports list does this on purpose when a proxy warning exists). It now shows failing only when the last refresh really failed."""

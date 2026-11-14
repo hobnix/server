@@ -203,6 +203,13 @@ class Needs(unittest.TestCase):
         c.min_gap = 0
         return c, calls
 
+    def test_every_topic_web_serve_maps_has_a_row(self):
+        with open(os.path.join(scripts, "web-serve.py"), encoding="utf-8") as f:
+            mapped = set(re.findall(r'"topic": "([a-z0-9-]+)"', f.read()))
+        known = {t[0] for t in ls.topics(os.path.join(scripts, "lib", "live-topics.tsv"))}
+        self.assertTrue(mapped)
+        self.assertEqual(sorted(mapped - known), [])
+
     def test_real_table_is_clean(self):
         own = os.path.join(scripts, "lib", "live-topics.tsv")
         self.assertEqual(ls.graph(ls.topic_needs(own), {t[0] for t in ls.topics(own)})[2], [])
@@ -420,6 +427,8 @@ SYSTEM_TOPICS = {'deck': 5, 'jobs-running': 10, 'jobs-list': 30, 'health-next': 
 
 INSTANCE_TOPICS = {
     'ct-list': (['ct', 'list'], 10, 'skip', 'incus', {'instances', 'shares', 'network'}),
+    'iso-list': (['iso', 'list'], 10, 'skip', 'incus', {'instances'}),
+    'ct-pools': (['ct', 'pools'], 15, 'skip', 'incus', {'instances'}),
     'ct-profiles': (['ct', 'profiles'], 120, 'skip', 'incus', {'instances', 'network', 'system'}),
     'services-list': (['services', 'list'], 30, 'skip', None, {'instances', 'network'}),
     'services-app': (['services', 'app'], 30, 'skip', None, {'instances', 'network'}),
@@ -594,7 +603,7 @@ class Cli(unittest.TestCase):
     def test_instance_topics(self):
         info = ls.topic_info()
         rows = {t[0]: t for t in ls.topics()}
-        self.assertEqual(len(INSTANCE_TOPICS), 8)
+        self.assertEqual(len(INSTANCE_TOPICS), 10)
         for name, (words, iv, lock, cap, groups) in INSTANCE_TOPICS.items():
             self.assertEqual(tuple(rows[name][1:]), (words, iv, lock), name)
             self.assertEqual(info[name], {"cap": cap, "groups": groups}, name)
@@ -695,7 +704,7 @@ class Cli(unittest.TestCase):
         out = io.StringIO()
         self.assertEqual(ls.cli_status(self.fake(time.time() - 7), out), 0)
         lines = out.getvalue().rstrip("\n").split("\n")
-        self.assertEqual(len(lines), 67)
+        self.assertEqual(len(lines), 69)
         status = [l for l in lines if l.startswith("status\t")][0].split("\t")
         live = [l for l in lines if l.startswith("live\t")][0].split("\t")
         self.assertEqual(len(status), 9)
@@ -774,7 +783,7 @@ class Cli(unittest.TestCase):
         st = FakeResp()
         ls.cli_refresh(["--all"], st)
         self.assertEqual(sorted(p[1] for p in st.published), sorted([t[0] for t in ls.topics()]))
-        self.assertEqual(len(st.published), 67)
+        self.assertEqual(len(st.published), 69)
         os.environ["HS_LIVE_SOCKET"] = "/nonexistent/none.sock"
         try:
             self.assertEqual(ls.cli_refresh(["--all"]), 0)
