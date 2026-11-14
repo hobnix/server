@@ -1,0 +1,4 @@
+date  = "2026-11-14"
+type  = "fix"
+title = "The Backup page shows a passed restore drill as passed"
+body  = """The restore drill and the instance drill on Protection > Backup showed a raw number and a red dot although the drill had passed. The page now reads the time of the last passed drill: "passed" with its age and a green dot, "failed" when a later try did not pass, "never" when none ran."""
