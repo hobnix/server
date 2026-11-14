@@ -57,6 +57,12 @@ export function duration(a, b, now = Date.now()) {
 // Does a row of the event log (live.events) change the record list?
 export const isJobEvent = (ev) => !!ev && typeof ev.kind === 'string' && ev.kind.startsWith('job.');
 
+// The newest job.* row of the event log, or null. The Jobs panel reads again whenever its id differs from the one it last acted on.
+export function lastJobEvent(events) {
+  for (let i = (events?.length ?? 0) - 1; i >= 0; i--) if (isJobEvent(events[i])) return events[i];
+  return null;
+}
+
 // Reads that may overlap (a job.running read still running when job.ok arrives): only the answer of the newest started read is applied, an older one
 // that comes back late is dropped. Without this a slow read of the running state overwrote the final state until a reload.
 export function latestOnly(read, apply) {
