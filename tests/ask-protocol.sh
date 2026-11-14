@@ -138,6 +138,28 @@ got=$(HS_ASK_SCRIPT=$T/script3 HS_ASK_DIR=$T/ask3 bash -c "$Q; answer() { :; }; 
 check "an empty answer stays empty (the second line of the script is not used)" "[]" "$got"
 check "the fake answerer's second line is still unused" "1" "$(grep -c . "$T/script3.used")"
 
+echo "-- a failed step: the parent log holds the last lines of the step's own output and names the unit"
+cat > "$T/bin/journalctl" <<'FAKE'
+#!/usr/bin/env bash
+case "$*" in *hs-job-recipe-quiz-run*) cat "$HS_OUT/childlog" ;; esac
+FAKE
+chmod +x "$T/bin/journalctl"
+printf 'earlier line
+Error: Failed to start device "tun"
+' > "$T/out/childlog"
+cat > "$T/recipe3.sh" <<RCP
+#!/usr/bin/env bash
+echo 'Error: Failed to start device "tun"'
+exit 3
+RCP
+HS_RECIPE=$T/recipe3.sh bash -c '
+  . "'"$here"'/scripts/lib/job.sh"
+  id=$(hs_job_record new --slug orch --desc o --unit hs-job-orch-x --source cli --initiator x --kind orchestration); hs_job_record run "$id"
+  HS_JOB_ID=$id bash "'"$here"'/scripts/recipe-orchestrate.sh" quiz' > "$T/orch.out" 2>&1
+check "the parent log has the failure line" "1" "$(grep -c 'did not finish (failed)' "$T/orch.out")"
+check "the parent log holds the step's own error" "1" "$(grep -c 'Failed to start device "tun"' "$T/orch.out")"
+check "the parent log names the unit to read" "1" "$(grep -c 'hs job log hs-job-recipe-quiz-run' "$T/orch.out")"
+
 echo "-- the terminal and the up-front answer work without HS_ASK_DIR"
 Q=". '$here/scripts/lib/ui.sh'; . '$here/scripts/lib/ask.sh'; interactive() { false; }"
 check "an answer up front wins" "7000" "$(RECIPE_PORT=7000 bash -c "$Q; answer() { local e=RECIPE_\$1; printf '%s' \"\${!e:-}\"; }; ask_q PORT text Port 1")"

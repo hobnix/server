@@ -62,6 +62,18 @@ notify() {   # one message when a question starts to wait: names the recipe and 
   else bash "$here/notify.sh" --category info "Waiting for your answer" "$name: $label" >/dev/null 2>&1 || true; fi
 }
 
+# step_tail <unit>: why a step failed is in its own unit; copy the last lines of its journal into this log (the journal of a step never holds an answer,
+# ask_q does not print it) and say where the rest is
+step_tail() {
+  local unit=${1:-} l
+  [ -n "$unit" ] || return 0
+  while IFS= read -r l; do
+    l=$(printf '%s' "$l" | tr -d '[:cntrl:]')
+    [ -z "$l" ] || note "$(printf '%.300s' "$l")"
+  done < <(journalctl -u "$unit.service" -n 5 --no-pager -o cat 2>/dev/null </dev/null || true)
+  note "$(t 'More: hs job log %s' "$unit")"
+}
+
 cur_seq=""; asked_at=0
 # watch_once: look at the question folder once; keeps the orchestration record in step. Returns 124 when the question timed out.
 watch_once() {
@@ -127,7 +139,11 @@ for phase in "${phase_list[@]}"; do
     nap
   done
   if [ -n "$cur_seq" ]; then hs_job_record resume "$orch" >/dev/null 2>&1 || true; cur_seq=""; fi
-  sub_unit=""
-  [ "${s:-}" = ok ] || { rc=${e:-1}; [ "$rc" != 0 ] && [ -n "$rc" ] || rc=1; fail "$(t 'The step %s did not finish (%s).' "$phase" "${s:-unknown}")"; break; }
+  failed_unit=$sub_unit; sub_unit=""
+  [ "${s:-}" = ok ] || {
+    rc=${e:-1}; [ "$rc" != 0 ] && [ -n "$rc" ] || rc=1
+    step_tail "$failed_unit"   # before fail: fail ends the script
+    fail "$(t 'The step %s did not finish (%s).' "$phase" "${s:-unknown}")"
+  }
 done
 exit "$rc"

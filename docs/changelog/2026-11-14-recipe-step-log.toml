@@ -1,0 +1,4 @@
+date  = "2026-11-14"
+type  = "fix"
+title = "A failed recipe step shows why in the log of the run"
+body  = """When a step of an interactive recipe run failed, the log of the run only said that the step did not finish. It now shows the last lines of the step's own output and the command to read the rest (hs job log <unit>)."""
