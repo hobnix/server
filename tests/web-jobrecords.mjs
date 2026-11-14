@@ -16,7 +16,9 @@ check('progress text with unit', progressText({ done: 1, total: 4, unit: 'files'
 check('progress text bytes', progressText({ done: 5, total: 10, unit: 'bytes' }, (n) => n + 'B') === '5B / 10B');
 check('duration of an ended job', duration('2026-11-09T10:00:00Z', '2026-11-09T10:02:00Z') === '2 min');
 check('duration of a running job', duration('2026-11-09T10:00:00Z', null, Date.parse('2026-11-09T10:00:30Z')) === '30 s');
-check('job events', isJobEvent({ kind: 'job.failed' }) && !isJobEvent({ kind: 'disk.removed' }) && !isJobEvent(null));
+// a row of the event log has source and kind apart (state-db.py emit splits "job.failed" at the dot); a bug test: the panel once tested kind.startsWith('job.')
+check('job events: the real shape (source job, kind apart)', isJobEvent({ source: 'job', kind: 'failed' }) && isJobEvent({ source: 'job', kind: 'queued' }) && !isJobEvent({ source: 'disk', kind: 'removed' }) && !isJobEvent({ source: 'backup', kind: 'ok' }) && !isJobEvent(null));
+check('job events: the joined spelling is still understood', isJobEvent({ kind: 'job.failed' }) && !isJobEvent({ kind: 'disk.removed' }));
 check('step of an ok job is empty, of a running and a failed job shown', stepText({ n: 3, of: 3, text: 'Done' }, 'ok') === '' && stepText({ n: 3, of: 3, text: 'x' }, 'running') === '3/3 x' && stepText({ n: 2, of: 3, text: 'x' }, 'failed') === '2/3 x');
 // a slow read of the running state that comes back after the read of the final state must not win
 {
@@ -29,9 +31,9 @@ check('step of an ok job is empty, of a running and a failed job shown', stepTex
 }
 // the newest job event is the one the panel acts on; none before the first job of a page (the panel's baseline is then 0, so the first event reads)
 {
-  const evs = [{ id: 4, kind: 'audit.ok' }, { id: 5, kind: 'job.queued' }, { id: 6, kind: 'job.running' }, { id: 7, kind: 'backup.ok' }];
-  check('lastJobEvent: the newest job.* row', lastJobEvent(evs)?.id === 6);
-  check('lastJobEvent: none without a job row, and for an empty or missing log', lastJobEvent([{ id: 1, kind: 'audit.ok' }]) === null && lastJobEvent([]) === null && lastJobEvent(undefined) === null);
-  check('lastJobEvent: a first job row on a page without any is found (id 5 differs from the baseline 0)', lastJobEvent([{ id: 5, kind: 'job.queued' }])?.id === 5);
+  const evs = [{ id: 4, source: 'audit', kind: 'ok' }, { id: 5, source: 'job', kind: 'queued' }, { id: 6, source: 'job', kind: 'running' }, { id: 7, source: 'backup', kind: 'ok' }];
+  check('lastJobEvent: the newest job row', lastJobEvent(evs)?.id === 6);
+  check('lastJobEvent: none without a job row, and for an empty or missing log', lastJobEvent([{ id: 1, source: 'audit', kind: 'ok' }]) === null && lastJobEvent([]) === null && lastJobEvent(undefined) === null);
+  check('lastJobEvent: a first job row on a page without any is found (id 5 differs from the baseline 0)', lastJobEvent([{ id: 5, source: 'job', kind: 'queued' }])?.id === 5);
 }
 if (bad) process.exit(1);

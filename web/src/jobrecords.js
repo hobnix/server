@@ -54,8 +54,9 @@ export function duration(a, b, now = Date.now()) {
   return s < 60 ? `${s} s` : s < 3600 ? `${Math.round(s / 60)} min` : `${Math.floor(s / 3600)} h ${Math.round((s % 3600) / 60)} min`;
 }
 
-// Does a row of the event log (live.events) change the record list?
-export const isJobEvent = (ev) => !!ev && typeof ev.kind === 'string' && ev.kind.startsWith('job.');
+// Does a row of the event log (live.events) change the record list? A row has `source` ("job") and `kind` ("queued", "running", "ok", ...);
+// the page shows them as "job.queued". (This used to test `kind.startsWith('job.')`, which no real row matches: the panel never heard an event.)
+export const isJobEvent = (ev) => !!ev && (ev.source === 'job' || (typeof ev.kind === 'string' && ev.kind.startsWith('job.')));
 
 // The newest job.* row of the event log, or null. The Jobs panel reads again whenever its id differs from the one it last acted on.
 export function lastJobEvent(events) {
