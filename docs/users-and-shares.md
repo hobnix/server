@@ -55,6 +55,10 @@ Domain Admins at first, renamed, deleted and mounted into a container like any o
 every server, also with SnapRAID, and it goes into the backup like the others. A name used on the disks cannot be used again on the SSD. In
 the web interface choose "Where: SSD (fast)".
 
+On a server with named pools (the `pools` line, `hs pool record`) `sudo hs share add notes --pool <pool>` puts the share on that pool: a data pool
+gives `/<pool>/shares/<name>`, an apps pool the same on the SSD. Without `--pool` the first data pool is used; `--fast` means the first apps pool.
+A pool that does not exist is refused and the pools are listed. Servers without a `pools` line behave as before.
+
 Not tested on hardware yet.
 
 ## Without a domain: set the password once

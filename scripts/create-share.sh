@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # help: create a folder under /bulk/shares (read/write) or /bulk/sensitive (read-only), or with --fast on the SSD pool under /fast, published as its own Samba share
 # help.de: legt einen Ordner unter /bulk/shares (lesen/schreiben) oder /bulk/sensitive (nur lesen), mit --fast auf dem SSD-Pool unter /fast, an, als eigene Samba-Freigabe veröffentlicht
-# args: <name> [--sensitive] [--fast] [--ct <container> <path>] [--as <uid>:<gid>]
+# args: <name> [--sensitive] [--fast] [--pool <pool>] [--ct <container> <path>] [--as <uid>:<gid>]
 set -euo pipefail
 . "$(dirname "$0")/lib/ui.sh"
 . "$(dirname "$0")/lib/instance.sh"
@@ -11,9 +11,10 @@ set -euo pipefail
 live_refresh_shares() { live_refresh status shares-overview shares-deleted fm-locations pool-info-bulk; }
 
 usage() {
-  say "usage: hs share add <name> [--sensitive] [--fast] [--ct <container> <path>]"
+  say "usage: hs share add <name> [--sensitive] [--fast] [--pool <pool>] [--ct <container> <path>]"
   say "  --sensitive  put it under /bulk/sensitive (Samba: read-only)"
   say "  --fast       put it on the SSD pool (/fast/shares or /fast/sensitive) instead of the disks"
+  say "  --pool       put it on that pool (a data or apps pool; default: the first data pool)"
   say "  --ct         also mount it into a container at <path>"
   say "  --as         with --ct: the user and group inside the container that should be able"
   say "               to write (numbers; hs ct list shows them). Default: user 1000, group 100"
@@ -34,13 +35,14 @@ idmap_conflict() {   # idmap_conflict <current raw.idmap>
 name="$1"; shift
 parent="shares"
 ct=""; ctpath=""
-tier="bulk"
+pool_arg=""
 as_uid=""; as_gid=""
 
 while [ $# -gt 0 ]; do
   case "$1" in
     --sensitive) parent="sensitive"; shift ;;
-    --fast)      tier="fast"; shift ;;
+    --fast)      pool_arg="@fast"; shift ;;
+    --pool)      [ $# -ge 2 ] || usage; pool_arg="$2"; shift 2 ;;
     --ct)        [ $# -ge 3 ] || usage; ct="$2"; ctpath="$3"; shift 3 ;;
     --as)        [ $# -ge 2 ] || usage
                  [[ "$2" =~ ^[0-9]+:[0-9]+$ ]] || usage
@@ -54,14 +56,22 @@ done
 # no pool of the needed role: say so before anything changes (a server without a `pools` line has the legacy rows and never gets here)
 if ! pool_default data >/dev/null; then
   fail "Shares need a pool, and this server has none. Add one: hs pool <name> add (free disks: hs storage discover)."
-elif [ "$tier" = fast ] && ! pool_default apps >/dev/null; then
+elif [ "$pool_arg" = "@fast" ] && ! pool_default apps >/dev/null; then
   fail "$(t 'There is no SSD pool (role apps). Leave out --fast to put the share on %s.' "$(pool_default data)")"
 fi
 
-# "zfs": one dataset per share. "snapraid": a plain folder on the merged disks.
-bulk_type=$(cat "${HS_BULK_TYPE_FILE:-/etc/hs/bulk-type}" 2>/dev/null || echo zfs)
-# a fast share is always a ZFS dataset on the SSD pool, whatever the bulk layout is
-[ "$tier" = fast ] && bulk_type=zfs
+# the pool: the first data pool by default, --fast the first apps pool, --pool a named one (legacy server: bulk and fast)
+case "$pool_arg" in
+  "")    tier=$(pool_default data) ;;
+  @fast) tier=$(pool_default apps) ;;
+  *)
+    if ! pool_exists "$pool_arg"; then
+      fail "$(t "There is no pool called '%s'. Pools for shares: %s." "$pool_arg" "$(pool_names | paste -sd, - | sed 's/,/, /g')")"
+    fi
+    tier="$pool_arg" ;;
+esac
+# "zfs": one dataset per share. "snapraid": a plain folder on the merged disks. A share on an apps pool is always a ZFS dataset.
+bulk_type=$(share_pool_kind "$tier")
 dir="$(share_root "$tier")/$parent/$name"
 # a new share needs a free name; with --ct an existing share is mounted (manage-ct --add-storage, hs docker mount, recipes): that stays idempotent
 if [ -z "$ct" ] && share_name_taken "$name"; then fail "$(t "A share called '%s' exists already." "$name")"; fi
@@ -85,15 +95,16 @@ if [ -n "$ct" ]; then
   fi
 fi
 
-if [ "$tier" = fast ]; then
-  zfs list -H -o name "fast/$parent" >/dev/null 2>&1 || zfs create -o "mountpoint=/fast/$parent" "fast/$parent"
-  zfs list -H -o name "fast/$parent/$name" >/dev/null 2>&1 || zfs create "fast/$parent/$name"
+if [ "$(pool_role "$tier")" = apps ]; then
+  zfs list -H -o name "$tier/$parent" >/dev/null 2>&1 || zfs create -o "mountpoint=/$tier/$parent" "$tier/$parent"
+  zfs list -H -o name "$tier/$parent/$name" >/dev/null 2>&1 || zfs create "$tier/$parent/$name"
 elif [ "$bulk_type" = snapraid ]; then
-  mountpoint -q /bulk || fail "/bulk is not mounted. Add disks first: hs pool bulk add"
+  if [ "$(pools_source)" = legacy ]; then mroot=/$tier; else mroot=$(pool_root "$tier"); fi
+  mountpoint -q "$mroot" || fail "$mroot is not mounted. Add disks first: hs pool $tier add"
   mkdir -p "$dir"
 else
-  # -p also creates bulk/sensitive the first time it's needed
-  zfs create -p "bulk/$parent/$name"
+  # -p also creates <pool>/sensitive the first time it's needed
+  zfs create -p "$tier/$parent/$name"
 fi
 
 # Samba acts as adminuser on /bulk/shares; setgid keeps the group on new files.

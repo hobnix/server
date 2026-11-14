@@ -12,7 +12,7 @@ scripts/backup.sh	14
 scripts/bulk-mount.sh	45
 scripts/bulk-sync.sh	9
 scripts/cache-mover.sh	5
-scripts/create-share.sh	27
+scripts/create-share.sh	15
 scripts/ct-bindings.sh	8
 scripts/ct-change.sh	5
 scripts/ct-guided.sh	6
@@ -47,7 +47,7 @@ scripts/lib/hs.sh	3
 scripts/lib/live-topics.tsv	8
 scripts/lib/pools.sh	3
 scripts/lib/registry.tsv	33
-scripts/lib/sharepath.sh	40
+scripts/lib/sharepath.sh	17
 scripts/manage-ct.sh	11
 scripts/manage-pool.sh	97
 scripts/manage-shares.sh	19
