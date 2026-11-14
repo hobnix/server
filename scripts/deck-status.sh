@@ -19,13 +19,17 @@ netdir=${HS_NET_DIR:-/sys/class/net}
 export HS_PLAIN=1 HS_LANG=en
 DH_DIR=${DH_DIR:-$state/deck-history}
 
+# shellcheck source=lib/pools.sh
+. "$here/lib/pools.sh"
+apps_pool=$(pool_default apps || true); data_pool=$(pool_default data || true)   # the JSON keys stay "fast" and "bulk"
+
 tmp=$(mktemp -d)
 trap 'rm -rf "$tmp"' EXIT
 bash "${HS_OVERVIEW_STATUS:-$here/overview-status.sh}" >"$tmp/status" 2>/dev/null </dev/null &
 { HS_STATE_DIR=$state bash "$here/state.sh" deck-disks >"$tmp/disks" 2>/dev/null </dev/null ||     # the disk lines come from the state database when its collector ran lately,
     bash "${HS_MONITOR:-$here/monitor.sh}" --disks >"$tmp/disks" 2>/dev/null </dev/null; } &     # else straight from the disks as before
-${HS_ZPOOL:-zpool} list -Hp -o size,alloc,health fast >"$tmp/fast" 2>/dev/null </dev/null &
-${HS_DF:-df} -B1 --output=size,used /bulk >"$tmp/bulk" 2>/dev/null </dev/null &
+if [ -n "$apps_pool" ]; then ${HS_ZPOOL:-zpool} list -Hp -o size,alloc,health "$apps_pool" >"$tmp/fast" 2>/dev/null </dev/null & fi
+if [ -n "$data_pool" ]; then ${HS_DF:-df} -B1 --output=size,used "/$data_pool" >"$tmp/bulk" 2>/dev/null </dev/null & fi
 ${HS_NVIDIA_SMI:-nvidia-smi} --query-gpu=name,utilization.gpu,memory.used,memory.total,temperature.gpu --format=csv,noheader,nounits >"$tmp/gpu" 2>/dev/null </dev/null &
 wait
 
@@ -72,8 +76,8 @@ inventory=$(HS_STATE_DIR=$state bash "$here/state.sh" inventory-json 2>/dev/null
 caps=$( (. "$here/lib/capability.sh"; capability_list) 2>/dev/null </dev/null | tr '\n' ' ' || true)
 
 # --- pools
-fast=$(head -n 1 "$tmp/fast")
-bulk=$(tail -n 1 "$tmp/bulk")
+fast=$(head -n 1 "$tmp/fast" 2>/dev/null || true)
+bulk=$(tail -n 1 "$tmp/bulk" 2>/dev/null || true)
 
 jq -n \
   --arg host "${HS_HOSTNAME:-$(hostname)}" --argjson now "${HS_NOW:-$(date +%s)}" \

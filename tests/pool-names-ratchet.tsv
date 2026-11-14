@@ -39,7 +39,7 @@ scripts/health.sh	3
 scripts/install-wizard.sh	1
 scripts/lib/bulklock.sh	3
 scripts/lib/bulkpath.sh	9
-scripts/lib/capacity.sh	9
+scripts/lib/capacity.sh	7
 scripts/lib/collected-reads.tsv	6
 scripts/lib/docker-apps.sh	1
 scripts/lib/fm.sh	16
@@ -58,7 +58,7 @@ scripts/node.sh	2
 scripts/overview-status.sh	1
 scripts/peer-change.sh	1
 scripts/pool-change.sh	1
-scripts/pool-state.sh	14
+scripts/pool-state.sh	5
 scripts/power.sh	3
 scripts/read-timing.sh	4
 scripts/rebuild.sh	9

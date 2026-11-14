@@ -99,4 +99,21 @@ rm "$WORK/nocache/old.bin"; touch "$WORK/nocache/new.bin"
 out=$(capacity_problems)
 if grep -q '^space:cache-backlog' <<<"$out"; then fail "a fresh upload is fine"; else pass "a fresh upload is fine"; fi
 
+echo "-- volumes follow the pool rows"
+mkdir -p "$WORK/zbin"
+printf '#!/usr/bin/env bash
+printf "tank	100	1000
+ssd	10	100
+"
+' > "$WORK/zbin/zpool"; chmod +x "$WORK/zbin/zpool"
+export HS_MACHINE_FILE=$WORK/machine.toml
+printf 'pools = { tank = { role = "data", kind = "zfs" }, ssd = { role = "apps", kind = "zfs" } }
+' > "$HS_MACHINE_FILE"
+check_eq "tank and ssd are volumes, no bulk" "zfs:tank zfs:ssd root" "$(PATH="$WORK/zbin:$PATH" _cap_volumes | cut -f1 | grep -v '^backup$' | tr '
+' ' ' | sed 's/ $//')"
+printf 'pools = {}
+' > "$HS_MACHINE_FILE"
+check_eq "no pool: no bulk volume, no crash" "" "$(_cap_volumes | cut -f1 | grep -x bulk)"
+rm -f "$HS_MACHINE_FILE"
+
 finish

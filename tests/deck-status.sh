@@ -102,6 +102,25 @@ check_eq "up is the share of the readings that were there (6 of 360)" '[0.02,0.0
 check_eq "the hour with the reboot says so" '[false,false,true]' "$(echo "$doc" | jq -c '[.history.hours[-3:][].boot]')"
 check_eq "each hour is stamped with its start" '[1700002800,1700006400,1700010000]' "$(echo "$doc" | jq -c '[.history.hours[-3:][].t]')"
 
+echo "-- the pools come from the rows"
+export HS_MACHINE_FILE=$WORK/machine.toml
+printf '#!/usr/bin/env bash
+echo "$*" > "%s/zpool.args"; printf "2000\t500\tONLINE\n"
+' "$WORK" > "$WORK/zpool2"
+printf '#!/usr/bin/env bash
+echo "$*" > "%s/df.args"; printf "SIZE USED\n8000 3000\n"
+' "$WORK" > "$WORK/df2"
+chmod +x "$WORK/zpool2" "$WORK/df2"
+printf 'pools = { tank = { role = "data", kind = "zfs" }, ssd = { role = "apps", kind = "zfs" } }
+' > "$HS_MACHINE_FILE"
+check_eq "the apps pool is asked, as the fast key" '{"size":2000,"used":500,"health":"ONLINE"}' "$(HS_ZPOOL=$WORK/zpool2 HS_DF=$WORK/df2 $D | jq -c '.pools.fast')"
+check_eq "zpool was asked about ssd" "list -Hp -o size,alloc,health ssd" "$(cat "$WORK/zpool.args")"
+check_eq "df was asked about /tank" "-B1 --output=size,used /tank" "$(cat "$WORK/df.args")"
+printf 'pools = {}
+' > "$HS_MACHINE_FILE"
+check_eq "no pool: both keys null, valid JSON" '[null,null]' "$(HS_ZPOOL=$WORK/zpool2 HS_DF=$WORK/df2 $D | jq -c '[.pools.fast,.pools.bulk]')"
+rm -f "$HS_MACHINE_FILE"
+
 echo "-- sources that fail leave their key null; a locked boot shows"
 printf '#!/usr/bin/env bash\nexit 1\n' > "$WORK/zpool"; printf '#!/usr/bin/env bash\nexit 1\n' > "$WORK/df"; : > "$WORK/state/health.state"; rm -f "$WORK/state/health.state"
 touch "$WORK/marker"

@@ -18,6 +18,8 @@
 # HS_CAP_URGENT_DAYS (7), HS_SMARTCTL, HS_CAP_MIN_DAYS (3), HS_CAP_MIN_SAMPLES (6), HS_BACKUP_STATE, HS_STATE_DIR, HS_NOW.
 
 _cap_here=$(cd "${BASH_SOURCE[0]%/*}/.." && pwd)
+# shellcheck source=scripts/lib/pools.sh
+. "$_cap_here/lib/pools.sh"
 _cap_py=${HS_PYTHON:-python3}
 _cap_state() { bash "$_cap_here/state.sh" "$@"; }
 _cap_fc() { "$_cap_py" "$_cap_here/forecast.py" "$@"; }
@@ -25,14 +27,15 @@ _cap_now() { echo "${HS_NOW:-$(date +%s)}"; }
 
 # "volume<TAB>used<TAB>size" per volume that exists (bytes; the backup disk in percent and 100)
 _cap_volumes() {
-  local p alloc size used
+  local p alloc size used sp
   if command -v zpool >/dev/null 2>&1; then
     while read -r p alloc size; do
       if [ -n "$p" ] && [[ "$alloc" =~ ^[0-9]+$ ]]; then printf 'zfs:%s\t%s\t%s\n' "$p" "$alloc" "$size"; fi
     done < <(zpool list -Hp -o name,alloc,size 2>/dev/null || true)
   fi
-  if [ "$(cat /etc/hs/bulk-type 2>/dev/null || echo zfs)" = snapraid ] && mountpoint -q /bulk 2>/dev/null; then
-    read -r used size < <(df -B1 --output=used,size /bulk 2>/dev/null | tail -n1) || true
+  sp=$(pools_rows | awk -F'	' '$3 == "snapraid" { print $1; exit }')
+  if [ -n "$sp" ] && mountpoint -q "/$sp" 2>/dev/null; then
+    read -r used size < <(df -B1 --output=used,size "/$sp" 2>/dev/null | tail -n1) || true
     if [[ "${used:-}" =~ ^[0-9]+$ ]]; then printf 'bulk\t%s\t%s\n' "$used" "$size"; fi
   fi
   read -r used size < <(df -B1 --output=used,size / 2>/dev/null | tail -n1) || true
