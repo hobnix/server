@@ -183,7 +183,7 @@ printf 'sys\tsys ext demo x\trust:x\t-\tx\t-\t-\n' > "$pk/demo/commands.tsv"
 check_out "a package row may not name the Rust binary" "rust: rows belong to the core" env HS_PACKAGES_DIR="$pk" HS_REGISTRY="$REG" bash -c '. "$1/lib/registry-load.sh"; registry_refused demo' _ "$SCRIPTS"
 
 echo "-- pool commands"
-check_eq "hs pool <TAB> offers bulk and fast" "bulk fast" "$($HS sys complete pool | paste -sd' ')"
+check_eq "hs pool <TAB> offers the pools and record" "bulk fast record" "$($HS sys complete pool | paste -sd' ')"
 check_eq "hs pool bulk <TAB> offers the verbs" "add close convert open remove replace sync" "$($HS sys complete pool bulk | paste -sd' ')"
 check_eq "no command that asks questions runs as a job" "" "$(awk -F'\t' '$1 == "user" && $2 ~ /^pool/ && $2 !~ /sync/ && $7 ~ /long/ { print $2 }' "$REG")"
 

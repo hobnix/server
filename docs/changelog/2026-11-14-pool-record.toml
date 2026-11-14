@@ -1,0 +1,5 @@
+date  = "2026-11-14"
+type  = "feature"
+title = "hs pool record writes the pools line from the pools the server already has"
+docs  = "storage-and-disks#record-the-pools-of-an-existing-server"
+body  = """It shows the rows and the exact line, asks you to type pools, and changes only machine.toml. No disk is touched."""

@@ -127,6 +127,26 @@ sudo hs pool <name> add
 With a data pool but no SSD pool, apps still run on the system disk, and the upload cache and shares on SSD refuse until you add an SSD
 pool. Not tested on hardware yet.
 
+## Record the pools of an existing server
+
+A server that was set up before the pool list existed has no `pools` line in `machine.toml`; it works as before. To write the line from what
+the server already has, run the command. It looks at the ZFS pools, the Incus storage and the SnapRAID layout, shows the rows and the exact
+line, and writes it only after you type `pools`:
+
+```bash
+sudo hs pool record --dry-run
+sudo hs pool record
+sudo hs rebuild
+```
+
+- `--dry-run` prints only the line and changes nothing.
+- No disk is touched; only `machine.toml` changes. When the rows are the same as the ones a server without the line uses anyway, nothing
+  behaves differently after the rebuild.
+- It refuses when the line exists, or when a pool name is not allowed (a lower case letter, then up to 11 letters or digits). Rename the pool
+  first. Without a terminal it needs `--yes`.
+
+Not tested on hardware yet.
+
 ## Add disks
 ```bash
 sudo hs pool bulk add --dry-run
