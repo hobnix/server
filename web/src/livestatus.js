@@ -25,7 +25,7 @@ export function parseLiveRows(rows, nowSec) {
         state = err ? 'never' : 'pending';
       } else if (statusStr === 'expired' || statusStr === 'error' || (!statusStr && age > 3 * every)) {
         state = 'stale';
-      } else if ((rc !== null && rc !== 0) || (err && tsErr !== null && tsErr > storedTs)) {
+      } else if ((err && tsErr !== null && tsErr > storedTs)) {
         state = 'failing';
       }
       return { topic, every, age, gen, rc, err, tsErr, state, needs };
@@ -55,7 +55,7 @@ export function parseInspect(doc, nowSec) {
       else if (t.cap_on === false) state = 'off';
       else if (age === null) state = err ? 'never' : 'pending';
       else if (age > 3 * every) state = 'stale';
-      else if ((rc !== null && rc !== 0) || (err && tsErr !== null && storedTs !== null && tsErr > storedTs)) state = 'failing';
+      else if (err && tsErr !== null && storedTs !== null && tsErr > storedTs) state = 'failing';
       return { ...t, every, age, rc, err, tsErr, gen: Number(t.gen) || 0, words: Array.isArray(t.words) ? t.words : [],
                groups: Array.isArray(t.groups) ? t.groups : [], state };
     });

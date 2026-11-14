@@ -47,8 +47,8 @@ System slice (built, not run on hardware): 17 more topics for the Summary, top b
 outside the dispatcher: `health-check.sh` (real run: `health-next health-list status deck`), `ups.sh event`
 (`ups deck status`), `jobs.sh stop` (`@jobs`), `update.sh` and `update-preview.sh` after the fetch (`system-updates`).
 
-Instances slice (built, not run on hardware): 8 more topics, all `skip` while locked: `ct-list` (10 s), `ct-profiles` (120 s) (both need the
-`incus` capability), `services-list`, `services-app`, `services-routes` (30 s), `services-local-routes` (needs `gateway`), `services-tiles` (60 s)
+Instances slice (built, not run on hardware): 10 more topics, all `skip` while locked: `ct-list` (10 s), `iso-list` (10 s), `ct-pools` (15 s),
+`ct-profiles` (120 s) (all need the `incus` capability; `tests/live-state-test.py` fails when web-serve.py maps a topic without a row), `services-list`, `services-app`, `services-routes` (30 s), `services-local-routes` (needs `gateway`), `services-tiles` (60 s)
 and `services-stats` (30 s; both need `dashboard`; stats calls the service APIs, keys go on curl's stdin). A topic whose capability is off is read
 directly by the web (no Redis document). Groups: `@instances` (any `ct`/recipes/mac change) and `@network` (services, routes, net, gateway) wake the lists, `services-app` and the routes; `ct-profiles` and `services-local-routes` also listen to `@system` (`hs rebuild`/`update` change the Incus preseed and the proxy); `services-stats` only to `@network`. No new explicit hooks: every
 change of these areas goes through the dispatcher or a web `start`. `ct <ct> ...` and `services show` stay direct.
