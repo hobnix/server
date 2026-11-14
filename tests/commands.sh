@@ -22,6 +22,8 @@ for s in "$SCRIPTS"/*.sh; do
     missing="$missing $b"
 done
 check_eq "every script has a row" "" "$missing"
+# a missing TAB once glued an argument to the help text ("listthe common ..."): every row has 6 or 7 columns
+check_eq "every registry row has 6 or 7 columns" "" "$(awk -F'	' '!/^#/ && NF != 6 && NF != 7 { print NR ":" $2 }' "$REG" | paste -sd, -)"
 bad=""
 while IFS=$'\t' read -r kind path script args _; do
   case "$kind" in user|sys) ;; *) bad="$bad kind:$path" ;; esac

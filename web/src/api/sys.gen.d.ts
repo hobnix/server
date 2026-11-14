@@ -2462,7 +2462,7 @@ export interface SysOperations {
     lines: string;
   };
   "system.config": {
-    /** read and change the common settings in machine.toml (language, gpu, notifyUrl, metrics, backupNewShares, incusUi, loginMessage, shareSnapshots, syncEveryHours, timeZone) */
+    /** the common settings of machine.toml */
     words: ["system", "config"];
     path: "/system/config";
     method: "get";

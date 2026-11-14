@@ -370,7 +370,7 @@ sys	sys system start <action>	system-change.sh	start {1} {rest}	do it as a backg
 sys	sys system doctor	doctor.sh	-	the doctor's report as plain text (read only)	-
 sys	sys system cleanup	cleanup.sh	-	the cleanup report as plain text (read only, changes nothing)	-
 sys	sys system updates	system-updates.sh	-	how many new commits the checkout is behind its upstream, from refs already fetched (read only, fetches nothing): rows behind, ahead, upstream, fetched	-
-sys	sys system config	config.sh	listthe common settings of machine.toml	-
+sys	sys system config	config.sh	list	the common settings of machine.toml	-
 sys	sys system report	report.sh	-	collect what a helper needs into one text file, prints where it is	-
 sys	sys vault list	vault.sh	list	the vault's items: name, kind, state (tab separated)	-	-
 sys	sys unlock boot	unlock.sh	--boot	unlock at boot (systemd)	-
