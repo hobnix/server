@@ -71,4 +71,17 @@ check_eq "the rest is still there" "1" "$(grep -c '^hottest' <<<"$out")"
 
 echo "-- the registry row"
 check_out "hs sys status runs it" "hottest	sdb" env HS_CALLER=test bash "$SCRIPTS/lib/hs.sh" sys status
+echo "-- noparity follows the snapraid row"
+export HS_MACHINE_FILE=$WORK/machine.toml HS_SNAPRAID_CONF=$WORK/none.conf
+printf 'pools = { tank = { role = "data", kind = "zfs" }, ssd = { role = "apps", kind = "zfs" } }
+' > "$HS_MACHINE_FILE"
+check_eq "two zfs pools: the job results are as the timers say" "failed never" "$($S | awk -F'	' '$1 == "job" { printf "%s ", $3 }' | sed 's/ $//')"
+printf 'pools = { tank = { role = "data", kind = "zfs" }, ssd = { role = "apps", kind = "zfs" }, bulk = { role = "data", kind = "snapraid" } }
+' > "$HS_MACHINE_FILE"
+check_eq "a snapraid row without parity: noparity" "noparity noparity" "$($S | awk -F'	' '$1 == "job" { printf "%s ", $3 }' | sed 's/ $//')"
+printf 'pools = {}
+' > "$HS_MACHINE_FILE"
+check_eq "no pool: no crash, the version line is last" "version" "$($S | tail -n1 | cut -f1)"
+rm -f "$HS_MACHINE_FILE"
+
 finish

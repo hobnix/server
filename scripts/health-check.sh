@@ -89,7 +89,8 @@ if have zpool; then
 fi
 
 # ── SnapRAID layout: every member mounted, and a parity disk at all ──
-bulk_type=$(cat /etc/hs/bulk-type 2>/dev/null || echo zfs)
+bulk_type=zfs
+pools_rows | awk -F'	' '$3 == "snapraid" { f = 1 } END { exit !f }' && bulk_type=snapraid   # keyed on the snapraid ROW
 if [ "$bulk_type" = snapraid ]; then
   # name, bytes, state, group
   members=$(bash "$here/manage-pool.sh" bulk --members 2>/dev/null || true)

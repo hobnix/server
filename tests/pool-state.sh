@@ -58,4 +58,17 @@ check_eq "sync done, 2 days ago" "sync	bulk	ok" "$($S bulk | awk -F'\t' '$1 == "
 : > "$WORK/active-hs-bulk-sync.service"
 check_eq "a running sync" "running" "$($S bulk | awk -F'\t' '$1 == "sync" { print $3 }')"
 check_eq "every line has 4 columns, none empty" "" "$($S | awk -F'\t' 'NF < 3 || $1 == "" || $2 == "" { print }')"
+echo "-- pools from the rows (HS_MACHINE_FILE)"
+export HS_MACHINE_FILE=$WORK/machine.toml
+printf 'pools = { tank = { role = "data", kind = "zfs" }, ssd = { role = "apps", kind = "zfs" } }
+' >"$HS_MACHINE_FILE"
+check_eq "tank and ssd, by name" "ssd tank" "$($S | awk -F'	' '$1 == "scrub" { printf "%s ", $2 }' | sed 's/ $//')"
+check_eq "one pool asked for" "tank" "$($S tank | awk -F'	' '$1 == "scrub" { print $2 }')"
+rc=0; $S bulk >/dev/null 2>&1 || rc=$?
+check_eq "bulk is not a pool here: refused" 1 "$rc"
+printf 'pools = {}
+' >"$HS_MACHINE_FILE"
+check_eq "no pool: no scrub line" "" "$($S | awk -F'	' '$1 == "scrub" || $1 == "sync"')"
+check_eq "no pool: the lock line is still there" "lock" "$($S | awk -F'	' '$1 == "lock" { print $1 }')"
+rm -f "$HS_MACHINE_FILE"
 finish

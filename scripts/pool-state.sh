@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # help: what the pools are doing right now: the bulk lock, the pause of the health check, the last scrub and the last parity sync (read only)
 # help.de: was die Pools gerade tun: die Bulk-Sperre, die Pause des Health-Checks, der letzte Scrub und der letzte Paritäts-Sync (nur lesend)
-# args: [bulk|fast]
+# args: [<pool>]
 # System command (hs sys pool state [<pool>]), read only, tab separated, plain, never asks and never takes the lock. Lines in this order;
 # a new column is only ever appended:
 #   lock    <free|busy|pool-change|unknown>  <text>      /run/hs-bulk.lock: busy = a parity sync, scrub, cache mover, share rename or
@@ -12,7 +12,9 @@
 # Test knobs: HS_LOCK, HS_LOCK_ADMIN, HS_BULK_PAUSE, HS_BULK_TYPE_FILE, HS_ZPOOL, HS_SYSTEMCTL, HS_SCRUB_STATE, HS_SNAPRAID_CONTENT, HS_NOW.
 set -uo pipefail
 want=${1:-}
-case "$want" in ""|bulk|fast) ;; *) echo "usage: pool-state.sh [bulk|fast]" >&2; exit 1 ;; esac
+# shellcheck source=lib/pools.sh
+. "${BASH_SOURCE[0]%/*}/lib/pools.sh"
+if [ -n "$want" ] && ! pool_exists "$want"; then echo "usage: pool-state.sh [<pool>]" >&2; exit 1; fi
 
 lock=${HS_LOCK:-/run/hs-bulk.lock}
 admin=${HS_LOCK_ADMIN:-/run/hs-bulk.admin}
@@ -21,7 +23,6 @@ zpool=${HS_ZPOOL:-zpool}
 systemctl=${HS_SYSTEMCTL:-systemctl}
 scrub_state=${HS_SCRUB_STATE:-/var/lib/hs/scrub.state}
 content=${HS_SNAPRAID_CONTENT:-/var/lib/snapraid/snapraid.content}
-bulk_type=$(cat "${HS_BULK_TYPE_FILE:-/etc/hs/bulk-type}" 2>/dev/null || echo zfs)
 now=${HS_NOW:-$(date +%s)}
 
 when() { date -d "@$1" '+%Y-%m-%d %H:%M' 2>/dev/null || echo "$1"; }
@@ -63,7 +64,7 @@ zfs_scrub() {   # zfs_scrub <pool>
   fi
 }
 
-snap_state() {
+snap_state() {   # snap_state <pool>
   local t
   if active hs-bulk-scrub.service; then printf 'scrub\tbulk\trunning\tthe check of the data is running\n'
   elif [ -s "$scrub_state" ] && t=$(cat "$scrub_state") && [[ "$t" =~ ^[0-9]+$ ]]; then
@@ -77,8 +78,9 @@ snap_state() {
   else printf 'sync\tbulk\tnever\tno parity sync has finished yet\n'; fi
 }
 
-for p in bulk fast; do
+while IFS=$'	' read -r p _ kind; do
+  [ -n "$p" ] || continue
   [ -z "$want" ] || [ "$want" = "$p" ] || continue
-  if [ "$p" = bulk ] && [ "$bulk_type" = snapraid ]; then snap_state; else zfs_scrub "$p"; fi
-done
+  if [ "$kind" = snapraid ]; then snap_state "$p"; else zfs_scrub "$p"; fi
+done < <(pools_rows)
 exit 0

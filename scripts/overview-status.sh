@@ -55,7 +55,8 @@ fi
 jobs=$(cat "$tmp/jobs")
 # Without a parity disk the units skip their run (ExecCondition), so their last result would still read "ok": say "noparity" instead.
 noparity=
-if [ "$(cat "${HS_BULK_TYPE_FILE:-/etc/hs/bulk-type}" 2>/dev/null || echo zfs)" = snapraid ] && ! grep -q '^parity ' "${HS_SNAPRAID_CONF:-/var/lib/snapraid/snapraid.conf}" 2>/dev/null; then noparity=1; fi
+. "$here/lib/pools.sh"
+if pools_rows | awk -F'	' '$3 == "snapraid" { f = 1 } END { exit !f }' && ! grep -q '^parity ' "${HS_SNAPRAID_CONF:-/var/lib/snapraid/snapraid.conf}" 2>/dev/null; then noparity=1; fi
 for unit in hs-bulk-sync.service hs-bulk-scrub.service; do
   awk -F'\t' -v u="$unit" -v np="$noparity" '$1 == u { print "job\t" $1 "\t" (np ? "noparity" : $5) "\t" $4 "\t" $3 }' <<<"$jobs"
 done

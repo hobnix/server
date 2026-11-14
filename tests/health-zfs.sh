@@ -27,4 +27,33 @@ out=$(bash "$SCRIPTS/health-check.sh" --keys 2>&1 || true)
 check_eq "a known pool missing from zpool list" "1" "$(grep -c '^zfs:bulk:missing$' <<<"$out")"
 check_eq "an imported pool is not reported" "0" "$(grep -c '^zfs:fast:missing$' <<<"$out")"
 check_eq "a failed zfs-scrub unit is reported" "1" "$(grep -c '^unit:zfs-scrub-fast.service$' <<<"$out")"
+echo "-- pool rows: tank (data) and ssd (apps)"
+export HS_MACHINE_FILE=$WORK/machine.toml
+printf 'pools = { tank = { role = "data", kind = "zfs" }, ssd = { role = "apps", kind = "zfs" } }
+' > "$HS_MACHINE_FILE"
+cat > "$WORK/bin/zpool" <<'S'
+#!/bin/sh
+case "$*" in
+  "list -H -o name") echo ssd ;;
+  "status -x ssd") echo "pool 'ssd' is healthy" ;;
+esac
+exit 0
+S
+cat > "$WORK/bin/systemctl" <<'S'
+#!/bin/sh
+case "$1" in
+  list-unit-files) printf 'zfs-import-ssd.service enabled
+zfs-import-tank.service enabled
+' ;;
+esac
+exit 0
+S
+out=$(bash "$SCRIPTS/health-check.sh" --keys 2>&1 || true)
+check_eq "tank not imported: zfs:tank:missing" "1" "$(grep -c '^zfs:tank:missing$' <<<"$out")"
+check_eq "ssd is fine, nothing named bulk" "0" "$(grep -c '^zfs:ssd:\|^bulk:' <<<"$out")"
+printf 'pools = {}
+' > "$HS_MACHINE_FILE"
+out=$(bash "$SCRIPTS/health-check.sh" --keys 2>&1 || true)
+check_eq "no pool row: no bulk key, no crash" "0" "$(grep -c '^bulk:' <<<"$out")"
+rm -f "$HS_MACHINE_FILE"
 finish
