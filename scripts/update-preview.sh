@@ -7,11 +7,14 @@
 # machine.toml does not have yet (machine-sync --list), (3) the upstream version built as a dry run:
 # `nixos-rebuild dry-activate` as root (which units would restart), else `nix-build --dry-run` (what would
 # be built or downloaded). --no-build skips part 3 (it can take minutes).
+# The update channel (setting updateChannel, lib/update-channel.sh) picks what the checkout is compared with: the newest matching tag, or
+# origin/develop; without a tag yet the upstream of the current branch. One line "channel: <name> (<label>)" says which.
 # Test knobs: HS_REPO (the checkout), HS_MACHINE_FILE, HS_PREVIEW_AS_ROOT (take the root path of part 3).
 set -euo pipefail
 here=$(dirname "$0")
 . "$here/lib/ui.sh"
 . "$here/lib/live.sh"
+. "$here/lib/update-channel.sh"
 
 repo=${HS_REPO:-/etc/nixos}
 machine=${HS_MACHINE_FILE:-$repo/machine.toml}
@@ -31,6 +34,7 @@ done
 owner=$(stat -c %U "$repo")
 if [ "$(id -u)" = 0 ] && [ "$owner" != root ]; then
   g() { sudo -H -u "$owner" git -C "$repo" "$@"; }
+  UC_OWNER=$owner
 else
   g() { git -C "$repo" "$@"; }
 fi
@@ -42,16 +46,23 @@ age=-1
 [ "$max_age" -eq 0 ] || [ ! -f "$fetched" ] || age=$(( $(date +%s) - $(stat -c %Y "$fetched" 2>/dev/null || echo 0) ))
 if [ "$age" -ge 0 ] && [ "$age" -le "$max_age" ]; then
   :
-elif spin "Fetching what is new (nothing is applied)" g fetch --quiet; then
+elif spin "Fetching what is new (nothing is applied)" g fetch --quiet --tags --force; then
   live_refresh system-updates   # the count of new changes is as old as the last fetch
 else
   note "Is there a network connection to the Git server?"
   exit 1
 fi
 
-up=$(g rev-parse --abbrev-ref --symbolic-full-name '@{u}' 2>/dev/null || true)
+channel=$(uc_channel)
+IFS=$'	' read -r kind up label < <(uc_target "$repo" "$channel")
+if [ "$kind" = none ]; then
+  up=$(g rev-parse --abbrev-ref --symbolic-full-name '@{u}' 2>/dev/null || true)
+  label="current branch"
+fi
+note "$(t 'channel: %s (%s)' "$channel" "$label")"
 [ -n "$up" ] || fail "$(t 'The checkout has no upstream branch, so there is nothing to compare with.')"
 
+g rev-parse --verify -q "$up^{commit}" >/dev/null || fail "$(t '%s does not exist in this checkout, so there is nothing to compare with.' "$up")"
 behind=$(g rev-list --count "HEAD..$up")
 ahead=$(g rev-list --count "$up..HEAD")
 
@@ -65,7 +76,7 @@ else
   echo
   g diff --stat=100 "HEAD...$up" | tail -n 25 | sed 's/^/      /'
 fi
-if [ "$ahead" -gt 0 ]; then
+if [ "$ahead" -gt 0 ] && [ "$kind" != tag ]; then
   warn "$(t 'This checkout has %s commit(s) that are not upstream: hs update (pull --ff-only) may refuse.' "$ahead")"
 fi
 dirty=$(g status --porcelain --untracked-files=no | wc -l)

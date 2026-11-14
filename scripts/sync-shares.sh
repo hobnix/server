@@ -22,6 +22,9 @@ for a in "$@"; do
   esac
 done
 
+# The installed minimal system has no Samba: say so instead of failing with "net: command not found"
+command -v net >/dev/null 2>&1 || fail "$(t 'Samba is not installed on this system, so there are no shares to publish. Install the full system first (hs rebuild).')"
+
 # Shares created here live in Samba's registry (`include = registry`), next
 # to the two config-defined shares that span each parent directory.
 mapfile -t existing < <(net conf listshares)
@@ -146,6 +149,15 @@ for parent in shares sensitive; do
     existing+=("$name")
     row "$name" "$(t 'added (%s)' "$path")"
   done < <(children "$tier" "$parent")
+
+  # On ZFS only datasets are shares: a plain folder next to them is skipped (never published, never handed over)
+  if [ "$tier" = fast ] || [ "$bulk_type" != snapraid ]; then
+    while read -r name; do
+      case "$name" in *.deleted-*) continue ;; esac
+      row "$name" "$(t 'plain folder, not a share (make a share of it with hs share add, or move its files into one)')"
+    done < <(comm -23 <(find "$(share_root "$tier")/$parent" -mindepth 1 -maxdepth 1 -type d ! -name 'lost+found' -printf '%f\n' 2>/dev/null | sort) \
+                      <(children "$tier" "$parent" | sort))
+  fi
 done
 done < <(share_tiers)
 

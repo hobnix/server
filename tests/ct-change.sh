@@ -193,6 +193,40 @@ mc newone --add-storage shares media /media --readonly" "$(cat "$WORK/mccalls")"
 : > "$WORK/jobcalls"
 run start newone create --type docker
 grep -q -- 'manage-ct --create newone --docker' "$WORK/jobcalls" && pass "without bindings the job is manage-ct.sh as before" || fail "job: $(cat "$WORK/jobcalls")"
+echo "-- create a VM: disk placement (--pool) and an installer image (--iso), issues #258 and #259"
+cat > "$WORK/ct-pools" <<'FAKE'
+#!/usr/bin/env bash
+printf 'default\tzfs\tfast\t53687091200\t107374182400\t-\nbulk1\tdir\tbulk\t2199023255552\t4398046511104\t/bulk/data-01/incus\n'
+FAKE
+chmod +x "$WORK/ct-pools"
+export HS_CT_POOLS=$WORK/ct-pools HS_ISO_DIR=$WORK/isos
+mkdir -p "$HS_ISO_DIR"; printf 'x' > "$HS_ISO_DIR/win.iso"; printf 'x' > "$HS_ISO_DIR/deb.iso"; printf 'verified=yes\n' > "$HS_ISO_DIR/deb.iso.meta"
+: > "$WORK/mccalls"
+run plan vm1 create --type vm --pool bulk1 --disk 100 --iso deb.iso
+check_eq "vm on a bulk pool with an image: exit 0" 0 "$rc"
+grep -q -- "--create vm1 --vm --pool bulk1 --iso $HS_ISO_DIR/deb.iso --disk 100 --dry-run" "$WORK/mccalls" && pass "the dry run gets --pool and the full image path" || fail "calls: $(cat "$WORK/mccalls")"
+has '^note	The disk lives on the bulk pool "bulk1", 2.0T free' && pass "the plan says where the disk lives and how much is free" || fail "pool note: $out"
+has '^step	attach the image deb.iso' && pass "the plan attaches the image" || fail "iso step: $out"
+check_eq "a checked image has no warning" 0 "$(grep -c '^warn' <<<"$out")"
+run plan vm1 create --type vm --iso win.iso
+has '^warn	The image win.iso was added without a checksum' && pass "an unchecked image warns" || fail "unchecked: $out"
+run plan vm1 create --type vm --pool default --disk 80
+check_eq "a disk that does not fit the pool is refused" 1 "$rc"
+has 'does not fit' && pass "...and says why" || fail "fit: $out"
+run plan vm1 create --type vm --pool nope
+check_eq "an unknown pool is refused" 1 "$rc"
+run plan vm1 create --type container --iso deb.iso
+check_eq "an image for a container is refused" 1 "$rc"
+run plan vm1 create --type vm --iso gone.iso
+has 'no image called' && pass "an image that is not in the library is refused" || fail "gone: $out"
+run plan vm1 create --type vm --iso ../x.iso
+check_eq "a path as image name is refused" 1 "$rc"
+run plan immich set --pool bulk1
+check_eq "--pool only for create" 1 "$rc"
+: > "$WORK/jobcalls"
+run start vm1 create --type vm --pool bulk1 --iso deb.iso
+grep -q -- "manage-ct --create vm1 --vm --pool bulk1 --iso $HS_ISO_DIR/deb.iso" "$WORK/jobcalls" && pass "the job is manage-ct.sh with pool and image" || fail "job: $(cat "$WORK/jobcalls")"
+
 echo "-- the registry rows"
 check_out "hs sys ct plan runs it" "status	ok" env HS_CALLER=test bash "$SCRIPTS/lib/hs.sh" sys ct plan immich start
 finish

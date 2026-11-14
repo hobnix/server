@@ -83,5 +83,11 @@ eq('bytes', [S.bytesTxt(0), S.bytesTxt(999), S.bytesTxt(4300000000), S.bytesTxt(
 eq('eta', [S.etaTxt(30), S.etaTxt(600), S.etaTxt(7500), S.etaTxt(NaN)], ['30 s', '10 min', '2 h 5 min', '']);
 eq('plural', [S.plural(1, 'file'), S.plural(3, 'file')], ['1 file', '3 files']);
 
+console.log('-- default right pane');
+const dl = [{ id: 'disk:data-01', kind: 'disk', pool: 'bulk' }, { id: 'disk:data-02', kind: 'disk', pool: 'bulk' }, { id: 'pool:bulk', kind: 'pool' }];
+eq('left on a disk: right is another disk of the pool, never the pool view', S.defaultRight(dl, 'disk:data-01'), 'disk:data-02');
+eq('a lone disk: right is the same location', S.defaultRight(dl.slice(0, 1).concat(dl.slice(2)), 'disk:data-01'), 'disk:data-01');
+eq('left on the pool: right is the same', S.defaultRight(dl, 'pool:bulk'), 'pool:bulk');
+
 console.log(`  -> ${ok} ok, ${bad} failed`);
 process.exit(bad ? 1 : 0);

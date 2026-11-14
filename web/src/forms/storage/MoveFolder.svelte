@@ -1,4 +1,5 @@
 <script>
+  import Button from '../../ui/Button.svelte';
   import { tip } from '../../ui/tooltip.svelte.js';
   // Move a folder (or file) from one SnapRAID data disk to another, disk to disk (hs sys disk plan|start <member> move --path <path> [--to <member>]).
   // The path in /bulk does not change: the same files are shown at the same paths before, during and after. The disk's own folders are browsed with
@@ -45,7 +46,7 @@
               <span class="name"><i class="ph ph-file"></i> {e.name}</span>
             {/if}
             <span class="sz">{sizeTxt(e.bytes)}</span>
-            {#if dir}<button type="button" class="btn btn-ghost pick" onclick={() => pick(e.name)}>Choose</button>{/if}
+            {#if dir}<Button variant="ghost" class="movefolder-pick" type="button" onclick={() => pick(e.name)}>Choose</Button>{/if}
           </li>
         {:else}
           <li class="sub">{list.loaded ? 'Nothing here.' : 'Loading…'}</li>
@@ -75,5 +76,5 @@
   .files li.sel { background: color-mix(in srgb, var(--color-accent, #9184d9) 18%, transparent); }
   .name { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
   .sz { color: var(--color-neutral-500); font-size: 11.5px; }
-  .pick { padding: 1px 8px; font-size: 12px; }
+  :global(.btn.movefolder-pick) { padding: 1px 8px; font-size: 12px; }
 </style>

@@ -182,3 +182,14 @@ export function selText(t) {
   if (t.dirs) bits.push(plural(t.dirs, 'folder'));
   return bits.join(' · ');
 }
+
+// The right pane's start location when nothing is saved or linked. The picker refuses a pool disk next to the pool view of its array (same files),
+// so the right side starts on another disk of the left disk's pool, or on the left location itself; never on a pool beside one of its disks.
+export function defaultRight(locs, leftId) {
+  const l = locs.find((x) => x.id === leftId);
+  if (l && l.kind === 'disk') {
+    const mate = locs.find((x) => x.kind === 'disk' && x.pool === l.pool && x.id !== l.id);
+    if (mate) return mate.id;
+  }
+  return leftId;
+}

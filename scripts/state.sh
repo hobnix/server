@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # help: the state database: which disks the server has had (also the ones that are gone), what happened to them, how their SMART values moved
 # help.de: die Zustandsdatenbank: welche Platten der Server hatte (auch die fehlenden), was mit ihnen geschah, wie sich ihre SMART-Werte entwickelten
-# args: inventory | events [N] | forget <disk> [--yes] | collect | disks | smart <serial> | problems | deck-disks | inventory-json | history <now> | history-record <readings> | usage-record <key> <used> <size> | usage <key> [days] | read-put <key> | read-get <key> | reads | baseline | baseline-run
+# args: inventory | events [N] | forget <disk> [--yes] | collect | disks | smart <serial> | problems | deck-disks | inventory-json | history <now> | history-record <readings> | usage-record <key> <used> <size> | usage <key> [days] | read-put <key> | read-fail <key> --err <text> | read-get <key> | reads | baseline | baseline-run
 # Front end of scripts/state-db.py. `collect` is the ONE writer (root; hs-deck-status / hs-state-collect / disk-event.sh start it);
 # everything else reads /var/lib/hs/state.db read-only. A person at a terminal gets tables (inventory, events); `hs sys state ...` and
 # pipes get the tab separated lines. `forget` removes a MISSING disk from the list for good and asks first (--yes skips it).
@@ -76,6 +76,6 @@ case "$cmd" in
     exit "$rc" ;;
   collect) db collect "$@"; rc=$?; if [ "$rc" -eq 0 ] && [ -f "$here/lib/live.sh" ]; then . "$here/lib/live.sh"; live_refresh disk-inventory || true; fi; exit "$rc" ;;
   history-record) db history-record "$@"; rc=$?; if [ "$rc" -eq 0 ] && [ -f "$here/lib/live.sh" ]; then . "$here/lib/live.sh"; live_refresh state-history || true; fi; exit "$rc" ;;
-  disks|smart|problems|deck-disks|inventory-json|disks-json|events-json|history|usage-record|usage|read-put|read-get|reads) db "$cmd" "$@" ;;
+  disks|smart|problems|deck-disks|inventory-json|disks-json|events-json|history|usage-record|usage|read-put|read-fail|read-get|reads|topic-bump) db "$cmd" "$@" ;;
   *) echo "usage: hs disk inventory | hs disk events | hs disk <serial> forget" >&2; exit 1 ;;
 esac

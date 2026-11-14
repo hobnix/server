@@ -70,12 +70,18 @@ The tree on the left, the task panel at the bottom (Tasks, Jobs, Logs, disk even
 shows the server name, a node switcher, how old the data on screen is (with a refresh button), the storage state, the theme toggle and the
 buttons **Update**, **Reboot** and **Shut down**.
 
+The **Jobs** tab of the task panel has two views. **Job records** lists what the server ran, newest first, also after the job is gone
+(finished, failed, cancelled, or interrupted by a restart), with state, step, progress and how long it took; click a row for the source,
+who started it and the error text of a failed job. The list updates when a job changes, without polling (it polls every 15 s only while the
+event stream is down). A state this page does not know is shown as text. **Scheduled** is the list of timers with **Run now**.
+Not tested on hardware yet.
+
 | Page | What you do there |
 | --- | --- |
 | Summary | CPU, memory, disks per pool, UPS, important states; **Run health check** |
 | Storage | pools `bulk` and `fast`, disks (SMART, self-tests, unassigned and foreign disks), shares, encryption, vault (values are never shown) |
 | Instances | containers and VMs (start, stop, snapshot, update, settings, fixed address, mounts, create, delete), **Apps** (the recipes), **Services** (what the reverse proxy publishes) |
-| Marketplace | the packages of the repositories (apps and extensions): install, update, remove; the repositories themselves, signed only |
+| Marketplace | the packages of the repositories (apps and extensions): install, update, remove; the repositories themselves, signed only; the Package builder checks the manifest of a new package as you type |
 | Network | addresses of the instances, router networks, DNS names, open ports |
 | Identity | users, groups, certificates (only with a domain) |
 | Monitoring | hardware (temperatures, fans), diagnostics |
@@ -166,6 +172,14 @@ sudo hs config set webTerminalMaxHours 48
 
 The journal records only "opened" and "closed" with user and target, never the input.
 
+### The graphical console of a virtual machine
+
+With the terminal switched on, a running virtual machine's page also shows a **Console** button (containers keep the terminal). It asks
+Incus for the screen of the VM and relays it to the browser over the same kind of ticketed connection as the terminal; no port of the VM is
+opened and nothing about the VM changes (ADR 0021). At most 2 consoles run at a time, 1 per sign-in, with the same idle and time limits as
+the terminal. The window connects, but the picture itself is not shown yet: the viewer library is not bundled with this version, and the window says
+so. UNVERIFIED on a real virtual machine: not tested on hardware yet.
+
 ## Change the colour
 
 ```bash
@@ -213,6 +227,20 @@ everything. Reads that need an argument (one instance's logs, one service, one u
 The Users and Backup pages follow the same rule: the user and group lists, the domain controller certificate state, the backup state and the list of
 shares and instances with their backup switch come from Redis and update after a user, share, instance or backup change. One user's or group's details,
 the snapshots and the file search of the backup stay direct (they open the backup disk). Not tested on hardware yet.
+
+## Inspect the live state
+
+When live state is on, one page lists every topic the collector reads and what is stored for it.
+
+1. Open Monitoring > Live state. The same list as text: `sudo hs sys live inspect`.
+2. Read a row: Source is the `hs sys` command the topic runs, Every is how often it is read, State is `fresh`, `stale`, `failing`, `never`,
+   `pending` or `off` (its capability is off), Age is the time since the last good reading, Gen counts the readings, Exit and Error are the
+   last failure with its time, Capability, Groups and (when known) Needs say when it is read and which changes wake it.
+3. Press Refresh on a row to ask the collector to read that topic now. The row updates by itself a moment later.
+4. Press Raw to see the stored output of the topic: the first 64 KiB, and how many bytes there are in total.
+
+Topics of extensions appear with an "extension" tag and come and go with their package. With the capability `live-state` off the page only
+says so. The page updates over the same stream as the others and polls every 5 seconds while the stream is down. Not tested on hardware yet.
 
 ## Check that it worked
 

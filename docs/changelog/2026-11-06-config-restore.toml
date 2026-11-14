@@ -1,0 +1,5 @@
+date  = "2026-11-06"
+type  = "feature"
+title = "Put the server settings back from the backup"
+body  = """hs backup config lists the host snapshots and which settings files each holds. hs backup config restore puts machine.toml and machine.nix of a snapshot back on the running server: it shows a plan first (--dry-run stops there), asks you to type the file name, and keeps every replaced file as <file>.before-restore-<time>. With --with-state it also restores /var/lib/hs, but never the backup password or the files that describe this server's disks. Apply the result with hs rebuild. Not tested on hardware yet."""
+docs  = "backup-and-recovery#back-up-and-restore-only-the-settings"

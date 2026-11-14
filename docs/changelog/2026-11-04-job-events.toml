@@ -1,0 +1,5 @@
+date  = "2026-11-04"
+type  = "feature"
+title = "Jobs write their changes to the event log"
+body  = """Every job that changes state (queued, running, ok, failed, cancelled, interrupted) now writes job.<state> to the event log, with the job id as subject. The job record stays the state; the log only tells that something happened. Stopping a job whose unit cannot be stopped no longer marks the job as cancelled."""
+docs  = "storage-and-disks"

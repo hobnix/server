@@ -10,14 +10,16 @@
 
   // Off mode: the existing collected-reads table, kept unchanged in behaviour.
   const offSt = poll(() => (!ui.features.live ? '/api/sys/reads/status' : ''), 5000);
-  // reads status: read, interval s, age s (-1 = never kept), ms, exit code, bytes (- = nothing kept yet)
+  // reads status: read, interval s, age s (-1 = never kept), ms, exit code, bytes (- = nothing kept yet), then since #324 the entry shape of the
+  // live state: status (fresh|stale|error|expired, live_state.status_of), gen, err (- = none), error age s. An older server sends six fields: the state is derived here.
   const num = (v) => (v === '-' || v === undefined || v === '' ? null : Number(v));
   const reads = $derived(rows(offSt).map((r) => {
     const every = num(r[1]), age = num(r[2]), ms = num(r[3]), rc = num(r[4]), bytes = num(r[5]);
-    const state = age === null || age < 0 ? 'never' : age > Math.max(3 * every, 30) ? 'late' : rc ? 'failing' : 'fresh';
-    return { read: r[0], every, age: age !== null && age >= 0 ? age : null, ms, rc, bytes, state };
+    const old = age === null || age < 0 ? 'error' : age > Math.max(3 * every, 30) ? 'expired' : rc ? 'stale' : 'fresh';
+    const state = r[6] || old;
+    return { read: r[0], every, age: age !== null && age >= 0 ? age : null, ms, rc, bytes, state, gen: num(r[7]), err: !r[8] || r[8] === '-' ? null : r[8] };
   }));
-  const late = $derived(reads.filter((r) => r.state === 'late' || r.state === 'never').length);
+  const late = $derived(reads.filter((r) => r.state === 'expired' || r.state === 'error').length);
   const slow = $derived(reads.filter((r) => r.ms !== null && r.ms >= 5000).length);
 
   // Live mode: the live-state topics themselves.
@@ -42,22 +44,24 @@
   const secs = (s) => (s === null ? '' : s < 90 ? `${Math.round(s)} s` : s < 5400 ? `${Math.round(s / 60)} min` : `${Math.round(s / 3600)} h`);
   const took = (ms) => (ms === null ? '' : ms < 1000 ? `${ms} ms` : `${(ms / 1000).toFixed(1)} s`);
   const kb = (b) => (b === null ? '' : b < 1024 ? `${b} B` : `${(b / 1024).toFixed(1)} KB`);
-  const tone = (s) => (s === 'fresh' ? 'var(--st-ok, var(--color-neutral-300))' : s === 'failing' ? 'var(--st-warn)' : 'var(--st-bad)');
-  const liveTone = (s) => ({ fresh: 'var(--st-ok)', pending: 'var(--fg-2)', stale: 'var(--st-warn)', never: 'var(--st-bad)', failing: 'var(--st-warn)' }[s] || 'var(--fg-2)');
+  // one status vocabulary for both tables (fresh, stale, error, expired; the live table adds pending, never, failing)
+  const tone = (s) => ({ fresh: 'var(--st-ok)', pending: 'var(--fg-2)', stale: 'var(--st-warn)', failing: 'var(--st-warn)', expired: 'var(--st-warn)', error: 'var(--st-bad)', never: 'var(--st-bad)' }[s] || 'var(--fg-2)');
+  const liveTone = tone;
   const when = (ts) => (ts ? new Date(ts * 1000).toLocaleString() : '');
 
   const offColumns = [
     { key: 'read', label: 'Read', value: (r) => r.read },
-    { key: 'state', label: 'State', value: (r) => r.state },
+    { key: 'state', label: 'Status', value: (r) => r.state },
     { key: 'every', sort: 'num', optional: true, label: 'Every', value: (r) => r.every, align: 'right' },
     { key: 'age', sort: 'num', label: 'Kept', value: (r) => r.age, align: 'right' },
     { key: 'ms', sort: 'num', label: 'Takes', value: (r) => r.ms, align: 'right' },
     { key: 'bytes', sort: 'num', optional: true, label: 'Size', value: (r) => r.bytes, align: 'right' },
+    { key: 'err', optional: true, label: 'Error', value: (r) => r.err },
   ];
 
   const liveColumns = [
     { key: 'topic', label: 'Topic', value: (r) => r.topic },
-    { key: 'state', label: 'State', value: (r) => r.state },
+    { key: 'state', label: 'Status', value: (r) => r.state },
     { key: 'every', sort: 'num', optional: true, label: 'Every', value: (r) => r.every, align: 'right' },
     { key: 'age', sort: 'num', label: 'Age', value: (r) => r.age, align: 'right' },
     { key: 'gen', sort: 'num', optional: true, label: 'Gen', value: (r) => r.gen, align: 'right' },
@@ -82,10 +86,11 @@
              empty={offSt.error ? 'The list could not be read.' : 'No read is collected (the list scripts/lib/collected-reads.tsv is empty or not there).'}>
         {#snippet cell(r, col)}
           {#if col.key === 'read'}<code>{r.read}</code>
-          {:else if col.key === 'state'}<span style="color:{tone(r.state)}">{r.state}{r.state === 'failing' ? ` (exit ${r.rc})` : ''}</span>
+          {:else if col.key === 'state'}<span style="color:{tone(r.state)}">{r.state}{r.rc ? ` (exit ${r.rc})` : ''}</span>
           {:else if col.key === 'every'}<span class="c">{secs(r.every)}</span>
           {:else if col.key === 'age'}<span class="c">{secs(r.age)}</span>
           {:else if col.key === 'ms'}<span class="c" style="color:{r.ms >= 5000 ? 'var(--st-warn)' : ''}">{took(r.ms)}</span>
+          {:else if col.key === 'err'}<span class="c" style="color:{r.err ? 'var(--st-bad)' : ''}">{r.err ?? '-'}</span>
           {:else}<span class="c">{kb(r.bytes)}</span>{/if}
         {/snippet}
       </Table>
@@ -129,7 +134,7 @@
         {/snippet}
       </Table>
     </div>
-    <div class="muted">These are the live-state topics in Redis. The <code>live</code> row describes the previous collection by design. <code>hs sys live status</code> shows the same on the command line.</div>
+    <div class="muted">These are the live-state topics in Redis. The <code>live</code> row describes the previous collection by design. <code>hs sys live status</code> shows the same on the command line. <button class="link-btn" onclick={() => go('/monitoring/live-state')}>Live state</button> has the details per topic.</div>
   {/if}
 </div>
 

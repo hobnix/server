@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # help: back up shares, chosen containers, the domain controller and the host config with restic to the disk labelled "backup"
 # help.de: sichert Freigaben, ausgewählte Container, den Domänencontroller und die Server-Einstellungen mit restic auf die Platte mit dem Etikett "backup"
-# args: [--state | --shares | --snapshots | status | now | list | find <name> | restore <snapshot|latest> <path> | browse [--off] | verify | drill [N] | drill ct [<name>] | report | offsite set <repo>|now|off | init [<device>] | <share> on|off | ct <name> on|off] [--dry-run]
+# args: [--state | --shares | --snapshots | status | now | list | find <name> | restore <snapshot|latest> <path> | config [restore [<snapshot|latest>] [--with-state] [--from-disk <device>] [--with-samba]] | browse [--off] | verify | drill [N] | drill ct [<name>] | report | offsite set <repo>|now|off | init [<device>] | <share> on|off | ct <name> on|off] [--dry-run]
 set -euo pipefail
 . "$(dirname "$0")/lib/ui.sh"
 . "$(dirname "$0")/lib/dc.sh"
@@ -19,9 +19,20 @@ usage: hs backup [status]                    what is in the backup, last run, sp
                                              free space in /var/tmp or HS_VM_EXPORT_DIR)
        hs backup list                        snapshots (id, time, tag, size)
        hs backup find <name>                 which snapshots contain a file name
-       hs backup restore <snapshot|latest> <path> [--tag T] [--to DIR]
+       hs backup restore <snapshot|latest> <path> [--tag T] [--to DIR] [--keep-owner]
                                              restore one file or folder, by default
-                                             into /bulk/shares/restored (never over the live copy)
+                                             into /bulk/shares/restored (never over the live copy), owned by adminuser;
+                                             --keep-owner keeps the owners of the snapshot, --to / (in place) always does
+       hs backup config                      the host snapshots and which settings files each holds
+       hs backup config restore [<snapshot|latest>] [--with-state] [--dry-run]
+       hs backup config restore --from-disk <device> [<snapshot|latest>] [--with-samba] [--dry-run]
+                                             put machine.toml and machine.nix of a host snapshot back on this running
+                                             server (plan first, you type the file name, the old file is kept as
+                                             <file>.before-restore-<time>); --with-state also /var/lib/hs
+                                             --from-disk is for a fresh install: only the backup disk and its passphrase
+                                             (typed, never an argument) are needed; the disk is mounted read-only,
+                                             /var/lib/hs comes back, the SSH host keys after you type their name,
+                                             the Samba secrets only with --with-samba
        hs backup browse [--off]              show the whole backup read-only as share "backup-browse"
        hs backup verify                      check part of the stored data
        hs backup prune [--dry-run]           give space back now: delete leftovers of a run that ran out of space, apply the
@@ -62,6 +73,7 @@ ON=$STATE/backup-on              # shares included on purpose, one per line (onl
 # "off" = a share is in the backup only when it was switched on; "on" = in unless switched off.
 # Without the file (a server that was not rebuilt yet) nothing changes: "on".
 . "$(dirname "$0")/lib/sharepath.sh"
+. "$(dirname "$0")/lib/event.sh"   # event_emit: backup.ok, backup.failed, backup.report (best effort)
 . "$(dirname "$0")/lib/setting.sh"   # backupNewShares is a runtime setting now (true|false); the old /etc/hs file (on|off) is its fallback
 NEW_SHARES=${HS_BACKUP_NEW_SHARES:-$(case "$(setting_get backupNewShares 2>/dev/null)" in false|off) echo off ;; *) echo on ;; esac)}
 CTS=$STATE/backup-instances      # containers included, one per line
@@ -88,7 +100,10 @@ set -- "${args[@]+"${args[@]}"}"
 cmd=${1:-status}
 [ $# -gt 0 ] && shift
 
-R() { restic -r "$REPO" --password-file "$PASSFILE" "$@"; }
+# --from-disk (config restore on a fresh install): the typed passphrase is in a private temp file and the disk is read-only, so no lock is taken
+R_PASSFILE=$PASSFILE
+R_EXTRA=()
+R() { restic -r "$REPO" --password-file "$R_PASSFILE" "${R_EXTRA[@]}" "$@"; }
 
 # Remove locks a dead run left behind. `restic unlock` only removes a lock whose process is gone, and a reused PID (or a
 # reboot) keeps it for days ("already locked by PID ... 85h ago"); when no restic runs on this host any more nothing can
@@ -195,7 +210,11 @@ cmd_toggle_ct() {
   local name=$1 mode=$2
   incus info "$name" >/dev/null 2>&1 </dev/null || die "$(t 'No instance called %s' "$name")"
   case "$mode" in
-    on)  set_line "$CTS" "$name" add
+    on)  if [ "$name" = "$DC" ]; then
+           ok "$(t '%s: the domain controller is always in the backup, as samba backup file (the machine itself is not exported)' "$name")"
+           return 0
+         fi
+         set_line "$CTS" "$name" add
          if [ "$(ct_kind "$name")" = virtual-machine ]; then
            ok "$(t '%s: included in the backup (the whole virtual machine as one export file, every night)' "$name")"
          else
@@ -253,6 +272,7 @@ dc_backup() {
   incus exec "$DC" -- bash -c 'rm -rf /root/hs-dc-backup && samba-tool domain backup offline --targetdir=/root/hs-dc-backup >/dev/null' </dev/null
   incus exec "$DC" -- bash -c 'cat /root/hs-dc-backup/*.tar.bz2 && rm -rf /root/hs-dc-backup' </dev/null > "$out/domain-backup.tar.bz2"
   [ -s "$out/domain-backup.tar.bz2" ] || { echo "empty domain backup from $DC" >&2; return 1; }
+  chmod 700 "$out"; chmod 600 "$out/domain-backup.tar.bz2"     # it holds the keys of the domain: root only
 }
 
 # ── Incus layout and disks as text, so a lost server can be rebuilt: part of the host files ──
@@ -305,6 +325,16 @@ ct_kind() {   # ct_kind <instance>: virtual-machine | container (a container whe
   local k
   k=$("${HS_INCUS:-incus}" query "/1.0/instances/$1" </dev/null 2>/dev/null | jq -r '.type // empty' 2>/dev/null || true)
   [ "$k" = virtual-machine ] && echo virtual-machine || echo container
+}
+has_ct=false; has_vm=false
+ct_kinds() {   # sets has_ct and has_vm: which kinds of instance are in the backup now (the list $CTS)
+  local n
+  has_ct=false; has_vm=false
+  [ -s "$CTS" ] || return 0
+  while read -r n; do
+    [ -n "$n" ] || continue
+    if [ "$(ct_kind "$n")" = virtual-machine ]; then has_vm=true; else has_ct=true; fi
+  done < "$CTS"
 }
 vm_backup() {   # vm_backup <name> <restic backup options...>
   local name=$1 file used avail bad=0 status
@@ -384,6 +414,9 @@ cmd_now() {
   [ -f "$REPO/config" ] || die "$(t 'No backup repository in %s. Run: hs backup init <device>' "$REPO")"
   clear_locks
 
+  # the steps the job shows ("step n of m"): shares, domain controller and host files, each container or VM, the off-site copy
+  steps $(( (${#paths[@]} > 0 ? 1 : 0) + 1 + ${#cts[@]} ))
+  if [ -s "$OFFSITE" ]; then export HS_STEP_TOTAL=$((HS_STEP_TOTAL + 1)); fi
   if [ ${#paths[@]} -gt 0 ]; then
     step "$(t 'Shares: %s' "${on[*]}")"
     R backup "${b[@]}" --tag shares "${paths[@]}" || fail=1
@@ -406,6 +439,7 @@ cmd_now() {
     local root=$INCUS_ROOT/$name/rootfs
     if [ ! -d "$root" ]; then
       warn "$(t '%s: not running (its files are not mounted), skipped' "$name")"
+      export HS_STEP_TOTAL=$((HS_STEP_TOTAL - 1))   # no step for it: the count stays true
       fail=1; continue
     fi
     step "$(t 'Container %s' "$name")"
@@ -440,11 +474,13 @@ cmd_now() {
              "repo_size=$(du -sh "$REPO" 2>/dev/null | cut -f1 || echo '?')"
   if [ "$fail" = 0 ]; then
     note_state "last_ok=$(date +%s)" "status=ok"
+    event_emit backup.ok backup "Backup finished"
     grep -q '^first_ok=' "$RESULT" 2>/dev/null || note_state "first_ok=$(date +%s)"
     ok "Backup finished."
     note "See what is in it: hs backup status"
   else
     note_state "status=failed"
+    event_emit backup.failed backup "Backup finished with errors"
     note "Details: journalctl -u hs-backup. Try again: hs backup now"
     die "Backup finished with errors (see above)."
   fi
@@ -488,9 +524,14 @@ cmd_status() {
   kv "Disk used" "$(sed -n 's/^used_pct=//p' "$RESULT" 2>/dev/null || echo '?')% $(t '(as of the last run)')"
   drill=$(sed -n 's/^last_drill=//p' "$RESULT" 2>/dev/null || true)
   kv "Restore drill" "$(ago "$drill")$([ -n "$drill" ] || echo "   $(t '(try: hs backup drill)')")"
+  ct_kinds
   drill=$(sed -n 's/^drill_ct_ok=//p' "$RESULT" 2>/dev/null || true)
-  if [ -n "$drill" ] || [ -s "$CTS" ]; then
+  if [ -n "$drill" ] || $has_ct; then
     kv "Container drill" "$(ago "$drill")$([ -n "$drill" ] || echo "   $(t '(try: hs backup drill ct)')")"
+  fi
+  drill=$(sed -n 's/^drill_vm_ok=//p' "$RESULT" 2>/dev/null || true)
+  if [ -n "$drill" ] || $has_vm; then
+    kv "Virtual machine drill" "$(ago "$drill")$([ -n "$drill" ] || echo "   $(t '(try: hs backup drill ct)')")"
   fi
   read -r inc unk <<<"$(included_bytes)"
   if [ "$inc" -gt 0 ] || [ "$unk" -gt 0 ]; then
@@ -559,7 +600,8 @@ cmd_offsite() {
 cmd_drill() {
   [ "${1:-}" != ct ] || { shift; cmd_drill_ct "$@"; return; }
   local n=${1:-5} tmp picked f live size ok_n=0 bad=0 args=()
-  [[ "$n" =~ ^[0-9]+$ ]] && [ "$n" -ge 1 ] || usage
+  [[ "$n" =~ ^[0-9]+$ ]] || die "$(t "'%s' is not a number of files. To try a container or virtual machine: hs backup drill ct %s" "$n" "$n")"
+  [ "$n" -ge 1 ] || usage
   need_repo
   mapfile -t picked < <(R ls --json latest --tag shares 2>/dev/null | jq -r 'select(.type == "file" and .size > 0) | .path' | shuf -n "$n")
   [ ${#picked[@]} -gt 0 ] || die "No file in the newest shares backup to try."
@@ -587,6 +629,7 @@ cmd_drill() {
 # and started from `incus init --no-profiles` with only a root disk: no NIC, so no MAC or address can clash with the
 # real container. Then everything is deleted, also on an error and on Ctrl-C (drill_cleanup, called from cleanup()).
 CTDRILL=$STATE/backup-drill-ct        # one line per try: <container> <epoch> ok|failed (the rotation)
+CTNEWEST=$STATE/backup-ct-newest      # epoch of the newest container snapshot in the repository, written by the container drill (0 = none)
 CTIMG=$(dirname "$0")/lib/ct-image.py
 drill_tmp=""; drill_inst=""; drill_img=""; dc_checked=false
 inc() { "${HS_INCUS:-incus}" "$@"; }
@@ -598,23 +641,29 @@ drill_cleanup() {
 }
 
 # The container drilled longest ago (never drilled first, the smaller one first), or the one asked for.
-# Prints "<name> <snapshot id> <bytes>", nothing when there is none.
+# Prints "<name> <snapshot id> <bytes> <snapshot epoch>", nothing when there is none.
+# A pick of all containers also records the time of the newest container snapshot (backup-ct-newest, 0 = none) for the report.
 drill_pick() {   # drill_pick [<name>] [ct|vm]
-  local want=${1:-} kind=${2:-ct} name id size last rows=""
-  while IFS=$'\t' read -r name id; do
+  local want=${1:-} kind=${2:-ct} name id size last when newest=0 rows=""
+  while IFS=$'\t' read -r name id when; do
     [ -n "$name" ] || continue
+    [[ "$when" =~ ^[0-9]+$ ]] || when=0
+    [ "$when" -le "$newest" ] || newest=$when
     if [ -n "$want" ] && [ "$name" != "$want" ]; then continue; fi
+    # without a name only containers that are in the backup now (switching one off is a choice); virtual machines are not switched this way
+    if [ "$kind" = ct ] && [ -z "$want" ] && ! is_ct_on "$name"; then continue; fi
     size=$(R stats --mode restore-size --json "$id" 2>/dev/null | python3 "$CTIMG" field total_size 2>/dev/null | tr -d '\r' || true)
     last=$(awk -v n="$name" '$1 == n { t = $2 } END { print t + 0 }' "$CTDRILL" 2>/dev/null || true)
-    rows+="${last:-0}"$'\t'"${size:-0}"$'\t'"$name"$'\t'"$id"$'\n'
-  done < <(R snapshots --json 2>/dev/null | python3 "$CTIMG" newest "$kind" | tr -d '\r')
+    rows+="${last:-0}"$'\t'"${size:-0}"$'\t'"$name"$'\t'"$id"$'\t'"$when"$'\n'
+  done < <(R snapshots --json 2>/dev/null | python3 "$CTIMG" newest "$kind" --time | tr -d '\r')
+  if [ "$kind" = ct ] && [ -z "$want" ]; then echo "$newest" > "$CTNEWEST" 2>/dev/null || true; fi
   [ -n "$rows" ] || return 0
-  printf '%s' "$rows" | sort -t$'\t' -k1,1n -k2,2n | awk -F'\t' 'NR == 1 { print $3, $4, $2 }'
+  printf '%s' "$rows" | sort -t$'\t' -k1,1n -k2,2n | awk -F'\t' 'NR == 1 { print $3, $4, $2, $5 }'
 }
 
 # One container. Returns 1 with a warning (never exits), so the domain controller check still runs.
-drill_ct_one() {   # drill_ct_one <name> <snapshot id> <bytes>
-  local name=$1 id=$2 size=$3 root avail i st="" wait=${HS_DRILL_WAIT:-90}
+drill_ct_one() {   # drill_ct_one <name> <snapshot id> <bytes> <snapshot epoch>
+  local name=$1 id=$2 size=$3 when=${4:-0} root avail i st="" wait=${HS_DRILL_WAIT:-90} age
   local inst="hs-drill-$name" img="hs-drill-img-$name"
   inst=${inst:0:63}
   drill_cleanup
@@ -629,6 +678,16 @@ drill_ct_one() {   # drill_ct_one <name> <snapshot id> <bytes>
     drill_cleanup; return 1
   fi
   step "$(t 'Container restore drill: %s' "$name")"
+  if [ "$when" -gt 0 ]; then
+    age=$(( ($(date +%s) - when) / 86400 ))
+    if [ "$age" -le 3 ]; then
+      note "$(t 'Snapshot from %s (%s days old)' "$(date -d "@$when" +%F)" "$age")"
+    elif grep -qxF "$name" "$CTS" 2>/dev/null; then
+      warn "$(t 'Snapshot from %s (%s days old); this container is still in the backup, so its backup has not run for days' "$(date -d "@$when" +%F)" "$age")"
+    else
+      warn "$(t 'Snapshot from %s (%s days old); this container is no longer in the backup (hs backup ct %s on)' "$(date -d "@$when" +%F)" "$age" "$name")"
+    fi
+  fi
   R restore "$id" --target "$drill_tmp/restore" >/dev/null || { warn "$(t '%s: the restore itself failed' "$name")"; drill_cleanup; return 1; }
   root=$drill_tmp/restore$INCUS_ROOT/$name/rootfs
   if [ ! -d "$root/etc" ]; then warn "$(t '%s: the snapshot holds no root file system (no etc folder)' "$name")"; drill_cleanup; return 1; fi
@@ -639,9 +698,9 @@ drill_ct_one() {   # drill_ct_one <name> <snapshot id> <bytes>
   inc image import "$drill_tmp/image.tar.gz" --alias "$img" >/dev/null </dev/null || { warn "$(t '%s: could not import the image' "$name")"; drill_img=""; drill_cleanup; return 1; }
   rm -f "$drill_tmp/image.tar.gz"
   drill_inst=$inst
-  # no profiles = no network card, no GPU, no shares, no autostart; only a root disk
-  if ! { inc init "$img" "$inst" --no-profiles -c user.hs-drill=1 -c boot.autostart=false </dev/null >/dev/null &&
-         inc config device add "$inst" root disk path=/ pool="${HS_DRILL_POOL:-default}" </dev/null >/dev/null; }; then
+  # no profiles = no network card, no GPU, no shares, no autostart; only a root disk (--storage adds it: Incus 7 refuses
+  # an init without a root disk, so it cannot be added afterwards)
+  if ! inc init "$img" "$inst" --no-profiles --storage "${HS_DRILL_POOL:-default}" -c user.hs-drill=1 -c boot.autostart=false </dev/null >/dev/null; then
     warn "$(t '%s: could not create the throwaway instance' "$name")"; drill_cleanup; return 1
   fi
   inc start "$inst" </dev/null >/dev/null || { warn "$(t '%s: the throwaway instance did not start' "$name")"; drill_cleanup; return 1; }
@@ -668,14 +727,16 @@ drill_ct_one() {   # drill_ct_one <name> <snapshot id> <bytes>
 # look for sam.ldb. Putting it into a new domain controller stays manual.
 drill_dc() {
   inc info "$DC" >/dev/null 2>&1 </dev/null || { note "$(t 'No domain controller %s here, nothing to check' "$DC")"; return 0; }
-  local dcfile
+  local dcfile listing
   drill_tmp=$(mktemp -d "${HS_DRILL_TMP:-/var/tmp}/hs-drill.XXXXXX") || { warn "Could not make a temporary folder"; return 1; }
   step "$(t 'Domain controller backup file (%s)' "$DC")"
   R restore latest --tag host --target "$drill_tmp/restore" --include "$STATE/backup-dc" >/dev/null 2>&1 || { warn "The restore of the domain backup failed"; drill_cleanup; return 1; }
   dcfile=$drill_tmp/restore$STATE/backup-dc/domain-backup.tar.bz2
   [ -s "$dcfile" ] || { warn "The host backup holds no domain backup file (run hs backup now while the domain controller runs)"; drill_cleanup; return 1; }
   mkdir -p "$drill_tmp/x"
-  tar -tjf "$dcfile" 2>/dev/null | grep -q 'sam\.ldb' || { warn "The domain backup does not list a sam.ldb"; drill_cleanup; return 1; }
+  # read the whole listing first: grep -q would close the pipe early and pipefail would count tar's SIGPIPE as a miss
+  listing=$(tar -tjf "$dcfile" 2>/dev/null || true)
+  grep -q 'sam\.ldb' <<<"$listing" || { warn "The domain backup does not list a sam.ldb"; drill_cleanup; return 1; }
   tar -xjf "$dcfile" -C "$drill_tmp/x" 2>/dev/null || { warn "The domain backup could not be unpacked"; drill_cleanup; return 1; }
   if [ -z "$(find "$drill_tmp/x" -name 'sam.ldb*' -size +0 -print -quit)" ]; then warn "The unpacked domain backup has no sam.ldb"; drill_cleanup; return 1; fi
   drill_cleanup
@@ -695,7 +756,7 @@ drill_vm_one() {   # drill_vm_one <name> <snapshot id> <bytes>
 }
 
 cmd_drill_ct() {   # hs backup drill ct [<name>]
-  local want=${1:-} pick name id size rc=0 vmpick
+  local want=${1:-} pick name id size when rc=0 vmpick
   [ $# -le 1 ] || usage
   need_repo
   trap 'exit 130' INT TERM
@@ -705,7 +766,7 @@ cmd_drill_ct() {   # hs backup drill ct [<name>]
     vmpick=$(drill_pick "" vm)
   fi
   if [ -n "${vmpick:-}" ]; then
-    read -r name id size <<<"$vmpick"
+    read -r name id size _ <<<"$vmpick"
     if drill_vm_one "$name" "$id" "$size"; then
       printf '%s %s ok\n' "$name" "$(date +%s)" >> "$CTDRILL"
       note_state "drill_vm_ok=$(date +%s)" "drill_vm_name=$name"
@@ -721,10 +782,10 @@ cmd_drill_ct() {   # hs backup drill ct [<name>]
       [ -z "$want" ] || die "$(t 'No backup of a container called %s (see: hs backup list)' "$want")"
       [ -n "${vmpick:-}" ] || note "No container is in the backup, nothing to restore (hs backup ct <name> on)"
     else
-      read -r name id size <<<"$pick"
-      if drill_ct_one "$name" "$id" "$size"; then
+      read -r name id size when <<<"$pick"
+      if drill_ct_one "$name" "$id" "$size" "$when"; then
         printf '%s %s ok\n' "$name" "$(date +%s)" >> "$CTDRILL"
-        note_state "drill_ct_ok=$(date +%s)" "drill_ct_name=$name"
+        note_state "drill_ct_ok=$(date +%s)" "drill_ct_name=$name" "drill_ct_snap=${when:-0}"
       else
         printf '%s %s failed\n' "$name" "$(date +%s)" >> "$CTDRILL"
         rc=1
@@ -744,7 +805,7 @@ cmd_drill_ct() {   # hs backup drill ct [<name>]
 # Priority "high" and category problem when something is overdue or failed, otherwise a quiet "info". --dry-run prints instead of sending.
 # HS_BACKUP_NOTIFY: another program for sending (tests); gets the same arguments as notify.sh.
 cmd_report() {
-  local scheduled=false now d lines="" problems=0 k v when limit title prio cat msg
+  local scheduled=false now d lines="" problems=0 k v when limit title prio cat msg cname csnap cok cage cnew
   [ "${1:-}" = --scheduled ] && scheduled=true
   if [ ! -f "$PASSFILE" ] && [ "$(pass_state)" != locked ]; then
     $scheduled && return 0
@@ -768,15 +829,31 @@ cmd_report() {
   check_age "$(t 'Backup')" last_ok 2
   check_age "$(t 'File restore drill')" drill_ok 45
   # the container drill is only expected when containers are in the backup
-  if [ -s "$CTS" ] || [ -n "$(get drill_ct_ok)" ]; then
-    check_age "$(t 'Container restore drill')" drill_ct_ok 90 "$([ -z "$(get drill_ct_name)" ] || echo "($(get drill_ct_name))")"
+  ct_kinds
+  if $has_ct || [ -n "$(get drill_ct_ok)" ]; then
+    # the age of the snapshot the drill restored (at the time of the drill), only when it was old
+    cname=$(get drill_ct_name); csnap=$(get drill_ct_snap); cok=$(get drill_ct_ok); cage=""
+    if [[ "$csnap" =~ ^[0-9]+$ && "$cok" =~ ^[0-9]+$ && "$csnap" -gt 0 && "$cok" -ge "$csnap" ]]; then
+      cage=$(( (cok - csnap) / 86400 ))
+      [ "$cage" -gt 3 ] || cage=""
+    fi
+    if [ -n "$cage" ]; then cname="${cname:+$cname, }$(t 'snapshot %s days old' "$cage")"; fi
+    check_age "$(t 'Container restore drill')" drill_ct_ok 90 "$([ -z "$cname" ] || echo "($cname)")"
   fi
-  if [ -n "$(get drill_vm_ok)" ]; then check_age "$(t 'Virtual machine drill')" drill_vm_ok 90 "($(get drill_vm_name))"; fi
+  # containers were backed up once, none is in the backup now (the newest container snapshot was noted by the container drill)
+  cnew=$(cat "$CTNEWEST" 2>/dev/null || true)
+  if [ ! -s "$CTS" ] && [[ "$cnew" =~ ^[0-9]+$ ]] && [ "$cnew" -gt 0 ]; then
+    add "$(t 'No container is in the backup (chosen); the newest container snapshot is %s days old' "$(( (now - cnew) / 86400 ))")"
+  fi
+  if $has_vm && [ -z "$(get drill_vm_ok)" ]; then add "$(t '! Virtual machine drill: never')"; problems=$((problems + 1))
+  elif [ -n "$(get drill_vm_ok)" ]; then check_age "$(t 'Virtual machine drill')" drill_vm_ok 90 "($(get drill_vm_name))"; fi
   if incus info "$DC" >/dev/null 2>&1 </dev/null || [ -n "$(get drill_dc_ok)" ]; then check_age "$(t 'Domain controller backup file')" drill_dc_ok 90; fi
   if [ -s "$OFFSITE" ]; then check_age "$(t 'Off-site copy')" offsite_ok 3; fi
   # tries that failed lately (the container drills keep a list)
   if [ -s "$CTDRILL" ]; then
-    k=$(awk -v lim=$((now - 35 * 86400)) '$3 == "failed" && $2 >= lim { n[$1]++ } END { for (c in n) printf "%s%s", (s++ ? ", " : ""), c }' "$CTDRILL")
+    # only containers that are in the backup now (switching one off is a choice; its old failures do not count)
+    # (the list holds virtual machines too: the one the VM drill used last always counts)
+    k=$(awk -v lim=$((now - 35 * 86400)) -v cts="$CTS" -v vm="$(get drill_vm_name)" 'BEGIN { while ((getline l < cts) > 0) on[l] = 1 } $3 == "failed" && $2 >= lim && (($1 in on) || $1 == vm) { n[$1]++ } END { for (c in n) printf "%s%s", (s++ ? ", " : ""), c }' "$CTDRILL")
     if [ -n "$k" ]; then add "$(t '! Drills that failed in the last 35 days: %s' "$k")"; problems=$((problems + 1)); fi
   fi
   v=$(get used_pct)
@@ -805,6 +882,7 @@ cmd_report() {
   fi
   line "$title"
   printf '%s\n' "$msg"
+  event_emit backup.report "$cat" "Restore drill report" --level "$([ "$problems" -eq 0 ] && echo info || echo warn)" --payload "{\"problems\":$problems}"
   if [ -n "${HS_BACKUP_NOTIFY:-}" ]; then
     "$HS_BACKUP_NOTIFY" --category "$cat" "$title" "$msg" "$prio"
   else
@@ -853,10 +931,58 @@ cmd_find() {
   R find "*$1*" | sed 's/^/  /'
 }
 
+# In-place restore of shares on the ZFS layout: every share is its own dataset (hs share add), but restic brings folders back as
+# plain folders of the parent dataset. Create the datasets that are missing first, so restic writes into them (hs share repair
+# publishes them afterwards). Only creates; nothing is destroyed or overwritten.
+restore_make_datasets() {   # restore_make_datasets <snapshot> <tag> <path>
+  local snap=$1 tag=$2 path=${3%/} parent name names="" listed d want=() skipped=()
+  case "$path" in
+    "$BULK/shares"|"$BULK/sensitive") parent=${path##*/} ;;
+    "$BULK/shares/"*|"$BULK/sensitive/"*)
+      name=${path#"$BULK"/*/}
+      case "$name" in */*) return 0 ;; esac
+      parent=${path#"$BULK"/}; parent=${parent%%/*} ;;
+    *) return 0 ;;
+  esac
+  [ "$tag" = shares ] || return 0
+  [ "$(cat "${HS_BULK_TYPE_FILE:-/etc/hs/bulk-type}" 2>/dev/null || echo zfs)" != snapraid ] || return 0
+  command -v zfs >/dev/null 2>&1 || return 0
+  if [ -n "${name:-}" ]; then
+    names=$name
+  else
+    # one level below the parent: the share names of the snapshot
+    listed=$(R ls "$snap" --tag "$tag" "$path") || die "$(t 'Could not list %s in the snapshot.' "$path")"
+    names=$(awk -v p="$path/" 'index($0, p) == 1 { n = substr($0, length(p) + 1); if (n != "" && index(n, "/") == 0) print n }' <<<"$listed")
+  fi
+  while IFS= read -r name; do
+    [ -n "$name" ] || continue
+    case "$name" in *.deleted-*|lost+found) continue ;; esac
+    case "${name,,}" in shares|sensitive|global|homes|printers) continue ;; esac
+    if zfs list -H -o name "bulk/$parent/$name" >/dev/null 2>&1; then continue; fi
+    d=$BULK/$parent/$name
+    if [ -d "$d" ] && [ -n "$(ls -A "$d" 2>/dev/null)" ]; then skipped+=("$d"); continue; fi
+    want+=("$name")
+  done <<<"$names"
+  for d in "${skipped[@]}"; do note "$(t '%s is a plain folder with files, left as it is.' "$d")"; done
+  [ "${#want[@]}" -gt 0 ] || return 0
+  step "$(t 'Share datasets that are missing and will be created first')"
+  for name in "${want[@]}"; do note "bulk/$parent/$name"; done
+  for name in "${want[@]}"; do
+    zfs create -p "bulk/$parent/$name" || die "$(t 'Could not create the dataset %s. Nothing was restored.' "bulk/$parent/$name")"
+    # as hs share add: shares are written as adminuser, sensitive folders keep the owner of the snapshot
+    if [ "$parent" = shares ]; then
+      chown adminuser:users "$BULK/$parent/$name" 2>/dev/null || true
+      chmod 2775 "$BULK/$parent/$name" 2>/dev/null || true
+    fi
+  done
+  ok "$(t 'Created %s share datasets. After the restore: sudo hs share repair' "${#want[@]}")"
+}
+
 cmd_restore() {
-  local snap="" path="" tag=shares to=$BULK/shares/restored
+  local snap="" path="" tag=shares to=$BULK/shares/restored keep=false
   while [ $# -gt 0 ]; do
     case "$1" in
+      --keep-owner) keep=true; shift ;;
       --tag) [ $# -ge 2 ] || usage; tag=$2; shift 2 ;;
       --to)  [ $# -ge 2 ] || usage; to=$2; shift 2 ;;
       -*)    usage ;;
@@ -866,13 +992,201 @@ cmd_restore() {
   [ -n "$snap" ] && [ -n "$path" ] || usage
   [ -d "$to" ] || die "$(t '%s does not exist. For the default: hs share add restored' "$to")"
   need_repo
+  [ -n "${to%/}" ] || restore_make_datasets "$snap" "$tag" "$path"
   # "latest" means the newest snapshot with that tag (shares, host, ct:<name>)
   R restore "$snap" --tag "$tag" --target "$to" --include "$path"
   # restic is happy to restore nothing when the path is not in the snapshot
   [ -e "$to/${path#/}" ] || die "$(t "Nothing restored: '%s' is not in that snapshot. Use the full original path (for example %s/shares/<share>/<file>); look it up with: hs backup find <name>" "$path" "$BULK")"
-  # only what was restored: with --to / (restore in place after a disaster) the target is the whole system
-  chown -R adminuser:users "$to/${path#/}" 2>/dev/null || true
+  # --to / is a restore in place: restic as root already put the owners of the snapshot back (container-owned folders
+  # of sensitive/ must stay 1000000:1000000), and the target is the whole system. --keep-owner asks for the same elsewhere.
+  [ -n "${to%/}" ] || keep=true
+  # only what was restored, and only for a folder meant for a person or for incus file push
+  $keep || chown -R adminuser:users "$to/${path#/}" 2>/dev/null || true
   ok "$(t 'Restored into %s (the full original path is recreated below it).' "$to")"
+  if $keep; then note "$(t 'Owners kept as in the snapshot.')"; fi
+}
+
+# ── The settings only: hs backup config [restore] ──
+# What the host snapshot holds of the settings: the files under $NIXOS_DIR (the paths are the original ones in the snapshot).
+# hardware-configuration.nix, SSH host keys, Samba secrets, disks and networks are never put back by this command.
+NIXOS_DIR=${HS_NIXOS_DIR:-/etc/nixos}
+CONFIG_FILES=(machine.toml machine.nix)
+SSH_DIR=${HS_SSH_DIR:-/etc/ssh}
+SAMBA_DIR=${HS_SAMBA_DIR:-/var/lib/samba/private}
+# Files of $STATE that describe THIS disk set or the backup itself: never restored, even with --with-state.
+state_skip() {  # state_skip <path relative to $STATE>
+  case "$1" in
+    restic-password|vault-uuid|luks-uuids|disks|disks/*|.config-restore.*|*.before-restore-*) return 0 ;;
+  esac
+  return 1
+}
+
+cmd_config_list() {
+  need_repo
+  local snaps id time f held
+  snaps=$(R snapshots --tag host --json) || die "$(t 'Could not read the snapshots.')"
+  step "$(t 'Host snapshots (the settings of this server)')"
+  {
+    thead 'Snapshot' 'When' 'Settings files'
+    while IFS=$'\t' read -r id time; do
+      [ -n "$id" ] || continue
+      held=""
+      for f in "${CONFIG_FILES[@]}"; do
+        if R ls "$id" "$NIXOS_DIR/$f" 2>/dev/null | grep -qxF "$NIXOS_DIR/$f"; then held+="${held:+, }$f"; fi
+      done
+      printf '%s\t%s\t%s\n' "$id" "$time" "${held:--}"
+    done < <(jq -r '.[] | [.id[0:8], (.time[0:16] | sub("T"; " "))] | @tsv' <<<"$snaps")
+  } | table
+  note "$(t 'Put them back with: hs backup config restore --dry-run')"
+}
+
+# --from-disk: mount the backup disk read-only and open the repository with a typed passphrase (a fresh install has neither
+# /var/lib/hs/restic-password nor the mounted disk). Sets REPO, R_PASSFILE, R_EXTRA; cleanup() unmounts, the trap removes the temp files.
+open_repo_from_disk() {   # open_repo_from_disk <device>
+  local dev=$1 pass
+  [ -t 0 ] || [ -n "${HS_BACKUP_NO_MOUNT:-}" ] || die "$(t 'The passphrase is typed: run this in a terminal.')"
+  if [ -z "${HS_BACKUP_NO_MOUNT:-}" ]; then
+    [ -b "$dev" ] || die "$(t '%s is not a disk or partition.' "$dev")"
+    MNT=$(mktemp -d "${HS_RUN_DIR:-/run}/hs-config-restore-mnt.XXXX")
+    mount -o ro,noatime "$dev" "$MNT" || die "$(t 'Could not mount %s read-only. Is it the backup disk (ext4)?' "$dev")"
+    mounted_by_us=true
+    REPO=$MNT/restic
+  fi
+  [ -f "$REPO/config" ] || die "$(t 'No restic repository on %s. Is it the backup disk?' "$dev")"
+  CFG_PASSDIR=$(umask 077; mktemp -d "${HS_RUN_DIR:-/run}/hs-config-restore-pw.XXXX")
+  pass=$(ask_secret "$(t 'Backup passphrase (the restic password from your password manager):')") || die "cancelled"
+  [ -n "$pass" ] || die "$(t 'No passphrase given.')"
+  (umask 077; printf '%s' "$pass" >"$CFG_PASSDIR/pass")   # printf is a builtin: nothing on argv
+  pass=""
+  R_PASSFILE=$CFG_PASSDIR/pass
+  R_EXTRA=(--no-lock --no-cache)
+  R snapshots --tag host --json >/dev/null 2>&1 || die "$(t 'Could not open the repository: wrong passphrase, or not the backup disk of this server.')"
+}
+
+cmd_config_restore() {
+  local snap=latest with_state=false a with_samba=false
+  from_disk=""   # global: the EXIT trap reads it after this function ends
+  while [ $# -gt 0 ]; do
+    a=$1; shift
+    case "$a" in
+      --with-state) with_state=true ;;
+      --with-samba) with_samba=true ;;
+      --from-disk) [ $# -gt 0 ] || usage; from_disk=$1; shift ;;
+      -*) usage ;;
+      *)  snap=$a ;;
+    esac
+  done
+  if $with_samba && [ -z "$from_disk" ]; then die "$(t '--with-samba belongs to --from-disk.')"; fi
+  local tmp
+  CFG_TMP="" CFG_PASSDIR=""
+  trap '[ -z "$CFG_TMP" ] || rm -rf "$CFG_TMP"; [ -z "$CFG_PASSDIR" ] || rm -rf "$CFG_PASSDIR"; cleanup; if [ -n "$from_disk" ] && [ -z "${HS_BACKUP_NO_MOUNT:-}" ]; then rmdir "$MNT" 2>/dev/null || true; fi' EXIT
+  if [ -n "$from_disk" ]; then
+    with_state=true
+    open_repo_from_disk "$from_disk"
+  else
+    need_repo
+  fi
+  mkdir -p "$STATE"
+  tmp=$(mktemp -d "$STATE/.config-restore.XXXX")
+  CFG_TMP=$tmp
+  local inc=() f
+  for f in "${CONFIG_FILES[@]}"; do inc+=(--include "$NIXOS_DIR/$f"); done
+  $with_state && inc+=(--include "$STATE")
+  if [ -n "$from_disk" ]; then
+    inc+=(--include "$SSH_DIR/ssh_host_*")
+    $with_samba && inc+=(--include "$SAMBA_DIR")
+  fi
+  step "$(t 'Reading the host snapshot %s' "$snap")"
+  R restore "$snap" --tag host --target "$tmp" "${inc[@]}" >/dev/null || die "$(t 'Could not restore the settings from snapshot %s. Is there a host snapshot? (hs backup config)' "$snap")"
+  [ -f "$tmp$NIXOS_DIR/machine.toml" ] || die "$(t 'That snapshot holds no machine.toml. Look at the list: hs backup config')"
+
+  # The plan: per file new | changed | same. Only names, never contents.
+  local rows=() live rel state same=0 changed=0 skipped=()
+  for f in "${CONFIG_FILES[@]}"; do
+    [ -f "$tmp$NIXOS_DIR/$f" ] || continue
+    rows+=("$NIXOS_DIR/$f")
+  done
+  if $with_state && [ -d "$tmp$STATE" ]; then
+    while IFS= read -r -d '' f; do
+      rel=${f#"$tmp$STATE/"}
+      if state_skip "$rel"; then skipped+=("$rel"); continue; fi
+      rows+=("$STATE/$rel")
+    done < <(find "$tmp$STATE" -type f -print0 | sort -z)
+  fi
+  local ssh_rows=()
+  if [ -n "$from_disk" ]; then
+    while IFS= read -r -d '' f; do ssh_rows+=("${f#"$tmp"}"); done < <(find "$tmp$SSH_DIR" -maxdepth 1 -name 'ssh_host_*' -type f -print0 2>/dev/null | sort -z)
+    rows+=("${ssh_rows[@]}")
+    if $with_samba && [ -d "$tmp$SAMBA_DIR" ]; then
+      while IFS= read -r -d '' f; do rows+=("${f#"$tmp"}"); done < <(find "$tmp$SAMBA_DIR" -type f -print0 | sort -z)
+    fi
+  fi
+  local plan=()
+  for f in "${rows[@]}"; do
+    live=$f
+    if [ ! -e "$live" ]; then state=new
+    elif cmp -s "$tmp$f" "$live"; then state=same
+    else state=changed; fi
+    case "$state" in same) same=$((same + 1)) ;; *) plan+=("$state"$'\t'"$f"); changed=$((changed + 1)) ;; esac
+  done
+  step "$(t 'Plan')"
+  if [ "$changed" -eq 0 ]; then
+    ok "$(t 'Already identical: nothing to put back (%s file(s) compared).' "$same")"
+    return 0
+  fi
+  { thead 'State' 'File'; printf '%s\n' "${plan[@]}"; } | table
+  kv "Identical" "$same"
+  if [ "${#skipped[@]}" -gt 0 ]; then
+    note "$(t 'Not restored on purpose (they describe this disk set or the backup itself): %s' "$(IFS=,; echo "${skipped[*]}")")"
+  fi
+  if [ -n "$from_disk" ]; then
+    $with_samba || note "$(t 'Samba secrets are not restored (add --with-samba to include them).')"
+    note "$(t 'Never touched: hardware-configuration.nix, disks, pools, network.')"
+  else
+    note "$(t 'Never touched: hardware-configuration.nix, SSH host keys, Samba, disks, pools, network.')"
+  fi
+  if $dry; then note "(dry run, nothing changed)"; return 0; fi
+
+  if [ -z "${HS_BACKUP_YES:-}" ]; then
+    [ -t 0 ] || { [ -n "$from_disk" ] && [ -n "${HS_BACKUP_NO_MOUNT:-}" ]; } || die "$(t 'This replaces settings files. Run it in a terminal, or add --yes after looking at --dry-run.')"
+    confirm_name "machine.toml" "the file" || die "cancelled"
+  fi
+  if [ "${#ssh_rows[@]}" -gt 0 ]; then
+    # the old SSH host keys replace this install's own: other computers stop warning about a new server, but they are secrets,
+    # so they come back only after a typed line (never with --yes)
+    local keep=() r ssh_ok=false
+    if [ -z "${HS_BACKUP_YES:-}" ]; then
+      note "$(t 'The SSH host keys of the old server are in the backup. Putting them back keeps your computers from warning about a new server.')"
+      confirm_name "ssh host keys" "the SSH host keys" && ssh_ok=true
+    fi
+    if ! $ssh_ok; then
+      for r in "${rows[@]}"; do case " ${ssh_rows[*]} " in *" $r "*) ;; *) keep+=("$r") ;; esac; done
+      rows=("${keep[@]}")
+      warn "$(t 'SSH host keys not restored (this server keeps its own). Run the command again to put them back.')"
+    fi
+  fi
+
+  local stamp
+  stamp=$(date +%Y%m%d-%H%M%S)
+  for f in "${rows[@]}"; do
+    cmp -s "$tmp$f" "$f" 2>/dev/null && continue
+    # a link into the vault: writing through it would overwrite the secret itself
+    if [ -L "$f" ]; then warn "$(t '%s is a link into the vault, skipped' "$f")"; continue; fi
+    if [ -e "$f" ]; then cp -a "$f" "$f.before-restore-$stamp"; fi
+    mkdir -p "$(dirname "$f")"
+    cp -a "$tmp$f" "$f"
+    ok "$(t 'Restored %s' "$f")"
+  done
+  note "$(t 'The old files were kept as <file>.before-restore-%s.' "$stamp")"
+  note "$(t 'Apply the settings with: hs rebuild')"
+}
+
+cmd_config() {
+  case "${1:-}" in
+    "")      cmd_config_list ;;
+    restore) shift; cmd_config_restore "$@" ;;
+    *)       usage ;;
+  esac
 }
 
 cmd_browse() {
@@ -962,10 +1276,13 @@ cmd_prune() {
 
 # ── Setting up a disk ──
 cmd_init() {
-  local dev bad pass
+  local dev bad pass tool missing=()
   # the password is created inside the vault: with a closed vault nothing is asked and nothing is erased
   if vault_configured && ! vault_is_open && [ ! -e "$PASSFILE" ]; then secret_locked_exit; fi
   [ "$(pass_state)" != locked ] || secret_locked_exit
+  # the tools first: a missing restic must not be found out after the disk is erased
+  for tool in restic mkfs.ext4 wipefs; do command -v "$tool" >/dev/null 2>&1 || missing+=("$tool"); done
+  [ ${#missing[@]} -eq 0 ] || die "$(t 'Missing on this system: %s. Nothing was changed.' "${missing[*]}")"
   if [ $# -eq 0 ]; then
     # no device given: offer the free disks (the same list hs pool bulk uses), nothing is erased yet
     local list line id size kind rest options=() picked
@@ -1129,6 +1446,7 @@ case "$cmd" in
   list)    cmd_list ;;
   find)    cmd_find "$@" ;;
   restore) cmd_restore "$@" ;;
+  config)  cmd_config "$@" ;;
   browse)  cmd_browse "$@" ;;
   verify)  cmd_verify ;;
   prune)   cmd_prune ;;

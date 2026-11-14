@@ -7,7 +7,7 @@
 # "run hs unlock", nothing is written). With a key already there it prints the same two lines again (the public half is derived from the
 # private one); --new replaces it (the old public line must then be replaced in the VPS's machine.nix as well).
 # The VPS accepts that key for update, watch and status and nothing else (proxyserver repo: modules/ssh.nix, modules/cli/vps-remote.sh).
-# Set vpsHost in machine.toml to switch the buttons on; steps: docs/web-interface.md.
+# Set vpsHost (hs config set vpsHost <host>, at once, no rebuild) to switch the buttons on; steps: docs/web-interface.md.
 # Test knobs: HS_STATE_DIR, HS_RUN_DIR (where the key is made first, default /run: memory only), HS_VAULT_DIR, HS_VAULT_OPEN.
 set -euo pipefail
 here=$(dirname "$0")
@@ -66,4 +66,4 @@ step "Public key"
 say "$pub"
 step "Add to the machine.nix of the proxyserver"
 say "webKey = \"$pub\";"
-note "Then on the proxyserver: sudo vps update (or sudo nixos-rebuild switch). Afterwards set vpsHost in machine.toml here and run hs rebuild."
+note "Then on the proxyserver: sudo vps update (or sudo nixos-rebuild switch). Afterwards run hs config set vpsHost <name or address of the proxyserver> here: it applies at once, no rebuild."

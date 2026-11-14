@@ -1,4 +1,5 @@
 <script>
+  import Button from '../ui/Button.svelte';
   // The guided setup of a capability page as a wizard: one question per screen (steps with `options`, [[settings.steps]] in the manifest), then a
   // review that opens the plan of `apply`. `advanced` (set by the page) shows the step keys as plain key/value fields over the SAME draft. Nothing here names a
   // capability; the logic is steps.js.
@@ -78,7 +79,7 @@
         {/each}
       </div>
     {/if}
-    <div class="foot"><button type="button" class="btn btn-primary" disabled={!first && !changes.length} onclick={review}>{tr('Apply…')}</button></div>
+    <div class="foot"><Button variant="primary" type="button" disabled={!first && !changes.length} onclick={review}>{tr('Apply…')}</Button></div>
   {:else if isReview}
     <Wizard index={at} total={list.length} question={tr('Review')} help="" primary={tr('Apply…')} canNext={first || !!changes.length} onnext={review} onback={() => go(at - 1)}>
       {#each steps as s (s.id)}

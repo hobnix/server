@@ -14,13 +14,22 @@ hobnix/extensions (docs/PLAN-packages.md); the core fetches them with `hs pkg`.
   Machine-readable lines (`hs sys ...`, `--list`, `--dry-run`, `--state`) are a contract with the web interface: never change their shape; an
   empty tab-separated field is written `-`.
 - **Generated files are never edited by hand:** config/defaults.nix, scripts/lib/config-keys.sh, scripts/lib/capabilities.tsv,
-  machine.toml.example. Edit config/schema.toml, then `python3 scripts/schema-gen.py write`.
+  machine.toml.example. Edit config/schema.toml, then `python3 scripts/schema-gen.py write`. Also generated: docs/api/openapi.json (from registry.tsv and
+  docs/api/sys.toml: `python3 scripts/openapi-gen.py write` in the same commit as a new or changed `sys` row), and web/src/api/sys.gen.d.ts (TypeScript types from openapi.json:
+  `python3 scripts/openapi-ts-gen.py write` in the same commit as an openapi.json change), and the kinds table in docs/events.md (from
+  scripts/lib/event-kinds.tsv: `python3 scripts/events-doc-gen.py write`).
 - **A new script needs a row** in scripts/lib/registry.tsv (tests/commands.sh); a new `reads` command needs a probe in scripts/smoke.sh; a new
   recipe needs packages/<name>/package.toml and ends with `docs_hint`; a user-visible change adds a docs/changelog entry.
 - **Secrets** are read only through scripts/lib/secret.sh and never go through argv or the environment.
 - **Docs are English** and follow docs/GUIDE-TEMPLATE.md; a step that was not run on real hardware says "Not tested on hardware yet."
-- **Git:** never edit, commit or switch branches in the primary checkout (stays on main; work in your own worktree; guard: scripts/dev/guard-primary-checkout.sh, `bash scripts/dev/install-guards.sh` once per clone); stage files by name after `git status`; no `Co-Authored-By` or "generated with" lines about any AI tool in commits or PRs.
+- **Branches:** `develop` is the default branch: feature branches start from it and pull requests target it. `main` holds released code
+  only and takes nothing but a release pull request (develop into main, merge commit, no squash) followed by a signed `vX.Y.Z` tag on
+  main. A hotfix branches from main, goes into main, then back into develop. Details: docs/dev-environment.md "Branches and releases".
+- **Git:** never edit, commit or switch branches in the primary checkout (stays on main; work in your own worktree; guard: scripts/dev/guard-primary-checkout.sh, `bash scripts/dev/install-guards.sh` once per clone); stage files by name after `git status`; no `Co-Authored-By` or "generated with" lines about any AI tool in commits or PRs; open pull requests against `develop` with `gh pr create --label agent-pr` (the DCO job is skipped for that label, an AI tool never signs off).
 - **Honest reports:** say what failed or was not run. Never claim a result that was not seen.
+- **Board:** In Review = pull request open; Testing = merged, not run on a real server (issue stays open); Done = the issue's "Hardware test"
+  boxes are ticked with a comment on what was seen, then closed. Never move an issue to Done for a run nobody saw. Write the "Hardware
+  test" steps into the issue when the pull request is opened. `python3 scripts/dev/untested.py` lists the untested steps per guide.
 
 ## Where the detail is
 Area rules load by themselves when you touch matching files (`.claude/rules/`): storage, web, packages, commands, shell, config, monitoring,

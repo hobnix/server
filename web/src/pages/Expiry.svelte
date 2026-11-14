@@ -1,5 +1,4 @@
 <script>
-  import { tip } from '../ui/tooltip.svelte.js';
   import PageHeader from '../shell/PageHeader.svelte';
   import { poll, rows } from '../data.svelte.js';
   import { openCreate, openPlan, jobRunning } from '../ui.svelte.js';
@@ -41,7 +40,7 @@
 
 <div class="page">
   <PageHeader title="Expiry dates" crumb="Protection" sub="The health check warns 30 and 7 days before.">
-    {#snippet actions()}<button class="btn btn-primary" use:tip={'Write down something that runs out'} onclick={() => openCreate(ExpiryForm)}><i class="ph ph-plus"></i>Add</button>{/snippet}
+    {#snippet actions()}<Button variant="primary" tooltip={'Write down something that runs out'} onclick={() => openCreate(ExpiryForm)}><i class="ph ph-plus"></i>Add</Button>{/snippet}
   </PageHeader>
 
   <div class="card elev-sm" style="padding:12px 14px">
@@ -55,14 +54,14 @@
             <span class="left" style="color:{warn(i) ? 'var(--st-warn)' : 'var(--color-neutral-300)'}">{left(i)}</span>
           </div>
         {:else if col.key === 'note'}<span class="note">{i.note}</span>
-        {:else}<Button variant="ghost" class="btn-icon rm" icon="x" busy={jobRunning('expiry', ['remove', i.name])} aria-label="Remove {i.name}" tooltip={`Remove ${i.name} from the list`} onclick={() => openPlan('expiry', ['remove', i.name], 'Remove ' + i.name)}></Button>{/if}
+        {:else}<Button variant="ghost" class="btn-icon expiry-rm" icon="x" busy={jobRunning('expiry', ['remove', i.name])} aria-label="Remove {i.name}" tooltip={`Remove ${i.name} from the list`} onclick={() => openPlan('expiry', ['remove', i.name], 'Remove ' + i.name)}></Button>{/if}
       {/snippet}
     </Table>
   </div>
 
   {#if certs.length}
     <div class="card elev-sm" style="padding:12px 14px;gap:6px">
-      <div class="crow"><b>Certificates</b><span class="grow"></span><button use:tip={'Open the certificates page'} class="btn btn-ghost sm" onclick={() => go('/identity/certificates')}>Manage<i class="ph ph-arrow-right"></i></button></div>
+      <div class="crow"><b>Certificates</b><span class="grow"></span><Button variant="ghost" size="sm" tooltip={'Open the certificates page'} onclick={() => go('/identity/certificates')}>Manage<i class="ph ph-arrow-right"></i></Button></div>
       {#each certs as k}
         <div class="crow"><span>{k.what}</span><span class="grow"></span><span class="date">{k.until}</span>
           {#if k.days !== null}<span class="left" style="color:{k.days < 60 ? 'var(--st-warn)' : 'var(--color-neutral-300)'}">{k.days < 0 ? `${-k.days} d ago` : `${k.days} d`}</span>{/if}</div>
@@ -81,5 +80,5 @@
   .track { flex: 1; height: 5px; border-radius: var(--r); background: var(--color-neutral-800); }
   .fill { height: 5px; border-radius: var(--r); }
   .left { width: 64px; text-align: right; white-space: nowrap; }
-  .rm { width: 26px; height: 26px; color: var(--color-neutral-400); }
+  :global(.btn.expiry-rm) { width: 26px; height: 26px; color: var(--color-neutral-400); }
 </style>

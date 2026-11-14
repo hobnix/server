@@ -1,0 +1,3 @@
+# Who may sign release tags of hobnix/server (the core; ssh-keygen allowed-signers format). Rotation: add the new key, release, then remove the old one.
+release ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIPWUhTaYprcROODklPErbp4LAGfEsmcM17AbURUbquhi hobnix core release
+release-ci namespaces="git" ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIA3mq3lxWvWEDW7pywYkB0anseSu6djLYbrvpqUiyXoN

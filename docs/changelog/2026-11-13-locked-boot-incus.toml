@@ -1,0 +1,5 @@
+date  = "2026-11-13"
+type  = "fix"
+title = "A boot with a closed vault leaves no failed Incus units"
+docs  = "backup-and-recovery#case-a-the-system-disk-is-gone-the-data-disks-are-fine"
+body  = """While the storage waits for hs unlock, incus.socket and incus-startup now wait too. Before, the socket kept triggering the skipped incus.service until it hit the trigger limit, and both showed as failed in systemctl --failed on every locked boot. hs unlock starts them as before."""

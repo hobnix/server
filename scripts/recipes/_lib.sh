@@ -11,6 +11,7 @@
 . "${BASH_SOURCE[0]%/*}/../lib/setting.sh"   # setting_get: which providers are set up (reverseProxy, dashboard)
 . "${BASH_SOURCE[0]%/*}/../lib/network.sh"   # network_provider / network_run: the router connection
 . "${BASH_SOURCE[0]%/*}/../lib/recipe-runs.sh"   # recipe_runs_default: lxc or docker (recipe_runtime)
+. "${BASH_SOURCE[0]%/*}/../lib/ask.sh"   # ask_q: one question for the terminal and for the web (ADR 0018)
 . "${BASH_SOURCE[0]%/*}/../lib/internal-link.sh"   # link_get, link_overlaps: the internal link of Incus (internal_link)
 # the recipe's own German texts: <package folder>/i18n/<lang>.tsv (the run.sh that sourced this file is BASH_SOURCE[1]); the texts of this file and of
 # the shared helpers are in the core catalog
@@ -54,15 +55,18 @@ setting() {
   if $existed && [ -z "$saved" ]; then shown=$legacy; fi
   if [ -n "${!env:-}" ]; then
     value=${!env}
-    [[ "$value" =~ ^($pattern)$ ]] && [ "$value" != "$not" ] || fail "$(t "%s='%s' does not fit: %s" "$env" "$value" "$question")"
+    [[ "$value" =~ ^($pattern)$ ]] && { [ -z "$not" ] || [ "$value" != "$not" ]; } || fail "$(t "%s='%s' does not fit: %s" "$env" "$value" "$question")"
   elif { [ -n "$saved" ] || $existed; } && ! $ASK; then
     value=$shown
-  elif interactive; then
+  elif interactive || ask_remote; then
+    local err="" tries=1
     $preferences_shown || { step "Preferences (enter keeps the value in brackets)"; preferences_shown=true; }
     while :; do
-      value=$(ask "$question" "$shown")
-      [[ "$value" =~ ^($pattern)$ ]] && [ "$value" != "$not" ] && break
-      warn "$(t "'%s' does not fit here, try again." "$value")"
+      # at a terminal this is `ask` as before; under an orchestrator the question goes to the web and waits (ask_q, ADR 0018)
+      value=$(ASK_ERROR=$err ASK_ATTEMPT=$tries ask_q "$key" text "$question" "$shown" "$pattern") || exit $?
+      [[ "$value" =~ ^($pattern)$ ]] && { [ -z "$not" ] || [ "$value" != "$not" ]; } && break
+      if ask_remote; then err=$(t 'That value does not fit here.'); tries=$((tries + 1))   # the journal and the record never get the value
+      else warn "$(t "'%s' does not fit here, try again." "$value")"; fi
     done
   else
     value=$shown
@@ -187,19 +191,23 @@ fixed_address() {   # fixed_address <name> [first] [last]
     if [ -n "${RECIPE_IP:-}" ]; then
       spin "$(t 'Reserving %s in UniFi' "$RECIPE_IP")" bash "$scripts/providers/network/$np.sh" set-ip "$mac" "$RECIPE_IP" "$1"
       want=$RECIPE_IP
-    elif interactive; then
+    elif interactive || ask_remote; then
       # UniFi decides whether an address can be used: taken, or inside the DHCP range, is refused
       note "$(t '%s is the first free address in the range for this kind of service.' "$suggestion")"
+      local err="" tries=1
       while [ -z "$want" ]; do
-        answer=$(ask "$(t "Fixed address for '%s'" "$1")" "$suggestion")
+        answer=$(ASK_ERROR=$err ASK_ATTEMPT=$tries ask_q FIXED_IP text "$(t "Fixed address for '%s'" "$1")" "$suggestion" '([0-9]{1,3}\.){3}[0-9]{1,3}') || exit $?
+        tries=$((tries + 1))
         if [[ ! "$answer" =~ ^([0-9]{1,3}\.){3}[0-9]{1,3}$ ]]; then
-          warn "$(t "'%s' is not an address like %s." "$answer" "$suggestion")"
+          if ask_remote; then err=$(t 'That is not an address like 10.10.95.25.')
+          else warn "$(t "'%s' is not an address like %s." "$answer" "$suggestion")"; fi
         elif refused=$(network_run set-ip "$mac" "$answer" "$1" 2>&1); then
           ok "$(t "%s is reserved for '%s' in UniFi" "$answer" "$1")"
           want=$answer
         else
           # say why, then ask again
-          warn "$(t "%s can't be used:" "$answer")"
+          if ask_remote; then err=$(t 'UniFi does not accept that address (taken, or inside the range the router hands out).')
+          else warn "$(t "%s can't be used:" "$answer")"; fi
           tail -n 3 <<<"$refused" | sed 's/^/      /'
         fi
       done

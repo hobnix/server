@@ -1,0 +1,5 @@
+date  = "2026-11-04"
+type  = "feature"
+title = "hs audit: who did what"
+body  = """Every command that changes the server is now recorded in the event log with the user, the time, the words typed and whether it worked. hs audit lists them. Arguments are never kept, so secrets stay out. Not tested on hardware yet."""
+docs  = "operations"

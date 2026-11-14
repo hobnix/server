@@ -18,7 +18,7 @@ in
       Nice = 10;
       IOSchedulingClass = "idle";
     };
-    script = "bash ${scripts}/backup.sh now --scheduled && bash ${scripts}/live.sh refresh @backup";
+    script = "rc=0; bash ${scripts}/backup.sh now --scheduled || rc=$?; bash ${scripts}/live.sh refresh @backup; exit $rc";
     startAt = "04:00";
     onFailure = notifyFailure;
   };
@@ -36,7 +36,7 @@ in
       Nice = 10;
       IOSchedulingClass = "idle";
     };
-    script = "bash ${scripts}/backup.sh drill 5 && bash ${scripts}/live.sh refresh @backup";
+    script = "rc=0; bash ${scripts}/backup.sh drill 5 || rc=$?; bash ${scripts}/live.sh refresh @backup; exit $rc";
     startAt = "*-*-15 05:30";
     onFailure = notifyFailure;
   };
@@ -54,7 +54,7 @@ in
       Nice = 10;
       IOSchedulingClass = "idle";
     };
-    script = "bash ${scripts}/backup.sh drill ct && bash ${scripts}/live.sh refresh @backup";
+    script = "rc=0; bash ${scripts}/backup.sh drill ct || rc=$?; bash ${scripts}/live.sh refresh @backup; exit $rc";
     startAt = "*-*-22 05:30";
     onFailure = notifyFailure;
   };

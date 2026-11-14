@@ -8,7 +8,7 @@
 A container's files on the host carry the SHIFTED ids (uid 0 inside = the id of the rootfs folder on the host,
 usually 1000000). Incus shifts again when it unpacks an image, so the ids are brought back to 0.. here.
 """
-import io, json, os, sys, tarfile, time, platform
+import calendar, io, json, os, re, sys, tarfile, time, platform
 
 ARCH = {"x86_64": "x86_64", "amd64": "x86_64", "aarch64": "aarch64", "arm64": "aarch64", "armv7l": "armv7l"}
 
@@ -61,8 +61,21 @@ def build(rootfs, out, name):
                 tar.addfile(ti)
 
 
-def newest(data, kind="ct"):
+def epoch(text):
+    # restic's time ("2026-10-02T04:00:01.123456789+02:00", "...Z") as epoch seconds; 0 when it cannot be read
+    m = re.match(r"(\d{4})-(\d\d)-(\d\d)T(\d\d):(\d\d):(\d\d)(?:\.\d+)?(Z|[+-]\d\d:\d\d)?", str(text))
+    if not m:
+        return 0
+    t = calendar.timegm(tuple(int(x) for x in m.groups()[:6]))
+    z = m.group(7)
+    if z and z != "Z":
+        t -= (1 if z[0] == "+" else -1) * (int(z[1:3]) * 3600 + int(z[4:6]) * 60)
+    return t
+
+
+def newest(data, kind="ct", with_time=False):
     # kind "ct": containers (files); kind "vm": virtual machines (an `incus export` file, tagged "vm" besides ct:<name>)
+    # with_time: a third column, the snapshot's time as epoch seconds
     best = {}
     for snap in data or []:
         if ("vm" in (snap.get("tags") or [])) != (kind == "vm"):
@@ -71,16 +84,16 @@ def newest(data, kind="ct"):
             if tag.startswith("ct:") and (tag not in best or snap["time"] > best[tag]["time"]):
                 best[tag] = snap
     for tag in sorted(best):
-        print("%s\t%s" % (tag[3:], best[tag]["id"]))
+        print("%s\t%s\t%d" % (tag[3:], best[tag]["id"], epoch(best[tag]["time"])) if with_time else "%s\t%s" % (tag[3:], best[tag]["id"]))
 
 
 if __name__ == "__main__":
     cmd = sys.argv[1] if len(sys.argv) > 1 else ""
     if cmd == "build" and len(sys.argv) == 5:
         build(sys.argv[2], sys.argv[3], sys.argv[4])
-    elif cmd == "newest" and len(sys.argv) in (2, 3) and (len(sys.argv) == 2 or sys.argv[2] in ("ct", "vm")):
-        newest(json.load(sys.stdin), sys.argv[2] if len(sys.argv) == 3 else "ct")
+    elif cmd == "newest" and len(sys.argv) in (2, 3, 4) and (len(sys.argv) == 2 or sys.argv[2] in ("ct", "vm")) and (len(sys.argv) < 4 or sys.argv[3] == "--time"):
+        newest(json.load(sys.stdin), sys.argv[2] if len(sys.argv) >= 3 else "ct", len(sys.argv) == 4)
     elif cmd == "field" and len(sys.argv) == 3:
         print(json.load(sys.stdin)[sys.argv[2]])
     else:
-        sys.exit("usage: ct-image.py build <rootfs> <out.tar.gz> <name> | newest [ct|vm] | field <key>")
+        sys.exit("usage: ct-image.py build <rootfs> <out.tar.gz> <name> | newest [ct|vm [--time]] | field <key>")

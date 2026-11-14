@@ -9,7 +9,8 @@
 #   --list            the same as data (hs sys ext list): name, on|off, commands, nix (yes = a rebuild is needed to switch it), title
 #   enable <name>     machine.toml gets the name in `capabilities`. A package without a Nix module is on at once (the file
 #                     $HS_STATE_DIR/capabilities-on says so until the next rebuild); one with a module needs `hs rebuild`, and is told so
-#   disable <name>    the reverse (capabilities-off wins over everything until the next rebuild; a package that something else keeps on says so)
+#   disable <name>    the reverse (capabilities-off wins over everything until the next rebuild); refused while another package that is on requires it
+#   enable also refuses a package whose `requires` names a capability that is off, or whose `requires_core = ">=N"` is above scripts/lib/api-level
 #   <name>            the commands of the package (also while it is off, marked as such); a word after it that is no command is named
 #   boot              (run by hs-ext-boot.service at boot) for each package that is on and has a `sys ext <name> boot` row: run it, print
 #                     `<name><TAB>ok|failed` (journal only); one failing or hanging package never stops the others; exits 0 always
@@ -19,6 +20,7 @@ here=$(cd "$(dirname "$0")" && pwd)
 . "$here/lib/ui.sh"
 . "$here/lib/machine.sh"
 . "$here/lib/registry-load.sh"
+. "$here/lib/effect.sh"
 state=${HS_STATE_DIR:-/var/lib/hs}
 lang=${HS_LANG:-$(setting_get language 2>/dev/null || echo en)}
 
@@ -35,6 +37,39 @@ manifest() {   # manifest <dir> <key>: a plain string of capability.toml (packag
   local f=$1/capability.toml
   [ -f "$f" ] || f=$1/package.toml
   sed -n "s/^$2[[:space:]]*=[[:space:]]*\"\(.*\)\"[[:space:]]*$/\1/p" "$f" | head -n1
+}
+manifest_list() {   # manifest_list <dir> <key>: the names of a one-line array `key = ["a", "b"]`, one per line
+  local f=$1/capability.toml
+  [ -f "$f" ] || f=$1/package.toml
+  sed -n "s/^$2[[:space:]]*=[[:space:]]*\[\(.*\)\][[:space:]]*\$/\1/p" "$f" | head -n1 | tr ',' '\n' | tr -d ' "'"'"'' | sed '/^$/d'
+}
+perms_of() {   # perms_of <name>: the declared permissions, comma separated; "not declared" when the manifest has none (ADR 0014: shown, not enforced)
+  local out
+  out=$(python3 "$here/pkg.py" perms "$1" 2>/dev/null) || out=-
+  if [ "$out" = "-" ]; then t "not declared"; else printf '%s' "$out" | paste -sd, - | sed 's/,/, /g'; fi
+}
+core_level() { cat "$here/lib/api-level" 2>/dev/null || echo 0; }
+compat_problem() {   # compat_problem <name> <dir>: prints why the package cannot be switched on (a capability it requires is off, or it needs a newer core); nothing when fine
+  local r need
+  need=$(manifest "$2" requires_core | sed -n 's/^>=[[:space:]]*\([0-9][0-9]*\)$/\1/p')
+  if [ -n "$need" ] && [ "$need" -gt "$(core_level)" ]; then
+    t "needs core API level %s, this server has %s (hs update first)" "$need" "$(core_level)"; return 0
+  fi
+  while IFS= read -r r; do
+    capability_on "$r" || { t "needs the capability '%s', which is off" "$r"; return 0; }
+  done < <(manifest_list "$2" requires)
+  return 0
+}
+dependents_on() {   # dependents_on <name>: the packages that are on and require it, one per line
+  local n d
+  while IFS= read -r n; do
+    [ "$n" != "$1" ] || continue
+    d=$(ext_package_dir "$n") || continue
+    [ -f "$d/capability.toml" ] || continue
+    ext_package_on "$n" || continue
+    manifest_list "$d" requires | grep -qxF -- "$1" && printf '%s\n' "$n"
+  done < <(ext_package_names)
+  return 0
 }
 title_of() {   # title_of <dir>
   local t=""
@@ -81,10 +116,11 @@ cmd_list() {   # people list
     d=$(ext_package_dir "$n") || continue
     [ -f "$d/capability.toml" ] || continue
     if ext_package_on "$n"; then st=on; else st=off; fi
-    rows+="$n"$'\t'"$st"$'\t'"$(n_commands "$n")"$'\t'"$(title_of "$d")"$'\n'
+    rows+="$n"$'\t'"$st"$'\t'"$(n_commands "$n")"$'\t'"$(title_of "$d")"$'\t'"$(perms_of "$n")"$'\n'
   done < <(ext_package_names)
   if [ -z "$rows" ]; then note "No extension packages on this server."; return 0; fi
-  { thead 'Package' 'State' 'Commands' 'What it is'; printf '%s' "$rows"; } | table
+  { thead 'Package' 'State' 'Commands' 'What it is' 'Permissions it declares'; printf '%s' "$rows"; } | table
+  note "$(t "Permissions are what a package says it needs. They are not enforced: every command runs as root, so install only packages you trust.")"
   next_step "hs ext enable <package>"
 }
 
@@ -99,14 +135,19 @@ cmd_data() {   # hs sys ext list
 }
 
 cmd_enable() {
-  local n=${1:-} d cur=() x found=0
+  local n=${1:-} d cur=() x found=0 why
   [ -n "$n" ] || usage
   need_package "$n"
   d=$(ext_package_dir "$n")
   if is_recipe "$n"; then fail_fix "$(t "'%s' is a recipe: it is applied, not switched on." "$n")" "hs recipe $n"; fi
   if ext_package_on "$n"; then note "$(t "The extension '%s' is on already." "$n")"; return 0; fi
+  why=$(compat_problem "$n" "$d")
+  if [ -n "$why" ]; then fail_fix "$(t "'%s' %s." "$n" "$why")" "hs ext list"; fi
+  why=$(python3 "$here/pkg.py" perms-check "$d" "$n" 2>&1 | head -n1) || true
+  if [ -n "$why" ]; then fail_fix "$(t "'%s' uses more than it declares in permissions: %s" "$n" "$why")" "hs ext list"; fi
   mapfile -t cur < <(caps_list)
   for x in ${cur[@]+"${cur[@]}"}; do [ "$x" != "$n" ] || found=1; done
+  if has_nix "$d"; then effect_say rebuild; else effect_say now; fi
   if [ "$found" = 0 ]; then caps_write ${cur[@]+"${cur[@]}"} "$n"; fi
   if has_nix "$d"; then
     ok "$(t "Extension '%s' is in machine.toml." "$n")"
@@ -120,13 +161,16 @@ cmd_enable() {
 }
 
 cmd_disable() {
-  local n=${1:-} d cur=() keep=() x
+  local n=${1:-} d cur=() keep=() x deps
   [ -n "$n" ] || usage
   need_package "$n"
   d=$(ext_package_dir "$n")
   if is_recipe "$n"; then fail_fix "$(t "'%s' is a recipe: its container is managed with hs ct." "$n")" "hs ct"; fi
+  deps=$(dependents_on "$n" | paste -sd' ' -)
+  if [ -n "$deps" ]; then fail_fix "$(t "'%s' cannot be switched off: %s needs it." "$n" "$deps")" "hs ext disable ${deps%% *}"; fi
   mapfile -t cur < <(caps_list)
   for x in ${cur[@]+"${cur[@]}"}; do [ "$x" = "$n" ] || keep+=("$x"); done
+  if has_nix "$d"; then effect_say rebuild; else effect_say now; fi
   if [ ${#keep[@]} -ne ${#cur[@]} ]; then caps_write ${keep[@]+"${keep[@]}"}; fi
   if has_nix "$d"; then
     ok "$(t "Extension '%s' is out of machine.toml." "$n")"

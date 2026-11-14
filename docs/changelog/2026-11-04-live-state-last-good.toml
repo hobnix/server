@@ -1,0 +1,7 @@
+date  = "2026-11-04"
+type  = "change"
+title = "A failing read keeps showing the last good data and says so"
+docs  = "operations"
+body  = """
+When a live read fails, the page keeps the last good data, marked as old, instead of going empty. The event log gets one entry when a read starts failing and one when it works again.
+"""

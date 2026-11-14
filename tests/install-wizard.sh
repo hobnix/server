@@ -10,6 +10,8 @@ REPO=$WORK/repo; mkdir -p "$REPO/presets" "$REPO/scripts"
 cp "$ROOT/machine.toml.example" "$REPO/"; cp "$ROOT"/presets/*.toml "$REPO/presets/"; mkdir -p "$REPO/config"; cp "$ROOT/config/schema.toml" "$REPO/config/"
 printf 'x' > "$REPO/install.nix"; mkdir -p "$REPO/.git" "$REPO/node_modules"; printf 'x' > "$REPO/.git/HEAD"; printf 'x' > "$REPO/node_modules/junk"
 T=$WORK/target
+# the git checkout step must never reach the network in a test: an origin that does not exist means "no network"
+export HS_INSTALL_ORIGIN=$WORK/no-such-origin HS_INSTALL_FETCH_TIMEOUT=20 HS_INSTALLER_VERSION_FILE=$WORK/no-such-version-file
 
 echo "-- the plan (dry run)"
 out=$($W --dry-run --disk sda --hostname myserver --key "$KEY" --timezone Europe/Vienna --preset minimal --nic eth0 --smb-allow "10.0.0.0/24 127.0.0.1" --target "$T" --repo "$REPO" 2>&1)
@@ -46,6 +48,62 @@ out=$($W --dry-run --hostname ok --key "$KEY" --target "$T" --repo "$REPO" 2>&1 
 check_out "no disk and no terminal: nothing is chosen on a guess" "No terminal and no --disk" echo "$out"
 out=$($W --dry-run --role nonsense --disk sda --hostname ok --key "$KEY" --target "$T" --repo "$REPO" 2>&1 || true)
 check_out "an unknown role" "role is homeserver, edge or minimal" echo "$out"
+
+echo "-- the git checkout in /etc/nixos (issue #396)"
+G="git -c user.name=t -c user.email=t@t -c commit.gpgsign=false -c tag.gpgsign=false"
+PUB=$WORK/published; mkdir -p "$PUB"
+cp -r "$REPO"/. "$PUB"/; rm -rf "$PUB/.git" "$PUB/node_modules"; cp "$ROOT/.gitignore" "$PUB/"
+mkdir -p "$PUB/tests" "$PUB/.claude"; echo t > "$PUB/tests/a.sh"; echo c > "$PUB/.claude/b"
+( cd "$PUB" && git init -q -b develop && $G add -A && $G commit -q -m one && $G tag v0.1.0 && echo more > extra.txt && $G add extra.txt && $G commit -q -m two )
+TAGC=$(git -C "$PUB" rev-parse v0.1.0); HEADC=$(git -C "$PUB" rev-parse HEAD)
+# what the ISO carries: the published tree without .git, tests and .claude (a copy of the tagged commit)
+ISO=$WORK/iso-tree; mkdir -p "$ISO"; git -C "$PUB" archive "$TAGC" | tar -x -C "$ISO"; rm -rf "$ISO/tests" "$ISO/.claude"
+vf=$WORK/hs-installer-version; printf 'describe=v0.1.0\ncommit=%s\n' "$TAGC" > "$vf"
+inst() {   # inst <target> [more options]: the install with its own target, the ISO tree and the version file (ORIGIN: another origin)
+  local tg=$1; shift
+  mkdir -p "$tg/etc/nixos"; echo "hw-sentinel" > "$tg/etc/nixos/hardware-configuration.nix"
+  HS_INSTALL_ORIGIN=${ORIGIN:-$PUB} HS_INSTALLER_VERSION_FILE=$vf $W --disk sda --hostname gitbox --key "$KEY" --preset minimal --nic eth0 --smb-allow "10.0.0.0/24" --target "$tg" --repo "$ISO" "$@" 2>&1
+}
+out=$(HS_INSTALL_ORIGIN=$PUB HS_INSTALLER_VERSION_FILE=$vf $W --dry-run --disk sda --hostname gitbox --key "$KEY" --target "$WORK/g0" --repo "$ISO" 2>&1)
+check_out "the plan names the git checkout and the tag" "Git checkout.*at v0.1.0" echo "$out"
+check "a dry run makes no checkout" test ! -e "$WORK/g0/etc/nixos"
+out=$(inst "$WORK/g1"); E=$WORK/g1/etc/nixos
+check_out "it says the checkout is made" "is a git checkout of v0.1.0" echo "$out"
+check_eq "HEAD is the commit of the ISO" "$TAGC" "$(git -C "$E" rev-parse HEAD)"
+check_eq "the version is the tag" "v0.1.0" "$(git -C "$E" describe --tags --always)"
+check_eq "HEAD is detached on a tag, like hs update on stable" "HEAD" "$(git -C "$E" rev-parse --abbrev-ref HEAD)"
+check_eq "git status is clean: machine.toml and hardware-configuration.nix are ignored" "" "$(git -C "$E" status --porcelain)"
+check "files the copy leaves out come back (tests)" test -f "$E/tests/a.sh"
+check_eq "origin is the given url" "$PUB" "$(git -C "$E" remote get-url origin)"
+check "the tags were fetched" git -C "$E" rev-parse -q --verify refs/tags/v0.1.0
+check_eq "hardware-configuration.nix is untouched" "hw-sentinel" "$(cat "$E/hardware-configuration.nix")"
+check_eq "machine.toml has the answers" '"gitbox"' "$(HS_MACHINE_FILE=$E/machine.toml python3 "$SCRIPTS/machine-toml.py" get "$E/machine.toml" hostName --json)"
+check_eq "the version is also kept for a server without git" "v0.1.0" "$(cat "$E/.hobnix-version")"
+check "the update channel sees the tag" bash -c 'cd "$1" && git tag --list "v[0-9]*" | grep -qx v0.1.0' _ "$E"
+
+# a stick built from develop (not a tag): on the branch develop, tracking origin/develop
+printf 'describe=v0.1.0-1-g%s\ncommit=%s\n' "${HEADC:0:7}" "$HEADC" > "$vf"
+ISO2=$WORK/iso-tree2; mkdir -p "$ISO2"; git -C "$PUB" archive "$HEADC" | tar -x -C "$ISO2"; rm -rf "$ISO2/tests" "$ISO2/.claude"
+ISO_SAVE=$ISO; ISO=$ISO2; out=$(inst "$WORK/g2"); ISO=$ISO_SAVE; E=$WORK/g2/etc/nixos
+check_eq "from develop: the branch is develop" "develop" "$(git -C "$E" rev-parse --abbrev-ref HEAD)"
+check_eq "tracking origin/develop" "origin/develop" "$(git -C "$E" rev-parse --abbrev-ref 'develop@{u}')"
+check_eq "and clean" "" "$(git -C "$E" status --porcelain)"
+
+echo "-- no network, or a revision nobody published: the install goes on without .git"
+printf 'describe=v0.1.0\ncommit=%s\n' "$TAGC" > "$vf"
+out=$(ORIGIN=$WORK/not-there inst "$WORK/g3"); E=$WORK/g3/etc/nixos
+check_out "the install went on after the warning" "machine.toml: server name" echo "$out"
+check_out "it says there is no checkout and where the steps are" "No git checkout was made.*docs/install.md" echo "$out"
+check "no half repository is left" test ! -e "$E/.git"
+check "machine.toml is written all the same" test -f "$E/machine.toml"
+check_eq "the version is still known" "v0.1.0" "$(cat "$E/.hobnix-version")"
+printf 'describe=v9.9.9\ncommit=%s\n' "0000000000000000000000000000000000000001" > "$vf"
+out=$(inst "$WORK/g4"); E=$WORK/g4/etc/nixos
+check_out "a commit that is not published: said, no .git" "does not say which published revision" echo "$out"
+check "and no .git" test ! -e "$E/.git"
+printf 'describe=-\ncommit=-\n' > "$vf"
+out=$(inst "$WORK/g5"); check "a stick without a revision: no .git, no failure" test ! -e "$WORK/g5/etc/nixos/.git"
+check_out "and the plan says so" "Git checkout.*none" bash -c "HS_INSTALL_ORIGIN=$PUB HS_INSTALLER_VERSION_FILE=$vf $W --dry-run --disk sda --hostname gitbox --key '$KEY' --target $WORK/g6 --repo $ISO 2>&1"
 
 echo "-- the role edge (a public VPS)"
 out=$($W --dry-run --role edge --bios --disk sda --hostname edge1 --key "$KEY" --target "$WORK/edge-dry" --repo "$REPO" 2>&1)

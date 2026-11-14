@@ -20,6 +20,7 @@
   "keyMap": "general",
   "icons": "general",
   "loginMessage": "general",
+  "updateChannel": "updates",
   "webUi": "general",
   "webPort": "general",
   "webAccent": "general",
@@ -27,7 +28,9 @@
   "webLan": "access",
   "webDocs": "general",
   "liveState": "cap:live-state",
+  "testlabNightly": "cap:testlab",
   "webTerminal": "access",
+  "recipeQuestionHours": "access",
   "webTerminalIdleMinutes": "access",
   "webTerminalMaxHours": "access",
   "nic": "network",
@@ -37,6 +40,7 @@
   "siteName": "network",
   "incusUi": "network",
   "incusInternalSubnet": "cap:incus",
+  "isoDir": "cap:incus",
   "sshOverIp": "access",
   "tailscaleRouter": "cap:tailscale",
   "bulkType": "storage",
@@ -124,6 +128,7 @@
    "title": "Docker host with a web page to manage it",
    "icon": "puzzle-piece",
    "entry": true,
+   "status": "docker health",
    "apply": "docker setup",
    "steps": [
     {
@@ -378,6 +383,11 @@
   },
   "tailscale": {
    "title": "Tailscale (private access to this server)",
+   "icon": "puzzle-piece",
+   "entry": true
+  },
+  "testlab": {
+   "title": "Test-lab (builds the installer ISO and runs it in a nested VM)",
    "icon": "puzzle-piece",
    "entry": true
   },

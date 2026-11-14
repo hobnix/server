@@ -11,6 +11,8 @@ printf '%s|%s|%s|%s\n' "$2" "$4" "$1 $3" "$5" >> "$FAKE_SENT"
 F
 chmod +x "$HS_BACKUP_NOTIFY"
 export FAKE_SENT=$WORK/sent
+export HS_EVENT_NOROOT=1 HS_STATE_DB=$WORK/ev.db
+evs() { python3 "$SCRIPTS/state-db.py" event-list 100 | cut -f3-6,8 | tr '\t' ' '; }
 hsb() { bash "$SCRIPTS/backup.sh" "$@"; }
 now=$(date +%s); day=86400
 echo pw > "$ST/restic-password"
@@ -28,6 +30,8 @@ check_out "the dry run sends nothing" "nothing sent" echo "$out"
 check "no message went out" test ! -e "$FAKE_SENT"
 hsb report >/dev/null 2>&1
 check_out "a real run sends it with low priority" "restore drills are fine.*low" cat "$FAKE_SENT"
+check_out "event: the report, no problems" "backup report info info {\"problems\":0}" evs
+check_eq "the dry run wrote no event" 1 "$(evs | grep -c .)"
 
 echo "-- overdue and failed"
 rm -f "$FAKE_SENT"
@@ -48,6 +52,43 @@ done
 hsb report >/dev/null 2>&1
 check_out "problems go out with high priority" "to look at.*high" cat "$FAKE_SENT"
 check_out "and as a problem" "^problem[|]" cat "$FAKE_SENT"
+check_out "event: the report with problems is a warn" "backup report problem warn {\"problems\":[1-9]" evs
+
+echo "-- the age of the drilled snapshot, and no container in the backup"
+cat > "$ST/backup.state" <<S
+status=ok
+last_ok=$((now - 3600))
+drill_ok=$((now - 10 * day))
+drill_ct_ok=$((now - 2 * day))
+drill_ct_name=arr
+drill_ct_snap=$((now - 11 * day))
+used_pct=40
+S
+rm -f "$ST/backup-drill-ct"
+echo arr > "$ST/backup-instances"
+out=$(hsb report --dry-run 2>&1)
+check_out "an old snapshot adds its age (at the time of the drill)" "Container restore drill: 2 days ago \(arr, snapshot 9 days old\)" echo "$out"
+check "no 'no container' line while one is in the backup" bash -c "! grep -q 'No container is in the backup' <<<'$out'"
+sed -i "s/^drill_ct_snap=.*/drill_ct_snap=$((now - 3 * day))/" "$ST/backup.state"
+check_out "a fresh snapshot adds nothing" "Container restore drill: 2 days ago \(arr\)" hsb report --dry-run
+sed -i '/^drill_ct_snap=/d' "$ST/backup.state"
+check_out "a state without the field still parses" "Container restore drill: 2 days ago \(arr\)" hsb report --dry-run
+: > "$ST/backup-instances"
+echo $((now - 9 * day)) > "$ST/backup-ct-newest"
+out=$(hsb report --dry-run 2>&1)
+check_out "snapshots but no container in the backup: an info line" "^No container is in the backup \(chosen\); the newest container snapshot is 9 days old" echo "$out"
+check "and it is not a problem" bash -c "! grep -q 'to look at' <<<'$out'"
+check_out "the title stays fine" "restore drills are fine" echo "$out"
+echo "arr $((now - 2 * day)) failed" > "$ST/backup-drill-ct"
+check "a failure of a container that is off is not named" bash -c "! bash '$SCRIPTS/backup.sh' report --dry-run 2>&1 | grep -q 'failed in the last 35 days'"
+echo arr > "$ST/backup-instances"
+check_out "a failure of a container that is in the backup is named" "failed in the last 35 days: arr" hsb report --dry-run
+: > "$ST/backup-instances"
+rm -f "$ST/backup-drill-ct"
+echo 0 > "$ST/backup-ct-newest"
+check "never had container backups: no line" bash -c "! bash '$SCRIPTS/backup.sh' report --dry-run 2>&1 | grep -q 'No container is in the backup'"
+rm -f "$ST/backup-ct-newest" "$ST/backup-instances"
+check "no state file at all: no line" bash -c "! bash '$SCRIPTS/backup.sh' report --dry-run 2>&1 | grep -q 'No container is in the backup'"
 
 echo "-- the schedule"
 check_eq "a server without a backup does nothing on the timer" "" "$(HS_STATE_DIR=$WORK/none bash "$SCRIPTS/backup.sh" report --scheduled 2>&1)"

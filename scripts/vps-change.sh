@@ -12,12 +12,13 @@
 #   heading|step|note|warn|command<TAB><line>, long<TAB>yes|no.
 # start: the same checks, then ssh runs as a background job (status started, unit); its output is the job log. The private key is only a
 #   PATH in the ssh command line, never its content.
-# Test knobs: HS_SSH (stand-in for ssh), HS_STATE_DIR, HS_MACHINE_FILE.
+# Test knobs: HS_SSH (stand-in for ssh), HS_STATE_DIR, HS_MACHINE_FILE, HS_SETTINGS_DIR.
 set -euo pipefail
 here=$(dirname "$0")
 . "$here/lib/ui.sh"
 . "$here/lib/secret.sh"
 . "$here/lib/machine.sh"
+. "$here/lib/setting.sh"
 state=${HS_STATE_DIR:-/var/lib/hs}
 ssh_bin=${HS_SSH:-ssh}
 
@@ -31,9 +32,11 @@ case "$action" in update|watch) ;; *) refuse "unknown action (update or watch)" 
 export HS_PLAIN=1 HS_LANG=en HS_CALLER=${HS_CALLER:-ui}
 unset HS_GUIDED_TTY
 
-host=$(machine_get vpsHost 2>/dev/null || true)
-[ -n "$host" ] || refuse "vpsHost is not set in machine.toml (the Tailscale name or address of the proxyserver), then hs rebuild."
-{ [[ "$host" =~ ^[A-Za-z0-9][A-Za-z0-9._:-]{0,100}$ ]] && [[ "$host" != *..* ]]; } || refuse "vpsHost in machine.toml is not a host name or address."
+# the runtime setting (hs config set vpsHost), or the old line of machine.toml
+host=$(setting_get vpsHost 2>/dev/null || true)
+[ -n "$host" ] || host=$(machine_get vpsHost 2>/dev/null || true)
+[ -n "$host" ] || refuse "vpsHost is not set (hs config set vpsHost <the Tailscale name or address of the proxyserver>)."
+{ [[ "$host" =~ ^[A-Za-z0-9][A-Za-z0-9._:-]{0,100}$ ]] && [[ "$host" != *..* ]]; } || refuse "vpsHost is not a host name or address."
 
 key=$state/vps-key
 case "$(secret_state "$key")" in

@@ -382,6 +382,24 @@ fm pair disk:data-04 disk:data-05; check_eq "pair works with the switch off" 0 "
 echo true > "$HS_STATE_DIR/settings/fileManagerWrite"
 fmsel readme.txt -- plan copy --from disk:data-04 --path shares/media --to disk:data-05 --to-path shares/media; has "^warn${T}The file manager is read only" && fail "warn stays with the switch on" || pass "no read-only warning with the switch on"
 
+echo "-- the job record carries the progress (#386)"
+if command -v python3 >/dev/null 2>&1; then
+  export HS_JOBS_DIR=$WORK/jobs; mkdir -p "$HS_JOBS_DIR"
+  rid=$(python3 "$SCRIPTS/job-record.py" new --slug fm-copy --desc "copy test" --unit hs-job-fm-test-rec --source web) && python3 "$SCRIPTS/job-record.py" run "$rid"
+  export HS_JOB_ID=$rid; mkdir -p "$D5/shares/media/rec" "$D4/shares/media/recsrc/Doc"; head -c 20000 /dev/urandom > "$D4/shares/media/recsrc/Doc/a.bin"   # own files: earlier blocks move Avatar
+  fmsel Doc -- start copy --from disk:data-04 --path shares/media/recsrc --to disk:data-05 --to-path shares/media/rec
+  unset HS_JOB_ID; has "^unit${T}" || fail "record copy did not start: $out"
+  rec=$(python3 "$SCRIPTS/job-record.py" get "$rid")
+  python3 -c 'import json,sys; r=json.loads(sys.argv[1]); p=r["progress"]; s=r["step"]; sys.exit(0 if p["unit"]=="bytes" and p["done"]==p["total"] and p["total"]>0 and s["of"]==1 else 1)' "$rec" \
+    && pass "the record has progress (bytes done = total) and step after a copy" || fail "record: $rec"
+  python3 "$SCRIPTS/job-record.py" finish "$rid" 0   # what hs_job does when the unit ends
+  unit=$(kv unit); id=$(cat "$HS_FM_DIR/jobs/$unit.alias"); mv "$HS_FM_DIR/jobs/$id.state" "$WORK/state.bak"
+  fm progress "$unit"
+  check_eq "progress without a state file reads the record: result" done "$(kv result)"
+  [ "$(kv bytes_done)" = "$(kv bytes_total)" ] && [ "$(kv bytes_total)" -gt 0 ] && pass "progress from the record: bytes" || fail "progress from the record: $out"
+  unset HS_JOBS_DIR
+else skip "python3 is missing"; fi
+
 echo "-- audit and the pieces around it"
 [ -s "$HS_FM_DIR/audit.log" ] && grep -q "^[0-9T:+-]*${T}ui${T}delete${T}disk:data-04:/shares/media${T}" "$HS_FM_DIR/audit.log" && pass "audit.log: one line per operation (time, who, op, source)" || fail "audit: $(tail -n3 "$HS_FM_DIR/audit.log" 2>/dev/null)"
 grep -q "result" /dev/null; grep -q "${T}done$" "$HS_FM_DIR/audit.log" && grep -q "${T}failed$" "$HS_FM_DIR/audit.log" && grep -q "${T}cancelled$" "$HS_FM_DIR/audit.log" && pass "audit.log: results done, failed and cancelled" || fail "audit results"

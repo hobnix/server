@@ -118,11 +118,30 @@ string topics. `poll` accepts a topic function; shell scripts call `live_refresh
 Not built: the instances and services pages (they keep their polls and have no topic), the homeserver-deck, retiring the old collector (`reads-collect.sh`, the `reads` table).
 Retirement stays future work until no served read uses `Reads.collected`.
 
+## Reads table: reshape now, retire later (2026-11-08, #324)
+
+**Decision: keep the table for now and bring it to the live entry shape; retire it when `liveState = "redis"` is the default for homeservers.**
+Why: `liveState` is `off` by default (config/schema.toml) and the Redis default is neither decided nor proven on hardware, so every server that has
+not turned it on still serves its 31 slow reads from state.db `reads` (ADR 0002: the table is runtime state, rebuildable, the collector fills it again).
+Dropping it now would make those servers run every read per request again. Reshaping is small and gives the Data page one status for both modes.
+The ADRs (0002 system state vs runtime state, 0005 events) say only that runtime state may be rebuilt and that "changed" must mean "different"; neither
+asks for the table to go before Redis is the default. So: option A now, option B (migration that drops `reads`, removes `reads-collect.sh` and the
+off-mode half of the Data page) in the change that flips the default.
+
+Built: columns `gen` (counts up when the output changed), `err`, `ts_err` and `ttl` (nullable; a migration in `state-db.py migrate_reads`, run when the
+database is opened for writing; old rows keep their values, an unmigrated database is still listed). `updated` is the good-data time (`ts`). A run with no
+output keeps the old output and `updated` and records `err`/`ts_err`/`rc` (`state-db.py read-fail`, called by `reads-collect.sh`); a run with output (also
+with a non-zero exit) still replaces the output, as before. `live_state.status_of` works on a row (`ts` = `updated`, interval = the line of
+`collected-reads.tsv`): fresh, stale (failed, old data inside the ttl), error (failed or never read well) or expired (collector not running).
+`state-db.py reads` and `hs sys reads status` get four more fields at the end (status, gen, err, error age; the first six are unchanged), the Data page
+shows the status column in both modes. Not tested on hardware yet.
+
 ## Refresh base (2026-11-01)
 
 Built, not run on hardware: topic columns `cap` and `groups`, group refresh (`@<group>`, `any`), bounded parallel reads (`HS_LIVE_PARALLEL`),
 a refresh hook in the dispatcher for `changes` rows and at job start, the old collector skipping topic reads in Redis mode, and the topic map in the
 session answer. Details: capabilities/live-state/NOTES.md. More topics follow in later slices.
+Audit of every event source and consumer: docs/PLAN-events.md.
 
 ## System slice (2026-11-01)
 
@@ -134,6 +153,52 @@ Details: capabilities/live-state/NOTES.md.
 
 8 topics (`ct-list`, `ct-profiles`, `services-list|app|routes|local-routes|tiles|stats`), see capabilities/live-state/NOTES.md. `ct list` is read
 every 10 s (the pages polled 5 s) and refreshed by `@instances`/`@network` after a change. Not tested on hardware yet.
+
+## Last good data (2026-11-04)
+
+A failed read (non-zero exit without output, timeout, `hs sys` not startable) keeps the previous document: `out` and `ts` (the time of the last good
+read) stay, `err`/`ts_err` are set and `state` is `stale` (there was a good read) or `error` (never). A good read sets `state` `ok` and clears the
+error. The web answers with the old data and, additive, `X-HS-Stale` (time of the failure), `X-HS-State` and `X-HS-Last-Ok` (epoch seconds or `-`).
+Events `live.collector-failed` (once per change into error) and `live.collector-recovered` (docs/adr/0005-events.md). `hs sys live status`/`check`
+keep their shape. Not tested on hardware yet.
+
+## Entry status, source and ttl (2026-11-07, #322)
+
+A document gains `src` (the words of the read, e.g. `services list`) and `ttl` (seconds it counts as fresh): the topic's own override (`lib/live-topics.tsv`
+column 8, `-` or empty = none) else 3 x interval. Documents from before still read: without `ttl` the status uses 3 x interval. One function,
+`live_state.status_of(doc, interval, now)`, returns the status; `hs sys live status`/`check`/`inspect` and the web use it, the other thresholds are gone:
+
+| status | meaning |
+|---|---|
+| `fresh` | good data inside its ttl, last try did not fail |
+| `stale` | the last try failed, the last good data is still inside the ttl |
+| `error` | the last try failed and there is no good data inside the ttl (never read, or older) |
+| `expired` | no failed try, but the data is older than the ttl (the collector does not run) |
+
+No Redis `EXPIRE`: an expired or failing entry is still served with its last good data, only marked. `hs sys live status` has the status as new last
+field 9 (`-` = no document); `live inspect` gets `status`, `ttl`, `source`; the web answers `X-HS-Status` next to `X-HS-Age` (`X-HS-Stale`/`X-HS-State`
+stay). `hs sys live check` reports `expired` and `error` as `live:stale:<topic>`. An identical read still moves only `ts` (an older document gets `src`
+and `ttl` then). Not tested on hardware yet.
+
+Web (#323): `web/src/api.js` keeps `X-HS-Status` per read (`stateOf(path)`, next to `ageOf`); for a failing read the server also sends `X-HS-Topic` and
+`X-HS-Error` (one printable ASCII line). `shell/Fresh.svelte` shows the worst status of the page's reads (`web/src/freshstate.js`): `error` and `expired`
+in words with the time of the last good read, `stale` in the warning colour; the tooltip names topic and error line. The page keeps its last data.
+Web build and type check not run (no node on the dev machine). Not tested on hardware yet.
+
+## Dependencies (2026-11-06, #153)
+
+`lib/live-topics.tsv` column 7 `needs` lists the topics whose new `gen` re-reads this topic (`-` = none); today `services-list` and `services-app` need
+`ct-list`, and `services-routes`, `services-local-routes` and `services-tiles` need `services-list`. One wave thread takes all queued changed topics at once
+(a burst is one wave) and walks the topological order of the graph (`live_state.graph`) once: each dependent is read at most once, after everything it needs.
+Only a new `gen` starts or spreads a wave: a failed read keeps the old document (see Last good data) and its dependents are not read; an identical read
+spreads nothing. A wave never reads a topic sooner than `HS_LIVE_MIN_GAP` seconds (default 5) after its last read, it waits. That is also the cost bound for a
+topic whose output changes on every read (for example `ct list` with usage columns): its dependents are then read about every gap, not faster; drop the edge
+if that is too costly (`journalctl -u hs-live | grep wave`). Wave reads are sequential, so a slow dependent delays the rest of its wave. A cycle, a self
+reference or an unknown target is cut and logged once; `tests/live-state-test.py` fails on any of them in the core table. An extension read may `needs` core
+topics only; with an unknown name its live topic is off (the read stays direct) and the journal says so. `hs sys live status` has `needs` as new last
+field 8 (comma list or `-`). Off mode has no propagation. Not tested on hardware yet.
+
+Inspector page (Monitoring > Live state): `hs sys live inspect` (one JSON document, named keys), `hs sys live raw <topic>` (stored output, capped at 64 KiB) and `POST /api/live/refresh {topic}` (the same `hs:v1:refresh` message as `?fresh=1`). Not tested on hardware yet.
 
 ## Apps slice (2026-11-01)
 

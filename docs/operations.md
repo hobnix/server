@@ -37,6 +37,18 @@ Two more checks that change nothing:
 `hs ports` lists the open ports of the server and of each container and warns when an administration page is behind the reverse proxy.
 The health check itself runs every 15 minutes by a timer; it is the only thing that raises an alarm.
 
+## See who did what
+
+```bash
+hs audit
+```
+
+Every command that changes the server leaves one line in the event log: who ran it (the user who used `sudo`, or `web`, `timer`, `job`),
+when, whether it worked, and the words that were typed to find the command, for example `share add`. `hs audit 100` shows the last 100.
+Nothing that was typed after those words is kept, so a password or a key given as an argument never reaches the log. Reading commands,
+the timers' own hooks and the event log itself are not recorded. The lines are kept as long as the rest of the event log. Not tested on
+hardware yet.
+
 ## Get push messages
 
 The server sends a message when its list of problems **changes**, not every 15 minutes. The route is ntfy: a service that passes messages
@@ -64,6 +76,8 @@ What triggers a message:
 | Problem | Threshold |
 | --- | --- |
 | A ZFS pool is not healthy | state other than `ONLINE`, or errors in the pool |
+| A ZFS pool is not imported | a pool NixOS imports at boot (`zfs-import-<pool>`) is missing from `zpool list` |
+| A ZFS import or scrub unit failed | `zfs-import-*` or `zfs-scrub*` in state failed, like the `hs-*` jobs |
 | A SnapRAID data or parity disk is missing or not mounted | state `MISSING` / `UNMOUNTED`; no parity disk at all |
 | A disk fails its SMART self-check | health `FAIL` |
 | A disk has sectors it cannot read | pending sectors above 0 |
@@ -229,6 +243,41 @@ sudo nixos-rebuild switch --rollback
 ```
 
 `hs update` and `hs rebuild` refuse while encrypted storage is locked.
+
+## Update channels
+
+By default `hs update` follows the newest signed release (`stable`). Two other channels exist for a second server or a test machine. Set one
+with `hs config set updateChannel beta`; it takes effect at the next `hs update` and moves nothing by itself.
+
+| Channel | `hs update` follows | For |
+| --- | --- | --- |
+| `stable` (default) | the newest signed `vX.Y.Z` tag | every server that holds data |
+| `beta` | the newest signed `vX.Y.Z-beta.N` or `vX.Y.Z` tag | a second server or a test machine |
+| `edge` | the head of the `develop` branch | a server whose data may be lost |
+
+```bash
+hs config set updateChannel beta
+sudo hs update
+```
+
+Switching to a newer channel (stable to beta, beta to edge) asks you to type the channel name. `hs update` and `hs update --preview` print the
+line `channel: <name> (<tag or branch>)`. Beta and edge never update by themselves: without a terminal and without `--yes` (a timer, for
+example) `hs update` stops with a note. A tag is checked against the release key in `config/trusted-keys/server.allowed_signers` and refused
+when the signature is missing or wrong; `hs update` never moves to a tag that is older than the installed version. Until the first release tag
+exists, every channel but edge follows the current branch as before.
+
+In the web interface the page Settings, Releases shows the three channels side by side, marks the current one and shows the version the next
+update would install. Choosing a channel opens a plan: it checks the tag signature, says whether an update is waiting and, for a newer
+channel, asks you to type the channel name. The same through the command line: `hs sys release plan channel beta` and
+`hs sys release start channel beta --confirm beta`. Moving to an older channel (edge to beta, beta to stable) never downgrades: the server
+stays on the installed version until the channel catches up, and the plan says so. The switch itself installs nothing; the Update button on
+Settings, Updates does.
+
+Apps and extensions from the package repositories follow the same setting through `hs pkg`: on `stable` only `vX.Y.Z` tags count, on `beta` the
+newest signed `vX.Y.Z-beta.N` or `vX.Y.Z` tag counts. `edge` counts as `beta` for packages, because packages are only ever taken from a signed
+tag, never from a branch head. Every tag is still checked against the repository's key.
+
+Not tested on hardware yet.
 
 ## See what changed after an update
 

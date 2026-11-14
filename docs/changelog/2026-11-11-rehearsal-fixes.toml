@@ -1,0 +1,4 @@
+date  = "2026-11-11"
+type  = "fix"
+title = "A missing tool is found before a disk is erased; hs first-run fetches the core packages"
+body  = """hs backup init now checks for restic, mkfs.ext4 and wipefs before it asks anything, and hs vault init checks for cryptsetup: a missing tool stops the command with a plain message and nothing is changed. If the vault cannot be made, the partition keeps its old label. hs first-run no longer fails with "Permission denied" when it fetches the core packages."""

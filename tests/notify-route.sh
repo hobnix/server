@@ -95,4 +95,19 @@ check_eq "strict callers learn that nothing arrived" 1 "$rc"
 HS_NOTIFY_URL= HS_NOTIFY_URL_SECOND= $N --category problem T M high; rc=$?
 check_eq "no channel at all is fine" 0 "$rc"
 
+echo "-- the event log"
+if command -v python3 >/dev/null; then
+  wp() { if command -v cygpath >/dev/null 2>&1; then cygpath -m "$1"; else echo "$1"; fi; }
+  export HS_EVENT_NOROOT=1 HS_STATE_DB=$(wp "$WORK/ev.db") HS_CALLER=test
+  evk() { python3 "$SCRIPTS/state-db.py" event-list --source notify | awk -F'\t' '{printf "%s:%s ", $4, $5}'; }
+  export HS_QUIET_HOURS= HS_NOTIFY_URL=https://one.test/t
+  : > "$CALLS"; unset CURL_FAIL_ON
+  $N --category problem "Ev: sent" "m" high
+  check_out "a delivery is logged with the channel" "sent:main" evk
+  CURL_FAIL_ON=one.test $N --category problem "Ev: failed" "m" high
+  check_out "a failure is logged" "failed:main" evk
+  HS_QUIET_HOURS=22:00-07:00 HS_NOW_HM=03:00 $N --category ok "Ev: held" "m" default
+  check_out "a held message is logged" "held:ok" evk
+fi
+
 finish

@@ -10,6 +10,7 @@ case "$1 $2" in
   "--show hs-job-system-sync-bulk-0300.service") printf 'unit\t%s\ndescription\tUpdate the parity\nstate\trunning\n' "$2" ;;
   "--show hs-job-pool-bulk-replace-0310.service") printf 'unit\t%s\ndescription\tReplace a disk\nstate\trunning\n' "$2" ;;
   "--show hs-job-gc-0320.service") printf 'unit\t%s\ndescription\tClean up old generations\nstate\trunning\n' "$2" ;;
+  "--show hs-job-gc-0330.service"|"--show hs-job-gc-0340.service") printf 'unit\t%s\ndescription\tClean up old generations\nstate\trunning\n' "$2" ;;
   "--show hs-backup.service") printf 'unit\t%s\ndescription\tNightly backup\nstate\tok\nexit\t0\n' "$2" ;;
   "--show hs-selftest-short.service") printf 'unit\t%s\ndescription\tShort self-tests\nstate\tnever\n' "$2" ;;
   "--show hs-health-check.service") printf 'unit\t%s\ndescription\tHealth check\nstate\trunning\n' "$2" ;;
@@ -60,6 +61,42 @@ check_eq "the wrong word is refused" 1 "$rc"
 run start stop hs-job-system-sync-bulk-0300 --confirm stop
 check_eq "the word stops it" 0 "$rc"
 check_eq "systemctl stop of the sync" "stop hs-job-system-sync-bulk-0300.service" "$(cat "$WORK/sysctl-calls")"
+
+echo "-- the job record"
+export HS_JOBS_DIR=$WORK/jobsdir
+JR="python3 $SCRIPTS/job-record.py"
+rid=$($JR new --slug gc --desc "Clean up old generations" --unit hs-job-gc-0320 --initiator alice); $JR run "$rid"
+run plan stop hs-job-gc-0320
+has "^note${T}The job record will say cancelled by " && pass "plan: the record note" || fail "record note: $out"
+run plan stop hs-health-check
+has "job record will say" && fail "no record, no note" || pass "no record, no note"
+rm -f "$WORK/sysctl-calls"
+SUDO_USER=carol run start stop hs-job-gc-0320
+check_eq "start stop with a record: exit 0" 0 "$rc"
+check_eq "start stop with a record: output unchanged" "status${T}done" "$out"
+check_eq "the record is cancelled" cancelled "$($JR get "$rid" | python3 -c 'import json,sys; print(json.load(sys.stdin)["state"])')"
+check_eq "cancelled by the caller, safe" "carol True" "$($JR get "$rid" | python3 -c 'import json,sys; c=json.load(sys.stdin)["cancel"]; print(c["requested_by"], c["safe"])')"
+check_eq "systemctl stop still ran" "stop hs-job-gc-0320.service" "$(cat "$WORK/sysctl-calls")"
+rid2=$($JR new --slug system-sync-bulk --desc "Update the parity" --unit hs-job-system-sync-bulk-0300 --initiator alice); $JR run "$rid2"
+rm -f "$WORK/sysctl-calls"
+SUDO_USER=carol run start stop hs-job-system-sync-bulk-0300 --confirm stop
+check_eq "a red stop with a record: exit 0" 0 "$rc"
+check_eq "a red stop is not safe" "False" "$($JR get "$rid2" | python3 -c 'import json,sys; print(json.load(sys.stdin)["cancel"]["safe"])')"
+rm -f "$WORK/sysctl-calls"
+run start stop hs-job-gc-0320
+check_eq "a finished record does not stop systemctl" "stop hs-job-gc-0320.service" "$(cat "$WORK/sysctl-calls")"
+# the stop fails: the job still runs, so the record must not say cancelled and no job.cancelled is written (#135)
+EVDB=$(cygpath -m "$WORK/ev.db" 2>/dev/null || echo "$WORK/ev.db")
+rid3=$($JR new --slug gc --desc "Clean up old generations" --unit hs-job-gc-0330 --initiator alice); $JR run "$rid3"
+printf '#!/usr/bin/env bash\nexit 1\n' > "$WORK/systemctl-bad"; chmod +x "$WORK/systemctl-bad"
+HS_EVENT_NOROOT=1 HS_STATE_DB="$EVDB" HS_SYSTEMCTL="$WORK/systemctl-bad" SUDO_USER=carol run start stop hs-job-gc-0330
+check_eq "a failed stop is refused" 1 "$rc"
+check_eq "a failed stop leaves the record running" running "$($JR get "$rid3" | python3 -c 'import json,sys; print(json.load(sys.stdin)["state"])')"
+check_eq "a failed stop writes no job.cancelled" 0 "$(HS_STATE_DB="$EVDB" python3 "$SCRIPTS/state-db.py" event-list 20 2>/dev/null | grep -c job.cancelled)"
+rid4=$($JR new --slug gc --desc "Clean up old generations" --unit hs-job-gc-0340 --initiator alice); $JR run "$rid4"
+HS_EVENT_NOROOT=1 HS_STATE_DB="$EVDB" SUDO_USER=carol run start stop hs-job-gc-0340
+check_eq "a good stop writes job.cancelled with the id" 1 "$(HS_STATE_DB="$EVDB" python3 "$SCRIPTS/state-db.py" event-list 20 2>/dev/null | grep job.cancelled | grep -c "$rid4")"
+unset HS_JOBS_DIR
 
 echo "-- running a scheduled job now"
 run plan run hs-selftest-short

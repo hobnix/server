@@ -4,7 +4,9 @@
 # shellcheck source=tests/lib.sh
 . "$(dirname "$0")/lib.sh"
 export HS_LANG=en HS_PLAIN=1 HS_CALLER=test HS_STATE_DIR=$WORK/state HS_NOTIFY_URL=http://push.test/topic
-export HS_STATE_NO_COLLECT=1
+export HS_STATE_NO_COLLECT=1 HS_EVENT_NOROOT=1
+wp() { if command -v cygpath >/dev/null 2>&1; then cygpath -m "$1"; else echo "$1"; fi; }
+export HS_STATE_DIR; HS_STATE_DIR=$(wp "$WORK/state"); export HS_STATE_DB=$HS_STATE_DIR/state.db
 export HS_PROC_UPTIME=$WORK/uptime HS_BOOT_WINDOW=300 HS_UDEVADM=true
 echo "5000.00 100.00" > "$WORK/uptime"
 mkdir -p "$WORK/dev" "$WORK/bin"
@@ -44,13 +46,14 @@ disk sdz 4000787030016 "ST4000VN006-3CW1  " ZGY1234 ""
 check_out "it is described" "sdz, ST4000VN006-3CW1, 4.0TB, S/N ZGY1234: empty: it can be added to a pool" $E add sdz
 check_eq "one push message" 1 "$(pushes)"
 check_out "with the model and the size" "ST4000VN006.*4.0TB" cat "$CALLS"
-check_out "and a log line" "plugged in	sdz, ST4000VN006-3CW1" cat "$HS_STATE_DIR/disk-events"
+check_out "and an event in the log" "disk	plugged	sdz	sdz, ST4000VN006-3CW1" bash -c 'python3 "$1" event-list --source disk | cut -f3-5,7' _ "$SCRIPTS/state-db.py"
+check "the old file is not written" test ! -e "$HS_STATE_DIR/disk-events"
 
 echo "-- the same event again (udev replays them at boot and at every rebuild): silent"
 : > "$CALLS"
 check "exit 0" $E add sdz
 check_eq "no second push message" 0 "$(pushes)"
-check_eq "one log line" 1 "$(grep -c 'plugged in' "$HS_STATE_DIR/disk-events")"
+check_eq "one log line" 1 "$(python3 "$SCRIPTS/state-db.py" event-list --source disk | grep -c plugged)"
 
 echo "-- another disk under the same name is new"
 disk sdz 2000398934016 "WD Red SA500" WDX999 ""
@@ -96,6 +99,19 @@ check_out "the log is a table" "When +Event +Disk|plugged in" $E log
 check_out "hs disk events" "plugged in" bash "$SCRIPTS/lib/hs.sh" disk events
 out=$(HS_CALLER=test bash "$SCRIPTS/lib/hs.sh" sys disk event remove sdv 2>&1 || true)
 check_out "hs sys disk event remove" "taken out: sdv" echo "$out"
+
+echo "-- the old file is imported once, nothing lost"
+printf '2026-10-07 14:56\tplugged in\tzd16, unknown model: empty\n2026-10-08 09:00\ttaken out\tsdq, X: empty\n2026-10-09 10:00\tsomething\tfoo\n' > "$HS_STATE_DIR/disk-events"
+disk sdu 500107862016 "Import trigger" U1 ""
+check "an event imports it" $E add sdu
+check "the file is kept as .imported" test -e "$HS_STATE_DIR/disk-events.imported" -a ! -e "$HS_STATE_DIR/disk-events"
+check_out "the old plugged line" "2026-10-07 14:56 +plugged in +zd16, unknown model: empty" $E log
+check_out "the old taken out line" "2026-10-08 09:00 +taken out +sdq" $E log
+check_out "a line with an unknown label" "2026-10-09 10:00 +other +something: foo" $E log
+n1=$(python3 "$SCRIPTS/state-db.py" event-list 100 --source disk | wc -l)
+cp "$HS_STATE_DIR/disk-events.imported" "$HS_STATE_DIR/disk-events"
+python3 "$SCRIPTS/state-db.py" emit disk.plugged sdk "sdk, again"
+check_eq "importing the same lines again adds nothing" "$((n1 + 1))" "$(python3 "$SCRIPTS/state-db.py" event-list 100 --source disk | wc -l)"
 
 echo "-- seed learns silently, without a marker the first event seeds"
 rm -rf "$HS_STATE_DIR"; : > "$CALLS"

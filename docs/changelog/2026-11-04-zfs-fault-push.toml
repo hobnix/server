@@ -1,0 +1,5 @@
+date  = "2026-11-04"
+type  = "change"
+title = "A ZFS fault is pushed at once"
+body  = """When ZFS reports a pool or disk fault, the health check now starts right away, so the push message arrives within seconds and not at the next 15-minute run. Not tested on hardware yet."""
+docs  = "storage-and-disks"

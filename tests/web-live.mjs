@@ -1,6 +1,6 @@
 // The poll timing of the live stream (web/src/polldelay.js): no timer while a topic read follows the stream, the plain interval otherwise.
 import { nextDelay } from '../web/src/polldelay.js';
-import { parseLiveRows } from '../web/src/livestatus.js';
+import { parseLiveRows, parseInspect } from '../web/src/livestatus.js';
 import { poolTopic } from '../web/src/pages/storage/pool.js';
 
 let ok = 0, bad = 0;
@@ -38,7 +38,23 @@ check('live state stale row', parsed[3].state === 'stale');
 check('live state nonzero rc is failing', parsed[4].state === 'failing');
 check('live state newer ts_err is failing', parsed[5].state === 'failing');
 check('live state older ts_err is fresh', parsed[6].state === 'fresh');
+const eight = parseLiveRows([['services-list', '30', '5', '2', '0', '-', '-', 'ct-list'], ['x', '5', '1', '1', '0', '-', '-', '-']], now);
+check('live rows: eight fields parse needs', eight.length === 2 && eight[0].needs.length === 1 && eight[0].needs[0] === 'ct-list' && eight[1].needs.length === 0);
+check('live rows: seven fields give no needs', parsed[0].needs.length === 0);
 check('live rows: malformed rows are dropped', parseLiveRows([['only', 'five', 'fields', 'here', 'x']], now).length === 0);
+const ins = (o) => ({ topic: 't', words: ['a'], interval: 5, lock: 'run', origin: 'core', cap: null, cap_on: true, groups: [], age: 1, gen: 1, rc: 0, err: null, ts_err: null, bytes: 1, ...o });
+const pi = (o, now = 1000) => parseInspect({ now, topics: [ins(o)] });
+check('inspect: fresh', pi({}).rows[0].state === 'fresh');
+check('inspect: never and pending', pi({ age: null, err: 'x' }).rows[0].state === 'never' && pi({ age: null }).rows[0].state === 'pending');
+check('inspect: stale', pi({ age: 16 }).rows[0].state === 'stale');
+check('inspect: failing by newer error', pi({ age: 10, err: 'x', ts_err: 995 }).rows[0].state === 'failing');
+check('inspect: a good document with exit 1 is not failing', pi({ rc: 1 }).rows[0].state === 'fresh' && pi({ rc: 2, age: 10, err: 'old', ts_err: 980 }).rows[0].state === 'fresh');
+check('inspect: capability off wins', pi({ cap_on: false, age: null }).rows[0].state === 'off');
+check('inspect: doc status wins', pi({ status: 'error', cap_on: true }).rows[0].state === 'error');
+check('inspect: has.needs only with the key', !pi({}).has.needs && pi({ needs: ['a', 'b'] }).has.needs && pi({ needs: ['a', 'b'] }).rows[0].needs.join(', ') === 'a, b');
+check('inspect: has.status and has.ttl', pi({ status: 'ok', ttl: 45 }).has.status && pi({ ttl: 45 }).has.ttl && !pi({}).has.ttl && !pi({ ttl: null }).has.ttl);
+check('inspect: garbage gives no rows', parseInspect(null).rows.length === 0 && parseInspect({ topics: 5 }).rows.length === 0 && parseInspect({ topics: [null, {}, { topic: 3 }] }).rows.length === 0);
+check('inspect: unknown keys are kept', pi({ extra: 1 }).rows[0].extra === 1);
 check('poolTopic kinds', poolTopic('info', 'bulk') === 'pool-info-bulk' && poolTopic('members', 'fast') === 'pool-members-fast' && poolTopic('state', 'bulk') === 'pool-state-bulk');
 check('poolTopic rejects bad args', poolTopic('info', 'other') === undefined && poolTopic('disks', 'bulk') === undefined && poolTopic('info', 'fast') === 'pool-info-fast');
 check('storage topic, live open: no timer', nextDelay('shares-overview', true, 30000) === null);
@@ -46,5 +62,22 @@ check('storage topic, live closed: the interval', nextDelay('shares-overview', f
 check('fixed-pool topic, live open: no timer', nextDelay(poolTopic('info', 'bulk'), true, 15000) === null);
 check('fixed-pool topic, live closed: the interval', nextDelay(poolTopic('state', 'fast'), false, 10000) === 10000);
 check('direct pool read (no topic), live open: the interval', nextDelay(poolTopic('info', 'archive'), true, 15000) === 15000);
+// Watchdog (web/src/livewatch.js): a stream silent for 45 s is reopened, any frame resets the clock, never faster than every 10 s.
+import { LiveWatch } from '../web/src/livewatch.js';
+{
+  let t = 0, n = 0, said = -1;
+  const w = new LiveWatch({ now: () => t, reconnect: (s) => { n++; said = s; } });
+  t = 40000; check('watch: 40 s of silence: no reconnect', !w.check() && n === 0);
+  w.frame(); t = 80000; check('watch: a beat at 40 s resets the clock', !w.check() && n === 0);
+  t = 86000; check('watch: 46 s of silence: reconnect', w.check() && n === 1 && said === 46);
+  t = 100000; check('watch: the clock restarts after a reconnect', !w.check() && n === 1);
+  const g = new LiveWatch({ now: () => t, silentMs: 1000, minGapMs: 10000, reconnect: () => { n++; } });
+  t = 200000; n = 0; g.check(); t = 203000; g.check(); check('watch: back-off, one reconnect in 3 s', n === 1);
+  t = 211000; g.check(); check('watch: after the gap the next one is allowed', n === 2);
+  const v = new LiveWatch({ now: () => t, reconnect: () => { n++; } });
+  t = 400000; n = 0; check('watch: a tab shown again after a long silence reconnects at once', v.check() && n === 1);
+}
+const live = readFileSync(new URL('../web/src/live.svelte.js', import.meta.url), 'utf8');
+check('live: beat, watchdog, visibilitychange wired', /'beat'/.test(live) && /new LiveWatch/.test(live) && /visibilitychange/.test(live) && /resyncAll\(\); \}/.test(live));
 console.log(`  -> ${ok} ok, ${bad} failed`);
 process.exit(bad ? 1 : 0);

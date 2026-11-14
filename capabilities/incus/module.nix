@@ -85,6 +85,10 @@ in
   };
 
   systemd.services.incus.unitConfig = whenUnlocked;
+  # The socket and the autostart service wait too: otherwise the socket keeps triggering the skipped incus.service, hits the trigger limit
+  # and both end up failed on every boot with a closed vault. hs unlock resets them and starts the service (scripts/unlock.sh).
+  systemd.sockets.incus.unitConfig = whenUnlocked;
+  systemd.services.incus-startup.unitConfig = whenUnlocked;
 
   # The internal link takes nothing but what hs.internalLinkAccept lists (the gateway's tunnel port); the host never forwards to or from it.
   # A table of its own at priority -10: a drop here is final, so the global allowedTCPPorts of nixos-fw (22, 8443, Samba) are closed on it too.

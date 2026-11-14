@@ -69,6 +69,7 @@ ttl = 30                 # seconds the answer is reused
 args = ['^[a-z]{1,8}$']  # optional: one pattern per value the row takes (a <x> in its path)
 live = 30                # optional (10..3600, not with args): keep the answer in the live state, see below
 locked = "skip"          # with live: "skip" (default, not read while the storage is locked) or "run"
+needs = ["ct-list"]      # optional, only with live: core topics whose new gen re-reads this one
 
 [[web.changes]]          # POST /api/plan and /api/start with area "ext/<name>"
 patterns = ['^go$', '^[a-z]{1,8}$']          # an exact shape: one pattern per argument
@@ -86,6 +87,8 @@ package is on, with these checks. If any check fails the whole declaration of th
 - patterns are compiled and limited in length; kinds and ttl are range-checked; flags look like `--word`;
 - `live` is a whole number of seconds from 10 to 3600, only on a read without `args`; `locked` is `run` or `skip`; every word of such a read is
   `a-z`, `0-9` or `-` (it becomes part of a topic name, at most 100 characters) and the topic name must not be used by another read or package;
+- `needs` (only with `live`) is a list of 1 to 8 names of core topics (`scripts/lib/live-topics.tsv`); a name that is not a core topic switches the live
+  topic of that read off (it stays a direct read) and logs one line; an extension topic can never be needed, so no cycle can involve one;
 - reads always land under `ext/<name>/...` and changes under the area `ext/<name>`: a manifest cannot name a core read or another package.
 
 **Live reads (opt-in).** Without `live` a read is run by the web interface as before. With `live = <seconds>` and the live state on (`liveState`,
@@ -161,6 +164,11 @@ hanging package never stops the others. API level 4 (scripts/lib/api-level).
 - A package that reads its own scripts with `@/file` runs files from the checkout in /etc/nixos, which is owned by adminuser, not from the
   immutable Nix store. adminuser can already sudo, but this is why the pilot packages keep their scripts in `scripts/` and why a pinned location
   (below) matters.
+- A package may declare `permissions` in package.toml (ADR 0014, step 1; vocabulary in scripts/lib/pkg_perms.py). They are **disclosed, and the declaration is enforced against the manifest** (step 1b): a package whose `permissions` do not cover its own
+  [[web.reads]], [[web.changes]] or [[events]] is not registered by the web interface or the live collector, and `hs ext enable` refuses it. Commands are **not confined**:
+  the core checks that they are well formed and cover what the manifest uses ([[events]] needs `events.emit`, [[web.reads]] `web.read`, ...), shows them in
+  `hs ext list`, `hs pkg install` and `hs pkg update`, and an update that ADDS a permission needs the typed package name (or `--accept-permissions`; the web
+  interface's update button does not pass it, so it refuses and says to run it in a terminal). Confinement of commands (ADR 0014 steps 2 and 3) is not built. Not tested on hardware yet.
 - The web interface gets only what the manifest declares, and only through the allowlist checks above. A package cannot add a page, a route,
   a header or a script to the browser; it cannot reach a core read or change. Admin pages stay without a public route (CLAUDE.md).
 - Switching a package on is a change of the server's configuration: it needs a person at `hs ext enable` (root) or a machine.toml edit.

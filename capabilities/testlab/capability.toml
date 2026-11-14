@@ -1,0 +1,15 @@
+# Manifest of a capability (docs/PLAN-modular-core.md). Identity and dependencies only: the options of this
+# capability carry `capability = "testlab"` in config/schema.toml, its commands `capability:testlab` in
+# scripts/lib/registry.tsv, its web page the same name in web/src/nav.js.
+name = "testlab"
+title = "Test-lab (builds the installer ISO and runs it in a nested VM)"
+title_de = "Testlabor (baut die Installer-ISO und startet sie in einer verschachtelten VM)"
+kind = "feature"
+# capabilities this one needs, and what it provides to others (names of capabilities / interfaces)
+requires = ["incus"]
+provides = []
+# services that must stay down while encrypted storage is locked: none (the run state lives on the system disk)
+needs = []
+# the NixOS module, loaded only while the capability is on (capabilities/default.nix)
+nix = "module.nix"
+notes = "NOTES.md"

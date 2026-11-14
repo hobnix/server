@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # help: scheduled jobs (hs-* timers): when they run next, when they ran last, and whether that worked
 # help.de: geplante Aufgaben (hs-*-Timer): wann sie als Nächstes laufen, wann zuletzt, und ob es geklappt hat
-# args: [--list | --running | --show <unit> | --log <unit> [N] | tail <unit> [N] | stop <unit> | <unit> [--follow]]
+# args: [--list | --running | --record <id> | --records [--state S] [N] | --children <id> | --show <unit> | --log <unit> [N] | tail <unit> [N] | stop <unit> | <unit> [--follow]]
 set -euo pipefail
 . "$(dirname "$0")/lib/ui.sh"
 . "$(dirname "$0")/lib/live.sh"
@@ -208,6 +208,9 @@ case "${1:-}" in
          fi
        else list; fi ;;
   --running) running ;;
+  --record) [ $# -ge 2 ] || exit 1; python3 "$(dirname "$0")/job-record.py" get "$2" ;;   # one job record as JSON (ADR 0004)
+  --records) shift; python3 "$(dirname "$0")/job-records.py" "$@" ;;                     # records, newest first, tab separated
+  --children) [ $# -ge 2 ] || exit 1; python3 "$(dirname "$0")/job-records.py" --parent "$2" ;;   # the sub-jobs of an orchestration (ADR 0018), oldest first, the columns of --records
   --show) [ $# -ge 2 ] || exit 1; show_unit "$2" ;;
   --log) [ $# -ge 2 ] || exit 1; log_unit "$2" "${3:-200}" ;;
   tail) [ $# -ge 2 ] || exit 1; tail_job "$2" "${3:-0}" ;;

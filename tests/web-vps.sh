@@ -42,6 +42,13 @@ has 'vpsHost is not set' && pass "says vpsHost" || fail "no host: $out"
 run start update
 check_eq "start: exit 1, nothing started" "1:" "$rc:$(cat "$WORK/jobcalls" 2>/dev/null)"
 
+echo "-- vpsHost from hs config set (a runtime setting, no machine.toml line)"
+export HS_SETTINGS_DIR=$WORK/settings; mkdir -p "$HS_SETTINGS_DIR"
+printf 'proxyserver\n' > "$HS_SETTINGS_DIR/vpsHost"
+run plan update
+if has 'vpsHost is not set'; then fail "the setting is not seen: $out"; else pass "the setting is seen"; fi
+rm -f "$HS_SETTINGS_DIR/vpsHost"
+
 printf 'hostName = "hs"\nvpsHost = "proxyserver"\n' > "$HS_MACHINE_FILE"
 echo "-- no key yet: refused"
 run plan update

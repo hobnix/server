@@ -1,0 +1,5 @@
+date  = "2026-11-12"
+type  = "fix"
+title = "Domain controller restore steps corrected; the domain backup file is root-only"
+docs  = "backup-and-recovery#case-a-the-system-disk-is-gone-the-data-disks-are-fine"
+body  = """The recovery guide now lists the steps that worked in a VM rehearsal: get the backup file with --tag host and --to, make a new dc1 with the recipe, put the host's secrets.tdb back, restore with a new server name into an empty folder and copy smb.conf and krb5.conf. The domain backup file in /var/lib/hs/backup-dc is now readable by root only (it was world-readable and holds the keys of the domain)."""

@@ -15,6 +15,7 @@
   import Banner from '../ui/Banner.svelte';
   import EmptyState from '../ui/EmptyState.svelte';
   import { link } from './instances/ct.js';
+  import { restoreDrill, instanceDrill } from './backup-drill.js';
 
   let { deck } = $props();
   // locked storage: the share and instance rows cannot be read (and their switches would act on nothing), so they are left out
@@ -71,9 +72,9 @@
     ['Repository', `${s.repo_size || '–'}${s.used_pct ? ` · disk ${s.used_pct} % used` : ''}`, s.repo_size ? 'ok' : 'off'],
     ['Restore points', s.snapshots || '–', 'off'],
     ['Off-site copy', s.offsite ? `${s.offsite}${s.offsite_ok ? (s.offsite_ok === 'ok' ? ' · ok' : ' · failed') : ''}` : 'not set', s.offsite ? dot(s.offsite_ok) : 'off'],
-    ['Restore drill', s.last_drill ? `${s.drill_ok === 'ok' ? 'passed' : s.drill_ok || '–'} · ${age(s.last_drill)}` : 'never', s.last_drill ? dot(s.drill_ok) : 'off'],
+    ['Restore drill', ...restoreDrill(s, age)],
     ['Last try', s.last_try ? `${when(s.last_try)} · ${s.status === 'failed' ? 'failed' : 'ok'}` : '–', s.last_try ? (s.status === 'failed' ? 'bad' : 'ok') : 'off'],
-    ...(s.drill_ct_name ? [['Instance drill', `${s.drill_ct_name} · ${s.drill_ct_ok === 'ok' ? 'ok' : s.drill_ct_ok || '–'}`, dot(s.drill_ct_ok)]] : []),
+    ...(instanceDrill(s, age) ? [['Instance drill', ...instanceDrill(s, age)]] : []),
   ]);
   // actions that need the backup disk: say why one is not possible
   const why = $derived(!st.loaded ? 'Loading…' : !configured ? 'The backup is not set up yet' : s.vault === 'closed' ? 'The vault is closed: unlock it first' : s.disk !== 'present' ? 'The backup disk is not plugged in' : '');
@@ -102,7 +103,7 @@
     <Button icon="seal-check" busy={jobRunning('backup', ['verify'])} busyLabel="Verifying…" disabled={!!why} onpointerenter={() => prefetchPlan('backup', ['verify'])} onfocus={() => prefetchPlan('backup', ['verify'])} tooltip={tipWhy('Read part of the stored data and check it')} onclick={() => openPlan('backup', ['verify'], 'Verify the backup')}>Verify</Button>
     <Button icon="broom" busy={jobRunning('backup', ['prune'])} busyLabel="Freeing space…" disabled={!!why} onpointerenter={() => prefetchPlan('backup', ['prune'])} onfocus={() => prefetchPlan('backup', ['prune'])} tooltip={tipWhy('Give space back: delete leftovers of a failed run, apply the retention, prune')} onclick={() => openPlan('backup', ['prune'], 'Free space on the backup disk')}>Free space</Button>
     <Button icon="first-aid-kit" busy={jobRunning('backup', ['drill'])} disabled={!!why} onpointerenter={() => prefetchPlan('backup', ['drill'])} onfocus={() => prefetchPlan('backup', ['drill'])} tooltip={tipWhy('Restore a few random files and compare them with the originals')} onclick={() => openPlan('backup', ['drill'], 'Restore drill')}>Restore drill</Button>
-    <Button icon="folder-open" busy={jobRunning('backup', ['browse', '--to', browsing ? 'off' : 'on'])} disabled={!!why && !browsing} tooltip={browsing ? 'Stop showing the backup as a read-only share' : tipWhy('Show the whole backup as a read-only share')} onclick={() => openPlan('backup', ['browse', '--to', browsing ? 'off' : 'on'], browsing ? 'Stop browsing the backup' : 'Browse the backup')}>{browsing ? 'Stop browsing' : 'Browse'}</Button>
+    <Button icon="folder-open" busy={(jobRunning('backup', ['browse', '--to', 'off']) || jobRunning('backup', ['browse', '--to', 'on']))} disabled={!!why && !browsing} tooltip={browsing ? 'Stop showing the backup as a read-only share' : tipWhy('Show the whole backup as a read-only share')} onclick={() => openPlan('backup', ['browse', '--to', browsing ? 'off' : 'on'], browsing ? 'Stop browsing the backup' : 'Browse the backup')}>{browsing ? 'Stop browsing' : 'Browse'}</Button>
     <Button variant="primary" icon="cloud-arrow-up" busy={jobRunning('backup', ['now'])} busyLabel="Backing up…" disabled={!!why} onpointerenter={() => prefetchPlan('backup', ['now'])} onfocus={() => prefetchPlan('backup', ['now'])} tooltip={tipWhy('Back up right now')} onclick={() => openPlan('backup', ['now'], 'Back up now')}>Back up now</Button>
   {/snippet}
 </PageHeader>
@@ -111,7 +112,7 @@
   {#if !configured}
     <div class="card">
       <EmptyState icon="cloud-slash" title="No backup set up" text="Nothing is backed up yet. Make a free disk the backup disk: it is erased, the plan shows what happens first, and the backup password is made inside the vault.">
-        {#snippet action()}<button class="btn btn-primary" use:tip={'Make a free disk the backup disk (it is erased)'} onclick={() => openCreate(SetupDisk)}><i class="ph ph-hard-drive"></i>Set up backup disk…</button>{/snippet}
+        {#snippet action()}<Button variant="primary" tooltip={'Make a free disk the backup disk (it is erased)'} onclick={() => openCreate(SetupDisk)}><i class="ph ph-hard-drive"></i>Set up backup disk…</Button>{/snippet}
       </EmptyState>
     </div>
   {:else}
@@ -152,7 +153,7 @@
     <div class="card tc">
       <div class="ctl">
         <b>Restore points</b>{#if s.snapshots}<span class="cs">{s.snapshots} in the repository</span>{/if}
-        <button class="btn sm" use:tip={'Bring files back into the share restored; originals stay'} style="margin-left:auto" onclick={() => openCreate(RestoreFiles)}><i class="ph ph-arrow-counter-clockwise"></i>Restore files…</button>
+        <Button size="sm" tooltip={'Bring files back into the share restored; originals stay'} style="margin-left:auto" onclick={() => openCreate(RestoreFiles)}><i class="ph ph-arrow-counter-clockwise"></i>Restore files…</Button>
       </div>
       <Table id="backup-points" columns={pointCols} rows={points} loading={!snapsLoaded}
              empty={snapsError ? 'The restore points could not be read (backup disk missing or storage locked).' : 'No restore points yet.'}>

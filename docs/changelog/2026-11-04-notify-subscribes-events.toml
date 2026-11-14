@@ -1,0 +1,5 @@
+date  = "2026-11-04"
+type  = "change"
+title = "Push messages now come from the event log"
+body  = """A new service reads the event log and sends the messages that rules ask for (a table you can extend or mute). The helpers next to the film apps no longer post to ntfy or Matrix themselves: they only report events, so quiet hours and your channels apply to them too. The Matrix hook is a notification channel now. Not tested on hardware yet."""
+docs  = "notify-rules"

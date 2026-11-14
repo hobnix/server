@@ -1,0 +1,4 @@
+date  = "2026-11-10"
+type  = "security"
+title = "hs ports treats Remote Desktop and SSH of the Claude VM as admin doors"
+body  = """Port 3389 (Remote Desktop) and port 22 (SSH) of the instance claude-vm are now listed as admin interfaces. A Zoraxy rule that points at them is warned about, like the rules for Incus or Arcane."""

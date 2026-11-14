@@ -6,6 +6,7 @@ set -euo pipefail
 here=$(dirname "$0")
 . "$here/lib/ui.sh"
 . "$here/lib/setting.sh"
+. "$here/lib/version.sh"
 
 usage() {
   say "usage: hs system info"
@@ -31,6 +32,7 @@ case "$cmd" in
   info)
     step "This server"
     kv "Host" "$(hostname)"
+    kv "Hobnix" "$(hobnix_version)"
     kv "NixOS" "$(nixos-version 2>/dev/null || echo '-')"
     kv "Generation" "$(readlink /nix/var/nix/profiles/system 2>/dev/null | sed 's/-link$//; s/^system-//' || echo '-')"
     kv "Uptime" "$(uptime_text)"
@@ -53,6 +55,7 @@ case "$cmd" in
     days=30; yes=false
     for a in "$@"; do case "$a" in --yes) yes=true ;; *) days=$a ;; esac; done
     [[ "$days" =~ ^[0-9]+$ ]] || usage
+    steps 1
     step "Cleaning up old generations"
     if ! $yes; then
       warn "$(t 'Deletes every generation older than %s days. Rolling back further than that is not possible afterwards.' "$days")"

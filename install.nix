@@ -29,6 +29,8 @@ in
   boot.loader.grub = lib.mkIf grub { enable = true; device = machine.bootDevice; efiSupport = true; efiInstallAsRemovable = true; };
   boot.loader.systemd-boot.enable = lib.mkIf (!grub) true;
   boot.loader.efi.canTouchEfiVariables = lib.mkIf (!grub) true;
+  # the same consoles as configuration.nix: the screen is the main one, the first serial port gets a login prompt too
+  boot.kernelParams = [ "console=ttyS0,115200n8" "console=tty0" ];
 
   boot.supportedFilesystems = lib.optionals home [ "zfs" ];
   boot.zfs.forceImportRoot = lib.mkIf home false;
@@ -54,6 +56,8 @@ in
   environment.systemPackages = with pkgs; [
     vim
     git
+    python3         # the scripts behind `hs` (machine.toml is read with it): without it the first `hs rebuild` fails
+    (import ./hs-command.nix { inherit pkgs; })   # the `hs` command from the first boot on (also in configuration.nix)
   ] ++ lib.optionals home [
     smartmontools   # smartctl, to check the disks before creating the pools
     newt            # whiptail, the disk menu of scripts/manage-pool.sh

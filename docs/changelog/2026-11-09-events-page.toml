@@ -1,0 +1,6 @@
+date  = "2026-11-09"
+type  = "feature"
+title = "Events page: what happened on the server"
+body  = """
+Operations > Events lists the event log, newest first, with time, level, kind, subject and a readable sentence (English and German) for jobs, messages, disks and audited commands. Filter by source, level, kind and time; new events appear at once. Not tested on hardware yet.
+"""

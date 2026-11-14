@@ -88,7 +88,7 @@ Fetching the latest configuration	Neueste Konfiguration holen
 Key file removed. After a boot, run hs unlock.	Schlüsseldatei gelöscht. Nach einem Neustart: hs unlock.
 Mounted and shared as %s	Eingehängt und freigegeben als %s
 Moving the files can take hours. The disk itself is not erased, only unlabelled.	Das Verschieben der Dateien kann Stunden dauern. Die Platte selbst wird nicht gelöscht, nur ihr Etikett entfernt.
-New data is protected after the next sync (three times a day, or now: hs pool bulk sync).	Neue Daten sind nach der nächsten Synchronisation geschützt (dreimal am Tag, oder sofort: hs pool bulk sync).
+New data is protected after the next sync (every night, or now: hs pool bulk sync).	Neue Daten sind nach der nächsten Synchronisation geschützt (jede Nacht, oder sofort: hs pool bulk sync).
 New shares are closed (only %s) until you set who may read or write	Neue Freigaben sind geschlossen (nur %s), bis du festlegst, wer lesen oder schreiben darf
 New shares are open to every Samba user until you set who may read or write	Neue Freigaben sind für jeden Samba-Benutzer offen, bis du festlegst, wer lesen oder schreiben darf
 Next: hs pool bulk add --role adopt --dry-run	Als Nächstes: hs pool bulk add --role adopt --dry-run
@@ -159,7 +159,8 @@ Recipes (run with: hs recipe <name>):	Rezepte (ausführen mit: hs recipe <Name>)
 No recipe called '%s'.	Kein Rezept namens '%s'.
                                              /var/lib/hs/backup-offsite.env. offsite now / off	                                              /var/lib/hs/backup-offsite.env. offsite now / off
                                              disk, sftp:user@host:/path, b2:bucket:path ...); keys in	                                              Platte, sftp:benutzer@rechner:/pfad, b2:bucket:pfad ...); Zugangsdaten in
-                                             into /bulk/shares/restored (never over the live copy)	                                              nach /bulk/shares/restored (nie über die Originale)
+                                             into /bulk/shares/restored (never over the live copy), owned by adminuser;	                                              nach /bulk/shares/restored (nie über die Originale), Besitzer adminuser;
+                                             --keep-owner keeps the owners of the snapshot, --to / (in place) always does	                                              --keep-owner behält die Besitzer der Sicherung, --to / (an Ort und Stelle) immer
                                              restore one file or folder, by default	                                              holt eine Datei oder einen Ordner zurück, standardmäßig
                                              without a device the free disks are listed to pick from	                                              ohne Platte werden die freien Platten zur Auswahl angezeigt
           The data on the disk is never formatted or changed by mounting.	          Die Daten auf der Platte werden durch das Einhängen nie formatiert oder verändert.
@@ -175,7 +176,7 @@ No recipe called '%s'.	Kein Rezept namens '%s'.
        hs backup list                        snapshots (id, time, tag, size)	        hs backup list                        Sicherungen (Nummer, Zeit, Art, Größe)
        hs backup now [--dry-run]             back up right now (also runs every night)	        hs backup now [--dry-run]             sofort sichern (läuft auch jede Nacht)
        hs backup offsite set <repo>          also copy every backup to a second repository (a folder on another	        hs backup offsite set <Lager>         jede Sicherung zusätzlich in ein zweites Lager kopieren (ein Ordner auf einer anderen
-       hs backup restore <snapshot|latest> <path> [--tag T] [--to DIR]	        hs backup restore <Sicherung|latest> <Pfad> [--tag T] [--to ORDNER]
+       hs backup restore <snapshot|latest> <path> [--tag T] [--to DIR] [--keep-owner]	        hs backup restore <Sicherung|latest> <Pfad> [--tag T] [--to ORDNER] [--keep-owner]
        hs backup verify                      check part of the stored data	        hs backup verify                      prüft einen Teil der gespeicherten Daten
        hs disk temp copy <name> <share> [--dry-run]	        hs disk temp copy <Name> <Freigabe> [--dry-run]
        hs disk temp eject [name]	        hs disk temp eject [Name]
@@ -375,7 +376,6 @@ Which share?	Welche Freigabe?
 Which snapshot?	Welcher Schnappschuss?
 Which snapshot? (latest, or an id from: hs backup list)	Welcher Schnappschuss? (latest, oder eine ID aus: hs backup list)
 Which user inside the instance writes there? (esc = none)	Welcher Benutzer in der Instanz schreibt dort? (Esc = keiner)
-usage: hs ct add [--kind empty|docker|vm] [--name <n>] [--ram MB] [--cpu N] [--disk GB] [--ip <address>] [--profile <vlan>] [--yes]	Aufruf: hs ct add [--kind empty|docker|vm] [--name <n>] [--ram MB] [--cpu N] [--disk GB] [--ip <Adresse>] [--profile <vlan>] [--yes]
 usage: hs share <share> restore [<folder or file inside the share>] [--snapshot <id|latest>] [--yes]	Aufruf: hs share <Freigabe> restore [<Ordner oder Datei in der Freigabe>] [--snapshot <ID|latest>] [--yes]
        hs system gc [days] [--yes]   delete generations older than <days> (default 30) and free the space	       hs system gc [Tage] [--yes]   Generationen löschen, die älter als <Tage> sind (Standard 30), und Platz freigeben
 %s: %s self-test started	%s: %s-Selbsttest gestartet
@@ -545,7 +545,7 @@ Could not tell which key this session uses. Make sure you can still log in with 
 Remove the key %s (%s, %s)	Schlüssel %s entfernen (%s, %s)
 Remove it from machine.toml?	Aus machine.toml entfernen?
 The key is removed from machine.toml. It takes effect with: hs rebuild	Der Schlüssel ist aus machine.toml entfernt. Das gilt nach: hs rebuild
-usage: hs update --preview [--no-build]	Aufruf: hs update --preview [--no-build]
+usage: hs update --preview [--no-build] [--max-age <seconds>]	Aufruf: hs update --preview [--no-build] [--max-age <Sekunden>]
 No Git checkout in %s.	Kein Git-Checkout in %s.
 Preview of the update	Vorschau auf das Update
 Fetching what is new (nothing is applied)	Neuigkeiten holen (nichts wird angewendet)
@@ -647,9 +647,10 @@ A rebuild would restart services while the encrypted disks are closed (Incus wou
 unknown kind '%s' (fast, shares, sensitive)	unbekannte Art '%s' (fast, shares, sensitive)
 unknown setting '%s'	unbekannte Einstellung '%s'
 upload cache on	Upload-Cache an
-usage: hs notify [--dry-run] [--category <name>] <title> <message> [priority]	Aufruf: hs notify [--dry-run] [--category <Name>] <Titel> <Nachricht> [Priorität]
+usage: hs notify [--dry-run] [--category <name>] [--payload-file <file>] <title> <message> [priority]	Aufruf: hs notify [--dry-run] [--category <Name>] [--payload-file <Datei>] <Titel> <Nachricht> [Priorität]
   priority   min, low, default, high or urgent (default: the category's)	  Priorität  min, low, default, high oder urgent (Standard: die der Kategorie)
   category   alarm, lock, problem, ok, start, stop, info or heartbeat: sets the icon (default: from the priority)	  Kategorie  alarm, lock, problem, ok, start, stop, info oder heartbeat: bestimmt das Symbol (Standard: aus der Priorität)
+  --payload-file  the JSON of an event: a channel that can draw it (Matrix card) uses it, the others ignore it	  --payload-file  das JSON eines Ereignisses: ein Kanal, der es zeichnen kann (Matrix-Karte), nutzt es, die anderen ignorieren es
   --dry-run  only print what would be sent	  --dry-run  nur anzeigen, was gesendet würde
 Would send to %s:	Würde senden an %s:
 No notifyUrl set, would only write to the journal:	Keine notifyUrl gesetzt, würde nur ins Journal schreiben:
@@ -704,7 +705,7 @@ No share called '%s' under /bulk/shares or /bulk/sensitive.	Keine Freigabe namen
 The cache could not be mounted over /bulk/%s.	Der Cache ließ sich nicht über /bulk/%s einbinden.
 Now restart: %s (hs ct <ct> restart)	Jetzt neu starten: %s (hs ct <ct> restart)
 '%s' does not use the cache.	'%s' benutzt den Cache nicht.
-Done. The moved files get parity with the next sync (three times a day, or now: hs pool bulk sync).	Fertig. Die verschobenen Dateien bekommen mit der nächsten Synchronisation Parität (dreimal am Tag, oder jetzt: hs pool bulk sync).
+Done. The moved files get parity with the next sync (every night, or now: hs pool bulk sync).	Fertig. Die verschobenen Dateien bekommen mit der nächsten Synchronisation Parität (jede Nacht, oder jetzt: hs pool bulk sync).
 Some files are still open and stay in the cache for now. The mover finishes this on its next run.	Einige Dateien sind noch offen und bleiben vorerst im Cache. Der Mover erledigt das bei seinem nächsten Lauf.
 Address of the UniFi router	Adresse des UniFi-Routers
 Port of the web page of %s	Port der Webseite von %s
@@ -993,7 +994,7 @@ none yet	noch keine
 restic check found a problem	restic check hat ein Problem gefunden
 the last try failed	der letzte Versuch ist fehlgeschlagen
 usage: hs cache-mover [share] [--now] [--if-full] [--no-sync]	Aufruf: hs cache-mover [Freigabe] [--now] [--if-full] [--no-sync]
-usage: hs pool bulk sync [--force] [--scrub] [--no-mover]	Aufruf: hs pool bulk sync [--force] [--scrub] [--no-mover]
+usage: hs pool bulk sync [--force] [--force-uuid] [--scrub] [--no-mover] [--plain]	Aufruf: hs pool bulk sync [--force] [--force-uuid] [--scrub] [--no-mover] [--plain]
 watch: %s	beobachten: %s
 %s in total, the backup needs about 1.2x the data	%s insgesamt, das Backup braucht etwa das 1,2-fache der Daten
 %s, last copied %s	%s, zuletzt kopiert %s
@@ -1048,7 +1049,7 @@ Key file: yes (in the vault, for the other disks)	Schlüsseldatei: ja (im Tresor
 Mounted at	Eingehängt unter
 Move secrets into the vault	Geheimnisse in den Tresor verschieben
 Moved %s	%s verschoben
-No free partition found. Make one of about 1 GiB on the system disk first.	Keine freie Partition gefunden. Lege zuerst eine von etwa 1 GiB auf der System-SSD an.
+No free partition found. Make an empty one of about 1 GiB on the system disk (docs/encryption-and-vault.md, Set up the vault), or name one: hs vault init /dev/<partition>.	Keine freie Partition gefunden. Lege eine leere von etwa 1 GiB auf der System-SSD an (docs/encryption-and-vault.md, Tresor einrichten) oder nenne eine: hs vault init /dev/<Partition>.
 No such folder: %s	Diesen Ordner gibt es nicht: %s
 No vault is set up (hs vault init).	Es gibt keinen Tresor (hs vault init).
 Not a block device: %s	Kein Blockgerät: %s
@@ -1165,8 +1166,8 @@ User '%s' (%s)	Benutzer '%s' (%s)
 Waiting for %s to answer (the first start prepares its files)	Warten, bis %s antwortet (der erste Start bereitet seine Dateien vor)
 skipped (RECIPE_SKIP_STORAGE): the files stay inside the container	übersprungen (RECIPE_SKIP_STORAGE): die Dateien bleiben im Container
 Host name	Hostname
-Messages from the helpers go to ntfy and to Matrix (%s)	Meldungen der Helfer gehen an ntfy und an Matrix (%s)
-Messages from the helpers go to ntfy only (no Matrix hook yet: hs recipe matrix-hook, then run this recipe again)	Meldungen der Helfer gehen nur an ntfy (noch kein Matrix-Hook: hs recipe matrix-hook, danach dieses Rezept erneut starten)
+Events from the helpers become messages through the notification channels, also in Matrix (%s)	Ereignisse der Helfer werden über die Benachrichtigungskanäle zu Meldungen, auch in Matrix (%s)
+Events from the helpers become messages through the notification channels (no Matrix hook yet: hs recipe matrix-hook, then run this recipe again)	Ereignisse der Helfer werden über die Benachrichtigungskanäle zu Meldungen (noch kein Matrix-Hook: hs recipe matrix-hook, danach dieses Rezept erneut starten)
 usage: hs config sync [--check] | check | migrate	Aufruf: hs config sync [--check] | check | migrate
 There is a %s but no %s yet. Convert it with: hs config migrate	Es gibt eine %s, aber noch keine %s. Wandle sie um mit: hs config migrate
 Could not sync %s; nothing changed.	%s konnte nicht abgeglichen werden; nichts geändert.
@@ -1246,6 +1247,7 @@ Realloc	Neu zugewiesen
 Pending	Ausstehend
 Could not fetch the configuration: GitHub not reachable, or local changes in %s that Git can't combine?	Konfiguration nicht geladen: GitHub nicht erreichbar, oder lokale Änderungen in %s, die Git nicht zusammenführen kann?
 %s is set.	%s ist gesetzt.
+%s is removed.	%s ist entfernt.
 The result would not parse. Nothing was changed.	Das Ergebnis wäre ungültig. Es wurde nichts geändert.
 Freed about %s.	Etwa %s freigegeben.
 Rolled back. The newer generation is still there.	Zurückgesetzt. Die neuere Generation ist noch da.
@@ -1536,6 +1538,11 @@ Container restore drill	Wiederherstellungsprobe (Container)
 Virtual machine drill	Wiederherstellungsprobe (virtuelle Maschine)
 Domain controller backup file	Sicherungsdatei des Domänencontrollers
 ! Drills that failed in the last 35 days: %s	! Proben, die in den letzten 35 Tagen fehlschlugen: %s
+snapshot %s days old	Snapshot %s Tage alt
+No container is in the backup (chosen); the newest container snapshot is %s days old	Kein Container ist im Backup (so gewählt); der neueste Container-Snapshot ist %s Tage alt
+Snapshot from %s (%s days old)	Snapshot vom %s (%s Tage alt)
+Snapshot from %s (%s days old); this container is still in the backup, so its backup has not run for days	Snapshot vom %s (%s Tage alt); dieser Container ist noch im Backup, sein Backup lief aber seit Tagen nicht
+Snapshot from %s (%s days old); this container is no longer in the backup (hs backup ct %s on)	Snapshot vom %s (%s Tage alt); dieser Container ist nicht mehr im Backup (hs backup ct %s on)
 ! Backup disk: %s%% full	! Backup-Platte: %s%% voll
 Backup disk: %s%% full	Backup-Platte: %s%% voll
 Guides checked on the server: %s of %s%s	Anleitungen am Server geprüft: %s von %s%s
@@ -1694,7 +1701,18 @@ Your previous %s is kept as %s.before-recipe	Dein bisheriges %s bleibt als %s.be
 attr: v	attr: v
 unknown visibility '%s' (visible, hidden)	unbekannte Sichtbarkeit '%s' (visible, hidden)
 usage: hs net setup [--address <url>] [--stdin]   store the router address and the API key (--stdin: the key is the first line on standard input)	Aufruf: hs net setup [--address <URL>] [--stdin]   Adresse des Routers und API-Schlüssel speichern (--stdin: der Schlüssel ist die erste Zeile der Standardeingabe)
-usage: hs pkg list [--all] [--kind recipe|extension] | updates | validate | fetch | available | install | update | remove | repo	Aufruf: hs pkg list [--all] [--kind recipe|extension] | updates | validate | fetch | available | install | update | remove | repo
+usage: hs pkg list [--all] [--kind recipe|extension] | updates | validate | new | fetch | available | install | update | remove | repo	Aufruf: hs pkg list [--all] [--kind recipe|extension] | updates | validate | new | fetch | available | install | update | remove | repo
+usage: hs pkg new <name> --template recipe|extension [--dir <path>] [--title <text>] [--title-de <text>]	Aufruf: hs pkg new <Name> --template recipe|extension [--dir <Pfad>] [--title <Text>] [--title-de <Text>]
+Unknown template %s: use recipe or extension (a capability template waits for the service extensions, issue #238).	Unbekannte Vorlage %s: recipe oder extension verwenden (eine Vorlage für Fähigkeiten kommt mit den Dienst-Erweiterungen, Issue #238).
+The name %s is not allowed: lower case letters, digits and -, starting with a letter, at most 41 characters, and not list, enable or disable.	Der Name %s ist nicht erlaubt: Kleinbuchstaben, Ziffern und -, mit einem Buchstaben am Anfang, höchstens 41 Zeichen, und nicht list, enable oder disable.
+A title is one line of at most 100 characters, without spaces at its ends.	Ein Titel ist eine Zeile mit höchstens 100 Zeichen, ohne Leerzeichen am Anfang oder Ende.
+%s is not a checkout of a package repository: it needs index.toml and the folder recipes/ (recipe) or extensions/ (extension). Use --dir <path>.	%s ist kein Checkout eines Paket-Repositorys: Es braucht index.toml und den Ordner recipes/ (Rezept) oder extensions/ (Erweiterung). --dir <Pfad> verwenden.
+There is a package %s already (its folder or its index.toml entry); nothing was changed.	Es gibt schon ein Paket %s (seinen Ordner oder seinen Eintrag in index.toml); nichts wurde geändert.
+The package could not be written (%s); nothing was left behind.	Das Paket konnte nicht geschrieben werden (%s); nichts ist liegen geblieben.
+New package %s	Neues Paket %s
+Folder	Ordner
+Added %s to %s	%s in %s eingetragen
+It passes the checks as it is. Replace the example step or command with your own, then check again:	Es besteht die Prüfungen so, wie es ist. Den Beispielschritt oder -befehl durch einen eigenen ersetzen und dann erneut prüfen:
 usage: hs pkg repo add <name> <url> (--key <allowed_signers file> | --unsigned) [--confirm-name <name>]	Aufruf: hs pkg repo add <Name> <URL> (--key <allowed_signers-Datei> | --unsigned) [--confirm-name <Name>]
 usage: hs pkg repo list | add <name> <url> (--key <file> | --unsigned) | remove <name>	Aufruf: hs pkg repo list | add <Name> <URL> (--key <Datei> | --unsigned) | remove <Name>
 usage: hs share cleanup [--dry-run] [--yes]	Aufruf: hs share cleanup [--dry-run] [--yes]
@@ -2082,3 +2100,335 @@ The share apps is missing on the SSD pool. Fix: hs docker enable	Die Freigabe ap
 Checked when the container runs.	Wird geprüft, wenn der Container läuft.
 The share apps is mounted in Docker at %s.	Die Freigabe apps ist in Docker unter %s eingebunden.
 The share apps is not mounted in Docker at %s. Fix: hs docker enable	Die Freigabe apps ist in Docker nicht unter %s eingebunden. Abhilfe: hs docker enable
+hobnix: HOBNIX_BIN is not a program: %s	hobnix: HOBNIX_BIN ist kein Programm: %s
+hobnix: the Rust program for hs sys %s is missing (HOBNIX_BIN, or hobnix on the PATH)	hobnix: für hs sys %s fehlt das Rust-Programm (HOBNIX_BIN oder hobnix im PATH)
+The channel %s can break things: use it only on a server whose data may be lost.	Der Kanal %s kann etwas kaputt machen: nur für einen Server, dessen Daten verloren gehen dürfen.
+Type %s to switch to it	Tippe %s, um dorthin zu wechseln
+Not switched: the name did not match.	Nicht gewechselt: der Name stimmte nicht überein.
+The signature of %s is not valid for a trusted release key: %s	Die Signatur von %s gehört zu keinem vertrauten Release-Schlüssel: %s
+The checkout is on branch %s with local commits that are not upstream: edge would leave them behind.	Der Checkout ist auf dem Zweig %s mit lokalen Commits, die nicht im Upstream sind: edge ließe sie zurück.
+No release tag yet: following the current branch.	Noch kein Release-Tag: folgt dem aktuellen Zweig.
+channel: %s (%s)	Kanal: %s (%s)
+No release key is trusted for the core: %s is missing or empty, so no tag can be verified.	Für den Kern ist kein Release-Schlüssel hinterlegt: %s fehlt oder ist leer, daher lässt sich kein Tag prüfen.
+%s does not exist in this checkout, so there is nothing to compare with.	%s gibt es in diesem Checkout nicht, daher gibt es nichts zu vergleichen.
+%s is already part of the installed version: no step back.	%s ist schon Teil der installierten Version: kein Schritt zurück.
+This checkout has %s local commit(s) that no remote has: moving to %s would leave them behind.	Dieser Checkout hat %s lokale Commit(s), die kein Remote kennt: der Wechsel zu %s ließe sie zurück.
+Update channel %s: skipped, because no person confirmed it (a terminal, or the Update button, or --yes). Nothing was changed.	Update-Kanal %s: übersprungen, weil niemand es bestätigt hat (Terminal, Update-Knopf oder --yes). Nichts wurde geändert.
+No events yet.	Noch keine Ereignisse.
+Could not write the event %s (exit %s)	Das Ereignis %s konnte nicht geschrieben werden (Exit %s)
+Writing to the event log needs root: sudo hs event emit ...	Schreiben ins Ereignisprotokoll braucht root: sudo hs event emit ...
+The event was not written (usage: hs event emit <source.kind> <subject> [text] [--level L] [--payload JSON])	Das Ereignis wurde nicht geschrieben (Aufruf: hs event emit <Quelle.Art> <Betreff> [Text] [--level L] [--payload JSON])
+Unknown event command: %s. Use: hs event list | hs event kinds | hs event emit ...	Unbekannter Event-Befehl: %s. Nutze: hs event list | hs event kinds | hs event emit ...
+Nothing recorded yet. Commands that change the server are listed here.	Noch nichts aufgezeichnet. Befehle, die den Server ändern, erscheinen hier.
+Who	Wer
+                                             <file>.before-restore-<time>); --with-state also /var/lib/hs	                                             <Datei>.before-restore-<Zeit>); --with-state auch /var/lib/hs
+                                             put machine.toml and machine.nix of a host snapshot back on this running	                                             machine.toml und machine.nix eines Host-Schnappschusses auf diesem laufenden
+                                             server (plan first, you type the file name, the old file is kept as	                                             Server zurückspielen (erst der Plan, du tippst den Dateinamen, die alte Datei bleibt als
+       hs backup config                      the host snapshots and which settings files each holds	       hs backup config                      die Host-Schnappschüsse und welche Einstellungsdateien jeder enthält
+       hs backup config restore [<snapshot|latest>] [--with-state] [--dry-run]	       hs backup config restore [<Schnappschuss|latest>] [--with-state] [--dry-run]
+Already identical: nothing to put back (%s file(s) compared).	Schon identisch: nichts zurückzuspielen (%s Datei(en) verglichen).
+Apply the settings with: hs rebuild	Einstellungen anwenden mit: hs rebuild
+Could not read the snapshots.	Die Schnappschüsse konnten nicht gelesen werden.
+Could not restore the settings from snapshot %s. Is there a host snapshot? (hs backup config)	Die Einstellungen aus Schnappschuss %s ließen sich nicht zurückholen. Gibt es einen Host-Schnappschuss? (hs backup config)
+Host snapshots (the settings of this server)	Host-Schnappschüsse (die Einstellungen dieses Servers)
+Identical	Identisch
+Never touched: hardware-configuration.nix, SSH host keys, Samba, disks, pools, network.	Wird nie angefasst: hardware-configuration.nix, SSH-Host-Schlüssel, Samba, Platten, Pools, Netzwerk.
+Not restored on purpose (they describe this disk set or the backup itself): %s	Absichtlich nicht zurückgespielt (sie beschreiben diese Plattengruppe oder das Backup selbst): %s
+Put them back with: hs backup config restore --dry-run	Zurückspielen mit: hs backup config restore --dry-run
+Reading the host snapshot %s	Host-Schnappschuss %s wird gelesen
+Restored %s	%s zurückgespielt
+That snapshot holds no machine.toml. Look at the list: hs backup config	Dieser Schnappschuss enthält keine machine.toml. Schau in die Liste: hs backup config
+The old files were kept as <file>.before-restore-%s.	Die alten Dateien blieben als <Datei>.before-restore-%s erhalten.
+This replaces settings files. Run it in a terminal, or add --yes after looking at --dry-run.	Das ersetzt Einstellungsdateien. Starte es in einem Terminal oder füge --yes hinzu, nachdem du --dry-run angesehen hast.
+File	Datei
+Settings files	Einstellungsdateien
+%s is a link into the vault, skipped	%s ist ein Link in den Tresor, übersprungen
+usage: hs installer check-answers <file>	Aufruf: hs installer check-answers <file>
+Check the answers file	Antwortdatei prüfen
+the file cannot be read	die Datei kann nicht gelesen werden
+%s is not a readable TOML file	%s ist keine lesbare TOML-Datei
+the answers file has errors; nothing was changed	die Antwortdatei hat Fehler; nichts wurde verändert
+the answers file is valid	die Antwortdatei ist gültig
+hs-install does not read it yet	hs-install liest sie noch nicht
+Usage: hs docker import <compose-file|-> --name <app> [--env-file <file>] [--dry-run] [--yes --confirm <app>] [--allow-risky] [--job]	Aufruf: hs docker import <Compose-Datei|-> --name <App> [--env-file <Datei>] [--dry-run] [--yes --confirm <App>] [--allow-risky] [--job]
+The app name is not valid: lower case letters, digits, - and _.	Der App-Name ist ungültig: Kleinbuchstaben, Ziffern, - und _.
+Cannot read the compose file: %s	Die Compose-Datei kann nicht gelesen werden: %s
+The compose file is empty.	Die Compose-Datei ist leer.
+Cannot read the env file: %s	Die Env-Datei kann nicht gelesen werden: %s
+Docker is not on or not running (hs docker enable).	Docker ist nicht eingeschaltet oder läuft nicht (hs docker enable).
+The compose file or env file is not valid.	Die Compose- oder env-Datei ist ungültig.
+Line numbers named in the error: %s	Zeilennummern in der Fehlermeldung: %s
+The compose file could not be read.	Die Compose-Datei konnte nicht gelesen werden.
+%s: %s (%s)	%s: %s (%s)
+Import plan for %s	Importplan für %s
+app folder	App-Ordner
+Services	Dienste
+Volumes	Volumes
+Networks	Netzwerke
+Environment (names only)	Umgebung (nur Namen)
+Not imported or not tested	Nicht importiert oder nicht getestet
+Dangerous settings	Gefährliche Einstellungen
+Checks of Docker	Prüfungen von Docker
+refused: %s	abgelehnt: %s
+error: %s (%s)	Fehler: %s (%s)
+Refused: %s settings can never be imported. Nothing was changed.	Abgelehnt: %s Einstellungen lassen sich nie importieren. Nichts wurde geändert.
+Refused: %s problems stop the import. Fix the compose file. Nothing was changed.	Abgelehnt: %s Probleme stoppen den Import. Die Compose-Datei korrigieren. Nichts wurde geändert.
+Refused: the file asks for %s dangerous settings. Nothing was changed.	Abgelehnt: die Datei verlangt %s gefährliche Einstellungen. Nichts wurde geändert.
+To import it anyway, look at every line above and add --allow-risky.	Um sie trotzdem zu importieren, jede Zeile oben ansehen und --allow-risky angeben.
+--allow-risky: you accept the dangerous settings above.	--allow-risky: du nimmst die gefährlichen Einstellungen oben in Kauf.
+%s keys are not imported or not tested; they stay in the file as they are.	%s Schlüssel werden nicht importiert oder sind nicht getestet; sie bleiben unverändert in der Datei.
+Preview only (--dry-run): nothing was changed.	Nur Vorschau (--dry-run): nichts wurde geändert.
+--yes needs --confirm %s.	--yes braucht --confirm %s.
+This needs a terminal: nothing is imported without the typed name. Use --yes --confirm %s.	Das braucht ein Terminal: ohne den getippten Namen wird nichts importiert. --yes --confirm %s verwenden.
+app	App
+Importing %s	%s wird importiert
+The import failed. Nothing was started.	Der Import ist fehlgeschlagen. Nichts wurde gestartet.
+The app %s was created and started.	Die App %s wurde angelegt und gestartet.
+Unknown option: %s	Unbekannte Option: %s
+'%s' %s.	'%s' %s.
+needs core API level %s, this server has %s (hs update first)	braucht die Core-API-Stufe %s, dieser Server hat %s (erst hs update)
+needs the capability '%s', which is off	braucht die Fähigkeit '%s', die aus ist
+'%s' cannot be switched off: %s needs it.	'%s' lässt sich nicht ausschalten: %s braucht es.
+not declared	nicht angegeben
+Permissions it declares	Erklärte Berechtigungen
+Permissions are what a package says it needs. They are not enforced: every command runs as root, so install only packages you trust.	Berechtigungen sind das, was ein Paket nach eigener Angabe braucht. Sie werden nicht erzwungen: jeder Befehl läuft als root, installiere also nur Pakete, denen du vertraust.
+'%s' is removed from the library.	'%s' ist aus der Bibliothek entfernt.
+Checked	Geprüft
+Checksum	Prüfsumme
+Give the checksum from the download page (--checksum <hex>), or --no-checksum to only see the computed one.	Gib die Prüfsumme von der Download-Seite an (--checksum <hex>), oder --no-checksum, um nur die berechnete zu sehen.
+Missing: %s	Es fehlt: %s
+Not confirmed: nothing was removed.	Nicht bestätigt: es wurde nichts entfernt.
+The library is empty. Add an image: hs iso add <file-or-url> --checksum <sha256>	Die Bibliothek ist leer. Abbild hinzufügen: hs iso add <Datei-oder-URL> --checksum <sha256>
+The image is being added as a background job: %s	Das Abbild wird als Hintergrundjob hinzugefügt: %s
+usage: hs iso [list] | add <file-or-url> [--name <name.iso>] (--checksum <sha256|sha512> | --no-checksum) | remove <name>	Aufruf: hs iso [list] | add <Datei-oder-URL> [--name <Name.iso>] (--checksum <sha256|sha512> | --no-checksum) | remove <Name>
+Used by	Verwendet von
+There is no image called '%s' in the ISO library.	Es gibt kein Abbild namens '%s' in der ISO-Bibliothek.
+An installer image (ISO) is for a virtual machine only.	Ein Installationsabbild (ISO) gibt es nur für eine virtuelle Maschine.
+usage: hs ct add [--kind empty|docker|vm] [--name <n>] [--ram MB] [--cpu N] [--disk GB] [--ip <address>] [--profile <vlan>] [--pool <incus pool>] [--iso <name.iso>] [--yes]	Aufruf: hs ct add [--kind empty|docker|vm] [--name <n>] [--ram MB] [--cpu N] [--disk GB] [--ip <Adresse>] [--profile <vlan>] [--pool <Incus-Pool>] [--iso <Name.iso>] [--yes]
+The image '%s' does not exist.	Das Abbild '%s' gibt es nicht.
+There is no storage pool called '%s'. Known: %s	Es gibt keinen Speicherpool namens '%s'. Bekannt: %s
+usage: hs storage incident                 what is wrong with the storage and what to do next (reads only)	Aufruf: hs storage incident                 was mit dem Speicher los ist und was als Nächstes zu tun ist (nur lesend)
+       hs storage incident pause [--yes] [<instance>...]   freeze the apps that write to an affected share	       hs storage incident pause [--yes] [<Instanz>...]   die Apps einfrieren, die auf eine betroffene Freigabe schreiben
+       hs storage incident replace [--pool <pool>] [--member <name>] [--disk <by-id name>] [--dry-run]	       hs storage incident replace [--pool <Pool>] [--member <Name>] [--disk <by-id-Name>] [--dry-run]
+       hs storage incident resume                          thaw them again	       hs storage incident resume                          sie wieder auftauen
+%s is the only good copy of its mirror right now. Replace the failed disk %s first, not this one.	%s ist gerade die einzige gute Kopie seines Spiegels. Tausche zuerst die defekte Platte %s, nicht diese.
+%s of %s is gone: there is nothing to pull. Plug in its replacement.	%s von %s ist weg: es gibt nichts zu ziehen. Steck den Ersatz ein.
+A replacement is already running in %s. Wait for it to finish.	In %s läuft schon ein Austausch. Warte, bis er fertig ist.
+Affected apps	Betroffene Apps
+Affected shares	Betroffene Freigaben
+Could not pause %s.	%s konnte nicht pausiert werden.
+Could not resume %s.	%s konnte nicht fortgesetzt werden.
+Freeze %s (incus pause). It keeps its memory and carries on after: hs storage incident resume	%s einfrieren (incus pause). Es behält seinen Speicher und läuft danach weiter: hs storage incident resume
+Next you see the plan and type the name of the disk. The copy runs in the background; this page follows it.	Als Nächstes siehst du den Plan und tippst den Namen der Platte. Das Kopieren läuft im Hintergrund.
+No disk to replace was found in %s. Say which: --member <name>	In %s wurde keine Platte zum Tauschen gefunden. Sag welche: --member <Name>
+No disk to replace was found. Say which: --pool <pool> --member <name>	Es wurde keine Platte zum Tauschen gefunden. Sag welche: --pool <Pool> --member <Name>
+No free disk that is large enough was found. Plug the new disk in, then run this again.	Keine freie Platte gefunden, die groß genug ist. Steck die neue Platte ein und starte das noch einmal.
+No new disk showed up. Plug it in, then run this again.	Es ist keine neue Platte aufgetaucht. Steck sie ein und starte das noch einmal.
+No running app writes to an affected share: nothing to pause.	Keine laufende App schreibt auf eine betroffene Freigabe: nichts zu pausieren.
+No storage incident: every pool and every disk looks fine.	Kein Speichervorfall: jeder Pool und jede Platte sieht gut aus.
+Nothing is deleted or changed on any disk.	Auf keiner Platte wird etwas gelöscht oder geändert.
+Nothing was paused by hs storage incident.	hs storage incident hat nichts pausiert.
+Nothing was paused.	Es wurde nichts pausiert.
+Only running apps that write to an affected share can be paused here.	Hier lassen sich nur laufende Apps pausieren, die auf eine betroffene Freigabe schreiben.
+Pause these apps now?	Diese Apps jetzt pausieren?
+Paused by you: %s. Lift it with: hs storage incident resume	Von dir pausiert: %s. Aufheben mit: hs storage incident resume
+Paused: %s	Pausiert: %s
+Pull %s (%s) only after the replacement is planned. Check the serial number on the label, never go by /dev/sdX alone.	Zieh %s (%s) erst, wenn der Austausch geplant ist. Prüfe die Seriennummer auf dem Etikett, verlass dich nie allein auf /dev/sdX.
+Replace	Tauschen
+Replacement running	Austausch läuft
+Steps	Schritte
+Suggestion: pause the apps that write to the pool until the rebuild is done: hs storage incident pause	Vorschlag: die Apps pausieren, die auf den Pool schreiben, bis der Wiederaufbau fertig ist: hs storage incident pause
+The disk to pull	Die Platte zum Ziehen
+The new disk: %s	Die neue Platte: %s
+The paused apps run again.	Die pausierten Apps laufen wieder.
+There is no storage incident: nothing to pause.	Es gibt keinen Speichervorfall: nichts zu pausieren.
+There is no storage incident: nothing to replace.	Es gibt keinen Speichervorfall: nichts zu tauschen.
+Waiting for the new disk (at least as large as the old one). Plug it in now. Ctrl-C stops.	Warte auf die neue Platte (mindestens so groß wie die alte). Steck sie jetzt ein. Strg-C bricht ab.
+What happened	Was passiert ist
+%s (%s): files on the missing disk are not reachable	%s (%s): die Dateien auf der fehlenden Platte sind nicht erreichbar
+%s (%s): readable, but without redundancy right now	%s (%s): lesbar, aber gerade ohne Redundanz
+%s (%s): lives on this pool	%s (%s): liegt auf diesem Pool
+%s (%s): uses share %s	%s (%s): nutzt die Freigabe %s
+, writes to it	, schreibt darauf
+now	jetzt
+optional	optional
+Understand what failed	Verstehen, was ausgefallen ist
+Pause the apps that write to the pool	Die Apps pausieren, die auf den Pool schreiben
+Pull the failed disk and plug in the new one	Die defekte Platte ziehen und die neue einstecken
+Replace the disk (you type its name)	Die Platte tauschen (du tippst ihren Namen)
+Wait for the rebuild, then check the result	Auf den Wiederaufbau warten, dann das Ergebnis prüfen
+Unknown option %s	Unbekannte Option %s
+%s was not installed from a repository.	%s wurde nicht aus einem Repository installiert.
+'%s' is switched on: switch it off first.	'%s' ist eingeschaltet: erst ausschalten.
+'%s' cannot be removed: %s needs it.	'%s' lässt sich nicht entfernen: %s braucht es.
+Remove package %s	Paket %s entfernen
+Removed: the installed copy, its event declarations and its switch-on/off marks.	Entfernt: die installierte Kopie, ihre Ereignis-Deklarationen und ihre An-/Aus-Markierungen.
+Stays: containers and data the package made (hs ct remove is for those).	Bleibt: Container und Daten, die das Paket angelegt hat (dafür gibt es hs ct remove).
+Nothing was changed (dry run).	Nichts wurde geändert (Probelauf).
+the package	das Paket
+Not removed.	Nicht entfernt.
+Removing needs a person at a terminal, --yes or --confirm-name <name>.	Entfernen braucht eine Person am Terminal, --yes oder --confirm-name <Name>.
+Package %s removed.	Paket %s entfernt.
+usage: hs pkg remove <name> [--dry-run] [--yes | --confirm-name <name>]	Aufruf: hs pkg remove <Name> [--dry-run] [--yes | --confirm-name <Name>]
+'%s' is not a disk name.	'%s' ist kein Plattenname.
+--confirm-disk '%s' is not the disk '%s'.	--confirm-disk '%s' ist nicht die Platte '%s'.
+/dev/%s could not be mounted read-only.	/dev/%s konnte nicht schreibgeschützt eingehängt werden.
+/dev/%s has mounted parts (it may be the stick or the backup disk). Choose another.	/dev/%s hat eingehängte Teile (es kann der Stick oder die Backup-Platte sein). Wähle eine andere.
+/dev/%s is mounted read-only; nothing is written to it.	/dev/%s ist schreibgeschützt eingehängt; es wird nichts darauf geschrieben.
+Backup password:	Backup-Passwort:
+Bus	Anschluss
+Could not unmount %s; it was left as it is. Unmount it by hand.	%s konnte nicht ausgehängt werden; es blieb unverändert. Bitte von Hand aushängen.
+Data disks are not touched. Afterwards: first boot, hs rebuild, hs vault init, import the pools, hs unlock, hs backup restore (docs/backup-and-recovery.md).	Datenplatten werden nicht angefasst. Danach: erster Start, hs rebuild, hs vault init, Pools importieren, hs unlock, hs backup restore (docs/backup-and-recovery.md).
+Everything on /dev/%s will be erased.	Alles auf /dev/%s wird gelöscht.
+More than one backup disk and no terminal: name one with --backup-device.	Mehr als eine Backup-Platte und kein Terminal: nenne eine mit --backup-device.
+Name of the backup disk partition (e.g. sdb1)	Name der Partition der Backup-Platte (z. B. sdb1)
+Name of the new system disk (e.g. sda or nvme0n1)	Name der neuen Systemplatte (z. B. sda oder nvme0n1)
+New system disk	Neue Systemplatte
+No backup repository in %s. Is this the disk made by hs backup init?	Kein Backup-Repository in %s. Ist das die mit hs backup init angelegte Platte?
+No host snapshot %s.	Kein Host-Snapshot %s.
+No terminal and no --disk: nothing is chosen on a guess.	Kein Terminal und kein --disk: es wird nichts auf Verdacht gewählt.
+No terminal and no --password-file: the backup password cannot be asked.	Kein Terminal und keine --password-file: das Backup-Passwort kann nicht abgefragt werden.
+Not restored here: the backup password (it goes into the new vault by hand), the pools, shares and containers, the vault itself.	Hier nicht zurückgeholt: das Backup-Passwort (es kommt von Hand in den neuen Tresor), die Pools, Freigaben und Container, der Tresor selbst.
+Not the same name. Nothing was changed.	Nicht derselbe Name. Es wurde nichts geändert.
+Only this disk is erased. The data disks and the backup disk stay as they are, but check the name twice.	Nur diese Platte wird gelöscht. Die Datenplatten und die Backup-Platte bleiben, wie sie sind, aber prüfe den Namen zweimal.
+Restore from backup	Aus dem Backup zurückholen
+Run this as root (sudo -i).	Als root ausführen (sudo -i).
+SSH key	SSH-Schlüssel
+Server name	Servername
+Settings that come back from the backup:	Einstellungen, die aus dem Backup zurückkommen:
+That is the backup disk. It is never erased.	Das ist die Backup-Platte. Sie wird nie gelöscht.
+That snapshot holds no machine.toml. Choose another snapshot.	Dieser Snapshot enthält keine machine.toml. Wähle einen anderen Snapshot.
+The answers file	Die Antwortdatei
+The answers file has errors. Nothing was changed.	Die Antwortdatei hat Fehler. Es wurde nichts geändert.
+The answers file is valid	Die Antwortdatei ist gültig
+The backup disk	Die Backup-Platte
+The backup password is in your password manager (hs secrets reminded you of it).	Das Backup-Passwort steht in deinem Passwortmanager (hs secrets hat dich daran erinnert).
+The password file %s does not exist.	Die Passwortdatei %s gibt es nicht.
+The password is empty. Nothing was changed.	Das Passwort ist leer. Es wurde nichts geändert.
+The plan	Der Plan
+The repository could not be opened, or holds no host snapshot. Wrong password, or the wrong disk? Nothing was changed.	Das Repository ließ sich nicht öffnen oder enthält keinen Host-Snapshot. Falsches Passwort oder falsche Platte? Es wurde nichts geändert.
+The restored machine.toml has no SSH key (sshKeys): nobody could log in to the new server.	Die zurückgeholte machine.toml hat keinen SSH-Schlüssel (sshKeys): niemand könnte sich am neuen Server anmelden.
+The restored machine.toml has no hostName.	Die zurückgeholte machine.toml hat keinen hostName.
+The settings could not be read from the snapshot. Nothing was changed.	Die Einstellungen ließen sich nicht aus dem Snapshot lesen. Es wurde nichts geändert.
+The settings of the snapshot were read into a temporary folder	Die Einstellungen des Snapshots wurden in einen temporären Ordner gelesen
+The snapshots	Die Snapshots
+There is no disk /dev/%s.	Es gibt keine Platte /dev/%s.
+This is not the installer stick (nothing is mounted at /iso), so nothing is restored. It runs from the stick.	Das ist nicht der Installer-Stick (unter /iso ist nichts eingehängt), also wird nichts zurückgeholt. Es läuft vom Stick.
+Time zone	Zeitzone
+UNVERIFIED: this restore has not been tested on hardware. Read the plan carefully.	UNVERIFIED: Diese Wiederherstellung wurde nicht auf Hardware getestet. Lies den Plan sorgfältig.
+Which disk is the NEW system disk?	Welche Platte ist die NEUE Systemplatte?
+usage: hs-restore [--backup-device <name>] [--password-file <file>] [--snapshot <id|latest>] [--disk <name>] [--confirm-disk <name>] [--answers <file>] [--dry-run]	Aufruf: hs-restore [--backup-device <Name>] [--password-file <Datei>] [--snapshot <id|latest>] [--disk <Name>] [--confirm-disk <Name>] [--answers <Datei>] [--dry-run]
+This takes effect with hs rebuild.	Das gilt nach: hs rebuild.
+A rebuild takes several minutes; none has been timed on this server yet.	Ein Rebuild dauert mehrere Minuten; auf diesem Server wurde noch keiner gemessen.
+The last rebuild took about %s min.	Der letzte Rebuild dauerte etwa %s Min.
+This needs root: sudo hs setup-code %s	Das braucht root: sudo hs setup-code %s
+The first setup is already done. To start over: sudo hs setup-code reset	Die erste Einrichtung ist schon abgeschlossen. Zum Neubeginnen: sudo hs setup-code reset
+A setup code is waiting (valid for another %s s).	Ein Einrichtungscode wartet (noch %s s gültig).
+The setup code has expired: sudo hs setup-code issue	Der Einrichtungscode ist abgelaufen: sudo hs setup-code issue
+The setup code was used up by wrong tries: sudo hs setup-code issue	Der Einrichtungscode ist durch falsche Eingaben verbraucht: sudo hs setup-code issue
+The first setup is done (admin: %s).	Die erste Einrichtung ist abgeschlossen (Admin: %s).
+No first setup is waiting on this server.	Auf diesem Server wartet keine erste Einrichtung.
+Usage: hs setup-code issue | status | reset	Aufruf: hs setup-code issue | status | reset
+No such events.	Keine solchen Ereignisse.
+Payload	Nutzdaten
+Meaning	Bedeutung
+'%s' uses more than it declares in permissions: %s	'%s' nutzt mehr, als in permissions angegeben ist: %s
+%s items need your decision before the app is the same as on Unraid.	%s Punkte brauchen deine Entscheidung, bevor die App so ist wie auf Unraid.
+Cannot read the template: %s	Das Template lässt sich nicht lesen: %s
+Draft written to %s. Nothing was started.	Entwurf nach %s geschrieben. Nichts wurde gestartet.
+Not carried over	Nicht übernommen
+Preview only: nothing was written. Add --out <folder> to write the draft.	Nur Vorschau: nichts wurde geschrieben. Mit --out <Ordner> wird der Entwurf geschrieben.
+The folder exists already, nothing is overwritten: %s	Der Ordner existiert schon, nichts wird überschrieben: %s
+The template could not be read: %s	Das Template konnte nicht gelesen werden: %s
+UNVERIFIED: the draft was checked against test templates only. Read it before you import it.	UNGEPRÜFT: der Entwurf wurde nur an Testvorlagen geprüft. Lies ihn, bevor du ihn importierst.
+Usage: hs docker import-unraid <template.xml> [--name <app>] [--out <folder>]	Aufruf: hs docker import-unraid <template.xml> [--name <App>] [--out <Ordner>]
+Volumes and devices	Volumes und Geräte
+Web address	Web-Adresse
+Archive	Archiv
+Cannot read the archive: %s	Das Archiv lässt sich nicht lesen: %s
+Maps to Incus	Wird in Incus zu
+Proxmox archive %s	Proxmox-Archiv %s
+Read-only: nothing was unpacked or created.	Nur gelesen: nichts wurde entpackt oder angelegt.
+The archive could not be read: %s	Das Archiv konnte nicht gelesen werden: %s
+Top folders	Oberste Ordner
+UNVERIFIED: the restore is not built yet, and this plan was checked against test archives only.	UNGEPRÜFT: das Wiederherstellen gibt es noch nicht, und dieser Plan wurde nur an Testarchiven geprüft.
+Usage: hs ct import-vzdump <archive>	Aufruf: hs ct import-vzdump <Archiv>
+The generated capability list could not be refreshed.	Die erzeugte Liste der Zusatzmodule konnte nicht aktualisiert werden.
+Hobnix	Hobnix
+The passphrase is typed: run this in a terminal.	Die Passphrase wird getippt: starte das in einem Terminal.
+%s is not a disk or partition.	%s ist keine Platte und keine Partition.
+Could not mount %s read-only. Is it the backup disk (ext4)?	%s konnte nicht schreibgeschützt eingehängt werden. Ist es die Backup-Platte (ext4)?
+No restic repository on %s. Is it the backup disk?	Auf %s liegt kein restic-Repository. Ist es die Backup-Platte?
+Backup passphrase (the restic password from your password manager):	Backup-Passphrase (das restic-Passwort aus deinem Passwort-Manager):
+No passphrase given.	Keine Passphrase eingegeben.
+Could not open the repository: wrong passphrase, or not the backup disk of this server.	Das Repository ließ sich nicht öffnen: falsche Passphrase oder nicht die Backup-Platte dieses Servers.
+--with-samba belongs to --from-disk.	--with-samba gehört zu --from-disk.
+Samba secrets are not restored (add --with-samba to include them).	Samba-Geheimnisse werden nicht zurückgespielt (mit --with-samba kommen sie mit).
+Never touched: hardware-configuration.nix, disks, pools, network.	Nie angefasst: hardware-configuration.nix, Platten, Pools, Netzwerk.
+The SSH host keys of the old server are in the backup. Putting them back keeps your computers from warning about a new server.	Die SSH-Host-Schlüssel des alten Servers sind im Backup. Spielst du sie zurück, warnen deine Rechner nicht vor einem neuen Server.
+SSH host keys not restored (this server keeps its own). Run the command again to put them back.	SSH-Host-Schlüssel nicht zurückgespielt (dieser Server behält seine eigenen). Führe den Befehl nochmal aus, um sie zurückzuholen.
+       hs backup config restore --from-disk <device> [<snapshot|latest>] [--with-samba] [--dry-run]	       hs backup config restore --from-disk <Platte> [<Schnappschuss|latest>] [--with-samba] [--dry-run]
+                                             --from-disk is for a fresh install: only the backup disk and its passphrase	                                             --from-disk ist für eine frische Installation: nur die Backup-Platte und ihre Passphrase
+                                             (typed, never an argument) are needed; the disk is mounted read-only,	                                             (getippt, nie als Argument) werden gebraucht; die Platte wird schreibgeschützt eingehängt,
+                                             /var/lib/hs comes back, the SSH host keys after you type their name,	                                             /var/lib/hs kommt zurück, die SSH-Host-Schlüssel nachdem du ihren Namen tippst,
+                                             the Samba secrets only with --with-samba	                                             die Samba-Geheimnisse nur mit --with-samba
+That is not an address like 10.10.95.25.	Das ist keine Adresse wie 10.10.95.25.
+That value does not fit here.	Dieser Wert passt hier nicht.
+UniFi does not accept that address (taken, or inside the range the router hands out).	UniFi nimmt diese Adresse nicht an (schon vergeben oder im Bereich, den der Router verteilt).
+       hs testlab results [--list [N]]	       hs testlab results [--list [N]]
+3. build the installer ISO (nix, can take a long time and needs tens of GiB)	3. die Installer-ISO bauen (nix, dauert lange und braucht einige zehn GiB)
+A failure sends a push message. Not tested on hardware yet.	Ein Fehler schickt eine Push-Nachricht. Noch nicht auf Hardware getestet.
+Building the installer ISO (this takes a long time)	Installer-ISO bauen (das dauert lange)
+Checked out %s	%s ausgecheckt
+Commit %s, run folder %s	Commit %s, Lauf-Ordner %s
+Ended	Beendet
+Exit	Exit-Code
+Fetching %s	%s wird geholt
+No test-lab run yet. Start one with: hs testlab run	Noch kein Testlabor-Lauf. Starte einen mit: hs testlab run
+Nothing is started without --yes when there is no terminal.	Ohne Terminal wird ohne --yes nichts gestartet.
+Ref	Stand
+Run	Lauf
+Run %s: can this machine run nested VMs?	Lauf %s: kann dieser Rechner verschachtelte VMs starten?
+Run the test-lab now?	Das Testlabor jetzt ausführen?
+Running the nested harness, VM %s	Verschachtelter Test läuft, VM %s
+Stage	Stufe
+Stage 1	Stufe 1
+Stage 2	Stufe 2
+Stages	Stufen
+Started	Gestartet
+The job was cancelled.	Der Job wurde abgebrochen.
+The test-lab is off. Switch it on with the capability testlab (hs config set capabilities, then hs rebuild).	Das Testlabor ist aus. Schalte die Funktion testlab ein (hs config set capabilities, dann hs rebuild).
+This builds an installer image and boots virtual machines: it takes a long time and puts load on this server.	Das baut ein Installer-Abbild und startet virtuelle Maschinen: es dauert lange und belastet diesen Server.
+usage: hs testlab run [--ref <branch|tag|commit>] [--stage 1|2|all] [--dry-run] [--yes] [--background|--foreground]	Aufruf: hs testlab run [--ref <branch|tag|commit>] [--stage 1|2|all] [--dry-run] [--yes] [--background|--foreground]
+2. check that this machine can run nested VMs (KVM, Incus)	2. prüfen, ob dieser Rechner verschachtelte VMs starten kann (KVM, Incus)
+Missing on this system: %s. Nothing was changed.	Auf diesem System fehlt: %s. Nichts wurde geändert.
+cryptsetup is not installed on this system, so a vault cannot be made. Nothing was changed.	cryptsetup ist auf diesem System nicht installiert, daher kann kein Tresor angelegt werden. Nichts wurde geändert.
+Owners kept as in the snapshot.	Die Besitzer bleiben wie im Snapshot.
+Could not list %s in the snapshot.	%s konnte im Snapshot nicht aufgelistet werden.
+%s is a plain folder with files, left as it is.	%s ist ein normaler Ordner mit Dateien und bleibt, wie er ist.
+Share datasets that are missing and will be created first	Fehlende Freigabe-Datasets, die zuerst angelegt werden
+Could not create the dataset %s. Nothing was restored.	Das Dataset %s konnte nicht angelegt werden. Es wurde nichts wiederhergestellt.
+Created %s share datasets. After the restore: sudo hs share repair	%s Freigabe-Datasets angelegt. Nach der Wiederherstellung: sudo hs share repair
+plain folder, not a share (make a share of it with hs share add, or move its files into one)	Ordner, keine Freigabe (mit hs share add zur Freigabe machen oder die Dateien in eine Freigabe verschieben)
+Samba is not installed on this system, so there are no shares to publish. Install the full system first (hs rebuild).	Samba ist auf diesem System nicht installiert, es gibt also keine Freigaben zu veröffentlichen. Zuerst das vollständige System installieren (hs rebuild).
+%s: the domain controller is always in the backup, as samba backup file (the machine itself is not exported)	%s: Der Domänencontroller ist immer im Backup, als Samba-Sicherungsdatei (die Maschine selbst wird nicht exportiert)
+'%s' is not a number of files. To try a container or virtual machine: hs backup drill ct %s	'%s' ist keine Dateianzahl. Einen Container oder eine virtuelle Maschine prüfst du mit: hs backup drill ct %s
+! Virtual machine drill: never	! Test der virtuellen Maschine: noch nie
+Command	Befehl
+done	erledigt
+Set up notifications	Benachrichtigungen einrichten
+Storage pool	Speicherpool
+A first share	Eine erste Freigabe
+Setup finished	Einrichtung abgeschlossen
+Vault (secrets)	Tresor (Geheimnisse)
+Optional parts (capabilities)	Optionale Teile (Funktionen)
+Wildcard DNS for the gateway proxy	Wildcard-DNS für den Gateway-Proxy
+machine.toml says bulkType = "%s", but this server was installed with "%s".	machine.toml sagt bulkType = "%s", aber dieser Server wurde mit "%s" installiert.
+The layout of /bulk cannot be switched by a rebuild. Set bulkType back to "%s", or reinstall the server.	Der Aufbau von /bulk lässt sich nicht mit einem Rebuild umstellen. Setze bulkType zurück auf "%s" oder installiere den Server neu.
+The configuration imports the pool fast, but no such pool is imported or found on the disks. The rebuild may fail on zfs-import-fast.	Die Konfiguration importiert den Pool fast, aber ein solcher Pool ist weder importiert noch auf den Platten zu finden. Der Rebuild kann an zfs-import-fast scheitern.
+If this server never had it, create it: hs pool fast add (SSD pool; see docs/storage-and-disks.md)	Hatte dieser Server ihn nie, lege ihn an: hs pool fast add (SSD-Pool; siehe docs/storage-and-disks.md)
+Cannot create the share folder: no data disk has more free space than the reserve (minfreespace, 10 GiB), so the pool refuses new folders. Free space or add a bigger disk: hs pool bulk add	Der Freigabe-Ordner kann nicht angelegt werden: keine Datenplatte hat mehr freien Platz als die Reserve (minfreespace, 10 GiB), deshalb lehnt der Pool neue Ordner ab. Schaffe Platz oder füge eine größere Platte hinzu: hs pool bulk add
+SnapRAID refuses: too many disks have changed UUIDs since the last sync (the disks were formatted again).	SnapRAID lehnt ab: zu viele Platten haben seit der letzten Synchronisation andere UUIDs (die Platten wurden neu formatiert).
+If you replaced or rebuilt the disks on purpose and every disk in 'hs pool bulk' is the right one, run once: hs pool bulk sync --force-uuid	Wenn du die Platten absichtlich ersetzt oder neu aufgebaut hast und jede Platte in 'hs pool bulk' die richtige ist, führe einmal aus: hs pool bulk sync --force-uuid
+If you did not change any disk, stop: a disk may be mounted in the wrong place.	Wenn du keine Platte geändert hast, höre auf: eine Platte könnte am falschen Ort eingehängt sein.
+Disks were replaced or formatted again and you said so (--force-uuid). Syncing again with --force-uuid.	Platten wurden ersetzt oder neu formatiert und du hast es mit --force-uuid bestätigt. Synchronisiere erneut mit --force-uuid.

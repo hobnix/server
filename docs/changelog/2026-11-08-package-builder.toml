@@ -1,0 +1,5 @@
+date  = "2026-11-08"
+type  = "feature"
+title = "Package builder: write the manifest of a new app or extension in the browser"
+docs  = "containers-and-apps"
+body  = """The Marketplace has a Package builder. Fill in the form and the server checks the manifest with the rules of hs pkg validate while you type. It saves nothing yet; copy the text into your package."""

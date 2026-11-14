@@ -1,11 +1,13 @@
 #!/usr/bin/env bash
 # help: install a new server from the installer ISO: the OS disk, name, SSH key, preset (run on the ISO as root)
 # help.de: einen neuen Server vom Installer-Stick einrichten: Systemplatte, Name, SSH-Schlüssel, Vorlage (auf dem Stick als root)
-# args: [--role homeserver|edge|minimal] [--disk <name>] [--hostname <name>] [--key-file <file>] [--timezone <zone>] [--preset <name>] [--confirm-disk <name>] [--bios] [--dry-run]
+# args: [--role homeserver|edge|minimal] [--disk <name>] [--hostname <name>] [--key-file <file>] [--timezone <zone>] [--preset <name>] [--confirm-disk <name>] [--bios] [--restore-from <dir>] [--dry-run]
 set -euo pipefail
 here=$(dirname "$0")
 . "$here/lib/ui.sh"
 . "$here/lib/machine.sh"
+. "$here/lib/restore.sh"
+. "$here/lib/checkout.sh"
 
 # The terminal installer on the ISO (docs/PLAN-modular-core.md step 10a): it replaces the manual steps 2.1 to 2.7 of the Homeserver guide.
 # It touches ONE disk (the one you pick and then type the name of), leaves every other disk alone, puts a copy of this repository
@@ -18,12 +20,23 @@ here=$(dirname "$0")
 #
 # Everything it asks can be given up front (the options above, plus --nic, --smb-allow, --key <line>, --target <dir>, --repo <dir>).
 # An unattended run needs --disk and --confirm-disk <the same name>: without a terminal nothing is erased on a guess.
-# Test knobs: HS_INSTALL_SKIP_DISK=1 (no partitioning, no mounting, no nixos-install: only the files), HS_INSTALL_PASSWORD (the adminuser
+# --restore-from <dir> is set by hs-restore (scripts/install-restore.sh): <dir> holds the settings read from a backup (machine.toml,
+# /var/lib/hs, SSH host keys). They are laid over the fresh configuration before nixos-install. UNVERIFIED: not tested on hardware.
+# After the copy /etc/nixos becomes a git checkout (lib/checkout.sh, issue #396): `git init`, origin = the public repository (https, no key
+# needed), fetch with tags, HEAD = the commit the ISO was built from (/etc/hs-installer-version, written by installer/iso.nix). The files are
+# not changed, so `git status` is clean and hs update, the channels and the version work. Without a network, or for a stick built from
+# unpublished work, no .git is left and the install goes on: docs/install.md "Keep the configuration updatable" has the manual steps.
+# Test knobs: HS_INSTALLER_VERSION_FILE, HS_INSTALL_ORIGIN (the url to fetch from), HS_INSTALL_FETCH_TIMEOUT, HS_INSTALL_SKIP_DISK=1 (no partitioning, no mounting, no nixos-install: only the files), HS_INSTALL_PASSWORD (the adminuser
 # password without asking), HS_PRESETS_DIR, HS_PYTHON.
 
 disk=""; hostname_=""; keyfile=""; key=""; tz=""; preset=""; confirm_disk=""; nic=""; smb=""; dry=false; role=""; bios=false
 target=${HS_INSTALL_TARGET:-/mnt}
-repo=""
+repo=""; restore_from=""
+# no arguments in a terminal: the entry menu, "New install" next to "Restore from backup" (UNVERIFIED: not tested on hardware)
+if [ $# -eq 0 ] && [ -t 0 ] && [ -t 1 ] && [ -z "${HS_INSTALL_SKIP_DISK:-}" ]; then
+  what=$(choose "What do you want to do?" "New install" "Restore from backup") || what="New install"
+  [ "$what" != "Restore from backup" ] || exec bash "$here/install-restore.sh"
+fi
 while [ $# -gt 0 ]; do
   case "$1" in
     --role) role=${2:?}; shift 2 ;;
@@ -39,6 +52,7 @@ while [ $# -gt 0 ]; do
     --smb-allow) smb=${2:?}; shift 2 ;;
     --target) target=${2:?}; shift 2 ;;
     --repo) repo=${2:?}; shift 2 ;;
+    --restore-from) restore_from=${2:?}; shift 2 ;;
     --dry-run) dry=true; shift ;;
     *) say "usage: hs-install [--role homeserver|edge|minimal] [--disk <name>] [--hostname <name>] [--key-file <file>] [--timezone <zone>] [--preset <name>] [--confirm-disk <name>] [--dry-run]"; exit 1 ;;
   esac
@@ -47,6 +61,15 @@ skip=${HS_INSTALL_SKIP_DISK:-}
 py=${HS_PYTHON:-python3}
 # the repository to copy: the one this script belongs to (on the ISO: /etc/hs-installer)
 [ -n "$repo" ] || repo=$(cd "$here/.." && pwd)
+# what the ISO was built from: describe=<git describe> and commit=<full hash>, "-" when unknown (a stick built from a dirty tree)
+origin=${HS_INSTALL_ORIGIN:-https://github.com/hobnix/server.git}
+iso_describe=-; iso_commit=-
+if [ -r "${HS_INSTALLER_VERSION_FILE:-/etc/hs-installer-version}" ]; then
+  iso_describe=$(sed -n 's/^describe=//p' "${HS_INSTALLER_VERSION_FILE:-/etc/hs-installer-version}" | head -n1)
+  iso_commit=$(sed -n 's/^commit=//p' "${HS_INSTALLER_VERSION_FILE:-/etc/hs-installer-version}" | head -n1)
+  [[ "$iso_commit" =~ ^[0-9a-f]{40}$ ]] || iso_commit=-
+  [[ "$iso_describe" =~ ^[A-Za-z0-9._+-]+$ ]] || iso_describe=-
+fi
 tty=false; if [ -t 0 ] && [ -t 1 ]; then tty=true; fi
 
 # ---- the role
@@ -141,6 +164,9 @@ if [ "$role" = homeserver ]; then
   kv "Samba networks" "${smb:-from the example}"
 fi
 kv "Copy of this repository" "$target/etc/nixos"
+if [ "$iso_commit" != - ]; then kv "Git checkout" "origin $origin at $iso_describe (fetched now; without a network: none, see docs/install.md)"
+else kv "Git checkout" "none: this stick does not name the revision it was built from (docs/install.md, Keep the configuration updatable)"; fi
+[ -z "$restore_from" ] || kv "Settings from the backup" "$(restore_files "$restore_from" | wc -l | tr -d ' ') file(s) laid over the configuration"
 if $dry; then note "Dry run: nothing was changed."; exit 0; fi
 
 if [ -z "$skip" ]; then
@@ -168,18 +194,20 @@ if [ -z "$skip" ]; then
   step "Partitioning /dev/$disk"
   parted -s "/dev/$disk" -- mklabel gpt
   if $bios; then
-    parted -s "/dev/$disk" -- mkpart root ext4 2MB -8GB
-    parted -s "/dev/$disk" -- mkpart swap linux-swap -8GB 100%
+    parted -s "/dev/$disk" -- mkpart root ext4 2MB -9GB
+    parted -s "/dev/$disk" -- mkpart swap linux-swap -9GB -1GB
     parted -s "/dev/$disk" -- mkpart biosboot 1MB 2MB
     parted -s "/dev/$disk" -- set 3 bios_grub on
+    parted -s "/dev/$disk" -- mkpart vault -1GB 100%   # left empty for hs vault init (partition 4)
   else
-    parted -s "/dev/$disk" -- mkpart root ext4 1GB -8GB
-    parted -s "/dev/$disk" -- mkpart swap linux-swap -8GB 100%
+    parted -s "/dev/$disk" -- mkpart root ext4 1GB -9GB
+    parted -s "/dev/$disk" -- mkpart swap linux-swap -9GB -1GB
     parted -s "/dev/$disk" -- mkpart ESP fat32 1MB 1GB
     parted -s "/dev/$disk" -- set 3 esp on
+    parted -s "/dev/$disk" -- mkpart vault -1GB 100%   # left empty for hs vault init (partition 4)
   fi
   udevadm settle 2>/dev/null || true
-  ok "GPT with root, swap and boot"
+  ok "GPT with root, swap, boot and an empty partition called vault"
   step "Formatting and mounting"
   mkfs.ext4 -q -F -L nixos "/dev/${p}1"
   mkswap -L swap "/dev/${p}2" >/dev/null
@@ -198,12 +226,23 @@ fi
 step "Configuration"
 etc=$target/etc/nixos
 mkdir -p "$etc"
+chmod 755 "$target/etc" "$etc"   # not the caller's umask: sshd and the services must read /etc on the new system
 # the whole repository (install.nix and configuration.nix read config/, capabilities/, pkgs/, web/ ...), not the .git folder or build leftovers
 ( cd "$repo" && tar -cf - --exclude=.git --exclude=node_modules --exclude=target --exclude=tests --exclude=__pycache__ --exclude='result*' . ) | ( cd "$etc" && tar -xf - )
+chmod 755 "$etc"   # tar gave it the mode of the source folder
 cp "$etc/machine.toml.example" "$etc/machine.toml"
 ok "A copy of the repository is in $etc"
+# the git checkout: best effort, never a reason to stop (the server boots without it)
+rc=0; repo_checkout "$etc" "$origin" "$iso_commit" "$iso_describe" || rc=$?
+case "$rc" in
+  0) ok "$(t '/etc/nixos is a git checkout of %s (hs update and the update channels work)' "$iso_describe")" ;;
+  3) warn "$(t '/etc/nixos is a git checkout of %s, but %s file(s) differ from it: look at git -C /etc/nixos status before hs update' "$iso_describe" "${REPO_CHECKOUT_DIRTY:-?}")" ;;
+  2) warn "This stick does not say which published revision it was built from, so no git checkout was made. The server works; to use hs update follow docs/install.md, Keep the configuration updatable." ;;
+  *) warn "No git checkout was made (GitHub was not reachable from the installer). The server works; once it is online follow docs/install.md, Keep the configuration updatable, so that hs update works." ;;
+esac
 export HS_MACHINE_FILE=$etc/machine.toml HS_STATE_DIR=${HS_STATE_DIR:-$target/var/lib/hs} HS_SETTINGS_DIR=${HS_SETTINGS_DIR:-$target/var/lib/hs/settings}
 mkdir -p "$HS_STATE_DIR" "$HS_SETTINGS_DIR"
+chmod 755 "$HS_STATE_DIR"   # again independent of the umask
 hostid=$(head -c4 /dev/urandom | od -A none -t x1 | tr -d ' \n')
 mset() { machine_set "$1" "$2" installer >/dev/null || fail "$(t "'%s' could not be written to machine.toml." "$1")"; }
 [ "$role" != homeserver ] || mset hostId "\"$hostid\""   # ZFS needs it; the other roles have no pools
@@ -221,6 +260,14 @@ ok "machine.toml: server name, SSH key, network card and the rest"
 HS_PRESETS_DIR=${HS_PRESETS_DIR:-$etc/presets} bash "$here/preset.sh" apply "$preset" --yes >/dev/null || fail "The preset could not be applied."
 ok "$(t "Preset '%s' applied (only what was not set yet)" "$preset")"
 
+# ---- the settings from the backup (hs-restore): over the fresh machine.toml, then what the new disk needs is set again
+if [ -n "$restore_from" ]; then
+  restore_apply "$restore_from" "$target"
+  # the restored machine.toml names the OLD boot disk and may lack what this layout needs
+  ! $bios || mset bootDevice "\"/dev/$disk\""
+  ok "$(t 'Settings from the backup laid over the configuration (%s file(s))' "$(restore_files "$restore_from" | wc -l | tr -d ' ')")"
+fi
+
 # ---- install
 if [ -z "$skip" ]; then
   step "Installing NixOS (a few minutes)"
@@ -234,9 +281,12 @@ if [ -z "$skip" ]; then
 fi
 
 step "Done"
+if [ -n "$restore_from" ]; then
+  note "After the first boot: sudo hs rebuild, make the vault (hs vault init), put the backup password back, import the pools, sudo hs unlock. The checklist: docs/backup-and-recovery.md Case A, from step 8."
+fi
 note "Take the stick out and reboot. Then, from your PC:  ssh adminuser@$hostname_.local   (or the address your router gave it)"
 if [ "$role" = homeserver ]; then
-  note "Next: create the pools (zpool create, as in section 3 of the Homeserver guide; the hs command only exists after the first nixos-rebuild switch), then sudo nixos-rebuild switch. The guide: docs/install.md."
+  note "Next: create the pools (the hs command is there from the first boot: sudo hs pool bulk add; or zpool create, as in section 3 of the Homeserver guide), then sudo hs rebuild. The guide: docs/install.md."
 else
   note "Next: fill the section \"Edge node\" of /etc/nixos/machine.toml, put the Tailscale auth key into /var/lib/hs/tailscale-authkey (mode 0600), then sudo nixos-rebuild switch. The guide: docs/operations.md."
 fi

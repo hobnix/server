@@ -1,0 +1,5 @@
+date  = "2026-11-12"
+type  = "fix"
+title = "hs backup restore --to / creates the missing share datasets on ZFS"
+docs  = "backup-and-recovery#case-b-a-data-pool-or-disks-are-lost"
+body  = """Restoring /bulk/shares, /bulk/sensitive or one share folder in place (--to /) on the ZFS layout used to bring the shares back as plain folders of the parent dataset, and hs share repair could not publish them. The restore now creates the datasets that are missing first (it lists them, skips existing ones, leaves a plain folder that holds files, and stops before restoring if a dataset cannot be created). hs share repair then publishes them. On SnapRAID nothing changes."""

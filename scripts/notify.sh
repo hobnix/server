@@ -1,20 +1,22 @@
 #!/usr/bin/env bash
 # help: send a push message to the address in machine.toml (notifyUrl); always written to the journal
 # help.de: schickt eine Nachricht aufs Handy an die Adresse aus machine.toml (notifyUrl); steht immer auch im Journal
-# args: [--dry-run] [--flush] [--category <name>] <title> <message> [priority]
+# args: [--dry-run] [--flush] [--category <name>] [--payload-file <file>] <title> <message> [priority]
 set -euo pipefail
 . "$(dirname "$0")/lib/i18n.sh"
 . "$(dirname "$0")/lib/ntfy.sh"
 . "$(dirname "$0")/lib/setting.sh"
 . "$(dirname "$0")/lib/notify-route.sh"
 . "$(dirname "$0")/lib/channels.sh"
+. "$(dirname "$0")/lib/event.sh"
 # the channel files are root only (0600): a caller that cannot read them goes through sudo
 chan_need_root "$0" "$@"
 
 usage() {
-  say "usage: hs notify [--dry-run] [--category <name>] <title> <message> [priority]"
+  say "usage: hs notify [--dry-run] [--category <name>] [--payload-file <file>] <title> <message> [priority]"
   say "  priority   min, low, default, high or urgent (default: the category's)"
   say "  category   alarm, lock, problem, ok, start, stop, info or heartbeat: sets the icon (default: from the priority)"
+  say "  --payload-file  the JSON of an event: a channel that can draw it (Matrix card) uses it, the others ignore it"
   say "  --dry-run  only print what would be sent"
   say "  --flush    send what the quiet hours held back (no title or message)"
   exit 1
@@ -23,11 +25,13 @@ usage() {
 dry=false
 flush=false
 category=""
+payload_file=""
 args=()
 while [ $# -gt 0 ]; do
   case "$1" in
     --dry-run) dry=true; shift ;;
     --flush) flush=true; shift ;;
+    --payload-file) [ $# -ge 2 ] || usage; payload_file=$2; shift 2 ;;
     --category) [ $# -ge 2 ] || usage; category=$2; shift 2 ;;
     *) args+=("$1"); shift ;;
   esac
@@ -102,12 +106,15 @@ fi
 deliver() {
   local n err attempted=0 got=false told=()
   CHAN_CATEGORY=$3
+  CHAN_PAYLOAD_FILE=$payload_file   # providers that can draw the event use it; the digest has none
   for n in $(wanted_channels "$4" "${5:-all}" "${6:-$(chan_class "$3")}"); do
     chan_load "$n" || continue
     attempted=$((attempted + 1))
     # the provider's own error (e.g. "429 Too Many Requests") goes to the journal, not to the terminal of `hs update`
     if err=$(chan_run "${CH[provider]}" send "$4" "$1" "$2" 2>&1); then got=true; told+=("$n"); chan_result_set "$n" ok
+      event_emit notify.sent "$n" "$1"
     else chan_result_set "$n" failed "${err:-no answer}"
+      event_emit notify.failed "$n" "$1: ${err:-no answer}"
       logger -t hs-notify -- "could not send '$1' to channel $n: ${err//$'
 '/ }" 2>/dev/null || true; fi
   done
@@ -118,7 +125,7 @@ deliver() {
 
 # What the quiet hours held back goes out first, as ONE message, as soon as the window is over.
 flush_held() {
-  local text t b
+  local text t b payload_file=""   # the digest is not the card of the message that arrived now
   [ "$(route_held_count)" -gt 0 ] || return 0
   text=$(route_flush_text)
   t=${text%%$'\t'*}; b=${text#*$'\t'}
@@ -142,6 +149,7 @@ if [ "$class" = heartbeat ]; then
 fi
 if $hold; then
   route_hold "$title" "$message" "$priority" "$category" || true
+  event_emit notify.held "$category" "$title"   # subject: the category (a held message has no channel yet)
   deliver "$title" "$message" "$category" "$priority" ignore || true   # channels that ignore the quiet hours get it now
   exit 0
 fi

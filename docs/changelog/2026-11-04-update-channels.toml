@@ -1,0 +1,5 @@
+date  = "2026-11-04"
+type  = "feature"
+title = "Update channels: stable, beta and edge"
+body  = """The new setting updateChannel decides what hs update follows: the newest signed release (stable, the default), the newest signed beta or release (beta), or the head of the development branch (edge). Beta and edge are only for servers whose data may be lost; they never update by themselves, and switching to one asks you to type its name. Until the first signed release tag exists, nothing changes: hs update follows the current branch as before."""
+docs  = "operations#update-channels"

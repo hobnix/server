@@ -149,10 +149,12 @@ cmd_init() {
     esac
     shift
   done
+  # the tool first: a missing cryptsetup must not be found out after something was changed
+  command -v cryptsetup >/dev/null 2>&1 || fail "$(t 'cryptsetup is not installed on this system, so a vault cannot be made. Nothing was changed.')"
   if [ -z "$dev" ]; then
     interactive || fail "$(t 'Missing: %s (give it as an option)' 'the partition')"
     mapfile -t cand < <(candidates)
-    [ ${#cand[@]} -gt 0 ] || fail "No free partition found. Make one of about 1 GiB on the system disk first."
+    [ ${#cand[@]} -gt 0 ] || fail "No free partition found. Make an empty one of about 1 GiB on the system disk (docs/encryption-and-vault.md, Set up the vault), or name one: hs vault init /dev/<partition>."
     pick=$(choose "Partition for the vault" "${cand[@]}") || fail "cancelled"
     dev=${pick%% *}
   fi
@@ -193,10 +195,17 @@ cmd_init() {
     confirm_name "$disk" "the disk" || fail "cancelled"
   fi
   [ "$wipe" != true ] || wipefs -a "$dev" >/dev/null 2>&1 || true
+  # the partition label changes only right before the vault is made, and goes back if that fails
+  local oldlabel="" relabeled=false
   if [ -n "$pk" ] && [ -n "$partn" ] && command -v sfdisk >/dev/null 2>&1; then
-    sfdisk --part-label "/dev/$pk" "$partn" "$vault_label" >/dev/null 2>&1 || note "The partition label could not be set (not important)."
+    oldlabel=$(lsblk -dn -o PARTLABEL "$dev" 2>/dev/null | sed 's/^ *//; s/ *$//')
+    if sfdisk --part-label "/dev/$pk" "$partn" "$vault_label" >/dev/null 2>&1; then relabeled=true
+    else note "The partition label could not be set (not important)."; fi
   fi
-  vault_create "$dev" || fail "The vault could not be made (the passphrase, or the disk)."
+  if ! vault_create "$dev"; then
+    if [ "$relabeled" = true ] && [ -n "$oldlabel" ]; then sfdisk --part-label "/dev/$pk" "$partn" "$oldlabel" >/dev/null 2>&1 || true; fi
+    fail "The vault could not be made (the passphrase, or the disk)."
+  fi
   ok "$(t 'Vault made on %s and open at %s' "$dev" "$vault_dir")"
   if vault_header_backup; then ok "$(t 'LUKS header saved in %s' "$vault_header_file")"; else warn "The LUKS header could not be saved: run hs vault header-backup"; fi
   live_refresh status encryption vault-list vault-usage vault-uses || true
@@ -238,8 +247,11 @@ cmd_move() {
   # the Samba folder is the optional last item of the default list
   if [ "$explicit" = false ] && { [ -d "$vault_samba_dir" ] || vault_samba_bound; }; then names+=("$vault_samba_name"); fi
   step "Move secrets into the vault"
+  local total=${#names[@]} idx=0
   for n in "${names[@]}"; do
     rc=0
+    idx=$((idx + 1))
+    hs_job_step "$idx" "$total" "Moving $n into the vault"   # a name of a secret file, never its content
     if [ "$n" = "$vault_samba_name" ]; then
       if [ "$explicit" = false ] && ! vault_samba_bound && vault_services_running; then
         note "Samba is running: stop it and run hs vault move samba-private (left out for now)"; continue

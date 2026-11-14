@@ -4,6 +4,7 @@ import Instances from './pages/Instances.svelte';
 import Shares from './pages/Shares.svelte';
 import Health from './pages/Health.svelte';
 import Pools from './pages/Pools.svelte';
+import Incident from './pages/storage/Incident.svelte';
 import Disks from './pages/Disks.svelte';
 import Files from './pages/Files.svelte';
 import Encryption from './pages/Encryption.svelte';
@@ -14,22 +15,29 @@ import Users from './pages/Users.svelte';
 import Hardware from './pages/Hardware.svelte';
 import Backup from './pages/Backup.svelte';
 import SettingsPage from './settings/SettingsPage.svelte';
+import Releases from './settings/Releases.svelte';
 import CapsOverview from './settings/CapsOverview.svelte';
 import CapabilitySettings from './settings/CapabilitySettings.svelte';
 import Setup from './pages/Setup.svelte';
 import Expiry from './pages/Expiry.svelte';
+import IsoLibrary from './pages/IsoLibrary.svelte';
 import Extension from './pages/Extension.svelte';
 import Apps from './pages/Apps.svelte';
 import Marketplace from './pages/Marketplace.svelte';
+import PackageBuilder from './pages/PackageBuilder.svelte';
 import Services from './pages/Services.svelte';
 import Docker from './pages/Docker.svelte';
 import Registries from './pages/docker/Registries.svelte';
 import AppEditPage from './pages/docker/AppEditPage.svelte';
+import AppWizardPage from './pages/docker/AppWizardPage.svelte';
 import Docs from './pages/Docs.svelte';
 import Certificates from './pages/Certificates.svelte';
 import Notifications from './pages/Notifications.svelte';
+import Events from './pages/Events.svelte';
 import WhatsNew from './pages/WhatsNew.svelte';
 import Data from './pages/Data.svelte';
+import LiveState from './pages/LiveState.svelte';
+import TestLab from './pages/TestLab.svelte';
 import Section from './pages/Section.svelte';
 import Proxy from './pages/Proxy.svelte';
 import ProxyPorts from './pages/ProxyPorts.svelte';
@@ -51,6 +59,7 @@ export const routes = {
   '/storage/pools': Pools,
   '/storage/pools/bulk': Pools,
   '/storage/pools/fast': Pools,
+  '/storage/incident': Incident,
   '/storage/disks': Disks,
   '/storage/shares': Shares,
   '/storage/files': Files,
@@ -64,15 +73,21 @@ export const routes = {
   '/protection/backup': Backup,
   '/operations/health': Health,
   '/protection/expiry': Expiry,
+  '/instances/iso': IsoLibrary,
   '/instances/apps': Apps,
   '/marketplace': Marketplace,
+  '/marketplace/builder': PackageBuilder,
   '/instances/services': Services,
   '/instances/docker': Docker,
   '/instances/docker/registries': Registries,
   '/instances/docker/new': AppEditPage,
+  '/instances/docker/wizard': AppWizardPage,
   '/operations/notifications': Notifications,
+  '/operations/events': Events,
   '/operations/whats-new': WhatsNew,
   '/monitoring/diagnostics': Data,
+  '/monitoring/live-state': LiveState,
+  '/monitoring/test-lab': TestLab,
   '/docs': Docs,
   '/setup': Setup,
   '/settings': Section,
@@ -82,6 +97,7 @@ export const routes = {
   '/settings/backups': SettingsPage,
   '/settings/access': SettingsPage,
   '/settings/updates': SettingsPage,
+  '/settings/releases': Releases,
   '/settings/capabilities': CapsOverview,
   '/settings/advanced': SettingsPage,
   '/nodes': Nodes,

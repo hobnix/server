@@ -54,4 +54,11 @@ check_out "apps is left as it is" "^apps .*left as it is: the files of the Docke
 check_eq "apps: only the top folder is handed over" "chown adminuser:users $HS_FAST/shares/apps" "$(grep "^chown.*/apps" "$CALLS" | head -n 1)"
 check_eq "apps: no file walk" "0" "$(grep -c "^find.*/apps" "$CALLS" || true)"
 check_eq "notes: its files are walked" "1" "$(grep -c "^find.*/notes" "$CALLS" || true)"
+
+echo "-- without Samba (no net command) it says so and stops"
+mv "$BIN/net" "$BIN/net.off"
+out=$($S --check 2>&1); rc=$?
+check_eq "exit code 1" "1" "$rc"
+check_out "says Samba is not installed" "Samba is not installed" echo "$out"
+mv "$BIN/net.off" "$BIN/net"
 finish

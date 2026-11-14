@@ -52,8 +52,8 @@ say otherwise, because a VM reserves them:
 hs ct add --kind vm --name <name>
 ```
 
-More options: `--cpu <n>`, `--disk <GB>`, `--ip <address>` and `--profile <vlan>` to join a network other than the default (the one with
-`default = true` in `machine.toml`). Every new instance starts again after a reboot of the server and has its MAC address pinned.
+More options: `--cpu <n>`, `--disk <GB>`, `--ip <address>`, `--profile <vlan>` to join a network other than the default (the one with
+`default = true` in `machine.toml`) and `--pool <name>` to put the disk on another Incus storage pool (see "Choose where the disk lives" below). Every new instance starts again after a reboot of the server and has its MAC address pinned.
 Check it:
 
 ```bash
@@ -66,6 +66,93 @@ inside:
 ```bash
 hs ct <name> exec ping -c 2 1.1.1.1
 ```
+
+## ISO images for virtual machines
+
+A VM that installs its system itself (Windows, another Linux, a firewall) starts from an installer image, an `.iso` file. The ISO library is
+one folder on the server where these images are kept, checked and listed. Add an image from a file that is already on the server (a share,
+a bulk folder) or from a URL. The checksum from the download page is part of the command, because it is what tells you the file is the one
+the publisher made:
+
+```bash
+hs iso add https://example.org/debian-13-netinst.iso --checksum <sha256-from-the-download-page>
+```
+
+Not tested on hardware yet.
+
+A local file works the same way (an absolute path; it is copied into the library):
+
+```bash
+hs iso add /bulk/data-01/shares/isos/debian-13-netinst.iso --checksum <sha256>
+```
+
+The copy or download runs as a background job (`hs job follow <unit>`). Before the image appears in the list, hobnix checks that it is an
+ISO 9660 image and compares its SHA-256 or SHA-512 (64 or 128 hex characters) with the one you gave. A wrong checksum deletes the file and
+fails the job; the journal shows the expected and the computed checksum. Stopping the job removes the partial file. A plain `http://`
+address works but warns: the download can be changed on the way, so prefer `https://`.
+
+When the publisher gives no checksum, say so explicitly. The job then prints the computed SHA-256 so you can compare it by hand, and the
+image is listed as not checked:
+
+```bash
+hs iso add <file-or-url> --no-checksum
+```
+
+List and remove images:
+
+```bash
+hs iso
+hs iso remove <name.iso>
+```
+
+Removing asks you to type the name, and is refused while a VM has the image attached. In the web interface the same is under Instances >
+ISO images. The folder is the setting `isoDir` (default `/var/lib/hs/iso`); put it on a share or a bulk disk when you keep many images:
+
+```bash
+hs config set isoDir /bulk/data-01/isos
+```
+
+Images already in the old folder are not moved. Do not point `isoDir` at a folder that is unmounted at boot.
+
+### Create in the web interface
+
+Instances > Create is one guided flow for every kind (container, Docker, virtual machine). Its steps are: name and kind, resources (memory,
+CPU, disk), where the disk lives, the install image (virtual machines only), and network and storage. The panel on the right shows the plan
+after every change, with the exact commands, and Start is possible as soon as the plan is allowed. Not tested on hardware yet.
+
+### Choose where the disk lives
+
+Every Incus storage pool can hold the disk of a new instance. The pools and their free space are listed by:
+
+```bash
+hs sys ct pools
+```
+
+The default pool is the fast one (the SSD). A pool on the bulk disks only appears when someone created an Incus pool there; hobnix does not
+create one for you. A disk that does not fit the free space of the pool is refused in the plan. Choose the pool when you create:
+
+```bash
+hs ct add --kind vm --name <name> --disk 100 --pool <pool>
+```
+
+Not tested on hardware yet.
+
+### Install a virtual machine from an ISO image
+
+With an image from the ISO library (above) the VM is created empty and boots from the image, so you can install any system on it:
+
+```bash
+hs ct add --kind vm --name <name> --disk 60 --iso <name.iso>
+```
+
+The image is attached read only as the device `install`. After the installation remove it so the VM boots from its own disk:
+
+```bash
+incus config device remove <name> install
+```
+
+An image that was added without a checksum still works, but the plan warns about it. Some systems need Secure Boot off
+(`incus config set <name> security.secureboot=false`); hobnix does not change that for you. Not tested on hardware yet.
 
 ## Give it a fixed address
 
@@ -238,6 +325,12 @@ To run a recipe a second time under a container name of its own, for a second in
 hs recipe <name> --name <container>
 ```
 
+In the web interface, **Apps** has a button per recipe that opens a step wizard: one page per group of questions, then the container name, then a
+review with the plan the server would run. Back and Next move between pages; Start is only on the review. A password you type goes into the
+container only, never into an argument or the log, and the review shows it as "set". A recipe that needs a person at a terminal shows the command
+to run instead. Recipe authors group questions with `# step: ID|label` and `# help: ID|text` header lines and a 7th field on an `# ask:` line
+(`hs sys recipes steps <recipe>`); a recipe without them shows all questions on one page. Not tested on hardware yet.
+
 A recipe ends with a short text that holds only the clicks that cannot wait (creating the first account, for example). What the app does
 and how to use it is in its own guide: open the **Docs** page of the web interface and look in the group **Apps**. A guide is shown
 there while its package is installed.
@@ -308,7 +401,9 @@ hs pkg update <name>
 ```
 
 A package update does not touch a running app. For a recipe it replaces the package files; run `hs recipe <name>` to apply them.
-`hs pkg remove <name>` forgets the package files only, never a container.
+`hs pkg remove <name>` forgets the package files only, never a container or data. It refuses while the package is switched on (`hs ext disable <name>` first) or while another package that is on needs it, and it asks you to type the name. If the server already has a generated capability list (`/var/lib/hs/generated/`), it is rewritten without the package. See the plan first with `hs pkg remove <name> --dry-run`. Not tested on hardware yet.
+
+A package says which core it works with in `requires_core = ">=N"` (the API level in `scripts/lib/api-level`). `hs pkg install` and `hs pkg update` refuse one that needs a newer core than your server has: run `hs update` first. There is no upper bound: the core only raises its level and keeps a function for one level after announcing its removal (ADR 0008).
 
 Add a repository of your own (a typed repository name confirms it; releases must be signed with a key you trust):
 
@@ -319,6 +414,36 @@ hs pkg repo add <name> <url> --key <allowed-signers-file>
 `hs pkg repo list` and `hs pkg repo remove <name>` show and remove them. (The Marketplace only adds signed repositories; `--unsigned` is
 for the command line, and a repository without signatures lets its owner run code on your server.) Extensions are switched on and off with `hs ext enable <name>`
 and `hs ext disable <name>`, and `hs ext list` shows them.
+
+## Write a package of your own
+
+A package is a folder in a checkout of a package repository: `recipes/<name>/` in hobnix/recipes, `extensions/<name>/` in
+hobnix/extensions, or the same layout in a repository of your own. `hs pkg new` writes one that passes the checks as it is. Run it inside
+the checkout (or name it with `--dir <path>`):
+
+```bash
+hs pkg new my-app --template recipe --title "My app: what it does"
+```
+
+A recipe gets `package.toml`, `run.sh` (creates the container `my-app` and runs one step in it), `guide.md` and `i18n/de.tsv`. An
+extension (`--template extension`) gets `package.toml`, `capability.toml` with one web read, `commands.tsv` with `hs ext <name> list` and
+its data twin `hs sys ext <name> list`, `list.sh`, `NOTES.md`, `guide.md` and `i18n/de.tsv`. Both get an entry in `index.toml` with the
+version `0.1.0`. The command never overwrites: a folder or an index entry with the same name stops it. A template for capabilities follows
+with the service extensions.
+
+In the web interface the **Package builder** (Marketplace, button at the top) is a form for the manifest of a new app or extension. As you type it
+makes the `package.toml` text and the server checks it with the same rules as `hs pkg validate`; problems appear next to the field. It checks the manifest only
+(the script and its header lines are checked when the package is built) and saves nothing yet: copy the text into your package. Editing the code and
+publishing from the browser are planned (ADR 0020). Not tested on hardware yet.
+
+Replace the example step or command with your own, keep the header lines of `run.sh` and `package.toml` in step, then check the package
+(`<core>` is the checkout of the core, `/etc/nixos` on a server):
+
+```bash
+python3 -I <core>/scripts/pkg.py repo-check .
+```
+
+The repository's CONTRIBUTING.md has the rest: versions, branches, releases. Not tested on hardware yet.
 
 ## Apps in Docker (the Docker page)
 
@@ -446,6 +571,78 @@ Copy its compose file, put the secrets into the env fields, save it here, then
 stop it in Arcane. Remove Arcane later with `hs ct arcane delete`.
 
 Not tested on hardware yet.
+
+### Import a compose file
+
+Take a `docker-compose.yml` from the internet or from another server and make it an app of Docker:
+
+```bash
+hs docker import ./docker-compose.yml --name myapp --env-file ./.env --dry-run
+hs docker import ./docker-compose.yml --name myapp --env-file ./.env
+```
+
+Use `-` instead of the file name to read the compose file from standard input (then confirm with `--yes --confirm myapp`). The plan comes
+first and always: the services and images, the published ports, the volumes (a bind mount inside the app folder is fine), the networks,
+the **names** of the environment variables (never their values) and every key hobnix does not import or has not tested ("not
+imported/untested": it stays in the file as it is, it is never dropped silently). Named volumes cannot be mapped: change them to a
+`./data/<name>` bind mount. Nothing starts before you type the name of the app (`--yes --confirm <app>` in a script); `--dry-run`
+prints the plan only (exit 0 when the import would be allowed, 1 when it is refused).
+
+Some settings are dangerous. Never imported, even with `--allow-risky`: the Docker socket (`docker.sock`), `privileged: true` and a
+bind mount of `/`, `/etc`, `/proc`, `/sys` or `/boot`. Imported only with `--allow-risky` and the typed name: `network_mode: host`,
+`pid`/`ipc: host`, `cap_add` of `SYS_ADMIN`, `NET_ADMIN` or `ALL`, devices other than `/dev/dri`, a bind mount outside the app folder,
+`security_opt` with `unconfined` and `userns_mode: host`. The app is created in the same way as one made in the web editor
+(`apps/stacks/<name>`), which checks the file once more; `--job` runs the start in the background. This is a command only: the web
+interface has the editor for the same job.
+
+### Import an Unraid template
+
+Unraid's Community Apps are XML templates. Turn one into a compose draft and let the compose importer above do the rest:
+
+```bash
+hs docker import-unraid ./plex.xml
+hs docker import-unraid ./plex.xml --name plex --out ./plex-draft
+```
+
+The first line prints the plan only. It lists the image, the published ports, the volumes (only folders under `/mnt/*/appdata`
+map, to `./data/<name>` in the app folder), the **names** of the environment variables, the WebUI address and everything the draft
+cannot carry over: other host paths (your array shares), devices other than `/dev/dri`, a host or custom network, privileged
+mode, `ExtraParams` and `PostArgs`. Values of masked variables, and of names that look like secrets, are never copied; they go as
+empty lines into `app.env`. With `--out <folder>` the draft (`docker-compose.yml`, `app.env`) is written into a new folder; an
+existing folder is never overwritten and nothing is started. Then run `hs docker import <folder>/docker-compose.yml --name <app>
+--env-file <folder>/app.env`, which shows its own plan and asks for the app name. Files you copy from Unraid keep its owner (user
+`nobody`, id 99:100): check the owner of `./data`.
+
+Not tested on hardware yet. UNVERIFIED: only the test templates in `tests/fixtures/unraid/` were used, no real Community Apps
+template.
+
+### Look into a Proxmox vzdump archive
+
+```bash
+hs ct import-vzdump ./vzdump-lxc-100-2026_11_01.tar.zst
+```
+
+Read-only: the archive is streamed, only its `etc/vzdump/pct.conf` is read, nothing is unpacked or created. The plan shows how cores,
+memory, nesting and the root disk would map onto an Incus instance, and lists what does not map (network cards, mount points, raw LXC
+settings, privileged containers). A VM archive (`.vma`) is only recognised: converting its disks is a separate decision. **The
+restore itself is not built**; the plan for it is docs/adr/0024-import-proxmox-vzdump.md.
+
+Not tested on hardware yet. UNVERIFIED: only small archives built by the tests were used, none from a real Proxmox.
+
+Not tested on hardware yet.
+
+### Create an app with the guided wizard
+
+On the Docker page press **Guided** (or **Guided** on the New app page). The wizard asks one question per screen, in the same frame as the
+other wizards: the image and the app name, the ports, the folders (a share, or a folder next to the compose file), and the settings
+(variables). The last screen shows the `docker-compose.yml` and the `.env` it wrote, as plain text, and **Open in editor** opens the
+usual New app editor on exactly that text. The wizard adds nothing you did not answer: a published port is one line under `ports:`, a
+folder one line under `volumes:`, every variable one line in `.env` that the service reads with `env_file: .env` (a password never
+lands in the compose file). It saves and starts nothing; the editor's Test, Save and Apply do, and its completion for shares and for the variables in `.env` works on
+the handed-over text as on any other. A share that Docker does not see yet is named on the last screen: **Bind share** in the editor shows
+the plan for it. The text is passed to the editor in memory only, never kept in the browser's storage.
+
+Not tested on hardware yet. The text it writes is checked by the tests of the generator (`tests/web-docker-editor.mjs`); the page itself was not run in a browser.
 
 ### Move the apps of an older server into the share apps
 

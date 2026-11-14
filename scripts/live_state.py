@@ -5,9 +5,14 @@ the value of hs:v1:<topic> is JSON {"ts", "gen", "rc", "out", "err", "ts_err"}. 
 hs:v1:refresh ("<topic>" or "*").
   python3 live_state.py refresh <topic>|@<group>...|--all   ask the collector to read again (exit 0 always); @<group> = every topic of
                                                      that change area (and of `any`), see live-topics.tsv columns 5 and 6
-  python3 live_state.py status                       topic, interval, age (-1 none), gen, rc, err or -, ts_err or -
+  python3 live_state.py status                       topic, interval, age (-1 none), gen, rc, err or -, ts_err or -, needs (comma list or -;
+                                                     the 8th field, since #153, see live-topics.tsv column 7), status (fresh|stale|error|expired
+                                                     or -; the 9th field, since #322, status_of)
+  python3 live_state.py inspect   JSON: every topic with words, interval, lock, cap, groups and its stored state (the inspector page)
+  python3 live_state.py raw <topic>   JSON: the stored document of one topic, out capped at RAW_MAX bytes (exit 2: unknown topic)
   python3 live_state.py check                        problems: live:down / live:stale:<topic> TAB text (exit 1 when there are some)
 """
+import heapq
 import json
 import os
 import socket
@@ -17,6 +22,7 @@ import threading
 import time
 
 KEY = "hs:v1:%s"
+RAW_MAX = 65536
 CHANGED = "hs:v1:changed"
 REFRESH = "hs:v1:refresh"
 HERE = os.path.dirname(os.path.abspath(__file__))
@@ -110,11 +116,11 @@ class Resp:
                 yield m[1], m[2]
 
 
-def ext_live():
+def ext_live(log=None):
     """(rows, info) of the live reads that extension packages declare (scripts/hs_ext.py); nothing when that cannot be read"""
     try:
         import hs_ext
-        return hs_ext.ext_live_rows()
+        return hs_ext.ext_live_rows(log)
     except Exception:       # a broken package must never take the core topics down
         return [], {}
 
@@ -155,11 +161,77 @@ def topic_info(path=None):
                 continue
             cap = c[4] if len(c) > 4 and c[4] not in ("", "-") else None
             groups = {g for g in (c[5].split(",") if len(c) > 5 else []) if g and g != "-"}
+            ttl = None
+            if len(c) > 7 and c[7] not in ("", "-"):
+                try:
+                    ttl = int(c[7]) if int(c[7]) > 0 else None
+                except ValueError:
+                    ttl = None
             info[c[0]] = {"cap": cap, "groups": groups}
+            if ttl:
+                info[c[0]]["ttl"] = ttl
     if not own:
         for t, i in ext_live()[1].items():
             info.setdefault(t, i)
     return info
+
+
+def topic_needs(path=None):
+    """{topic: tuple of topics} from column 7 of live-topics.tsv (whose new gen re-reads the topic in a wave); extensions add theirs for the real file."""
+    own = path is not None
+    path = path or os.path.join(HERE, "lib", "live-topics.tsv")
+    out = {}
+    with open(path, encoding="utf-8") as f:
+        for line in f:
+            line = line.rstrip("\n")
+            if not line.strip() or line.lstrip().startswith("#"):
+                continue
+            c = line.split("\t")
+            if len(c) < 3:
+                continue
+            out[c[0]] = tuple(n for n in (x.strip() for x in (c[6].split(",") if len(c) > 6 else [])) if n and n != "-")
+    if not own:
+        for t, i in ext_live()[1].items():
+            out.setdefault(t, tuple(i.get("needs", ())))
+    return out
+
+
+def graph(needs, known):
+    """-> (order, clean, problems): every known topic in dependency order (a topic after those it needs, ties by name), the needs without unknown
+    targets, self references and cycles, and the text of each problem. Pure."""
+    problems, clean = [], {}
+    for t in sorted(known):
+        keep = set()
+        for n in needs.get(t, ()):
+            if n == t:
+                problems.append("topic %s needs itself" % t)
+            elif n not in known:
+                problems.append("topic %s needs unknown topic %s" % (t, n))
+            else:
+                keep.add(n)
+        clean[t] = tuple(sorted(keep))
+    users = {t: [] for t in clean}
+    left = {t: len(ns) for t, ns in clean.items()}
+    for t, ns in clean.items():
+        for n in ns:
+            users[n].append(t)
+    heap = [t for t, k in left.items() if k == 0]
+    heapq.heapify(heap)
+    order = []
+    while heap:
+        t = heapq.heappop(heap)
+        order.append(t)
+        for u in users[t]:
+            left[u] -= 1
+            if left[u] == 0:
+                heapq.heappush(heap, u)
+    stuck = sorted(t for t in clean if t not in set(order))
+    if stuck:
+        problems.append("dependency cycle among: %s" % ", ".join(stuck))
+        for t in stuck:
+            clean[t] = ()
+        order += stuck
+    return order, clean, problems
 
 
 _CAP_CACHE = {}
@@ -202,6 +274,40 @@ def _doc(r, topic):
         return None
 
 
+def status_of(doc, interval, now=None):
+    """The one status of a live entry: fresh, stale, error or expired. ttl = doc["ttl"], else 3 x interval.
+    error = the last try failed and there is no good data inside the ttl (never read, or older than the ttl); stale = the last try failed but the
+    last good data is still inside the ttl; expired = no failed try but the data is older than the ttl (the collector is not running);
+    fresh = good data inside the ttl. An expired entry is still served (last good data), only marked. Old documents without ttl still work."""
+    now = time.time() if now is None else now
+    doc = doc or {}
+    try:
+        ttl = float(doc.get("ttl") or 0) or 3 * interval
+    except (TypeError, ValueError):
+        ttl = 3 * interval
+    try:
+        ts = float(doc.get("ts") or 0)
+        ts_err = float(doc.get("ts_err") or 0)
+    except (TypeError, ValueError):
+        return "error"
+    failed = bool(doc.get("err")) and ts_err > ts
+    if not ts:
+        return "error"
+    inside = now - ts <= ttl
+    if failed:
+        return "stale" if inside else "error"
+    return "fresh" if inside else "expired"
+
+
+def _ttl(doc, interval, info=None):
+    """seconds an entry counts as fresh: the document's own ttl, else the topic's override (live-topics.tsv column 8), else 3 x interval"""
+    try:
+        t = float((doc or {}).get("ttl") or 0)
+    except (TypeError, ValueError):
+        t = 0
+    return t or float((info or {}).get("ttl") or 0) or 3 * interval
+
+
 def cli_refresh(args, conn=None):
     try:
         names = [t[0] for t in topics()] if "--all" in args else [a for a in args]
@@ -219,16 +325,92 @@ def cli_status(conn=None, out=None):
     try:
         r = conn or Resp(timeout=2.0)
         now = time.time()
+        needs = topic_needs()
+        info = topic_info()
         for topic, _, interval, _ in topics():
             d = _doc(r, topic) or {}
             age = int(now - d["ts"]) if d.get("ts") else -1
             err = clean(d.get("err") or "-")
             ts_err = str(int(d["ts_err"])) if d.get("ts_err") else "-"
-            out.write("%s\t%d\t%d\t%s\t%s\t%s\t%s\n" % (
-                topic, interval, age, d.get("gen", 0), d.get("rc", "-"), err, ts_err))
+            out.write("%s\t%d\t%d\t%s\t%s\t%s\t%s\t%s\t%s\n" % (
+                topic, interval, age, d.get("gen", 0), d.get("rc", "-"), err, ts_err, ",".join(needs.get(topic, ())) or "-",
+                status_of(dict(d, ttl=_ttl(d, interval, info.get(topic))), interval, now) if d else "-"))
     except OSError as e:
         sys.stderr.write("live state failed: %s\n" % e)
         return 1
+    return 0
+
+
+def cli_inspect(conn=None, out=None):
+    out = out or sys.stdout
+    r = None
+    try:
+        core = {t[0] for t in topics(os.path.join(HERE, "lib", "live-topics.tsv"))}
+        info = topic_info()
+        rows = topics()
+        caps = {}
+        for t in rows:
+            c = info.get(t[0], {}).get("cap")
+            if c is not None and c not in caps:
+                caps[c] = cap_on(c)
+        r = conn or Resp(timeout=2.0)
+        now = time.time()
+        entries = []
+        for topic, words, interval, lock in rows:
+            d = _doc(r, topic) or {}
+            i = info.get(topic, {})
+            e = {"topic": topic, "words": words, "interval": interval, "lock": lock,
+                 "origin": "core" if topic in core else "extension",
+                 "cap": i.get("cap"), "cap_on": caps.get(i.get("cap"), True), "groups": sorted(i.get("groups") or ()),
+                 "age": int(now - d["ts"]) if d.get("ts") else None, "gen": int(d.get("gen") or 0),
+                 "rc": d.get("rc") if isinstance(d.get("rc"), int) else None,
+                 "err": clean(d["err"]) if d.get("err") else None,
+                 "ts_err": int(d["ts_err"]) if d.get("ts_err") else None,
+                 "bytes": len(str(d.get("out") or "").encode()) if d else None}
+            # #339 needs, #322 status/ttl/source: present only when those are in
+            if i.get("needs") is not None:
+                e["needs"] = sorted(i["needs"])
+            if d:
+                e["status"] = status_of(dict(d, ttl=_ttl(d, interval, i)), interval, now)
+                e["ttl"] = int(_ttl(d, interval, i))
+                if isinstance(d.get("src"), str):
+                    e["source"] = d["src"]
+            entries.append(e)
+        out.write(json.dumps({"now": int(now), "topics": entries}, sort_keys=True) + "\n")
+    except OSError as e:
+        sys.stderr.write("live state failed: %s\n" % e)
+        return 1
+    finally:
+        if r is not None and conn is None:
+            r.close()
+    return 0
+
+
+def cli_raw(args, conn=None, out=None):
+    out = out or sys.stdout
+    r = None
+    try:
+        if len(args) != 1 or args[0] not in {t[0] for t in topics()}:
+            sys.stderr.write("unknown live topic\n")
+            return 2
+        topic = args[0]
+        r = conn or Resp(timeout=2.0)
+        d = _doc(r, topic)
+        if d is None:
+            res = {"topic": topic, "stored": False}
+        else:
+            b = str(d.get("out") or "").encode()
+            res = {"topic": topic, "stored": True, "ts": d.get("ts"), "gen": d.get("gen"), "rc": d.get("rc"),
+                   "err": clean(d["err"], 2000) if d.get("err") else None, "ts_err": d.get("ts_err"),
+                   "bytes": len(b), "truncated": len(b) > RAW_MAX,
+                   "out": b[:RAW_MAX].decode("utf-8", "ignore")}
+        out.write(json.dumps(res, sort_keys=True) + "\n")
+    except OSError as e:
+        sys.stderr.write("live state failed: %s\n" % e)
+        return 1
+    finally:
+        if r is not None and conn is None:
+            r.close()
     return 0
 
 
@@ -250,10 +432,10 @@ def cli_check(conn=None, out=None):
                     problems.append(("live:never:" + topic, "live state '%s' has never been read: %s. Details: systemctl status hs-live" % (
                         topic, clean(d["err"]))))
                 continue
-            age = now - d["ts"]
-            if age > 3 * interval:
-                problems.append(("live:stale:" + topic, "live state '%s' is %d s old (read every %d s). Details: systemctl status hs-live" % (
-                    topic, age, interval)))
+            st = status_of(dict(d, ttl=_ttl(d, interval, info.get(topic))), interval, now)
+            if st in ("expired", "error"):
+                problems.append(("live:stale:" + topic, "live state '%s' is %s (%d s old, read every %d s). Details: systemctl status hs-live" % (
+                    topic, st, now - d["ts"], interval)))
     except OSError as e:
         problems = [("live:down", "the live state service is down (%s). Details: systemctl status redis-hobnix hs-live" % e)]
     for k, t in problems:
@@ -263,7 +445,7 @@ def cli_check(conn=None, out=None):
 
 def main(argv):
     if not argv:
-        sys.stderr.write("usage: live_state.py refresh <topic>...|--all | status | check\n")
+        sys.stderr.write("usage: live_state.py refresh <topic>...|--all | status | check | inspect | raw <topic>\n")
         return 2
     if argv[0] == "refresh":
         return cli_refresh(argv[1:])
@@ -271,6 +453,10 @@ def main(argv):
         return cli_status()
     if argv[0] == "check":
         return cli_check()
+    if argv[0] == "inspect":
+        return cli_inspect()
+    if argv[0] == "raw":
+        return cli_raw(argv[1:])
     sys.stderr.write("unknown command %s\n" % argv[0])
     return 2
 

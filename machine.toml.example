@@ -83,6 +83,11 @@ sshKeys = [
 # Not tested on hardware yet.
 # liveState = "off"
 
+# Run the test-lab on the branch develop every night (the capability testlab, off by default: it needs `testlab` in `capabilities`, KVM and Incus
+# with nested virtualization, and it builds the installer ISO, so it is for a dedicated build server, never a normal install). The run is a job and
+# a failure sends a push message. `hs testlab run` starts it by hand. Needs a rebuild. Not tested on hardware yet.
+# testlabNightly = false
+
 # ═══ Network ══════════════════════════════════════════════════════════════
 
 # The physical network card, check with `ip link`.

@@ -1,0 +1,5 @@
+date  = "2026-11-11"
+type  = "fix"
+title = "A freshly installed server can run its first hs rebuild: python3 is part of the minimal system"
+docs  = "backup-and-recovery#case-a-the-system-disk-is-gone-the-data-disks-are-fine"
+body  = """The minimal system from install.nix had no python3, so the first hs rebuild after a fresh install or a restore stopped with "python: command not found" and "machine.toml does not parse". python3 is now installed from the first boot. The recovery guide also says to connect the data disks before that build, that the rebuild already imports the pools, how incus admin recover is answered (and the incus-preseed restart afterwards), and how to restore a container's files into a new container. These steps ran in VMs with a test backup (12 of 12 container files with equal checksums)."""

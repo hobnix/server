@@ -1,0 +1,6 @@
+date  = "2026-11-11"
+type  = "security"
+title = "Releases can be signed by a second key, used by the release workflow on GitHub"
+body  = """The server and each package repository trust one more key (release-ci) besides the maintainer's. It signs releases that are cut from GitHub after the maintainer approved them. Each repository has its own key, so one can be removed without touching the others.
+
+config/trusted-keys/README.md says where the keys are kept and how one is replaced or removed."""

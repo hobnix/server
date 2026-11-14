@@ -1,0 +1,5 @@
+date  = "2026-11-11"
+type  = "fix"
+title = "Case B (lost data pool) rehearsed in a VM; installer text and guide corrected"
+docs  = "backup-and-recovery#case-b-a-data-pool-or-disks-are-lost"
+body  = """The last message of the installer wizard no longer says that the hs command only exists after the first rebuild: it is there from the first boot. The Case B steps say that a ZFS pool needs two disks, that the backup password must be put back before hs backup restore (never run hs backup init to fix the message), that the backup disk must be writable, and that the restore sets the owner of the restored folders. Steps 1 to 3 of Case B ran in a VM with a test backup: 20 of 20 files came back with equal checksums."""

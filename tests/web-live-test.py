@@ -123,6 +123,11 @@ class OffMode(Base):
     def test_the_status_read_has_a_topic(self):
         self.assertEqual(ws.READS[("status",)]["topic"], "status")
 
+    def test_live_refresh_is_409_in_mode_off(self):
+        csrf = json.loads(self.req("GET", "/api/session", headers=self.ck)[1])["csrf"]
+        r = self.req("POST", "/api/live/refresh", {"topic": "status"}, dict(self.ck, **{"X-CSRF-Token": csrf}))
+        self.assertEqual(r[0], 409)
+
     def test_the_live_status_read_has_a_topic(self):
         self.assertEqual(ws.READS[("live", "status")]["topic"], "live")
 
@@ -243,8 +248,20 @@ class RedisMode(RedisBase):
         s, d, r = self.req("GET", "/api/sys/status", headers=self.ck)
         self.assertEqual(s, 200)
         self.assertTrue(r.getheader("X-HS-Stale"))
+        self.assertEqual((r.getheader("X-HS-State"), bool(int(r.getheader("X-HS-Last-Ok")))), ("stale", True))
+        self.assertEqual((r.getheader("X-HS-Topic"), r.getheader("X-HS-Error")), ("status", "boom"))
         self.redis.keys["hs:v1:status"] = doc(age=5, err="old", ts_err=time.time() - 60)
         self.assertIsNone(self.req("GET", "/api/sys/status", headers=self.ck)[2].getheader("X-HS-Stale"))
+
+    def test_status_header(self):
+        import time
+        k = "hs:v1:status"
+        want = [(doc(age=3), "fresh"), (doc(age=60, err="boom", ts_err=time.time() - 5, ttl=100), "stale"),
+                (doc(age=500, err="boom", ts_err=time.time() - 5), "error"), (doc(age=500), "expired")]
+        for d, st in want:
+            self.redis.keys[k] = d
+            s, _, r = self.req("GET", "/api/sys/status", headers=self.ck)
+            self.assertEqual((s, r.getheader("X-HS-Status")), (200, st))      # an expired entry is still served
 
     def test_fresh_waits_for_a_new_gen(self):
         self.redis.keys["hs:v1:status"] = doc("old\n", gen=1)
@@ -333,6 +350,31 @@ class RedisMode(RedisBase):
         self.assertEqual(self.redis.published, [])
         self.assertEqual(self.req("POST", "/api/start", {"area": "ct", "args": ["web1", "restart"]}, ch)[0], 200)
         self.assertEqual(self.redis.published, [("hs:v1:refresh", "@instances")])
+
+    def test_inspect_and_raw_reads_are_never_cached(self):
+        self.assertEqual(ws.READS[("live", "inspect")]["ttl"], 0)
+        self.assertNotIn("topic", ws.READS[("live", "inspect")])
+        self.assertEqual(ws.READS[("live", "raw")]["ttl"], 0)
+        self.assertTrue(ws.READS[("live", "raw")]["args"])
+
+    def test_inspect_with_redis_down_is_503(self):
+        self.redis.down = True
+        for path in ("/api/sys/live/inspect", "/api/sys/live/raw/status"):
+            s, d, r = self.req("GET", path, headers=self.ck)
+            self.assertEqual((s, json.loads(d)["error"]), (503, "state service down"))
+        self.assertEqual(self.fake.calls, [])
+
+    def test_live_refresh_checks(self):
+        body = {"topic": "status"}
+        ch = dict(self.ck, **{"X-CSRF-Token": self.csrf()})
+        self.assertEqual(self.req("POST", "/api/live/refresh", body)[0], 401)
+        self.assertEqual(self.req("POST", "/api/live/refresh", body, dict(self.ck, **{"X-CSRF-Token": "bad"}))[0], 403)
+        self.assertEqual(self.req("POST", "/api/live/refresh", body, dict(ch, Origin="http://evil.example"))[0], 403)
+        self.assertEqual(self.req("POST", "/api/live/refresh", {"topic": "no-such-topic"}, ch)[0], 400)
+        self.assertEqual(self.req("POST", "/api/live/refresh", {"topic": 5}, ch)[0], 400)
+        self.assertEqual(self.redis.published, [])
+        self.assertEqual(self.req("POST", "/api/live/refresh", body, ch)[0], 200)
+        self.assertEqual(self.redis.published, [("hs:v1:refresh", "status")])
 
     def test_login_facts_read_the_stored_status(self):
         self.redis.keys["hs:v1:status"] = doc("instances\t3\t4\n")
@@ -632,9 +674,13 @@ class Events(RedisBase):
         s = self.req("GET", "/api/events", headers=dict(self.ck, Origin="http://evil.example"))[0]
         self.assertEqual(s, 403)
 
-    def test_off_mode_is_404(self):
+    def test_off_mode_serves_the_stream_too(self):
         self.cfg.live = ""
-        self.assertEqual(self.req("GET", "/api/events", headers=self.ck)[0], 404)
+        c, r = self.open()
+        try:
+            self.assertEqual((r.status, r.getheader("Content-Type")), (200, "text/event-stream"))
+        finally:
+            c.close()
 
     def test_too_many_streams(self):
         self.cfg.events_max = 0
@@ -656,6 +702,19 @@ class Events(RedisBase):
         finally:
             c.close()
 
+    def test_an_idle_stream_sends_the_named_beat(self):
+        self.cfg.events_ping = 0.2
+        c, r = self.open()
+        try:
+            self.assertEqual(r.fp.readline(), b"retry: 3000\n")
+            r.fp.readline()
+            lines = [r.fp.readline() for _ in range(4)]
+            self.assertEqual(lines[0], b": ping\n")
+            self.assertIn(b"event: beat\n", lines)
+            self.assertIn(b"data: {}\n", lines)
+        finally:
+            c.close()
+
     def test_the_counter_goes_back(self):
         c, r = self.open()
         r.fp.readline()
@@ -667,6 +726,212 @@ class Events(RedisBase):
                 break
             threading.Event().wait(0.05)
         self.assertEqual(self.app.event_streams, 0)
+
+
+class Replay(RedisBase):
+    """Domain events on /api/events: ids, Last-Event-ID replay, resync (docs/adr/0005-events.md rules 6 and 7)."""
+
+    def setUp(self):
+        super().setUp()
+        import sqlite3
+        self.db = os.path.join(self.tmp, "state.db")
+        os.environ["HS_STATE_DB"] = self.db
+        c = sqlite3.connect(self.db)
+        c.execute("CREATE TABLE events (id INTEGER PRIMARY KEY AUTOINCREMENT, time INTEGER NOT NULL, kind TEXT NOT NULL, subject TEXT, text TEXT, "
+                  "source TEXT NOT NULL DEFAULT 'storage', level TEXT NOT NULL DEFAULT 'info', payload TEXT, v INTEGER NOT NULL DEFAULT 1)")
+        c.commit()
+        c.close()
+
+    def tearDown(self):
+        os.environ.pop("HS_STATE_DB", None)
+        super().tearDown()
+
+    def add(self, n=1, first=1):
+        import sqlite3
+        c = sqlite3.connect(self.db)
+        for i in range(n):
+            c.execute("INSERT INTO events (id, time, kind, subject, text, payload) VALUES (?, 1, 'new', 'd', 't', '{\"a\": 1}')", (first + i,))
+        c.commit()
+        c.close()
+
+    def frames(self, last, count):
+        c = http.client.HTTPConnection("127.0.0.1", self.port, timeout=5)
+        c.request("GET", "/api/events", headers=dict(self.ck, **{"Last-Event-ID": str(last)}))
+        r = c.getresponse()
+        out = []
+        try:
+            r.fp.readline()
+            r.fp.readline()
+            while len(out) < count:
+                ev = {}
+                while True:
+                    line = r.fp.readline().decode().rstrip("\n")
+                    if not line:
+                        break
+                    k, _, v = line.partition(": ")
+                    ev[k] = v
+                out.append(ev)
+        finally:
+            c.close()
+        return out
+
+    def test_reconnect_gets_the_rows_after_the_id(self):
+        self.add(5)
+        f = self.frames(2, 3)
+        self.assertEqual([x["id"] for x in f], ["3", "4", "5"])
+        self.assertEqual(f[0]["event"], "domain")
+        d = json.loads(f[0]["data"])
+        self.assertEqual((d["id"], d["kind"], d["subject"], d["payload"]), (3, "new", "d", {"a": 1}))
+
+    def test_up_to_date_gets_nothing_then_live_rows_without_repeats(self):
+        self.add(3)
+        c = http.client.HTTPConnection("127.0.0.1", self.port, timeout=5)
+        c.request("GET", "/api/events", headers=dict(self.ck, **{"Last-Event-ID": "3"}))
+        r = c.getresponse()
+        try:
+            r.fp.readline()
+            r.fp.readline()
+            for _ in range(100):
+                if self.app.events.queues:
+                    break
+                threading.Event().wait(0.02)
+            self.app.events.feed("domain", {"id": 4, "kind": "y"})
+            self.app.events.feed("domain", {"id": 4, "kind": "y"})      # a repeat: skipped
+            self.app.events.feed("domain", {"id": 5, "kind": "z"})
+            self.assertEqual(r.fp.readline(), b"id: 4\n")
+            self.assertEqual(r.fp.readline(), b"event: domain\n")
+            r.fp.readline()
+            r.fp.readline()
+            self.assertEqual(r.fp.readline(), b"id: 5\n")
+        finally:
+            c.close()
+
+    def test_an_id_before_the_oldest_row_resyncs(self):
+        self.add(3, first=10)
+        self.assertEqual(self.frames(5, 1)[0]["event"], "resync")
+
+    def test_an_id_after_the_newest_row_resyncs(self):
+        self.add(3)
+        self.assertEqual(self.frames(99, 1)[0]["event"], "resync")
+
+    def test_500_behind_replays_501_resyncs(self):
+        self.add(501)
+        self.assertEqual(self.frames(1, 1)[0]["event"], "domain")
+        self.add(1, first=502)
+        self.assertEqual(self.frames(1, 1)[0]["event"], "resync")
+
+    def test_the_watcher_feeds_new_rows(self):
+        self.add(2)
+        q = self.app.events.add()
+        self.app.events.poll_events()                                   # baseline
+        self.add(1, first=3)
+        self.app.events.poll_events()
+        item = q.get_nowait()
+        self.assertEqual((item[0], item[1]["id"]), ("domain", 3))
+        self.assertTrue(q.empty())
+
+    def test_a_full_queue_becomes_a_resync(self):
+        hub = ws.Events(self.cfg)
+        q = hub.add()
+        for i in range(300):
+            hub.feed("changed", "t", i)
+        items = []
+        while not q.empty():
+            items.append(q.get_nowait())
+        self.assertIn(("resync",), items)
+        self.assertLess(len(items), 256)
+
+
+class Counters(Base):
+    """The change counters (table topics of state.db): the watcher feeds `changed` and clears the read cache, also in mode off."""
+
+    def setUp(self):
+        super().setUp()
+        self.db = os.path.join(self.tmp, "state.db")
+        os.environ["HS_STATE_DB"] = self.db
+        self.hub = self.app.events
+        self.q = self.hub.add()
+
+    def tearDown(self):
+        os.environ.pop("HS_STATE_DB", None)
+        super().tearDown()
+
+    def bump(self, topic, n=1):
+        import sqlite3
+        c = sqlite3.connect(self.db)
+        c.execute("CREATE TABLE IF NOT EXISTS topics (topic TEXT PRIMARY KEY, gen INTEGER NOT NULL DEFAULT 0, time INTEGER NOT NULL DEFAULT 0)")
+        for _ in range(n):
+            c.execute("INSERT INTO topics (topic, gen, time) VALUES (?, 1, 0) ON CONFLICT(topic) DO UPDATE SET gen = gen + 1", (topic,))
+        c.commit()
+        c.close()
+
+    def drain(self):
+        out = []
+        while not self.q.empty():
+            out.append(self.q.get())
+        return out
+
+    def test_no_database_is_no_event(self):
+        self.hub.poll_counters()
+        self.hub.poll_counters()
+        self.assertEqual(self.drain(), [])
+
+    def test_a_bump_is_one_changed_and_clears_the_cache(self):
+        cleared = []
+        self.hub.on_change = lambda: cleared.append(1)
+        self.hub.poll_counters()                  # baseline: no database yet
+        self.bump("status")
+        self.hub.poll_counters()
+        self.assertEqual(self.drain(), [("changed", "status", 1)])
+        self.assertEqual(cleared, [1])
+        self.hub.poll_counters()                  # nothing moved
+        self.assertEqual((self.drain(), cleared), ([], [1]))
+
+    def test_the_first_read_is_a_baseline(self):
+        self.bump("status", 3)
+        self.hub.poll_counters()
+        self.assertEqual(self.drain(), [])
+        self.bump("status")
+        self.hub.poll_counters()
+        self.assertEqual(self.drain(), [("changed", "status", 4)])
+
+    def test_a_collector_counter_keeps_the_cache(self):
+        cleared = []
+        self.hub.on_change = lambda: cleared.append(1)
+        self.hub.poll_counters()
+        self.bump("reads:monitor disks")
+        self.hub.poll_counters()
+        self.assertEqual(self.drain(), [("changed", "reads:monitor disks", 1)])
+        self.assertEqual(cleared, [])
+
+    def test_redis_up_leaves_the_live_topics_to_redis(self):
+        self.hub.poll_counters()
+        self.hub.redis_up = True
+        self.bump("status")
+        self.hub.poll_counters()
+        self.assertEqual(self.drain(), [])
+
+    def test_job_records_counter_is_fed_with_redis_up_and_keeps_the_cache(self):
+        """The job record writer counts `reads:jobs-records` (no Redis publish for it): with Redis up it is still a `changed`, the cache stays.
+        A name without the `reads:` prefix would be left to Redis and clear the cache on every bump."""
+        cleared = []
+        self.hub.on_change = lambda: cleared.append(1)
+        self.hub.poll_counters()
+        self.hub.redis_up = True
+        self.bump("reads:jobs-records")
+        self.hub.poll_counters()
+        self.assertEqual(self.drain(), [("changed", "reads:jobs-records", 1)])
+        self.assertEqual(cleared, [])
+        self.bump("jobs-records")
+        self.hub.poll_counters()
+        self.assertEqual(self.drain(), [])
+
+    def test_a_change_clears_the_read_cache(self):
+        self.app.reads.cache["k"] = (time.time(), (200, {}))
+        self.hub.poll_counters()
+        self.bump("storage")
+        self.hub.poll_counters()
+        self.assertEqual(self.app.reads.cache, {})
 
 
 if __name__ == "__main__":

@@ -31,7 +31,7 @@ echo "-- adding a repository"
 check_out "plan: the name must be a word" "refused" bash -c "$C plan repo-add 'Bad Name' $R </dev/null; true"
 check_out "plan: an address that is not https/ssh/git is refused" "address must be" bash -c "HS_PKG_ALLOW_LOCAL= $C plan repo-add test file:///tmp/x </dev/null; true"
 check_out "plan: asks for the name to be typed" "^confirm_name${tab}test" $C plan repo-add test "$R"
-check_out "plan: says the network is used" "^long${tab}yes" $C plan repo-add test "$R"
+check_out "plan: repo-add is answered at once, so it is not a job (long no)" "^long${tab}no" $C plan repo-add test "$R"
 check_out "start without the typed name is refused" "type the name" bash -c "echo '$GOOD' | $C start repo-add test $R; true"
 check_out "a line that is no key is refused" "not an SSH public key" bash -c "echo 'hello world' | $C start repo-add test $R --confirm test; true"
 check_out "a key that did not sign the release: the repository is not kept" "not kept" bash -c "echo '$EVIL' | $C start repo-add test $R --confirm test; true"
@@ -57,7 +57,20 @@ check_out "an unknown package is refused" "no package" bash -c "$C plan install 
 echo "-- update"
 cd "$R"; release v1.1.0 1.1.0 "$WORK/good"; cd "$ROOT"
 check_out "fetch (plan) says it uses the network" "^long${tab}yes" $C plan fetch test
-check_out "fetch (start)" "^status${tab}done" $C start fetch test
+# fetch runs as a job: a stand-in hs_job records the call and runs the command at once
+mkdir -p "$WORK/jl"; cat > "$WORK/jl/job.sh" <<JOB
+hs_job() { shift 2; printf '%s\n' "\$*" >> "$WORK/jobcalls"; "\${@:2}" >/dev/null 2>&1; echo hs-job-pkg-fetch-1; }
+JOB
+check_out "fetch (start) is a job: started and its unit" "^status${tab}started" env HS_JOB_LIB="$WORK/jl/job.sh" $C start fetch test
+check_out "fetch (start) names the unit" "^unit${tab}hs-job-pkg-fetch-1" env HS_JOB_LIB="$WORK/jl/job.sh" $C start fetch test
+check_out "the job fetches that repository" "fetch test" bash -c "cat '$WORK/jobcalls'"
+# the same with a default repository and a stand-in that only records (needs neither the network nor the signed test repository)
+mkdir -p "$WORK/jl2"; printf 'hs_job() { shift 2; printf "%%s\\n" "$*" > "%s/jobcalls2"; echo hs-job-pkg-fetch-2; }\n' "$WORK" > "$WORK/jl2/job.sh"
+check_out "fetch of a default repository: started and its unit" "^status${tab}started" env HS_JOB_LIB="$WORK/jl2/job.sh" $C start fetch recipes
+check_out "the unit is the one hs_job printed" "^unit${tab}hs-job-pkg-fetch-2" env HS_JOB_LIB="$WORK/jl2/job.sh" $C start fetch recipes
+check_out "the job command fetches that repository" "pkg.sh fetch recipes" bash -c "cat '$WORK/jobcalls2'"
+check_out "fetch without a name is a job too" "^status${tab}started" env HS_JOB_LIB="$WORK/jl2/job.sh" $C start fetch
+check_out "fetch of an unknown repository is refused before any job" "no repository" bash -c "HS_JOB_LIB='$WORK/jl/job.sh' $C start fetch nope; true"
 check_out "market: update" "^demo${tab}recipe${tab}test${tab}1[.]1[.]0${tab}1[.]0[.]0${tab}update" $PKGSH --market
 check_out "plan shows the change of the code" "^diff${tab}" $C plan update demo
 check_out "and asks for the name" "^confirm_name${tab}demo" $C plan update demo
@@ -86,4 +99,14 @@ check_out "an orphan without recorded provenance has a remove plan" "^step${tab}
 check_out "an orphan without recorded provenance can be removed" "^status${tab}done" $C start remove corer
 check "the orphan's files are gone" test ! -e "$HS_STATE_DIR/packages/current/corer"
 check "the orphan's record is gone" bash -c "! grep -q '^\\[package.corer\\]' '$HS_STATE_DIR/packages/installed.toml'"
+echo "-- checking a package draft (the web package builder)"
+GOODDRAFT=$'name = "demo2"\nversion = "0.1.0"\nkind = "recipe"\ntitle = "Demo"\nrequires_core = ">=1"\nscript = "run.sh"\n'
+check_out "a good draft is ok" "^status${tab}ok" bash -c "printf '%s' '$GOODDRAFT' | $C plan check-draft"
+check_out "it says what was not checked" "^finding${tab}warn${tab}-${tab}Checked without files" bash -c "printf '%s' '$GOODDRAFT' | $C plan check-draft"
+check_out "a bad version names its field" "^finding${tab}error${tab}version${tab}version is not semver" bash -c "printf 'name = \"x\"\nversion = \"1.0\"\n' | $C plan check-draft; true"
+check_out "a bad draft is refused with the count" "^reason${tab}The draft has [0-9]+ problem" bash -c "printf 'name = \"x\"\n' | $C plan check-draft; true"
+check_out "text that is no TOML is a finding, not a crash" "^finding${tab}error${tab}-${tab}not valid TOML" bash -c "printf 'name = ' | $C plan check-draft; true"
+check_out "an unknown permission is found" "permissions: " bash -c "printf '%s\npermissions = [\"root.all\"]\n' '$GOODDRAFT' | $C plan check-draft; true"
+check_out "a draft is never started" "only checked" bash -c "$C start check-draft </dev/null; true"
+check "a draft writes nothing into the packages" bash -c "! ls '$HS_STATE_DIR/packages/current' | grep -q demo2"
 finish

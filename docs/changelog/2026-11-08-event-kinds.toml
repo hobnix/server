@@ -1,0 +1,4 @@
+date  = "2026-11-08"
+type  = "feature"
+title = "hs event kinds lists the events the system knows"
+body  = """`hs event kinds` shows the event kinds with level, payload and meaning: the built-in ones, then those that installed apps and extensions declare in their package.toml (the last column names where a kind comes from). `hs event kinds --package NAME` shows one package only. Not tested on hardware yet."""

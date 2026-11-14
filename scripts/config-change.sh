@@ -28,6 +28,7 @@ here=$(dirname "$0")
 . "$here/lib/setting.sh"
 . "$here/lib/capability.sh"
 . "$here/lib/nic.sh"
+. "$here/lib/effect.sh"
 . "$here/lib/config-keys.sh"
 
 refuse() { printf 'status\trefused\nreason\t%s\n' "$1"; exit 1; }
@@ -264,8 +265,8 @@ if [ "$action" = apply ]; then
     for s in "${steps[@]}"; do printf '%s\n' "$s"; done
     [ -z "$extra" ] || printf '%s' "$extra"
     printf 'command\ths sys config start apply%s\n' "$cmd"
-    if [ "$n_machine" -gt 0 ]; then printf 'note\tThe machine.toml changes take effect with hs rebuild; the old file is kept as machine.toml.before-config.\n'
-    else printf 'note\tThis setting takes effect at once; no rebuild is needed.\n'; fi
+    if [ "$n_machine" -gt 0 ]; then printf 'note\t%s\nnote\tThe old file is kept as machine.toml.before-config.\n' "$(effect_rebuild)"
+    else printf 'note\t%s\n' "$(effect_now)"; fi
     printf 'long\tno\n'
     exit 0
   fi
@@ -337,7 +338,7 @@ if [ "$store" = settings ]; then
     printf 'command\ths sys config start set %s %s\n' "$key" "$(shq "$value")"
   fi
   [ -z "$extra" ] || printf '%s' "$extra"
-  printf 'note\tThis setting takes effect at once; no rebuild is needed.\n'
+  printf 'note\t%s\n' "$(effect_now)"
   printf 'long\tno\n'
   exit 0
 fi
@@ -369,6 +370,6 @@ else
   printf 'command\ths sys config start set %s %s\n' "$key" "$(shq "$value")"
 fi
 printf 'step\tcheck machine.toml afterwards and put the old file back if the check fails\n'
-printf 'note\tThe change takes effect with hs rebuild; the old file is kept as machine.toml.before-config.\n'
+printf 'note\t%s\nnote\tThe old file is kept as machine.toml.before-config.\n' "$(effect_rebuild)"
 printf 'long\tno\n'
 exit 0

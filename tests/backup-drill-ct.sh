@@ -21,6 +21,10 @@ cmd=$1; shift
 echo "restic $cmd $*" >> "$LOG"
 case "$cmd" in
   snapshots)
+    if [ -n "${FAKE_AGE:-}" ]; then
+      t=$(date -u -d "$FAKE_AGE days ago" +%Y-%m-%dT%H:%M:%S.123456789+00:00)
+      printf '[{"id":"aaa1","time":"%s","tags":["ct:big"]},{"id":"aaa2","time":"%s","tags":["ct:small"]}]\n' "$t" "$t"; exit 0
+    fi
     printf '[{"id":"aaa0","time":"2026-09-01T00:00:00Z","tags":["ct:small"]},{"id":"aaa1","time":"2026-10-01T00:00:00Z","tags":["ct:big"]},{"id":"aaa2","time":"2026-10-02T00:00:00Z","tags":["ct:small"]},{"id":"hhh1","time":"2026-10-02T00:00:00Z","tags":["host"]}]\n' ;;
   stats)
     id=${!#}
@@ -41,7 +45,15 @@ case "$cmd" in
         [ "$tag" = host ] || exit 1
         d=$target$HS_STATE_DIR/backup-dc; mkdir -p "$d" "$target/pk/private"
         if [ -n "${FAKE_DC_BAD:-}" ]; then echo nothing > "$target/pk/private/other.txt"; else echo ldb > "$target/pk/private/sam.ldb"; fi
-        tar -cjf "$d/domain-backup.tar.bz2" -C "$target/pk" private ;;
+        if [ -n "${FAKE_DC_MANY:-}" ]; then
+          # sam.ldb first, then a listing far larger than a pipe buffer: tar is still writing when grep -q has its match
+          pad=$(printf 'x%.0s' $(seq 1 200))
+          for n in $(seq 1 1500); do : > "$target/pk/private/${pad}_$n"; done
+          ( cd "$target/pk" && { echo private/sam.ldb; ls private | grep -v '^sam\.ldb$' | sed 's|^|private/|'; } > "$target/list" &&
+            tar -cjf "$d/domain-backup.tar.bz2" -T "$target/list" )
+        else
+          tar -cjf "$d/domain-backup.tar.bz2" -C "$target/pk" private
+        fi ;;
     esac ;;
 esac
 FAKE
@@ -60,6 +72,8 @@ case "$1" in
       delete) grep -qx "$3" "$FAKEDIR/images" || exit 1; sed -i "/^${3}\$/d" "$FAKEDIR/images" ;;
     esac ;;
   init) case "$*" in *--no-profiles*) ;; *) exit 1 ;; esac
+        # Incus 7: an instance without profiles needs its root disk made by init itself (--storage)
+        case " $* " in *" --storage "*|*" -s "*) ;; *) echo "Error: Failed creating instance record: Failed initializing instance: Failed getting root disk: No root device could be found" >&2; exit 1 ;; esac
         case "$*" in *network*|*nic*) exit 1 ;; esac
         echo "$3" >> "$FAKEDIR/instances"; rm -f "$FAKEDIR/started" ;;
   config) ;;
@@ -81,13 +95,14 @@ hsb() { bash "$SCRIPTS/backup.sh" "$@"; }
 st() { sed -n "s/^$1=//p" "$HS_STATE_DIR/backup.state" 2>/dev/null | tail -n1; }
 clean() { [ ! -s "$FAKEDIR/instances" ] && [ ! -s "$FAKEDIR/images" ] && [ -z "$(ls -A "$HS_DRILL_TMP" 2>/dev/null)" ]; }
 
+printf 'big\nsmall\n' > "$HS_STATE_DIR/backup-instances"   # both containers are in the backup (a pick without a name takes only these)
 echo "-- rotation: the smaller container first, then the other, then the oldest again"
 check "first drill works" hsb drill ct
 check_eq "the smaller one came first" small "$(st drill_ct_name)"
 check "the throwaway instance, its image and the temp folder are gone" clean
 check "the newest snapshot of the tag was restored (not the old one)" grep -q "^restic restore aaa2 " "$LOG"
 check "the instance got no profiles (no network card)" grep -q "^incus init hs-drill-img-small hs-drill-small --no-profiles" "$LOG"
-check "only a root disk was added" bash -c "grep '^incus config device add' $LOG | grep -vq ' root disk '; [ \$? -ne 0 ]"
+check "the root disk comes from init (--storage), not from a later device add" bash -c "grep -q '^incus init .* --storage default ' $LOG && ! grep -q '^incus config device add' $LOG"
 check "the instance was started and run" grep -q "^incus exec hs-drill-small -- true" "$LOG"
 check "ok time is recorded" test -n "$(st drill_ct_ok)"
 check "no domain controller here: no dc state" test -z "$(st drill_dc_ok)"
@@ -143,6 +158,9 @@ check_eq "a domain backup without sam.ldb fails the drill" 1 "$rc"
 check_eq "drill_dc_ok did not move" "$dc_before" "$(st drill_dc_ok)"
 check "but the container part was still done" test "$(st drill_ct_ok)" != "$ok_before"
 check "temp folder removed" clean
+FAKE_DC=1 FAKE_DC_MANY=1 hsb drill ct small >/dev/null 2>&1; rc=$?
+check_eq "a long listing with sam.ldb first is not a false alarm (grep -q closing the pipe)" 0 "$rc"
+check "temp folder removed" clean
 check_out "drill ct dc1 checks only the domain backup" "Domain backup" env FAKE_DC=1 bash "$SCRIPTS/backup.sh" drill ct dc1
 
 echo "-- state and status"
@@ -150,6 +168,38 @@ out=$(hsb --state)
 check_out "--state has the container drill" "^drill_ct_name	" echo "$out"
 check_out "and the old keys are still there" "^drill_ok	" echo "$out"
 check_out "status shows a line" "Container drill" hsb status
+
+echo "-- the age of the restored snapshot"
+: > "$HS_STATE_DIR/backup-instances"
+out=$(FAKE_AGE=9 hsb drill ct small 2>&1)
+check_out "an old snapshot names its date and age" "Snapshot from [0-9-]+ \(9 days old\)" echo "$out"
+check_out "and says the container is not in the backup" "no longer in the backup" echo "$out"
+check_eq "an old snapshot that restores is still a pass" 0 "$(FAKE_AGE=9 hsb drill ct small >/dev/null 2>&1; echo $?)"
+check_eq "the snapshot time is noted for the report" 9 "$(( ($(st drill_ct_ok) - $(st drill_ct_snap)) / 86400 ))"
+FAKE_AGE=9 hsb drill ct >/dev/null 2>&1
+check_eq "the newest container snapshot is noted" 9 "$(( ($(date +%s) - $(cat "$HS_STATE_DIR/backup-ct-newest")) / 86400 ))"
+echo small > "$HS_STATE_DIR/backup-instances"
+out=$(FAKE_AGE=9 hsb drill ct small 2>&1)
+check_out "a container still in the backup is said so" "still in the backup" echo "$out"
+out=$(FAKE_AGE=1 hsb drill ct small 2>&1)
+check_out "a fresh snapshot shows its age" "\(1 days old\)" echo "$out"
+check "and gets no warning" bash -c "! grep -q 'still in the backup\|no longer in the backup' <<<'$out'"
+rm -f "$HS_STATE_DIR/backup-instances"
+
+echo "-- a container that is switched off is not drilled without a name"
+echo big > "$HS_STATE_DIR/backup-instances"
+: > "$LOG"
+hsb drill ct >/dev/null 2>&1
+check_eq "only the container in the backup is drilled" big "$(st drill_ct_name)"
+check "the one that is off was not restored" bash -c "! grep -q '^restic restore aaa2 ' '$LOG'"
+: > "$HS_STATE_DIR/backup-instances"
+: > "$LOG"
+out=$(hsb drill ct 2>&1); rc=$?
+check_eq "no container in the backup: no failure" 0 "$rc"
+check_out "and it says there is nothing to restore" "No container is in the backup, nothing to restore" echo "$out"
+check "nothing was restored" bash -c "! grep -q '^restic restore ' '$LOG'"
+check "a named container may still be drilled" hsb drill ct small
+rm -f "$HS_STATE_DIR/backup-instances"
 
 echo "-- the image: ids are unshifted, metadata and the folders the backup leaves out are there"
 mkdir -p "$WORK/rf/etc"; echo h > "$WORK/rf/etc/hostname"
@@ -159,5 +209,7 @@ check_eq "a host id is brought back to the container's" 5 "$(python3 -c "import 
 check_eq "an id outside the range is left alone" 7 "$(python3 -c "import sys; exec(open(sys.argv[1]).read().split('if __name__')[0]); print(unshift(7, 1000000))" "$SCRIPTS/lib/ct-image.py")"
 check_eq "the newest snapshot per container" "big	aaa1
 small	aaa2" "$(printf '[{"id":"a","time":"1","tags":["ct:small"]},{"id":"b","time":"2","tags":["ct:small"]},{"id":"c","time":"1","tags":["ct:big","x"]}]' | python3 "$SCRIPTS/lib/ct-image.py" newest | sed 's/\tb$/\taaa2/; s/\tc$/\taaa1/')"
+check_eq "the snapshot time as epoch (Z and offset)" "a	1000000000
+b	1000000000" "$(printf '[{"id":"a","time":"2001-09-09T01:46:40Z","tags":["ct:a"]},{"id":"b","time":"2001-09-09T03:46:40.5+02:00","tags":["ct:b"]}]' | python3 "$SCRIPTS/lib/ct-image.py" newest ct --time | cut -f1,3)"
 
 finish

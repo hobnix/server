@@ -1,0 +1,6 @@
+date  = "2026-11-09"
+type  = "feature"
+title = "Containers and VMs: changes show up at once and are written to the event log"
+body  = """
+The live collector now follows the Incus lifecycle stream. A container or VM that is created, started, stopped or deleted (also outside `hs`) refreshes the lists within seconds and leaves a `ct.*` line in the event log. Not tested on hardware yet.
+"""
