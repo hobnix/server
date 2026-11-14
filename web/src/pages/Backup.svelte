@@ -15,6 +15,7 @@
   import Banner from '../ui/Banner.svelte';
   import EmptyState from '../ui/EmptyState.svelte';
   import { link } from './instances/ct.js';
+  import { restoreDrill, instanceDrill } from './backup-drill.js';
 
   let { deck } = $props();
   // locked storage: the share and instance rows cannot be read (and their switches would act on nothing), so they are left out
@@ -71,9 +72,9 @@
     ['Repository', `${s.repo_size || '–'}${s.used_pct ? ` · disk ${s.used_pct} % used` : ''}`, s.repo_size ? 'ok' : 'off'],
     ['Restore points', s.snapshots || '–', 'off'],
     ['Off-site copy', s.offsite ? `${s.offsite}${s.offsite_ok ? (s.offsite_ok === 'ok' ? ' · ok' : ' · failed') : ''}` : 'not set', s.offsite ? dot(s.offsite_ok) : 'off'],
-    ['Restore drill', s.last_drill ? `${s.drill_ok === 'ok' ? 'passed' : s.drill_ok || '–'} · ${age(s.last_drill)}` : 'never', s.last_drill ? dot(s.drill_ok) : 'off'],
+    ['Restore drill', ...restoreDrill(s, age)],
     ['Last try', s.last_try ? `${when(s.last_try)} · ${s.status === 'failed' ? 'failed' : 'ok'}` : '–', s.last_try ? (s.status === 'failed' ? 'bad' : 'ok') : 'off'],
-    ...(s.drill_ct_name ? [['Instance drill', `${s.drill_ct_name} · ${s.drill_ct_ok === 'ok' ? 'ok' : s.drill_ct_ok || '–'}`, dot(s.drill_ct_ok)]] : []),
+    ...(instanceDrill(s, age) ? [['Instance drill', ...instanceDrill(s, age)]] : []),
   ]);
   // actions that need the backup disk: say why one is not possible
   const why = $derived(!st.loaded ? 'Loading…' : !configured ? 'The backup is not set up yet' : s.vault === 'closed' ? 'The vault is closed: unlock it first' : s.disk !== 'present' ? 'The backup disk is not plugged in' : '');
