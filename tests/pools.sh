@@ -7,7 +7,7 @@ export HS_MACHINE_FILE=$WORK/machine.toml HS_BULK_TYPE_FILE=$WORK/bulk-type HS_P
 mkdir -p "$HS_POOLS_ROOT"
 
 # run <snippet>: a fresh shell each time (the rows are cached per process)
-run() { bash -c '. "$1/scripts/lib/pools.sh"; shift; eval "$*"' _ "$ROOT" "$@"; }
+run() { bash -c '. "$1/scripts/lib/pools.sh"; . "$1/scripts/lib/pools-write.sh"; shift; eval "$*"' _ "$ROOT" "$@"; }
 # fails <snippet>: the snippet must exit non-zero
 fails() { ! run "$@"; }
 
@@ -72,5 +72,22 @@ done
 # 9. every row has 3 fields, none empty
 printf 'pools = { tank = { role = "data", kind = "zfs" }, ssd = { role = "apps", kind = "zfs" } }\n' >"$HS_MACHINE_FILE"
 check_eq "rows have 3 non-empty fields" "" "$(run pools_rows | awk -F'\t' 'NF != 3 || $1 == "" || $2 == "" || $3 == ""')"
+
+# 10. pools_add_row: needs a pools line, one line out, sorted, overwrites, clears the cache
+rm -f "$HS_MACHINE_FILE"
+check "add_row without a pools line fails (legacy)" fails 'pools_add_row tank data zfs'
+printf 'bulkType = "zfs"\n' >"$HS_MACHINE_FILE"
+check "add_row without a pools line fails (machine.toml without it)" fails 'pools_add_row tank data zfs'
+printf 'pools = { fast = { role = "apps", kind = "zfs" } }\n' >"$HS_MACHINE_FILE"
+check "add_row writes" run 'pools_add_row tank data zfs'
+check_eq "rows sorted, new one in" "fast${T}apps${T}zfs
+tank${T}data${T}zfs" "$(run pools_rows)"
+check_eq "one pools line" "1" "$(grep -c '^pools' "$HS_MACHINE_FILE")"
+check "add_row overwrites a row" run 'pools_add_row tank apps zfs'
+check_eq "role changed, no duplicate" "tank${T}apps${T}zfs" "$(run pools_rows | grep tank)"
+check_eq "the cache is cleared in the same process" "data" "$(run 'pools_add_row aaa data zfs; pool_role aaa')"
+check "bad role refused" fails 'pools_add_row x1 other zfs'
+check "bad kind refused" fails 'pools_add_row x1 data ext4'
+check "bad name refused" fails 'pools_add_row Mirror data zfs'
 
 finish

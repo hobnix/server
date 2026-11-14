@@ -49,7 +49,7 @@ scripts/lib/pools.sh	3
 scripts/lib/registry.tsv	33
 scripts/lib/sharepath.sh	17
 scripts/manage-ct.sh	11
-scripts/manage-pool.sh	97
+scripts/manage-pool.sh	91
 scripts/manage-shares.sh	19
 scripts/migrate-check.sh	1
 scripts/migrate.sh	5

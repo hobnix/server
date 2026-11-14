@@ -13,6 +13,8 @@
 #   pool_root <name>         ${HS_POOLS_ROOT}/<name>
 #   pool_mounted <name>      exit 0 when pool_root is a mount point
 #   pool_name_ok <name>      exit 0 when the name is allowed for a new pool (^[a-z][a-z0-9]{0,11}$, not a reserved word)
+#   pools_format_rows        stdin: name<TAB>role<TAB>kind lines; stdout: the value `{ name = { role = "..", kind = ".." }, ... }`
+#   pools_add_row <n> <r> <k>  see lib/pools-write.sh (the one writer of the pools line)
 # Roles: data, apps. Kinds: zfs, snapraid.
 # Test knobs: HS_MACHINE_FILE, HS_BULK_TYPE_FILE, HS_POOLS_ROOT, HS_MOUNTPOINT, HS_PYTHON.
 
@@ -91,4 +93,12 @@ pool_name_ok() {
     *" $1 "*) return 1 ;;
   esac
   return 0
+}
+pools_format_rows() {
+  local n r k inner=
+  while IFS=$'\t' read -r n r k; do
+    [ -n "$n" ] || continue
+    inner+="${inner:+, }$n = { role = \"$r\", kind = \"$k\" }"
+  done
+  printf '{ %s }\n' "$inner"
 }

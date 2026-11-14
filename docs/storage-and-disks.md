@@ -127,6 +127,27 @@ sudo hs pool <name> add
 With a data pool but no SSD pool, apps still run on the system disk, and the upload cache and shares on SSD refuse until you add an SSD
 pool. Not tested on hardware yet.
 
+## Create a pool with any name
+
+On a server that has a `pools` line (see below) `hs pool` is not limited to two names. The menu lists the pools of the line and "A new pool",
+which asks for the name. A new name is a lower case letter, then up to 11 lower case letters or digits, and not a word that ZFS or the system
+uses. It also needs a role, given with `--use`; a terminal is asked when it is missing:
+
+```bash
+sudo hs pool tank --use data --dry-run
+sudo hs pool tank --use data
+```
+
+- `data` creates `tank/shares` and `tank/sensitive`; `apps` creates a pool without a mount point of its own, with `tank/incus`.
+- The plan says "a NEW pool 'tank' with role data", and you still type the pool name before any disk is erased.
+- When the pool is created, the row is written to the `pools` line of `machine.toml`; it takes effect with `hs rebuild`. If the row cannot be
+  written the pool stays, and the message shows the row to add by hand.
+- A server without a `pools` line refuses a new name before anything is erased: run `hs pool record` first. `bulk` and `fast` there work as
+  before.
+- A new name is always a ZFS pool. Only the pool named `bulk` can use the SnapRAID layout.
+
+Not tested on hardware yet. CI runs the root test `tests/pool.sh` (loop devices, needs udev); the dry-run plans are covered by `tests/pool-bare.sh`.
+
 ## Record the pools of an existing server
 
 A server that was set up before the pool list existed has no `pools` line in `machine.toml`; it works as before. To write the line from what
