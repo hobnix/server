@@ -12,7 +12,7 @@
   import Button from '../ui/Button.svelte';
   import { openCreate } from '../ui.svelte.js';
   import RunQuestions from '../forms/ops/RunQuestions.svelte';
-  import { parseRecord, stateDot, stateKnown, stepText, percent, progressText, clock, duration, isJobEvent } from '../jobrecords.js';
+  import { parseRecord, stateDot, stateKnown, stepText, percent, progressText, clock, duration, isJobEvent, latestOnly } from '../jobrecords.js';
 
   let { onload = () => {} } = $props();
 
@@ -23,13 +23,14 @@
   let detailErr = $state('');
   let now = $state(Date.now());
 
+  // reads can overlap (a slow read from job.running must not overwrite the answer after job.ok): latestOnly drops the older answer
+  const readList = latestOnly(() => get('/api/sys/jobs/records?n=100'), (d) => {
+    list = (d.rows ?? []).map(parseRecord);
+    failed = false;
+    onload(list.length);
+  });
   async function load() {
-    try {
-      const d = await get('/api/sys/jobs/records?n=100');
-      list = (d.rows ?? []).map(parseRecord);
-      failed = false;
-      onload(list.length);
-    } catch { failed = true; }
+    try { await readList(); } catch { failed = true; }
   }
   async function loadDetail(id) {
     try { const d = await get(`/api/sys/jobs/record/${encodeURIComponent(id)}`); if (open === id) { detail = d; detailErr = ''; } }
@@ -37,10 +38,14 @@
   }
 
   // read again when a job.* event arrives; the first read runs at once
-  let lastJob = 0;
+  // (an event that arrives while the first read is still running reads again too; the event present at mount is already in that first read)
+  let lastJob;
   $effect(() => {
     const ev = live.events.findLast?.(isJobEvent) ?? [...live.events].reverse().find(isJobEvent);
-    if (ev && ev.id !== lastJob) { lastJob = ev.id; if (list !== null) { load(); if (open) loadDetail(open); } }
+    if (!ev || ev.id === lastJob) return;
+    const first = lastJob === undefined;
+    lastJob = ev.id;
+    if (!first) { load(); if (open) loadDetail(open); }
   });
   $effect(() => { if (list === null) load(); });
   // no stream: poll, because nothing says when a job changed
@@ -86,7 +91,7 @@
         {#if col.key === 'started'}<span class="muted">{clock(r.started ?? r.queued)}</span>
         {:else if col.key === 'description'}{r.description}
         {:else if col.key === 'state'}<StatusDot state={stateDot(r.state)} label={(r.state === 'waiting' ? tr('waiting for input') : word(r.state)) + (r.state === 'failed' && r.exit !== null ? ` (exit ${r.exit})` : '')} />
-        {:else if col.key === 'step'}<span class="muted">{stepText(r.step)}</span>
+        {:else if col.key === 'step'}<span class="muted">{stepText(r.step, r.state)}</span>
         {:else if col.key === 'progress'}
           {#if r.progress}
             {#if bar(r) !== null}<span class="pbar" role="progressbar" aria-valuenow={bar(r)} aria-valuemin="0" aria-valuemax="100"><span style="width:{bar(r)}%"></span></span>{/if}
@@ -104,7 +109,7 @@
       {:else}
         <div class="kv">{#each kv(detail) as [k, v]}<span class="k">{tr(k)}</span><span class="mono">{v}</span>{/each}</div>
         {#if detail.state === 'waiting'}<div><Button variant="primary" size="sm" onclick={() => openCreate(RunQuestions, { job: detail.id })}>{tr('Answer the question')}</Button></div>{/if}
-        {#if detail.step}<div>{tr('Step')}: {stepText(detail.step)}</div>{/if}
+        {#if detail.step && stepText(detail.step, detail.state)}<div>{tr('Step')}: {stepText(detail.step, detail.state)}</div>{/if}
         {#if detail.error}<div class="err"><strong>{detail.error.category ?? ''}</strong> {detail.error.message ?? ''}</div>{/if}
         {#if detail.cancel}<div class="muted">{tr('Cancel requested')}{detail.cancel.requested_by ? ` · ${detail.cancel.requested_by}` : ''}</div>{/if}
       {/if}

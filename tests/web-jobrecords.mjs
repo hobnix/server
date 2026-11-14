@@ -1,5 +1,5 @@
 // The job record helpers of the Jobs panel (web/src/jobrecords.js), run with node.
-import { parseRecord, stateDot, stateKnown, stepText, percent, progressText, duration, isJobEvent } from '../web/src/jobrecords.js';
+import { parseRecord, stateDot, stateKnown, stepText, percent, progressText, duration, isJobEvent, latestOnly } from '../web/src/jobrecords.js';
 let bad = 0;
 const check = (n, ok) => { if (!ok) { bad++; console.log('FAIL: ' + n); } };
 const run = parseRecord(['20261109-101010-update-abcd', 'update', 'Update', 'running', '-', '2026-11-09T10:10:10Z', '-', '-', '2', '5', 'Fetching', '30', '120', 'files']);
@@ -17,4 +17,14 @@ check('progress text bytes', progressText({ done: 5, total: 10, unit: 'bytes' },
 check('duration of an ended job', duration('2026-11-09T10:00:00Z', '2026-11-09T10:02:00Z') === '2 min');
 check('duration of a running job', duration('2026-11-09T10:00:00Z', null, Date.parse('2026-11-09T10:00:30Z')) === '30 s');
 check('job events', isJobEvent({ kind: 'job.failed' }) && !isJobEvent({ kind: 'disk.removed' }) && !isJobEvent(null));
+check('step of an ok job is empty, of a running and a failed job shown', stepText({ n: 3, of: 3, text: 'Done' }, 'ok') === '' && stepText({ n: 3, of: 3, text: 'x' }, 'running') === '3/3 x' && stepText({ n: 2, of: 3, text: 'x' }, 'failed') === '2/3 x');
+// a slow read of the running state that comes back after the read of the final state must not win
+{
+  let shown = null;
+  const delays = [50, 5];
+  let i = 0;
+  const load = latestOnly(() => { const k = i++; return new Promise((r) => setTimeout(() => r(k === 0 ? 'running' : 'ok'), delays[k])); }, (v) => { shown = v; });
+  await Promise.all([load(), load()]);
+  check('an older read that returns late is dropped', shown === 'ok');
+}
 if (bad) process.exit(1);

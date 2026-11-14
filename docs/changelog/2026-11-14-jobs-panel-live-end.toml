@@ -1,0 +1,4 @@
+date  = "2026-11-14"
+type  = "fix"
+title = "The Jobs panel shows a job as finished without a reload"
+body  = """A job that ended could stay "running" in the Jobs panel until the page was reloaded, when the read started by the earlier job.running event came back after the read started by job.ok. The panel now applies only the newest read. A job that finished successfully also no longer shows its last step."""
