@@ -12,7 +12,7 @@
   import Button from '../ui/Button.svelte';
   import { openCreate } from '../ui.svelte.js';
   import RunQuestions from '../forms/ops/RunQuestions.svelte';
-  import { parseRecord, stateDot, stateKnown, stepText, percent, progressText, clock, duration, isJobEvent, latestOnly } from '../jobrecords.js';
+  import { parseRecord, stateDot, stateKnown, stepText, percent, progressText, clock, duration, lastJobEvent, latestOnly } from '../jobrecords.js';
 
   let { onload = () => {} } = $props();
 
@@ -37,15 +37,16 @@
     catch (e) { if (open === id) { detail = null; detailErr = e.message || 'The record could not be read.'; } }
   }
 
-  // read again when a job.* event arrives; the first read runs at once
-  // (an event that arrives while the first read is still running reads again too; the event present at mount is already in that first read)
-  let lastJob;
+  // read again when a job.* event arrives; the first read runs at once. The baseline is the newest job event that is already in the log at mount
+  // (the first read has it); every later one reads again, also the first of a page that had none (it used to be taken for the baseline and lost,
+  // so a job that started with job.queued and job.running together did not show until a reload).
+  let lastJob = lastJobEvent(live.events)?.id ?? 0;
   $effect(() => {
-    const ev = live.events.findLast?.(isJobEvent) ?? [...live.events].reverse().find(isJobEvent);
+    const ev = lastJobEvent(live.events);
     if (!ev || ev.id === lastJob) return;
-    const first = lastJob === undefined;
     lastJob = ev.id;
-    if (!first) { load(); if (open) loadDetail(open); }
+    load();
+    if (open) loadDetail(open);
   });
   $effect(() => { if (list === null) load(); });
   // no stream: poll, because nothing says when a job changed

@@ -1,0 +1,4 @@
+date  = "2026-11-14"
+type  = "fix"
+title = "A job that you start shows in the Jobs panel at once"
+body  = """The Jobs panel took the first job event of a page for the starting point and ignored it, so a job whose start events came together (queued and running) did not appear until the page was reloaded. Every job event after the panel opened now reads the list again."""
