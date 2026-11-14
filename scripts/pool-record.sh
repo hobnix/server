@@ -13,6 +13,8 @@ here=$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)
 . "$here/lib/ui.sh"
 # shellcheck source=scripts/lib/pools.sh
 . "$here/lib/pools.sh"
+# shellcheck source=scripts/lib/effect.sh
+. "$here/lib/effect.sh"
 
 zpool=${HS_ZPOOL:-zpool}
 incus=${HS_INCUS:-incus}
@@ -91,7 +93,8 @@ if $dry; then printf '%s\n' "$line"; exit 0; fi
 step "The pools of this server"
 { thead "Pool" "Role" "Kind"; printf '%s\n' "${rows[@]}"; } | table
 kv "Line" "$line"
-note "Only machine.toml changes: no disk is touched. The next hs rebuild reads these rows."
+note "Only machine.toml changes: no disk is touched."
+effect_say rebuild
 note "When they equal the rows a server without a pools line has anyway, the server does not behave differently."
 
 if ! $yes; then
