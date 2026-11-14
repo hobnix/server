@@ -20,6 +20,16 @@ _hs_job_record_write() {
   fi
 }
 
+# _hs_job_bump: count the change counter `reads:jobs-records` up (ADR 0005 rule 5) so the Jobs panel reads the list again; no log row. Best effort
+# (HS_JOB_NOBUMP switches it off), at most once per second per shell, like the Python writer's own bump.
+_hs_job_bump() {
+  [ -z "${HS_JOB_NOBUMP:-}" ] || return 0
+  local now=${EPOCHSECONDS:-$(date +%s)}
+  [ "${_HS_JOB_BUMP_AT:-0}" != "$now" ] || return 0
+  _HS_JOB_BUMP_AT=$now
+  timeout 5 python3 "${BASH_SOURCE[0]%/*}/../state-db.py" topic-bump reads:jobs-records >/dev/null 2>&1 || true
+}
+
 # hs_job_record: the writer above plus the event log (docs/adr/0005-events.md rule 9): a transition writes job.<state> with the job id as
 # subject, once it is in the record. One place for both writers. Best effort: a failed emit never changes the exit code or the output.
 # finish on a record that ended already (cancelled stays cancelled) emits nothing; cancel emits nothing here (jobs-change.sh emits job.cancelled after the stop worked).
@@ -30,6 +40,10 @@ hs_job_record() {
     error)   # ADR 0018: only the Python writer knows it; an older or newer Rust binary that does not falls back
       _hs_job_record_write "$@" && return
       python3 "${BASH_SOURCE[0]%/*}/../job-record.py" "$@"; return ;;
+    step|progress)   # the Rust writer does not count the change counter up (the Python one does): done here, once per second at most
+      _hs_job_record_write "$@" || return $?
+      [ "$_HS_JOB_RECORD_USE" != rust ] || _hs_job_bump
+      return 0 ;;
     *) _hs_job_record_write "$@"; return ;;
   esac
   if [ "$cmd" = finish ] && ! _hs_job_record_write get "$id" 2>/dev/null | grep -Eq '"state": *"(queued|running|waiting)"'; then

@@ -30,4 +30,19 @@ check "no log row per step" "0" "$(rows)"
 HS_JOB_NOBUMP=1 $W progress "$id" 100 100 MB
 check "HS_JOB_NOBUMP switches the bump off" "3" "$(gen)"
 HS_STATE_DB=/nonexistent/x/state.db $W step "$id" 3 3 Done; check "a missing database never fails the writer" "0" "$?"
+
+# the Rust writer (stubbed here) does not bump: the shell wrapper does, once per second
+cat >"$T/hobnix" <<'STUB'
+#!/usr/bin/env bash
+[ "$1" = job-record ] || exit 1
+[ "${2:-}" = --probe ] && exit 0
+exit 0
+STUB
+chmod +x "$T/hobnix"
+before=$(gen)
+out=$(HOBNIX_BIN="$T/hobnix" HS_JOB_RECORD= bash -c ". '$here/scripts/lib/job.sh'; hs_job_record step x 1 3 A; hs_job_record progress x 1 10 MB; hs_job_record step x 3 3 C; echo \$_HS_JOB_RECORD_USE")
+check "the wrapper took the Rust writer" "rust" "$out"
+check "the wrapper counts the counter up once per second with the Rust writer" "$((before + 1))" "$(gen)"
+out=$(HOBNIX_BIN="$T/hobnix" HS_JOB_NOBUMP=1 bash -c ". '$here/scripts/lib/job.sh'; hs_job_record step x 1 3 A")
+check "HS_JOB_NOBUMP holds for the wrapper too" "$((before + 1))" "$(gen)"
 exit $fail
