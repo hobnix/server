@@ -1,0 +1,5 @@
+date  = "2026-11-14"
+type  = "feature"
+title = "hs share add has a --pool option to choose the pool of a new share"
+docs  = "users-and-shares#a-share-on-the-ssd"
+body  = """Without it the share goes to the first data pool, as before. --fast still means the SSD pool."""
