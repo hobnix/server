@@ -48,6 +48,15 @@
     load();
     if (open) loadDetail(open);
   });
+  // a step or progress update counts `jobs-records` up (no log row, scripts/job-record.py); the first value is the baseline
+  let lastGen = live.gen['jobs-records'];
+  $effect(() => {
+    const g = live.gen['jobs-records'];
+    if (g === lastGen) return;
+    lastGen = g;
+    load();
+    if (open) loadDetail(open);
+  });
   $effect(() => { if (list === null) load(); });
   // no stream: poll, because nothing says when a job changed
   $effect(() => {
