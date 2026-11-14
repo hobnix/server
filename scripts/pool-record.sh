@@ -80,12 +80,7 @@ if [ "${#rows[@]}" -eq 0 ]; then
 fi
 
 mapfile -t rows < <(printf '%s\n' "${rows[@]}" | sort)
-inner=
-for r in "${rows[@]}"; do
-  IFS=$'\t' read -r n ro k <<<"$r"
-  inner+="${inner:+, }$n = { role = \"$ro\", kind = \"$k\" }"
-done
-value="{ $inner }"
+value=$(printf '%s\n' "${rows[@]}" | pools_format_rows)
 line="pools = $value"
 
 if $dry; then printf '%s\n' "$line"; exit 0; fi

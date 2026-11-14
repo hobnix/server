@@ -1,0 +1,5 @@
+date  = "2026-11-14"
+type  = "feature"
+title = "hs pool creates a pool with any name and a role (data or apps)"
+docs  = "storage-and-disks#create-a-pool-with-any-name"
+body  = """A new pool gets a name (lower case, up to 12 characters) and a role: data for shares, apps for containers and VMs. The plan says it is a NEW pool, you still type the name, and the pools line of machine.toml gets the row. Servers without a pools line keep bulk and fast as before."""

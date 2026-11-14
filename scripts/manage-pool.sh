@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # help: menu to create the pools "fast" and "bulk" from mirror pairs, or add pairs to them
 # help.de: Menü, um die Pools "fast" und "bulk" aus Spiegelpaaren anzulegen oder Paare hinzuzufügen
-# args: [pool] [--dry-run] [--plain] [--disks <id,...>] [--role data|parity|adopt] [--encrypt] [--chown] [--merge] [--replace [member]] [--remove [member]] [--convert [member] [--discard]] [--close [member] [--drain]] [--open [member]]
+# args: [pool] [--dry-run] [--plain] [--disks <id,...>] [--use data|apps] [--role data|parity|adopt] [--encrypt] [--chown] [--merge] [--replace [member]] [--remove [member]] [--convert [member] [--discard]] [--close [member] [--drain]] [--open [member]]
 # Bare use (a terminal): --replace/--remove/--convert without a member ask which one (the registry rows "hs pool <pool> replace|remove|convert" are guided).
 # Stand-in for tests: HS_GUIDED_TTY=1 = "there is a terminal" (answers on stdin).
 set -euo pipefail
@@ -10,6 +10,7 @@ set -euo pipefail
 . "$(dirname "$0")/lib/diskused.sh"
 . "$(dirname "$0")/lib/bulkpath.sh"
 . "$(dirname "$0")/lib/live.sh"
+. "$(dirname "$0")/lib/pools.sh"
 
 live_refresh_pool() {
   live_refresh status monitor-disks disk-inventory disk-marks pool-info-bulk pool-info-fast pool-members-bulk pool-members-fast pool-state-bulk pool-state-fast shares-overview fm-locations encryption
@@ -22,6 +23,7 @@ usage() {
   say "  --dry-run   only show the command, change nothing"
   say "  --plain     simple menus instead of the full-screen interface"
   say "  --disks     skip the disk menu; names from /dev/disk/by-id, comma separated"
+  say "  --use       a NEW pool (a name that is not in the pools line yet): what it is for, data (shares) or apps (containers and VMs)"
   say "  --role      snapraid layout only: add the disks as data or as parity, or adopt"
   say "              disks that already hold files (e.g. from Unraid; nothing is erased)"
   say "  --encrypt   new disks and pools are encrypted (LUKS on snapraid disks, ZFS native encryption on pools)"
@@ -47,6 +49,7 @@ pool=""
 dry=false
 picked=""
 role=""
+use=""   # --use data|apps: the role of a NEW pool
 plain=false
 chown_files=false
 merge_folders=false
@@ -66,6 +69,8 @@ while [ $# -gt 0 ]; do
     --dry-run) dry=true; shift ;;
     --disks)   [ $# -ge 2 ] || usage; picked="$2"; shift 2 ;;
     --role)    [ $# -ge 2 ] || usage; role="$2"; shift 2 ;;
+    --use)     [ $# -ge 2 ] || usage; use="$2"; shift 2
+               case "$use" in data|apps) ;; *) echo "--use: data or apps." >&2; exit 1 ;; esac ;;
     --plain)   plain=true; shift ;;
     --chown)   chown_files=true; shift ;;
     --merge)   merge_folders=true; shift ;;
@@ -155,6 +160,16 @@ describe() {
 
 if [ "$mode" = list ]; then
   pool=none
+elif [ -z "$pool" ] && [ "$(pools_source)" != legacy ]; then
+  # the pools of the pools line (role words as in the table) and a new one
+  items=()
+  while IFS= read -r n; do
+    [ -n "$n" ] || continue
+    items+=("$n" "$(pool_role "$n") pool.  $(describe "$n")")
+  done < <(pool_names)
+  items+=(new "A new pool: asks for its name and what it is for")
+  pool=$(menu_pick "Pools" "Which pool?" "${items[@]}") || { echo "cancelled"; exit 1; }
+  [ "$pool" != new ] || pool=$(ask "Name of the new pool") || { echo "cancelled"; exit 1; }
 elif [ -z "$pool" ]; then
   pool=$(menu_pick "Pools" "Which pool?" \
     fast "SSDs, containers and VMs.  $(describe fast)" \
@@ -162,6 +177,22 @@ elif [ -z "$pool" ]; then
 fi
 [[ "$pool" =~ ^[a-z][a-z0-9_-]*$ ]] || { echo "invalid pool name '$pool'"; exit 1; }
 
+# A name that is neither a row of the pools line nor a ZFS pool is a NEW pool: it needs a role (--use) and the line to write it into.
+# Everything is refused here, before a disk is chosen or erased. bulk and fast on a server without a pools line are rows (legacy).
+newname=false
+if [ -z "$mode" ] && [ -z "$action" ] && ! pool_exists "$pool" && ! zpool list -H "$pool" >/dev/null 2>&1; then
+  newname=true
+  pool_name_ok "$pool" || { echo "invalid pool name '$pool': a lower case letter, then up to 11 lower case letters or digits, and not a word ZFS or the system uses."; exit 1; }
+  [ "$(pools_source)" != legacy ] || { echo "Run hs pool record first: this server has no pools line, so a new pool would not be known to the system."; exit 1; }
+  [ -z "$role" ] || { echo "Not possible: only the pool named bulk can be a SnapRAID pool. '$pool' would be a ZFS pool; --role is for the snapraid layout."; exit 1; }
+  if [ -z "$use" ]; then
+    person || usage
+    use=$(menu_pick "Pool '$pool'" "What is the new pool '$pool' for?"       data "data: shares and sensitive folders (HDDs)"       apps "apps: containers and VMs (SSDs)") || { echo "cancelled"; exit 1; }
+  fi
+fi
+# the role of the pool: its row (legacy rows: the data pool and the apps pool as before), or what a new pool is for
+prole=$(pool_role "$pool" 2>/dev/null || true)
+! $newname || prole=$use
 # ── Candidate disks: whole disks that are not mounted and not in a pool ──
 # One line per disk: by-id name, size in bytes, "SSD"/"HDD", model + serial
 has_label_disk() {   # the disk or one of its partitions carries a filesystem label matching the regex
@@ -1191,7 +1222,7 @@ else
   # system disk (an older configuration made /bulk/shares at every boot).
   # Empty folders are leftovers and are removed; files are never touched.
   leftover=""
-  if [ "$pool" != fast ] && [ -d "/$pool" ] && ! mountpoint -q "/$pool" && [ -n "$(ls -A "/$pool")" ]; then
+  if [ "$prole" != apps ] && [ -d "/$pool" ] && ! mountpoint -q "/$pool" && [ -n "$(ls -A "/$pool")" ]; then
     stray=$(find "/$pool" -mindepth 1 ! -type d | head -n 3)
     if [ -n "$stray" ]; then
       warn "$(t 'Not possible: /%s already holds files, although no pool is mounted there' "$pool")"
@@ -1206,7 +1237,7 @@ else
   if $encrypt && person && ! $dry; then crypt_new_pass || exit 1; fi
   cmd=(zpool create -o ashift=12 -O compression=lz4 -O atime=off -O xattr=sa)
   # the Incus pool has no mount point of its own, Incus mounts its datasets itself
-  [ "$pool" = fast ] && cmd+=(-O mountpoint=none)
+  [ "$prole" = apps ] && cmd+=(-O mountpoint=none)
   # one passphrase for the whole pool; every dataset below inherits the encryption
   $encrypt && cmd+=(-O encryption=aes-256-gcm -O keyformat=passphrase -O keylocation=prompt)
   cmd+=("$pool" "${vdevs[@]}")
@@ -1218,6 +1249,10 @@ phead "Plan: $mode '$pool' with $(( ${#sel[@]} / 2 )) mirror pair(s)"
 pblank
 pplan "$plan"
 pcmd "$(printf '%s' "${cmd[0]}"; printf ' %q' "${cmd[@]:1}")"
+if $newname; then
+  pnote "This is a NEW pool '$pool' with role $prole. It is added to the pools line of machine.toml when it is created."
+  pblank
+fi
 if [ -n "${leftover:-}" ]; then
   pnote "$leftover holds empty folders from before the pool existed ($(ls -A "$leftover" | tr '\n' ' ')); they are removed first."
   pblank
@@ -1249,14 +1284,22 @@ fi
 
 # Datasets the configuration expects
 if [ "$mode" = "create the new pool" ]; then
-  case "$pool" in
-    fast) zfs create fast/incus ;;
-    bulk)
-      zfs create bulk/shares; zfs create bulk/sensitive
+  case "$prole" in
+    apps) zfs create "$pool/incus" ;;
+    data)
+      zfs create "$pool/shares"; zfs create "$pool/sensitive"
       # everything in a share is written as adminuser (the configuration sets
       # this at boot too; without it the new pool would not be writable until then)
-      if id adminuser >/dev/null 2>&1; then chown adminuser:users /bulk/shares; chmod 2775 /bulk/shares; fi ;;
+      if id adminuser >/dev/null 2>&1; then chown adminuser:users "/$pool/shares"; chmod 2775 "/$pool/shares"; fi ;;
   esac
+fi
+
+if $newname; then
+  if pools_add_row "$pool" "$prole" zfs; then
+    pnote "The pools line of machine.toml has the new row. It takes effect with hs rebuild."
+  else
+    pwarn "The pool exists, but its row could not be written. Add it to the pools line of /etc/nixos/machine.toml: $pool = { role = \"$prole\", kind = \"zfs\" }  (then hs rebuild)"
+  fi
 fi
 
 zpool status "$pool" | sed 's/^/      /'

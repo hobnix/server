@@ -66,4 +66,30 @@ out=$(ask '' snapraid one bulk --show)
 check_out "snapraid: the members" "data-01.*ONLINE" echo "$out"
 check_out "snapraid: sync is named too" "sync" echo "$out"
 
+echo "-- a pool with any name: a NEW name needs the pools line, a role and a good name"
+export HS_MACHINE_FILE=$WORK/machine.toml
+rm -f "$HS_MACHINE_FILE"
+D=--disks\ ata-FAKE_sdy,ata-FAKE_sdz
+check_out "legacy server: a new name asks for hs pool record first" "Run hs pool record first" run zfs new tank --use data $D --dry-run
+check_out "legacy bulk is no new pool (plan as before)" "Plan: create the new pool 'bulk'" run zfs new bulk $D --dry-run
+out=$(run zfs new bulk $D --dry-run)
+if grep -q "NEW pool" <<<"$out"; then fail "legacy bulk is called a NEW pool"; else pass "legacy bulk: no NEW pool line"; fi
+printf 'pools = { bulk = { role = "data", kind = "zfs" } }\n' >"$HS_MACHINE_FILE"
+out=$(run zfs new tank --use data $D --dry-run)
+check_out "new data pool: the plan says so" "a NEW pool 'tank' with role data" echo "$out"
+if grep -q "mountpoint=none" <<<"$out"; then fail "a data pool has mountpoint=none"; else pass "a data pool is mounted at /tank"; fi
+check_out "new apps pool: no mount point of its own" "mountpoint=none" run zfs new ssd --use apps $D --dry-run
+check_out "a row that is not created yet is no NEW pool" "Plan: create the new pool 'bulk'" run zfs new bulk $D --dry-run
+check_out "a bad name is refused" "invalid pool name" run zfs new mirror --use data $D --dry-run
+check_out "a long name is refused" "invalid pool name" run zfs new abcdefghijklm --use data $D --dry-run
+check_out "no --use, no terminal: the usage line" "usage: hs pool" run zfs new tank $D --dry-run
+check_out "--use must be data or apps" "use: data or apps" run zfs new tank --use fast $D --dry-run
+check_out "a snapraid request for another name is refused" "only the pool named bulk" run zfs new tank --use data --role data $D --dry-run
+check_out "the menu offers the rows and a new pool" "new" ask '2\n' zfs new --use apps $D --dry-run
+out=$(HS_ANSWERS='2\ntank\n' tty_ run zfs new --use data $D --dry-run)
+check_out "the menu: a new pool asks the name" "a NEW pool 'tank' with role data" echo "$out"
+out=$(HS_ANSWERS='1\n' tty_ run zfs new tank $D --dry-run)
+check_out "a terminal is asked what the new pool is for" "a NEW pool 'tank' with role data" echo "$out"
+rm -f "$HS_MACHINE_FILE"
+
 finish
