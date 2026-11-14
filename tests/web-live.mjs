@@ -62,5 +62,22 @@ check('storage topic, live closed: the interval', nextDelay('shares-overview', f
 check('fixed-pool topic, live open: no timer', nextDelay(poolTopic('info', 'bulk'), true, 15000) === null);
 check('fixed-pool topic, live closed: the interval', nextDelay(poolTopic('state', 'fast'), false, 10000) === 10000);
 check('direct pool read (no topic), live open: the interval', nextDelay(poolTopic('info', 'archive'), true, 15000) === 15000);
+// Watchdog (web/src/livewatch.js): a stream silent for 45 s is reopened, any frame resets the clock, never faster than every 10 s.
+import { LiveWatch } from '../web/src/livewatch.js';
+{
+  let t = 0, n = 0, said = -1;
+  const w = new LiveWatch({ now: () => t, reconnect: (s) => { n++; said = s; } });
+  t = 40000; check('watch: 40 s of silence: no reconnect', !w.check() && n === 0);
+  w.frame(); t = 80000; check('watch: a beat at 40 s resets the clock', !w.check() && n === 0);
+  t = 86000; check('watch: 46 s of silence: reconnect', w.check() && n === 1 && said === 46);
+  t = 100000; check('watch: the clock restarts after a reconnect', !w.check() && n === 1);
+  const g = new LiveWatch({ now: () => t, silentMs: 1000, minGapMs: 10000, reconnect: () => { n++; } });
+  t = 200000; n = 0; g.check(); t = 203000; g.check(); check('watch: back-off, one reconnect in 3 s', n === 1);
+  t = 211000; g.check(); check('watch: after the gap the next one is allowed', n === 2);
+  const v = new LiveWatch({ now: () => t, reconnect: () => { n++; } });
+  t = 400000; n = 0; check('watch: a tab shown again after a long silence reconnects at once', v.check() && n === 1);
+}
+const live = readFileSync(new URL('../web/src/live.svelte.js', import.meta.url), 'utf8');
+check('live: beat, watchdog, visibilitychange wired', /'beat'/.test(live) && /new LiveWatch/.test(live) && /visibilitychange/.test(live) && /resyncAll\(\); \}/.test(live));
 console.log(`  -> ${ok} ok, ${bad} failed`);
 process.exit(bad ? 1 : 0);

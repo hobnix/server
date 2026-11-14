@@ -1,0 +1,4 @@
+date  = "2026-11-14"
+type  = "fix"
+title = "The web interface no longer stays stale when its live connection stalls silently"
+body  = """The live stream now sends a named heartbeat (event: beat) when it is idle, and the page reopens the stream and reads its data again when no frame came for 45 seconds, also when a hidden tab becomes visible. Until then the polling fallbacks start, so a job in the Jobs panel no longer stays on running until the page is reloaded."""

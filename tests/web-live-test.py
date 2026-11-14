@@ -702,6 +702,19 @@ class Events(RedisBase):
         finally:
             c.close()
 
+    def test_an_idle_stream_sends_the_named_beat(self):
+        self.cfg.events_ping = 0.2
+        c, r = self.open()
+        try:
+            self.assertEqual(r.fp.readline(), b"retry: 3000\n")
+            r.fp.readline()
+            lines = [r.fp.readline() for _ in range(4)]
+            self.assertEqual(lines[0], b": ping\n")
+            self.assertIn(b"event: beat\n", lines)
+            self.assertIn(b"data: {}\n", lines)
+        finally:
+            c.close()
+
     def test_the_counter_goes_back(self):
         c, r = self.open()
         r.fp.readline()

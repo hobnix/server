@@ -46,6 +46,9 @@ Chosen by the owner on 2026-11-04 (questions 2, 4 and 1 of the plan, section 5).
    behind, the stream sends `event: resync` instead. `event: changed {topic, gen}` stays as it is (no id, no replay).
 7. **Overflow is visible.** When a stream queue is full, the backend drops the queue and sends `event: resync`; the browser then re-reads
    every topic it follows. No silent drop.
+   **The stream says it is alive.** After `events_ping` seconds (15) without a frame the stream sends the comment `: ping` (for proxies) and
+   `event: beat` with `data: {}` (an EventSource never shows comments to JavaScript). The page reopens the stream and reads every followed
+   topic again when no frame of any kind came for 45 seconds (web/src/livewatch.js); until then `live.open` is false and the polls run.
 8. **Failures refresh too.** The dispatcher (`hs.sh`), the `hs_job` wrapper and the timer units refresh their groups on any exit code, not
    only 0. A failed job also emits `job.failed`.
 9. **Job transitions are events, the record stays state.** The job record (ADR 0004) is the model for current state with one writer and

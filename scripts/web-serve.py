@@ -2499,7 +2499,7 @@ def make_handler(app):
                     else:
                         quiet += 1
                         if quiet % 15 == 0:
-                            self.wfile.write(b": ping\n\n")                # keeps proxies from closing an idle stream
+                            self.wfile.write(b": ping\n\nevent: beat\ndata: {}\n\n")   # keeps proxies from closing an idle stream
                     self.wfile.flush()
                     first, last = False, state
                     if state in ("ok", "failed") or (state == "unknown" and gone >= 4):
@@ -2516,7 +2516,7 @@ def make_handler(app):
         def _events(self):
             """Server-sent events, in every liveState mode: `changed` {topic, gen} when a change counter moved (Events.poll_counters) or, in mode
             redis, the collector read a topic again; `domain` (id = event log id) per new log row, replayed after Last-Event-ID (up to 500, else `resync`,
-            also sent when a stream queue overflowed); `down` / `up` when Redis goes or comes back. One thread per stream (at most cfg.events_max). The page reads the topic again when `changed` arrives."""
+            also sent when a stream queue overflowed); `down` / `up` when Redis goes or comes back; `beat` after events_ping seconds of silence. One thread per stream (at most cfg.events_max). The page reads the topic again when `changed` arrives."""
             if not self._session():
                 return self._json(401, {"error": "not signed in"})
             if self.headers.get("Origin") and not self._same_origin():
@@ -2550,7 +2550,7 @@ def make_handler(app):
                     if not app.sessions.get(self._token(), app.auth.storage_locked()):
                         break                                               # signed out, expired or locked
                     if item is None:
-                        self.wfile.write(b": ping\n\n")                      # keeps proxies from closing an idle stream
+                        self.wfile.write(b": ping\n\nevent: beat\ndata: {}\n\n")  # keeps proxies from closing an idle stream; `beat` lets the page see a stalled stream (livewatch.js)
                     elif item[0] == "domain":
                         if item[1]["id"] <= sent:
                             continue
