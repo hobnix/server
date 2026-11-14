@@ -7,7 +7,7 @@ export HS_MACHINE_FILE=$WORK/machine.toml HS_BULK_TYPE_FILE=$WORK/bulk-type HS_P
 mkdir -p "$HS_POOLS_ROOT"
 
 # run <snippet>: a fresh shell each time (the rows are cached per process)
-run() { bash -c '. "$1/scripts/lib/pools.sh"; shift; eval "$*"' _ "$ROOT" "$@"; }
+run() { bash -c '. "$1/scripts/lib/pools.sh"; . "$1/scripts/lib/pools-write.sh"; shift; eval "$*"' _ "$ROOT" "$@"; }
 # fails <snippet>: the snippet must exit non-zero
 fails() { ! run "$@"; }
 

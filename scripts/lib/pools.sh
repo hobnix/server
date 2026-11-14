@@ -14,7 +14,7 @@
 #   pool_mounted <name>      exit 0 when pool_root is a mount point
 #   pool_name_ok <name>      exit 0 when the name is allowed for a new pool (^[a-z][a-z0-9]{0,11}$, not a reserved word)
 #   pools_format_rows        stdin: name<TAB>role<TAB>kind lines; stdout: the value `{ name = { role = "..", kind = ".." }, ... }`
-#   pools_add_row <n> <r> <k>  add or overwrite one row in the `pools` line (machine_set, one line, sorted); exit 1 without a `pools` line
+#   pools_add_row <n> <r> <k>  see lib/pools-write.sh (the one writer of the pools line)
 # Roles: data, apps. Kinds: zfs, snapraid.
 # Test knobs: HS_MACHINE_FILE, HS_BULK_TYPE_FILE, HS_POOLS_ROOT, HS_MOUNTPOINT, HS_PYTHON.
 
@@ -101,15 +101,4 @@ pools_format_rows() {
     inner+="${inner:+, }$n = { role = \"$r\", kind = \"$k\" }"
   done
   printf '{ %s }\n' "$inner"
-}
-pools_add_row() {   # pools_add_row <name> <role> <kind>; the cache is cleared
-  local rows
-  case "$2" in data|apps) ;; *) return 1 ;; esac
-  case "$3" in zfs|snapraid) ;; *) return 1 ;; esac
-  pool_name_ok "$1" || return 1
-  _pools_load
-  [ "$_HS_POOLS_SOURCE" = config ] || return 1
-  rows=$({ pools_rows | awk -F'\t' -v n="$1" '$1 != n'; printf '%s\t%s\t%s\n' "$1" "$2" "$3"; } | sort)
-  machine_set pools "$(pools_format_rows <<<"$rows")" pool-create >/dev/null || return 1
-  _HS_POOLS_LOADED=
 }

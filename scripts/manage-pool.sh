@@ -11,6 +11,7 @@ set -euo pipefail
 . "$(dirname "$0")/lib/bulkpath.sh"
 . "$(dirname "$0")/lib/live.sh"
 . "$(dirname "$0")/lib/pools.sh"
+. "$(dirname "$0")/lib/pools-write.sh"
 
 live_refresh_pool() {
   live_refresh status monitor-disks disk-inventory disk-marks pool-info-bulk pool-info-fast pool-members-bulk pool-members-fast pool-state-bulk pool-state-fast shares-overview fm-locations encryption
