@@ -1,0 +1,4 @@
+date  = "2026-11-14"
+type  = "fix"
+title = "Files opens with two locations the picker allows"
+body  = """Storage > Files no longer starts with a data disk on the left and the bulk pool on the right, a pair the location picker refuses. Without a link or a saved choice the right pane now starts on another disk of the same pool, or on the same location as the left pane. Links with left and right still open as given."""

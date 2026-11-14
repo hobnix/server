@@ -63,7 +63,7 @@ export class Fm {
     const disks = this.locs.filter((l) => l.kind === 'disk');
     const first = this.locs.find((l) => l.kind === 'pool') ?? this.locs[0];
     pick('L', query.left || saved.L?.loc || disks[0]?.id || first?.id, query.left ? query.path : saved.L?.path);
-    pick('R', query.right || saved.R?.loc || first?.id, query.right ? query.rpath : saved.R?.path);
+    pick('R', query.right || saved.R?.loc || S.defaultRight(this.locs, this.panes.L.loc || first?.id), query.right ? query.rpath : saved.R?.path);
     if (!this.panes.L.loc) pick('L', first?.id, '/');
     if (!this.panes.R.loc) pick('R', this.panes.L.loc, '/');
     if (query.select) this.panes.L.preselect = query.select;
