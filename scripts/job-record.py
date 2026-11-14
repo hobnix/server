@@ -227,6 +227,18 @@ def cmd_resume(a):
         save(rec)
 
 
+def bump_records():
+    """Count the change counter `reads:jobs-records` up (state-db.py topic-bump, ADR 0005 rule 5): the web interface reads the job list again.
+    Best effort like event_emit: not root, no database, a slow one: nothing happens. Called only after the rate limit, so once a second at most."""
+    if os.environ.get("HS_JOB_NOBUMP"):
+        return
+    try:
+        subprocess.run([sys.executable, os.path.join(os.path.dirname(os.path.abspath(__file__)), "state-db.py"), "topic-bump", "reads:jobs-records"],
+                       stdin=subprocess.DEVNULL, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, timeout=5)
+    except (OSError, subprocess.SubprocessError):
+        pass
+
+
 def cmd_step(a):
     if rate_limited(a.id, "step") and a.n != a.of:
         return
@@ -235,6 +247,7 @@ def cmd_step(a):
         rec["step"] = {"n": a.n, "of": a.of, "text": a.text}
         save(rec)
     touch_stamp(a.id, "step")
+    bump_records()
 
 
 def cmd_progress(a):
@@ -245,6 +258,7 @@ def cmd_progress(a):
         rec["progress"] = {"done": a.done, "total": a.total, "unit": a.unit}
         save(rec)
     touch_stamp(a.id, "progress")
+    bump_records()
 
 
 def cmd_finish(a):

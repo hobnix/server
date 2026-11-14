@@ -1,0 +1,4 @@
+date  = "2026-11-14"
+type  = "fix"
+title = "The Jobs panel shows a running job's step and progress as it moves"
+body  = """The step (n of m) and the progress of a running job used to appear only when the job ended. The panel now reads again as soon as the job reports a new step or progress, at most once a second, without adding a row to the event log."""

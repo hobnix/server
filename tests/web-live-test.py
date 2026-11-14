@@ -911,6 +911,21 @@ class Counters(Base):
         self.hub.poll_counters()
         self.assertEqual(self.drain(), [])
 
+    def test_job_records_counter_is_fed_with_redis_up_and_keeps_the_cache(self):
+        """The job record writer counts `reads:jobs-records` (no Redis publish for it): with Redis up it is still a `changed`, the cache stays.
+        A name without the `reads:` prefix would be left to Redis and clear the cache on every bump."""
+        cleared = []
+        self.hub.on_change = lambda: cleared.append(1)
+        self.hub.poll_counters()
+        self.hub.redis_up = True
+        self.bump("reads:jobs-records")
+        self.hub.poll_counters()
+        self.assertEqual(self.drain(), [("changed", "reads:jobs-records", 1)])
+        self.assertEqual(cleared, [])
+        self.bump("jobs-records")
+        self.hub.poll_counters()
+        self.assertEqual(self.drain(), [])
+
     def test_a_change_clears_the_read_cache(self):
         self.app.reads.cache["k"] = (time.time(), (200, {}))
         self.hub.poll_counters()
