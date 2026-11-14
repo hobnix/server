@@ -59,4 +59,41 @@ check_eq "index.toml has it too" 'version = "1.1.0"' "$(grep '^version' index.to
 check_eq "and it is one commit" "demo: 1.0.0 -> 1.1.0" "$(git log -1 --format=%s)"
 check_out "the branch is on the remote" "feature/demo-bump" git ls-remote --heads origin
 check_out "a package that does not exist is refused" "no package" bash -c "$REL bump nope 2>&1; true"
+
+echo "-- unbumped (pkg.py repo-unbumped: a folder changed since a tag without a version rise)"
+PKG="python3 -I $SCRIPTS/pkg.py"
+git checkout -q main && git reset -q --hard origin/main
+mkpkg() {   # mkpkg <name>: a package folder and its index block at version 1.0.0
+  mkdir -p "recipes/$1"; sed "s/demo/$1/" recipes/demo/package.toml > "recipes/$1/package.toml"; cp recipes/demo/run.sh "recipes/$1/run.sh"
+  printf '\n[package.%s]\nversion = "1.0.0"\nkind = "recipe"\npath = "recipes/%s"\nrequires_core = ">=1"\n' "$1" "$1" >> index.toml
+}
+for n in chg same both pkgonly gone; do mkpkg "$n"; done
+mkdir -p tests docs; echo t > tests/a.txt
+git add -A && git commit -q -m base && git tag base
+git checkout -q -b feature/unbumped
+echo x >> recipes/chg/run.sh                          # changed, no bump: listed
+echo x >> recipes/same/run.sh; $REL bump same >/dev/null 2>&1   # changed and raised in both files: not listed
+echo x >> recipes/both/run.sh                         # changed, only package.toml raised: listed
+sed -i 's/^version = "1.0.0"/version = "1.0.1"/' recipes/both/package.toml
+echo x >> recipes/pkgonly/run.sh                      # changed, only index.toml raised: listed
+sed -i '/^\[package.pkgonly\]/,/^version/s/^version = .*/version = "1.0.1"/' index.toml
+git rm -rq recipes/gone                               # removed: not listed
+sed -i '/^\[package.gone\]/,/^$/d;/^\[package.gone\]/,$d' index.toml
+mkpkg fresh                                           # new since the tag: not listed
+echo y >> tests/a.txt; echo y > docs/b.md             # outside the package folders: not listed
+git add -A && git commit -q -m changes
+out=$($PKG repo-unbumped base . 2>&1); rc=$?
+check_eq "exit 1 when a package is unbumped" "1" "$rc"
+check_eq "exactly chg, both and pkgonly are listed" "both chg pkgonly" "$(printf '%s\n' "$out" | cut -d: -f1 | sort | paste -sd' ' -)"
+check_eq "one line per package" "3" "$(printf '%s\n' "$out" | wc -l | tr -d ' ')"
+git checkout -q -b feature/fixed
+for n in chg both pkgonly; do
+  sed -i 's/^version = ".*"/version = "1.2.0"/' "recipes/$n/package.toml"
+  sed -i "/^\[package.$n\]/,/^version/s/^version = .*/version = \"1.2.0\"/" index.toml
+done
+git add -A && git commit -q -m "raise all"
+check_eq "all raised in both files: nothing is listed" "" "$($PKG repo-unbumped base . 2>&1)"
+check "and the exit is 0" $PKG repo-unbumped base .
+check_out "an unknown tag is an error" "no index.toml" bash -c "$PKG repo-unbumped nope . 2>&1; true"
+git checkout -q main
 finish
