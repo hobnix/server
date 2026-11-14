@@ -1,0 +1,4 @@
+date  = "2026-11-14"
+type  = "fix"
+title = "The common settings of machine.toml can be read again"
+body  = """The live-state topic system-config failed on every refresh, so the Diagnostics page listed it as failing and a page that reads the settings showed "Could not read this page". A missing separator in the command list sent a wrong argument to the settings command. It works again."""
