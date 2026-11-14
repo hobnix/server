@@ -126,6 +126,18 @@ check "the step stopped with 75" "75" "$rc"
 check "the record names input_rejected" "input_rejected" "$(J get "$id2" | field error.category)"
 unset HS_JOB_ID HS_ASK_DIR
 
+echo "-- an empty answer to an optional text question (pattern .*) is accepted, not asked again"
+sed -n '/^setting() {/,/^}/p' "$here/scripts/recipes/_lib.sh" > "$T/setting.fn"
+printf 'SERVER_COUNTRIES=
+SERVER_COUNTRIES=Austria
+' > "$T/script3"
+Q=". '$here/scripts/lib/ui.sh'; . '$here/scripts/lib/ask.sh'"
+got=$(HS_ASK_SCRIPT=$T/script3 HS_ASK_DIR=$T/ask3 bash -c "$Q; answer() { :; }; t() { printf '%s' \"\$1\"; }; fail() { echo FAIL; exit 1; }
+  ask_remote() { true; }; interactive() { false; }; . '$T/setting.fn'; conf=$T/c.conf; state=$T/st; existed=false; ASK=false; preferences_shown=true
+  setting SERVER_COUNTRIES 'Countries' '' '' '.*'; printf '[%s]' \"\$SERVER_COUNTRIES\"")
+check "an empty answer stays empty (the second line of the script is not used)" "[]" "$got"
+check "the fake answerer's second line is still unused" "1" "$(grep -c . "$T/script3.used")"
+
 echo "-- the terminal and the up-front answer work without HS_ASK_DIR"
 Q=". '$here/scripts/lib/ui.sh'; . '$here/scripts/lib/ask.sh'; interactive() { false; }"
 check "an answer up front wins" "7000" "$(RECIPE_PORT=7000 bash -c "$Q; answer() { local e=RECIPE_\$1; printf '%s' \"\${!e:-}\"; }; ask_q PORT text Port 1")"
