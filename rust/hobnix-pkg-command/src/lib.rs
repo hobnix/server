@@ -280,7 +280,7 @@ where
         Err(e) => return fail(&out, e),
     };
     let ctx = StdioCtx { out: out.clone() };
-    let outcome = catch_unwind(AssertUnwindSafe(|| handler(&req, &ctx as &dyn Ctx)))
+    let outcome = catch_unwind(AssertUnwindSafe(|| handler(&req, &ctx)))
         .unwrap_or_else(|_| Err(Failure::failed("the extension crashed")));
     match outcome {
         Ok(s) => {
