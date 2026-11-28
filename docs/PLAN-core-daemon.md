@@ -703,7 +703,8 @@ files and large shell scripts, not the rest of this list.
 on 2026-11-26.
 
 **Changed on 2026-11-28 (ADR 0035):** 0.15 is the Rust release and holds P0 to P8, with the improvements of the Rust SDK. This replaces "P0 to P4,
-the rest later". No new product features are built in it (section 13); how large it gets is accepted by the owner.
+the rest later". No new product features are built in it (section 13); how large it gets is accepted by the owner. The feature work has the new
+milestone 0.16 "Game servers and autopilot"; Translations, Virtualization and Networking are now 0.17, 0.18 and 0.19.
 
 **Marketplace comes first**, so its job work is built before this design. **Proposal** to avoid building twice:
 

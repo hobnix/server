@@ -54,4 +54,4 @@ Issue: hobnix/server#<n>
 | [0032](0032-rust-main-language.md) | Rust is the main language, Python is retired, bash stays for launcher, installer and recovery; packages may be Rust | Accepted (2026-11-24) |
 | [0033](0033-core-and-daemon.md) | One Rust core with every operation, one daemon `hobnixd`, a Rust CLI and a web API without root (`hobnix-web`) over a local socket | Accepted (2026-11-26), the Decided items |
 | [0034](0034-job-system.md) | Every change is a systemd job; records in SQLite beside the events; locks, credentials, cancel, failure and upgrade rules; history kept for years | Accepted (2026-11-26), the Decided items |
-| [0035](0035-015-rust-release.md) | 0.15 is the Rust release (steps P0 to P8, a beta on the owner's server is the side-by-side release, no new features beside it); rules have no exceptions | Accepted (2026-11-28), the Decided items |
+| [0035](0035-015-rust-release.md) | 0.15 is the Rust release (steps P0 to P8, a beta on the owner's server is the side-by-side release, no new features beside it); rules have no exceptions | Accepted (2026-11-28) |

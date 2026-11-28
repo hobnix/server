@@ -1,6 +1,6 @@
 # 0035: 0.15 is the Rust release, and rules have no exceptions
 
-Status: Accepted (2026-11-28) by the owner. The **Decided** items are rules. The **Proposed** items are not confirmed.
+Status: Accepted (2026-11-28) by the owner. All items are decided; items 10 to 15 were confirmed after the first nine, the same day.
 Issue: hobnix/core#1189 (epic: Rust as the main language). Related: ADR 0001, 0032, 0033, 0034, docs/PLAN-core-daemon.md, docs/PLAN-rust.md,
 docs/PLAN-game-servers.md, docs/CODE-PRACTICES.md.
 
@@ -57,16 +57,18 @@ Rules without exceptions:
 
 Items 7 to 9 apply when the change that builds them is merged; until then CI and the tools behave as before.
 
-### Proposed (needs the owner's confirmation)
+What the items above mean:
 
 10. **What "has run on the owner's server" means** (item 3): each moved command group has a step in the hardware-test tracker of 0.15 that names
-    the beta, and the old code is removed only when that box is ticked. An unticked box keeps the old code and does not follow CLAUDE.md's rule
-    that an unticked box moves on with the next release.
+    the beta, and the old code is removed only when that box is ticked. Such a box does not move on to the next release: the rule in CLAUDE.md
+    "Board" says so. So 0.15.0 is released only when every one of these boxes is ticked.
 11. **What counts as a new product feature** (item 4): something a person can do with Hobnix that they could not do with 0.14. Ports, fixes,
     work on the core, the daemon, the job system, `hobnix-web` and the Rust SDK that the move needs, and design records are not.
 12. **The announcement of step P8** ("announced one release earlier") is made in the release notes of the beta.
 13. **All existing exceptions are gone before 0.15.0** is released.
 14. **Until an existing exception is gone** it may only shrink, and nothing is added to it.
+15. **The feature work of item 4 is in the milestone 0.16 "Game servers and autopilot".** Translations, Virtualization and Networking move up by
+    one, to 0.17, 0.18 and 0.19. The work "test-lab ticks the lab boxes" (#1372) is dropped (item 9).
 
 ## What changes in older records on acceptance
 
@@ -90,8 +92,7 @@ The text of these records is not edited. Each has a Status note that points here
 
 ## Open points
 
-1. The milestone that takes the feature work (item 4). Which issues move is the owner's call.
-2. Python for extensions once Python leaves the server image (ADR 0033 open point 4, hobnix/core#1383). Step P8 needs it.
-3. The web server record (hobnix/core#1266) is needed before the first route of `web-serve.py` is replaced.
-4. Which shell stays: ADR 0033 D12 names the kinds; no count of the lines exists.
-5. Nothing here is built. Not tested on hardware yet.
+1. Python for extensions once Python leaves the server image (ADR 0033 open point 4, hobnix/core#1383). Step P8 needs it.
+2. The web server record (hobnix/core#1266) is needed before the first route of `web-serve.py` is replaced.
+3. Which shell stays: ADR 0033 D12 names the kinds; no count of the lines exists.
+4. Nothing here is built. Not tested on hardware yet.

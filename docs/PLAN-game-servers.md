@@ -16,9 +16,10 @@ app data) that the next recipes use too.
 **Changed later on 2026-11-28.** Where the list below, section 9 or another section says otherwise, this applies:
 
 - 0.15 is the Rust release (ADR 0035, `docs/adr/0035-015-rust-release.md`): no new product features are built in it. The game server feature work of this
-  plan moves to a later milestone. The recipe runner design (#1411), the prototype (#1410) and the backup fix (#1408) stay in 0.15. This replaces
-  decision 5 for the feature work.
-- Basic VPS forwarding (#1419, #1420) is in 0.18, not in 0.15 (changes decision 11).
+  plan, the ingress contract (#918) included, is in milestone 0.16 "Game servers and autopilot". The design records (#1411, #1412), the prototype
+  (#1410) and the backup fix (#1408) stay in 0.15. This replaces decision 5 for the feature work.
+- Networking and Multi-node is renumbered from 0.18 to **0.19**: where this plan says 0.18, read 0.19.
+- Basic VPS forwarding (#1419, #1420) is in 0.19, not in 0.15 (changes decision 11).
 - The prototype (#1410) runs in a disposable container on the owner's server.
 - Browser download and upload come with `hobnix-web`; nothing is added to the Python web server (answers open point O1).
 - The fix of #1408 is written in Rust, with the port of the backup command.
