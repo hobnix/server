@@ -37,7 +37,7 @@ syn = { version = "3", features = ["full"] }
 trybuild = "1"
 
 # docs/CODE-PRACTICES.md "Rust: lints". CI runs clippy with -D warnings, so "warn" fails the build. Single restriction lints only, never
-# a whole restriction or nursery group. A file that would need a rewrite carries `#![expect(clippy::x, reason = "ratchet #1307")]`.
+# a whole restriction or nursery group. Code is written so that the lints hold: no `#[allow]` or `#[expect]` (ADR 0035).
 [workspace.lints.rust]
 unsafe_code = "forbid"
 unreachable_pub = "warn"

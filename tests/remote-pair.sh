@@ -4,6 +4,9 @@
 # wrong code, taken name (Q4), rate limit, the code and the password in no argv or file, the reverse direction (receive + send).
 # The binary: HOBNIX_BIN, else rust/target/debug|release/hobnix. Without one, or off Linux, the test is skipped (77).
 root=$(cd "$(dirname "$0")/.." && pwd)
+# nix-shell exports `out`. This test keeps answers in a variable of that name, and an exported one would carry a pairing code into the
+# environment of the fake programs, which the leak check then finds.
+unset out
 bin=${HOBNIX_BIN:-}
 if [ -z "$bin" ]; then
   [ "$(uname -s)" = Linux ] || { echo "  skip  needs Linux (WSL) or HOBNIX_BIN"; exit 77; }

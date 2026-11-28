@@ -3,316 +3,224 @@
 //! Exit codes follow job-record.py, not the 0/1/2 scheme of the other commands: every failure is one stderr line
 //! `hobnix: <msg>` and exit 1 (`cancelled` exits 1 without a line when the job is not cancelled). The scripts that call it
 //! only ever test for zero.
-#![expect(
-    clippy::indexing_slicing,
-    clippy::string_slice,
-    clippy::too_many_lines,
-    clippy::single_match_else,
-    reason = "ratchet #1307: the argument parser of job-record.py, ported line by line; rewrite it, then drop this"
-)]
 
-use hobnix_core::jobs::{Question, RealSystem, Store};
+use crate::output;
+use arguments::{Arguments, bad, whole_number};
+use hobnix_core::jobs::{NewJob, Question, RealSystem, Store};
 use hobnix_core::{EXIT_OK, EXIT_REFUSED, Error, Result};
 use std::io::Write;
 
-const BAD_ARGS: &str = "bad arguments";
+mod arguments;
+
 const DEFAULT_DIR: &str = "/var/lib/hs/jobs";
 
-fn bad() -> Error {
-    Error::Failed(BAD_ARGS.to_string())
-}
+const NEW_OPTIONS: &[&str] = &[
+    "--slug",
+    "--desc",
+    "--unit",
+    "--source",
+    "--initiator",
+    "--parent",
+    "--kind",
+];
+const WAIT_OPTIONS: &[&str] = &[
+    "--seq",
+    "--key",
+    "--label",
+    "--kind",
+    "--default",
+    "--pattern",
+    "--choices",
+    "--error",
+    "--attempt",
+];
+const ERROR_OPTIONS: &[&str] = &["--category", "--message", "--code"];
+const RESULT_OPTIONS: &[&str] = &["--json"];
+const CANCEL_OPTIONS: &[&str] = &["--by", "--safe"];
 
-/// Python's `int()`: surrounding white space, a sign, digits with single underscores between them.
-fn parse_int(s: &str) -> Result<i64> {
-    let t = s.trim();
-    let digits = t.strip_prefix(['+', '-']).unwrap_or(t);
-    let ok = !digits.is_empty()
-        && !digits.starts_with('_')
-        && !digits.ends_with('_')
-        && !digits.contains("__")
-        && digits.bytes().all(|b| b.is_ascii_digit() || b == b'_');
-    if !ok {
-        return Err(bad());
-    }
-    t.replace('_', "").parse().map_err(|_| bad())
-}
-
-/// argparse's "looks like a negative number" (the parser has no option that does).
-fn negative_number(s: &str) -> bool {
-    let Some(r) = s.strip_prefix('-') else {
-        return false;
-    };
-    if !r.is_empty() && r.bytes().all(|b| b.is_ascii_digit()) {
-        return true;
-    }
-    match r.split_once('.') {
-        Some((a, b)) => {
-            a.bytes().all(|c| c.is_ascii_digit())
-                && !b.is_empty()
-                && b.bytes().all(|c| c.is_ascii_digit())
-        }
-        None => false,
-    }
-}
-
-/// argparse's test for "this is an option, not a value".
-fn option_like(s: &str) -> bool {
-    s.len() > 1 && s.starts_with('-') && !negative_number(s) && !s.contains(' ')
-}
-
-#[derive(Default)]
-struct Parsed {
-    pos: Vec<String>,
-    opts: Vec<(&'static str, String)>,
-}
-
-impl Parsed {
-    fn opt(&self, name: &str) -> Option<&str> {
-        self.opts
-            .iter()
-            .rev()
-            .find(|(n, _)| *n == name)
-            .map(|(_, v)| v.as_str())
-    }
-}
-
-/// Positionals and `--long value` / `--long=value` options (unique prefixes allowed, like argparse).
-/// `-h` and `--help` are not answered (job-record.py prints its usage and exits 0): they are bad arguments here.
-fn parse(args: &[String], longs: &[&'static str]) -> Result<Parsed> {
-    let mut p = Parsed::default();
-    let mut i = 0;
-    let mut only_pos = false;
-    while i < args.len() {
-        let a = &args[i];
-        i += 1;
-        if only_pos || !a.starts_with('-') || a == "-" {
-            p.pos.push(a.clone());
-        } else if a == "--" {
-            only_pos = true;
-        } else if let Some(body) = a.strip_prefix("--") {
-            let (name, explicit) = match body.split_once('=') {
-                Some((n, v)) => (n, Some(v.to_string())),
-                None => (body, None),
-            };
-            let exact = longs.iter().find(|l| l[2..] == *name);
-            let hits: Vec<&&'static str> =
-                longs.iter().filter(|l| l[2..].starts_with(name)).collect();
-            let found = match (exact, hits.as_slice()) {
-                (Some(l), _) => Some(*l),
-                (None, [one]) => Some(**one),
-                _ => None,
-            };
-            let Some(opt) = found else {
-                if a.contains(' ') {
-                    p.pos.push(a.clone());
-                    continue;
-                }
-                return Err(bad());
-            };
-            let value = match explicit {
-                Some(v) => v,
-                None => {
-                    let v = args.get(i).ok_or_else(bad)?;
-                    if option_like(v) {
-                        return Err(bad());
-                    }
-                    i += 1;
-                    v.clone()
-                }
-            };
-            p.opts.push((opt, value));
-        } else if negative_number(a) || a.contains(' ') {
-            p.pos.push(a.clone());
-        } else {
-            return Err(bad());
-        }
-    }
-    Ok(p)
-}
-
-fn exact<const N: usize>(p: &Parsed) -> Result<&[String; N]> {
-    p.pos.as_slice().try_into().map_err(|_| bad())
-}
-
-fn out(bytes: &[u8]) -> Result<()> {
+fn write_out(bytes: &[u8]) -> Result<()> {
     std::io::stdout()
         .write_all(bytes)
         .map_err(|e| Error::Failed(e.to_string()))
 }
 
-fn store() -> Result<Store> {
+fn open_store() -> Result<Store> {
     let dir = std::env::var("HS_JOBS_DIR")
         .ok()
         .filter(|d| !d.is_empty())
         .unwrap_or_else(|| DEFAULT_DIR.to_string());
-    let mut s = Store::new(dir);
+    let mut store = Store::new(dir);
     // job-record.py reads the knob before anything else, and a bad value ends every command
     let raw = std::env::var("HS_JOB_RATE").unwrap_or_else(|_| "1".to_string());
-    s.rate = raw
+    store.rate = raw
         .trim()
         .parse()
         .map_err(|_| Error::Failed(format!("invalid HS_JOB_RATE: {raw}")))?;
-    Ok(s)
+    Ok(store)
 }
 
 pub(crate) fn run(args: &[String]) -> Result<u8> {
     // hs_job_record asks this before it trusts the binary: an older build answers "unknown subcommand" (exit 1) instead
     if args == ["--probe"] {
-        println!("job-record");
-        return Ok(0);
+        return Ok(output::exit_with(output::line("job-record"), EXIT_OK));
     }
-    let store = store()?;
-    let (cmd, rest) = args.split_first().ok_or_else(bad)?;
-    match cmd.as_str() {
-        "new" => {
-            let p = parse(
-                rest,
-                &[
-                    "--slug",
-                    "--desc",
-                    "--unit",
-                    "--source",
-                    "--initiator",
-                    "--parent",
-                    "--kind",
-                ],
-            )?;
-            exact::<0>(&p)?;
-            let slug = p.opt("--slug").ok_or_else(bad)?;
-            let desc = p.opt("--desc").ok_or_else(bad)?;
-            let id = store.new_record(
-                slug,
-                desc,
-                p.opt("--unit").unwrap_or(""),
-                p.opt("--source").unwrap_or("cli"),
-                p.opt("--initiator").unwrap_or(""),
-                p.opt("--parent").unwrap_or(""),
-                p.opt("--kind").unwrap_or(""),
-            )?;
-            out(format!("{id}\n").as_bytes())?;
-        }
+    let store = open_store()?;
+    let (command, words) = args.split_first().ok_or_else(bad)?;
+    let done = match command.as_str() {
+        "reconcile" => return reconcile(&store, words),
+        "cancelled" => return cancelled(&store, words),
+        "new" => new_record(&store, words),
+        "wait" => wait(&store, words),
+        "error" => set_error(&store, words),
+        "result" => set_result(&store, words),
+        "cancel" => cancel(&store, words),
+        "get" => get(&store, words),
+        "find-unit" => find_unit(&store, words),
+        other => change_record(&store, other, words),
+    };
+    done.map(|()| EXIT_OK)
+}
+
+/// The changes to a record that take positionals only. An unknown command ends here, as bad arguments whatever its words are.
+fn change_record(store: &Store, command: &str, words: &[String]) -> Result<()> {
+    let arguments = Arguments::parse(words, &[])?;
+    match command {
         "run" => {
-            let p = parse(rest, &[])?;
-            store.run(&exact::<1>(&p)?[0])?;
-        }
-        "wait" => {
-            let p = parse(
-                rest,
-                &[
-                    "--seq",
-                    "--key",
-                    "--label",
-                    "--kind",
-                    "--default",
-                    "--pattern",
-                    "--choices",
-                    "--error",
-                    "--attempt",
-                ],
-            )?;
-            let id = &exact::<1>(&p)?[0];
-            let q = Question {
-                seq: parse_int(p.opt("--seq").ok_or_else(bad)?)?,
-                key: p.opt("--key").ok_or_else(bad)?,
-                label: p.opt("--label").ok_or_else(bad)?,
-                kind: p.opt("--kind").ok_or_else(bad)?,
-                default: p.opt("--default").unwrap_or(""),
-                pattern: p.opt("--pattern").unwrap_or(""),
-                choices: p.opt("--choices").unwrap_or(""),
-                error: p.opt("--error").unwrap_or(""),
-                attempt: parse_int(p.opt("--attempt").unwrap_or("1"))?,
-            };
-            store.wait(id, &q)?;
+            let [id] = arguments.positionals()?;
+            store.run(id)
         }
         "resume" => {
-            let p = parse(rest, &[])?;
-            store.resume(&exact::<1>(&p)?[0])?;
+            let [id] = arguments.positionals()?;
+            store.resume(id)
         }
         "step" => {
-            let p = parse(rest, &[])?;
-            let [id, n, of, text] = exact::<4>(&p)?;
-            store.step(id, parse_int(n)?, parse_int(of)?, text)?;
+            let [id, number, of, text] = arguments.positionals()?;
+            store.step(id, whole_number(number)?, whole_number(of)?, text)
         }
         "progress" => {
-            let p = parse(rest, &[])?;
-            let [id, done, total, unit] = exact::<4>(&p)?;
-            store.progress(id, parse_int(done)?, parse_int(total)?, unit)?;
+            let [id, done, total, unit] = arguments.positionals()?;
+            store.progress(id, whole_number(done)?, whole_number(total)?, unit)
         }
         "key" => {
-            let p = parse(rest, &[])?;
-            let [id, key] = exact::<2>(&p)?;
-            store.set_key(id, key)?;
-        }
-        "error" => {
-            let p = parse(rest, &["--category", "--message", "--code"])?;
-            let id = &exact::<1>(&p)?[0];
-            let category = p.opt("--category").ok_or_else(bad)?;
-            store.set_error(
-                id,
-                category,
-                p.opt("--message").unwrap_or(""),
-                p.opt("--code"),
-            )?;
-        }
-        "result" => {
-            let p = parse(rest, &["--json"])?;
-            let id = &exact::<1>(&p)?[0];
-            store.set_result(id, p.opt("--json").ok_or_else(bad)?)?;
+            let [id, key] = arguments.positionals()?;
+            store.set_key(id, key)
         }
         "skip" => {
-            let p = parse(rest, &[])?;
-            let [id, message] = exact::<2>(&p)?;
-            store.skip(id, message)?;
+            let [id, message] = arguments.positionals()?;
+            store.skip(id, message)
         }
         "finish" => {
-            let p = parse(rest, &[])?;
-            let [id, code] = exact::<2>(&p)?;
-            store.finish(id, parse_int(code)?)?;
-        }
-        "get" => {
-            let p = parse(rest, &[])?;
-            out(&store.get(&exact::<1>(&p)?[0])?)?;
-        }
-        "reconcile" => {
-            let p = parse(rest, &[])?;
-            exact::<0>(&p)?;
-            let r = store.reconcile(&RealSystem);
-            for (id, slug, desc) in &r.lines {
-                out(format!("{id}\t{slug}\t{desc}\n").as_bytes())?;
-            }
-            for e in &r.errors {
-                eprintln!("hobnix: {e}");
-            }
-            if !r.errors.is_empty() {
-                return Ok(EXIT_REFUSED);
-            }
-        }
-        "find-unit" => {
-            let p = parse(rest, &[])?;
-            let id = store.find_unit(&exact::<1>(&p)?[0])?;
-            out(format!("{id}\n").as_bytes())?;
-        }
-        "cancel" => {
-            let p = parse(rest, &["--by", "--safe"])?;
-            let id = &exact::<1>(&p)?[0];
-            let safe = match p.opt("--safe") {
-                Some("yes") => true,
-                Some("no") => false,
-                _ => return Err(bad()),
-            };
-            store.cancel(id, p.opt("--by").unwrap_or(""), safe)?;
+            let [id, code] = arguments.positionals()?;
+            store.finish(id, whole_number(code)?)
         }
         "uncancel" => {
-            let p = parse(rest, &[])?;
-            store.uncancel(&exact::<1>(&p)?[0])?;
+            let [id] = arguments.positionals()?;
+            store.uncancel(id)
         }
-        "cancelled" => {
-            let p = parse(rest, &[])?;
-            if !store.is_cancelled(&exact::<1>(&p)?[0])? {
-                return Ok(EXIT_REFUSED);
-            }
-        }
-        _ => return Err(bad()),
+        _ => Err(bad()),
     }
-    Ok(EXIT_OK)
+}
+
+fn get(store: &Store, words: &[String]) -> Result<()> {
+    let arguments = Arguments::parse(words, &[])?;
+    let [id] = arguments.positionals()?;
+    write_out(&store.get(id)?)
+}
+
+fn find_unit(store: &Store, words: &[String]) -> Result<()> {
+    let arguments = Arguments::parse(words, &[])?;
+    let [unit] = arguments.positionals()?;
+    let id = store.find_unit(unit)?;
+    write_out(format!("{id}\n").as_bytes())
+}
+
+fn new_record(store: &Store, words: &[String]) -> Result<()> {
+    let arguments = Arguments::parse(words, NEW_OPTIONS)?;
+    let [] = arguments.positionals()?;
+    let id = store.new_record(&NewJob {
+        slug: arguments.required("--slug")?,
+        description: arguments.required("--desc")?,
+        unit: arguments.option("--unit").unwrap_or(""),
+        source: arguments.option("--source").unwrap_or("cli"),
+        initiator: arguments.option("--initiator").unwrap_or(""),
+        parent: arguments.option("--parent").unwrap_or(""),
+        kind: arguments.option("--kind").unwrap_or(""),
+    })?;
+    write_out(format!("{id}\n").as_bytes())
+}
+
+fn wait(store: &Store, words: &[String]) -> Result<()> {
+    let arguments = Arguments::parse(words, WAIT_OPTIONS)?;
+    let [id] = arguments.positionals()?;
+    let question = Question {
+        seq: whole_number(arguments.required("--seq")?)?,
+        key: arguments.required("--key")?,
+        label: arguments.required("--label")?,
+        kind: arguments.required("--kind")?,
+        default: arguments.option("--default").unwrap_or(""),
+        pattern: arguments.option("--pattern").unwrap_or(""),
+        choices: arguments.option("--choices").unwrap_or(""),
+        error: arguments.option("--error").unwrap_or(""),
+        attempt: whole_number(arguments.option("--attempt").unwrap_or("1"))?,
+    };
+    store.wait(id, &question)
+}
+
+fn set_error(store: &Store, words: &[String]) -> Result<()> {
+    let arguments = Arguments::parse(words, ERROR_OPTIONS)?;
+    let [id] = arguments.positionals()?;
+    store.set_error(
+        id,
+        arguments.required("--category")?,
+        arguments.option("--message").unwrap_or(""),
+        arguments.option("--code"),
+    )
+}
+
+fn set_result(store: &Store, words: &[String]) -> Result<()> {
+    let arguments = Arguments::parse(words, RESULT_OPTIONS)?;
+    let [id] = arguments.positionals()?;
+    store.set_result(id, arguments.required("--json")?)
+}
+
+fn cancel(store: &Store, words: &[String]) -> Result<()> {
+    let arguments = Arguments::parse(words, CANCEL_OPTIONS)?;
+    let [id] = arguments.positionals()?;
+    let safe = match arguments.option("--safe") {
+        Some("yes") => true,
+        Some("no") => false,
+        _ => return Err(bad()),
+    };
+    store.cancel(id, arguments.option("--by").unwrap_or(""), safe)
+}
+
+/// One line per record marked interrupted on stdout, one per failure on stderr; exit 1 when there was a failure.
+fn reconcile(store: &Store, words: &[String]) -> Result<u8> {
+    let arguments = Arguments::parse(words, &[])?;
+    let [] = arguments.positionals()?;
+    let report = store.reconcile(&RealSystem);
+    for (id, slug, description) in &report.lines {
+        write_out(format!("{id}\t{slug}\t{description}\n").as_bytes())?;
+    }
+    let written = report
+        .errors
+        .iter()
+        .try_for_each(|error| output::error_line(format_args!("hobnix: {error}")));
+    let code = if report.errors.is_empty() {
+        EXIT_OK
+    } else {
+        EXIT_REFUSED
+    };
+    Ok(output::exit_with(written, code))
+}
+
+/// Exit 0 when the job is cancelled, else 1, without a line.
+fn cancelled(store: &Store, words: &[String]) -> Result<u8> {
+    let arguments = Arguments::parse(words, &[])?;
+    let [id] = arguments.positionals()?;
+    Ok(if store.is_cancelled(id)? {
+        EXIT_OK
+    } else {
+        EXIT_REFUSED
+    })
 }
