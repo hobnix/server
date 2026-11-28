@@ -101,11 +101,15 @@ pub(crate) fn accept(args: &[String]) -> Result<u8> {
     door(args, true)
 }
 
+fn not_a_code() -> Error {
+    Error::Refused("that is not a code (16 letters and digits)".into())
+}
+
 fn norm_from(v: &Value) -> Result<String> {
     v.get("code")
         .and_then(Value::as_str)
         .and_then(pair::normalize)
-        .ok_or_else(|| Error::Refused("that is not a code (16 letters and digits)".into()))
+        .ok_or_else(not_a_code)
 }
 
 fn text<'a>(v: &'a Value, k: &str) -> &'a str {
@@ -113,100 +117,113 @@ fn text<'a>(v: &'a Value, k: &str) -> &'a str {
 }
 
 /// `hobnix pair <word>`: make | cancel | check | request | open | push (internal, called by remote.sh).
-#[expect(
-    clippy::too_many_lines,
-    reason = "ratchet #1307: one arm per word; split into a function per word"
-)]
 pub(crate) fn run(args: &[String]) -> Result<u8> {
     match args.first().map(String::as_str) {
-        Some("make") => {
-            let [_, kind, share, server, minutes] = args else {
-                return Err(Error::Refused(
-                    "usage: pair make <offer|receive> <share|-> <server|-> <minutes>".into(),
-                ));
-            };
-            let kind = match kind.as_str() {
-                "offer" => Kind::Offer,
-                "receive" => Kind::Receive,
-                _ => return Err(Error::Refused("the kind is offer or receive".into())),
-            };
-            let minutes = if minutes == "-" {
-                DEFAULT_MINUTES
-            } else {
-                minutes
-                    .parse()
-                    .map_err(|_| Error::Refused("minutes is a number".into()))?
-            };
-            let clock = SystemClock;
-            let m = store(&clock).make(kind, share, server, minutes, &mut OsRandom)?;
-            write_out(&format!(
-                "code\t{}\nexpires_in\t{}\n",
-                m.code.expose(),
-                m.expires_in
-            ))?;
-            Ok(EXIT_OK)
-        }
-        Some("cancel") => {
-            let clock = SystemClock;
-            let n = store(&clock).cancel_all()?;
-            write_out(&format!("cancelled\t{n}\n"))?;
-            Ok(EXIT_OK)
-        }
-        Some("check") => {
-            // stdin: one line, the code as typed (maybe with @host); prints the code in groups, then the part after @ (or -)
-            let line = String::from_utf8_lossy(&stdin_bytes()?).trim().to_string();
-            let (code, at) = line.split_once('@').unwrap_or((line.as_str(), "-"));
-            let norm = pair::normalize(code).ok_or_else(|| {
-                Error::Refused("that is not a code (16 letters and digits)".into())
-            })?;
-            write_out(&format!(
-                "{}\t{}\n",
-                pair::format_code(&norm),
-                if at.is_empty() { "-" } else { at }
-            ))?;
-            Ok(EXIT_OK)
-        }
-        Some("request") => {
-            let v = stdin_fields()?;
-            let body = pair::claim_request(&norm_from(&v)?, text(&v, "name"), text(&v, "hostkey"))?;
-            write_out(&format!("{body}\n"))?;
-            Ok(EXIT_OK)
-        }
-        Some("open") => {
-            let v = stdin_fields()?;
-            let norm = norm_from(&v)?;
-            let answer: Value = serde_json::from_str(text(&v, "answer")).unwrap_or(Value::Null);
-            let inner = pair::open_claim(&norm, text(&v, "request").as_bytes(), &answer)
-                .ok_or_else(|| {
-                    Error::Refused(
-                        "the answer does not open: wrong code, or not the server that made it"
-                            .into(),
-                    )
-                })?;
-            let fp = pair::fingerprint(text(&inner, "hostkey")).unwrap_or_else(|| "-".into());
-            let mut o = String::new();
-            for k in ["server", "host", "share", "login", "domain", "password"] {
-                let _ = writeln!(o, "{k}\t{}", text(&inner, k));
-            }
-            let _ = write!(
-                o,
-                "hostkey\t{}\nfingerprint\t{fp}\n",
-                text(&inner, "hostkey")
-            );
-            write_out(&o)?;
-            Ok(EXIT_OK)
-        }
-        Some("push") => {
-            let v = stdin_fields()?;
-            let norm = norm_from(&v)?;
-            let inner: Inner = Inner::from_json(&v)
-                .ok_or_else(|| Error::Refused("the inner document is not valid".into()))?;
-            let body = pair::push_body(&norm, &inner, &mut OsRandom)?;
-            write_out(&format!("{body}\n"))?;
-            Ok(EXIT_OK)
-        }
+        Some("make") => make(args.get(1..).unwrap_or_default()),
+        Some("cancel") => cancel(),
+        Some("check") => check(),
+        Some("request") => request(),
+        Some("open") => open(),
+        Some("push") => push(),
         _ => Err(Error::Refused(
             "usage: hobnix pair make|cancel|check|request|open|push".into(),
         )),
+    }?;
+    Ok(EXIT_OK)
+}
+
+/// `pair make <offer|receive> <share|-> <server|-> <minutes|->`: a new code and how long it is good for.
+fn make(words: &[String]) -> Result<()> {
+    let [kind, share, server, minutes] = words else {
+        return Err(Error::Refused(
+            "usage: pair make <offer|receive> <share|-> <server|-> <minutes>".into(),
+        ));
+    };
+    let kind = match kind.as_str() {
+        "offer" => Kind::Offer,
+        "receive" => Kind::Receive,
+        _ => return Err(Error::Refused("the kind is offer or receive".into())),
+    };
+    let minutes = if minutes == "-" {
+        DEFAULT_MINUTES
+    } else {
+        minutes
+            .parse()
+            .map_err(|_| Error::Refused("minutes is a number".into()))?
+    };
+    let clock = SystemClock;
+    let made = store(&clock).make(kind, share, server, minutes, &mut OsRandom)?;
+    write_out(&format!(
+        "code\t{}\nexpires_in\t{}\n",
+        made.code.expose(),
+        made.expires_in
+    ))
+}
+
+fn cancel() -> Result<()> {
+    let clock = SystemClock;
+    let count = store(&clock).cancel_all()?;
+    write_out(&format!("cancelled\t{count}\n"))
+}
+
+/// stdin: one line, the code as typed (maybe with @host); prints the code in groups, then the part after @ (or -).
+fn check() -> Result<()> {
+    let line = String::from_utf8_lossy(&stdin_bytes()?).trim().to_string();
+    let (code, at) = line.split_once('@').unwrap_or((line.as_str(), "-"));
+    let norm = pair::normalize(code).ok_or_else(not_a_code)?;
+    write_out(&format!(
+        "{}\t{}\n",
+        pair::format_code(&norm),
+        if at.is_empty() { "-" } else { at }
+    ))
+}
+
+/// The calling side: the claim request for the typed code.
+fn request() -> Result<()> {
+    let fields = stdin_fields()?;
+    let body = pair::claim_request(
+        &norm_from(&fields)?,
+        text(&fields, "name"),
+        text(&fields, "hostkey"),
+    )?;
+    write_out(&format!("{body}\n"))
+}
+
+/// The calling side: opens the answer of a claim.
+fn open() -> Result<()> {
+    let fields = stdin_fields()?;
+    let norm = norm_from(&fields)?;
+    let answer: Value = serde_json::from_str(text(&fields, "answer")).unwrap_or(Value::Null);
+    let inner =
+        pair::open_claim(&norm, text(&fields, "request").as_bytes(), &answer).ok_or_else(|| {
+            Error::Refused(
+                "the answer does not open: wrong code, or not the server that made it".into(),
+            )
+        })?;
+    write_out(&opened_lines(&inner))
+}
+
+/// The opened answer as `key<TAB>value` lines, with the fingerprint of the host key.
+fn opened_lines(inner: &Value) -> String {
+    let fingerprint = pair::fingerprint(text(inner, "hostkey")).unwrap_or_else(|| "-".into());
+    let mut lines = String::new();
+    for key in ["server", "host", "share", "login", "domain", "password"] {
+        let _ = writeln!(lines, "{key}\t{}", text(inner, key));
     }
+    let _ = write!(
+        lines,
+        "hostkey\t{}\nfingerprint\t{fingerprint}\n",
+        text(inner, "hostkey")
+    );
+    lines
+}
+
+/// The reverse direction: the push body for a typed receive code.
+fn push() -> Result<()> {
+    let fields = stdin_fields()?;
+    let norm = norm_from(&fields)?;
+    let inner = Inner::from_json(&fields)
+        .ok_or_else(|| Error::Refused("the inner document is not valid".into()))?;
+    let body = pair::push_body(&norm, &inner, &mut OsRandom)?;
+    write_out(&format!("{body}\n"))
 }
