@@ -285,7 +285,8 @@ pub const fn table<const N: usize>(
     package: &'static str,
     script: &'static str,
 ) -> [u8; N] {
-    let mut out = put(([0u8; N], 0), TABLE_START);
+    let mut out = [0u8; N];
+    let mut free = put(&mut out, TABLE_START);
     let mut commands = list;
     while let [command, more_commands @ ..] = commands {
         let mut rows = command.rows;
@@ -293,54 +294,41 @@ pub const fn table<const N: usize>(
             let pieces = pieces(row, command.words, package, script);
             let mut rest: &[&str] = &pieces;
             while let [piece, more @ ..] = rest {
-                out = put(out, piece.as_bytes());
+                free = put(free, piece.as_bytes());
                 rest = more;
             }
             rows = more_rows;
         }
         commands = more_commands;
     }
-    out.0
+    out
 }
 
-/// `bytes` written at the position into the table.
-#[expect(
-    clippy::indexing_slicing,
-    reason = "const evaluation at build time: an index out of range is a compile error, never a panic of the program"
-)]
-const fn put<const N: usize>(
-    (mut out, mut at): ([u8; N], usize),
-    bytes: &[u8],
-) -> ([u8; N], usize) {
-    let mut rest = bytes;
-    while let [b, more @ ..] = rest {
-        out[at] = *b;
-        at += 1;
-        rest = more;
-    }
-    (out, at)
+/// `bytes` written to the front of `free`, the part of the table that is not written yet; returns what is still free after them. A table
+/// that is too short stops the const evaluation at build time: a compile error, never a panic of the program.
+const fn put<'table>(free: &'table mut [u8], bytes: &[u8]) -> &'table mut [u8] {
+    let (written, still_free) = free.split_at_mut(bytes.len());
+    written.copy_from_slice(bytes);
+    still_free
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
 
-    #[expect(clippy::unnecessary_wraps, reason = "the shape of a handler")]
-    fn ok(_: &Request, _: &dyn Ctx) -> Result<Success, Failure> {
-        Ok(Success::text("ok"))
-    }
+    const OK: Handler = |_, _| Ok(Success::text("ok"));
 
     const ROWS: &[Row] = &[
         Row::user("show it", "zeigt es", "topic:apps,reads,proto"),
         Row::sys("it as data", "reads,proto"),
     ];
     const LIST: &[Command] = &[
-        Command::new("status", ROWS, &[], ok),
+        Command::new("status", ROWS, &[], OK),
         Command::new(
             "sync now",
             &[Row::user("sync", "-", "changes,proto")],
             &[],
-            ok,
+            OK,
         ),
     ];
     const LEN: usize = table_len(LIST, "demo", "@/bin/demo");
