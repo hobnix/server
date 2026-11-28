@@ -51,12 +51,12 @@ jobs:
             # nix: the system configuration and the web build (web/ is built by pkgs/hs-web.nix); root: scripts and root tests (loop devices, packages against this core)
             echo "$files" | grep -qvE '^(docs/|tests/|\.claude/|\.github/ISSUE_TEMPLATE/)|\.md$' || nix=false
             echo "$files" | grep -qvE '^(web/|docs/|\.claude/|\.github/ISSUE_TEMPLATE/)|\.md$' || root=false
-            # rust: the Cargo workspace, the scripts it stands in for, the nixpkgs pin (its rustc is the toolchain), the size ratchet, or this workflow
+            # rust: the Cargo workspace, the scripts it stands in for, the nixpkgs pin (its rustc is the toolchain), the file size check, or this workflow
             # pkg: what the package repositories are checked against (the core's helpers and libraries, the package folders and their tests)
             # capmx: the Nix interface capability packages build against (decision O9 of docs/PLAN-capabilities-repo.md); the matrix runs with --vendor then
             echo "$files" | grep -qE '^(capabilities/(default\.nix|options\.nix|nix-api-level)|configuration\.nix|scripts/pkg[^/]*\.py|scripts/lib/pkg_vendor\.py|scripts/dev/(nix-matrix|official-ref)\.sh)$' || capmx=false
             echo "$files" | grep -qE '^(scripts/pkg|scripts/lib/|scripts/recipes/|packages/|capabilities/|config/package-repos\.toml|scripts/dev/(official-ref|core-names-check)|tests/(core-names|official-ref|profile-core-only|fixtures/official)|tests/lib|tests/pkg|\.github/workflows/ci\.yml)' || pkg=false
-            echo "$files" | grep -qE '^rust/|^\.github/workflows/ci\.yml$|^config/nixpkgs-pin\.toml$|^scripts/dev/rust-size-ratchet\.sh$|^tests/rust-size-ratchet\.(sh|tsv)$|^scripts/vault-change\.sh$|^tests/vault-change(-rust)?\.sh$|^tests/lib\.sh$|^scripts/lib/job\.sh$|^scripts/job-record\.py$|^scripts/jobs-change\.sh$|^scripts/job-reconcile\.sh$|^tests/job-(record|reconcile)(-rust)?\.sh$|^tests/jobs-change\.sh$|^scripts/dev/rust-shell\.nix$|^scripts/state-db\.py$|^scripts/lib/(event-kinds\.tsv|pkg_events\.py|pkg-events/)|^tests/event-writer-(rust|concurrent)\.sh$|^tests/event-writer-sides\.py$' || rust=false
+            echo "$files" | grep -qE '^rust/|^\.github/workflows/ci\.yml$|^config/nixpkgs-pin\.toml$|^scripts/dev/rust-file-size\.sh$|^tests/rust-file-size\.sh$|^scripts/vault-change\.sh$|^tests/vault-change(-rust)?\.sh$|^tests/lib\.sh$|^scripts/lib/job\.sh$|^scripts/job-record\.py$|^scripts/jobs-change\.sh$|^scripts/job-reconcile\.sh$|^tests/job-(record|reconcile)(-rust)?\.sh$|^tests/jobs-change\.sh$|^scripts/dev/rust-shell\.nix$|^scripts/state-db\.py$|^scripts/lib/(event-kinds\.tsv|pkg_events\.py|pkg-events/)|^tests/event-writer-(rust|concurrent)\.sh$|^tests/event-writer-sides\.py$' || rust=false
             # ext: the extension crates of hobnix/official are built against the SDK (job ext-crates): only its folder, the workspace files, this workflow
             echo "$files" | grep -qE '^rust/(hobnix-ext-sdk/|hobnix-pkg(-[a-z]+)?/|Cargo\.(toml|lock)$)|^\.github/workflows/ci\.yml$' || ext=false
           fi
@@ -138,8 +138,8 @@ jobs:
           RUSTDOCFLAGS: -D warnings
         shell: nix-shell ../scripts/dev/rust-shell.nix --run "bash -eo pipefail {0}"
         run: cargo doc --locked --no-deps --all-features
-      - name: File sizes (scripts/dev/rust-size-ratchet.sh, baseline tests/rust-size-ratchet.tsv)
-        run: bash ../scripts/dev/rust-size-ratchet.sh check
+      - name: File sizes (scripts/dev/rust-file-size.sh)
+        run: bash ../scripts/dev/rust-file-size.sh check
       # The release binary, checked against the sha256: the repository allows no third-party action here (an action that is not allowed
       # stops the whole workflow before any job, "startup_failure"). To update: change both values, the sha256 is on the release page.
       - name: Get cargo-deny
