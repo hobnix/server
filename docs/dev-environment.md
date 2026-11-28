@@ -165,9 +165,7 @@ The same model in hobnix/core, hobnix/recipes and hobnix/extensions.
    `[lab]` (a test-lab VM) or `[lab:<stage>]` (the test-lab stage that covers the step, `a-z`, `0-9`, `-`); no mark counts as `[metal]`, and
    `add` refuses a mistyped mark. After a run somebody saw: `hwtest.sh tick <issue> "what was seen"` (the issue's line and all its steps), or
    `hwtest.sh tick <issue> --box <k> "what was seen"` for step `k` only (1 = the first; the issue's line is ticked with its last step).
-   A logged test-lab run counts for `[lab:<stage>]` boxes only, when the stage covers the step and passed on a commit that contains the change:
-   `hwtest.sh tick <issue> --box <k> --lab <run-id> <commit> ["note"]`. The tool cannot check either, so the caller does; the comment says
-   "test-lab" with stage, run id and commit. The test-lab ticks nothing until it has passed on a real server (#430). Remove the
+   Only a run that a person saw ticks a box, whatever its mark; a test-lab run alone ticks nothing. Remove the
    "Not tested on hardware yet." lines of a change only after a run on a real server. A change with nothing to run on a server (a decision record, CI, a text) is not added.
    `hwtest.sh list [milestone] [--lab|--metal]` is the queue for the next session at the server (open boxes by kind, and ticked ones); `python3 scripts/dev/untested.py --steps` lists the same from the guides'
    side (every marker with its heading). A failed run becomes a bug issue linked from the box (it is in the milestone, so the bar drops for a
@@ -176,8 +174,8 @@ The same model in hobnix/core, hobnix/recipes and hobnix/extensions.
    branch (now `0.2`; `develop` is merged into it after every change). After the release tag, `main` is merged back into `develop` and the
    milestone branch is merged into `develop`, after its first beta if one is ready; the branch is kept for the later betas
    (docs/RELEASE-PROCESS.md).
-9. A pull request opened by an AI session carries the label `agent-pr` from the start (`gh pr create --label agent-pr`); the DCO job is
-   skipped for it and the maintainer who merges it takes the responsibility (CONTRIBUTING.md).
+9. A pull request opened by an AI session carries the label `agent-pr` from the start (`gh pr create --label agent-pr`). It is a marker
+   only: the DCO check runs, and a person signs off the session's commits before the merge (CONTRIBUTING.md "Sign your commits (DCO)").
 
 ### Release rhythm
 

@@ -152,12 +152,10 @@ jobs:
           echo "$SHA256  $RUNNER_TEMP/$name.tar.gz" | sha256sum -c -
           tar -xzf "$RUNNER_TEMP/$name.tar.gz" -C "$RUNNER_TEMP"
           echo "$RUNNER_TEMP/$name" >> "$GITHUB_PATH"
-      # rust/deny.toml: licences, bans and sources always fail; a new advisory only reports on a pull request (it is not the pull
-      # request's fault) and fails on push and on the nightly run
+      # rust/deny.toml: licences, bans, sources and advisories fail on a pull request, on push and on the nightly run
       - name: cargo deny (licences, bans, sources)
         run: cargo deny check bans licenses sources
       - name: cargo deny (advisories)
-        continue-on-error: ${{ github.event_name == 'pull_request' }}
         run: cargo deny check advisories
       # an extension builds the SDK alone: serde_json without hobnix-core's preserve_order (hobnix-pkg/src/wire pins the wire lines either way)
       - name: Tests of the SDK built alone

@@ -8,15 +8,12 @@
 #   hwtest.sh tick <issue> [note]      tick the issue's line and steps; comment what was seen; the tracker closes when no box is left
 #   hwtest.sh tick <issue> --box <k> [note]
 #                                      tick only step k (1 = the first step of that issue); the issue's line is ticked with its last step
-#   hwtest.sh tick <issue> --box <k> --lab <run-id> <commit> [note]
-#                                      the same for a run in the test-lab, only for a box marked [lab:<stage>]; the comment says test-lab,
-#                                      stage, run id and commit. The tool cannot know whether that run passed, whether the stage covers the
-#                                      step or whether the commit contains the change: whoever calls it has checked that.
 #   hwtest.sh list [milestone-text] [--lab|--metal]
 #                                      per tracker the counts and the open boxes (the queue for the next session at the server); with
 #                                      --lab or --metal only the open boxes of that kind, each under its issue line
 #   hwtest.sh migrate [--apply]        one-time: issues in the board column Testing become tracker lines and close (dry run by default)
 # Marks: a step starts with [metal] (real hardware), [lab] or [lab:<stage>] (a test-lab stage, [a-z0-9-]+); no mark counts as metal.
+# A mark says where a step can run. Whatever the mark, only a run that a person saw ticks a box.
 # A box that can be run is a step, or an issue line without steps.
 # Needs gh (logged in) and bash with awk. Output is plain text; this is a dev tool, not part of the hs interface.
 # Every call goes through the REST API (gh api), never GraphQL: GraphQL has one hourly budget shared with every tool and agent, and it ran
@@ -27,7 +24,7 @@ here=$(cd "$(dirname "$0")" && pwd)
 
 die() { echo "hwtest.sh: $*" >&2; exit 1; }
 usage() {
-  echo "usage: hwtest.sh add <issue> [step ...] | tick <issue> [--box <k> [--lab <run-id> <commit>]] [note] | list [milestone] [--lab|--metal] | migrate [--apply]" >&2
+  echo "usage: hwtest.sh add <issue> [step ...] | tick <issue> [--box <k>] [note] | list [milestone] [--lab|--metal] | migrate [--apply]" >&2
   exit 2
 }
 command -v gh >/dev/null 2>&1 || die "gh is missing"
@@ -141,14 +138,12 @@ finish_tick() {
 refuse() { rm -f "$1"; shift; die "$* (nothing changed)"; }
 
 cmd_tick() {
-  local n="" note="" box="" has_box=false lab=false run="" commit="" args=0
-  local ms t tmp steps count line text mark stage parent comment
+  local n="" note="" box="" has_box=false args=0
+  local ms t tmp steps count line text parent comment
   while [ $# -gt 0 ]; do
     case "$1" in
       --box) { [ $# -ge 2 ] && ! $has_box; } || usage
              has_box=true; box="$2"; shift 2 ;;
-      --lab) { [ $# -ge 3 ] && ! $lab; } || usage
-             lab=true; run="$2"; commit="$3"; shift 3 ;;
       --*) usage ;;
       *) args=$((args + 1))
          case $args in 1) n="$1" ;; 2) note="$1" ;; *) usage ;; esac
@@ -156,12 +151,6 @@ cmd_tick() {
     esac
   done
   [ -n "$n" ] || usage
-  if $lab; then
-    $has_box || die "--lab needs --box: a test-lab run ticks one box (nothing changed)"
-    [[ $run =~ ^[A-Za-z0-9][A-Za-z0-9._:/-]*$ ]] || die "not a run id: \"$run\" (nothing changed)"
-    [[ $commit =~ ^[0-9a-fA-F]{7,40}$ ]] || die "not a commit: \"$commit\" (7 to 40 hex characters; nothing changed)"
-    ! grep -qi 'real server' <<<"$note" || die "the note of a test-lab tick must not say \"real server\" (nothing changed)"
-  fi
   if $has_box; then
     [[ $box =~ ^[1-9][0-9]{0,5}$ ]] || die "--box takes the number of a step, 1 or higher, not \"$box\" (nothing changed)"
   fi
@@ -188,20 +177,7 @@ cmd_tick() {
     "  - [ ] "*) text=${line#"  - [ ] "} ;;
     *) refuse "$tmp" "step $box of #$n is ticked already" ;;
   esac
-  if $lab; then
-    mark=$(mark_of "$text")
-    case "$mark" in
-      lab:*) stage=${mark#lab:} ;;
-      lab) refuse "$tmp" "step $box of #$n is marked [lab] without a stage: the box has to name the stage that covers it" ;;
-      *) refuse "$tmp" "step $box of #$n is a metal box: a test-lab run does not count for it" ;;
-    esac
-    comment="#$n step $box passed in the test-lab: stage $stage, run $run, commit $commit"
-    # the step text is left out when it has the words that mark a run on hardware
-    grep -qi 'real server' <<<"$text" || comment="$comment ($text)"
-    [ -z "$note" ] || comment="$comment: $note"
-  else
-    comment="${note:+#$n step $box ($text) ran on a real server: $note}"
-  fi
+  comment="${note:+#$n step $box ($text) ran on a real server: $note}"
   # the issue's line is ticked with its last open step
   parent=0
   [ "$(printf '%s\n' "$steps" | grep -c '^  - \[ \]')" != 1 ] || parent=1

@@ -72,9 +72,13 @@ Signed-off-by: Your Name <you@example.org>
   `scripts/dev/dco-check.sh origin/develop`.
 - **AI tools.** The sign-off is the human contributor's: you certify the change, whoever or whatever helped write it. This repository
   also forbids `Co-Authored-By` and "generated with" lines about any AI tool in commits and pull requests (`CLAUDE.md`), so do not add one.
-  An AI tool never signs off.
-  A pull request opened by an AI session gets the label `agent-pr` from a maintainer; the DCO job is skipped for it, and the maintainer who
-  merges it takes the responsibility a sign-off would carry. Only maintainers can set labels.
+  An AI tool never adds a sign-off. A pull request opened by an AI session carries the label `agent-pr`. The label is only a marker: the
+  DCO check runs for it like for every pull request. A person signs off the commits of an AI session before the merge, on its branch:
+
+  ```bash
+  git rebase --signoff origin/develop
+  git push --force-with-lease
+  ```
 
 ## Community
 
