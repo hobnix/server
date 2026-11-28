@@ -1,12 +1,13 @@
 //! `hobnix secrets plan|start ...`: reads the words, calls hobnix-core and writes the lines vault-change.sh wrote.
 
+use crate::output;
 use hobnix_core::secrets::{self, Action, Paths, Plan, SecretName, SystemHost};
 use hobnix_core::{EXIT_OK, EXIT_REFUSED, Error, Result};
 use std::fmt::Write as _;
 use std::io::Write;
 
 const USAGE: &str =
-    "usage: vault-change.sh plan|start header-backup|move [<name>...]|close|secrets-fix\n";
+    "usage: vault-change.sh plan|start header-backup|move [<name>...]|close|secrets-fix";
 
 /// The error code (scripts/lib/error-codes.tsv) of a refusal and the fix its catalogue row names, as `refuse_code` in vault-change.sh
 /// prints them. Matched on the reason because hobnix-core words its refusals the same as the script.
@@ -103,8 +104,7 @@ fn parse(args: &[String]) -> std::result::Result<(Action, Option<String>), Strin
 pub(crate) fn run(args: &[String]) -> Result<u8> {
     let verb = args.first().map_or("", String::as_str);
     if verb != "plan" && verb != "start" {
-        eprint!("{USAGE}");
-        return Ok(EXIT_REFUSED);
+        return Ok(output::exit_with(output::error_line(USAGE), EXIT_REFUSED));
     }
     let (action, confirm) = match parse(args) {
         Ok(v) => v,

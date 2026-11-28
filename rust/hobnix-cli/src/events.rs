@@ -3,6 +3,7 @@
 //!
 //! Exit codes follow state-db.py: 0 written, 1 refused or database error (a missing database too), 2 usage.
 
+use crate::output;
 use hobnix_core::db::StateDb;
 use hobnix_core::events::{self, EmitRequest, EventName, KindFiles, Level, Retention};
 use hobnix_core::{EXIT_OK, Error, Result};
@@ -141,8 +142,8 @@ pub(crate) fn run(args: &[String]) -> Result<u8> {
     let request = match parse(args) {
         Ok(request) => request,
         Err(usage) => {
-            eprintln!("hobnix: {usage}");
-            return Ok(EXIT_USAGE);
+            let written = output::error_line(format_args!("hobnix: {usage}"));
+            return Ok(output::exit_with(written, EXIT_USAGE));
         }
     };
     match write(&request) {
