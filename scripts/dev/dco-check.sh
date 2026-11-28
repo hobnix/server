@@ -3,9 +3,8 @@
 # Exempt: merge commits, and commits whose author is exactly one of the bots in BOTS below (name and email as GitHub writes them).
 # Usage: scripts/dev/dco-check.sh <base-sha> [head-sha]   (head defaults to HEAD). Exit 0 = all signed, 1 = unsigned commits, 2 = bad usage.
 set -u
-# "Name <email>" of the three bots, the whole line must match: a name that only contains "[bot]" or "dependabot" is not exempt
+# "Name <email>" of the two bots this repository uses, the whole line must match: a name that only contains "[bot]" or "dependabot" is not exempt
 BOTS='dependabot[bot] <49699333+dependabot[bot]@users.noreply.github.com>
-renovate[bot] <29139614+renovate[bot]@users.noreply.github.com>
 github-actions[bot] <41898282+github-actions[bot]@users.noreply.github.com>'
 base=${1:-}; head=${2:-HEAD}
 [ -n "$base" ] || { echo "usage: dco-check.sh <base-sha> [head-sha]" >&2; exit 2; }

@@ -67,7 +67,7 @@ Signed-off-by: Your Name <you@example.org>
 - Forgot it on the last commit: `git commit --amend -s --no-edit`. On several commits: the steps below.
 - Use your real name (a pseudonym you are known by is fine, an anonymous one is not) and an email that git can attribute to you.
 - CI (`.github/workflows/dco.yml`, `scripts/dev/dco-check.sh`) fails a pull request when a commit has no `Signed-off-by` trailer. Merge
-  commits are exempt, and so are the commits of three bots: `dependabot[bot]`, `renovate[bot]` and `github-actions[bot]`. The author's
+  commits are exempt, and so are the commits of two bots: `dependabot[bot]` and `github-actions[bot]`. The author's
   name and email must be exactly the ones GitHub gives that bot; any other name, with `[bot]` in it or not, needs a sign-off. Run the same
   check locally with `scripts/dev/dco-check.sh origin/develop` (name the base branch of your pull request).
 - **AI tools.** The sign-off is the human contributor's: you certify the change, whoever or whatever helped write it. This repository

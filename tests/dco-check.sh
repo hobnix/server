@@ -42,7 +42,6 @@ expect "signed below a --- line passes" 0 -s -m "x" -m "---" -m "more text"
 
 echo "bots"
 for bot in "dependabot[bot] <49699333+dependabot[bot]@users.noreply.github.com>" \
-           "renovate[bot] <29139614+renovate[bot]@users.noreply.github.com>" \
            "github-actions[bot] <41898282+github-actions[bot]@users.noreply.github.com>"; do
   expect "exempt: ${bot%% *}" 0 -m bump --author "$bot"
   check_match "counted as a bot: ${bot%% *}" '1 bot commit' "$OUT"
@@ -51,8 +50,7 @@ for other in "claude[bot] <1+claude[bot]@users.noreply.github.com>" \
              "claude[bot] <49699333+dependabot[bot]@users.noreply.github.com>" \
              "dependabot[bot] <per@example.org>" \
              "dependabot <49699333+dependabot[bot]@users.noreply.github.com>" \
-             "Renovate Helper <helper@example.org>" \
-             "Per Son <renovate@example.org>" \
+             "renovate[bot] <29139614+renovate[bot]@users.noreply.github.com>" \
              "my github-actions[bot] <41898282+github-actions[bot]@users.noreply.github.com>"; do
   expect "not exempt: $other" 1 -m work --author "$other"
 done
