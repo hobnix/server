@@ -1242,6 +1242,150 @@ mod tests {
         assert!(ct_eq(b"abc", b"abc"));
         assert!(!ct_eq(b"abc", b"abd"));
         assert!(!ct_eq(b"abc", b"abcd"));
+        assert!(ct_eq(b"", b""));
+        assert!(!ct_eq(b"", b"a") && !ct_eq(b"a", b""));
+    }
+
+    // ------------------------------------------------------------ fixed bytes: both sides of a pairing must keep agreeing
+
+    /// Gives the byte values in order, 0 to 255 and round again.
+    struct EveryByte(u8);
+    impl Random for EveryByte {
+        fn fill(&mut self, buf: &mut [u8]) -> Result<()> {
+            for b in buf.iter_mut() {
+                *b = self.0;
+                self.0 = self.0.wrapping_add(1);
+            }
+            Ok(())
+        }
+    }
+
+    const FIXED_CODE: &str = "ABCDEFGHJKLMNPQR";
+    const FIXED_ID: &str = "c361cfe86e4334a632f730f999a0e54a7ea292c89817aebfbd0bfecd94b34aba";
+
+    #[test]
+    fn every_random_byte_maps_to_a_fixed_letter() {
+        assert_eq!(new_code(&mut Counter(1)).unwrap(), "GBGB-GBGB-GBGB-GBGB");
+        let mut rng = EveryByte(0);
+        for _ in 0..8 {
+            assert_eq!(new_code(&mut rng).unwrap(), "ABCD-EFGH-JKLM-NPQR");
+            assert_eq!(new_code(&mut rng).unwrap(), "STUV-WXYZ-2345-6789");
+        }
+    }
+
+    #[test]
+    fn derived_values_and_boxes_have_fixed_bytes() {
+        let keys = derive(FIXED_CODE);
+        assert_eq!(keys.id, FIXED_ID);
+        assert_eq!(
+            hex(&keys.key),
+            "89268a6620ce1063d07cd77223673a44d31e7a45b3e1373e756d2438a9c3ccc6"
+        );
+        assert_eq!(
+            hex(&seal(&keys, &[7u8; 12], b"aad", b"plain text").unwrap()),
+            "48e291c70d1afb85782920621ea8e260660547305cd05b9dad48"
+        );
+        let answer = seal_answer(&keys, &mut Counter(3), b"request", b"{\"a\":1}").unwrap();
+        assert_eq!(
+            answer.to_string(),
+            r#"{"v":1,"nonce":"ZCNEQyRjBIPko8TD","box":"w2+GPH2FhVCaMnmYkcY63f1lQtfnlZg="}"#
+        );
+    }
+
+    #[test]
+    fn request_push_and_fingerprint_have_fixed_text() {
+        let inner = Inner {
+            server: "alpha".into(),
+            host: "alpha.local".into(),
+            share: "media".into(),
+            login: "remote-beta".into(),
+            domain: "HOME".into(),
+            password: Secret::new("pw-secret-123"),
+            hostkey: String::new(),
+        };
+        let sealed = "8uxCtxEBpZVlNEEAS9Ms1QUYvGn3JxKy0LNxc0ojT0aWorIQFZyAJunqVfFOxTMgKxgPTMVB6+oJ1lKyD4TSi2c5tkebpb8eHiKmRHOT4YKPNWxDvpmUH8veV+9hLDBNTlxMZiFNgvFwXAxqDbQbIKV6K/cUzm6wJ4zdn+mozjZcOgIcduATbUsry17TuA6SWZFf2Dw=";
+        assert_eq!(
+            push_body(FIXED_CODE, &inner, &mut Counter(2)).unwrap(),
+            format!(r#"{{"v":1,"nonce":"RWLlwoUiJYLF4mVC","box":"{sealed}","id":"{FIXED_ID}"}}"#)
+        );
+        assert_eq!(
+            claim_request(FIXED_CODE, "beta", KEY).unwrap(),
+            format!(r#"{{"v":1,"id":"{FIXED_ID}","name":"beta","hostkey":"{KEY}"}}"#)
+        );
+        assert_eq!(
+            fingerprint(KEY).unwrap(),
+            "SHA256:+DiY3wvvV6TuJJhbpZisF/zLDA0zPMSvHdkr4UvCOqU"
+        );
+    }
+
+    #[test]
+    fn base64_has_fixed_text() {
+        let data = [0xfbu8, 0xff, 0xbf, 0x00, 0x10, 0x83, 0xfe];
+        let expected = [
+            ("", ""),
+            ("+w==", "+w"),
+            ("+/8=", "+/8"),
+            ("+/+/", "+/+/"),
+            ("+/+/AA==", "+/+/AA"),
+            ("+/+/ABA=", "+/+/ABA"),
+            ("+/+/ABCD", "+/+/ABCD"),
+            ("+/+/ABCD/g==", "+/+/ABCD/g"),
+        ];
+        for (length, (padded, bare)) in expected.into_iter().enumerate() {
+            assert_eq!(b64(&data[..length]), padded);
+            assert_eq!(b64_with(&data[..length], false), bare);
+        }
+        let every: Vec<u8> = (0..=255).collect();
+        assert_eq!(unb64(&b64(&every)).unwrap(), every);
+        assert_eq!(
+            hex(&Sha256::digest(b64(&every).as_bytes())),
+            "ab7727e21f4bbba6508dd72804d97435a78eb44a1e277af1c0f65a8522de382e"
+        );
+    }
+
+    #[test]
+    fn decoding_accepts_and_refuses_the_same_text() {
+        let base64: [(&str, Option<&[u8]>); 16] = [
+            ("", Some(b"")),
+            ("=", Some(b"")),
+            ("====", Some(b"")),
+            ("Z", Some(b"")),
+            ("Zg", Some(b"f")),
+            ("Zg==", Some(b"f")),
+            ("Zg=====", Some(b"f")),
+            ("Zh==", Some(b"f")),
+            ("Zm9", Some(b"fo")),
+            ("Zm9vY", Some(b"foo")),
+            ("+/+/", Some(&[251, 255, 191])),
+            ("Zm=9v", None),
+            ("Zm9v!", None),
+            ("Zm 9v", None),
+            ("-_", None),
+            ("\u{e4}\u{e4}", None),
+        ];
+        for (text, bytes) in base64 {
+            assert_eq!(unb64(text).as_deref(), bytes, "{text:?}");
+        }
+        // u8::from_str_radix takes a leading "+"
+        let hexadecimal: [(&str, Option<&[u8]>); 14] = [
+            ("", Some(b"")),
+            ("00", Some(&[0])),
+            ("0aFf", Some(&[10, 255])),
+            ("+f", Some(&[15])),
+            ("0", None),
+            ("-1", None),
+            ("f+", None),
+            (" 1", None),
+            ("zz", None),
+            ("abc", None),
+            ("0g", None),
+            ("++", None),
+            ("\u{e4}\u{e4}", None),
+            ("a\u{e4}", None),
+        ];
+        for (text, bytes) in hexadecimal {
+            assert_eq!(unhex(text).as_deref(), bytes, "{text:?}");
+        }
     }
 
     #[test]

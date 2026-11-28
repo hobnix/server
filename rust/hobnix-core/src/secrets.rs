@@ -438,6 +438,82 @@ mod tests {
         assert_eq!(p.job.argv, ["bash", "/s/secrets.sh", "fix"]);
     }
 
+    /// Every field of every plan: a changed word shows up here.
+    #[test]
+    fn each_plan_has_fixed_text() {
+        let host = FakeHost::new("open");
+        let words = |list: &[&str]| list.iter().map(|w| (*w).to_string()).collect::<Vec<_>>();
+        let planned = |action: &Action| plan(action, &paths(), &host).unwrap();
+        assert_eq!(
+            planned(&Action::HeaderBackup),
+            Plan {
+                heading: "save the LUKS header of the vault",
+                steps: words(&["write the header to /var/lib/hs/vault-header (mode 600, part of the host backup)"]),
+                dangers: vec![],
+                note: Some("Keep a copy elsewhere too: with the header and the passphrase the vault opens even when the partition is damaged."),
+                command: "hs vault header-backup".into(),
+                confirm_name: None,
+                long: false,
+                job: job(
+                    "vault-header-backup",
+                    "hs vault header-backup",
+                    words(&["bash", "/s/vault.sh", "header-backup"]),
+                ),
+            }
+        );
+        assert_eq!(
+            planned(&Action::Move(vec![name("a"), name("b.c")])),
+            Plan {
+                heading: "move secrets into the vault",
+                steps: words(&["copy a b.c into the vault, check the copy, overwrite the old file and leave a link at the old path"]),
+                dangers: vec![],
+                note: Some("Safe to run again: what is in the vault already is skipped."),
+                command: "hs vault move a b.c".into(),
+                confirm_name: None,
+                long: false,
+                job: job(
+                    "vault-move",
+                    "hs vault move",
+                    words(&["bash", "/s/vault.sh", "move", "a", "b.c"]),
+                ),
+            }
+        );
+        assert_eq!(
+            planned(&Action::Close),
+            Plan {
+                heading: "close the vault",
+                steps: words(&["close the vault; it is refused while something uses it"]),
+                dangers: vec!["Everything that needs a secret (the backup password, the router key, the domain database) waits until the unlock."],
+                note: None,
+                command: "hs vault close --yes".into(),
+                confirm_name: Some("close"),
+                long: false,
+                job: job(
+                    "vault-close",
+                    "hs vault close",
+                    words(&["bash", "/s/vault.sh", "close", "--yes"]),
+                ),
+            }
+        );
+        assert_eq!(
+            planned(&Action::SecretsFix),
+            Plan {
+                heading: "set root-only permissions on the secrets",
+                steps: words(&["make the files that hold secrets readable by root only (the content of the vault is not touched)"]),
+                dangers: vec![],
+                note: None,
+                command: "hs secrets fix".into(),
+                confirm_name: None,
+                long: false,
+                job: job(
+                    "vault-secrets-fix",
+                    "hs vault secrets-fix",
+                    words(&["bash", "/s/secrets.sh", "fix"]),
+                ),
+            }
+        );
+    }
+
     #[test]
     fn refuses_when_the_vault_is_closed() {
         let h = FakeHost::new("closed");
