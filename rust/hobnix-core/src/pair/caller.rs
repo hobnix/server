@@ -17,13 +17,18 @@ pub fn claim_request(norm: &str, name: &str, hostkey: &str) -> Result<String> {
     Ok(json!({"v": 1, "id": derive(norm)?.id, "name": name, "hostkey": hostkey}).to_string())
 }
 
-/// Open the answer of a claim; None for a box that does not open (wrong code, fake server, changed request), and without keys.
-pub fn open_claim(norm: &str, request: &[u8], answer: &Value) -> Option<Value> {
-    let keys = derive(norm).ok()?;
-    let plain = open_answer(&keys, request, answer)?;
-    let v: Value = serde_json::from_slice(&plain).ok()?;
-    Inner::from_json(&v)?;
-    Some(v)
+/// Open the answer of a claim; `Ok(None)` for a box that does not open (wrong code, fake server, changed request) or holds something else.
+/// Fails when the keys of the code cannot be derived.
+pub fn open_claim(norm: &str, request: &[u8], answer: &Value) -> Result<Option<Value>> {
+    let keys = derive(norm)?;
+    Ok(open_answer(&keys, request, answer).and_then(|plain| inner_value(&plain)))
+}
+
+/// The opened box as JSON, when it is a valid inner answer.
+fn inner_value(plain: &[u8]) -> Option<Value> {
+    let value: Value = serde_json::from_slice(plain).ok()?;
+    Inner::from_json(&value)?;
+    Some(value)
 }
 
 /// The push body for a typed receive code: the inner JSON in a box, the id as associated data.

@@ -194,12 +194,13 @@ fn open() -> Result<()> {
     let fields = stdin_fields()?;
     let norm = norm_from(&fields)?;
     let answer: Value = serde_json::from_str(text(&fields, "answer")).unwrap_or(Value::Null);
-    let inner =
-        pair::open_claim(&norm, text(&fields, "request").as_bytes(), &answer).ok_or_else(|| {
+    let inner = pair::open_claim(&norm, text(&fields, "request").as_bytes(), &answer)?.ok_or_else(
+        || {
             Error::Refused(
                 "the answer does not open: wrong code, or not the server that made it".into(),
             )
-        })?;
+        },
+    )?;
     write_out(&opened_lines(&inner))
 }
 

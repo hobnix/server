@@ -365,13 +365,13 @@ mod tests {
         let host = FakeHost::new();
         let (r, norm, req) = offer_flow("f1", &host, "-");
         assert!(r.error.is_none());
-        let inner = open_claim(&norm, &req, &r.body).unwrap();
+        let inner = open_claim(&norm, &req, &r.body).unwrap().unwrap();
         assert_eq!(inner["login"], "remote-beta");
         assert_eq!(inner["password"], "pw-secret-123");
         assert!(!r.body.to_string().contains("pw-secret"));
         assert_eq!(host.kinds(), vec!["remote.claimed"]);
         // a different request body does not open the box (the body is associated data)
-        assert!(open_claim(&norm, b"{}", &r.body).is_none());
+        assert!(open_claim(&norm, b"{}", &r.body).unwrap().is_none());
     }
 
     #[test]
