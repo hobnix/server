@@ -12,22 +12,30 @@ pub const SOURCES: [&str; 4] = ["cli", "web", "timer", "extension"];
 /// The values of `--kind` of `new` (ADR 0018).
 pub const KINDS: [&str; 2] = ["orchestration", "step"];
 
+/// What a new job is: one field per flag of `new`. An empty text means "not given"; `source` must be one of [`SOURCES`].
+#[derive(Debug, Clone, Copy, Default)]
+pub struct NewJob<'a> {
+    pub slug: &'a str,
+    pub description: &'a str,
+    pub unit: &'a str,
+    pub source: &'a str,
+    pub initiator: &'a str,
+    pub parent: &'a str,
+    pub kind: &'a str,
+}
+
 impl Store {
     /// `new`: write a queued record, return its id.
-    #[expect(
-        clippy::too_many_arguments,
-        reason = "one argument per flag of `new`; a struct would only move them"
-    )]
-    pub fn new_record(
-        &self,
-        slug: &str,
-        desc: &str,
-        unit: &str,
-        source: &str,
-        initiator: &str,
-        parent: &str,
-        kind: &str,
-    ) -> Result<String> {
+    pub fn new_record(&self, job: &NewJob<'_>) -> Result<String> {
+        let NewJob {
+            slug,
+            description,
+            unit,
+            source,
+            initiator,
+            parent,
+            kind,
+        } = *job;
         if !SOURCES.contains(&source) {
             return Err(failed(format!("bad source: {source}")));
         }
@@ -44,7 +52,7 @@ impl Store {
         let record = Record {
             id: Some(id.clone()),
             slug: Some(slug),
-            description: Some(desc.to_string()),
+            description: Some(description.to_string()),
             source: Some(source.to_string()),
             initiator: non_empty(initiator),
             unit: non_empty(unit),
@@ -64,19 +72,17 @@ impl Store {
 #[cfg(test)]
 mod tests {
     use crate::jobs::test_support::{TemporaryDirectory, read_file};
-    use crate::jobs::{Store, valid_id};
+    use crate::jobs::{NewJob, Store, valid_id};
 
     fn queue_cafe_sync(store: &Store) -> String {
         store
-            .new_record(
-                "-- Pool/Sync!! --",
-                "Café sync",
-                "hs-job-x-1",
-                "web",
-                "",
-                "",
-                "",
-            )
+            .new_record(&NewJob {
+                slug: "-- Pool/Sync!! --",
+                description: "Café sync",
+                unit: "hs-job-x-1",
+                source: "web",
+                ..NewJob::default()
+            })
             .unwrap()
     }
 
@@ -136,20 +142,35 @@ mod tests {
     fn new_refuses_unknown_values_and_names_an_empty_slug() {
         let temporary = TemporaryDirectory::new();
         let store = temporary.store();
-        let refusal = |source: &str, parent: &str, kind: &str| {
-            store
-                .new_record("x", "d", "", source, "", parent, kind)
-                .unwrap_err()
-                .to_string()
+        let job = NewJob {
+            slug: "x",
+            description: "d",
+            source: "cli",
+            ..NewJob::default()
         };
-        assert_eq!(refusal("bogus", "", ""), "bad source: bogus");
-        assert_eq!(refusal("cli", "", "bogus"), "bad kind: bogus");
-        assert_eq!(refusal("cli", "bogus", ""), "bad job id");
-        assert!(
-            store
-                .new_record("!!!", "d", "", "cli", "", "", "")
-                .unwrap()
-                .contains("-job-")
+        let refusal = |job: NewJob<'_>| store.new_record(&job).unwrap_err().to_string();
+        assert_eq!(
+            refusal(NewJob {
+                source: "bogus",
+                ..job
+            }),
+            "bad source: bogus"
         );
+        assert_eq!(
+            refusal(NewJob {
+                kind: "bogus",
+                ..job
+            }),
+            "bad kind: bogus"
+        );
+        assert_eq!(
+            refusal(NewJob {
+                parent: "bogus",
+                ..job
+            }),
+            "bad job id"
+        );
+        let unnamed = store.new_record(&NewJob { slug: "!!!", ..job }).unwrap();
+        assert!(unnamed.contains("-job-"));
     }
 }

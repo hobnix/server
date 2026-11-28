@@ -6,7 +6,7 @@
 
 use crate::output;
 use arguments::{Arguments, bad, whole_number};
-use hobnix_core::jobs::{Question, RealSystem, Store};
+use hobnix_core::jobs::{NewJob, Question, RealSystem, Store};
 use hobnix_core::{EXIT_OK, EXIT_REFUSED, Error, Result};
 use std::io::Write;
 
@@ -137,15 +137,15 @@ fn find_unit(store: &Store, words: &[String]) -> Result<()> {
 fn new_record(store: &Store, words: &[String]) -> Result<()> {
     let arguments = Arguments::parse(words, NEW_OPTIONS)?;
     let [] = arguments.positionals()?;
-    let id = store.new_record(
-        arguments.required("--slug")?,
-        arguments.required("--desc")?,
-        arguments.option("--unit").unwrap_or(""),
-        arguments.option("--source").unwrap_or("cli"),
-        arguments.option("--initiator").unwrap_or(""),
-        arguments.option("--parent").unwrap_or(""),
-        arguments.option("--kind").unwrap_or(""),
-    )?;
+    let id = store.new_record(&NewJob {
+        slug: arguments.required("--slug")?,
+        description: arguments.required("--desc")?,
+        unit: arguments.option("--unit").unwrap_or(""),
+        source: arguments.option("--source").unwrap_or("cli"),
+        initiator: arguments.option("--initiator").unwrap_or(""),
+        parent: arguments.option("--parent").unwrap_or(""),
+        kind: arguments.option("--kind").unwrap_or(""),
+    })?;
     write_out(format!("{id}\n").as_bytes())
 }
 

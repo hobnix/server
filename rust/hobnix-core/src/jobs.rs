@@ -22,7 +22,7 @@ mod test_support;
 mod timestamp;
 mod transitions;
 
-pub use create::{KINDS, SOURCES};
+pub use create::{KINDS, NewJob, SOURCES};
 pub use job_id::valid_id;
 pub use question::{ASK_KINDS, Question};
 pub use reconcile::Reconciled;

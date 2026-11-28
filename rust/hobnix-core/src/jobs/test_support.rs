@@ -1,6 +1,6 @@
 //! What the tests of the job store share.
 
-use super::{Store, System};
+use super::{NewJob, Store, System};
 use std::fs;
 use std::path::PathBuf;
 use std::sync::atomic::{AtomicU32, Ordering};
@@ -51,7 +51,14 @@ impl System for FakeSystem {
 
 pub(super) fn new_job(store: &Store, unit: &str) -> String {
     store
-        .new_record("pool sync", "hs pool sync", unit, "cli", "alice", "", "")
+        .new_record(&NewJob {
+            slug: "pool sync",
+            description: "hs pool sync",
+            unit,
+            source: "cli",
+            initiator: "alice",
+            ..NewJob::default()
+        })
         .unwrap()
 }
 

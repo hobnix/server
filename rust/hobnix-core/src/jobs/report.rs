@@ -122,6 +122,7 @@ impl Store {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::jobs::NewJob;
     use crate::jobs::test_support::{TemporaryDirectory, new_job, read_file};
 
     #[test]
@@ -129,7 +130,13 @@ mod tests {
         let temporary = TemporaryDirectory::new();
         let store = temporary.store();
         let id = store
-            .new_record("pool-sync", "d", "u", "cli", "", "", "")
+            .new_record(&NewJob {
+                slug: "pool-sync",
+                description: "d",
+                unit: "u",
+                source: "cli",
+                ..NewJob::default()
+            })
             .unwrap();
         store.set_key(&id, "bad;$(x) key").unwrap();
         assert!(read_file(&store, &id).contains("\"key\": \"badx key\""));
