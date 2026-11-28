@@ -207,101 +207,124 @@ fn job(slug: &str, description: &str, argv: Vec<String>) -> JobSpec {
     }
 }
 
-/// What the action would do. Refuses when the vault is not in the state the action needs.
-#[expect(
-    clippy::too_many_lines,
-    reason = "ratchet #1307: one arm per action; split into a function per action"
-)]
-pub fn plan(action: &Action, paths: &Paths, host: &dyn Host) -> Result<Plan> {
-    if !matches!(action, Action::SecretsFix) {
-        match VaultState::from_usage(&host.vault_usage(&paths.vault)) {
-            VaultState::Open => {}
-            VaultState::Closed => {
-                return Err(Error::Refused(if matches!(action, Action::Close) {
-                    "The vault is closed already.".into()
-                } else {
-                    "The vault is closed: unlock it first (the unlock page, or hs unlock).".into()
-                }));
-            }
-            VaultState::Absent => {
-                return Err(Error::Refused(
-                    "There is no vault on this server (hs vault init).".into(),
-                ));
-            }
-        }
+/// Every action but `secrets-fix` needs an open vault.
+fn require_open_vault(action: &Action, paths: &Paths, host: &dyn Host) -> Result<()> {
+    if matches!(action, Action::SecretsFix) {
+        return Ok(());
     }
-    let v = paths.vault.clone();
-    let s = paths.secrets.clone();
-    Ok(match action {
-        Action::HeaderBackup => Plan {
-            heading: "save the LUKS header of the vault",
-            steps: vec![
-                "write the header to /var/lib/hs/vault-header (mode 600, part of the host backup)"
-                    .into(),
-            ],
-            dangers: vec![],
-            note: Some("Keep a copy elsewhere too: with the header and the passphrase the vault opens even when the partition is damaged."),
-            command: "hs vault header-backup".into(),
-            confirm_name: None,
-            long: false,
-            job: job(
-                "vault-header-backup",
-                "hs vault header-backup",
-                vec!["bash".into(), v, "header-backup".into()],
-            ),
-        },
-        Action::Move(names) => {
-            let n = names
-                .iter()
-                .map(SecretName::as_str)
-                .collect::<Vec<_>>()
-                .join(" ");
-            let what = if names.is_empty() {
-                "the usual secrets that exist"
-            } else {
-                n.as_str()
-            };
-            let mut argv: Vec<String> = vec!["bash".into(), v, "move".into()];
-            argv.extend(names.iter().map(|x| x.as_str().to_string()));
-            Plan {
-                heading: "move secrets into the vault",
-                steps: vec![format!("copy {what} into the vault, check the copy, overwrite the old file and leave a link at the old path")],
-                dangers: vec![],
-                note: Some("Safe to run again: what is in the vault already is skipped."),
-                command: format!("hs vault move {n}"),
-                confirm_name: None,
-                long: false,
-                job: job("vault-move", "hs vault move", argv),
-            }
+    let refusal = match VaultState::from_usage(&host.vault_usage(&paths.vault)) {
+        VaultState::Open => return Ok(()),
+        VaultState::Closed if matches!(action, Action::Close) => "The vault is closed already.",
+        VaultState::Closed => {
+            "The vault is closed: unlock it first (the unlock page, or hs unlock)."
         }
-        Action::Close => Plan {
-            heading: "close the vault",
-            steps: vec!["close the vault; it is refused while something uses it".into()],
-            dangers: vec!["Everything that needs a secret (the backup password, the router key, the domain database) waits until the unlock."],
-            note: None,
-            command: "hs vault close --yes".into(),
-            confirm_name: Some("close"),
-            long: false,
-            job: job(
-                "vault-close",
-                "hs vault close",
-                vec!["bash".into(), v, "close".into(), "--yes".into()],
-            ),
-        },
-        Action::SecretsFix => Plan {
-            heading: "set root-only permissions on the secrets",
-            steps: vec!["make the files that hold secrets readable by root only (the content of the vault is not touched)".into()],
-            dangers: vec![],
-            note: None,
-            command: "hs secrets fix".into(),
-            confirm_name: None,
-            long: false,
-            job: job(
-                "vault-secrets-fix",
-                "hs vault secrets-fix",
-                vec!["bash".into(), s, "fix".into()],
-            ),
-        },
+        VaultState::Absent => "There is no vault on this server (hs vault init).",
+    };
+    Err(Error::Refused(refusal.into()))
+}
+
+fn header_backup_plan(vault: &str) -> Plan {
+    Plan {
+        heading: "save the LUKS header of the vault",
+        steps: vec![
+            "write the header to /var/lib/hs/vault-header (mode 600, part of the host backup)"
+                .into(),
+        ],
+        dangers: vec![],
+        note: Some(
+            "Keep a copy elsewhere too: with the header and the passphrase the vault opens even when the partition is damaged.",
+        ),
+        command: "hs vault header-backup".into(),
+        confirm_name: None,
+        long: false,
+        job: job(
+            "vault-header-backup",
+            "hs vault header-backup",
+            vec!["bash".into(), vault.to_string(), "header-backup".into()],
+        ),
+    }
+}
+
+/// No names means the usual secrets.
+fn move_plan(vault: &str, names: &[SecretName]) -> Plan {
+    let joined = names
+        .iter()
+        .map(SecretName::as_str)
+        .collect::<Vec<_>>()
+        .join(" ");
+    let what = if names.is_empty() {
+        "the usual secrets that exist"
+    } else {
+        joined.as_str()
+    };
+    let mut argv: Vec<String> = vec!["bash".into(), vault.to_string(), "move".into()];
+    argv.extend(names.iter().map(|name| name.as_str().to_string()));
+    Plan {
+        heading: "move secrets into the vault",
+        steps: vec![format!(
+            "copy {what} into the vault, check the copy, overwrite the old file and leave a link at the old path"
+        )],
+        dangers: vec![],
+        note: Some("Safe to run again: what is in the vault already is skipped."),
+        command: format!("hs vault move {joined}"),
+        confirm_name: None,
+        long: false,
+        job: job("vault-move", "hs vault move", argv),
+    }
+}
+
+fn close_plan(vault: &str) -> Plan {
+    Plan {
+        heading: "close the vault",
+        steps: vec!["close the vault; it is refused while something uses it".into()],
+        dangers: vec![
+            "Everything that needs a secret (the backup password, the router key, the domain database) waits until the unlock.",
+        ],
+        note: None,
+        command: "hs vault close --yes".into(),
+        confirm_name: Some("close"),
+        long: false,
+        job: job(
+            "vault-close",
+            "hs vault close",
+            vec![
+                "bash".into(),
+                vault.to_string(),
+                "close".into(),
+                "--yes".into(),
+            ],
+        ),
+    }
+}
+
+fn secrets_fix_plan(secrets: &str) -> Plan {
+    Plan {
+        heading: "set root-only permissions on the secrets",
+        steps: vec![
+            "make the files that hold secrets readable by root only (the content of the vault is not touched)"
+                .into(),
+        ],
+        dangers: vec![],
+        note: None,
+        command: "hs secrets fix".into(),
+        confirm_name: None,
+        long: false,
+        job: job(
+            "vault-secrets-fix",
+            "hs vault secrets-fix",
+            vec!["bash".into(), secrets.to_string(), "fix".into()],
+        ),
+    }
+}
+
+/// What the action would do. Refuses when the vault is not in the state the action needs.
+pub fn plan(action: &Action, paths: &Paths, host: &dyn Host) -> Result<Plan> {
+    require_open_vault(action, paths, host)?;
+    Ok(match action {
+        Action::HeaderBackup => header_backup_plan(&paths.vault),
+        Action::Move(names) => move_plan(&paths.vault, names),
+        Action::Close => close_plan(&paths.vault),
+        Action::SecretsFix => secrets_fix_plan(&paths.secrets),
     })
 }
 
@@ -438,19 +461,29 @@ mod tests {
         assert_eq!(p.job.argv, ["bash", "/s/secrets.sh", "fix"]);
     }
 
-    /// Every field of every plan: a changed word shows up here.
+    // every field of every plan: a changed word shows up in one of these four
+
+    fn words(list: &[&str]) -> Vec<String> {
+        list.iter().map(|word| (*word).to_string()).collect()
+    }
+
+    fn planned(action: &Action) -> Plan {
+        plan(action, &paths(), &FakeHost::new("open")).unwrap()
+    }
+
     #[test]
-    fn each_plan_has_fixed_text() {
-        let host = FakeHost::new("open");
-        let words = |list: &[&str]| list.iter().map(|w| (*w).to_string()).collect::<Vec<_>>();
-        let planned = |action: &Action| plan(action, &paths(), &host).unwrap();
+    fn header_backup_plan_has_fixed_text() {
         assert_eq!(
             planned(&Action::HeaderBackup),
             Plan {
                 heading: "save the LUKS header of the vault",
-                steps: words(&["write the header to /var/lib/hs/vault-header (mode 600, part of the host backup)"]),
+                steps: words(&[
+                    "write the header to /var/lib/hs/vault-header (mode 600, part of the host backup)"
+                ]),
                 dangers: vec![],
-                note: Some("Keep a copy elsewhere too: with the header and the passphrase the vault opens even when the partition is damaged."),
+                note: Some(
+                    "Keep a copy elsewhere too: with the header and the passphrase the vault opens even when the partition is damaged."
+                ),
                 command: "hs vault header-backup".into(),
                 confirm_name: None,
                 long: false,
@@ -461,11 +494,17 @@ mod tests {
                 ),
             }
         );
+    }
+
+    #[test]
+    fn move_plan_has_fixed_text() {
         assert_eq!(
             planned(&Action::Move(vec![name("a"), name("b.c")])),
             Plan {
                 heading: "move secrets into the vault",
-                steps: words(&["copy a b.c into the vault, check the copy, overwrite the old file and leave a link at the old path"]),
+                steps: words(&[
+                    "copy a b.c into the vault, check the copy, overwrite the old file and leave a link at the old path"
+                ]),
                 dangers: vec![],
                 note: Some("Safe to run again: what is in the vault already is skipped."),
                 command: "hs vault move a b.c".into(),
@@ -478,12 +517,18 @@ mod tests {
                 ),
             }
         );
+    }
+
+    #[test]
+    fn close_plan_has_fixed_text() {
         assert_eq!(
             planned(&Action::Close),
             Plan {
                 heading: "close the vault",
                 steps: words(&["close the vault; it is refused while something uses it"]),
-                dangers: vec!["Everything that needs a secret (the backup password, the router key, the domain database) waits until the unlock."],
+                dangers: vec![
+                    "Everything that needs a secret (the backup password, the router key, the domain database) waits until the unlock."
+                ],
                 note: None,
                 command: "hs vault close --yes".into(),
                 confirm_name: Some("close"),
@@ -495,11 +540,17 @@ mod tests {
                 ),
             }
         );
+    }
+
+    #[test]
+    fn secrets_fix_plan_has_fixed_text() {
         assert_eq!(
             planned(&Action::SecretsFix),
             Plan {
                 heading: "set root-only permissions on the secrets",
-                steps: words(&["make the files that hold secrets readable by root only (the content of the vault is not touched)"]),
+                steps: words(&[
+                    "make the files that hold secrets readable by root only (the content of the vault is not touched)"
+                ]),
                 dangers: vec![],
                 note: None,
                 command: "hs secrets fix".into(),
