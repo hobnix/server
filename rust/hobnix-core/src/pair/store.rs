@@ -265,10 +265,12 @@ impl<'a> Store<'a> {
     }
 }
 
-/// Equal without stopping at the first difference.
+/// Equal without stopping at the first difference. Different lengths are never equal, and are answered at once: a length is not secret.
 pub(super) fn ct_eq(a: &[u8], b: &[u8]) -> bool {
-    // only the lowest byte of the length difference goes in
-    let [mut d, ..] = (a.len() ^ b.len()).to_le_bytes();
+    if a.len() != b.len() {
+        return false;
+    }
+    let mut d = 0u8;
     for (x, y) in a.iter().zip(b.iter()) {
         d |= x ^ y;
     }

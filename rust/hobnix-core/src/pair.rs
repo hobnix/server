@@ -486,6 +486,15 @@ mod tests {
         assert!(!ct_eq(b"", b"a") && !ct_eq(b"a", b""));
     }
 
+    #[test]
+    fn lengths_that_differ_by_256_are_not_equal() {
+        assert!(!ct_eq(b"", &[0u8; 256]));
+        let id = [b'a'; 64];
+        let mut longer = id.to_vec();
+        longer.resize(320, b'b');
+        assert!(!ct_eq(&id, &longer) && !ct_eq(&longer, &id));
+    }
+
     // ------------------------------------------------------------ fixed bytes: both sides of a pairing must keep agreeing
 
     /// Gives the byte values in order, 0 to 255 and round again.
