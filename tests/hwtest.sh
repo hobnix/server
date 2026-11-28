@@ -127,7 +127,7 @@ check_eq "tick works" 0 "$RC"
 check "the issue line is ticked" has_line "$(body)" "- [x] #5 Five"
 check "its steps are ticked" has_line "$(body)" "  - [x] [metal] pull a disk"
 check "the next issue is not" has_line "$(body)" "- [ ] #6 Six"
-check_eq "the comment is as before" "#5 ran on a real server: all went well" "$(comments)"
+check_eq "a whole tick with lab boxes claims no real server" "#5 was seen to run (with lab boxes): all went well" "$(comments)"
 check_match "open boxes are counted" 'tracker #100 has 3 open box' "$OUT"
 reset
 run tick 5
@@ -173,7 +173,16 @@ reset
 refused "the removed test-lab tick" 2 '^usage:' tick 5 --box 2 --lab run-42 0123abc
 refused "the removed test-lab tick without --box" 2 '^usage:' tick 5 --lab run-42 0123abc "log kept"
 run tick 5 --box 2 "watched it"
-check_eq "a person ticks a lab box" "#5 step 2 ([lab:install] install in a VM) ran on a real server: watched it" "$(comments)"
+check_eq "a person ticks a lab box" "#5 step 2 ([lab:install] install in a VM) was seen to run (lab box): watched it" "$(comments)"
+reset
+run tick 5 --box 4 "watched it"
+check_eq "[lab] without a stage claims no real server either" "#5 step 4 ([lab] no stage yet) was seen to run (lab box): watched it" "$(comments)"
+reset '- [ ] #5 Five
+  - [x] [lab:a] ticked before
+  - [ ] [metal] pull a disk
+- [ ] #6 Six'
+run tick 5 "watched it"
+check_eq "a lab box ticked before does not change the wording" "#5 ran on a real server: watched it" "$(comments)"
 
 echo "list"
 reset

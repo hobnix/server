@@ -139,7 +139,7 @@ refuse() { rm -f "$1"; shift; die "$* (nothing changed)"; }
 
 cmd_tick() {
   local n="" note="" box="" has_box=false args=0
-  local ms t tmp steps count line text parent comment
+  local ms t tmp steps count line text parent comment seen
   while [ $# -gt 0 ]; do
     case "$1" in
       --box) { [ $# -ge 2 ] && ! $has_box; } || usage
@@ -159,11 +159,14 @@ cmd_tick() {
   tmp=$(mktemp); issue_field "$t" .body > "$tmp"
 
   if ! $has_box; then
+    # the open steps this tick closes decide the wording: with a lab box among them it claims no real server
+    seen="ran on a real server"
+    ! steps_of "$n" "$tmp" | grep -qE '^  - \[ \] \[lab(:[a-z0-9-]+)?\]( |$)' || seen="was seen to run (with lab boxes)"
     awk -v n="$n" '
       $0 ~ "^- \\[[ xX]\\] #" n " " { sub(/\[ \]/, "[x]"); on = 1; print; next }
       on && /^  - \[[ xX]\]/ { sub(/\[ \]/, "[x]"); print; next }
       { on = 0; print }' "$tmp" > "$tmp.new" && mv "$tmp.new" "$tmp"
-    finish_tick "$n" "$t" "$tmp" "${note:+#$n ran on a real server: $note}"
+    finish_tick "$n" "$t" "$tmp" "${note:+#$n $seen: $note}"
     return
   fi
 
@@ -177,7 +180,11 @@ cmd_tick() {
     "  - [ ] "*) text=${line#"  - [ ] "} ;;
     *) refuse "$tmp" "step $box of #$n is ticked already" ;;
   esac
-  comment="${note:+#$n step $box ($text) ran on a real server: $note}"
+  case "$(mark_of "$text")" in
+    lab|lab:*) seen="was seen to run (lab box)" ;;
+    *) seen="ran on a real server" ;;
+  esac
+  comment="${note:+#$n step $box ($text) $seen: $note}"
   # the issue's line is ticked with its last open step
   parent=0
   [ "$(printf '%s\n' "$steps" | grep -c '^  - \[ \]')" != 1 ] || parent=1

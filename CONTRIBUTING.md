@@ -64,21 +64,39 @@ This adds a trailer with the name and email from your git config (`user.name`, `
 Signed-off-by: Your Name <you@example.org>
 ```
 
-- Forgot it on the last commit: `git commit --amend -s --no-edit`. On several commits: `git rebase --signoff origin/develop`, then
-  `git push --force-with-lease`.
+- Forgot it on the last commit: `git commit --amend -s --no-edit`. On several commits: the steps below.
 - Use your real name (a pseudonym you are known by is fine, an anonymous one is not) and an email that git can attribute to you.
 - CI (`.github/workflows/dco.yml`, `scripts/dev/dco-check.sh`) fails a pull request when a commit has no `Signed-off-by` trailer. Merge
-  commits and commits by bots (Dependabot, Renovate and the like) are exempt. Run the same check locally with
-  `scripts/dev/dco-check.sh origin/develop`.
+  commits are exempt, and so are the commits of three bots: `dependabot[bot]`, `renovate[bot]` and `github-actions[bot]`. The author's
+  name and email must be exactly the ones GitHub gives that bot; any other name, with `[bot]` in it or not, needs a sign-off. Run the same
+  check locally with `scripts/dev/dco-check.sh origin/develop` (name the base branch of your pull request).
 - **AI tools.** The sign-off is the human contributor's: you certify the change, whoever or whatever helped write it. This repository
   also forbids `Co-Authored-By` and "generated with" lines about any AI tool in commits and pull requests (`CLAUDE.md`), so do not add one.
   An AI tool never adds a sign-off. A pull request opened by an AI session carries the label `agent-pr`. The label is only a marker: the
-  DCO check runs for it like for every pull request. A person signs off the commits of an AI session before the merge, on its branch:
+  DCO check runs for it like for every pull request. A person signs off the commits of an AI session before the merge, with the steps
+  below.
+- **Sign off several commits** of a branch, also those of an AI session. Run this yourself, in a checkout that is on the branch, with your
+  own `user.name` and `user.email` configured. Set `base` to the base branch of the pull request first
+  (`gh pr view --json baseRefName --jq .baseRefName`).
 
+  <!-- tests/dco-check.sh runs the next block as it is written here. -->
   ```bash
-  git rebase --signoff origin/develop
+  base=develop
+  git config user.name >/dev/null && git config user.email >/dev/null &&
+  git fetch origin &&
+  git merge --ff-only '@{upstream}' &&
+  SIGNOFF="Signed-off-by: $(git config user.name) <$(git config user.email)>" FILTER_BRANCH_SQUELCH_WARNING=1 \
+  git filter-branch -f --msg-filter '
+    if git rev-parse -q --verify "$GIT_COMMIT^2" >/dev/null; then cat
+    else git interpret-trailers --no-divider --if-exists addIfDifferent --trailer "$SIGNOFF"
+    fi' "origin/$base..HEAD" &&
   git push --force-with-lease
   ```
+
+  It rewrites only the messages of the commits in `origin/<base>..HEAD`: your sign-off is added once to each commit that is not a merge.
+  The files of every commit, the authors and the merge commits with their conflict fixes stay as they are, and the commits of the base
+  branch are not touched. The commit ids change, and a cryptographic signature on a rewritten commit is lost. `git rebase --signoff` is
+  not the way here: it drops merge commits. If `git merge --ff-only` stops, your copy and the pushed branch differ: sort that out first.
 
 ## Community
 
