@@ -322,7 +322,7 @@ and an input for #1339.
 | `testlab/lock` | one test lab run | stays with the test lab |
 | `jobs/<id>.lock` (`job-record.py`, `hobnix job-record`) | one write of one job record | goes when the records are in SQLite (P2) |
 | `api-tokens.json.lock` | one write of the token store | `hobnixd` (P6) |
-| the `.lock` beside the pairing code store (`rust/hobnix-core/src/pair.rs`) | one read and write of the codes | already in the core |
+| the `.lock` beside the pairing code store (`rust/hobnix-core/src/pair/store.rs`) | one read and write of the codes | already in the core |
 | the extension state folder itself (`ext_state.py`) | moving a package's state folder | extension host (P3) |
 | `disk-event.lock` | one disk event at a time | core, with storage (P7) |
 | `event-notify.lock` | one notifier run | goes with the notifier (P3) |

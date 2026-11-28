@@ -22,9 +22,13 @@ pub(super) fn floor_seconds(seconds: f64) -> i64 {
     let whole = seconds.floor();
     let magnitude = Duration::try_from_secs_f64(whole.abs())
         .ok()
-        .and_then(|duration| i64::try_from(duration.as_secs()).ok())
-        .unwrap_or(i64::MAX);
-    if whole < 0.0 { -magnitude } else { magnitude }
+        .and_then(|duration| i64::try_from(duration.as_secs()).ok());
+    match magnitude {
+        Some(magnitude) if whole < 0.0 => -magnitude,
+        Some(magnitude) => magnitude,
+        None if whole < 0.0 => i64::MIN,
+        None => i64::MAX,
+    }
 }
 
 /// Whole seconds as a float; exact for every time `parse_iso` can return.
@@ -214,7 +218,8 @@ mod tests {
         assert_eq!(floor_seconds(f64::NAN), 0);
         assert_eq!(floor_seconds(1e300), i64::MAX);
         assert_eq!(floor_seconds(f64::INFINITY), i64::MAX);
-        assert_eq!(floor_seconds(-1e300), -i64::MAX);
+        assert_eq!(floor_seconds(-1e300), i64::MIN);
+        assert_eq!(floor_seconds(f64::NEG_INFINITY), i64::MIN);
         for seconds in [-86_400_i32, 0, 1, 1_709_210_096] {
             let float = seconds_as_float(i64::from(seconds));
             assert!((float - f64::from(seconds)).abs() < f64::EPSILON);

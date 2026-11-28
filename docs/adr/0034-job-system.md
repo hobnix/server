@@ -54,7 +54,7 @@ What is true today, checked in the code of the branch `0.14` on 2026-11-26:
    command. The step from the command to the job, a temporary file in `/run/hs`, is not named in the plan; it is what `LoadCredential` would replace.
 3. **The plan text contradicts itself on history.** Section 6.2 says "The rest is **planned**:" and on the next line "The rest is **decided** too; the
    numbers are starting values". This record follows the second sentence for the retention table and marks it; the owner confirms at acceptance.
-4. **ADR 0004 says `skipped` is written by the Python writer only.** `rust/hobnix-core/src/jobs.rs` handles it in `finish` (line 827: a skipped record
+4. **ADR 0004 says `skipped` is written by the Python writer only.** `rust/hobnix-core/src/jobs/transitions.rs` handles it in `finish` (line 43: a skipped record
    stays skipped); whether the Rust writer covers `skip` fully was not checked by running a test. Not a disagreement with the plan, but with ADR 0004's
    text.
 5. **Backup.** Plan 6.2 asks for SQLite's backup support and a tested restore. Today the database is copied as a file while writers may be active.

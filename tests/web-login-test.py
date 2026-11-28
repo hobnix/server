@@ -811,7 +811,7 @@ class Changes(Base):
 
 class PairDoor(Base):
     """POST /api/remote/claim and /api/remote/push (docs/PLAN-remote-shares.md): no session, a source check, one refusal shape, nothing logged.
-    The throttle (5 failures per source per minute, 20 in 10 minutes burn every code) is the store in rust/hobnix-core/src/pair.rs, tested in
+    The throttle (5 failures per source per minute, 20 in 10 minutes burn every code) is the store in rust/hobnix-core/src/pair/store.rs, tested in
     tests/remote-pair.sh and in cargo; here only what the door in front of it decides."""
     BODY = {"v": 1, "id": "ab" * 16, "nonce": "AAAA", "box": "BBBB"}
 
