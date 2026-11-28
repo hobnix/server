@@ -38,6 +38,7 @@ table therefore lists groups, and a name found later goes into the group of its 
 - **"Removed when" follows ADR 0001:** the characterization test passes on old and new, one release side by side, then the old part goes. Where a row
   says "P7", it means: after that release, when no caller of the area's rows is left. Scripts that stay go with P8 at the latest, as far as the bash rules
   of ADR 0032 decision 3 allow.
+- **0.15 (ADR 0035, 2026-11-28):** all steps are in 0.15, and a 0.15 beta that has run on the owner's server is the one release side by side.
 - **Test names** are files in `tests/` that exist today; a characterization test for a group that has none is written first (ADR 0001 "Must").
 - Step **-** means the plan gives the part no move (it stays bash, Nix, or a package's own).
 

@@ -4,6 +4,9 @@ Design record. Contributor document, not a guide. Written 2026-11-27, after 0.13
 The runner is not built. A status-only trial of the package exists as a draft (hobnix/official#46) and ran in local checks only. Not tested
 on hardware yet. `autopilot` is a working name.
 
+**Changed on 2026-11-28 (ADR 0035):** the autopilot is in milestone **0.16** "Game servers and autopilot", not in 0.15. Ticking `[lab]` boxes from
+test-lab runs is dropped (#1372): only a run that a person saw ticks a box. Where this plan says otherwise, this applies.
+
 The runner takes an approved issue of the active milestone, lets Claude Code build it in a throwaway VM, and opens a pull request. A person
 defines the milestones and issues, approves what runs, merges, tests on hardware and releases.
 

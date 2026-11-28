@@ -6,6 +6,9 @@ NixOS home server: Incus containers on ZFS or SnapRAID, Samba shares, backups, a
 hobnix/extensions (docs/PLAN-packages.md); the core fetches them with `hs pkg`.
 
 ## Rules that always apply
+- **No exceptions** (ADR 0035): never add an allow list, a baseline entry, a suppression, a debt row or an override. Where code cannot follow a rule as
+  written, change the rule so that it says where it applies; when work collides with a rule, the owner decides on the rule, the order or the scope.
+  Existing exceptions may only shrink until they are gone.
 - **Admin pages are never public.** Incus, Zoraxy, Arcane, the docs site, Grafana, Tdarr get no public route (guard: `ADMIN_TARGETS`
   in scripts/services.py).
 - **Destructive commands** make the user type the NAME of the thing that changes (the disk, not the pool), show a plan first, and offer a
@@ -34,7 +37,7 @@ hobnix/extensions (docs/PLAN-packages.md); the core fetches them with `hs pkg`.
   `[metal]`, `[lab]` or `[lab:<stage>]` (no mark = metal); `tick --box <k>` ticks one box. Never tick a box for a run nobody saw, with one
   exception: a logged test-lab run (`tick --box <k> --lab <run-id> <commit>`) counts for `[lab]` boxes only, only when the stage covers that
   step and passed on a commit that contains the change; a metal box still needs somebody who saw the run. The test-lab ticks nothing until it
-  has passed on a real server (#430). An unticked box is postponed, not a blocker: it moves on with the next release. Write the "Hardware test" steps into the PR when it is opened.
+  has passed on a real server (#430). An unticked box of a hardware test step is postponed, not a blocker: it moves on with the next release. A box of the 0.15 tracker that says which beta must have run before old code is removed (ADR 0035 item 10) stays until it is ticked. Write the "Hardware test" steps into the PR when it is opened.
   `python3 scripts/dev/untested.py` lists the untested steps per guide.
 
 ## Where the detail is

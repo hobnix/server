@@ -13,6 +13,18 @@ app data) that the next recipes use too.
 
 ## 2. Decided by the owner
 
+**Changed later on 2026-11-28.** Where the list below, section 9 or another section says otherwise, this applies:
+
+- 0.15 is the Rust release (ADR 0035, `docs/adr/0035-015-rust-release.md`): no new product features are built in it. The game server feature work of this
+  plan, the ingress contract (#918) included, is in milestone 0.16 "Game servers and autopilot". The design records (#1411, #1412), the prototype
+  (#1410) and the backup fix (#1408) stay in 0.15. This replaces decision 5 for the feature work.
+- Networking and Multi-node is renumbered from 0.18 to **0.19**: where this plan says 0.18, read 0.19.
+- Basic VPS forwarding (#1419, #1420) is in 0.19, not in 0.15 (changes decision 11).
+- The prototype (#1410) runs in a disposable container on the owner's server.
+- Browser download and upload come with `hobnix-web`; nothing is added to the Python web server (answers open point O1).
+- The fix of #1408 is written in Rust, with the port of the backup command.
+- Extension actions as jobs (#1126) are in 0.15.
+
 1. The published recipe waits for the new Rust core and SDK. No shell recipe is published first.
 2. The extension is only a manager (like Portainer). A recipe registers through an integration so the manager finds it. Installing, starting, stopping and
    backing up must work without it. Rename `game-lobbies` to `game-servers` (stated as "probably").
@@ -327,7 +339,7 @@ A disposable container, nothing published. Each answer goes into this file.
 
 | # | Question | Recommendation |
 |---|---|---|
-| O1 | Download and upload: in today's web server or only with `hobnix-web` (P6) | decide when 0.15 P4 shows how far P6 is |
+| O1 | Download and upload: in today's web server or only with `hobnix-web` (P6) | decided 2026-11-28: with `hobnix-web` |
 | O2 | "Daily 14 days" (decision 8) | the newest backup of each day is kept 14 days |
 
 Open also in 0.15 and needed here: ADR 0033 items P-a (how an operation is declared) and P-b (system access layer), which #1338 needs first. The contracts of

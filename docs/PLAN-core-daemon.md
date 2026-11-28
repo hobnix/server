@@ -672,8 +672,8 @@ server also differs in other ways than a port.
 
 ## 15. Steps and milestone
 
-Each step keeps the ADR 0001 method: characterization test first, old and new side by side for one release, a short way back. Reads move before
-destructive operations. **Check the behaviour on a real server before porting it:** a test that records today's output also records today's bugs.
+Each step keeps the ADR 0001 method: characterization test first, old and new side by side for one release, a short way back. For 0.15 a beta that
+has run on the owner's server is that release (ADR 0035). Reads move before destructive operations. **Check the behaviour on a real server before porting it:** a test that records today's output also records today's bugs.
 
 | Step | Content | Done when | Milestone |
 |---|---|---|---|
@@ -682,10 +682,10 @@ destructive operations. **Check the behaviour on a real server before porting it
 | P2 | Job system: section 5, and the history of section 6.2 with its typed fields, daily totals, moved event ids and backup | job tests pass on old and new; crash, reboot, update and rollback leave correct records | Core and Jobs |
 | P3 | `hobnixd` skeleton and job monitor; move background programs one at a time: unit watcher, event notifications, live collector (still writing the table), extension host | each old unit is gone after its side-by-side release | Core and Jobs |
 | P4 | End to end: app start and stop as a core operation with job, watcher and per-resource refresh, still served through `web-serve.py` and a `sys` row backed by Rust | seen on a real server, with a killed job, a stopped daemon, a disconnected watcher, and an update and rollback while a job runs | Core and Jobs |
-| P5 | Rust CLI. May start after P2 | the same behaviour for unported commands; works with the daemon stopped | later |
-| P6 | `hobnix-web` and its socket to the daemon (privilege split), sign-in, roles, SSE, live connections; route group by route group | no route left in `web-serve.py`; then the current values move to memory | later |
-| P7 | Per area, together with P6: move reads and changes into the core, switch every caller, delete the `sys` rows; storage last | no caller of that area's rows is left | later |
-| P8 | Remove the rest of `sys`, `web-serve.py`, the shell dispatcher if unused, and Python as far as section 10 allows | announced one release earlier | later |
+| P5 | Rust CLI. May start after P2 | the same behaviour for unported commands; works with the daemon stopped | 0.15 (ADR 0035) |
+| P6 | `hobnix-web` and its socket to the daemon (privilege split), sign-in, roles, SSE, live connections; route group by route group | no route left in `web-serve.py`; then the current values move to memory | 0.15 (ADR 0035) |
+| P7 | Per area, together with P6: move reads and changes into the core, switch every caller, delete the `sys` rows; storage last | no caller of that area's rows is left | 0.15 (ADR 0035) |
+| P8 | Remove the rest of `sys`, `web-serve.py`, the shell dispatcher if unused, and Python as far as section 10 allows | announced one release earlier | 0.15 (ADR 0035) |
 
 ### 15.1 Migration map (P0)
 
@@ -702,8 +702,9 @@ files and large shell scripts, not the rest of this list.
 **Decided:** a milestone of its own, **0.15**, after 0.14 (Marketplace). Translations, Virtualization and Networking move up by one. Done on GitHub
 on 2026-11-26.
 
-It holds P0 to P4. P5 to P8 get later milestones, by area, once P4 is done. P3 is the largest risk to its size: the extension host may move to the next
-milestone.
+**Changed on 2026-11-28 (ADR 0035):** 0.15 is the Rust release and holds P0 to P8, with the improvements of the Rust SDK. This replaces "P0 to P4,
+the rest later". No new product features are built in it (section 13); how large it gets is accepted by the owner. The feature work has the new
+milestone 0.16 "Game servers and autopilot"; Translations, Virtualization and Networking are now 0.17, 0.18 and 0.19.
 
 **Marketplace comes first**, so its job work is built before this design. **Proposal** to avoid building twice:
 
