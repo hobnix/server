@@ -1,5 +1,6 @@
 //! The code store: open codes (derived values only) and failed claims, one file with a lock; the rate limit lives here.
 
+use super::encoding::hex;
 use super::{Clock, Random, derive, new_code, normalize};
 use crate::{Error, Result, Secret};
 use serde::{Deserialize, Serialize};
@@ -180,10 +181,9 @@ impl<'a> Store<'a> {
             )));
         }
         let code = new_code(rng)?;
-        let invalid = || Error::Failed("the new code is not valid".into());
-        let norm = normalize(&code).ok_or_else(invalid)?;
-        let keys = derive(&norm);
-        let key_hex = keys.key_hex().ok_or_else(invalid)?;
+        let norm =
+            normalize(&code).ok_or_else(|| Error::Failed("the new code is not valid".into()))?;
+        let keys = derive(&norm)?;
         let made = self.update(|st, now| {
             if st.codes.len() >= MAX_OPEN {
                 return Err(Error::Refused(format!(
@@ -192,7 +192,7 @@ impl<'a> Store<'a> {
             }
             st.codes.push(Entry {
                 id: keys.id.clone(),
-                key: key_hex,
+                key: hex(&keys.key),
                 kind,
                 share: share.to_string(),
                 server: server.to_string(),

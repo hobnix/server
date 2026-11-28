@@ -12,8 +12,7 @@ use sha2::Sha256;
 /// The two values both sides derive from the code (HKDF-SHA256, empty salt): the id is sent, the key never.
 pub struct Keys {
     pub id: String,
-    /// None only when HKDF gave no output (see `expand`): then nothing is sealed or opened.
-    key: Option<[u8; 32]>,
+    pub(super) key: [u8; 32],
 }
 
 /// The id only: the key is never printed.
@@ -26,24 +25,21 @@ impl std::fmt::Debug for Keys {
     }
 }
 
-/// 32 bytes of HKDF-SHA256 over the code. HKDF refuses only an output above 8160 bytes, so this is never None; the caller still gets no
-/// bytes rather than wrong ones.
-fn expand(norm: &str, info: &str) -> Option<[u8; 32]> {
+/// 32 bytes of HKDF-SHA256 over the code. HKDF refuses only an output above 8160 bytes.
+fn expand(norm: &str, info: &str) -> Result<[u8; 32]> {
     let mut out = [0u8; 32];
     Hkdf::<Sha256>::new(None, norm.as_bytes())
         .expand(info.as_bytes(), &mut out)
-        .ok()?;
-    Some(out)
+        .map_err(|_| Error::Failed("cannot derive the keys of the code".into()))?;
+    Ok(out)
 }
 
-pub fn derive(norm: &str) -> Keys {
-    Keys {
-        // an empty id matches no code: a claim and a push need 64 hex digits
-        id: expand(norm, "hobnix remote v1 id")
-            .map(|bytes| hex(&bytes))
-            .unwrap_or_default(),
-        key: expand(norm, "hobnix remote v1 key"),
-    }
+/// Fails only when HKDF gives no output.
+pub fn derive(norm: &str) -> Result<Keys> {
+    Ok(Keys {
+        id: hex(&expand(norm, "hobnix remote v1 id")?),
+        key: expand(norm, "hobnix remote v1 key")?,
+    })
 }
 
 impl Keys {
@@ -51,30 +47,23 @@ impl Keys {
         let k = unhex(key_hex)?;
         Some(Keys {
             id: id.to_string(),
-            key: Some(k.try_into().ok()?),
+            key: k.try_into().ok()?,
         })
-    }
-
-    /// The key as the code store keeps it.
-    pub(super) fn key_hex(&self) -> Option<String> {
-        self.key.map(|key| hex(&key))
     }
 }
 
 /// ChaCha20-Poly1305 with the derived key; `aad` is authenticated, not sent inside.
 pub fn seal(keys: &Keys, nonce: &[u8; 12], aad: &[u8], plain: &[u8]) -> Result<Vec<u8>> {
-    let failed = || Error::Failed("cannot seal".into());
-    let key = keys.key.as_ref().ok_or_else(failed)?;
-    ChaCha20Poly1305::new(Key::from_slice(key))
+    ChaCha20Poly1305::new(Key::from_slice(&keys.key))
         .encrypt(Nonce::from_slice(nonce), Payload { msg: plain, aad })
-        .map_err(|_| failed())
+        .map_err(|_| Error::Failed("cannot seal".into()))
 }
 
 pub fn open(keys: &Keys, nonce: &[u8], aad: &[u8], boxed: &[u8]) -> Option<Vec<u8>> {
     if nonce.len() != 12 {
         return None;
     }
-    ChaCha20Poly1305::new(Key::from_slice(keys.key.as_ref()?))
+    ChaCha20Poly1305::new(Key::from_slice(&keys.key))
         .decrypt(Nonce::from_slice(nonce), Payload { msg: boxed, aad })
         .ok()
 }
@@ -94,25 +83,4 @@ pub fn open_answer(keys: &Keys, aad: &[u8], answer: &Value) -> Option<Vec<u8>> {
     let nonce = unb64(answer.get("nonce")?.as_str()?)?;
     let boxed = unb64(answer.get("box")?.as_str()?)?;
     open(keys, &nonce, aad, &boxed)
-}
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[test]
-    fn without_a_key_nothing_is_sealed_or_opened() {
-        let whole = derive("ABCDEFGHJKLMNPQR");
-        let boxed = seal(&whole, &[0u8; 12], b"aad", b"plain").unwrap();
-        let empty = Keys {
-            id: whole.id.clone(),
-            key: None,
-        };
-        assert_eq!(
-            seal(&empty, &[0u8; 12], b"aad", b"plain"),
-            Err(Error::Failed("cannot seal".into()))
-        );
-        assert!(open(&empty, &[0u8; 12], b"aad", &boxed).is_none());
-        assert!(empty.key_hex().is_none());
-    }
 }
