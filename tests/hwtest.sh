@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# scripts/dev/hwtest.sh: the hardware-test trackers (marks, one box per tick, lab ticks, list). A fake gh serves issue and tracker bodies
+# scripts/dev/hwtest.sh: the hardware-test trackers (marks, one box per tick, list). A fake gh serves issue and tracker bodies
 # from files and records every changing call; nothing talks to GitHub. No root, no network.
 # shellcheck source=tests/lib.sh
 . "$(dirname "$0")/lib.sh"
@@ -127,7 +127,7 @@ check_eq "tick works" 0 "$RC"
 check "the issue line is ticked" has_line "$(body)" "- [x] #5 Five"
 check "its steps are ticked" has_line "$(body)" "  - [x] [metal] pull a disk"
 check "the next issue is not" has_line "$(body)" "- [ ] #6 Six"
-check_eq "the comment is as before" "#5 ran on a real server: all went well" "$(comments)"
+check_eq "a whole tick with lab boxes claims no real server" "#5 was seen to run (with lab boxes): all went well" "$(comments)"
 check_match "open boxes are counted" 'tracker #100 has 3 open box' "$OUT"
 reset
 run tick 5
@@ -168,36 +168,21 @@ refused "an unknown option of tick" 2 '^usage:' tick 5 --all
 refused "a third argument of tick" 2 '^usage:' tick 5 two words
 refused "tick without an issue" 2 '^usage:' tick
 
-echo "lab tick"
+echo "only a seen run ticks"
 reset
-run tick 5 --box 2 --lab run-42 0123abc "log kept"
-check_eq "a lab tick works" 0 "$RC"
-check "the lab box is ticked" has_line "$(body)" "  - [x] [lab:install] install in a VM"
-check_eq "one box only" "1" "$(grep -c '\[x\] \[lab:install\]' "$D/100.body")"
-for re in 'test-lab' 'stage install' 'run run-42' 'commit 0123abc' 'step 2' 'log kept'; do check_match "the comment has: $re" "$re" "$(comments)"; done
-check_eq "the comment never says real server" "0" "$(grep -ci 'real server' "$D/comments" || true)"
+refused "the removed test-lab tick" 2 '^usage:' tick 5 --box 2 --lab run-42 0123abc
+refused "the removed test-lab tick without --box" 2 '^usage:' tick 5 --lab run-42 0123abc "log kept"
+run tick 5 --box 2 "watched it"
+check_eq "a person ticks a lab box" "#5 step 2 ([lab:install] install in a VM) was seen to run (lab box): watched it" "$(comments)"
 reset
-run tick 7 --box 2 --lab r1 0123456789012345678901234567890123456789
-check_eq "a 40 character commit, no note" 0 "$RC"
-check_match "a lab tick always comments" 'test-lab: stage backup' "$(comments)"
-check_eq "not even through the step text" "0" "$(grep -ci 'real server' "$D/comments" || true)"
-check "its issue line is ticked with the last step" has_line "$(body)" "- [x] #7 Seven"
+run tick 5 --box 4 "watched it"
+check_eq "[lab] without a stage claims no real server either" "#5 step 4 ([lab] no stage yet) was seen to run (lab box): watched it" "$(comments)"
 reset '- [ ] #5 Five
-  - [ ] [lab:a] x'
-run tick 5 --box 1 --lab r1 abcdef1
-check_match "a lab tick closes the tracker" 'state=closed' "$(calls)"
-reset
-refused "a metal box" 1 'metal box' tick 5 --box 3 --lab r1 abcdef1
-refused "an unmarked box" 1 'metal box' tick 5 --box 1 --lab r1 abcdef1
-refused "[lab] without a stage" 1 'without a stage' tick 5 --box 4 --lab r1 abcdef1
-refused "--lab without --box" 1 'needs --box' tick 5 --lab r1 abcdef1
-refused "a short commit" 1 'not a commit' tick 5 --box 2 --lab r1 abc123
-refused "a long commit" 1 'not a commit' tick 5 --box 2 --lab r1 01234567890123456789012345678901234567890
-refused "a commit that is not hex" 1 'not a commit' tick 5 --box 2 --lab r1 abcdefg
-refused "an empty run id" 1 'not a run id' tick 5 --box 2 --lab "" abcdef1
-refused "a note about a real server" 1 'must not say' tick 5 --box 2 --lab r1 abcdef1 "like on a Real Server"
-refused "--lab without a commit" 2 '^usage:' tick 5 --box 2 --lab r1
-refused "a lab tick of a ticked box" 1 'ticked already' tick 7 --box 1 --lab r1 abcdef1
+  - [x] [lab:a] ticked before
+  - [ ] [metal] pull a disk
+- [ ] #6 Six'
+run tick 5 "watched it"
+check_eq "a lab box ticked before does not change the wording" "#5 ran on a real server: watched it" "$(comments)"
 
 echo "list"
 reset

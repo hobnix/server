@@ -28,16 +28,13 @@ hobnix/extensions (docs/PLAN-packages.md); the core fetches them with `hs pkg`.
 - **Branches:** `develop` is the default branch: feature branches start from it and pull requests target it. `main` holds released code
   only and takes nothing but a release pull request (develop into main, merge commit, no squash) followed by a signed `vX.Y.Z` tag on
   main. A hotfix branches from main, goes into main, then back into develop. Details: docs/dev-environment.md "Branches and releases".
-- **Git:** never edit, commit or switch branches in the primary checkout (stays on main; work in your own worktree; guard: scripts/dev/guard-primary-checkout.sh, `bash scripts/dev/install-guards.sh` once per clone); stage files by name after `git status`; no `Co-Authored-By` or "generated with" lines about any AI tool in commits or PRs; an AI tool never adds a sign-off, in nobody's name; an AI session opens its PR with the label `agent-pr` (`gh pr create --label agent-pr`), which skips the DCO check; people sign off their own commits with `git commit -s` (CONTRIBUTING.md "Sign your commits (DCO)").
+- **Git:** never edit, commit or switch branches in the primary checkout (stays on main; work in your own worktree; guard: scripts/dev/guard-primary-checkout.sh, `bash scripts/dev/install-guards.sh` once per clone); stage files by name after `git status`; no `Co-Authored-By` or "generated with" lines about any AI tool in commits or PRs; an AI tool never adds a sign-off, in nobody's name; an AI session opens its PR with the label `agent-pr` (`gh pr create --label agent-pr`), a marker that skips no check; a person signs off the commits of an AI session before the merge (the steps in CONTRIBUTING.md "Sign your commits (DCO)"); people sign off their own commits with `git commit -s`.
 - **Honest reports:** say what failed or was not run. Never claim a result that was not seen.
 - **Board:** development and hardware testing are tracked apart. A dev issue: In Review = pull request open; Done = merged and closed (`Closes #N`),
   so milestone progress means "built". The run on a real server is a box in the milestone's tracker issue "Hardware test: <milestone>" (label
   `hardware-test`, no milestone, column Testing while a box is open): `bash scripts/dev/hwtest.sh add <issue> [step ...]` when the PR is merged,
   `hwtest.sh tick <issue> "<what was seen>"` after a run somebody saw, `hwtest.sh list` is the queue for the server. A step starts with
-  `[metal]`, `[lab]` or `[lab:<stage>]` (no mark = metal); `tick --box <k>` ticks one box. Never tick a box for a run nobody saw, with one
-  exception: a logged test-lab run (`tick --box <k> --lab <run-id> <commit>`) counts for `[lab]` boxes only, only when the stage covers that
-  step and passed on a commit that contains the change; a metal box still needs somebody who saw the run. The test-lab ticks nothing until it
-  has passed on a real server (#430). An unticked box of a hardware test step is postponed, not a blocker: it moves on with the next release. A box of the 0.15 tracker that says which beta must have run before old code is removed (ADR 0035 item 10) stays until it is ticked. Write the "Hardware test" steps into the PR when it is opened.
+  `[metal]`, `[lab]` or `[lab:<stage>]` (no mark = metal); `tick --box <k>` ticks one box. Never tick a box for a run nobody saw. An unticked box of a hardware test step is postponed, not a blocker: it moves on with the next release. A box of the 0.15 tracker that says which beta must have run before old code is removed (ADR 0035 item 10) stays until it is ticked. Write the "Hardware test" steps into the PR when it is opened.
   `python3 scripts/dev/untested.py` lists the untested steps per guide.
 
 ## Where the detail is

@@ -18,5 +18,5 @@
 
 ## Sign-off
 
-<!-- Every commit needs `Signed-off-by:` (`git commit -s`; fix with `git rebase --signoff origin/develop`). CONTRIBUTING.md "Sign your commits (DCO)". -->
+<!-- Every commit needs `Signed-off-by:` (`git commit -s`; to add it to commits already made, follow the steps in CONTRIBUTING.md "Sign your commits (DCO)"). -->
 - [ ] All commits are signed off.
