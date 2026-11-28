@@ -167,12 +167,12 @@ mod tests {
 
     #[test]
     fn derive_is_stable_and_apart() {
-        let a = derive("ABCDEFGHJKLMNPQR");
-        let b = derive("ABCDEFGHJKLMNPQR");
+        let a = derive("ABCDEFGHJKLMNPQR").unwrap();
+        let b = derive("ABCDEFGHJKLMNPQR").unwrap();
         assert_eq!(a.id, b.id);
         assert_eq!(a.id.len(), 64);
-        assert_ne!(a.key_hex().unwrap(), a.id);
-        assert_ne!(derive("ABCDEFGHJKLMNPQS").id, a.id);
+        assert_ne!(hex(&a.key), a.id);
+        assert_ne!(derive("ABCDEFGHJKLMNPQS").unwrap().id, a.id);
     }
 
     #[test]
@@ -203,11 +203,11 @@ mod tests {
 
     #[test]
     fn box_opens_only_with_key_and_same_aad() {
-        let k = derive("ABCDEFGHJKLMNPQR");
+        let k = derive("ABCDEFGHJKLMNPQR").unwrap();
         let ans = seal_answer(&k, &mut Counter(3), b"request", b"{\"a\":1}").unwrap();
         assert_eq!(open_answer(&k, b"request", &ans).unwrap(), b"{\"a\":1}");
         assert!(open_answer(&k, b"other", &ans).is_none());
-        assert!(open_answer(&derive("ABCDEFGHJKLMNPQS"), b"request", &ans).is_none());
+        assert!(open_answer(&derive("ABCDEFGHJKLMNPQS").unwrap(), b"request", &ans).is_none());
         assert!(!ans.to_string().contains("\"a\":1"));
     }
 
@@ -218,8 +218,8 @@ mod tests {
         let m = st
             .make(Kind::Offer, "media", "-", 10, &mut Counter(1))
             .unwrap();
-        let keys = derive(&normalize(m.code.expose()).unwrap());
-        let key = keys.key_hex().unwrap();
+        let keys = derive(&normalize(m.code.expose()).unwrap()).unwrap();
+        let key = hex(&keys.key);
         let taken = st.take(Kind::Offer, &keys.id, "10.0.0.2").unwrap();
         let Taken::Found(entry) = &taken else {
             panic!("the code was not found");
@@ -243,7 +243,7 @@ mod tests {
         let m = st
             .make(Kind::Offer, "media", "-", 10, &mut Counter(1))
             .unwrap();
-        let id = derive(&normalize(m.code.expose()).unwrap()).id;
+        let id = derive(&normalize(m.code.expose()).unwrap()).unwrap().id;
         let l = st.list().unwrap();
         assert_eq!(
             (l.len(), l[0].expires_in, l[0].share.as_str()),
@@ -265,7 +265,7 @@ mod tests {
         let m = st
             .make(Kind::Offer, "media", "-", 1, &mut Counter(9))
             .unwrap();
-        let id2 = derive(&normalize(m.code.expose()).unwrap()).id;
+        let id2 = derive(&normalize(m.code.expose()).unwrap()).unwrap().id;
         clock.0.set(1000 + 61);
         assert!(matches!(
             st.take(Kind::Offer, &id2, "10.0.0.2").unwrap(),
@@ -280,7 +280,7 @@ mod tests {
         let st = Store::new(tmp("kind"), &clock);
         let mut rng = Counter(5);
         let m = st.make(Kind::Receive, "-", "-", 5, &mut rng).unwrap();
-        let id = derive(&normalize(m.code.expose()).unwrap()).id;
+        let id = derive(&normalize(m.code.expose()).unwrap()).unwrap().id;
         assert!(matches!(
             st.take(Kind::Offer, &id, "a").unwrap(),
             Taken::Unknown { .. }
@@ -486,6 +486,15 @@ mod tests {
         assert!(!ct_eq(b"", b"a") && !ct_eq(b"a", b""));
     }
 
+    #[test]
+    fn lengths_that_differ_by_256_are_not_equal() {
+        assert!(!ct_eq(b"", &[0u8; 256]));
+        let id = [b'a'; 64];
+        let mut longer = id.to_vec();
+        longer.resize(320, b'b');
+        assert!(!ct_eq(&id, &longer) && !ct_eq(&longer, &id));
+    }
+
     // ------------------------------------------------------------ fixed bytes: both sides of a pairing must keep agreeing
 
     /// Gives the byte values in order, 0 to 255 and round again.
@@ -515,11 +524,11 @@ mod tests {
 
     #[test]
     fn derived_values_and_boxes_have_fixed_bytes() {
-        let keys = derive(FIXED_CODE);
+        let keys = derive(FIXED_CODE).unwrap();
         assert_eq!(keys.id, FIXED_ID);
         assert_eq!(
-            keys.key_hex().as_deref(),
-            Some("89268a6620ce1063d07cd77223673a44d31e7a45b3e1373e756d2438a9c3ccc6")
+            hex(&keys.key),
+            "89268a6620ce1063d07cd77223673a44d31e7a45b3e1373e756d2438a9c3ccc6"
         );
         assert_eq!(
             hex(&seal(&keys, &[7u8; 12], b"aad", b"plain text").unwrap()),

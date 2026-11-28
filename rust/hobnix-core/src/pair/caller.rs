@@ -14,12 +14,13 @@ pub fn claim_request(norm: &str, name: &str, hostkey: &str) -> Result<String> {
     if fingerprint(hostkey).is_none() {
         return Err(Error::Refused("no SSH host key of this machine".into()));
     }
-    Ok(json!({"v": 1, "id": derive(norm).id, "name": name, "hostkey": hostkey}).to_string())
+    Ok(json!({"v": 1, "id": derive(norm)?.id, "name": name, "hostkey": hostkey}).to_string())
 }
 
-/// Open the answer of a claim; None for a box that does not open (wrong code, fake server, changed request).
+/// Open the answer of a claim; None for a box that does not open (wrong code, fake server, changed request), and without keys.
 pub fn open_claim(norm: &str, request: &[u8], answer: &Value) -> Option<Value> {
-    let plain = open_answer(&derive(norm), request, answer)?;
+    let keys = derive(norm).ok()?;
+    let plain = open_answer(&keys, request, answer)?;
     let v: Value = serde_json::from_slice(&plain).ok()?;
     Inner::from_json(&v)?;
     Some(v)
@@ -27,7 +28,7 @@ pub fn open_claim(norm: &str, request: &[u8], answer: &Value) -> Option<Value> {
 
 /// The push body for a typed receive code: the inner JSON in a box, the id as associated data.
 pub fn push_body(norm: &str, inner: &Inner, rng: &mut dyn Random) -> Result<String> {
-    let keys = derive(norm);
+    let keys = derive(norm)?;
     let mut body = seal_answer(
         &keys,
         rng,
