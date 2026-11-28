@@ -15,6 +15,8 @@ Design record. Contributor document, not a guide. Written 2026-11-24 during 0.13
 3. **Bash stays, in a small role:** the launcher (`hs` dispatcher until it moves), installer and first run, unlock and recovery, `hs update` and its rollback, thin wrappers around one external command, and the dialogues of `ui.sh` until a later record says otherwise. This is ADR 0001's "Stays" list, unchanged. The reason for bash there is that these paths must work when the Rust binary is missing or broken.
 4. **No flag day, no deadline for a single command.** Moves follow the touch rule. Python is the exception: it has a target release per program (step 2), because it is the layer with no reason to stay.
 
+**Changed on 2026-11-28 (ADR 0035):** 0.15 is the Rust release. The touch rule of point 4 is replaced: what ADR 0032 decision 3 does not keep in bash moves in 0.15. A 0.15 beta that has run on the owner's server is the one release side by side. Where this file says "touch rule", "later" or names 0.14 as a target, that change applies. The three "debt" rows below are exceptions that ADR 0035 removes.
+
 ## What moves, what stays
 
 | Area | Target | Why |

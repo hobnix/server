@@ -1,6 +1,6 @@
 # 0001: Rust behind the hs sys contract (strangler)
 
-Status: Accepted (2026-11-10). Later: ADR 0033 and 0034 (accepted 2026-11-26, Decided items) change parts of this record, see "What changes in older records on acceptance" there. Until a step is built, this record applies as written.
+Status: Accepted (2026-11-10). Later: ADR 0033 and 0034 (accepted 2026-11-26, Decided items) change parts of this record, see "What changes in older records on acceptance" there. Until a step is built, this record applies as written. ADR 0035 (accepted 2026-11-28) changes when a command moves and what "one release side by side" means for 0.15.
 Issue: hobnix/server#122 (epic #121)
 
 ## Context

@@ -1,6 +1,6 @@
 # 0033: One Rust core, one daemon, thin front ends
 
-Status: Accepted (2026-11-26) by the owner. The **Decided** items are rules. The acceptance names no Planned item, Proposal or open point: none of them is confirmed by it. Confirmed separately by the owner on 2026-11-26: **P-h** (item 21, one writer of the database); on 2026-11-27: **item 22** (owner of remote, edge and displays, #1337).
+Status: Accepted (2026-11-26) by the owner. The **Decided** items are rules. The acceptance names no Planned item, Proposal or open point: none of them is confirmed by it. Confirmed separately by the owner on 2026-11-26: **P-h** (item 21, one writer of the database); on 2026-11-27: **item 22** (owner of remote, edge and displays, #1337). ADR 0035 (accepted 2026-11-28) replaces **D13**: 0.15 holds P0 to P8.
 Issue: none filed yet (milestone 0.15 "Core and Jobs", step P0 of docs/PLAN-core-daemon.md); the web server record #1266 moves into the same milestone
 and is written with this record or beside it. Related: ADR 0001, 0006, 0012, 0026, 0032, ADR 0034 (job system), docs/PLAN-rust.md,
 docs/PLAN-core-daemon-migration.md (the migration map).
